@@ -265,14 +265,11 @@ class InputState {
   }
 
   util::optional<const MemoStore::Entry*> GetMemoEntryForKey(KeyType key) {
-    auto r = memo_.GetEntryForKey(key);
-    if (r.has_value()) return r;
-    return r;
+    return memo_.GetEntryForKey(key);
   }
 
   util::optional<int64_t> GetMemoTimeForKey(KeyType key) {
     auto r = GetMemoEntryForKey(key);
-    // return r.has_value() ? util::make_optional((*r)->_time) : util::nullopt;
     if (r.has_value()) {
       return (*r)->_time;
     } else {

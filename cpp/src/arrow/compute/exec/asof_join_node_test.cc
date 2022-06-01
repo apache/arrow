@@ -95,10 +95,13 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   ASSERT_OK_AND_ASSIGN(auto res_table, TableFromExecBatches(exp_batches.schema, res));
 
   AssertTablesEqual(*exp_table, *res_table,
-                    /*same_chunk_layout=*/false, /*flatten=*/true);
+                    /*same_chunk_layout=*/true, /*flatten=*/true);
 }
 
-void RunNonEmptyTest() {
+void DoRunBasicTest(const std::vector<util::string_view>& l_data,
+                    const std::vector<util::string_view>& r0_data,
+                    const std::vector<util::string_view>& r1_data,
+                    const std::vector<util::string_view>& exp_data, int64_t tolerance) {
   auto l_schema =
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())});
   auto r0_schema =
@@ -116,94 +119,167 @@ void RunNonEmptyTest() {
 
   // Test three table join
   BatchesWithSchema l_batches, r0_batches, r1_batches, exp_batches;
-
-  // Single key, single batch
-  l_batches = GenerateBatchesFromString(l_schema, {R"([[0, 1, 1.0], [1000, 1, 2.0]])"});
-  r0_batches = GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0]])"});
-  r1_batches = GenerateBatchesFromString(r1_schema, {R"([[1000, 1, 101.0]])"});
-  exp_batches = GenerateBatchesFromString(
-      exp_schema, {R"([[0, 1, 1.0, 11.0, null], [1000, 1, 2.0, 11.0, 101.0]])"});
-  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
-
-  // Single key, multiple batches
-  l_batches =
-      GenerateBatchesFromString(l_schema, {R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"});
-  r0_batches =
-      GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0]])", R"([[1000, 1, 12.0]])"});
-  r1_batches = GenerateBatchesFromString(r1_schema,
-                                         {R"([[0, 1, 101.0]])", R"([[1000, 1, 102.0]])"});
-  exp_batches = GenerateBatchesFromString(
-      exp_schema, {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"});
-  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
-
-  // Single key, multiple left batches, single right batches
-
-  l_batches =
-      GenerateBatchesFromString(l_schema, {R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"});
-
-  r0_batches =
-      GenerateBatchesFromString(r0_schema, {R"([[0, 1, 11.0], [1000, 1, 12.0]])"});
-  r1_batches =
-      GenerateBatchesFromString(r1_schema, {R"([[0, 1, 101.0], [1000, 1, 102.0]])"});
-  exp_batches = GenerateBatchesFromString(
-      exp_schema, {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"});
-  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
-
-  // Multi key, multiple batches, misaligned batches
-  l_batches = GenerateBatchesFromString(
-      l_schema,
-      {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
-       R"([[2000, 1, 4.0], [2000, 2, 24.0]])"});
-  r0_batches = GenerateBatchesFromString(
-      r0_schema, {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
-                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"});
-  r1_batches = GenerateBatchesFromString(
-      r0_schema, {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
-                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
-  exp_batches = GenerateBatchesFromString(
-      exp_schema,
-      {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 1001.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
-       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"});
-  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 1000);
-
-  // Multi key, multiple batches, misaligned batches, smaller tolerance
-  l_batches = GenerateBatchesFromString(
-      l_schema,
-      {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
-       R"([[2000, 1, 4.0], [2000, 2, 24.0]])"});
-  r0_batches = GenerateBatchesFromString(
-      r0_schema, {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
-                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"});
-  r1_batches = GenerateBatchesFromString(
-      r0_schema, {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
-                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
-  exp_batches = GenerateBatchesFromString(
-      exp_schema,
-      {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, null], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
-       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"});
-  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 500);
-
-  // // Multi key, multiple batches, misaligned batches, zero tolerance
-  l_batches = GenerateBatchesFromString(
-      l_schema,
-      {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
-       R"([[2000, 1, 4.0], [2000, 2, 24.0]])"});
-  r0_batches = GenerateBatchesFromString(
-      r0_schema, {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
-                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"});
-  r1_batches = GenerateBatchesFromString(
-      r0_schema, {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
-                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"});
-  exp_batches = GenerateBatchesFromString(
-      exp_schema,
-      {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, null, 101.0], [1000, 2, 22.0, null, null], [1500, 1, 3.0, null, null], [1500, 2, 23.0, 32.0, 1002.0]])",
-       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, null, null]])"});
-  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 0);
+  l_batches = GenerateBatchesFromString(l_schema, l_data);
+  r0_batches = GenerateBatchesFromString(r0_schema, r0_data);
+  r1_batches = GenerateBatchesFromString(r1_schema, r1_data);
+  exp_batches = GenerateBatchesFromString(exp_schema, exp_data);
+  CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key",
+                 tolerance);
 }
 
 class AsofJoinTest : public testing::Test {};
 
-TEST(AsofJoinTest, TestBasic) { RunNonEmptyTest(); }
+TEST(AsofJoinTest, TestBasic1) {
+  // Single key, single batch
+  DoRunBasicTest(
+      /*l*/ {R"([[0, 1, 1.0], [1000, 1, 2.0]])"},
+      /*r0*/ {R"([[0, 1, 11.0]])"},
+      /*r1*/ {R"([[1000, 1, 101.0]])"},
+      /*exp*/ {R"([[0, 1, 1.0, 11.0, null], [1000, 1, 2.0, 11.0, 101.0]])"}, 1000);
+}
+
+TEST(AsofJoinTest, TestBasic2) {
+  // Single key, multiple batches
+  DoRunBasicTest(
+      /*l*/ {R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"},
+      /*r0*/ {R"([[0, 1, 11.0]])", R"([[1000, 1, 12.0]])"},
+      /*r1*/ {R"([[0, 1, 101.0]])", R"([[1000, 1, 102.0]])"},
+      /*exp*/ {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"}, 1000);
+}
+
+TEST(AsofJoinTest, TestBasic3) {
+  // Single key, multiple left batches, single right batches
+  DoRunBasicTest(
+      /*l*/ {R"([[0, 1, 1.0]])", R"([[1000, 1, 2.0]])"},
+      /*r0*/ {R"([[0, 1, 11.0], [1000, 1, 12.0]])"},
+      /*r1*/ {R"([[0, 1, 101.0], [1000, 1, 102.0]])"},
+      /*exp*/ {R"([[0, 1, 1.0, 11.0, 101.0], [1000, 1, 2.0, 12.0, 102.0]])"}, 1000);
+}
+
+TEST(AsofJoinTest, TestBasic4) {
+  // Multi key, multiple batches, misaligned batches
+  DoRunBasicTest(
+      /*l*/
+      {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+       R"([[2000, 1, 4.0], [2000, 2, 24.0]])"},
+      /*r0*/
+      {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+       R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"},
+      /*r1*/
+      {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+       R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"},
+      /*exp*/
+      {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, 1001.0], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+       R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"},
+      1000);
+}
+
+TEST(AsofJoinTest, TestBasic5) {
+  // Multi key, multiple batches, misaligned batches, smaller tolerance
+  DoRunBasicTest(/*l*/
+                 {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+                  R"([[2000, 1, 4.0], [2000, 2, 24.0]])"},
+                 /*r0*/
+                 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"},
+                 /*r1*/
+                 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"},
+                 /*exp*/
+                 {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, 11.0, 101.0], [1000, 2, 22.0, 31.0, null], [1500, 1, 3.0, 12.0, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+                  R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"},
+                 500);
+}
+
+TEST(AsofJoinTest, TestBasic6) {
+  // Multi key, multiple batches, misaligned batches, zero tolerance
+  DoRunBasicTest(/*l*/
+                 {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+                  R"([[2000, 1, 4.0], [2000, 2, 24.0]])"},
+                 /*r0*/
+                 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"},
+                 /*r1*/
+                 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"},
+                 /*exp*/
+                 {R"([[0, 1, 1.0, 11.0, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, null, 101.0], [1000, 2, 22.0, null, null], [1500, 1, 3.0, null, null], [1500, 2, 23.0, 32.0, 1002.0]])",
+                  R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, null, null]])"},
+                 0);
+}
+
+TEST(AsofJoinTest, TestEmpty1) {
+  // Empty left batch
+  DoRunBasicTest(/*l*/
+                 {R"([])", R"([[2000, 1, 4.0], [2000, 2, 24.0]])"},
+                 /*r0*/
+                 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"},
+                 /*r1*/
+                 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"},
+                 /*exp*/
+                 {R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"},
+                 1000);
+}
+
+TEST(AsofJoinTest, TestEmpty2) {
+  // Empty left input
+  DoRunBasicTest(/*l*/
+                 {R"([])"},
+                 /*r0*/
+                 {R"([[0, 1, 11.0], [500, 2, 31.0], [1000, 1, 12.0]])",
+                  R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"},
+                 /*r1*/
+                 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"},
+                 /*exp*/
+                 {R"([])"}, 1000);
+}
+
+TEST(AsofJoinTest, TestEmpty3) {
+  // Empty right batch
+  DoRunBasicTest(/*l*/
+                 {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+                  R"([[2000, 1, 4.0], [2000, 2, 24.0]])"},
+                 /*r0*/
+                 {R"([])", R"([[1500, 2, 32.0], [2000, 1, 13.0], [2500, 2, 33.0]])"},
+                 /*r1*/
+                 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"},
+                 /*exp*/
+                 {R"([[0, 1, 1.0, null, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, null, 101.0], [1000, 2, 22.0, null, 1001.0], [1500, 1, 3.0, null, 102.0], [1500, 2, 23.0, 32.0, 1002.0]])",
+                  R"([[2000, 1, 4.0, 13.0, 103.0], [2000, 2, 24.0, 32.0, 1002.0]])"},
+                 1000);
+}
+
+TEST(AsofJoinTest, TestEmpty4) {
+  // Empty right input
+  DoRunBasicTest(/*l*/
+                 {R"([[0, 1, 1.0], [0, 2, 21.0], [500, 1, 2.0], [1000, 2, 22.0], [1500, 1, 3.0], [1500, 2, 23.0]])",
+                  R"([[2000, 1, 4.0], [2000, 2, 24.0]])"},
+                 /*r0*/
+                 {R"([])"},
+                 /*r1*/
+                 {R"([[0, 2, 1001.0], [500, 1, 101.0]])",
+                  R"([[1000, 1, 102.0], [1500, 2, 1002.0], [2000, 1, 103.0]])"},
+                 /*exp*/
+                 {R"([[0, 1, 1.0, null, null], [0, 2, 21.0, null, 1001.0], [500, 1, 2.0, null, 101.0], [1000, 2, 22.0, null, 1001.0], [1500, 1, 3.0, null, 102.0], [1500, 2, 23.0, null, 1002.0]])",
+                  R"([[2000, 1, 4.0, null, 103.0], [2000, 2, 24.0, null, 1002.0]])"},
+                 1000);
+}
+
+TEST(AsofJoinTest, TestEmpty5) {
+  // All empty
+  DoRunBasicTest(/*l*/
+                 {R"([])"},
+                 /*r0*/
+                 {R"([])"},
+                 /*r1*/
+                 {R"([])"},
+                 /*exp*/
+                 {R"([])"}, 1000);
+}
 
 }  // namespace compute
 }  // namespace arrow
