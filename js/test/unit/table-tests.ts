@@ -100,7 +100,7 @@ describe(`Table`, () => {
     });
 
     test(`empty table produces an empty iterator`, () => {
-        expect([...new Table()].length).toBe(0);
+        expect([...new Table()]).toHaveLength(0);
     });
 
     describe(`constructor`, () => {
