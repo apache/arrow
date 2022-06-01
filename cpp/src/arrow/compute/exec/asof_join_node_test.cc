@@ -96,12 +96,9 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
 
   AssertTablesEqual(*exp_table, *res_table,
                     /*same_chunk_layout=*/false, /*flatten=*/true);
-
-  std::cerr << "Result Equals"
-            << "\n";
 }
 
-void RunNonEmptyTest(bool exact_matches) {
+void RunNonEmptyTest() {
   auto l_schema =
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())});
   auto r0_schema =
@@ -204,12 +201,9 @@ void RunNonEmptyTest(bool exact_matches) {
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key", 0);
 }
 
-class AsofJoinTest : public testing::TestWithParam<std::tuple<bool>> {};
+class AsofJoinTest : public testing::Test {};
 
-INSTANTIATE_TEST_SUITE_P(AsofJoinTest, AsofJoinTest,
-                         ::testing::Combine(::testing::Values(false, true)));
-
-TEST_P(AsofJoinTest, TestExactMatches) { RunNonEmptyTest(std::get<0>(GetParam())); }
+TEST(AsofJoinTest, TestBasic) { RunNonEmptyTest(); }
 
 }  // namespace compute
 }  // namespace arrow

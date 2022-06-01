@@ -714,7 +714,6 @@ class AsofJoinNode : public ExecNode {
   }
   void StopProducing() override {
     std::cerr << "StopProducing" << std::endl;
-    // if(batch_count_.Cancel()) finished_.MarkFinished();
     finished_.MarkFinished();
   }
   arrow::Future<> finished() override { return finished_; }
