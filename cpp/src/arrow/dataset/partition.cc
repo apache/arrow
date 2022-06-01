@@ -34,7 +34,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
