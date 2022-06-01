@@ -272,7 +272,12 @@ class InputState {
 
   util::optional<int64_t> GetMemoTimeForKey(KeyType key) {
     auto r = GetMemoEntryForKey(key);
-    return r.has_value() ? util::make_optional((*r)->_time) : util::nullopt;
+    // return r.has_value() ? util::make_optional((*r)->_time) : util::nullopt;
+    if (r.has_value()) {
+      return (*r)->_time;
+    } else {
+      return util::nullopt;
+    }
   }
 
   void RemoveMemoEntriesWithLesserTime(int64_t ts) {
@@ -705,8 +710,6 @@ class AsofJoinNode : public ExecNode {
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
     StopProducing();
-    std::cout << "StopProducing"
-              << "\n";
   }
   void StopProducing() override {
     std::cerr << "StopProducing" << std::endl;
