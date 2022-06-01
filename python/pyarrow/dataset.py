@@ -801,7 +801,7 @@ def _ensure_write_partitioning(part, schema, flavor):
     return part
 
 
-def write_dataset(data, base_dir, basename_template=None, format=None,
+def write_dataset(data, base_dir, *, basename_template=None, format=None,
                   partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
                   max_partitions=None, max_open_files=None,
