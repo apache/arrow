@@ -89,7 +89,7 @@ class Jira(JIRA):
                  url='https://issues.apache.org/jira'):
         
         token = token or os.environ.get('APACHE_JIRA_TOKEN')
-        super().__init__(url, token_auth=(token))
+        super().__init__(url, token_auth=token)
 
     def project_version(self, version_string, project='ARROW'):
         # query version from jira to populated with additional metadata
