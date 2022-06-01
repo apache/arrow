@@ -56,7 +56,7 @@ describe('tableFromIPC', () => {
         let index = 0;
 
         for await (const reader of RecordBatchReader.readAll<T>(writer[Symbol.asyncIterator]())) {
-            expect(sources[index++]).toEqualTable(await tableFromIPC(reader));
+            expect(await tableFromIPC(reader)).toEqualTable(sources[index++]);
         }
     });
 });
@@ -69,7 +69,7 @@ describe('tableToIPC()', () => {
         });
         const buffer = tableToIPC(source, 'file');
         const result = tableFromIPC(buffer);
-        expect(source).toEqualTable(result);
+        expect(result).toEqualTable(source);
     });
 
     test(`to stream format`, () => {
@@ -78,7 +78,7 @@ describe('tableToIPC()', () => {
         });
         const buffer = tableToIPC(source, 'stream');
         const result = tableFromIPC(buffer);
-        expect(source).toEqualTable(result);
+        expect(result).toEqualTable(source);
     });
 
     test(`doesn't swap the order of buffers that share the same underlying ArrayBuffer but are in a different order`, () => {
