@@ -996,7 +996,7 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
         return Status::TypeError("Invalid Orc List type");
       }
       ARROW_ASSIGN_OR_RAISE(auto elemtype, GetArrowType(type->getSubtype(0)));
-      return list(elemtype);
+      return list(std::move(elemtype));
     }
     case liborc::MAP: {
       if (subtype_count != 2) {
@@ -1004,7 +1004,7 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       }
       ARROW_ASSIGN_OR_RAISE(auto key_type, GetArrowType(type->getSubtype(0)));
       ARROW_ASSIGN_OR_RAISE(auto item_type, GetArrowType(type->getSubtype(1)));
-      return map(key_type, item_type);
+      return map(std::move(key_type), std::move(item_type));
     }
     case liborc::STRUCT: {
       FieldVector fields(subtype_count);
