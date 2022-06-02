@@ -160,7 +160,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       ARROW_ASSIGN_OR_RAISE(auto decoded_function,
                             ext_set.DecodeFunction(scalar_fn.function_reference()));
       
-      auto arrow_function = ext_set.functions_map.GetArrowFromSubstrait(static_cast<std::string>(decoded_function.name));
+      auto arrow_function = ext_set.GetFunctionMap().GetArrowFromSubstrait(decoded_function.name.to_string());
 
       return arrow_function(scalar_fn);                      
 

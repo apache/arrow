@@ -41,6 +41,23 @@ using SubstraitToArrow = std::function<Result<arrow::compute::Expression>(const 
 
 class FunctionMapping {
   
+  enum defined_functions {
+    add,
+    add_unchecked,
+    invert,
+    or_kleene,
+    and_kleene,
+    exclusive_or,
+    lt,
+    gt,
+    lte,
+    not_equal,
+    equal,
+    is_null,
+    is_not_null,
+    is_not_distict_from
+  };
+
   std::unordered_map<std::string, SubstraitToArrow> substrait_to_arrow;
   std::unordered_map<std::string, ArrowToSubstrait> arrow_to_substrait;
 
@@ -111,6 +128,7 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
     Id id;
     const std::string& function_name;
   };
+  arrow::engine::FunctionMapping functions_map;
   virtual util::optional<FunctionRecord> GetFunction(Id) const = 0;
   virtual util::optional<FunctionRecord> GetFunction(
       util::string_view arrow_function_name) const = 0;
@@ -265,9 +283,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// value larger than the actual number of functions. This behavior may change in the
   /// future; see ARROW-15583.
   std::size_t num_functions() const { return functions_.size(); }
-
-  arrow::engine::FunctionMapping functions_map;
-
+  
  private:
   const ExtensionIdRegistry* registry_;
 
@@ -288,7 +304,11 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
     
   Status CheckHasUri(util::string_view uri);
   void AddUri(std::pair<uint32_t, util::string_view> uri);
-  Status AddUri(Id id);
+  Status AddUri(Id id); 
+
+ public:
+    FunctionMapping GetFunctionMap() const { return registry_->functions_map;}
+
 };
 
 
