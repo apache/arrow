@@ -269,7 +269,7 @@ on:
   - name: Get windows binary
     uses: actions/download-artifact@v3
     with:
-      name: r-libarrow-windows
+      name: r-lib__libarrow__bin__windows
       path: repo/libarrow/bin/windows
   {% endif %}
   {% if get_nix %}
@@ -277,14 +277,14 @@ on:
   - name: Get {{ os }} binary
     uses: actions/download-artifact@v3
     with:
-      name: r-libarrow-{{ os }}
+      name: r-lib__libarrow__bin__{{ os }}
       path: repo/libarrow/bin/{{ os }}
     {% endfor %}
   {% endif %}
   - name: Get src pkg
     uses: actions/download-artifact@v3
     with:
-      name: r-pkg-src
+      name: r-pkg__src__contrib
       path: repo/src/contrib
   - name: Update repo index
     shell: Rscript {0}
