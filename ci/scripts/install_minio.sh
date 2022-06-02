@@ -64,7 +64,6 @@ fi
 if [[ ! -x ${prefix}/bin/mc ]]; then
   url="https://dl.min.io/client/mc/release/${platform}-${arch}/archive/${mc_version}"
   echo "Fetching ${url}..."
-  wget -nv -P ${prefix}/bin ${url}
-  mv ${prefix}/bin/${mc_version} ${prefix}/bin/mc
+  wget -nv --output-document ${prefix}/bin/mc ${url}
   chmod +x ${prefix}/bin/mc
 fi
