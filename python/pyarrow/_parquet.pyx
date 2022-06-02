@@ -1196,8 +1196,14 @@ cdef class ParquetReader(_Weakrefable):
             raise ValueError('Buffer size must be larger than zero')
 
         if thrift_string_size_limit is not None:
+            if thrift_string_size_limit <= 0:
+                raise ValueError("thrift_string_size_limit "
+                                 "must be larger than zero")
             properties.set_thrift_string_size_limit(thrift_string_size_limit)
         if thrift_container_size_limit is not None:
+            if thrift_container_size_limit <= 0:
+                raise ValueError("thrift_container_size_limit "
+                                 "must be larger than zero")
             properties.set_thrift_container_size_limit(
                 thrift_container_size_limit)
 
