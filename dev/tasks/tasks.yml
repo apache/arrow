@@ -931,15 +931,15 @@ tasks:
     ci: github
     template: r/github.packages.yml
     artifacts:
-      - r-libarrow-windows-arrow-[0-9\.]+\.zip
-      - r-libarrow-centos-7-arrow-[0-9\.]+\.zip
-      - r-libarrow-ubuntu-18.04-arrow-[0-9\.]+\.zip
-      - r-libarrow-ubuntu-22.04-arrow-[0-9\.]+\.zip
-      - r-pkg-windows-latest-4.1-arrow_[0-9\.]+\.zip
-      - r-pkg-windows-latest-4.2-arrow_[0-9\.]+\.zip
-      - r-pkg-macos-10.15-4.1-arrow_[0-9\.]+\.tgz
-      - r-pkg-macos-10.15-4.2-arrow_[0-9\.]+\.tgz
-      - r-pkg-src-arrow_[0-9\.]+\.tar\.gz
+      - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.2__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__macosx__contrib__4.1__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__contrib__4.2__arrow_[0-9\.]+\.tgz
+      - r-pkg__src__contrib__arrow_[0-9\.]+\.tar\.gz
 
 
   ########################### Release verification ############################

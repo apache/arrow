@@ -81,43 +81,39 @@ jobs:
         if: env.GOT_FILES == 'true'
         shell: Rscript {0}
         run: |
+          repo_root <- "repo"
           art_path <- list.files("binaries",
-              recursive = TRUE,
-              include.dirs = TRUE,
-              pattern = "r-nightly-packages$",
-              full.names = TRUE
+            recursive = TRUE,
+            include.dirs = TRUE,
+            pattern = "r-nightly-packages$",
+            full.names = TRUE
           )
 
-          pkgs <- list.files(art_path, pattern = "r-pkg-*")
-          src_i <- grep("r-pkg-src", pkgs)
-          src_pkg <- pkgs[src_i]
-          pkgs <- pkgs[-src_i]
-          libs <- list.files(art_path, pattern = "r-libarrow*")
+          current_path <- list.files(art_path, full.names = TRUE, recursive = TRUE)
+          files <- sub("r-(pkg|lib)", repo_root, current_path)
+          new_paths <- gsub("__", "/", files)
+          new_paths <- sub(art_path, ".", new_paths)
+          dirs <- dirname(new_paths)
+          dir_result <- sapply(dirs, dir.create, recursive = TRUE)
 
-          matches <- regmatches(pkgs, regexec("r-pkg-(([a-z]+)-[\\.a-zA-Z0-9]+)-(\\d\\.\\d)-(arrow.+)$", pkgs))
-
-
-          dir.create("repo/src/contrib", recursive = TRUE)
-          file.copy(file.path(art_path, src_pkg), file.path("repo/src/contrib", sub("r-pkg-src-", "", src_pkg)))
-          tools::write_PACKAGES("repo/src/contrib", type = "source", verbose = TRUE)
-
-          for (match in matches) {
-              path <- file.path("repo/bin", match[[3]], "contrib", match[[4]])
-              path <- sub("macos", "macosx", path)
-              dir.create(path, recursive = TRUE)
-              file <- file.path(art_path, match[[1]])
-
-              file.copy(file, file.path(path, match[[5]]))
-              tools::write_PACKAGES(path, type = paste0(substring(match[[3]], 1, 3), ".binary"), verbose = TRUE)
+          if (!all(dir_result)) {
+            stop("There was an issue while creating the folders!")
           }
 
-          lib_match <- regmatches(libs, regexec("r-libarrow-(windows|[[:alpha:]]+-\\d.*)-(arrow-.+)", libs))
+          copy_result <- file.copy(current_path, new_paths)
 
-          for (match in lib_match) {
-              path <- file.path("repo/libarrow/bin", match[[2]])
-              file <- file.path(art_path, match[[1]])
-              dir.create(path, recursive = TRUE, showWarnings = FALSE)
-              file.copy(file, file.path(path, match[[3]]))
+          if (!all(copy_result)) {
+            stop("There was an issue while copying the files!")
+          }
+
+          tools::write_PACKAGES(file.path(repo_root, "src/contrib"), type = "source", verbose = TRUE)
+
+          repo_dirs <- list.dirs("repo")
+          pkg_dirs <- repo_dirs[grepl(".+contrib\\/\\d.+", repo_dirs)]
+
+          for (dir in pkg_dirs) {
+            on_win <- grepl("windows", dir)
+            tools::write_PACKAGES(dir, type = ifelse(on_win, "win.binary", "mac.binary"), verbose = TRUE )
           }
       - name: Show repo contents
         if: env.GOT_FILES == 'true'
