@@ -215,7 +215,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
-  define_option(ARROW_AZURE "Build Arrow with Azure support (requires the Azure SDK for C++)" OFF)
+  define_option(ARROW_AZURE
+                "Build Arrow with Azure support (requires the Azure SDK for C++)" OFF)
 
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 

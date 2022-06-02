@@ -816,7 +816,7 @@ if(ARROW_WITH_OPENTELEMETRY)
        opentelemetry-cpp::otlp_http_exporter)
 endif()
 
-if (ARROW_AZURE)
+if(ARROW_AZURE)
   list(APPEND ARROW_LINK_LIBS ${AZURESDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AZURESDK_LINK_LIBRARIES})
 endif()
