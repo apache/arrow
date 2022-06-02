@@ -52,13 +52,13 @@ arch=${archs[$arch]}
 platform=${platforms[$platform]}
 
 if [[ ! -x ${prefix}/bin/minio ]]; then
-  url="https://dl.min.io/server/minio/release/${platform}-${arch}/minio"
+  url="https://dl.min.io/server/minio/release/${platform}-${arch}/archive/minio.RELEASE.2022-05-26T05-48-41Z"
   echo "Fetching ${url}..."
   wget -nv -P ${prefix}/bin ${url}
   chmod +x ${prefix}/bin/minio
 fi
 if [[ ! -x ${prefix}/bin/mc ]]; then
-  url="https://dl.min.io/client/mc/release/${platform}-${arch}/mc"
+  url="https://dl.min.io/client/mc/release/${platform}-${arch}/archive/mc.RELEASE.2022-05-09T04-08-26Z"
   echo "Fetching ${url}..."
   wget -nv -P ${prefix}/bin ${url}
   chmod +x ${prefix}/bin/mc
