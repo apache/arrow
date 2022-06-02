@@ -833,6 +833,8 @@ Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
   return CallFunction("week", {arg}, &options, ctx);
 }
 
+SCALAR_EAGER_BINARY(YearsBetween, "years_between")
+
 // ----------------------------------------------------------------------
 // Structural transforms
 Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext* ctx) {

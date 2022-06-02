@@ -1446,6 +1446,17 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
                                              ExecContext* ctx = NULLPTR);
 
+/// \brief Years Between finds the amount of years between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> YearsBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+
 /// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
 /// query key in a map.
 ///

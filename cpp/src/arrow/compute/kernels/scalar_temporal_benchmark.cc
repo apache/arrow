@@ -44,6 +44,7 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 using UnaryRoundingOp = Result<Datum>(const Datum&, const RoundTemporalOptions,
                                       ExecContext*);
 using UnaryOp = Result<Datum>(const Datum&, ExecContext*);
+using BinaryOp = Result<Datum>(const Datum&, const Datum&, ExecContext*);
 
 template <UnaryRoundingOp& Op, std::shared_ptr<DataType>& timestamp_type,
           RoundTemporalOptions& options>
@@ -79,6 +80,27 @@ static void BenchmarkTemporal(benchmark::State& state) {
 
   for (auto _ : state) {
     ABORT_NOT_OK(Op(timestamp_array, ctx).status());
+  }
+
+  state.SetItemsProcessed(state.iterations() * array_size);
+}
+
+template <BinaryOp& Op, std::shared_ptr<DataType>& timestamp_type>
+static void BenchmarkTemporalBinary(benchmark::State& state) {
+  RegressionArgs args(state);
+  ExecContext* ctx = default_exec_context();
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto lhs =
+      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  EXPECT_OK_AND_ASSIGN(auto timestamp_array_lhs, lhs->View(timestamp_type));
+  auto rhs = 
+      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  EXPECT_OK_AND_ASSIGN(auto timestamp_array_rhs, rhs->View(timestamp_type));
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Op(timestamp_array_lhs, timestamp_array_rhs, ctx).status());
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -172,6 +194,10 @@ auto non_zoned = timestamp(TimeUnit::NANO);
 #define DECLARE_TEMPORAL_BENCHMARKS_ZONED(OP) \
   BENCHMARK_TEMPLATE(BenchmarkTemporal, OP, zoned)->Apply(SetArgs);
 
+#define DECLARE_TEMPORAL_BINARY_BENCHMARKS(OP)                                 \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, non_zoned)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, zoned)->Apply(SetArgs);
+
 // Temporal rounding benchmarks
 auto round_1_minute = RoundTemporalOptions(1, CalendarUnit::MINUTE);
 auto round_10_minute = RoundTemporalOptions(10, CalendarUnit::MINUTE);
@@ -214,5 +240,7 @@ BENCHMARK_TEMPLATE(BenchmarkStrptime, non_zoned)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BenchmarkStrptime, zoned)->Apply(SetArgs);
 BENCHMARK(BenchmarkAssumeTimezone)->Apply(SetArgs);
 
+// binary temporal benchmarks
+DECLARE_TEMPORAL_BINARY_BENCHMARKS(YearsBetween);
 }  // namespace compute
 }  // namespace arrow
