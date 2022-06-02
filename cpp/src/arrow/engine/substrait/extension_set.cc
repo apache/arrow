@@ -473,23 +473,6 @@ Status FunctionMapping::AddSubstraitToArrow(std::string substrait_function_name,
 >>>>>>> 77d2398a4 (feat: variadic boolean function mapping)
 }
 
-Result<SubstraitToArrow> FunctionMapping::GetArrowFromSubstrait(std::string name) const { 
-  if (FunctionMapping::substrait_to_arrow.find(name)!=FunctionMapping::substrait_to_arrow.end()){
-    return FunctionMapping::substrait_to_arrow.at(name);
-  } else {
-    return Status::Invalid("Substrait function doesn't exist in the mapping registry");
-  }
-}
-
-Result<ArrowToSubstrait> FunctionMapping::GetSubstraitFromArrow(std::string name) const { 
-  if (FunctionMapping::arrow_to_substrait.find(name)!=FunctionMapping::arrow_to_substrait.end()){
-    return FunctionMapping::arrow_to_substrait.at(name);
-  } else {
-    return Status::Invalid("Arrow function doesn't exist in the mapping registry");
-  }
-}
-
-
 SubstraitToArrow substrait_add_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
   auto value_1 = call.args(1);
   auto value_2 = call.args(2);
