@@ -325,7 +325,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DEPENDENCY_USE_SHARED "Link to shared libraries" ON)
 
-  define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant"
+  define_option(ARROW_BOOST_USE_SHARED "Rely on Boost shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_BROTLI_USE_SHARED "Rely on Brotli shared libraries where relevant"

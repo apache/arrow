@@ -191,12 +191,15 @@ Status TStatusToStatus(const hs2::TStatus& tstatus) {
     case hs2::TStatusCode::SUCCESS_STATUS:
       return Status::OK();
     case hs2::TStatusCode::SUCCESS_WITH_INFO_STATUS: {
-      std::stringstream ss;
-      for (size_t i = 0; i < tstatus.infoMessages.size(); i++) {
-        if (i != 0) ss << ",";
-        ss << tstatus.infoMessages[i];
-      }
-      return Status::OK(ss.str());
+      // We can't return OK with message since
+      // ARROW-6847/e080766e742dbdee9aefa7ca8b62f723ea60b656.
+      // std::stringstream ss;
+      // for (size_t i = 0; i < tstatus.infoMessages.size(); i++) {
+      //   if (i != 0) ss << ",";
+      //   ss << tstatus.infoMessages[i];
+      // }
+      // return Status::OK(ss.str());
+      return Status::OK();
     }
     case hs2::TStatusCode::STILL_EXECUTING_STATUS:
       return Status::ExecutionError("Still executing");
@@ -226,7 +229,7 @@ std::unique_ptr<ColumnType> TTypeDescToColumnType(const hs2::TTypeDesc& ttype_de
       return std::unique_ptr<ColumnType>(new CharacterType(
           type_id,
           qualifiers.at(hs2::g_TCLIService_constants.CHARACTER_MAXIMUM_LENGTH).i32Value));
-    } catch (std::out_of_range e) {
+    } catch (std::out_of_range& e) {
       ARROW_LOG(ERROR) << "Character type qualifiers invalid: " << e.what();
       return std::unique_ptr<ColumnType>(new PrimitiveType(ColumnType::TypeId::INVALID));
     }
@@ -240,7 +243,7 @@ std::unique_ptr<ColumnType> TTypeDescToColumnType(const hs2::TTypeDesc& ttype_de
       return std::unique_ptr<ColumnType>(new DecimalType(
           type_id, qualifiers.at(hs2::g_TCLIService_constants.PRECISION).i32Value,
           qualifiers.at(hs2::g_TCLIService_constants.SCALE).i32Value));
-    } catch (std::out_of_range e) {
+    } catch (std::out_of_range& e) {
       ARROW_LOG(ERROR) << "Decimal type qualifiers invalid: " << e.what();
       return std::unique_ptr<ColumnType>(new PrimitiveType(ColumnType::TypeId::INVALID));
     }
