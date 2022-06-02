@@ -107,7 +107,9 @@ enum class CalendarUnit : int8_t {
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
-                                bool week_starts_monday = true);
+                                bool week_starts_monday = true,
+                                bool ceil_is_strictly_greater = false,
+                                bool calendar_based_origin = false);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -117,6 +119,25 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   CalendarUnit unit;
   /// What day does the week start with (Monday=true, Sunday=false)
   bool week_starts_monday;
+  /// Enable this flag to return a rounded value that is strictly greater than the input.
+  /// For example: ceiling 1970-01-01T00:00:00 to 3 hours would yield 1970-01-01T03:00:00
+  /// if set to true and 1970-01-01T00:00:00 if set to false.
+  /// This applies for ceiling only.
+  bool ceil_is_strictly_greater;
+  /// By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
+  /// By setting calendar_based_origin to true, time will be rounded to a number
+  /// of units since the last greater calendar unit.
+  /// For example: rounding to a multiple of days since the beginning of the month or
+  /// to hours since the beginning of the day.
+  /// Exceptions: week and quarter are not used as greater units, therefore days will
+  /// will be rounded to the beginning of the month not week. Greater unit of week
+  /// is year.
+  /// Note that ceiling and rounding might change sorting order of an array near greater
+  /// unit change. For example rounding YYYY-mm-dd 23:00:00 to 5 hours will ceil and
+  /// round to YYYY-mm-dd+1 01:00:00 and floor to YYYY-mm-dd 20:00:00. On the other hand
+  /// YYYY-mm-dd+1 00:00:00 will ceil, round and floor to YYYY-mm-dd+1 00:00:00. This
+  /// can break the order of an already ordered array.
+  bool calendar_based_origin;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
