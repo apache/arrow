@@ -19,7 +19,7 @@
 # Install a copy of this file at ~/.config/arrow/merge.conf
 
 [jira]
-# issues.apache.org JIRA PAT
+# issues.apache.org Jira personal access token
 token=abc123
 
 [github]
