@@ -176,7 +176,7 @@ struct QuartersBetween {
 };
 
 template <typename Duration, typename Localizer>
-struct MonthsBetween { 
+struct MonthsBetween {
   MonthsBetween(const FunctionOptions* options, Localizer&& localizer)
       : localizer_(std::move(localizer)) {}
 

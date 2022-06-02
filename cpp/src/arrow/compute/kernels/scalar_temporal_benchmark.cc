@@ -95,7 +95,7 @@ static void BenchmarkTemporalBinary(benchmark::State& state) {
   auto lhs =
       rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
   EXPECT_OK_AND_ASSIGN(auto timestamp_array_lhs, lhs->View(timestamp_type));
-  auto rhs = 
+  auto rhs =
       rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
   EXPECT_OK_AND_ASSIGN(auto timestamp_array_rhs, rhs->View(timestamp_type));
 
@@ -194,7 +194,7 @@ auto non_zoned = timestamp(TimeUnit::NANO);
 #define DECLARE_TEMPORAL_BENCHMARKS_ZONED(OP) \
   BENCHMARK_TEMPLATE(BenchmarkTemporal, OP, zoned)->Apply(SetArgs);
 
-#define DECLARE_TEMPORAL_BINARY_BENCHMARKS(OP)                                 \
+#define DECLARE_TEMPORAL_BINARY_BENCHMARKS(OP)                                \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, non_zoned)->Apply(SetArgs); \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, zoned)->Apply(SetArgs);
 

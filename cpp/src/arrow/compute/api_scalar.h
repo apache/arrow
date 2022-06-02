@@ -1455,7 +1455,8 @@ ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> YearsBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> YearsBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
 
 /// \brief Quarters Between finds the number of quarters between two values
 ///
@@ -1466,7 +1467,8 @@ ARROW_EXPORT Result<Datum> YearsBetween(const Datum& left, const Datum& right, E
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> QuartersBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> QuartersBetween(const Datum& left, const Datum& right,
+                                           ExecContext* ctx = NULLPTR);
 
 /// \brief Months Between finds the number of month between two values
 ///
@@ -1477,7 +1479,8 @@ ARROW_EXPORT Result<Datum> QuartersBetween(const Datum& left, const Datum& right
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
+                                         ExecContext* ctx = NULLPTR);
 
 /// \brief Weeks Between finds the number of weeks between two values
 ///
@@ -1488,9 +1491,11 @@ ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right, 
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
 
-/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds between two values
+/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// between two values
 ///
 /// \param[in] left input treated as the start time
 /// \param[in] right input treated as the end time
@@ -1499,7 +1504,8 @@ ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right, E
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> MonthDayNanoBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> MonthDayNanoBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
 
 /// \brief DayTime Between finds the number of days and milliseconds between two values
 ///
@@ -1510,7 +1516,8 @@ ARROW_EXPORT Result<Datum> MonthDayNanoBetween(const Datum& left, const Datum& r
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> DayTimeBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> DayTimeBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
 
 /// \brief Days Between finds the number of days between two values
 ///
@@ -1521,7 +1528,8 @@ ARROW_EXPORT Result<Datum> DayTimeBetween(const Datum& left, const Datum& right,
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> DaysBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> DaysBetween(const Datum& left, const Datum& right,
+                                       ExecContext* ctx = NULLPTR);
 
 /// \brief Hours Between finds the number of hours between two values
 ///
@@ -1532,7 +1540,8 @@ ARROW_EXPORT Result<Datum> DaysBetween(const Datum& left, const Datum& right, Ex
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> HoursBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> HoursBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
 
 /// \brief Minutes Between finds the number of minutes between two values
 ///
@@ -1543,7 +1552,8 @@ ARROW_EXPORT Result<Datum> HoursBetween(const Datum& left, const Datum& right, E
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> MinutesBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> MinutesBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
 
 /// \brief Seconds Between finds the number of hours between two values
 ///
@@ -1554,7 +1564,8 @@ ARROW_EXPORT Result<Datum> MinutesBetween(const Datum& left, const Datum& right,
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> SecondsBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> SecondsBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
 
 /// \brief Milliseconds Between finds the number of milliseconds between two values
 ///
@@ -1565,7 +1576,8 @@ ARROW_EXPORT Result<Datum> SecondsBetween(const Datum& left, const Datum& right,
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> MillisecondsBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> MillisecondsBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
 
 /// \brief Microseconds Between finds the number of microseconds between two values
 ///
@@ -1576,7 +1588,8 @@ ARROW_EXPORT Result<Datum> MillisecondsBetween(const Datum& left, const Datum& r
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> MicrosecondsBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> MicrosecondsBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
 
 /// \brief Nanoseconds Between finds the number of nanoseconds between two values
 ///
@@ -1587,7 +1600,8 @@ ARROW_EXPORT Result<Datum> MicrosecondsBetween(const Datum& left, const Datum& r
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> NanoesecondsBetween(const Datum& left, const Datum& right, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> NanoesecondsBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
 
 /// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
 /// query key in a map.
