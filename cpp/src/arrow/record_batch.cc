@@ -393,8 +393,7 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
 RecordBatchReader::~RecordBatchReader() {
   auto st = this->Close();
   if (!st.ok()) {
-    ARROW_LOG(WARNING) << "Implicitly called RecordBatchReader::Close failed: "
-                       << st;
+    ARROW_LOG(WARNING) << "Implicitly called RecordBatchReader::Close failed: " << st;
   }
 }
 
