@@ -75,15 +75,16 @@ struct ScalarHashImpl {
   }
 
   Status Visit(const DayTimeIntervalScalar& s) {
-    return StdHash(s.value.days) & StdHash(s.value.milliseconds);
+    return StdHash(s.value.days) && StdHash(s.value.milliseconds);
   }
 
   Status Visit(const MonthDayNanoIntervalScalar& s) {
-    return StdHash(s.value.days) & StdHash(s.value.months) & StdHash(s.value.nanoseconds);
+    return StdHash(s.value.days) && StdHash(s.value.months) &&
+           StdHash(s.value.nanoseconds);
   }
 
   Status Visit(const Decimal128Scalar& s) {
-    return StdHash(s.value.low_bits()) & StdHash(s.value.high_bits());
+    return StdHash(s.value.low_bits()) && StdHash(s.value.high_bits());
   }
 
   Status Visit(const Decimal256Scalar& s) {
@@ -140,7 +141,7 @@ struct ScalarHashImpl {
   Status ArrayHash(const Array& a) { return ArrayHash(*a.data()); }
 
   Status ArrayHash(const ArrayData& a) {
-    RETURN_NOT_OK(StdHash(a.length) & StdHash(a.GetNullCount()));
+    RETURN_NOT_OK(StdHash(a.length) && StdHash(a.GetNullCount()));
     if (a.buffers[0] != nullptr) {
       // We can't visit values without unboxing the whole array, so only hash
       // the null bitmap for now.

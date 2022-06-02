@@ -150,6 +150,8 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
   // AND the statuses.
   inline Status operator&(const Status& s) const noexcept;
   inline Status operator&(Status&& s) const noexcept;
+  inline Status operator&&(const Status& s) const noexcept;
+  inline Status operator&&(Status&& s) const noexcept;
   inline Status& operator&=(const Status& s) noexcept;
   inline Status& operator&=(Status&& s) noexcept;
 
@@ -417,6 +419,22 @@ Status Status::operator&(const Status& s) const noexcept {
 }
 
 Status Status::operator&(Status&& s) const noexcept {
+  if (ok()) {
+    return std::move(s);
+  } else {
+    return *this;
+  }
+}
+
+Status Status::operator&&(const Status& s) const noexcept {
+  if (ok()) {
+    return s;
+  } else {
+    return *this;
+  }
+}
+
+Status Status::operator&&(Status&& s) const noexcept {
   if (ok()) {
     return std::move(s);
   } else {

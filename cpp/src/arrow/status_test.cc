@@ -93,11 +93,11 @@ TEST(StatusTest, AndStatus) {
   ASSERT_TRUE(res.IsInvalid());
 
   // With rvalues
-  res = Status::OK() & Status::Invalid("foo");
+  res = Status::OK() && Status::Invalid("foo");
   ASSERT_TRUE(res.IsInvalid());
-  res = Status::Invalid("foo") & Status::OK();
+  res = Status::Invalid("foo") && Status::OK();
   ASSERT_TRUE(res.IsInvalid());
-  res = Status::Invalid("foo") & Status::IOError("bar");
+  res = Status::Invalid("foo") && Status::IOError("bar");
   ASSERT_TRUE(res.IsInvalid());
 
   res = Status::OK();
@@ -107,6 +107,19 @@ TEST(StatusTest, AndStatus) {
   ASSERT_TRUE(res.IsInvalid());
   res &= Status::IOError("bar");
   ASSERT_TRUE(res.IsInvalid());
+}
+
+Status PassingTaskWithSideEffect(bool* hit_side_effect) {
+  *hit_side_effect = true;
+  return Status::OK();
+}
+
+Status FailingTask() { return Status::Invalid("err"); }
+
+TEST(StatusTest, SortCircuitAndStatus) {
+  bool hit_side_effect = false;
+  Status res = PassingTaskWithSideEffect(&hit_side_effect) && FailingTask();
+  ASSERT_TRUE(hit_side_effect);
 }
 
 TEST(StatusTest, TestEquality) {
