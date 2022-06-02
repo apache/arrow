@@ -40,23 +40,6 @@ using ArrowToSubstrait = std::function<Result<substrait::Expression::ScalarFunct
 using SubstraitToArrow = std::function<Result<arrow::compute::Expression>(const substrait::Expression::ScalarFunction&)>;
 
 class FunctionMapping {
-  
-  enum defined_functions {
-    add,
-    add_unchecked,
-    invert,
-    or_kleene,
-    and_kleene,
-    exclusive_or,
-    lt,
-    gt,
-    lte,
-    not_equal,
-    equal,
-    is_null,
-    is_not_null,
-    is_not_distict_from
-  };
 
   std::unordered_map<std::string, SubstraitToArrow> substrait_to_arrow;
   std::unordered_map<std::string, ArrowToSubstrait> arrow_to_substrait;
