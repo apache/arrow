@@ -319,7 +319,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     long diff = roundedRequestSize - grantedSize;
     releaseBytes(-diff);
     buffer.close();
-    throw new UnsupportedOperationException(
+    throw new IllegalStateException(
         String.format("Granted buffer size %d is smaller than the rounded request size %d (before rounding: %d), " +
                 "which is illegal for an allocation", grantedSize, roundedRequestSize, initialRequestSize));
   }

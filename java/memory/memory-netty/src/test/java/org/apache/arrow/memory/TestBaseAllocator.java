@@ -489,7 +489,7 @@ public class TestBaseAllocator {
   public void testSmallerGrantedSize() {
     // actual size is smaller than request size
     final BaseAllocator allocator = createAllocatorWithFixedSizeAllocationManager(1, MAX_ALLOCATION);
-    assertThrows(UnsupportedOperationException.class, () -> allocator.buffer(16L));
+    assertThrows(IllegalStateException.class, () -> allocator.buffer(16L));
   }
 
   private BaseAllocator createAllocatorWithFixedSizeAllocationManager(int fixedSize, long maxAllocation) {
