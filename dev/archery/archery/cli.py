@@ -805,7 +805,7 @@ def release(obj, src, jira_cache):
     obj['repo'] = src.path
 
 
-@release.command('curate')
+@release.command('curate', help="Lists release related Jira issues.")
 @click.argument('version')
 @click.option('--minimal/--full', '-m/-f',
               help="Only show actionable Jira issues.", default=False)
