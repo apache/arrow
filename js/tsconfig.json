@@ -6,7 +6,7 @@
   },
   "compilerOptions": {
     "target": "ESNext",
-    "module": "NodeNext",
+    "module": "ESNext",
     "isolatedModules": true,
     "noEmit": true,
     "esModuleInterop": true,
