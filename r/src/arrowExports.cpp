@@ -3222,40 +3222,6 @@ extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
 }
 #endif
 
-// filesystem.cpp
-#if defined(ARROW_R_WITH_S3)
-void fs__S3FileSystem__allow_bucket_creation(const std::shared_ptr<fs::S3FileSystem>& fs, bool allow);
-extern "C" SEXP _arrow_fs__S3FileSystem__allow_bucket_creation(SEXP fs_sexp, SEXP allow_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<fs::S3FileSystem>&>::type fs(fs_sexp);
-	arrow::r::Input<bool>::type allow(allow_sexp);
-	fs__S3FileSystem__allow_bucket_creation(fs, allow);
-	return R_NilValue;
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_fs__S3FileSystem__allow_bucket_creation(SEXP fs_sexp, SEXP allow_sexp){
-	Rf_error("Cannot call fs__S3FileSystem__allow_bucket_creation(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// filesystem.cpp
-#if defined(ARROW_R_WITH_S3)
-void fs__S3FileSystem__allow_bucket_deletion(const std::shared_ptr<fs::S3FileSystem>& fs, bool allow);
-extern "C" SEXP _arrow_fs__S3FileSystem__allow_bucket_deletion(SEXP fs_sexp, SEXP allow_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<fs::S3FileSystem>&>::type fs(fs_sexp);
-	arrow::r::Input<bool>::type allow(allow_sexp);
-	fs__S3FileSystem__allow_bucket_deletion(fs, allow);
-	return R_NilValue;
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_fs__S3FileSystem__allow_bucket_deletion(SEXP fs_sexp, SEXP allow_sexp){
-	Rf_error("Cannot call fs__S3FileSystem__allow_bucket_deletion(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
 // io.cpp
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
 extern "C" SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
@@ -5470,8 +5436,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 15}, 
 		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
-		{ "_arrow_fs__S3FileSystem__allow_bucket_creation", (DL_FUNC) &_arrow_fs__S3FileSystem__allow_bucket_creation, 2}, 
-		{ "_arrow_fs__S3FileSystem__allow_bucket_deletion", (DL_FUNC) &_arrow_fs__S3FileSystem__allow_bucket_deletion, 2}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

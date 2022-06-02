@@ -1288,14 +1288,6 @@ fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
-fs__S3FileSystem__allow_bucket_creation <- function(fs, allow) {
-  invisible(.Call(`_arrow_fs__S3FileSystem__allow_bucket_creation`, fs, allow))
-}
-
-fs__S3FileSystem__allow_bucket_deletion <- function(fs, allow) {
-  invisible(.Call(`_arrow_fs__S3FileSystem__allow_bucket_deletion`, fs, allow))
-}
-
 io___Readable__Read <- function(x, nbytes) {
   .Call(`_arrow_io___Readable__Read`, x, nbytes)
 }

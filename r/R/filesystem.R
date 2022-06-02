@@ -184,11 +184,6 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$OpenAppendStream(path)`: Open an [output stream][OutputStream] for
 #'    appending.
 #'
-#' `S3FileSystem` also has methods:
-#'
-#' - `$allow_bucket_creation()` which can set the corresponding option above.
-#' - `$allow_bucket_deletion()` which can set the corresponding option above.
-#'
 #' @section Active bindings:
 #'
 #' - `$type_name`: string filesystem type name, such as "local", "s3", etc.
@@ -348,10 +343,6 @@ S3FileSystem <- R6Class("S3FileSystem",
   inherit = FileSystem,
   active = list(
     region = function() fs___S3FileSystem__region(self)
-  ),
-  public = list(
-    allow_bucket_creation = function(allow) fs__S3FileSystem__allow_bucket_creation(self, allow),
-    allow_bucket_deletion = function(allow) fs__S3FileSystem__allow_bucket_deletion(self, allow)
   )
 )
 S3FileSystem$create <- function(anonymous = FALSE, ...) {

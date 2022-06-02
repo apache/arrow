@@ -87,12 +87,6 @@ sequential writing.
 \item \verb{$OpenAppendStream(path)}: Open an \link[=OutputStream]{output stream} for
 appending.
 }
-
-\code{S3FileSystem} also has methods:
-\itemize{
-\item \verb{$allow_bucket_creation()} which can set the corresponding option above.
-\item \verb{$allow_bucket_deletion()} which can set the corresponding option above.
-}
 }
 
 \section{Active bindings}{

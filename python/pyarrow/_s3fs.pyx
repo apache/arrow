@@ -157,11 +157,11 @@ cdef class S3FileSystem(FileSystem):
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
     allow_bucket_creation : bool, default False
-        If True, allows creating buckets. This option may also be passed in a 
-        URI query parameter.
+        Whether to allow CreateDir at the bucket-level. This option may also be 
+        passed in a URI query parameter.
     allow_bucket_deletion : bool, default False
-        If True, allows deleting buckets. This option may also be passed in a 
-        URI query parameter.
+        Whether to allow DeleteDir at the bucket-level. This option may also be 
+        passed in a URI query parameter.
     """
 
     cdef:
@@ -328,25 +328,3 @@ cdef class S3FileSystem(FileSystem):
         The AWS region this filesystem connects to.
         """
         return frombytes(self.s3fs.region())
-
-    @property
-    def allow_bucket_creation(self):
-        """
-        Whether to allow CreateDir at the bucket-level.
-        """
-        return self.s3fs.options().allow_bucket_creation
-
-    @allow_bucket_creation.setter
-    def allow_bucket_creation(self, value):
-        self.s3fs.allow_bucket_creation(value)
-
-    @property
-    def allow_bucket_deletion(self):
-        """
-        Whether to allow DeleteDir at the bucket-level.
-        """
-        return self.s3fs.options().allow_bucket_deletion
-
-    @allow_bucket_deletion.setter
-    def allow_bucket_deletion(self, value):
-        self.s3fs.allow_bucket_deletion(value)

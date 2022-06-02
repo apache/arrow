@@ -334,16 +334,4 @@ std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& f
   return fs->region();
 }
 
-// [[s3::export]]
-void fs__S3FileSystem__allow_bucket_creation(const std::shared_ptr<fs::S3FileSystem>& fs,
-                                             bool allow) {
-  fs->allow_bucket_creation(allow);
-}
-
-// [[s3::export]]
-void fs__S3FileSystem__allow_bucket_deletion(const std::shared_ptr<fs::S3FileSystem>& fs,
-                                             bool allow) {
-  fs->allow_bucket_deletion(allow);
-}
-
 #endif

@@ -1316,14 +1316,14 @@ def test_filesystem_from_uri_s3(s3_server):
 
     host, port, access_key, secret_key = s3_server['connection']
 
-    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}" \
-        .format(access_key, secret_key, host, port)
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}"\
+          "&allow_bucket_creation=True" \
+          .format(access_key, secret_key, host, port)
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)
     assert path == "mybucket/foo/bar"
 
-    fs.allow_bucket_creation = True
     fs.create_dir(path)
     [info] = fs.get_file_info([path])
     assert info.path == path

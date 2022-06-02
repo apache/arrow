@@ -2558,14 +2558,14 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_server):
     host, port, access_key, secret_key = s3_server['connection']
     bucket = 'theirbucket'
     path = 'nested/folder/data.parquet'
-    uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}".format(
-        access_key, secret_key, bucket, path, host, port
-    )
+    uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}"\
+        "&allow_bucket_creation=true".format(
+            access_key, secret_key, bucket, path, host, port
+        )
 
     fs, path = FileSystem.from_uri(uri)
     assert path == 'theirbucket/nested/folder/data.parquet'
 
-    fs.allow_bucket_creation = True
     fs.create_dir(bucket)
 
     table = pa.table({'a': [1, 2, 3]})
@@ -4552,7 +4552,13 @@ def test_write_dataset_s3_put_only(s3_server):
         )
 
     # Error enforced by minio / S3 service
-    fs.allow_bucket_creation = True
+    fs = S3FileSystem(
+        access_key='limited',
+        secret_key='limited123',
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http',
+        allow_bucket_creation=True,
+    )
     with pytest.raises(OSError, match="Access Denied"):
         ds.write_dataset(
             table, "non-existing-bucket", filesystem=fs,

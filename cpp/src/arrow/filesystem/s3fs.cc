@@ -770,9 +770,6 @@ class ClientBuilder {
 
   const S3Options& options() const { return options_; }
 
-  void allow_bucket_creation(bool allow) { options_.allow_bucket_creation = allow; }
-  void allow_bucket_deletion(bool allow) { options_.allow_bucket_deletion = allow; }
-
  protected:
   S3Options options_;
   Aws::Client::ClientConfiguration client_config_;
@@ -1661,9 +1658,6 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return std::string(FromAwsString(builder_.config().region));
   }
 
-  void allow_bucket_creation(bool allow) { builder_.allow_bucket_creation(allow); }
-  void allow_bucket_deletion(bool allow) { builder_.allow_bucket_deletion(allow); }
-
   template <typename Error>
   void SaveBackend(const Aws::Client::AWSError<Error>& error) {
     if (!backend_ || *backend_ == S3Backend::Other) {
@@ -2222,14 +2216,6 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
 S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }
-
-void S3FileSystem::allow_bucket_creation(bool allow) {
-  impl_->allow_bucket_creation(allow);
-}
-
-void S3FileSystem::allow_bucket_deletion(bool allow) {
-  impl_->allow_bucket_deletion(allow);
-}
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
