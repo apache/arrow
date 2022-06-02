@@ -41,16 +41,6 @@ class ARROW_EXPORT ORCFileReader {
  public:
   ~ORCFileReader();
 
-  /// \brief Creates a new ORC reader.
-  ///
-  /// \param[in] file the data source
-  /// \param[in] pool a MemoryPool to use for buffer allocations
-  /// \param[out] reader the returned reader object
-  /// \return Status
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  static Status Open(const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool,
-                     std::unique_ptr<ORCFileReader>* reader);
-
   /// \brief Creates a new ORC reader
   ///
   /// \param[in] file the data source
@@ -61,22 +51,8 @@ class ARROW_EXPORT ORCFileReader {
 
   /// \brief Return the schema read from the ORC file
   ///
-  /// \param[out] out the returned Schema object
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status ReadSchema(std::shared_ptr<Schema>* out);
-
-  /// \brief Return the schema read from the ORC file
-  ///
   /// \return the returned Schema object
   Result<std::shared_ptr<Schema>> ReadSchema();
-
-  /// \brief Read the file as a Table
-  ///
-  /// The table will be composed of one record batch per stripe.
-  ///
-  /// \param[out] out the returned Table
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status Read(std::shared_ptr<Table>* out);
 
   /// \brief Read the file as a Table
   ///
@@ -90,26 +66,8 @@ class ARROW_EXPORT ORCFileReader {
   /// The table will be composed of one record batch per stripe.
   ///
   /// \param[in] schema the Table schema
-  /// \param[out] out the returned Table
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status Read(const std::shared_ptr<Schema>& schema, std::shared_ptr<Table>* out);
-
-  /// \brief Read the file as a Table
-  ///
-  /// The table will be composed of one record batch per stripe.
-  ///
-  /// \param[in] schema the Table schema
   /// \return the returned Table
   Result<std::shared_ptr<Table>> Read(const std::shared_ptr<Schema>& schema);
-
-  /// \brief Read the file as a Table
-  ///
-  /// The table will be composed of one record batch per stripe.
-  ///
-  /// \param[in] include_indices the selected field indices to read
-  /// \param[out] out the returned Table
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status Read(const std::vector<int>& include_indices, std::shared_ptr<Table>* out);
 
   /// \brief Read the file as a Table
   ///
@@ -133,17 +91,6 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \param[in] schema the Table schema
   /// \param[in] include_indices the selected field indices to read
-  /// \param[out] out the returned Table
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status Read(const std::shared_ptr<Schema>& schema,
-              const std::vector<int>& include_indices, std::shared_ptr<Table>* out);
-
-  /// \brief Read the file as a Table
-  ///
-  /// The table will be composed of one record batch per stripe.
-  ///
-  /// \param[in] schema the Table schema
-  /// \param[in] include_indices the selected field indices to read
   /// \return the returned Table
   Result<std::shared_ptr<Table>> Read(const std::shared_ptr<Schema>& schema,
                                       const std::vector<int>& include_indices);
@@ -151,24 +98,8 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief Read a single stripe as a RecordBatch
   ///
   /// \param[in] stripe the stripe index
-  /// \param[out] out the returned RecordBatch
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out);
-
-  /// \brief Read a single stripe as a RecordBatch
-  ///
-  /// \param[in] stripe the stripe index
   /// \return the returned RecordBatch
   Result<std::shared_ptr<RecordBatch>> ReadStripe(int64_t stripe);
-
-  /// \brief Read a single stripe as a RecordBatch
-  ///
-  /// \param[in] stripe the stripe index
-  /// \param[in] include_indices the selected field indices to read
-  /// \param[out] out the returned RecordBatch
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
-                    std::shared_ptr<RecordBatch>* out);
 
   /// \brief Read a single stripe as a RecordBatch
   ///
@@ -202,38 +133,8 @@ class ARROW_EXPORT ORCFileReader {
   /// file.
   ///
   /// \param[in] batch_size the maximum number of rows in each record batch
-  /// \param[out] out the returned stripe reader
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status NextStripeReader(int64_t batch_size, std::shared_ptr<RecordBatchReader>* out);
-
-  /// \brief Get a stripe level record batch iterator.
-  ///
-  /// Each record batch will have up to `batch_size` rows.
-  /// NextStripeReader serves as a fine grained alternative to ReadStripe
-  /// which may cause OOM issues by loading the whole stripe into memory.
-  ///
-  /// Note this will only read rows for the current stripe, not the entire
-  /// file.
-  ///
-  /// \param[in] batch_size the maximum number of rows in each record batch
   /// \return the returned stripe reader
   Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(int64_t batch_size);
-
-  /// \brief Get a stripe level record batch iterator.
-  ///
-  /// Each record batch will have up to `batch_size` rows.
-  /// NextStripeReader serves as a fine grained alternative to ReadStripe
-  /// which may cause OOM issues by loading the whole stripe into memory.
-  ///
-  /// Note this will only read rows for the current stripe, not the entire
-  /// file.
-  ///
-  /// \param[in] batch_size the maximum number of rows in each record batch
-  /// \param[in] include_indices the selected field indices to read
-  /// \param[out] out the returned stripe reader
-  ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
-  Status NextStripeReader(int64_t batch_size, const std::vector<int>& include_indices,
-                          std::shared_ptr<RecordBatchReader>* out);
 
   /// \brief Get a stripe level record batch iterator.
   ///
