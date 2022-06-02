@@ -504,7 +504,8 @@ def get_credentials(cmd):
     # Fallback to user tty prompt
     if not token:
         token = cmd.prompt("Env APACHE_JIRA_TOKEN not set, "
-                           "please enter your JIRA PAT:")
+                           "please enter your Jira API token "
+                           "(Jira personal access token):")
 
     return token
 
