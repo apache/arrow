@@ -504,27 +504,14 @@ def get_credentials(cmd):
     # Fallback to user tty prompt
     if not token:
         token = cmd.prompt("Env APACHE_JIRA_TOKEN not set, "
-                              "please enter your JIRA PAT:")
+                           "please enter your JIRA PAT:")
 
     return token
 
 
 def connect_jira(cmd):
-    try:
-        return jira.client.JIRA(options={'server': JIRA_API_BASE},
-                                token_auth=get_credentials(cmd))
-    except jira.exceptions.JIRAError as e:
-        #  token auth should not cause a captcha
-        if "CAPTCHA_CHALLENGE" in e.text:
-            print("")
-            print("It looks like you need to answer a captcha challenge for "
-                  "this account (probably due to a login attempt with an "
-                  "incorrect password). Please log in at "
-                  "https://issues.apache.org/jira and complete the captcha "
-                  "before running this tool again.")
-            print("Exiting.")
-            sys.exit(1)
-        raise e
+    return jira.client.JIRA(options={'server': JIRA_API_BASE},
+                            token_auth=get_credentials(cmd))
 
 
 def get_pr_num():
