@@ -16,6 +16,7 @@
 // under the License.
 
 #include <iostream>
+#include <set>
 #include <unordered_map>
 
 #include <arrow/api.h>
@@ -402,7 +403,6 @@ class CompositeReferenceTable {
       const std::vector<std::unique_ptr<InputState>>& state) {
     // cerr << "materialize BEGIN\n";
     DCHECK_EQ(state.size(), n_tables_);
-    DCHECK_GE(state.size(), 1);
 
     // Don't build empty batches
     size_t n_rows = rows_.size();
@@ -434,6 +434,10 @@ class CompositeReferenceTable {
                 arrays.at(i_dst_col),
                 (MaterializePrimitiveColumn<arrow::Int64Builder, int64_t>(i_table,
                                                                           i_src_col)));
+          } else if (field_type->Equals(arrow::float32())) {
+            ARROW_ASSIGN_OR_RAISE(arrays.at(i_dst_col),
+                                  (MaterializePrimitiveColumn<arrow::FloatBuilder, float>(
+                                      i_table, i_src_col)));
           } else if (field_type->Equals(arrow::float64())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
@@ -492,12 +496,6 @@ class CompositeReferenceTable {
   }
 };
 
-class AsofJoinSchema {
- public:
-  std::shared_ptr<Schema> MakeOutputSchema(const std::vector<ExecNode*>& inputs,
-                                           const AsofJoinNodeOptions& options);
-};
-
 class AsofJoinNode : public ExecNode {
   // Advances the RHS as far as possible to be up to date for the current LHS timestamp
   bool UpdateRhs() {
@@ -541,7 +539,7 @@ class AsofJoinNode : public ExecNode {
       if (lhs.Finished() || lhs.Empty()) break;
 
       // Advance each of the RHS as far as possible to be up to date for the LHS timestamp
-      bool any_advanced = UpdateRhs();
+      bool any_rhs_advanced = UpdateRhs();
 
       // If we have received enough inputs to produce the next output batch
       // (decided by IsUpToDateWithLhsRow), we will perform the join and
@@ -552,7 +550,7 @@ class AsofJoinNode : public ExecNode {
         dst.Emplace(state_, options_.tolerance);
         if (!lhs.Advance()) break;  // if we can't advance LHS, we're done for this batch
       } else {
-        if ((!any_advanced) && (state_.size() > 1)) break;  // need to wait for new data
+        if (!any_rhs_advanced) break;  // need to wait for new data
       }
     }
 
@@ -634,15 +632,51 @@ class AsofJoinNode : public ExecNode {
     process_thread_.join();
   }
 
+  static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
+      const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
+    std::vector<std::shared_ptr<arrow::Field>> fields;
+
+    // Take all non-key, non-time RHS fields
+    for (size_t j = 0; j < inputs.size(); ++j) {
+      const auto& input_schema = inputs[j]->output_schema();
+      for (int i = 0; i < input_schema->num_fields(); ++i) {
+        const auto field = input_schema->field(i);
+        if (field->name() == *options.on_key.name()) {
+          if (supported_on_types_.find(field->type()) == supported_on_types_.end()) {
+            return Status::Invalid("Unsupported type for on key: ", field->type());
+          }
+          // Only add on field from the left table
+          if (j == 0) {
+            fields.push_back(field);
+          }
+        } else if (field->name() == *options.by_key.name()) {
+          if (supported_by_types_.find(field->type()) == supported_by_types_.end()) {
+            return Status::Invalid("Unsupported type for by key: ", field->type());
+          }
+          // Only add by field from the left table
+          if (j == 0) {
+            fields.push_back(field);
+          }
+        } else {
+          if (supported_data_types_.find(field->type()) == supported_data_types_.end()) {
+            return Status::Invalid("Unsupported data type:", field->type());
+          }
+
+          fields.push_back(field);
+        }
+      }
+    }
+    return std::make_shared<arrow::Schema>(fields);
+  }
+
   static arrow::Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                        const ExecNodeOptions& options) {
-    AsofJoinSchema schema_mgr;
+    DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
 
     const auto& join_options = checked_cast<const AsofJoinNodeOptions&>(options);
-    std::shared_ptr<Schema> output_schema =
-        schema_mgr.MakeOutputSchema(inputs, join_options);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
+                          MakeOutputSchema(inputs, join_options));
 
-    DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
     std::vector<std::string> input_labels(inputs.size());
     input_labels[0] = "left";
     for (size_t i = 1; i < inputs.size(); ++i) {
@@ -715,6 +749,10 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
+  static const std::set<std::shared_ptr<DataType>> supported_on_types_;
+  static const std::set<std::shared_ptr<DataType>> supported_by_types_;
+  static const std::set<std::shared_ptr<DataType>> supported_data_types_;
+
   arrow::Future<> finished_;
   // InputStates
   // Each input state correponds to an input table
@@ -731,29 +769,6 @@ class AsofJoinNode : public ExecNode {
   // In-progress batches produced
   int batches_produced_ = 0;
 };
-
-std::shared_ptr<Schema> AsofJoinSchema::MakeOutputSchema(
-    const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
-  std::vector<std::shared_ptr<arrow::Field>> fields;
-  DCHECK_GT(inputs.size(), 1);
-
-  // Directly map LHS fields
-  for (int i = 0; i < inputs[0]->output_schema()->num_fields(); ++i)
-    fields.push_back(inputs[0]->output_schema()->field(i));
-
-  // Take all non-key, non-time RHS fields
-  for (size_t j = 1; j < inputs.size(); ++j) {
-    const auto& input_schema = inputs[j]->output_schema();
-    for (int i = 0; i < input_schema->num_fields(); ++i) {
-      const auto& name = input_schema->field(i)->name();
-      if ((name != *options.by_key.name()) && (name != *options.on_key.name())) {
-        fields.push_back(input_schema->field(i));
-      }
-    }
-  }
-
-  return std::make_shared<arrow::Schema>(fields);
-}
 
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
@@ -774,6 +789,12 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
 
   finished_ = arrow::Future<>::MakeFinished();
 }
+
+// Currently supported types
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_on_types_ = {int64()};
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_by_types_ = {int32()};
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_data_types_ = {
+    int32(), int64(), float32(), float64()};
 
 namespace internal {
 void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {

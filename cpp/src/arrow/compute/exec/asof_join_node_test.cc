@@ -107,14 +107,14 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
   auto r0_schema =
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())});
   auto r1_schema =
-      schema({field("time", int64()), field("key", int32()), field("r1_v0", float64())});
+      schema({field("time", int64()), field("key", int32()), field("r1_v0", float32())});
 
   auto exp_schema = schema({
       field("time", int64()),
       field("key", int32()),
       field("l_v0", float64()),
       field("r0_v0", float64()),
-      field("r1_v0", float64()),
+      field("r1_v0", float32()),
   });
 
   // Test three table join
@@ -125,6 +125,25 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
   exp_batches = GenerateBatchesFromString(exp_schema, exp_data);
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key",
                  tolerance);
+}
+
+void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema) {
+  BatchesWithSchema l_batches = GenerateBatchesFromString(l_schema, {R"([])"});
+  BatchesWithSchema r_batches = GenerateBatchesFromString(r_schema, {R"([])"});
+
+  auto exec_ctx =
+      arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+  AsofJoinNodeOptions join_options("time", "key", 0);
+  Declaration join{"asofjoin", join_options};
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
+
+  ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
 }
 
 class AsofJoinTest : public testing::Test {};
@@ -279,6 +298,25 @@ TEST(AsofJoinTest, TestEmpty5) {
                  {R"([])"},
                  /*exp*/
                  {R"([])"}, 1000);
+}
+
+TEST(AsofJoinTest, TestUnsupportedOntype) {
+  DoRunInvalidTypeTest(
+      schema({field("time", utf8()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", utf8()), field("key", int32()), field("r0_v0", float32())}));
+}
+
+TEST(AsofJoinTest, TestUnsupportedBytype) {
+  DoRunInvalidTypeTest(
+      schema({field("time", int64()), field("key", utf8()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", utf8()), field("r0_v0", float32())}));
+}
+
+TEST(AsofJoinTest, TestUnsupportedDatatype) {
+  // Utf8 is unsupported
+  DoRunInvalidTypeTest(
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", utf8())}));
 }
 
 }  // namespace compute
