@@ -97,8 +97,7 @@ Glossary
        ``List[Utf8]``. The type of an array determines how its values
        are laid out in memory according to :doc:`./Columnar`.
 
-       .. seealso:: :term:`logical type`, :term:`nested type`,
-                    :term:`primitive type`
+       .. seealso:: :term:`nested type`, :term:`primitive type`
 
    dictionary
        An array of values that accompany a :term:`dictionary-encoded
@@ -112,10 +111,11 @@ Glossary
        .. seealso:: :ref:`dictionary-encoded-layout`
 
    extension type
+   storage type
        A user-defined :term:`data type` that adds additional semantics
        to an existing data type.  This allows implementations that do
        not support a particular extension type to still handle the
-       underlying data type.
+       underlying data type (the "storage type").
 
        For example, a UUID can be represented as a 16-byte fixed-size
        binary type.
@@ -123,13 +123,16 @@ Glossary
        .. seealso:: :ref:`format_metadata_extension_types`
 
    field
-       A column in a :term:`record batch` or :term:`table`.  Consists
-       of a field name, a :term:`data type`, a flag indicating whether
-       the field is nullable or not, and optional key-value metadata.
+       A column in a :term:`schema`.  Consists of a field name, a
+       :term:`data type`, a flag indicating whether the field is
+       nullable or not, and optional key-value metadata.
 
    IPC format
        A specification for how to serialize Arrow data, so it can be
        sent between processes/machines, or persisted on disk.
+
+       .. seealso:: :term:`IPC file format`, :term:`IPC streaming
+                    format`
 
    IPC file format
    file format
@@ -148,14 +151,6 @@ Glossary
        A protocol for streaming Arrow data or for serializing data to
        a file, consisting of a stream of :term:`IPC messages <IPC
        message>`.
-
-   logical type
-       An application-facing semantic :term:`data type` that is
-       implemented as some :term:`physical layout`.
-
-       For example, 128-bit decimals may be stored with the
-       primitive/fixed size layout.  Strings may be stored using the
-       variable-size binary layout.
 
    physical layout
        A specification for how to arrange values in memory.
