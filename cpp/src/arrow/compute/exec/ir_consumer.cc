@@ -625,7 +625,7 @@ Result<Declaration> Convert(const ir::Relation& rel) {
             break;
         }
 
-        NullPlacement key_null_placement;
+        NullPlacement key_null_placement{};
         switch (key->ordering()) {
           case ir::Ordering::ASCENDING_THEN_NULLS:
           case ir::Ordering::DESCENDING_THEN_NULLS:
