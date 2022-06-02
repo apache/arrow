@@ -74,13 +74,6 @@ class ScannerRecordBatchReader : public RecordBatchReader {
                                     TaggedRecordBatchIterator delegate)
       : schema_(std::move(schema)), delegate_(std::move(delegate)) {}
 
-  ~ScannerRecordBatchReader() {
-    auto st = this->Close();
-    if (!st.ok()) {
-      ARROW_LOG(WARNING) << "ScannerRecordBatchReader failed in finalzing reading.";
-    }
-  }
-
   std::shared_ptr<Schema> schema() const override { return schema_; }
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     ARROW_ASSIGN_OR_RAISE(auto next, delegate_.Next());
