@@ -49,8 +49,8 @@ class FunctionMapping {
   Status AddSubstraitToArrow(std::string substrait_function_name, SubstraitToArrow conversion_func);
 
   public: 
-  SubstraitToArrow GetArrowFromSubstrait(std::string name) const { return substrait_to_arrow.at(name);}
-  ArrowToSubstrait GetSubstraitFromArrow(std::string name) const { return arrow_to_substrait.at(name);}
+  Result<SubstraitToArrow> GetArrowFromSubstrait(std::string name) const;
+  Result<ArrowToSubstrait> GetSubstraitFromArrow(std::string name) const;
 };
 
 
