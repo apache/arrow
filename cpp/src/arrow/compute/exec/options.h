@@ -398,7 +398,6 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   /// SelectK options
   SelectKOptions select_k_options;
 };
-/// @}
 
 /// \brief Adapt a Table as a sink node
 ///
@@ -411,6 +410,8 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
 
   std::shared_ptr<Table>* output_table;
 };
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow
