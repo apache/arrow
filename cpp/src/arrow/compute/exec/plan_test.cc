@@ -375,7 +375,7 @@ TEST(ExecPlan, ToString) {
 )");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  CountOptions options(CountOptions::ONLY_VALID);
+  std::shared_ptr<CountOptions> options = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
   ASSERT_OK(
       Declaration::Sequence(
           {
@@ -390,7 +390,7 @@ TEST(ExecPlan, ToString) {
                           }}},
               {"aggregate",
                AggregateNodeOptions{
-                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", &options}},
+                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", options}},
                    /*targets=*/{"multiply(i32, 2)", "multiply(i32, 2)"},
                    /*names=*/{"sum(multiply(i32, 2))", "count(multiply(i32, 2))"},
                    /*keys=*/{"bool"}}},
@@ -432,7 +432,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
       Declaration::Sequence(
           {
               union_node,
-              {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count", &options}},
+              {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count", options}},
                                                  /*targets=*/{"i32"},
                                                  /*names=*/{"count(i32)"},
                                                  /*keys=*/{}}},
@@ -1155,7 +1155,7 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
                                                      basic_data.gen(/*parallel=*/false,
                                                                     /*slow=*/false)}},
                         {"aggregate",
-                         AggregateNodeOptions{/*aggregates=*/{{"tdigest", options.get()}},
+                         AggregateNodeOptions{/*aggregates=*/{{"tdigest", options}},
                                               /*targets=*/{"i32"},
                                               /*names=*/{"tdigest(i32)"}}},
                         {"sink", SinkNodeOptions{&sink_gen}},
@@ -1182,7 +1182,7 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
                   {"source", SourceNodeOptions{data.schema, data.gen(/*parallel=*/false,
                                                                      /*slow=*/false)}},
                   {"aggregate",
-                   AggregateNodeOptions{/*aggregates=*/{{"hash_count", options.get()}},
+                   AggregateNodeOptions{/*aggregates=*/{{"hash_count", options}},
                                         /*targets=*/{"i32"},
                                         /*names=*/{"count(i32)"},
                                         /*keys=*/{"str"}}},

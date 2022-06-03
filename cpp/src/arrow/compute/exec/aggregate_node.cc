@@ -363,11 +363,11 @@ class GroupByNode : public ExecNode {
       output_fields[base + i] = input_schema->field(key_field_id);
     }
 
-    std::vector<std::unique_ptr<FunctionOptions>> owned_options;
+    std::vector<std::shared_ptr<FunctionOptions>> owned_options;
     owned_options.reserve(aggs.size());
     for (auto& agg : aggs) {
       owned_options.push_back(agg.options ? agg.options->Copy() : nullptr);
-      agg.options = owned_options.back().get();
+      agg.options = owned_options.back();
     }
 
     return input->plan()->EmplaceNode<GroupByNode>(
