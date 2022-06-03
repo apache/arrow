@@ -17,17 +17,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# RHEL <= 7 and Amazon Linux 2
 %if !%{defined cmake}
-%define cmake %{cmake3}
+%define cmake %cmake3
 %endif
-%if !%{defined cmake_build}
-%define cmake_build %{cmake3_build}
+
+# RHEL <= 7
+%if !%{defined cmake_build} && %{defined cmake3_build}
+%define cmake_build cmake3_build
 %endif
-%if !%{defined cmake_install}
-%define cmake_install %{cmake3_install}
+# Amazon Linux 2
+%if !%{defined cmake_build} && !%{defined cmake3_build}
+%define cmake_build %__cmake3 --build .
 %endif
-%if !%{defined __cmake_builddir}
-%define __cmake_builddir %{__cmake3_builddir}
+
+# RHEL <= 7
+%if !%{defined cmake_install} && %{defined cmake3_install}
+%define cmake_install %cmake3_install
+%endif
+# Amazon Linux 2
+%if !%{defined cmake_install} && !%{defined cmake3_install}
+%define cmake_install DESTDIR="%{buildroot}" %__cmake3 --install .
+%endif
+
+# RHEL <= 7
+%if !%{defined __cmake_builddir} && %{defined __cmake3_builddir}
+%define __cmake_builddir %__cmake3_builddir
+%endif
+# Amazon Linux 2
+%if !%{defined __cmake_builddir} && !%{defined __cmake3_builddir}
+%define __cmake_builddir .
 %endif
 
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
@@ -65,7 +84,7 @@
 %define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %define use_s3 (%{rhel} >= 8)
+# %%define use_s3 (%{rhel} >= 8)
 %define use_s3 0
 
 %define have_rapidjson (%{rhel} != 8)
