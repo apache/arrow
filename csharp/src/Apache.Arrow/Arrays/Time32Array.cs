@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
-using System;
 using System.IO;
 
 namespace Apache.Arrow
@@ -28,23 +27,13 @@ namespace Apache.Arrow
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time32Array"/> objects.
         /// </summary>
-        public class Builder : PrimitiveArrayBuilder<int, int, Time32Array, Builder>
+        public class Builder : PrimitiveArrayBuilder<int, Time32Array, Builder>
         {
-            internal class Time32Builder : PrimitiveArrayBuilder<int, Time32Array, Time32Builder>
-            {
-                internal Time32Builder (Time32Type type)
-                {
-                    DataType = type ?? throw new ArgumentException(nameof(type));
-                }
-
-                protected Time32Type DataType { get; }
-
-                protected override Time32Array Build(
-                    ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
-                    int length, int nullCount, int offset) =>
-                    new Time32Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
-            }
-
+            protected override Time32Array Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new Time32Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+            
             protected Time32Type DataType { get; }
 
             public Builder()
@@ -57,17 +46,9 @@ namespace Apache.Arrow
             /// Construct a new instance of the <see cref="Builder"/> class.
             /// </summary>
             public Builder(Time32Type type)
-                : base(new Time32Builder(type))
+                : base()
             {
                 DataType = type;
-            }
-
-            protected override int ConvertTo(int value)
-            {
-                // We must return the time since midnight in the specified unit
-                // Since there is no conversion required, return it as-is
-
-                return value;
             }
         }
 

@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
-using System;
 using System.IO;
 
 namespace Apache.Arrow
@@ -28,22 +27,12 @@ namespace Apache.Arrow
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time64Array"/> objects.
         /// </summary>
-        public class Builder : PrimitiveArrayBuilder<long, long, Time64Array, Builder>
+        public class Builder : PrimitiveArrayBuilder<long, Time64Array, Builder>
         {
-            internal class Time64Builder : PrimitiveArrayBuilder<long, Time64Array, Time64Builder>
-            {
-                internal Time64Builder (Time64Type type)
-                {
-                    DataType = type ?? throw new ArgumentException(nameof(type));
-                }
-
-                protected Time64Type DataType { get; }
-
-                protected override Time64Array Build(
-                    ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
-                    int length, int nullCount, int offset) =>
-                    new Time64Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
-            }
+            protected override Time64Array Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new Time64Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
 
             protected Time64Type DataType { get; }
 
@@ -60,14 +49,6 @@ namespace Apache.Arrow
                 : base(new Time64Builder(type))
             {
                 DataType = type;
-            }
-
-            protected override long ConvertTo(long value)
-            {
-                // We must return the time since midnight in the specified unit
-                // Since there is no conversion required, return it as-is
-
-                return value;
             }
         }
 
