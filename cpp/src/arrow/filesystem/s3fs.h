@@ -130,7 +130,7 @@ struct ARROW_EXPORT S3Options {
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
 
-  /// Whether to allow creation or deletion of buckets
+  /// Whether to allow creation of buckets
   ///
   /// When S3FileSystem creates new buckets, it does not pass any non-default settings.
   /// In AWS S3, the bucket and all objects will be not publicly visible, and there
