@@ -94,8 +94,9 @@ Creating a Release Candidate
 
 These are the different steps that are required to create a release candidate.
 
-The initial Release Candidate branch is created from master. Follow up Release
-Candidates will be created from a maintenance branch.
+For the initial Release Candidate, we will create a maintenance branch from master.
+Follow up Release Candidates will update the maintenance branch cherry-picking
+specific commits.
 
 We have implemented a Feature Freeze policy between Release Candidates.
 This means that, in general, we will only add fixes between Release Candidates.
@@ -129,7 +130,7 @@ Create or update the corresponding maintenance branches:
             # Push the updated maintenance branch to the remote repository
             git push -u apache maint-X.Y.Z
 
-Create the rest of the Release branches.
+Create the release candidate and release branch from the updated maintenance branch.
 
 .. code-block::
 
