@@ -99,7 +99,8 @@ Candidates will be created from a maintenance branch.
 
 We have implemented a Feature Freeze policy between Release Candidates.
 This means that, in general, we will only add fixes between Release Candidates.
-In rare cases, critical features can be added between release candidates, if  there is community consensus.
+In rare cases, critical features can be added between release candidates, if
+there is community consensus.
 
 Create or update the corresponding maintenance branches:
 
@@ -109,8 +110,11 @@ Create or update the corresponding maintenance branches:
 
       .. code-block::
 
-            # From an up to date master branch execute
+            # Execute the following from an up to date master branch.
+            # This will create a branch locally called maint-X.Y.Z
             archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --execute
+            # Push the maintenance branch to the remote repository
+            git push -u apache maint-X.Y.Z
 
    .. tab-item:: Follow up Release Candidates
 
@@ -122,13 +126,14 @@ Create or update the corresponding maintenance branches:
             archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue
             # Update the maintenance branch with the previous commits
             archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue --execute
+            # Push the updated maintenance branch to the remote repository
+            git push -u apache maint-X.Y.Z
 
 Create the rest of the Release branches.
 
 .. code-block::
 
-    # Checkout release branch
-    # Use master for major releases
+    # Create the release branch from the updated maintenance branch.
     git checkout -b release-X.Y.Z maint-X.Y.Z
     
     # Create branch for the release candidate and place the necessary commits then create git tag
