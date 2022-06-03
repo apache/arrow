@@ -110,7 +110,8 @@ jobs:
 
           repo_dirs <- list.dirs(repo_root)
 
-          pkg_dirs <- repo_dirs[grepl(".+contrib\\/\\d.+", repo_dirs)]
+          pkg_dirs <- grep(".+contrib\\/\\d.+", repo_dirs, value = TRUE)
+
 
           for (dir in pkg_dirs) {
             on_win <- grepl("windows", dir)
