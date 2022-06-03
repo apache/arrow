@@ -20,8 +20,8 @@
 #include <algorithm>
 #include <chrono>
 
-#include "arrow/python/platform.h"
-#include "arrow/python/visibility.h"
+#include "platform.h"
+#include "visibility.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"

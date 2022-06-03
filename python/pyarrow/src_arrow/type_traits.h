@@ -19,12 +19,12 @@
 
 #pragma once
 
-#include "arrow/python/platform.h"
+#include "platform.h"
 
 #include <cstdint>
 #include <limits>
 
-#include "arrow/python/numpy_interop.h"
+#include "numpy_interop.h"
 
 #include <numpy/halffloat.h>
 

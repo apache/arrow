@@ -21,7 +21,7 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/python/platform.h"
+#include "platform.h"
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
@@ -30,12 +30,12 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/optional.h"
 
-#include "arrow/python/arrow_to_pandas.h"
-#include "arrow/python/decimal.h"
-#include "arrow/python/helpers.h"
-#include "arrow/python/numpy_convert.h"
-#include "arrow/python/numpy_interop.h"
-#include "arrow/python/python_to_arrow.h"
+#include "arrow_to_pandas.h"
+#include "decimal.h"
+#include "helpers.h"
+#include "numpy_convert.h"
+#include "numpy_interop.h"
+#include "python_to_arrow.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/python/platform.h"  // IWYU pragma: export
+#include "platform.h"  // IWYU pragma: export
 
 #include <numpy/numpyconfig.h>  // IWYU pragma: export
 

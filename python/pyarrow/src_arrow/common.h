@@ -21,8 +21,8 @@
 #include <utility>
 
 #include "arrow/buffer.h"
-#include "arrow/python/pyarrow.h"
-#include "arrow/python/visibility.h"
+#include "pyarrow.h"
+#include "visibility.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 

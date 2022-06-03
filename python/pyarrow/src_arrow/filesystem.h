@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/python/common.h"
-#include "arrow/python/visibility.h"
+#include "common.h"
+#include "visibility.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {

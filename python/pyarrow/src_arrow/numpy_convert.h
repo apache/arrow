@@ -20,14 +20,14 @@
 
 #pragma once
 
-#include "arrow/python/platform.h"
+#include "platform.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/python/visibility.h"
+#include "visibility.h"
 #include "arrow/sparse_tensor.h"
 
 namespace arrow {

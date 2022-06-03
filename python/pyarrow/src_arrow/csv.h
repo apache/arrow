@@ -23,7 +23,7 @@
 #include <vector>
 
 #include "arrow/csv/options.h"
-#include "arrow/python/common.h"
+#include "common.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {

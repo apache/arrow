@@ -18,9 +18,9 @@
 #include <algorithm>
 #include <limits>
 
-#include "arrow/python/common.h"
-#include "arrow/python/decimal.h"
-#include "arrow/python/helpers.h"
+#include "common.h"
+#include "decimal.h"
+#include "helpers.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"

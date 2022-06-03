@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "arrow/python/platform.h"
+#include "platform.h"
 
 #include <memory>
 
-#include "arrow/python/visibility.h"
+#include "visibility.h"
 
 #include "arrow/sparse_tensor.h"
 

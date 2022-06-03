@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "arrow/ipc/options.h"
-#include "arrow/python/visibility.h"
+#include "visibility.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 

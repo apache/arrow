@@ -23,7 +23,7 @@
 
 #include "arrow/flight/api.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/python/common.h"
+#include "common.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)  // Windows
 #if defined(_MSC_VER)

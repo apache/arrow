@@ -19,7 +19,36 @@
 # arrow_python
 #
 
+cmake_minimum_required(VERSION 3.5)
+
+# RPATH settings on macOS do not affect install_name.
+# https://cmake.org/cmake/help/latest/policy/CMP0068.html
+if(POLICY CMP0068)
+  cmake_policy(SET CMP0068 NEW)
+endif()
+
+# Define
+# ARROW_SOURCE_DIR: location of arrow/cpp
+# CMAKE_MODULE_PATH: location of cmake_modules in python
+get_filename_component(PYARROW_SOURCE_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
+get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
+get_filename_component(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR} DIRECTORY)
+set(ARROW_SOURCE_DIR "${ARROW_SOURCE_DIR}/cpp")
+set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules")
+
+# Need to set to ARRROW_VERSION before finding Arrow package!
+project(arrow_python VERSION 9.0.0)
+
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+find_package(Arrow REQUIRED)
 find_package(Python3Alt 3.7 REQUIRED)
+
+# Needed due to
+# CMake Error: INSTALL(EXPORT) given unknown export "arrow_python_targets"
+option(ARROW_BUILD_SHARED "Link to the Arrow shared library" ON)
 
 add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
@@ -50,6 +79,14 @@ set(ARROW_PYTHON_SRCS
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
 
+# Set necessary components on (from arrow/cpp/CMakeLists.txt, end of the file)
+set(ARROW_COMPUTE ON)
+set(ARROW_CSV ON)
+set(ARROW_DATASET ON)
+set(ARROW_FILESYSTEM ON)
+set(ARROW_HDFS ON)
+set(ARROW_JSON ON)
+
 if(ARROW_CSV)
   list(APPEND ARROW_PYTHON_SRCS csv.cc)
 endif()
@@ -62,13 +99,64 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND ARROW_PYTHON_SRCS parquet_encryption.cc)
 endif()
 
-set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
+# Link to arrow dependecies
+if(ARROW_LINK_SHARED)
+  set(ARROW_PYTHON_DEPENDENCIES arrow_shared)
+else()
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+  set(ARROW_PYTHON_DEPENDENCIES arrow_static Threads::Threads)
+endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE pyarrow.cc
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
+
+#
+# Compiler stuff
+#
+
+include(GNUInstallDirs)
+
+# This ensures that things like gnu++11 get passed correctly
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
+
+# We require a C++11 compliant compiler
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+#
+# Linker flags
+#
+
+# Localize thirdparty symbols using a linker version script. This hides them
+# from the client application. The OS X linker does not support the
+# version-script option.
+if(CMAKE_VERSION VERSION_LESS 3.18)
+  if(APPLE OR WIN32)
+    set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT FALSE)
+  else()
+    set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT TRUE)
+  endif()
+else()
+  include(CheckLinkerFlag)
+  check_linker_flag(CXX
+                    "-Wl,--version-script=${ARROW_SOURCE_DIR}/cpp/src/arrow/symbols.map"
+                    CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+endif()
+
+# Need to set ARROW_VERSION_SCRIPT_FLAGS for add_arrow_lib
+if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+  set(ARROW_VERSION_SCRIPT_FLAGS
+      "-Wl,--version-script=${ARROW_SOURCE_DIR}/cpp/src/arrow/symbols.map")
+endif()
+
+#
+# shred/static link libs
+#
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared)
 set(ARROW_PYTHON_SHARED_PRIVATE_LINK_LIBS)
@@ -87,6 +175,14 @@ endif()
 
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
+# Inlude macros needed to find and use add_arrow_lib function
+include(BuildUtils)
+include(CMakePackageConfigHelpers)
+
+# Set the output directory for cmake module
+# (CMAKE_INSTALL_PREFIX = python/build/dist! should be set in setup.py!)
+set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+
 add_arrow_lib(arrow_python
               CMAKE_PACKAGE_NAME
               ArrowPython
@@ -95,13 +191,13 @@ add_arrow_lib(arrow_python
               SOURCES
               ${ARROW_PYTHON_SRCS}
               PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>"
+              "$<$<COMPILE_LANGUAGE:CXX>:pch.h>"
               OUTPUTS
               ARROW_PYTHON_LIBRARIES
               DEPENDENCIES
               ${ARROW_PYTHON_DEPENDENCIES}
               SHARED_LINK_FLAGS
-              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in line 95
               SHARED_LINK_LIBS
               ${ARROW_PYTHON_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
@@ -139,7 +235,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
                 DEPENDENCIES
                 flight_grpc_gen
                 SHARED_LINK_FLAGS
-                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in line 95
                 SHARED_LINK_LIBS
                 arrow_python_shared
                 arrow_flight_shared
