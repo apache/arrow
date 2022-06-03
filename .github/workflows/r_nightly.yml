@@ -33,8 +33,6 @@ on:
 
 jobs:
   upload:
-    env:
-      PREFIX: ${{ github.event.inputs.prefix || ''}}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -62,6 +60,8 @@ jobs:
         run: pip install -e arrow/dev/archery[all]
       - run: mkdir -p binaries
       - name: Download Artifacts
+        env:
+          PREFIX: ${{ github.event.inputs.prefix || ''}}
         run: |
           if [ -z $PREFIX ]; then
             PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
@@ -72,16 +72,17 @@ jobs:
 
           if [ -n "$(ls -A binaries/*/*/)" ]; then
             echo "Found files!"
-            echo "GOT_FILES=true" >> $GITHUB_ENV
           else
             echo "No files found. Stopping upload."
-            echo "GOT_FILES=false" >> $GITHUB_ENV
+            exit 1
           fi
       - name: Build Repository
-        if: env.GOT_FILES == 'true'
         shell: Rscript {0}
         run: |
+          # folder that we rsync to nightlies.apache.org
           repo_root <- "repo"
+          # The binaries are in a nested dir 
+          # so we need to find the correct path.
           art_path <- list.files("binaries",
             recursive = TRUE,
             include.dirs = TRUE,
@@ -91,7 +92,11 @@ jobs:
 
           current_path <- list.files(art_path, full.names = TRUE, recursive = TRUE)
           files <- sub("r-(pkg|lib)", repo_root, current_path)
+
+          # decode contrib.url from artifact name:
+          # bin__windows__contrib__4.1 -> bin/windows/contrib/4.1
           new_paths <- gsub("__", "/", files)
+          # strip superfluous nested dirs
           new_paths <- sub(art_path, ".", new_paths)
           dirs <- dirname(new_paths)
           dir_result <- sapply(dirs, dir.create, recursive = TRUE)
@@ -109,7 +114,7 @@ jobs:
           tools::write_PACKAGES(file.path(repo_root, "src/contrib"), type = "source", verbose = TRUE)
 
           repo_dirs <- list.dirs(repo_root)
-
+          # find dirs with binary R packages: e.g. */contrib/4.1
           pkg_dirs <- grep(".+contrib\\/\\d.+", repo_dirs, value = TRUE)
 
 
@@ -118,10 +123,8 @@ jobs:
             tools::write_PACKAGES(dir, type = ifelse(on_win, "win.binary", "mac.binary"), verbose = TRUE )
           }
       - name: Show repo contents
-        if: env.GOT_FILES == 'true'
         run: ls -R repo
       - name: Upload Files
-        if: env.GOT_FILES == 'true'
         uses: burnett01/rsync-deployments@5.2
         with:
           switches: -avzr

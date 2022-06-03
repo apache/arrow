@@ -312,8 +312,9 @@ jobs:
         shell: Rscript {0}
         run: |
           file_paths <- list.files("artifacts", include.dirs = FALSE, recursive = TRUE)
-          new_names <- paste0("binaries/", sub("/","__",file_paths))
+          new_names <- file.path("binaries", sub("/", "__", file_paths))
           dir.create("binaries", showWarnings = FALSE)
-          file.copy(paste0("artifacts/", file_paths), new_names)
+          file.copy(file.path("artifacts", file_paths), new_names)
 
       {{ macros.github_upload_releases("binaries/r-*")|indent }}
+          
