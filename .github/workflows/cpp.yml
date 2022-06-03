@@ -122,6 +122,7 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      ARROW_AZURE: ON
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
@@ -199,6 +200,7 @@ jobs:
             name: Windows 2019
             generator: Visual Studio 16 2019
     env:
+      ARROW_AZURE: ON
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
@@ -268,6 +270,7 @@ jobs:
           - 32
           - 64
     env:
+      ARROW_AZURE: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
