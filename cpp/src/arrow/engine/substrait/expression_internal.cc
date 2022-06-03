@@ -164,6 +164,15 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       return arrow_function(scalar_fn);                      
     }
 
+    case substrait::Expression::kEnum: {
+      auto enum_expr = expr.enum_();
+      if(enum_expr.has_specified()){
+      return compute::literal(std::move(enum_expr.specified()));
+    } else {
+      return Status::Invalid("Substrait Enum value not specified");
+    }
+    }
+
     default:
       break;
   }
