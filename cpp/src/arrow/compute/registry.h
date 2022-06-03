@@ -110,7 +110,6 @@ class ARROW_EXPORT FunctionRegistry {
   explicit FunctionRegistry(FunctionRegistryImpl* impl);
 
   class NestedFunctionRegistryImpl;
-  friend class NestedFunctionRegistryImpl;
 };
 
 /// \brief Return the process-global function registry

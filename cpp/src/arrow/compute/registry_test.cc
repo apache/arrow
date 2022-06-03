@@ -54,7 +54,7 @@ TEST_P(TestRegistry, Basics) {
   int n_funcs = get_num_funcs();
   auto get_func_names = std::get<2>(GetParam());
   std::vector<std::string> func_names = get_func_names();
-  ASSERT_EQ(n_funcs + 0, registry_->num_functions());
+  ASSERT_EQ(n_funcs, registry_->num_functions());
 
   std::shared_ptr<Function> func = std::make_shared<ScalarFunction>(
       "f1", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
@@ -86,6 +86,7 @@ TEST_P(TestRegistry, Basics) {
   for (auto name : {"f0", "f1"}) {
     expected_names.push_back(name);
   }
+  std::sort(expected_names.begin(), expected_names.end());
   ASSERT_EQ(expected_names, registry_->GetFunctionNames());
 
   // Aliases
@@ -145,22 +146,23 @@ TEST(TestRegistry, RegisterTempAliases) {
   }
 }
 
-template <int N>
+template <int kExampleSeqNum>
 class ExampleOptions : public FunctionOptions {
  public:
   explicit ExampleOptions(std::shared_ptr<Scalar> value);
   std::shared_ptr<Scalar> value;
 };
 
-template <int N>
+template <int kExampleSeqNum>
 class ExampleOptionsType : public FunctionOptionsType {
  public:
   static const FunctionOptionsType* GetInstance() {
-    static std::unique_ptr<FunctionOptionsType> instance(new ExampleOptionsType<N>());
+    static std::unique_ptr<FunctionOptionsType> instance(
+        new ExampleOptionsType<kExampleSeqNum>());
     return instance.get();
   }
   const char* type_name() const override {
-    static std::string name = std::string("example") + std::to_string(N);
+    static std::string name = std::string("example") + std::to_string(kExampleSeqNum);
     return name.c_str();
   }
   std::string Stringify(const FunctionOptions& options) const override {
@@ -171,13 +173,14 @@ class ExampleOptionsType : public FunctionOptionsType {
     return true;
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
-    const auto& opts = static_cast<const ExampleOptions<N>&>(options);
-    return arrow::internal::make_unique<ExampleOptions<N>>(opts.value);
+    const auto& opts = static_cast<const ExampleOptions<kExampleSeqNum>&>(options);
+    return arrow::internal::make_unique<ExampleOptions<kExampleSeqNum>>(opts.value);
   }
 };
-template <int N>
-ExampleOptions<N>::ExampleOptions(std::shared_ptr<Scalar> value)
-    : FunctionOptions(ExampleOptionsType<N>::GetInstance()), value(std::move(value)) {}
+template <int kExampleSeqNum>
+ExampleOptions<kExampleSeqNum>::ExampleOptions(std::shared_ptr<Scalar> value)
+    : FunctionOptions(ExampleOptionsType<kExampleSeqNum>::GetInstance()),
+      value(std::move(value)) {}
 
 TEST(TestRegistry, RegisterTempFunctionOptionsType) {
   auto default_registry = GetFunctionRegistry();
