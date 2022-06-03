@@ -669,8 +669,12 @@ SubstraitToArrow substrait_lte_to_arrow = [] (const substrait::Expression::Scala
   return arrow::compute::call("less_equal", substrait_convert_arguments(call));
 };
 
+SubstraitToArrow substrait_gte_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  return arrow::compute::call("greater_equal", substrait_convert_arguments(call));
+};
+
 SubstraitToArrow substrait_not_equal_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
-  return arrow::compute::call("greater", substrait_convert_arguments(call));
+  return arrow::compute::call("not_equal", substrait_convert_arguments(call));
 };
 
 SubstraitToArrow substrait_equal_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
@@ -693,6 +697,62 @@ SubstraitToArrow substrait_is_not_distinct_from_to_arrow = [] (const substrait::
     return arrow::compute::call("not_equal", {null_check_1, null_check_2});
   }
   return arrow::compute::call("not_equal", func_args);
+};
+
+ArrowToSubstrait arrow_less_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("lt"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_greater_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("gt"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_less_equal_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("lte"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_greater_equal_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("gte"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_equal_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("equal"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_not_equal_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("not_equal"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_is_null_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("is_null"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_is_valid_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("is_not_null"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
 };
 
 }  // namespace engine
