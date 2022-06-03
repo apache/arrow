@@ -84,8 +84,7 @@ class Issue:
 
 class Jira(JIRA):
 
-    def __init__(self, token=None,
-                 url='https://issues.apache.org/jira'):
+    def __init__(self, url='https://issues.apache.org/jira'):
         super().__init__(url)
 
     def project_version(self, version_string, project='ARROW'):
