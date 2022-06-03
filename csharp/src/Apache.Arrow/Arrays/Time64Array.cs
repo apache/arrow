@@ -46,7 +46,7 @@ namespace Apache.Arrow
             /// Construct a new instance of the <see cref="Builder"/> class.
             /// </summary>
             public Builder(Time64Type type)
-                : base(new Time64Builder(type))
+                : base()
             {
                 DataType = type;
             }
