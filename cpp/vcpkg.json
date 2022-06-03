@@ -47,6 +47,7 @@
     "sqlite3",
     "thrift",
     "utf8proc",
+    "xsimd",
     "zlib",
     "zstd"
   ],

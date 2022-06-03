@@ -4437,6 +4437,9 @@ macro(build_awssdk)
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=OFF
+      # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1582
+      -DCMAKE_CXX_FLAGS="${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+      -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}="${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
       -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
       -DCMAKE_INSTALL_LIBDIR=${AWSSDK_LIB_DIR}
       -DENABLE_TESTING=OFF
@@ -4530,20 +4533,11 @@ macro(build_awssdk)
                       DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
-  set(AWSSDK_PATCH_COMMAND)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
-                                              "10")
-    # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1750
-    set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
-                             "<SOURCE_DIR>/cmake/compiler_settings.cmake")
-  endif()
-
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
