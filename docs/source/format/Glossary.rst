@@ -131,8 +131,8 @@ Glossary
        A specification for how to serialize Arrow data, so it can be
        sent between processes/machines, or persisted on disk.
 
-       .. seealso:: :term:`IPC file format`, :term:`IPC streaming
-                    format`
+       .. seealso:: :term:`IPC file format`,
+                    :term:`IPC streaming format`
 
    IPC file format
    file format
