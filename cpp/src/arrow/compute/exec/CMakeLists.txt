@@ -43,6 +43,8 @@ add_arrow_compute_test(util_test
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 
+add_arrow_benchmark(project_benchmark PREFIX "arrow-compute")
+
 add_arrow_benchmark(tpch_benchmark PREFIX "arrow-compute")
 
 if(ARROW_BUILD_OPENMP_BENCHMARKS)
