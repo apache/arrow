@@ -2,7 +2,7 @@ local({
   .pick_cran <- function() {
     # Return a CRAN repo URL, preferring RSPM binaries if available for this OS
     rspm_template <- "https://packagemanager.rstudio.com/cran/__linux__/%s/latest"
-    supported_os <- c("focal", "xenial", "bionic", "centos7", "centos8", "opensuse42", "opensuse15", "opensuse152")
+    supported_os <- c("focal", "xenial", "bionic", "centos7", "centos8" "opensuse153")
 
     if (nzchar(Sys.which("lsb_release"))) {
       os <- tolower(system("lsb_release -cs", intern = TRUE))
