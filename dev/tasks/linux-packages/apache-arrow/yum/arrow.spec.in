@@ -46,7 +46,7 @@
 %endif
 # Amazon Linux 2
 %if !%{defined __cmake_builddir} && !%{defined __cmake3_builddir}
-%define __cmake_builddir .
+%define __cmake_builddir build
 %endif
 
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
