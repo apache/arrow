@@ -4438,8 +4438,8 @@ macro(build_awssdk)
       ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=OFF
       # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1582
-      -DCMAKE_CXX_FLAGS="${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
-      -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}="${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+      "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
       -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
       -DCMAKE_INSTALL_LIBDIR=${AWSSDK_LIB_DIR}
       -DENABLE_TESTING=OFF
