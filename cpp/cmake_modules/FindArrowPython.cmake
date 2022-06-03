@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# - Find Arrow Python (arrow/python/api.h, libarrow_python.a, libarrow_python.so)
+# - Find Arrow Python (python/pyarrrow/src_arrow/api.h, libarrow_python.a, libarrow_python.so)
 #
 # This module requires Arrow from which it uses
 #  arrow_find_package()
@@ -46,8 +46,9 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
+  message(STATUS "CPYARROW_HOME: ${CPYARROW_HOME}")
   arrow_find_package(ARROW_PYTHON
-                     "${ARROW_HOME}"
+                     "${CPYARROW_HOME}"
                      arrow_python
                      arrow/python/api.h
                      ArrowPython
