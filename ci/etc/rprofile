@@ -21,7 +21,7 @@ local({
         return(sprintf(rspm_template, os))
       } else {
         names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
-        if (vals["ID"] == "opensuse") {
+        if (grepl("opensuse", vals["ID"])) {
           version <- sub('^"?([0-9]+)\\.?([0-9]+).*"?.*$', "\\1\\2", vals["VERSION_ID"])
           os <- paste0("opensuse", version)
           if (os %in% supported_os) {
