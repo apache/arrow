@@ -108,7 +108,8 @@ jobs:
 
           tools::write_PACKAGES(file.path(repo_root, "src/contrib"), type = "source", verbose = TRUE)
 
-          repo_dirs <- list.dirs("repo")
+          repo_dirs <- list.dirs(repo_root)
+
           pkg_dirs <- repo_dirs[grepl(".+contrib\\/\\d.+", repo_dirs)]
 
           for (dir in pkg_dirs) {
