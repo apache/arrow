@@ -94,12 +94,12 @@ Creating a Release Candidate
 
 These are the different steps that are required to create a release candidate.
 
-The initial Release Candidate branch is merged from master. Follow up Release
+The initial Release Candidate branch is created from master. Follow up Release
 Candidates will be created from a maintenance branch.
 
 We have implemented a Feature Freeze policy between Release Candidates.
 This means that, in general, we will only add fixes between Release Candidates.
-Only specific features, if there is community consensus, will be merged to further Release Candidates.
+In rare cases, critical features can be added between release candidates, if  there is community consensus.
 
 Create or update the corresponding maintenance branches:
 
