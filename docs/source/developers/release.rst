@@ -70,10 +70,10 @@ generated properly.
     - Have Docker and docker-compose installed.
 
 
-Creating a Release Candidate
-============================
+Before creating a Release Candidate
+===================================
 
-These are the different steps that are required to create a release candidate.
+Ensure local tags and branches are removed, gpg-agent is set and JIRA tickets are correctly assigned.
 
 .. code-block::
 
@@ -87,12 +87,51 @@ These are the different steps that are required to create a release candidate.
     # Curate the release
     # The end of the generated report shows the jira tickets with wrong version number assigned.
     archery release curate <version>
-    
+
+
+Creating a Release Candidate
+============================
+
+These are the different steps that are required to create a release candidate.
+
+The initial Release Candidate branch is merged from master. Follow up Release
+Candidates will be created from a maintenance branch.
+
+We have implemented a Feature Freeze policy between Release Candidates.
+This means that, in general, we will only add fixes between Release Candidates.
+Only specific features, if there is community consensus, will be merged to further Release Candidates.
+
+Create or update the corresponding maintenance branches:
+
+.. tab-set::
+
+   .. tab-item:: Initial Release Candidate
+
+      .. code-block::
+
+            # From an up to date master branch execute
+            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --execute
+
+
+
+   .. tab-item:: Follow up Release Candidates
+
+      .. code-block::
+
+            # First run on dry-mode to see what are the commits that will be cherry-pick.
+            # If there are commits that we don't want to get applied ensure the version on
+            # JIRA is set to the following release.
+            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue
+            # Update the maintenance branch with the previous commits
+            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue --execute
+
+Create the rest of the Release branches.
+
+.. code-block::
+
     # Checkout release branch
     # Use master for major releases
-    git checkout -b release-4.0.0 master
-    # Use maintenance branches like maint-4.0.x for patch releases
-    git checkout -b release-4.0.1 maint-4.0.x
+    git checkout -b release-X.Y.Z maint-X.Y.Z
     
     # Create branch for the release candidate and place the necessary commits then create git tag
     # on OSX use gnu-sed with homebrew: brew install gnu-sed (and export to $PATH)
