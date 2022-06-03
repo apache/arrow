@@ -97,7 +97,7 @@ else
 int
 main(void)
 {
-  arrow::adapters::orc::ORCFileReader::Open(nullptr, nullptr, nullptr);
+  arrow::adapters::orc::ORCFileWriter::Open(nullptr);
   return 0;
 }
   '''

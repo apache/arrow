@@ -652,13 +652,14 @@ tasks:
   {% endfor %}
 {% endfor %}
 
-{% for target in ["almalinux-8",
+{% for target in ["almalinux-9",
+                  "almalinux-8",
                   "amazon-linux-2",
                   "centos-8-stream",
                   "centos-7"] %}
-  {% set is_rhel8_based = (target in ["almalinux-8", "centos-8-stream"]) %}
+  {% set is_rhel7_based = (target in ["amazon-linux-2", "centos-7"]) %}
   {% for architecture in ["amd64", "arm64"] %}
-    {% if not (target in ["amazon-linux-2", "centos-7"] and architecture == "arm64") %}
+    {% if not (is_rhel7_based and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:
       {% if architecture == "amd64" %}
     ci: github
@@ -684,20 +685,20 @@ tasks:
       - arrow-dataset-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-dataset-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -708,17 +709,17 @@ tasks:
       {% endif %}
       - arrow-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% if target != "amazon-linux-2" %}
       - arrow-python-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-        {% if is_rhel8_based %}
+        {% if not is_rhel7_based %}
       - arrow-python-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-python-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-python-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -729,7 +730,7 @@ tasks:
       {% if architecture == "amd64" %}
       - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
       {% endif %}
-      {% if is_rhel8_based and architecture == "amd64" %}
+      {% if not is_rhel7_based and architecture == "amd64" %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -741,26 +742,26 @@ tasks:
       - parquet-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - parquet-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - parquet-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - parquet[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - parquet[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - parquet[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - parquet[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - plasma[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - plasma[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - plasma[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - plasma[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - plasma-store-server-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - plasma-store-server-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm

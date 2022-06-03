@@ -430,6 +430,8 @@ VERSION=#{@deb_upstream_version}
     [
       "almalinux-8",
       # "almalinux-8-arch64",
+      "almalinux-9",
+      # "almalinux-9-arch64",
       "amazon-linux-2",
       # "amazon-linux-2-arch64",
       "centos-8-stream",

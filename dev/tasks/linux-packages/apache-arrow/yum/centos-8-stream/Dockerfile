@@ -60,7 +60,8 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    thrift-devel \
     utf8proc-devel \
-    vala-devel \
+    vala \
     zlib-devel && \
   dnf clean ${quiet} all
