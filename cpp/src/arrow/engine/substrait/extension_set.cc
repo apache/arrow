@@ -557,6 +557,10 @@ SubstraitToArrow substrait_multiply_to_arrow = [] (const substrait::Expression::
   }
 };
 
+SubstraitToArrow substrait_modulus_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  return arrow::compute::call("abs", substrait_convert_arguments(call));
+};
+
 ArrowToSubstrait arrow_add_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("add"));
@@ -597,6 +601,13 @@ ArrowToSubstrait arrow_unchecked_multiply_to_substrait = [] (const arrow::comput
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("multiply"));
   substrait_call.set_function_reference(function_reference);
   return arrow_convert_arithmetic_arguments(call, substrait_call, ext_set_, "SILENT");
+};
+
+ArrowToSubstrait arrow_abs_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("modulus"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
 };
 
 // Boolean Functions mapping
