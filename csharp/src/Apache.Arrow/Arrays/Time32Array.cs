@@ -25,7 +25,6 @@ namespace Apache.Arrow
     /// </summary>
     public class Time32Array : PrimitiveArray<int>
     {
-        private static readonly int seconds_in_millisecond = 1_000;
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time32Array"/> objects.
         /// </summary>
@@ -107,7 +106,7 @@ namespace Apache.Arrow
             return unit switch
             {
                 TimeUnit.Second => value,
-                TimeUnit.Millisecond => value / seconds_in_millisecond,
+                TimeUnit.Millisecond => value / 1_000,
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
             };
         }
@@ -129,7 +128,7 @@ namespace Apache.Arrow
             var unit = ((Time32Type)Data.DataType).Unit;
             return unit switch
             {
-                TimeUnit.Second => value * seconds_in_millisecond,
+                TimeUnit.Second => value * 1_000,
                 TimeUnit.Millisecond => value,
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
             };

@@ -63,8 +63,6 @@ namespace Apache.Arrow.Tests
 
                 //builder.Field(CreateField(HalfFloatType.Default));
                 //builder.Field(CreateField(StringType.Default));
-                //builder.Field(CreateField(Time32Type.Default));
-                //builder.Field(CreateField(Time64Type.Default));
             }
 
             Schema schema = builder.Build();
