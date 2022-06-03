@@ -14,17 +14,17 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "arrow/python/datetime.h"
+#include "datetime.h"
 
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
 
 #include "arrow/array.h"
-#include "arrow/python/arrow_to_python_internal.h"
-#include "arrow/python/common.h"
-#include "arrow/python/helpers.h"
-#include "arrow/python/platform.h"
+#include "arrow_to_python_internal.h"
+#include "common.h"
+#include "helpers.h"
+#include "platform.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

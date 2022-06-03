@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/inference.h"
-#include "arrow/python/numpy_interop.h"
+#include "inference.h"
+#include "numpy_interop.h"
 
 #include <datetime.h>
 
@@ -31,11 +31,11 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/python/datetime.h"
-#include "arrow/python/decimal.h"
-#include "arrow/python/helpers.h"
-#include "arrow/python/iterators.h"
-#include "arrow/python/numpy_convert.h"
+#include "datetime.h"
+#include "decimal.h"
+#include "helpers.h"
+#include "iterators.h"
+#include "numpy_convert.h"
 
 namespace arrow {
 namespace py {

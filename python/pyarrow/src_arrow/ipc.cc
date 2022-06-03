@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/ipc.h"
+#include "ipc.h"
 
 #include <memory>
 
-#include "arrow/python/pyarrow.h"
+#include "pyarrow.h"
 
 namespace arrow {
 namespace py {

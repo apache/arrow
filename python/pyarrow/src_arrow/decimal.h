@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "arrow/python/visibility.h"
+#include "visibility.h"
 #include "arrow/type.h"
 
 namespace arrow {

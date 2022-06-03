@@ -19,8 +19,8 @@
 
 #include <memory>
 
-#include "arrow/python/common.h"
-#include "arrow/python/visibility.h"
+#include "common.h"
+#include "visibility.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"

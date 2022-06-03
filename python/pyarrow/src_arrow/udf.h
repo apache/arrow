@@ -20,11 +20,11 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
-#include "arrow/python/platform.h"
+#include "platform.h"
 
-#include "arrow/python/common.h"
-#include "arrow/python/pyarrow.h"
-#include "arrow/python/visibility.h"
+#include "common.h"
+#include "pyarrow.h"
+#include "visibility.h"
 
 namespace arrow {
 

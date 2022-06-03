@@ -24,7 +24,7 @@
 #include "arrow/datum.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/json_simple.h"
-#include "arrow/python/gdb.h"
+#include "gdb.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"

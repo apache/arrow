@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/csv.h"
+#include "csv.h"
 
 #include <memory>
 
-#include "arrow/python/common.h"
+#include "common.h"
 
 namespace arrow {
 

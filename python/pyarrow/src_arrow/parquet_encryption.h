@@ -19,8 +19,8 @@
 
 #include <string>
 
-#include "arrow/python/common.h"
-#include "arrow/python/visibility.h"
+#include "common.h"
+#include "visibility.h"
 #include "arrow/util/macros.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/kms_client.h"

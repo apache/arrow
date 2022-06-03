@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/common.h"
+#include "common.h"
 
 #include <cstdlib>
 #include <mutex>
@@ -26,7 +26,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/python/helpers.h"
+#include "helpers.h"
 
 namespace arrow {
 

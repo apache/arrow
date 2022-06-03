@@ -20,14 +20,14 @@
 
 #pragma once
 
-#include "arrow/python/platform.h"
+#include "platform.h"
 
 #include <memory>
 #include <string>
 #include <unordered_set>
 
 #include "arrow/memory_pool.h"
-#include "arrow/python/visibility.h"
+#include "visibility.h"
 
 namespace arrow {
 

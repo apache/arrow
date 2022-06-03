@@ -19,9 +19,9 @@
 #include <sstream>
 #include <utility>
 
-#include "arrow/python/extension_type.h"
-#include "arrow/python/helpers.h"
-#include "arrow/python/pyarrow.h"
+#include "extension_type.h"
+#include "helpers.h"
+#include "pyarrow.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 

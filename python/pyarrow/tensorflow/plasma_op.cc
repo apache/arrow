@@ -36,8 +36,8 @@
 #include "arrow/util/logging.h"
 
 // These headers do not include Python.h
-#include "arrow/python/deserialize.h"
-#include "arrow/python/serialize.h"
+#include "deserialize.h"
+#include "serialize.h"
 
 #include "plasma/client.h"
 

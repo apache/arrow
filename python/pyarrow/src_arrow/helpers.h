@@ -17,18 +17,18 @@
 
 #pragma once
 
-#include "arrow/python/platform.h"
+#include "platform.h"
 
 #include <limits>
 #include <memory>
 #include <string>
 #include <utility>
 
-#include "arrow/python/numpy_interop.h"
+#include "numpy_interop.h"
 
 #include <numpy/halffloat.h>
 
-#include "arrow/python/visibility.h"
+#include "visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
 

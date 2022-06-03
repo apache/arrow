@@ -21,4 +21,4 @@
 // may incur a slowdown, since it makes the precompiled header heavier to load.
 
 #include "arrow/pch.h"
-#include "arrow/python/platform.h"
+#include "platform.h"

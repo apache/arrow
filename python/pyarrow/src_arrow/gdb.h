@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/python/visibility.h"
+#include "visibility.h"
 
 namespace arrow {
 namespace gdb {

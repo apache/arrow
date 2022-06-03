@@ -51,7 +51,7 @@
 #endif
 
 #ifdef ARROW_PYTHON
-#include "arrow/python/api.h"  // IWYU pragma: keep
+#include "api.h"  // IWYU pragma: keep
 #endif
 
 #ifdef DCHECK
