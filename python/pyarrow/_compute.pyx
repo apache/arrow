@@ -882,11 +882,13 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    def _set_options(self, multiple, unit, week_starts_monday):
+    def _set_options(self, multiple, unit, week_starts_monday,
+                     ceil_is_strictly_greater, calendar_based_origin):
         self.wrapped.reset(
             new CRoundTemporalOptions(
                 multiple, unwrap_round_temporal_unit(unit),
-                week_starts_monday)
+                week_starts_monday, ceil_is_strictly_greater,
+                calendar_based_origin)
         )
 
 
@@ -905,10 +907,41 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         "nanosecond".
     week_starts_monday : bool, default True
         If True, weeks start on Monday; if False, on Sunday.
+    ceil_is_strictly_greater : bool, default False
+        If True, ceil returns a rounded value that is strictly greater than the
+        input. For example: ceiling 1970-01-01T00:00:00 to 3 hours would
+        yield 1970-01-01T03:00:00 if set to True and 1970-01-01T00:00:00
+        if set to False.
+        This applies to the ceil_temporal function only.
+    calendar_based_origin : bool, default False
+        By default, the origin is 1970-01-01T00:00:00. By setting this to True,
+        rounding origin will be beginning of one less precise calendar unit.
+        E.g.: rounding to hours will use beginning of day as origin.
+
+        By default time is rounded to a multiple of units since
+        1970-01-01T00:00:00. By setting calendar_based_origin to true,
+        time will be rounded to number of units since the last greater
+        calendar unit.
+        For example: rounding to multiple of days since the beginning of the
+        month or to hours since the beginning of the day.
+        Exceptions: week and quarter are not used as greater units,
+        therefore days will be rounded to the beginning of the month not
+        week. Greater unit of week is a year.
+        Note that ceiling and rounding might change sorting order of an array
+        near greater unit change. For example rounding YYYY-mm-dd 23:00:00 to
+        5 hours will ceil and round to YYYY-mm-dd+1 01:00:00 and floor to
+        YYYY-mm-dd 20:00:00. On the other hand YYYY-mm-dd+1 00:00:00 will
+        ceil, round and floor to YYYY-mm-dd+1 00:00:00. This can break the
+        order of an already ordered array.
+
     """
 
-    def __init__(self, multiple=1, unit="day", week_starts_monday=True):
-        self._set_options(multiple, unit, week_starts_monday)
+    def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
+                 ceil_is_strictly_greater=False,
+                 calendar_based_origin=False):
+        self._set_options(multiple, unit, week_starts_monday,
+                          ceil_is_strictly_greater,
+                          calendar_based_origin)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):

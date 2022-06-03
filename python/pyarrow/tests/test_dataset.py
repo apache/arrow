@@ -1796,6 +1796,12 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
         ds.write_dataset(table, tempdir, format='ipc', partitioning=part)
 
 
+def test_positional_keywords_raises(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+    with pytest.raises(TypeError):
+        ds.write_dataset(table, tempdir, "basename-{i}.arrow")
+
+
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_read_partition_keys_only(tempdir):

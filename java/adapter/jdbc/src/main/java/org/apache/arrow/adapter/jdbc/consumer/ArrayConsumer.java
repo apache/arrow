@@ -22,6 +22,7 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 
@@ -35,7 +36,7 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
    * Creates a consumer for {@link ListVector}.
    */
   public static ArrayConsumer createConsumer(
-          ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
+        ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
     if (nullable) {
       return new ArrayConsumer.NullableArrayConsumer(vector, delegate, index);
     } else {
@@ -62,6 +63,16 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
   public void close() throws Exception {
     this.vector.close();
     this.delegate.close();
+  }
+
+  @Override
+  public void resetValueVector(ListVector vector) {
+    super.resetValueVector(vector);
+
+    FieldVector childVector = vector.getDataVector();
+    this.delegate.resetValueVector(childVector);
+
+    innerVectorIndex = 0;
   }
 
   void ensureInnerVectorCapacity(int targetCapacity) {

@@ -2062,6 +2062,11 @@ TEST(TestStringOps, TestConcatWs) {
   EXPECT_EQ(std::string(out, out_len), "hey-hello");
   EXPECT_EQ(out_result, true);
 
+  out = concat_ws_utf8_utf8(ctx_ptr, "", 0, true, "", 0, true, "", 0, true, &out_result,
+                            &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_EQ(out_result, true);
+
   out = concat_ws_utf8_utf8(ctx_ptr, separator, sep_len, true, "", 0, true, word2,
                             word2_len, true, &out_result, &out_len);
   EXPECT_EQ(std::string(out, out_len), "-hello");
