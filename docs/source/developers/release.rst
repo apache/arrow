@@ -112,8 +112,6 @@ Create or update the corresponding maintenance branches:
             # From an up to date master branch execute
             archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --execute
 
-
-
    .. tab-item:: Follow up Release Candidates
 
       .. code-block::
@@ -143,7 +141,11 @@ Create the rest of the Release branches.
     # Push the release branch and release tag (for RC1 or later the --force flag is required)
     git push -u apache release-<version>
     git push -u apache apache-arrow-<version>
-    
+
+Build source and binaries and submit them.
+
+.. code-block::
+
     # Build the source release tarball
     dev/release/02-source.sh <version> <rc-number>
     
@@ -169,7 +171,11 @@ Create the rest of the Release branches.
     # after you complete the script:
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
-    
+
+Verify the Release
+
+.. code-block::
+
     # Automatically verify the release candidate
     #
     # 1. Push the release candidate's branch to the fork
