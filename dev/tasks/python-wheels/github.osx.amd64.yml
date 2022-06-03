@@ -81,7 +81,8 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet
+            --x-feature=parquet \
+            --x-feature=s3
 
       - name: Install Python {{ python_version }}
         shell: bash
