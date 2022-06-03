@@ -21,8 +21,8 @@
 #include <type_traits>
 
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
