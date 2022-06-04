@@ -54,12 +54,15 @@ have to install Python dependencies yourself and then run `dev/merge_arrow_pr.py
 directly)
 
 The merge script uses the GitHub REST API. You must set a
-`ARROW_GITHUB_API_TOKEN` environment variable to use a Personal Access
-Token. You need to add `workflow` scope to the Personal Access Token.
+`ARROW_GITHUB_API_TOKEN` environment variable to use a 
+[Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token). 
+You need to add `workflow` scope to the Personal Access Token.
 
-You can specify the username and the password of your JIRA account in
-`APACHE_JIRA_USERNAME` and `APACHE_JIRA_PASSWORD` environment variables.
-If these aren't supplied, the script will ask you the values of them.
+You can specify the 
+[Personal Access Token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html)
+of your JIRA account in the 
+`APACHE_JIRA_TOKEN` environment variable.
+If the variable is not set, the script will ask you for it.
 
 Note that the directory name of your Arrow git clone must be called `arrow`.
 

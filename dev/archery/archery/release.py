@@ -18,7 +18,6 @@
 from abc import abstractmethod
 from collections import defaultdict
 import functools
-import os
 import re
 import pathlib
 import shelve
@@ -85,11 +84,8 @@ class Issue:
 
 class Jira(JIRA):
 
-    def __init__(self, user=None, password=None,
-                 url='https://issues.apache.org/jira'):
-        user = user or os.environ.get('APACHE_JIRA_USER')
-        password = password or os.environ.get('APACHE_JIRA_PASSWORD')
-        super().__init__(url, basic_auth=(user, password))
+    def __init__(self, url='https://issues.apache.org/jira'):
+        super().__init__(url)
 
     def project_version(self, version_string, project='ARROW'):
         # query version from jira to populated with additional metadata
