@@ -17,38 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# RHEL <= 7 and Amazon Linux 2
-%if !%{defined cmake}
-%define cmake %cmake3
-%endif
-
-# RHEL <= 7
-%if !%{defined cmake_build} && %{defined cmake3_build}
-%define cmake_build cmake3_build
-%endif
-# Amazon Linux 2
-%if !%{defined cmake_build} && !%{defined cmake3_build}
-%define cmake_build %__cmake3 --build .
-%endif
-
-# RHEL <= 7
-%if !%{defined cmake_install} && %{defined cmake3_install}
-%define cmake_install %cmake3_install
-%endif
-# Amazon Linux 2
-%if !%{defined cmake_install} && !%{defined cmake3_install}
-%define cmake_install DESTDIR="%{buildroot}" %__cmake3 --install .
-%endif
-
-# RHEL <= 7
-%if !%{defined __cmake_builddir} && %{defined __cmake3_builddir}
-%define __cmake_builddir %__cmake3_builddir
-%endif
-# Amazon Linux 2
-%if !%{defined __cmake_builddir} && !%{defined __cmake3_builddir}
-%define __cmake_builddir build
-%endif
-
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
 %define is_amazon_linux (%{_amzn} != 0)
 
@@ -73,6 +41,21 @@
   if [ %{_amzn} -eq 0 ]; then \
     echo ">= 1.8.0"; \
   fi)
+
+# RHEL <= 8 and Amazon Linux 2 don't provide cmake* macros. They provide
+# cmake3* macros.
+%define arrow_cmake_builddir \
+  %{?__cmake_builddir:%__cmake_builddir} \
+  %{!?__cmake_builddir:build}
+%define arrow_cmake \
+  %{?cmake:%cmake} \
+  {%!?cmake:%cmake3 -S . -B %{arrow_cmake_builddir}}
+%define arrow_cmake_build \
+  %{?cmake_build:%cmake_build} \
+  {%!?cmake_build:ninja -C %{arrow_cmake_builddir} --verbose}
+%define arrow_cmake_install \
+  %{?cmake_install:%cmake_install} \
+  %{!?cmake_install:DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install}
 
 %define use_boost (!%{is_amazon_linux})
 %define use_flight (%{rhel} >= 8)
@@ -166,7 +149,7 @@ Apache Arrow is a data processing library for analysis.
 %build
 cpp_build_type=release
 cd cpp
-%cmake \
+%arrow_cmake \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
 %if %{use_flight}
@@ -207,7 +190,7 @@ cd cpp
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %endif
   -GNinja
-%cmake_build
+%arrow_cmake_build
 cd -
 
 cd c_glib
@@ -216,11 +199,11 @@ meson setup build \
   --default-library=both \
   --libdir=%{_libdir} \
   --prefix=%{_prefix} \
-  -Darrow_cpp_build_dir=../cpp/%{__cmake_builddir} \
+  -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true \
   -Dvala=true
-LD_LIBRARY_PATH=$PWD/../cpp/%{__cmake_builddir}/$cpp_build_type \
+LD_LIBRARY_PATH=$PWD/../cpp/%{arrow_cmake_builddir}/$cpp_build_type \
   ninja -C build %{?_smp_mflags}
 cd -
 
@@ -232,7 +215,7 @@ DESTDIR=%{buildroot} ninja -C build install
 cd -
 
 cd cpp
-%cmake_install
+%arrow_cmake_install
 cd -
 
 %package -n %{name}%{major_version}-libs
