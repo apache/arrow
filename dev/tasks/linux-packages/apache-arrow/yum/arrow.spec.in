@@ -49,13 +49,13 @@
   %{!?__cmake_builddir:build}
 %define arrow_cmake \
   %{?cmake:%cmake} \
-  {%!?cmake:%cmake3 -S . -B %{arrow_cmake_builddir}}
+  %{!?cmake:%cmake3 -S . -B build}
 %define arrow_cmake_build \
   %{?cmake_build:%cmake_build} \
-  {%!?cmake_build:ninja -C %{arrow_cmake_builddir} --verbose}
+  %{!?cmake_build:ninja -C build --verbose}
 %define arrow_cmake_install \
   %{?cmake_install:%cmake_install} \
-  %{!?cmake_install:DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install}
+  %{!?cmake_install:DESTDIR="%{buildroot}" ninja -C build install}
 
 %define use_boost (!%{is_amazon_linux})
 %define use_flight (%{rhel} >= 8)
