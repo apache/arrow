@@ -42,12 +42,17 @@
     echo ">= 1.8.0"; \
   fi)
 
-# RHEL <= 8 and Amazon Linux 2 don't provide cmake* macros. They provide
-# cmake3* macros.
-%define arrow_cmake_builddir %{?__cmake_builddir:%__cmake_builddir}%{!?__cmake_builddir:build}
-%define arrow_cmake %{?cmake:%cmake}%{!?cmake:%cmake3 -S . -B %{arrow_cmake_builddir}}
-%define arrow_cmake_build %{?cmake_build:%cmake_build}%{!?cmake_build:ninja -C %{arrow_cmake_builddir} --verbose}
-%define arrow_cmake_install %{?cmake_install:%cmake_install}%{!?cmake_install:DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install}
+%if %{rhel} >= 9
+%define arrow_cmake_builddir %{__cmake_builddir}
+%define arrow_cmake %cmake
+%define arrow_cmake_build %cmake_build
+%define arrow_cmake_install %cmake_install
+%else
+%define arrow_cmake_builddir build
+%define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
+%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} -v
+%define arrow_cmake_install DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install
+%endif
 
 %define use_boost (!%{is_amazon_linux})
 %define use_flight (%{rhel} >= 8)
