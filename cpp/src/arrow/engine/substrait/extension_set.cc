@@ -755,5 +755,89 @@ ArrowToSubstrait arrow_is_valid_to_substrait = [] (const arrow::compute::Express
   return arrow_convert_arguments(call, substrait_call, ext_set_);
 };
 
+// Strings function mapping
+SubstraitToArrow substrait_like_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto func_args = substrait_convert_arguments(call);
+  return arrow::compute::call("match_like", {func_args[0]}, compute::MatchSubstringOptions(func_args[1].ToString()));
+};
+
+SubstraitToArrow substrait_substring_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto func_args = substrait_convert_arguments(call);
+  auto start = func_args[1].literal()->scalar_as<Int64Scalar>();
+  auto stop = func_args[2].literal()->scalar_as<Int64Scalar>();
+  return arrow::compute::call("utf8_slice_codeunits", {func_args[0]}, compute::SliceOptions(static_cast<int64_t>(start.value), static_cast<int64_t>(stop.value)));
+};
+
+SubstraitToArrow substrait_concat_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto func_args = substrait_convert_arguments(call);
+  arrow::StringBuilder builder;
+  builder.Append(func_args[0].ToString());
+  builder.Append(func_args[1].ToString());
+  auto strings_datum = arrow::Datum(*builder.Finish());
+  auto separator_datum = arrow::Datum("");
+  return arrow::compute::call("binary_join", {arrow::compute::Expression(strings_datum), arrow::compute::Expression(separator_datum)});
+};
+
+ArrowToSubstrait arrow_match_like_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("like"));
+  substrait_call.set_function_reference(function_reference);
+
+  arrow::compute::Expression expression_1, expression_2;
+  std::unique_ptr<substrait::Expression> string_1, string_2;
+  expression_1 = call.arguments[0];
+  string_1 = ToProto(expression_1, ext_set_).ValueOrDie();
+  substrait_call.add_args()->CopyFrom(*string_1);
+
+  auto pattern_string = std::dynamic_pointer_cast<compute::MatchSubstringOptions>(call.options)->pattern;
+  expression_2 = arrow::compute::Expression(arrow::Datum(pattern_string));
+  string_2 = ToProto(expression_2, ext_set_).ValueOrDie();
+  substrait_call.add_args()->CopyFrom(*string_2);
+
+  return std::move(substrait_call);
+};
+
+ArrowToSubstrait arrow_utf8_slice_codeunits_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("substring"));
+  substrait_call.set_function_reference(function_reference);
+  arrow::compute::Expression expression_1, expression_2, expression_3;
+  std::unique_ptr<substrait::Expression> string, start, stop;
+  expression_1 = call.arguments[0];
+  string = ToProto(expression_1, ext_set_).ValueOrDie();
+  substrait_call.add_args()->CopyFrom(*string);
+
+  auto start_index = std::dynamic_pointer_cast<compute::SliceOptions>(call.options)->start;
+  auto stop_index = std::dynamic_pointer_cast<compute::SliceOptions>(call.options)->stop;
+  expression_2 = arrow::compute::Expression(arrow::Datum(start_index));
+  expression_3 = arrow::compute::Expression(arrow::Datum(stop_index));
+  start =  ToProto(expression_2, ext_set_).ValueOrDie();
+  stop  =  ToProto(expression_3, ext_set_).ValueOrDie();
+  substrait_call.add_args()->CopyFrom(*start);
+  substrait_call.add_args()->CopyFrom(*stop);
+
+  return std::move(substrait_call);
+};
+
+ArrowToSubstrait arrow_binary_join_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("concat"));
+  substrait_call.set_function_reference(function_reference);
+  arrow::compute::Expression expression_1, expression_2;
+  std::unique_ptr<substrait::Expression> string_1, string_2;
+
+  auto strings_list = call.arguments[0].literal()->make_array();
+  expression_1 = arrow::compute::Expression(*(strings_list->GetScalar(0)));
+  expression_2 = arrow::compute::Expression(*(strings_list->GetScalar(1)));
+
+  string_1 = ToProto(expression_1, ext_set_).ValueOrDie();
+  string_2 = ToProto(expression_2, ext_set_).ValueOrDie();
+  substrait_call.add_args()->CopyFrom(*string_1);
+  substrait_call.add_args()->CopyFrom(*string_2);
+  return std::move(substrait_call);
+};
+
+
+
 }  // namespace engine
 }  // namespace arrow
