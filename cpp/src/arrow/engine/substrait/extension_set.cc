@@ -21,7 +21,9 @@
 #include <unordered_set>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/type_internal.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/string_view.h"
@@ -837,7 +839,29 @@ ArrowToSubstrait arrow_binary_join_to_substrait = [] (const arrow::compute::Expr
   return std::move(substrait_call);
 };
 
+// Cast function mapping
+SubstraitToArrow substrait_cast_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  ExtensionSet ext_set_;
+  ARROW_ASSIGN_OR_RAISE(auto output_type_desc,
+                              FromProto(call.output_type(), ext_set_));
+  auto cast_options = compute::CastOptions::Safe(std::move(output_type_desc.first));
+  return compute::call("cast", {substrait_convert_arguments(call)[0]}, std::move(cast_options));
+};
 
+ArrowToSubstrait arrow_cast_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("cast"));
+  substrait_call.set_function_reference(function_reference);
+  
+  auto arrow_to_type = std::dynamic_pointer_cast<compute::CastOptions>(call.options)->to_type;
+  ARROW_ASSIGN_OR_RAISE(auto substrait_to_type, ToProto(*arrow_to_type, false, ext_set_));
+  substrait_call.set_allocated_output_type(substrait_to_type.get());
 
+  auto expression = call.arguments[0];
+  ARROW_ASSIGN_OR_RAISE(auto value, ToProto(expression, ext_set_));
+  substrait_call.add_args()->CopyFrom(*value);
+  
+  return substrait_call;
+};
 }  // namespace engine
 }  // namespace arrow
