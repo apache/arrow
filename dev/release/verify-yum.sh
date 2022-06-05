@@ -82,7 +82,7 @@ case "${distribution}-${distribution_version}" in
     have_python=no
     install_command="yum install -y"
     ;;
-  centos-8-stream)
+  centos-8)
     distribution_prefix="centos"
     repository_version+="-stream"
     install_command="dnf install -y --enablerepo=powertools"
