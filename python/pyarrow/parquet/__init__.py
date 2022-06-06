@@ -3101,6 +3101,26 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
     ['dataset_name_4/...-0.parquet']
     """
+    # Check for conflicting kewords
+    msg_conflicting = (
+        "Arguments '{0}' and '{1}' can not be passed together. "
+        "'{0}' is supported with the new dataset implementation "
+        "and '{1}' with the legacy implementation."
+    )
+    if partition_filename_cb is not None and basename_template is not None:
+        raise ValueError(msg_conflicting.format("partition_filename_cb",
+                                                "basename_template"))
+
+    if partition_cols is not None and partitioning is not None:
+        raise ValueError(msg_conflicting.format("partition_cols",
+                                                "partitioning"))
+
+    metadata_collector = kwargs.pop('metadata_collector', None)
+    if metadata_collector is not None and file_visitor is not None:
+        raise ValueError(msg_conflicting.format("metadata_collector",
+                                                "file_visitor"))
+
+    # Choose the implementation
     if use_legacy_dataset is None:
         # if partition_filename_cb is specified ->
         # default to the old implementation
@@ -3110,6 +3130,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         else:
             use_legacy_dataset = False
 
+    # New dataset implementation
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
 
@@ -3128,7 +3149,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             "The '{}' argument is not supported with the new dataset "
             "implementation."
         )
-        metadata_collector = kwargs.pop('metadata_collector', None)
+
         if metadata_collector is not None:
             def file_visitor(written_file):
                 metadata_collector.append(written_file.metadata)
@@ -3163,7 +3184,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             max_rows_per_group=row_group_size)
         return
 
-    # warnings and errors when using legecy implementation
+    # warnings and errors when using legacy implementation
     if use_legacy_dataset:
         warnings.warn(
             "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
@@ -3195,11 +3216,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
                              "usage see `pyarrow.dataset.write_dataset`"),
             FutureWarning, stacklevel=2)
 
+    # Legacy implementation
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
 
     _mkdir_if_not_exists(fs, root_path)
-
-    metadata_collector = kwargs.pop('metadata_collector', None)
 
     if partition_cols is not None and len(partition_cols) > 0:
         df = table.to_pandas()

@@ -1819,3 +1819,25 @@ def test_parquet_write_to_dataset_exposed_keywords(tempdir):
     }
     paths_written_set = set(map(pathlib.Path, paths_written))
     assert paths_written_set == expected_paths
+
+
+@pytest.mark.dataset
+@parametrize_legacy_dataset_fixed
+def test_write_to_dataset_conflicting_keywords(tempdir, use_legacy_dataset):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+
+    with pytest.raises(ValueError, match="not be passed together"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=use_legacy_dataset,
+                            partition_filename_cb=lambda x: 'filename.parquet',
+                            basename_template='file-{i}.parquet')
+
+    with pytest.raises(ValueError, match="not be passed together"):
+        pq.write_to_dataset(table, path, partition_cols=["a"],
+                            use_legacy_dataset=use_legacy_dataset,
+                            partitioning=["a"])
+
+    with pytest.raises(ValueError, match="not be passed together"):
+        pq.write_to_dataset(table, path, metadata_collector=[],
+                            file_visitor=lambda x: x)
