@@ -3716,6 +3716,7 @@ macro(build_grpc)
       absl::debugging_internal
       absl::demangle_internal
       absl::graphcycles_internal
+      absl::hash
       absl::int128
       absl::malloc_internal
       absl::random_internal_pool_urbg
