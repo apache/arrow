@@ -31,33 +31,28 @@
 namespace arrow {
 namespace compute {
 
-static constexpr int64_t total_batch_size = 1e6;
+static constexpr int64_t total_batch_size = 1e5;
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
-  for (auto batch_size = 1; batch_size <= 1e6; batch_size *= 10) {
-    auto num_batches = total_batch_size / batch_size;
-    bench->ArgNames({"batch_size, num_batches"})
-        ->Args({batch_size, num_batches})
-        ->UseRealTime();
-  }
+  bench->ArgNames({"batch_size"})
+      ->RangeMultiplier(10)
+      ->Range(1, total_batch_size)
+      ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                         std::thread::hardware_concurrency())
+      ->UseRealTime();
 }
 
-/*
-should be able to vary
-1. batch size
-2. expression complexity
-*/
 static void ExecuteScalarProjectionOverhead(benchmark::State& state, Expression expr) {
   const auto batch_size = static_cast<int32_t>(state.range(0));
-  const auto num_batches = static_cast<int32_t>(state.range(1));
+  const auto num_batches = total_batch_size / batch_size;
 
   auto data = MakeRandomBatches(schema({field("i64", int64()), field("bool", boolean())}),
                                 num_batches, batch_size);
-  ExecContext ctx;
-
+  ExecContext* ctx = default_exec_context();
+  *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   for (auto _ : state) {
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    // CountOptions options(CountOptions::ONLY_VALID);
+    state.PauseTiming();
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(ctx));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     ASSERT_OK(Declaration::Sequence(
                   {
@@ -72,6 +67,7 @@ static void ExecuteScalarProjectionOverhead(benchmark::State& state, Expression 
                       {"sink", SinkNodeOptions{&sink_gen}, "custom_sink_label"},
                   })
                   .AddToPlan(plan.get()));
+    state.ResumeTiming();
     ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
   }
   state.counters["rows_per_second"] = benchmark::Counter(
