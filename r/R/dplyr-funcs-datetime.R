@@ -57,6 +57,7 @@ register_bindings_datetime_utility <- function() {
       tz <- Sys.timezone()
     }
 
+    # convert a "timezone-naive" into a "timezone-aware" timestamp
     if (!is.null(tz)) {
       output <- build_expr(
         "assume_timezone",
