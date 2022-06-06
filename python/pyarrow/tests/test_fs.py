@@ -445,10 +445,10 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
     )
     fs.create_dir('existing-bucket/test')
 
-    with pytest.raises(pa.ArrowIOError):
+    with pytest.raises(pa.ArrowIOError, match="Bucket does not exist"):
         fs.create_dir('new-bucket')
 
-    with pytest.raises(pa.ArrowIOError):
+    with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
         fs.delete_dir('existing-bucket')
 
 
@@ -1041,6 +1041,10 @@ def test_s3_options():
     fs = S3FileSystem(background_writes=True,
                       default_metadata={"ACL": "authenticated-read",
                                         "Content-Type": "text/plain"})
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 

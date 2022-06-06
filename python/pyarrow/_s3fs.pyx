@@ -311,6 +311,8 @@ cdef class S3FileSystem(FileSystem):
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes,
+                allow_bucket_creation=opts.allow_bucket_creation,
+                allow_bucket_deletion=opts.allow_bucket_deletion,
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),
@@ -318,7 +320,7 @@ cdef class S3FileSystem(FileSystem):
                                'username': frombytes(
                                    opts.proxy_options.username),
                                'password': frombytes(
-                                   opts.proxy_options.password)}
+                                   opts.proxy_options.password)},
             ),)
         )
 
