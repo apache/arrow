@@ -4544,7 +4544,8 @@ def test_write_dataset_s3_put_only(s3_server):
     assert result.equals(table)
 
     # Error enforced by filesystem
-    with pytest.raises(OSError, match="Bucket does not exist"):
+    with pytest.raises(OSError,
+                       match="Bucket 'non-existing-bucket' not found"):
         ds.write_dataset(
             table, "non-existing-bucket", filesystem=fs,
             format="feather", create_dir=True,
