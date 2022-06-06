@@ -51,11 +51,15 @@ have_gandiva=yes
 have_glib=yes
 have_parquet=yes
 have_python=yes
-install_command="dnf install -y --enablerepo=powertools"
+install_command="dnf install -y --enablerepo=crb"
 
 echo "::group::Prepare repository"
 
 case "${distribution}-${distribution_version}" in
+  almalinux-8)
+    distribution_prefix="almalinux"
+    install_command="dnf install -y --enablerepo=powertools"
+    ;;
   almalinux-*)
     distribution_prefix="almalinux"
     ;;
@@ -77,6 +81,11 @@ case "${distribution}-${distribution_version}" in
     have_gandiva=no
     have_python=no
     install_command="yum install -y"
+    ;;
+  centos-8)
+    distribution_prefix="centos"
+    repository_version+="-stream"
+    install_command="dnf install -y --enablerepo=powertools"
     ;;
   centos-*)
     distribution_prefix="centos"

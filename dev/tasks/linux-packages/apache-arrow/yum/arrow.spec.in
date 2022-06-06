@@ -30,29 +30,46 @@
   if [ %{rhel} -lt 8 ]; then \
     echo 3; \
   fi)
+%define python_version %( \
+  if [ %{rhel} -lt 9 ]; then \
+    echo 39; \
+  else \
+    echo 3; \
+  fi)
 
 %define lz4_requirement %( \
   if [ %{_amzn} -eq 0 ]; then \
     echo ">= 1.8.0"; \
   fi)
 
+%if %{rhel} >= 9
+%define arrow_cmake_builddir %{__cmake_builddir}
+%define arrow_cmake %cmake
+%define arrow_cmake_build %cmake_build
+%define arrow_cmake_install %cmake_install
+%else
+%define arrow_cmake_builddir build
+%define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
+%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} -v
+%define arrow_cmake_install DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install
+%endif
+
 %define use_boost (!%{is_amazon_linux})
 %define use_flight (%{rhel} >= 8)
-%define use_gandiva (%{rhel} >= 8 && %{_arch} != "aarch64")
+%define use_gandiva (%{rhel} >= 8 && "%{_arch}" != "aarch64")
 %define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
+%define use_glog (%{rhel} <= 8)
 %define use_mimalloc (%{rhel} >= 8)
 %define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %define use_s3 (%{rhel} >= 8)
+# %%define use_s3 (%{rhel} >= 8)
 %define use_s3 0
 
-%define have_rapidjson (%{rhel} == 7)
+%define have_rapidjson (%{rhel} != 8)
 %define have_re2 (%{rhel} >= 8)
-# EPEL ships utf8proc but it's old.
-# %define have_utf8proc (%{rhel} == 7)
-%define have_utf8proc 0
+%define have_utf8proc (%{rhel} >= 9)
 %define have_zstd (!%{is_amazon_linux})
 
 Name:		@PACKAGE@
@@ -81,7 +98,9 @@ BuildRequires:	gcc-c++
 BuildRequires:	gflags-devel
 %endif
 BuildRequires:	git
+%if %{use_glog}
 BuildRequires:	glog-devel
+%endif
 %if %{use_gcs}
 BuildRequires:	json-devel
 %endif
@@ -93,8 +112,8 @@ BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
 %if %{use_python}
-BuildRequires:	python39-devel
-BuildRequires:	python39-numpy
+BuildRequires:	python%{python_version}-devel
+BuildRequires:	python%{python_version}-numpy
 %endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
@@ -103,6 +122,7 @@ BuildRequires:	rapidjson-devel
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
+BuildRequires:	thrift-devel
 %if %{have_utf8proc}
 BuildRequires:	utf8proc-devel
 %endif
@@ -115,7 +135,7 @@ BuildRequires:	ncurses-devel
 
 BuildRequires:	gobject-introspection-devel
 BuildRequires:	gtk-doc
-BuildRequires:	vala-devel
+BuildRequires:	vala
 
 %description
 Apache Arrow is a data processing library for analysis.
@@ -125,9 +145,8 @@ Apache Arrow is a data processing library for analysis.
 
 %build
 cpp_build_type=release
-mkdir cpp/build
-cd cpp/build
-%cmake3 .. \
+cd cpp
+%arrow_cmake \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
 %if %{use_flight}
@@ -168,8 +187,7 @@ cd cpp/build
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %endif
   -GNinja
-
-ninja %{?_smp_mflags}
+%arrow_cmake_build
 cd -
 
 cd c_glib
@@ -178,11 +196,11 @@ meson setup build \
   --default-library=both \
   --libdir=%{_libdir} \
   --prefix=%{_prefix} \
-  -Darrow_cpp_build_dir=../cpp/build \
+  -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true \
   -Dvala=true
-LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
+LD_LIBRARY_PATH=$PWD/../cpp/%{arrow_cmake_builddir}/$cpp_build_type \
   ninja -C build %{?_smp_mflags}
 cd -
 
@@ -190,13 +208,11 @@ cd -
 cpp_build_type=release
 
 cd c_glib
-DESTDIR=$RPM_BUILD_ROOT ninja -C build install
-ninja -C build clean
+DESTDIR=%{buildroot} ninja -C build install
 cd -
 
-cd cpp/build
-DESTDIR=$RPM_BUILD_ROOT ninja install
-ninja clean
+cd cpp
+%arrow_cmake_install
 cd -
 
 %package -n %{name}%{major_version}-libs
@@ -206,7 +222,9 @@ Requires:	brotli
 %if %{use_gflags}
 Requires:	gflags
 %endif
+%if %{use_glog}
 Requires:	glog
+%endif
 %if %{have_zstd}
 Requires:	libzstd
 %endif
@@ -414,7 +432,7 @@ Libraries and header files for Gandiva.
 Summary:	Python integration library for Apache Arrow
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	python39-numpy
+Requires:	python%{python_version}-numpy
 
 %description -n %{name}%{major_version}-python-libs
 This package contains the Python integration library for Apache Arrow.
@@ -429,7 +447,7 @@ Summary:	Libraries and header files for Python integration library for Apache Ar
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-python-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
-Requires:	python39-devel
+Requires:	python%{python_version}-devel
 
 %description python-devel
 Libraries and header files for Python integration library for Apache Arrow.

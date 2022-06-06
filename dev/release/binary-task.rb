@@ -1456,6 +1456,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def available_yum_targets
     [
+      ["almalinux", "9"],
       ["almalinux", "8"],
       ["amazon-linux", "2"],
       ["centos", "8-stream"],
