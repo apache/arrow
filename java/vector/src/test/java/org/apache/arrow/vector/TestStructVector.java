@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -184,8 +185,10 @@ public class TestStructVector {
   }
 
   @Test
-  public void testAddChildVectorsWithDuplicatedFieldNames() {
-    try (StructVector vector = StructVector.emptyWithDuplicates("struct", allocator)) {
+  public void testAddChildVectorsWithDuplicatedFieldNamesForConflictPolicyAppend() {
+    final FieldType type = new FieldType(true, Struct.INSTANCE, null, null);
+    try (StructVector vector = new StructVector("struct", allocator, type, null,
+        AbstractStructVector.ConflictPolicy.CONFLICT_APPEND, true)) {
       final List<Field> initFields = new ArrayList<>();
 
       // Add a bit more fields to test against stability of the internal field
@@ -227,4 +230,46 @@ public class TestStructVector {
       assertEquals(MinorType.VARCHAR, children.get(8).getMinorType());
     }
   }
+
+  @Test
+  public void testAddChildVectorsWithDuplicatedFieldNamesForConflictPolicyReplace() {
+    final FieldType type = new FieldType(true, Struct.INSTANCE, null, null);
+    try (StructVector vector = new StructVector("struct", allocator, type, null,
+        AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE, true)) {
+      final List<Field> initFields = new ArrayList<>();
+
+      // Add a bit more fields to test against stability of the internal field
+      // ordering mechanism of StructVector
+      initFields.add(Field.nullable("varchar1", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("int1", MinorType.INT.getType()));
+      initFields.add(Field.nullable("varchar2", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("int2", MinorType.INT.getType()));
+      initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("int3", MinorType.INT.getType()));
+
+      // To ensure duplicated field names don't mess up the original field order
+      // in the struct vector
+      initFields.add(Field.nullable("varchar1", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("varchar2", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
+
+      vector.initializeChildrenFromFields(initFields);
+
+      List<FieldVector> children = vector.getChildrenFromFields();
+      assertEquals(6, children.size());
+      assertEquals("varchar1", children.get(0).getName());
+      assertEquals("int1", children.get(1).getName());
+      assertEquals("varchar2", children.get(2).getName());
+      assertEquals("int2", children.get(3).getName());
+      assertEquals("varchar3", children.get(4).getName());
+      assertEquals("int3", children.get(5).getName());
+      assertEquals(MinorType.VARCHAR, children.get(0).getMinorType());
+      assertEquals(MinorType.INT, children.get(1).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(2).getMinorType());
+      assertEquals(MinorType.INT, children.get(3).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(4).getMinorType());
+      assertEquals(MinorType.INT, children.get(5).getMinorType());
+    }
+  }
+
 }
