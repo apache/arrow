@@ -2209,3 +2209,91 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
     )
   )
 })
+
+test_that("build_formats", {
+  # TODO finish adding tests for build_formats
+  expect_equal(
+    build_formats(c("ym", "myd", "%Y-%d-%m")),
+    c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d",
+      "%b-%Y-%d", "%y-%d-%m", "%Y-%d-%m", "%y-%d-%B", "%Y-%d-%B", "%y-%d-%b",
+      "%Y-%d-%b", "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d",
+      "%Y-%b-%d")
+  )
+  expect_error(build_formats("abd"))
+#   a
+#   Abbreviated weekday name in the current locale. (Also matches full name)
+#
+#   A
+#   Full weekday name in the current locale. (Also matches abbreviated name).
+#
+#   You don't need to specify a and A formats explicitly. Wday is automatically handled if preproc_wday = TRUE
+#
+# b (!)
+# Abbreviated or full month name in the current locale. The C parser currently understands only English month names.
+#
+# B (!)
+# Same as b.
+#
+# d (!)
+# Day of the month as decimal number (01–31 or 0–31)
+#
+# H (!)
+# Hours as decimal number (00–24 or 0–24).
+#
+# I (!)
+# Hours as decimal number (01–12 or 1–12).
+#
+# j
+# Day of year as decimal number (001–366 or 1–366).
+#
+# q (!*)
+# Quarter (1–4). The quarter month is added to the parsed month if m element is present.
+#
+# m (!*)
+# Month as decimal number (01–12 or 1–12). For parse_date_time also matches abbreviated and full months names as b and B formats. C parser understands only English month names.
+#
+# M (!)
+# Minute as decimal number (00–59 or 0–59).
+#
+# p (!)
+# AM/PM indicator in the locale. Commonly used in conjunction with I and not with H. But lubridate's C parser accepts H format as long as hour is not greater than 12. C parser understands only English locale AM/PM indicator.
+#
+#   S (!)
+#   Second as decimal number (00–61 or 0–61), allowing for up to two leap-seconds (but POSIX-compliant implementations will ignore leap seconds).
+#
+#   OS
+#   Fractional second.
+#
+#   U
+#   Week of the year as decimal number (00–53 or 0–53) using Sunday as the first day 1 of the week (and typically with the first Sunday of the year as day 1 of week 1). The US convention.
+#
+#   w
+#   Weekday as decimal number (0–6, Sunday is 0).
+#
+#   W
+#   Week of the year as decimal number (00–53 or 0–53) using Monday as the first day of week (and typically with the first Monday of the year as day 1 of week 1). The UK convention.
+#
+#   y (!*)
+#   Year without century (00–99 or 0–99). In parse_date_time() also matches year with century (Y format).
+#
+#   Y (!)
+#   Year with century.
+#
+#   z (!*)
+#   ISO8601 signed offset in hours and minutes from UTC. For example -0800, -08:00 or -08, all represent 8 hours behind UTC. This format also matches the Z (Zulu) UTC indicator. Because base::strptime() doesn't fully support ISO8601 this format is implemented as an union of 4 formats: Ou (Z), Oz (-0800), OO (-08:00) and Oo (-08). You can use these formats as any other but it is rarely necessary. parse_date_time2() and fast_strptime() support all of these formats.
+#
+# Om (!*)
+# Matches numeric month and English alphabetic months (Both, long and abbreviated forms).
+#
+# Op (!*)
+# Matches AM/PM English indicator.
+#
+# r (*)
+# Matches Ip and H orders.
+#
+# R (*)
+# Matches HM andIMp orders.
+#
+# T (*)
+# Matches IMSp, HMS, and HMOS orders.
+})
