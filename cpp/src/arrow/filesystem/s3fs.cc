@@ -1702,7 +1702,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
       if (!options().allow_bucket_creation) {
         return Status::IOError(
-            "Bucket does not exist: '", bucket, "'. ",
+            "Bucket '", bucket, "' not found. ",
             "To create buckets, enable the allow_bucket_creation option.");
       }
     }
@@ -2411,7 +2411,7 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
         std::forward_as_tuple("When deleting bucket '", path.bucket, "': "),
         impl_->client_->DeleteBucket(req));
   } else if (path.key.empty()) {
-    return Status::IOError("Would delete bucket: '", path.bucket, "'. ",
+    return Status::IOError("Would delete bucket '", path.bucket, "'. ",
                            "To delete buckets, enable the allow_bucket_deletion option.");
   } else {
     // Delete "directory"

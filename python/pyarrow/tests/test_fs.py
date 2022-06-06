@@ -445,7 +445,7 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
     )
     fs.create_dir('existing-bucket/test')
 
-    with pytest.raises(pa.ArrowIOError, match="Bucket does not exist"):
+    with pytest.raises(pa.ArrowIOError, match="Bucket 'new-bucket' not found"):
         fs.create_dir('new-bucket')
 
     with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):

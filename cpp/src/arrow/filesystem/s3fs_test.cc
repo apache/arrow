@@ -1134,8 +1134,16 @@ TEST_F(TestS3FS, NoCreateDeleteBucket) {
   options_.allow_bucket_creation = false;
   options_.allow_bucket_deletion = false;
   MakeFileSystem();
-  ASSERT_RAISES(IOError, fs_->CreateDir("test-no-create"));
-  ASSERT_RAISES(IOError, fs_->DeleteDir("test-no-delete"));
+
+  auto maybe_create_dir = fs_->CreateDir("test-no-create");
+  ASSERT_RAISES(IOError, maybe_create_dir);
+  ASSERT_THAT(maybe_create_dir.message(),
+              ::testing::HasSubstr("Bucket 'test-no-create' not found"));
+
+  auto maybe_delete_dir = fs_->DeleteDir("test-no-delete");
+  ASSERT_RAISES(IOError, maybe_delete_dir);
+  ASSERT_THAT(maybe_delete_dir.message(),
+              ::testing::HasSubstr("Would delete bucket 'test-no-delete'"));
 }
 
 // Simple retry strategy that records errors encountered and its emitted retry delays

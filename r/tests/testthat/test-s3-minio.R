@@ -194,14 +194,8 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       now_tmp <- paste0(now, "-test-fail-delete")
       fs$CreateDir(now_tmp)
 
-      expect_error(
-        limited_fs$CreateDir("should-fail"),
-        regexp = "Bucket does not exist"
-      )
-      expect_error(
-        limited_fs$DeleteDir(now_tmp),
-        regexp = "Would delete bucket"
-      )
+      expect_error(limited_fs$CreateDir("should-fail"))
+      expect_error(limited_fs$DeleteDir(now_tmp))
     })
 
     test_that("Let's test copy_files too", {
