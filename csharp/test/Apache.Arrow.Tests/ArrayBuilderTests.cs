@@ -263,60 +263,16 @@ namespace Apache.Arrow.Tests
             [Fact]
             public void ProducesExpectedArray()
             {
-                var time64Type = new Time64Type(TimeUnit.Second);
+                var time64Type = new Time64Type(TimeUnit.Microsecond);
                 var array = new Time64Array.Builder(time64Type)
-                    .Append(1)
-                    .Build();
-
-                Assert.Equal(1, array.Length);
-                var valueSeconds = array.GetSeconds(0);
-                Assert.NotNull(valueSeconds);
-                Assert.Equal(1, valueSeconds.Value);
-                var valueMilliSeconds = array.GetMilliSeconds(0);
-                Assert.NotNull(valueMilliSeconds);
-                Assert.Equal(1_000, valueMilliSeconds.Value);
-                var valueMicroSeconds = array.GetMicroSeconds(0);
-                Assert.NotNull(valueMicroSeconds);
-                Assert.Equal(1_000_000, valueMicroSeconds.Value);
-                var valueNanoSeconds = array.GetNanoSeconds(0);
-                Assert.NotNull(valueNanoSeconds);
-                Assert.Equal(1_000_000_000, valueNanoSeconds.Value);
-
-                time64Type = new Time64Type(TimeUnit.Millisecond);
-                array = new Time64Array.Builder(time64Type)
-                    .Append(1_000)
-                    .Build();
-
-                Assert.Equal(1, array.Length);
-                valueSeconds = array.GetSeconds(0);
-                Assert.NotNull(valueSeconds);
-                Assert.Equal(1, valueSeconds.Value);
-                valueMilliSeconds = array.GetMilliSeconds(0);
-                Assert.NotNull(valueMilliSeconds);
-                Assert.Equal(1_000, valueMilliSeconds.Value);
-                valueMicroSeconds = array.GetMicroSeconds(0);
-                Assert.NotNull(valueMicroSeconds);
-                Assert.Equal(1_000_000, valueMicroSeconds.Value);
-                valueNanoSeconds = array.GetNanoSeconds(0);
-                Assert.NotNull(valueNanoSeconds);
-                Assert.Equal(1_000_000_000, valueNanoSeconds.Value);
-
-                time64Type = new Time64Type(TimeUnit.Microsecond);
-                array = new Time64Array.Builder(time64Type)
                     .Append(1_000_000)
                     .Build();
 
                 Assert.Equal(1, array.Length);
-                valueSeconds = array.GetSeconds(0);
-                Assert.NotNull(valueSeconds);
-                Assert.Equal(1, valueSeconds.Value);
-                valueMilliSeconds = array.GetMilliSeconds(0);
-                Assert.NotNull(valueMilliSeconds);
-                Assert.Equal(1_000, valueMilliSeconds.Value);
-                valueMicroSeconds = array.GetMicroSeconds(0);
+                var valueMicroSeconds = array.GetMicroSeconds(0);
                 Assert.NotNull(valueMicroSeconds);
                 Assert.Equal(1_000_000, valueMicroSeconds.Value);
-                valueNanoSeconds = array.GetNanoSeconds(0);
+                var valueNanoSeconds = array.GetNanoSeconds(0);
                 Assert.NotNull(valueNanoSeconds);
                 Assert.Equal(1_000_000_000, valueNanoSeconds.Value);
 
@@ -326,12 +282,6 @@ namespace Apache.Arrow.Tests
                     .Build();
 
                 Assert.Equal(1, array.Length);
-                valueSeconds = array.GetSeconds(0);
-                Assert.NotNull(valueSeconds);
-                Assert.Equal(1, valueSeconds.Value);
-                valueMilliSeconds = array.GetMilliSeconds(0);
-                Assert.NotNull(valueMilliSeconds);
-                Assert.Equal(1_000, valueMilliSeconds.Value);
                 valueMicroSeconds = array.GetMicroSeconds(0);
                 Assert.NotNull(valueMicroSeconds);
                 Assert.Equal(1_000_000, valueMicroSeconds.Value);

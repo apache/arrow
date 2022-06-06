@@ -19,7 +19,7 @@ using System.IO;
 namespace Apache.Arrow
 {
     /// <summary>
-    /// The <see cref="Time32Array"/> class holds an array of ints, where each value is
+    /// The <see cref="Time32Array"/> class holds an array of <see cref="Int32" />, where each value is
     /// stored as the number of seconds/ milliseconds (depending on the Time32Type) since midnight.
     /// </summary>
     public class Time32Array : PrimitiveArray<int>
@@ -68,12 +68,11 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
-
         /// <summary>
         /// Get the time at the specified index as seconds
         /// </summary>
-        /// <param name="index">Index at which to get the date.</param>
-        /// <returns>Returns an int, or <c>null</c> if there is no object at that index.
+        /// <param name="index">Index at which to get the time.</param>
+        /// <returns>Returns an <see cref="Int32" />, or <c>null</c> if there is no object at that index.
         /// </returns>
         public int? GetSeconds(int index)
         {
@@ -95,8 +94,8 @@ namespace Apache.Arrow
         /// <summary>
         /// Get the time at the specified index as milliseconds
         /// </summary>
-        /// <param name="index">Index at which to get the date.</param>
-        /// <returns>Returns an int, or <c>null</c> if there is no object at that index.
+        /// <param name="index">Index at which to get the time.</param>
+        /// <returns>Returns an <see cref="Int32" />, or <c>null</c> if there is no object at that index.
         /// </returns>
         public int? GetMilliSeconds(int index)
         {
