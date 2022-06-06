@@ -263,10 +263,12 @@ class SinkNode : public ExecNode {
 class ConsumingSinkNode : public ExecNode, public BackpressureControl {
  public:
   ConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                    std::shared_ptr<SinkNodeConsumer> consumer)
+                    std::shared_ptr<SinkNodeConsumer> consumer,
+                    std::vector<std::string> names)
       : ExecNode(plan, std::move(inputs), {"to_consume"}, {},
                  /*num_outputs=*/0),
-        consumer_(std::move(consumer)) {}
+        consumer_(std::move(consumer)),
+        names_(std::move(names)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -274,7 +276,8 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
     const auto& sink_options = checked_cast<const ConsumingSinkNodeOptions&>(options);
     return plan->EmplaceNode<ConsumingSinkNode>(plan, std::move(inputs),
-                                                std::move(sink_options.consumer));
+                                                std::move(sink_options.consumer),
+                                                std::move(sink_options.names));
   }
 
   const char* kind_name() const override { return "ConsumingSinkNode"; }
@@ -285,7 +288,21 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
     DCHECK_GT(inputs_.size(), 0);
-    RETURN_NOT_OK(consumer_->Init(inputs_[0]->output_schema(), this));
+    auto output_schema = inputs_[0]->output_schema();
+    if (names_.size() > 0) {
+      int num_fields = output_schema->num_fields();
+      if (names_.size() != static_cast<size_t>(num_fields)) {
+        return Status::Invalid("ConsumingSinkNode with mismatched number of names");
+      }
+      FieldVector fields(num_fields);
+      int i = 0;
+      for (const auto& output_field : output_schema->fields()) {
+        fields[i] = field(names_[i], output_field->type());
+        ++i;
+      }
+      output_schema = schema(std::move(fields));
+    }
+    RETURN_NOT_OK(consumer_->Init(output_schema, this));
     finished_ = Future<>::Make();
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
@@ -373,6 +390,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
   AtomicCounter input_counter_;
   std::shared_ptr<SinkNodeConsumer> consumer_;
+  std::vector<std::string> names_;
   int32_t backpressure_counter_ = 0;
 };
 

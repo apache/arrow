@@ -232,10 +232,16 @@ class ARROW_EXPORT SinkNodeConsumer {
 /// \brief Add a sink node which consumes data within the exec plan run
 class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer)
-      : consumer(std::move(consumer)) {}
+  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer,
+                                    std::vector<std::string> names = {})
+      : consumer(std::move(consumer)), names(std::move(names)) {}
 
   std::shared_ptr<SinkNodeConsumer> consumer;
+  /// \brief Names to rename the sink's schema fields to
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see ARROW-15901).
+  std::vector<std::string> names;
 };
 
 /// \brief Make a node which sorts rows passed through it
