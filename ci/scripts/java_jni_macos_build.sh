@@ -118,6 +118,7 @@ archery linking check-dependencies \
   --allow libarrow_dataset_jni \
   --allow libarrow_orc_jni \
   --allow libc++ \
+  --allow libcurl \
   --allow libgandiva_jni \
   --allow libncurses \
   --allow libz \
