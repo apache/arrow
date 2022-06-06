@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Assert;
@@ -171,13 +173,58 @@ public class TestStructVector {
       vector.addOrGetStruct("struct");
       vector.addOrGetMap("map", true);
 
-      List<FieldVector> childrens = vector.getChildrenFromFields();
-      assertEquals(5, childrens.size());
-      assertEquals(MinorType.LIST, childrens.get(0).getMinorType());
-      assertEquals(MinorType.FIXED_SIZE_LIST, childrens.get(1).getMinorType());
-      assertEquals(MinorType.UNION, childrens.get(2).getMinorType());
-      assertEquals(MinorType.STRUCT, childrens.get(3).getMinorType());
-      assertEquals(MinorType.MAP, childrens.get(4).getMinorType());
+      List<FieldVector> children = vector.getChildrenFromFields();
+      assertEquals(5, children.size());
+      assertEquals(MinorType.LIST, children.get(0).getMinorType());
+      assertEquals(MinorType.FIXED_SIZE_LIST, children.get(1).getMinorType());
+      assertEquals(MinorType.UNION, children.get(2).getMinorType());
+      assertEquals(MinorType.STRUCT, children.get(3).getMinorType());
+      assertEquals(MinorType.MAP, children.get(4).getMinorType());
+    }
+  }
+
+  @Test
+  public void testAddChildVectorsWithDuplicatedFieldNames() {
+    try (StructVector vector = StructVector.emptyWithDuplicates("struct", allocator)) {
+      final List<Field> initFields = new ArrayList<>();
+
+      // Add a bit more fields to test against stability of the internal field
+      // ordering mechanism of StructVector
+      initFields.add(Field.nullable("varchar1", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("int1", MinorType.INT.getType()));
+      initFields.add(Field.nullable("varchar2", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("int2", MinorType.INT.getType()));
+      initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("int3", MinorType.INT.getType()));
+
+      // To ensure duplicated field names don't mess up the original field order
+      // in the struct vector
+      initFields.add(Field.nullable("varchar1", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("varchar2", MinorType.VARCHAR.getType()));
+      initFields.add(Field.nullable("varchar3", MinorType.VARCHAR.getType()));
+
+      vector.initializeChildrenFromFields(initFields);
+
+      List<FieldVector> children = vector.getChildrenFromFields();
+      assertEquals(9, children.size());
+      assertEquals("varchar1", children.get(0).getName());
+      assertEquals("int1", children.get(1).getName());
+      assertEquals("varchar2", children.get(2).getName());
+      assertEquals("int2", children.get(3).getName());
+      assertEquals("varchar3", children.get(4).getName());
+      assertEquals("int3", children.get(5).getName());
+      assertEquals("varchar1", children.get(6).getName());
+      assertEquals("varchar2", children.get(7).getName());
+      assertEquals("varchar3", children.get(8).getName());
+      assertEquals(MinorType.VARCHAR, children.get(0).getMinorType());
+      assertEquals(MinorType.INT, children.get(1).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(2).getMinorType());
+      assertEquals(MinorType.INT, children.get(3).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(4).getMinorType());
+      assertEquals(MinorType.INT, children.get(5).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(6).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(7).getMinorType());
+      assertEquals(MinorType.VARCHAR, children.get(8).getMinorType());
     }
   }
 }
