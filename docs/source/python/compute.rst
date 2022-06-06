@@ -292,4 +292,70 @@ The resulting dataset will be an :class:`.InMemoryDataset` containing the joined
    animal: [["Brittle stars",null,null]]
    n_legs: [[5,null,null]]
 
+.. _py-filter-expr:
 
+Filtering by Expressions
+========================
+
+:class:`.Table` and :class:`.Dataset` can
+both be filtered using a boolean :class:`.Expression`.
+
+The expression can be built starting from a 
+:func:`pyarrow.field`, comparisons and transformations
+can then be applied to one or more fields to build the filter
+expression you care about.
+
+Most :ref:`compute` can be used to perform transformations
+on a ``field``.
+
+For example we could build a filter to find all rows that are even
+in column ``"nums"``
+
+.. code-block:: python
+
+   even_filter = (pc.bit_wise_and(pc.field("nums"), pc.scalar(1)) == pc.scalar(0))
+   
+Once we have our filter, we can provide it to the :meth:`.Table.filter` method
+to filter our table only for the matching rows:
+
+.. code-block:: python
+
+   >>> table = pa.table({'nums': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+   ...                   'chars': ["a", "b", "c", "d", "e", "f", "g", "h", "i", "l"]})
+   >>> table.filter(even_filter)
+   pyarrow.Table
+   nums: int64
+   chars: string
+   ----
+   nums: [[2,4,6,8,10]]
+   chars: [["b","d","f","h","l"]]
+
+Multiple filters can be joined using ``&``, ``|``, ``~`` to perform ``and``, ``or``
+and ``not`` operations. For example using ``~even_filter`` will actually end up filtering
+for all numbers that are odd:
+
+.. code-block:: python
+
+   >>> table.filter(~even_filter)
+   pyarrow.Table
+   nums: int64
+   chars: string
+   ----
+   nums: [[1,3,5,7,9]]
+   chars: [["a","c","e","g","i"]]
+
+and we could build a filter that finds all even numbers greater than 5 by combining
+our ``even_filter`` with a ``pc.field("nums") > 5`` filter:
+
+.. code-block:: python
+
+   >>> table.filter(even_filter & (pc.field("nums") > 5))
+   pyarrow.Table
+   nums: int64
+   chars: string
+   ----
+   nums: [[6,8,10]]
+   chars: [["f","h","l"]]
+
+:class:`.Dataset` currently can be filtered using :meth:`.Dataset.to_table` method
+passing a ``filter`` argument. See :ref:`py-filter-dataset` in Dataset documentation.

@@ -167,6 +167,8 @@ The :class:`FileFormat` objects can be customized using keywords. For example::
 
 Will configure column ``"a"`` to be dictionary encoded on scan.
 
+.. _py-filter-dataset:
+
 Filtering data
 --------------
 
