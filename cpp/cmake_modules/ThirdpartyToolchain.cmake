@@ -1462,11 +1462,13 @@ macro(build_thrift)
   set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                      Boost::headers)
-  else()
-    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
+  if(ARROW_USE_BOOST)
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                        Boost::headers)
+    else()
+      target_link_libraries(thrift::thrift INTERFACE Boost::headers)
+    endif()
   endif()
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
