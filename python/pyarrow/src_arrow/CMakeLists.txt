@@ -100,7 +100,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
 endif()
 
 # Link to arrow dependecies
-if(ARROW_LINK_SHARED)
+if(ARROW_BUILD_SHARED)
   set(ARROW_PYTHON_DEPENDENCIES arrow_shared)
 else()
   set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -144,14 +144,14 @@ if(CMAKE_VERSION VERSION_LESS 3.18)
 else()
   include(CheckLinkerFlag)
   check_linker_flag(CXX
-                    "-Wl,--version-script=${ARROW_SOURCE_DIR}/cpp/src/arrow/symbols.map"
+                    "-Wl,--version-script=${ARROW_SOURCE_DIR}/src/arrow/symbols.map"
                     CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
 endif()
 
 # Need to set ARROW_VERSION_SCRIPT_FLAGS for add_arrow_lib
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(ARROW_VERSION_SCRIPT_FLAGS
-      "-Wl,--version-script=${ARROW_SOURCE_DIR}/cpp/src/arrow/symbols.map")
+      "-Wl,--version-script=${ARROW_SOURCE_DIR}/src/arrow/symbols.map")
 endif()
 
 #
