@@ -263,7 +263,7 @@ class ArrowConan(ConanFile):
         if self._with_jemalloc():
             self.requires("jemalloc/5.2.1")
         if self._with_boost():
-            self.requires("boost/1.78.0")
+            self.requires("boost/1.79.0")
         if self._with_gflags():
             self.requires("gflags/2.2.2")
         if self._with_glog():
@@ -331,6 +331,7 @@ class ArrowConan(ConanFile):
         if self._cmake:
             return self._cmake
         self._cmake = CMake(self)
+        self._cmake.definitions["CMAKE_FIND_PACKAGE_PREFER_CONFIG"] = True
         if tools.cross_building(self):
             cmake_system_processor = {
                 "armv8": "aarch64",

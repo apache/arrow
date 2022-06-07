@@ -269,8 +269,8 @@ endif()
 
 add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
 
-add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${THRIFT_VERSION_MAJOR})
-add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${THRIFT_VERSION_MINOR})
+add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})
+add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${Thrift_VERSION_MINOR})
 
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})

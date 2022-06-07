@@ -22,13 +22,7 @@
 #include <cstdint>
 #include <limits>
 
-// Check if thrift version < 0.11.0
-// or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
-#if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
-#include <boost/shared_ptr.hpp>
-#else
 #include <memory>
-#endif
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -54,14 +48,6 @@
 #include "generated/parquet_types.h"  // IYWU pragma: export
 
 namespace parquet {
-
-// Check if thrift version < 0.11.0
-// or if FORCE_BOOST_SMART_PTR is defined. Ref: https://thrift.apache.org/lib/cpp
-#if defined(PARQUET_THRIFT_USE_BOOST) || defined(FORCE_BOOST_SMART_PTR)
-using ::boost::shared_ptr;
-#else
-using ::std::shared_ptr;
-#endif
 
 // ----------------------------------------------------------------------
 // Convert Thrift enums to Parquet enums
@@ -368,14 +354,15 @@ using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 // limit (ARROW-13655).  If we wanted to protect against huge messages, we could
 // do it ourselves since we know the message size up front.
 
-inline shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf, uint32_t len) {
+inline std::shared_ptr<ThriftBuffer> CreateReadOnlyMemoryBuffer(uint8_t* buf,
+                                                                uint32_t len) {
 #if PARQUET_THRIFT_VERSION_MAJOR > 0 || PARQUET_THRIFT_VERSION_MINOR >= 14
   auto conf = std::make_shared<apache::thrift::TConfiguration>();
   conf->setMaxMessageSize(std::numeric_limits<int>::max());
-  return shared_ptr<ThriftBuffer>(
+  return std::shared_ptr<ThriftBuffer>(
       new ThriftBuffer(buf, len, ThriftBuffer::OBSERVE, conf));
 #else
-  return shared_ptr<ThriftBuffer>(new ThriftBuffer(buf, len));
+  return std::shared_ptr<ThriftBuffer>(new ThriftBuffer(buf, len));
 #endif
 }
 
@@ -390,7 +377,7 @@ inline void DeserializeThriftUnencryptedMsg(const uint8_t* buf, uint32_t* len,
   // Structs in the thrift definition are relatively large (at least 300 bytes).
   // This limits total memory to the same order of magnitude as stringSize.
   tproto_factory.setContainerSizeLimit(1000 * 1000);
-  shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
+  std::shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
       tproto_factory.getProtocol(tmem_transport);
   try {
     deserialized_msg->read(tproto.get());
@@ -502,8 +489,8 @@ class ThriftSerializer {
     return static_cast<int64_t>(cipher_buffer_len);
   }
 
-  shared_ptr<ThriftBuffer> mem_buffer_;
-  shared_ptr<apache::thrift::protocol::TProtocol> protocol_;
+  std::shared_ptr<ThriftBuffer> mem_buffer_;
+  std::shared_ptr<apache::thrift::protocol::TProtocol> protocol_;
 };
 
 }  // namespace parquet

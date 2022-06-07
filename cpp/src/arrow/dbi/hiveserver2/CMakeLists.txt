@@ -31,29 +31,32 @@ set(ARROW_HIVESERVER2_SRCS
     types.cc
     util.cc)
 
+set(HIVESERVER2_THRIFT_SRC_DIR "${ARROW_BINARY_DIR}/src/arrow/dbi/hiveserver2")
+file(MAKE_DIRECTORY ${HIVESERVER2_THRIFT_SRC_DIR})
 add_subdirectory(thrift)
 
+# *_constants.* aren't generated when "const" doesn't exist in *.thrift.
 set(HIVESERVER2_THRIFT_SRC
-    ErrorCodes_constants.cpp
-    ErrorCodes_types.cpp
-    ImpalaService.cpp
-    ImpalaService_constants.cpp
-    ImpalaService_types.cpp
-    ImpalaHiveServer2Service.cpp
-    beeswax_constants.cpp
-    beeswax_types.cpp
-    BeeswaxService.cpp
-    TCLIService.cpp
-    TCLIService_constants.cpp
-    TCLIService_types.cpp
-    ExecStats_constants.cpp
-    ExecStats_types.cpp
-    hive_metastore_constants.cpp
-    hive_metastore_types.cpp
-    Status_constants.cpp
-    Status_types.cpp
-    Types_constants.cpp
-    Types_types.cpp)
+    ${HIVESERVER2_THRIFT_SRC_DIR}/ErrorCodes_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/ErrorCodes_types.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/ImpalaService.cpp
+    # ${HIVESERVER2_THRIFT_SRC_DIR}/ImpalaService_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/ImpalaService_types.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/ImpalaHiveServer2Service.cpp
+    # ${HIVESERVER2_THRIFT_SRC_DIR}/beeswax_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/beeswax_types.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/BeeswaxService.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/TCLIService.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/TCLIService_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/TCLIService_types.cpp
+    # ${HIVESERVER2_THRIFT_SRC_DIR}/ExecStats_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/ExecStats_types.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/hive_metastore_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/hive_metastore_types.cpp
+    # ${HIVESERVER2_THRIFT_SRC_DIR}/Status_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/Status_types.cpp
+    # ${HIVESERVER2_THRIFT_SRC_DIR}/Types_constants.cpp
+    ${HIVESERVER2_THRIFT_SRC_DIR}/Types_types.cpp)
 
 set_source_files_properties(${HIVESERVER2_THRIFT_SRC}
                             PROPERTIES COMPILE_FLAGS
