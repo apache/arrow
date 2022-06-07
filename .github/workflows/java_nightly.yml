@@ -35,6 +35,7 @@ jobs:
     env:
       PREFIX: ${{ github.event.inputs.prefix || ''}}
       DEPENDENCY_TO_INSTALL: ${{ github.event.inputs.dependency_to_install || ''}}
+      CROSSBOW_GITHUB_TOKEN: ${{ github.token }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -60,60 +61,29 @@ jobs:
       - name: Install Archery
         shell: bash
         run: pip install -e arrow/dev/archery[all]
-#      - name: Download Artifacts
-#        run: |
-#          if [ -z $PREFIX ]; then
-#            PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
-#          fi
-#          echo $PREFIX
-#          # problem about rate limit using github3 without API_TOKEN
-#          archery crossbow download-artifacts -f java-jars -t arrow_java_$(date +"%d-%m-%Y") $PREFIX
-#          if [ -n "$(ls -A arrow_java_$(date +"%d-%m-%Y")/*)" ]; then
-#            echo "Found files!"
-#            echo "GOT_FILES=true" >> $GITHUB_ENV
-#          else
-#            echo "No files found. Stopping upload."
-#            echo "GOT_FILES=false" >> $GITHUB_ENV
-#          fi
-#         tree arrow_java_$(date +"%d-%m-%Y")
-      - shell: bash
-        name: Download Artifacts
+      - name: Download Artifacts
         run: |
           if [ -z $PREFIX ]; then
-            PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
+            PREFIX=$(date +%Y-%m-%d)
           fi
-          if [ -z $DEPENDENCY_TO_INSTALL ]; then
-            DEPENDENCY_TO_INSTALL=arrow
-          fi
-          ARROW_JAVA_NIGHTLY_VERSION=$PREFIX'-github-java-jars'
-          TMP_FOLDER=arrow_java_$(date +%Y-%m-%d)
-          mkdir -p $TMP_FOLDER
-          pushd $TMP_FOLDER
-          # this download artifacts should be executed thru crossbow (workaround to solve problem about rate limit using github3 without API_TOKEN)
-          echo "**************** 1 - Download $ARROW_JAVA_NIGHTLY_VERSION dependencies ****************"
-          wget $( \
-            wget \
-              "-qO-" "https://api.github.com/repos/ursacomputing/crossbow/releases/tags/$ARROW_JAVA_NIGHTLY_VERSION" \
-              | jq -r '.assets[] | select((.name | endswith(".pom")) or (.name | endswith(".jar"))) | .browser_download_url' \
-              | grep $DEPENDENCY_TO_INSTALL )
-          if [ -n "$(ls -A *)" ]; then
+          archery crossbow download-artifacts -f java-jars -t binaries nightly-packaging-$PREFIX-0
+          if [ -n "$(ls -A binaries/*/*/)" ]; then
             echo "Found files!"
             echo "GOT_FILES=true" >> $GITHUB_ENV
           else
             echo "No files found. Stopping upload."
             echo "GOT_FILES=false" >> $GITHUB_ENV
           fi
-          echo "Downloaded: $(ls | wc -l) files"
-          popd
+          tree binaries
       - shell: bash
         if: env.GOT_FILES == 'true'
         name: Build Repository
         run: |
-          TMP_FOLDER=arrow_java_$(date +%Y-%m-%d)
+          if [ -z $PREFIX ]; then
+            PREFIX=$(date +%Y-%m-%d)
+          fi
           PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9].[0-9].[0-9].dev[0-9]+).([a-z]+)'
-          pushd $TMP_FOLDER
-
-          echo "**************** 2 - Install arrow java libraries to local repository ****************"
+          pushd binaries/nightly-packaging-$PREFIX-0/java-jars
           rm -rf ~/.m2/repository/org/apache/arrow
           for LIBRARY in $(ls | grep -E '.jar|.pom' | grep dev); do
             [[ $LIBRARY =~ $PATTERN_TO_GET_LIB_AND_VERSION ]]
@@ -164,17 +134,18 @@ jobs:
               fi
             fi
             echo "Artifacts $FILE installed locally to ~/.m2/repository/org/apache/arrow"
+            tree ~/.m2/repository/org/apache/arrow
           done
           popd
-          echo "**************** 3 - Local repository to sync ****************"
           rm -rf repo
-          mkdir repo
-          cp -r ~/.m2/repository/org/apache/arrow repo
-          tree repo
+          mkdir -p repo/org/apache
+          if [ -d "$HOME/.m2/repository/org/apache/arrow" ]; then
+            cp -r ~/.m2/repository/org/apache/arrow repo/org/apache
+          fi
           echo "Repo configured with Arrow Java artifacts ready to sync"
       - name: Show repo contents
         if: env.GOT_FILES == 'true'
-        run: ls -R repo
+        run: tree repo
       - name: Upload Files
         if: env.GOT_FILES == 'true'
         uses: burnett01/rsync-deployments@5.2
