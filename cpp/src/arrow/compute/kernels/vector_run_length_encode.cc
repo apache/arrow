@@ -262,11 +262,11 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
 
 void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_length_decode", Arity::Unary(),
-                                              run_length_decode_doc);
+                                                   run_length_decode_doc);
 
   for (const auto& ty : NumericTypes()) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
-    auto input_type  = std::make_shared<RunLengthEncodedType>(ty);
+    auto input_type = std::make_shared<RunLengthEncodedType>(ty);
     auto sig = KernelSignature::Make({InputType(input_type, ValueDescr::ARRAY)},
                                      OutputType({ty, ValueDescr::ARRAY}));
     VectorKernel kernel(sig, exec);
@@ -275,8 +275,6 @@ void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
-
-
 
 }  // namespace internal
 }  // namespace compute
