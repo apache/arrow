@@ -180,6 +180,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterVectorSelection(registry.get());
   RegisterVectorSort(registry.get());
   RegisterVectorRunLengthEncode(registry.get());
+  RegisterVectorRunLengthDecode(registry.get());
 
   RegisterVectorOptions(registry.get());
 

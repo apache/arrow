@@ -49,6 +49,7 @@ void RegisterVectorReplace(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
 void RegisterVectorRunLengthEncode(FunctionRegistry* registry);
+void RegisterVectorRunLengthDecode(FunctionRegistry* registry);
 
 void RegisterVectorOptions(FunctionRegistry* registry);
 
