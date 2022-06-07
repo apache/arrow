@@ -39,7 +39,7 @@ func (cr *{{.Name}}ColumnChunkReader) Skip(nvalues int64) (int64, error) {
         arrow.Int16Traits.CastFromBytes(buf),
         arrow.Int16Traits.CastFromBytes(buf))
         {{- else}}
-        make([]bool, len(buf)*8),
+        *(*[]bool)(unsafe.Pointer(&buf)),
         nil,
         nil)
         {{- end}}
