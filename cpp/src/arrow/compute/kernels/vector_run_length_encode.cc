@@ -1,5 +1,6 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace compute {
@@ -161,7 +162,7 @@ struct RunLengthDecodeGenerator {
     bool has_validity_buffer = input_validity != NULLPTR;
 
     int64_t num_values_input = input_data->child_data[0]->length;
-    int64_t num_values_output = input_data->length;
+    int64_t num_values_output = input_accumulated_run_length[num_values_input - 1];
 
     auto pool = ctx->memory_pool();
 
@@ -175,7 +176,8 @@ struct RunLengthDecodeGenerator {
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(num_values_output * sizeof(CType), pool));
 
-    auto output_type = std::make_shared<RunLengthEncodedType>(input_data->type);
+    auto& input_type = checked_cast<arrow::RunLengthEncodedType&>(*input_data->type);
+    auto output_type = input_type.encoded_type();
     auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
     output_array_data->buffers.push_back(std::move(validity_buffer));
     output_array_data->buffers.push_back(std::move(values_buffer));
@@ -196,6 +198,7 @@ struct RunLengthDecodeGenerator {
          input_position++) {
       int64_t run_end = input_accumulated_run_length[input_position];
       int64_t run_length = run_end - run_start;
+      run_start = run_end;
 
       bool valid = true;
       if (has_validity_buffer) {
