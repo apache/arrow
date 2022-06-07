@@ -43,7 +43,7 @@ jobs:
 
       - name: Build wheel
         shell: cmd
-        run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
 
       - name: Test wheel
         shell: cmd
@@ -51,3 +51,9 @@ jobs:
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
+
+      {% if arrow.branch == 'master' %}
+      - name: Push Docker Image
+        shell: cmd
+        run: archery docker push python-wheel-windows-vs2017
+      {% endif %}
