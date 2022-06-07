@@ -78,13 +78,16 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
   auto dataset_schema = schema({
       field("x", int64()),
   });
-  ExecBatch input({Datum(ConstantArrayGenerator::Int64(rows_per_batch, 5))},
-                  /*length=*/rows_per_batch);
+  std::vector<ExecBatch> inputs(num_batches);
+  for (auto& batch : inputs) {
+    batch = ExecBatch({Datum(ConstantArrayGenerator::Int64(rows_per_batch, 5))},
+                      /*length=*/1);
+  }
 
   ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
   for (auto _ : state) {
     for (int it = 0; it < num_batches; ++it)
-      ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
+      ABORT_NOT_OK(ExecuteScalarExpression(bound, inputs[it], &ctx).status());
   }
   state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches * rows_per_batch),
@@ -101,11 +104,12 @@ void ExecuteScalarExpressionBaseline(benchmark::State& state) {
   const auto rows_per_batch = static_cast<int32_t>(state.range(0));
   const auto num_batches = 1000000 / rows_per_batch;
 
-  const std::vector<int64_t> input(rows_per_batch, 5);
-  BenchmarkType benchmark(input.size());
+  std::vector<std::vector<int64_t>> inputs(num_batches,
+                                           std::vector<int64_t>(rows_per_batch, 5));
+  BenchmarkType benchmark(rows_per_batch);
 
   for (auto _ : state) {
-    for (int it = 0; it < num_batches; ++it) benchmark.Exec(input);
+    for (int it = 0; it < num_batches; ++it) benchmark.Exec(inputs[it]);
   }
   state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches * rows_per_batch),
