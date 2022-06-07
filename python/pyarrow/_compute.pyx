@@ -2080,7 +2080,7 @@ cdef class _RankOptions(FunctionOptions):
                 new CRankOptions(c_sort_keys, unwrap_null_placement(null_placement), self._tiebreaker_map[tiebreaker])
             )
         except KeyError:
-            _raise_invalid_function_option(tiebreaker, "Rank Options")
+            _raise_invalid_function_option(tiebreaker, "tiebreaker")
 
 
 class RankOptions(_RankOptions):
