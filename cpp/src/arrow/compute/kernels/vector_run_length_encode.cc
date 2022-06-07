@@ -73,7 +73,7 @@ struct RunLengthEncodeGenerator {
     child_array_data->buffers.push_back(std::move(validity_buffer));
     child_array_data->buffers.push_back(std::move(values_buffer));
 
-    output_array_data->null_count = output_null_count;
+    output_array_data->null_count.store(input_data->null_count);
     child_array_data->null_count = output_null_count;
 
     auto output_validity = child_array_data->GetMutableValues<uint8_t>(0);
