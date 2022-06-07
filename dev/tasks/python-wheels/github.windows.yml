@@ -46,6 +46,11 @@ jobs:
           Remove-Item arrow\python\cmake_modules
           Copy-Item arrow\cpp\cmake_modules arrow\python\ -Recurse
 
+      - name: Debug
+        shell: bash
+        run: |
+          ls -lahR
+
       - name: Build wheel
         shell: cmd
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
