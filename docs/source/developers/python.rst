@@ -362,8 +362,8 @@ Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
 need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
 variable to 1.
 
-To set the number of threads used to compile PyArrow's C++/Cython components
-(just like ``-jX``), set the ``PYARROW_PARALLEL`` environment variable.
+To set the number of threads used to compile PyArrow's C++/Cython components, 
+set the ``PYARROW_PARALLEL`` environment variable.
 
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
