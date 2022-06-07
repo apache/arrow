@@ -21,7 +21,7 @@
 #include <type_traits>
 
 #include "arrow/status.h"
-#include "arrow/util/int_util_overflow.h"
+
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -128,26 +128,6 @@ typename std::enable_if<
     std::is_integral<Integer>::value && std::is_unsigned<Integer>::value, uint64_t>::type
 UpcastInt(Integer v) {
   return v;
-}
-
-static inline Status CheckSliceParams(int64_t object_length, int64_t slice_offset,
-                                      int64_t slice_length, const char* object_name) {
-  if (ARROW_PREDICT_FALSE(slice_offset < 0)) {
-    return Status::IndexError("Negative ", object_name, " slice offset");
-  }
-  if (ARROW_PREDICT_FALSE(slice_length < 0)) {
-    return Status::IndexError("Negative ", object_name, " slice length");
-  }
-  int64_t offset_plus_length;
-  if (ARROW_PREDICT_FALSE(
-          internal::AddWithOverflow(slice_offset, slice_length, &offset_plus_length))) {
-    return Status::IndexError(object_name, " slice would overflow");
-  }
-  if (ARROW_PREDICT_FALSE(offset_plus_length > object_length)) {
-    return Status::IndexError(object_name, " slice would exceed ", object_name,
-                              " length");
-  }
-  return Status::OK();
 }
 
 }  // namespace internal
