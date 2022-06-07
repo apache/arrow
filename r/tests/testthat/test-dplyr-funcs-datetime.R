@@ -49,14 +49,19 @@ test_df <- tibble::tibble(
 
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
-  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  # lubridate defaults to "UTC" as timezone => t_stamp is in "UTC"
+  t_stamp_with_utc_tz <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
   t_stamp_with_pm_tz <- tibble(
     x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA)
   )
 
   # base::strptime returns a POSIXlt (a list) => we cannot use compare_dplyr_binding
-  # => we use expect_equal
+  # => we use expect_equal for the tests below
+
   withr::with_timezone("Pacific/Marquesas", {
+    # the default value for strptime's `tz` argument is "", which is interpreted
+    # as the current timezone. we test here if the strptime binding picks up
+    # correctly the current timezone (similarly to the base R version)
     expect_equal(
       t_string %>%
         record_batch() %>%
@@ -68,6 +73,7 @@ test_that("strptime", {
     )
   })
 
+  # adding a timezone to a timezone-naive timestamp works
   expect_equal(
     t_string %>%
       arrow_table() %>%
@@ -85,7 +91,7 @@ test_that("strptime", {
         x = strptime(x, tz = "UTC")
       ) %>%
       collect(),
-    t_stamp
+    t_stamp_with_utc_tz
   )
 
   expect_equal(
@@ -95,7 +101,7 @@ test_that("strptime", {
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp
+    t_stamp_with_utc_tz
   )
 
   expect_equal(
@@ -115,7 +121,7 @@ test_that("strptime", {
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp
+    t_stamp_with_utc_tz
   )
 
   tstring <- tibble(x = c("08-05-2008", NA))
