@@ -206,7 +206,7 @@ opentelemetry::trace::Tracer* GetTracer() {
 opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
     const util::tracing::Span& parent_span) {
   opentelemetry::trace::StartSpanOptions options;
-  options.parent = parent_span.Get().span->GetContext();
+  options.parent = ((const ::arrow::internal::tracing::OTSpan&)parent_span).Get()->GetContext();
   return options;
 }
 #endif
