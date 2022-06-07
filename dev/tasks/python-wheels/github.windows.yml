@@ -44,7 +44,7 @@ jobs:
       - name: Remove symbolic links
         run: |
           Remove-Item arrow\python\cmake_modules
-          Copy-Item arrow\cpp\cmake_modules python\ -Recurse
+          Copy-Item arrow\cpp\cmake_modules arrow\python\ -Recurse
 
       - name: Build wheel
         shell: cmd
