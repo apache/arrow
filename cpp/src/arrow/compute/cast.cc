@@ -165,7 +165,7 @@ Status CastFunction::AddKernel(Type::type in_type_id, ScalarKernel kernel) {
 }
 
 Status CastFunction::AddKernel(Type::type in_type_id, std::vector<InputType> in_types,
-                               OutputType out_type, ArrayKernelExec exec,
+                               OutputType out_type, ScalarKernel::ExecFunc exec,
                                NullHandling::type null_handling,
                                MemAllocation::type mem_allocation) {
   ScalarKernel kernel;

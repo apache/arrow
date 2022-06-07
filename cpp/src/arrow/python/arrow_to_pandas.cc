@@ -1657,7 +1657,8 @@ class CategoricalWriter
       const auto& indices = checked_cast<const ArrayType&>(*arr.indices());
       auto values = reinterpret_cast<const T*>(indices.raw_values());
 
-      RETURN_NOT_OK(CheckIndexBounds(*indices.data(), arr.dictionary()->length()));
+      RETURN_NOT_OK(
+          CheckIndexBounds(ArraySpan(*indices.data()), arr.dictionary()->length()));
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
         if (indices.IsValid(i)) {
@@ -1691,7 +1692,7 @@ class CategoricalWriter
       auto transpose = reinterpret_cast<const int32_t*>(transpose_buffer->data());
       int64_t dict_length = arr.dictionary()->length();
 
-      RETURN_NOT_OK(CheckIndexBounds(*indices.data(), dict_length));
+      RETURN_NOT_OK(CheckIndexBounds(ArraySpan(*indices.data()), dict_length));
 
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
@@ -1715,8 +1716,8 @@ class CategoricalWriter
     const auto indices_first = std::static_pointer_cast<ArrayType>(arr_first.indices());
 
     if (data.num_chunks() == 1 && indices_first->null_count() == 0) {
-      RETURN_NOT_OK(
-          CheckIndexBounds(*indices_first->data(), arr_first.dictionary()->length()));
+      RETURN_NOT_OK(CheckIndexBounds(ArraySpan(*indices_first->data()),
+                                     arr_first.dictionary()->length()));
 
       PyObject* wrapped;
       npy_intp dims[1] = {static_cast<npy_intp>(this->num_rows_)};

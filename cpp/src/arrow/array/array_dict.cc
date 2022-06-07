@@ -125,7 +125,7 @@ Result<std::shared_ptr<Array>> DictionaryArray::FromArrays(
         "Dictionary type's index type does not match "
         "indices array's type");
   }
-  RETURN_NOT_OK(internal::CheckIndexBounds(*indices->data(),
+  RETURN_NOT_OK(internal::CheckIndexBounds(ArraySpan(*indices->data()),
                                            static_cast<uint64_t>(dictionary->length())));
   return std::make_shared<DictionaryArray>(type, indices, dictionary);
 }
@@ -290,8 +290,8 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
 
   Status GetResultWithIndexType(const std::shared_ptr<DataType>& index_type,
                                 std::shared_ptr<Array>* out_dict) override {
-    int64_t dict_length = memo_table_.size();
-    if (!internal::IntegersCanFit(Datum(dict_length), *index_type).ok()) {
+    Int64Scalar dict_length(memo_table_.size());
+    if (!internal::IntegersCanFit(dict_length, *index_type).ok()) {
       return Status::Invalid(
           "These dictionaries cannot be combined.  The unified dictionary requires a "
           "larger index type.");

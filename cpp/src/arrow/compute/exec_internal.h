@@ -39,8 +39,9 @@ static constexpr int64_t kDefaultMaxChunksize = std::numeric_limits<int64_t>::ma
 
 namespace detail {
 
-/// \brief Break std::vector<Datum> into a sequence of ExecBatch for kernel
-/// execution
+/// \brief Break std::vector<Datum> into a sequence of ExecBatch for
+/// kernel execution. The lifetime of the Datum vector must be longer
+/// than the lifetime of this object
 class ARROW_EXPORT ExecBatchIterator {
  public:
   /// \brief Construct iterator and do basic argument validation
@@ -49,7 +50,7 @@ class ARROW_EXPORT ExecBatchIterator {
   /// \param[in] max_chunksize the maximum length of each ExecBatch. Depending
   /// on the chunk layout of ChunkedArray.
   static Result<std::unique_ptr<ExecBatchIterator>> Make(
-      std::vector<Datum> args, int64_t max_chunksize = kDefaultMaxChunksize);
+      const std::vector<Datum>& args, int64_t max_chunksize = kDefaultMaxChunksize);
 
   /// \brief Compute the next batch. Always returns at least one batch. Return
   /// false if the iterator is exhausted
@@ -62,11 +63,60 @@ class ARROW_EXPORT ExecBatchIterator {
   int64_t max_chunksize() const { return max_chunksize_; }
 
  private:
-  ExecBatchIterator(std::vector<Datum> args, int64_t length, int64_t max_chunksize);
+  ExecBatchIterator(const std::vector<Datum>& args, int64_t length,
+                    int64_t max_chunksize);
 
-  std::vector<Datum> args_;
+  const std::vector<Datum>& args_;
   std::vector<int> chunk_indexes_;
   std::vector<int64_t> chunk_positions_;
+  int64_t position_;
+  int64_t length_;
+  int64_t max_chunksize_;
+};
+
+/// \brief Break std::vector<Datum> into a sequence of non-owning
+/// ExecSpan for kernel execution. The lifetime of the Datum vector
+/// must be longer than the lifetime of this object
+class ARROW_EXPORT ExecSpanIterator {
+ public:
+  /// \brief Construct iterator and do basic argument validation
+  ///
+  /// \param[in] args the Datum argument, must be all array-like or scalar
+  /// \param[in] max_chunksize the maximum length of each ExecSpan. Depending
+  /// on the chunk layout of ChunkedArray.
+  static Result<std::unique_ptr<ExecSpanIterator>> Make(
+      const std::vector<Datum>& args, int64_t max_chunksize = kDefaultMaxChunksize);
+
+  /// \brief Compute the next span by updating the state of the
+  /// previous span object. You must keep passing in the previous
+  /// value for the results to be consistent. If you need to process
+  /// in parallel, make a copy of the in-use ExecSpan while it's being
+  /// used by another thread and pass it into Next. This function
+  /// always populates at least one span. If you call this function
+  /// with a blank ExecSpan after the first iteration, it will not
+  /// work correctly (maybe we will change this later). Return false
+  /// if the iteration is exhausted
+  bool Next(ExecSpan* span);
+
+  int64_t length() const { return length_; }
+  int64_t position() const { return position_; }
+
+ private:
+  ExecSpanIterator(const std::vector<Datum>& args, int64_t length, int64_t max_chunksize);
+
+  int64_t GetNextChunkSpan(int64_t iteration_size, ExecSpan* span);
+
+  bool initialized_ = false;
+  bool have_chunked_arrays_ = false;
+  const std::vector<Datum>& args_;
+  std::vector<int> chunk_indexes_;
+  std::vector<int64_t> value_positions_;
+
+  // Keep track of the array offset in the "active" array (e.g. the
+  // array or the particular chunk of an array) in each slot, separate
+  // from the relative position within each chunk (which is in
+  // value_positions_)
+  std::vector<int64_t> value_offsets_;
   int64_t position_;
   int64_t length_;
   int64_t max_chunksize_;
@@ -138,7 +188,10 @@ class ARROW_EXPORT KernelExecutor {
 /// \param[in] batch the data batch
 /// \param[in] out the output ArrayData, must not be null
 ARROW_EXPORT
-Status PropagateNulls(KernelContext* ctx, const ExecBatch& batch, ArrayData* out);
+Status PropagateNulls(KernelContext* ctx, const ExecSpan& batch, ArrayData* out);
+
+ARROW_EXPORT
+void PropagateNullsSpans(const ExecSpan& batch, ArraySpan* out);
 
 }  // namespace detail
 }  // namespace compute

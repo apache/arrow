@@ -53,13 +53,14 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   AddZeroCopyCast(Type::BOOL, boolean(), boolean(), func.get());
 
   for (const auto& ty : NumericTypes()) {
-    ArrayKernelExec exec =
+    ScalarKernel::ExecFunc exec =
         GenerateNumeric<applicator::ScalarUnary, BooleanType, IsNonZero>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    ArrayKernelExec exec = GenerateVarBinaryBase<applicator::ScalarUnaryNotNull,
-                                                 BooleanType, ParseBooleanString>(*ty);
+    ScalarKernel::ExecFunc exec =
+        GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, BooleanType,
+                              ParseBooleanString>(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   return {func};

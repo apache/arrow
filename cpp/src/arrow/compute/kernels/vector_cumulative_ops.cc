@@ -132,7 +132,7 @@ struct CumulativeGeneric {
 
     if (skip_nulls || (input.GetNullCount() == 0 && !encountered_null)) {
       VisitArrayValuesInline<ArgType>(
-          input,
+          ArraySpan(input),
           [&](ArgValue v) {
             accumulator =
                 Op::template Call<OutValue, ArgValue, ArgValue>(ctx, v, accumulator, &st);
@@ -142,7 +142,7 @@ struct CumulativeGeneric {
     } else {
       int64_t nulls_start_idx = 0;
       VisitArrayValuesInline<ArgType>(
-          input,
+          ArraySpan(input),
           [&](ArgValue v) {
             if (!encountered_null) {
               accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(
@@ -215,7 +215,7 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
-    kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
+    kernel.exec = ArithmeticExecFromOpOld<CumulativeGeneric, Op, OptionsType>(ty);
     kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }

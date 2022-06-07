@@ -832,7 +832,7 @@ struct FillNullBackwardFunctor {
 template <template <class> class Functor>
 void RegisterVectorFunction(FunctionRegistry* registry,
                             std::shared_ptr<VectorFunction> func) {
-  auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExec exec) {
+  auto add_kernel = [&](detail::GetTypeId get_id, KernelBatchExec exec) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     if (is_fixed_width(get_id.id)) {
@@ -849,7 +849,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   };
   auto add_primitive_kernel = [&](detail::GetTypeId get_id) {
-    add_kernel(get_id, GenerateTypeAgnosticPrimitive<Functor>(get_id));
+    add_kernel(get_id, GenerateTypeAgnosticPrimitiveOld<Functor>(get_id));
   };
   for (const auto& ty : NumericTypes()) {
     add_primitive_kernel(ty);
@@ -866,7 +866,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   add_kernel(Type::DECIMAL128, Functor<FixedSizeBinaryType>::Exec);
   add_kernel(Type::DECIMAL256, Functor<FixedSizeBinaryType>::Exec);
   for (const auto& ty : BaseBinaryTypes()) {
-    add_kernel(ty->id(), GenerateTypeAgnosticVarBinaryBase<Functor>(*ty));
+    add_kernel(ty->id(), GenerateTypeAgnosticVarBinaryBaseOld<Functor>(*ty));
   }
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));

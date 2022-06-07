@@ -500,7 +500,7 @@ void AddQuantileKernels(VectorFunction* func) {
   for (const auto& ty : NumericTypes()) {
     base.signature = KernelSignature::Make({InputType(ty)}, OutputType(ResolveOutput));
     // output type is determined at runtime, set template argument to nulltype
-    base.exec = GenerateNumeric<QuantileExecutor, NullType>(*ty);
+    base.exec = GenerateNumericOld<QuantileExecutor, NullType>(*ty);
     DCHECK_OK(func->AddKernel(base));
   }
   {

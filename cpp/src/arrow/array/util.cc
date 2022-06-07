@@ -432,7 +432,9 @@ class NullArrayFactory {
       RETURN_NOT_OK(CreateBuffer());
     }
     std::vector<std::shared_ptr<ArrayData>> child_data(type_->num_fields());
-    out_ = ArrayData::Make(type_, length_, {buffer_}, child_data, length_, 0);
+    out_ = ArrayData::Make(type_, length_,
+                           {SliceBuffer(buffer_, 0, bit_util::BytesForBits(length_))},
+                           child_data, length_, 0);
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
     return out_;
   }

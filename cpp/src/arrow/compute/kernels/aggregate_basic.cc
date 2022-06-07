@@ -297,7 +297,7 @@ struct ProductImpl : public ScalarAggregator {
       }
 
       internal::VisitArrayValuesInline<ArrowType>(
-          *data,
+          ArraySpan(*data),
           [&](typename TypeTraits<ArrowType>::CType value) {
             this->product =
                 MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
@@ -630,7 +630,7 @@ struct IndexImpl : public ScalarAggregator {
     int64_t i = 0;
 
     ARROW_UNUSED(internal::VisitArrayValuesInline<ArgType>(
-        *input,
+        ArraySpan(*input),
         [&](ArgValue v) -> Status {
           if (v == desired) {
             index = i;

@@ -651,7 +651,7 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
   auto g = batch[1].array()->GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     VisitArrayValuesInline<Type>(
-        *batch[0].array(),
+        ArraySpan(*batch[0].array()),
         [&](typename TypeTraits<Type>::CType val) { valid_func(*g++, val); },
         [&]() { null_func(*g++); });
     return;
@@ -676,7 +676,7 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
   auto g = batch[1].array()->GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     return VisitArrayValuesInline<Type>(
-        *batch[0].array(),
+        ArraySpan(*batch[0].array()),
         [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
         [&]() { return null_func(*g++); });
   }

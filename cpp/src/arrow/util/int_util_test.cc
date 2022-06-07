@@ -391,13 +391,13 @@ TEST(TransposeInts, Int8ToInt64) {
 void BoundsCheckPasses(const std::shared_ptr<DataType>& type,
                        const std::string& indices_json, uint64_t upper_limit) {
   auto indices = ArrayFromJSON(type, indices_json);
-  ASSERT_OK(CheckIndexBounds(*indices->data(), upper_limit));
+  ASSERT_OK(CheckIndexBounds(ArraySpan(*indices->data()), upper_limit));
 }
 
 void BoundsCheckFails(const std::shared_ptr<DataType>& type,
                       const std::string& indices_json, uint64_t upper_limit) {
   auto indices = ArrayFromJSON(type, indices_json);
-  ASSERT_RAISES(IndexError, CheckIndexBounds(*indices->data(), upper_limit));
+  ASSERT_RAISES(IndexError, CheckIndexBounds(ArraySpan(*indices->data()), upper_limit));
 }
 
 TEST(CheckIndexBounds, Batching) {
@@ -413,22 +413,23 @@ TEST(CheckIndexBounds, Batching) {
   uint8_t* bitmap = index_data->buffers[0]->mutable_data();
   bit_util::SetBitsTo(bitmap, 0, length, true);
 
-  ASSERT_OK(CheckIndexBounds(*index_data, 1));
+  ArraySpan index_span(*index_data);
+  ASSERT_OK(CheckIndexBounds(index_span, 1));
 
   // We'll place out of bounds indices at various locations
   values[99] = 1;
-  ASSERT_RAISES(IndexError, CheckIndexBounds(*index_data, 1));
+  ASSERT_RAISES(IndexError, CheckIndexBounds(index_span, 1));
 
   // Make that value null
   bit_util::ClearBit(bitmap, 99);
-  ASSERT_OK(CheckIndexBounds(*index_data, 1));
+  ASSERT_OK(CheckIndexBounds(index_span, 1));
 
   values[199] = 1;
-  ASSERT_RAISES(IndexError, CheckIndexBounds(*index_data, 1));
+  ASSERT_RAISES(IndexError, CheckIndexBounds(index_span, 1));
 
   // Make that value null
   bit_util::ClearBit(bitmap, 199);
-  ASSERT_OK(CheckIndexBounds(*index_data, 1));
+  ASSERT_OK(CheckIndexBounds(index_span, 1));
 }
 
 TEST(CheckIndexBounds, SignedInts) {
@@ -489,7 +490,7 @@ void CheckInRangePasses(const std::shared_ptr<DataType>& type,
                         const std::string& values_json, const std::string& limits_json) {
   auto values = ArrayFromJSON(type, values_json);
   auto limits = ArrayFromJSON(type, limits_json);
-  ASSERT_OK(CheckIntegersInRange(Datum(values->data()), **limits->GetScalar(0),
+  ASSERT_OK(CheckIntegersInRange(ArraySpan(*values->data()), **limits->GetScalar(0),
                                  **limits->GetScalar(1)));
 }
 
@@ -498,7 +499,7 @@ void CheckInRangeFails(const std::shared_ptr<DataType>& type,
   auto values = ArrayFromJSON(type, values_json);
   auto limits = ArrayFromJSON(type, limits_json);
   ASSERT_RAISES(Invalid,
-                CheckIntegersInRange(Datum(values->data()), **limits->GetScalar(0),
+                CheckIntegersInRange(ArraySpan(*values->data()), **limits->GetScalar(0),
                                      **limits->GetScalar(1)));
 }
 
@@ -518,26 +519,27 @@ TEST(CheckIntegersInRange, Batching) {
   auto zero = std::make_shared<Int16Scalar>(0);
   auto one = std::make_shared<Int16Scalar>(1);
 
-  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+  ArraySpan index_span(*index_data);
+  ASSERT_OK(CheckIntegersInRange(index_span, *zero, *one));
 
   // 1 is included
   values[99] = 1;
-  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+  ASSERT_OK(CheckIntegersInRange(index_span, *zero, *one));
 
   // We'll place out of bounds indices at various locations
   values[99] = 2;
-  ASSERT_RAISES(Invalid, CheckIntegersInRange(*index_data, *zero, *one));
+  ASSERT_RAISES(Invalid, CheckIntegersInRange(index_span, *zero, *one));
 
   // Make that value null
   bit_util::ClearBit(bitmap, 99);
-  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+  ASSERT_OK(CheckIntegersInRange(index_span, *zero, *one));
 
   values[199] = 2;
-  ASSERT_RAISES(Invalid, CheckIntegersInRange(*index_data, *zero, *one));
+  ASSERT_RAISES(Invalid, CheckIntegersInRange(index_span, *zero, *one));
 
   // Make that value null
   bit_util::ClearBit(bitmap, 199);
-  ASSERT_OK(CheckIntegersInRange(*index_data, *zero, *one));
+  ASSERT_OK(CheckIntegersInRange(index_span, *zero, *one));
 }
 
 TEST(CheckIntegersInRange, SignedInts) {

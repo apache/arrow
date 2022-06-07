@@ -2196,7 +2196,7 @@ static Bitmap Copy(const Bitmap& bitmap, std::shared_ptr<Buffer> storage) {
   auto min_offset = Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 1> uint64s) {
     reinterpret_cast<uint64_t*>(storage->mutable_data())[i++] = uint64s[0];
   });
-  return Bitmap(std::move(storage), min_offset, bitmap.length());
+  return Bitmap(storage, min_offset, bitmap.length());
 }
 
 // reconstruct a bitmap from a word-wise visit
@@ -2285,9 +2285,9 @@ TEST(Bitmap, VisitWordsAnd) {
                   uint64s[0] & uint64s[1];
             });
 
-        BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
-                  bitmaps[1].buffer()->data(), bitmaps[1].offset(), bitmaps[0].length(),
-                  0, expected_buffer->mutable_data());
+        BitmapAnd(bitmaps[0].data(), bitmaps[0].offset(), bitmaps[1].data(),
+                  bitmaps[1].offset(), bitmaps[0].length(), 0,
+                  expected_buffer->mutable_data());
 
         ASSERT_TRUE(BitmapEquals(actual_buffer->data(), min_offset,
                                  expected_buffer->data(), 0, num_bits))
@@ -2312,13 +2312,14 @@ void DoBitmapVisitAndWrite(int64_t part, bool with_offset) {
   Bitmap bm2(arrow_buffer, part * 2, part);
 
   std::array<Bitmap, 2> out_bms;
+  std::shared_ptr<Buffer> out, out0, out1;
   if (with_offset) {
-    ASSERT_OK_AND_ASSIGN(auto out, AllocateBitmap(part * 4));
+    ASSERT_OK_AND_ASSIGN(out, AllocateBitmap(part * 4));
     out_bms[0] = Bitmap(out, part, part);
     out_bms[1] = Bitmap(out, part * 2, part);
   } else {
-    ASSERT_OK_AND_ASSIGN(auto out0, AllocateBitmap(part));
-    ASSERT_OK_AND_ASSIGN(auto out1, AllocateBitmap(part));
+    ASSERT_OK_AND_ASSIGN(out0, AllocateBitmap(part));
+    ASSERT_OK_AND_ASSIGN(out1, AllocateBitmap(part));
     out_bms[0] = Bitmap(out0, 0, part);
     out_bms[1] = Bitmap(out1, 0, part);
   }
@@ -2333,20 +2334,18 @@ void DoBitmapVisitAndWrite(int64_t part, bool with_offset) {
       });
 
   auto pool = MemoryPool::CreateDefault();
-  ASSERT_OK_AND_ASSIGN(auto exp_0,
-                       BitmapAnd(pool.get(), bm0.buffer()->data(), bm0.offset(),
-                                 bm1.buffer()->data(), bm1.offset(), part, 0));
-  ASSERT_OK_AND_ASSIGN(auto exp_1,
-                       BitmapOr(pool.get(), bm0.buffer()->data(), bm0.offset(),
-                                bm2.buffer()->data(), bm2.offset(), part, 0));
+  ASSERT_OK_AND_ASSIGN(auto exp_0, BitmapAnd(pool.get(), bm0.data(), bm0.offset(),
+                                             bm1.data(), bm1.offset(), part, 0));
+  ASSERT_OK_AND_ASSIGN(auto exp_1, BitmapOr(pool.get(), bm0.data(), bm0.offset(),
+                                            bm2.data(), bm2.offset(), part, 0));
 
-  ASSERT_TRUE(BitmapEquals(exp_0->data(), 0, out_bms[0].buffer()->data(),
-                           out_bms[0].offset(), part))
+  ASSERT_TRUE(
+      BitmapEquals(exp_0->data(), 0, out_bms[0].data(), out_bms[0].offset(), part))
       << "exp: " << Bitmap(exp_0->data(), 0, part).ToString() << std::endl
       << "got: " << out_bms[0].ToString();
 
-  ASSERT_TRUE(BitmapEquals(exp_1->data(), 0, out_bms[1].buffer()->data(),
-                           out_bms[1].offset(), part))
+  ASSERT_TRUE(
+      BitmapEquals(exp_1->data(), 0, out_bms[1].data(), out_bms[1].offset(), part))
       << "exp: " << Bitmap(exp_1->data(), 0, part).ToString() << std::endl
       << "got: " << out_bms[1].ToString();
 }

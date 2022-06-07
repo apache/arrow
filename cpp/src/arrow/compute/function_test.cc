@@ -210,12 +210,16 @@ TEST(VectorFunction, Basics) {
   ASSERT_EQ(Function::VECTOR, varargs_func.kind());
 }
 
-auto ExecNYI = [](KernelContext* ctx, const ExecBatch& args, Datum* out) {
+auto ExecNYI = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) {
   return Status::NotImplemented("NYI");
 };
 
-template <typename FunctionType>
-void CheckAddDispatch(FunctionType* func) {
+auto ExecNYIOld = [](KernelContext* ctx, const ExecBatch& args, Datum* out) {
+  return Status::NotImplemented("NYI");
+};
+
+template <typename FunctionType, typename ExecType>
+void CheckAddDispatch(FunctionType* func, ExecType exec) {
   using KernelType = typename FunctionType::KernelType;
 
   ASSERT_EQ(0, func->num_kernels());
@@ -224,29 +228,29 @@ void CheckAddDispatch(FunctionType* func) {
   std::vector<InputType> in_types1 = {int32(), int32()};
   OutputType out_type1 = int32();
 
-  ASSERT_OK(func->AddKernel(in_types1, out_type1, ExecNYI));
-  ASSERT_OK(func->AddKernel({int32(), int8()}, int32(), ExecNYI));
+  ASSERT_OK(func->AddKernel(in_types1, out_type1, exec));
+  ASSERT_OK(func->AddKernel({int32(), int8()}, int32(), exec));
 
   // Duplicate sig is okay
-  ASSERT_OK(func->AddKernel(in_types1, out_type1, ExecNYI));
+  ASSERT_OK(func->AddKernel(in_types1, out_type1, exec));
 
   // Add given a descr
-  KernelType descr({float64(), float64()}, float64(), ExecNYI);
+  KernelType descr({float64(), float64()}, float64(), exec);
   ASSERT_OK(func->AddKernel(descr));
 
   ASSERT_EQ(4, func->num_kernels());
   ASSERT_EQ(4, func->kernels().size());
 
   // Try adding some invalid kernels
-  ASSERT_RAISES(Invalid, func->AddKernel({}, int32(), ExecNYI));
-  ASSERT_RAISES(Invalid, func->AddKernel({int32()}, int32(), ExecNYI));
-  ASSERT_RAISES(Invalid, func->AddKernel({int8(), int8(), int8()}, int32(), ExecNYI));
+  ASSERT_RAISES(Invalid, func->AddKernel({}, int32(), exec));
+  ASSERT_RAISES(Invalid, func->AddKernel({int32()}, int32(), exec));
+  ASSERT_RAISES(Invalid, func->AddKernel({int8(), int8(), int8()}, int32(), exec));
 
   // Add valid and invalid kernel using kernel struct directly
-  KernelType valid_kernel({boolean(), boolean()}, boolean(), ExecNYI);
+  KernelType valid_kernel({boolean(), boolean()}, boolean(), exec);
   ASSERT_OK(func->AddKernel(valid_kernel));
 
-  KernelType invalid_kernel({boolean()}, boolean(), ExecNYI);
+  KernelType invalid_kernel({boolean()}, boolean(), exec);
   ASSERT_RAISES(Invalid, func->AddKernel(invalid_kernel));
 
   ASSERT_OK_AND_ASSIGN(const Kernel* kernel, func->DispatchExact({int32(), int32()}));
@@ -265,8 +269,10 @@ TEST(ScalarVectorFunction, DispatchExact) {
   ScalarFunction func1("scalar_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
   VectorFunction func2("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
 
-  CheckAddDispatch(&func1);
-  CheckAddDispatch(&func2);
+  CheckAddDispatch(&func1, ExecNYI);
+
+  // ARROW-16576: will migrate later to new span-based kernel exec API
+  CheckAddDispatch(&func2, ExecNYIOld);
 }
 
 TEST(ArrayFunction, VarArgs) {

@@ -474,30 +474,30 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
 
   // duration type
   base.signature = KernelSignature::Make({InputType::Array(Type::DURATION)}, uint64());
-  base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*int64());
+  base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*int64());
   DCHECK_OK(func->AddKernel(base));
 
   for (const auto& ty : NumericTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : TemporalTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty->id())}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     base.signature = KernelSignature::Make({InputType::Array(id)}, uint64());
-    base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
+    base.exec = GenerateDecimalOld<ExecTemplate, UInt64Type>(id);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateVarBinaryBaseOld<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   base.signature =
