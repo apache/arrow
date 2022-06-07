@@ -808,15 +808,15 @@ In Run-length-encoded form, this could appear as:
         * Length: 3, Null count: 1
         * Validity bitmap buffer:
 
-          |Byte 0 (validity bitmap) | Bytes 1-63            |
-          |-------------------------|-----------------------|
-          |00000101                 | 0 (padding)           |
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00000101                 | 0 (padding)           |
 
-       * Values buffer
+        * Values buffer
 
-         | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
-         |-------------|-------------|-------------|-----------------------|
-         | 1.0         | unspecified | 2.0         | unspecified (padding) |
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 1.0         | unspecified | 2.0         | unspecified (padding) |
 
 
 Note that a dictionary is permitted to contain duplicate values or
