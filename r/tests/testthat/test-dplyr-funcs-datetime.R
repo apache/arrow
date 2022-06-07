@@ -74,6 +74,9 @@ test_that("strptime", {
   })
 
   # adding a timezone to a timezone-naive timestamp works
+  # and since our TZ when running the test is (typically) Pacific/Marquesas
+  # this also tests that assigning a TZ different from the current session one
+  # works as expected
   expect_equal(
     t_string %>%
       arrow_table() %>%
