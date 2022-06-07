@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <condition_variable>
+#include <mutex>
+
 #include "benchmark/benchmark.h"
 
 #include "arrow/compute/cast.h"
@@ -22,6 +25,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
+#include "arrow/compute/exec/task_util.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
@@ -67,6 +71,7 @@ static void ProjectionOverhead(benchmark::State& state, Expression expr) {
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
+
 static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr) {
   const auto batch_size = static_cast<int32_t>(state.range(0));
   const auto num_batches = total_batch_size / batch_size;
@@ -89,12 +94,39 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
                                                    expr,
                                                }}));
     MakeExecNode("sink", plan.get(), {pn}, SinkNodeOptions{&sink_gen});
-    pn->InputFinished(sn, num_batches);
+    auto scheduler = TaskScheduler::Make();
+    std::condition_variable cv;
+    std::mutex mutex;
+    int task_group_id = scheduler->RegisterTaskGroup(
+        [&](size_t thread_id, int64_t task_id) {
+          pn->InputReceived(sn, data.batches[task_id]);
+          return Status::OK();
+        },
+        [&](size_t thread_id) {
+          pn->InputFinished(sn, data.batches.size());
+          std::unique_lock<std::mutex> lk(mutex);
+          cv.notify_one();
+          return Status::OK();
+        });
+    scheduler->RegisterEnd();
+    ThreadIndexer thread_indexer;
     state.ResumeTiming();
-    for (auto b : data.batches) {
-      pn->InputReceived(sn, b);
-    }
-    pn->finished();
+    
+    auto tp = arrow::internal::GetCpuThreadPool();
+    ASSERT_OK(scheduler->StartScheduling(
+        0,
+        [&](std::function<Status(size_t)> task) -> Status {
+            return tp->Spawn([&, task]() {
+            size_t tid = thread_indexer();
+            ARROW_DCHECK_OK(task(tid));
+            });
+        },
+        arrow::internal::GetCpuThreadPool()->GetCapacity(),
+        /*use_sync_execution=*/false));
+    std::unique_lock<std::mutex> lk(mutex);
+    ASSERT_OK(scheduler->StartTaskGroup(0, task_group_id, num_batches));
+    cv.wait(lk);
+    ASSERT_TRUE(pn->finished().is_finished());
   }
   state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches * batch_size),
