@@ -34,7 +34,7 @@ else:
     from distutils import sysconfig
 
 import pkg_resources
-from setuptools import setup, Extension, Distribution
+from setuptools import setup, Extension, Distribution, find_namespace_packages
 
 from Cython.Distutils import build_ext as _build_ext
 import Cython
@@ -613,9 +613,10 @@ else:
 
 
 if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
-    packages = ['pyarrow', 'pyarrow.tests']
+    packages = find_namespace_packages(include=['pyarrow*'])
 else:
-    packages = ['pyarrow']
+    packages = find_namespace_packages(include=['pyarrow*'],
+                                       exclude=["pyarrow.tests*"])
 
 
 setup(
