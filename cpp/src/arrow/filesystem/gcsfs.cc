@@ -28,6 +28,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 
 #define ARROW_GCS_RETURN_NOT_OK(expr) \
@@ -46,6 +47,11 @@ bool GcsCredentials::Equals(const GcsCredentials& other) const {
   if (holder_->credentials == other.holder_->credentials) {
     return true;
   }
+  ARROW_LOG(INFO) << "anonymous: " << (anonymous_ == other.anonymous_)
+                  << " access_token: " << (access_token_ == other.access_token_)
+                  << " expiration: " << (expiration_ == other.expiration_)
+                  << " json credentials: " << (json_credentials_ == other.json_credentials_)
+                  << " target service account: " << (target_service_account_ == other.target_service_account_);
   return anonymous_ == other.anonymous_ && access_token_ == other.access_token_ &&
          expiration_ == other.expiration_ &&
          json_credentials_ == other.json_credentials_ &&
@@ -700,6 +706,12 @@ GcsOptions::GcsOptions() {
 }
 
 bool GcsOptions::Equals(const GcsOptions& other) const {
+  ARROW_LOG(INFO) << "credentials: " <<  (credentials.Equals(other.credentials))
+                  << " endpont_override: " << (endpoint_override == other.endpoint_override)
+                  << " scheme: " << (scheme == other.scheme)
+                  << " default bucket_location " << (default_bucket_location == other.default_bucket_location)
+                  << " retry_limit_secodns: " << (retry_limit_seconds == other.retry_limit_seconds);
+
   return credentials.Equals(other.credentials) &&
          endpoint_override == other.endpoint_override && scheme == other.scheme &&
          default_bucket_location == other.default_bucket_location &&
