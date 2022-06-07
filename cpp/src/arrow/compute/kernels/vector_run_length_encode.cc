@@ -203,7 +203,7 @@ struct RunLengthDecodeGenerator {
         bit_util::SetBitsTo(output_validity, output_position, run_length, valid);
       }
       if (valid) {
-        for (size_t run_element = 0; run_element < run_length; run_element++) {
+        for (int64_t run_element = 0; run_element < run_length; run_element++) {
           output_values[output_position + run_element] = input_values[input_position];
         }
       }
