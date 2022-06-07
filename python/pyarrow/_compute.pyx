@@ -2060,7 +2060,7 @@ class RandomOptions(_RandomOptions):
         self._set_options(initializer)
 
 
-class _RankOptions(FunctionOptions):
+cdef class _RankOptions(FunctionOptions):
 
     _tiebreaker_map = {
         "Min": CRankOptionsTiebreaker_MIN,
@@ -2110,7 +2110,7 @@ class RankOptions(_RankOptions):
                    number of distinct values in the input.
     """
 
-    def __init__(self, sort_keys, null_placement, tiebreaker):
+    def __init__(self, sort_keys, *, null_placement="at_end", tiebreaker="First"):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 

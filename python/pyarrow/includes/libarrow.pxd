@@ -2346,10 +2346,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef enum CRankOptionsTiebreaker \
             "arrow::compute::RankOptions::Tiebreaker":
-        CRankOptionsTiebreaker_MIN "arrow::compute::RankOptions::MIN"
-        CRankOptionsTiebreaker_MAX "arrow::compute::RankOptions::MAX"
-        CRankOptionsTiebreaker_FIRST "arrow::compute::RankOptions::FIRST"
-        CRankOptionsTiebreaker_DENSE "arrow::compute::RankOptions::DENSE"
+        CRankOptionsTiebreaker_MIN "arrow::compute::RankOptions::Min"
+        CRankOptionsTiebreaker_MAX "arrow::compute::RankOptions::Max"
+        CRankOptionsTiebreaker_FIRST "arrow::compute::RankOptions::First"
+        CRankOptionsTiebreaker_DENSE "arrow::compute::RankOptions::Dense"
 
     cdef cppclass CRankOptions \
             "arrow::compute::RankOptions"(CFunctionOptions):

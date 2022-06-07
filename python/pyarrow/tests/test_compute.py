@@ -150,7 +150,8 @@ def test_option_class_equality():
         pc.CumulativeSumOptions(start=0, skip_nulls=False),
         pc.QuantileOptions(),
         pc.RandomOptions(),
-        pc.RankOptions(null_placement="at_start", sort_keys=[("b", "ascending")], tiebreaker="Max"),
+        pc.RankOptions(sort_keys=[("b", "ascending")],
+                       null_placement="at_start", tiebreaker="Max"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -2717,6 +2718,31 @@ def test_random():
                        match=r"initializer should be 'system', an integer, "
                              r"or a hashable object; got \[\]"):
         pc.random(100, initializer=[])
+
+
+@pytest.mark.parametrize(
+    "tiebreaker,expected_values",
+    [("Min", [3, 1, 4, 6, 4, 6, 1]),
+     ("Max", [3, 2, 5, 7, 5, 7, 2]),
+     ("First", [3, 1, 4, 6, 5, 7, 2]),
+     ("Dense", [2, 1, 3, 4, 3, 4, 1])]
+)
+def test_rank_options(tiebreaker, expected_values):
+    arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
+    rank_options = pc.RankOptions(sort_keys=[("b", "ascending")],
+                                  null_placement="at_end",
+                                  tiebreaker=tiebreaker)
+    result = pc.rank(arr, options=rank_options)
+    expected = pa.array(expected_values, type=pa.uint64())
+    assert result.equals(expected)
+
+
+def test_default_rank_options():
+    arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
+    rank_options = pc.RankOptions(sort_keys=[("b", "ascending")])
+    result = pc.rank(arr, options=rank_options)
+    expected = pa.array([3, 1, 4, 6, 5, 7, 2], type=pa.uint64())
+    assert result.equals(expected)
 
 
 def test_expression_serialization():
