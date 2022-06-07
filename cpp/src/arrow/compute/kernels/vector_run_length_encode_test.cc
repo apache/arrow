@@ -52,6 +52,8 @@ TEST_F(TestRunLengthEncode, EncodeInt32Array) {
   ASSERT_EQ(result->child_data[0]->buffers[1]->size(), 3 * sizeof(int32_t));
   ASSERT_EQ(result->length, 3);
   ASSERT_EQ(*result->type, RunLengthEncodedType(int32()));
+  ASSERT_EQ(result->null_count, 0);
+  ASSERT_EQ(result->child_data[0]->null_count, 0);
 }
 
 TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
@@ -79,6 +81,8 @@ TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
   ASSERT_EQ(result->child_data[0]->buffers[1]->size(), 4 * sizeof(int32_t));
   ASSERT_EQ(result->length, 4);
   ASSERT_EQ(*result->type, RunLengthEncodedType(int32()));
+  ASSERT_EQ(result->null_count, 2);
+  ASSERT_EQ(result->child_data[0]->null_count, 2);
 }
 
 }  // namespace compute
