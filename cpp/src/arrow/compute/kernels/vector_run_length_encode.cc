@@ -130,9 +130,114 @@ struct RunLengthEncodeGenerator<BooleanType> {
   }
 };
 
+template <typename Type>
+struct RunLengthDecodeGenerator {
+  using CType = typename Type::c_type;
+
+  struct Element {
+    bool valid;
+    CType value;
+
+    bool operator!=(const Element& other) const {
+      return valid != other.valid || value != other.value;
+    }
+
+    Element(const uint8_t* validity_buffer, const CType* value_buffer, size_t index) {
+      if (validity_buffer != NULLPTR) {
+        valid = bit_util::GetBit(validity_buffer, index);
+      } else {
+        valid = true;
+      }
+      value = value_buffer[index];
+    }
+  };
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
+    ARROW_DCHECK(batch.num_values() == 1);
+    auto& input_data = batch.values[0].array();
+    auto input_validity = input_data->child_data[0]->GetValues<uint8_t>(0);
+    auto input_values = input_data->child_data[0]->GetValues<CType>(1);
+    auto input_accumulated_run_length = input_data->GetValues<int32_t>(1);
+    bool has_validity_buffer = input_validity != NULLPTR;
+
+    int64_t num_values_input = input_data->child_data[0]->length;
+    int64_t num_values_output = input_data->length;
+
+    auto pool = ctx->memory_pool();
+
+    std::shared_ptr<Buffer> validity_buffer = NULLPTR;
+    // in bytes
+    int64_t validity_buffer_size = 0;
+    if (has_validity_buffer) {
+      validity_buffer_size = (num_values_output - 1) / 8 + 1;
+      ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBuffer(validity_buffer_size, pool));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
+                          AllocateBuffer(num_values_output * sizeof(CType), pool));
+
+    auto output_type = std::make_shared<RunLengthEncodedType>(input_data->type);
+    auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
+    output_array_data->buffers.push_back(std::move(validity_buffer));
+    output_array_data->buffers.push_back(std::move(values_buffer));
+    output_array_data->null_count.store(input_data->null_count);
+
+    auto output_validity = output_array_data->GetMutableValues<uint8_t>(0);
+    auto output_values = output_array_data->GetMutableValues<CType>(1);
+
+    if (has_validity_buffer) {
+      // clear last byte in validity buffer, which won't completely be overwritten with
+      // validity values
+      output_validity[validity_buffer_size - 1] = 0;
+    }
+
+    int64_t output_position = 0;
+    int64_t run_start = 0;
+    for (int64_t input_position = 0; input_position < num_values_input;
+         input_position++) {
+      int64_t run_end = input_accumulated_run_length[input_position];
+      int64_t run_length = run_end - run_start;
+
+      bool valid = true;
+      if (has_validity_buffer) {
+        valid = bit_util::GetBit(input_validity, input_position);
+        bit_util::SetBitsTo(output_validity, output_position, run_length, valid);
+      }
+      if (valid) {
+        for (size_t run_element = 0; run_element < run_length; run_element++) {
+          output_values[output_position + run_element] = input_values[input_position];
+        }
+      }
+      output_position += run_length;
+    }
+    ARROW_DCHECK(output_position == num_values_output);
+
+    *output = Datum(output_array_data);
+    return Status::OK();
+  }
+};
+
+template <>
+struct RunLengthDecodeGenerator<NullType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
+    // TODO
+    return Status::NotImplemented("TODO");
+  }
+};
+
+template <>
+struct RunLengthDecodeGenerator<BooleanType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
+    // TODO
+    return Status::NotImplemented("TODO");
+  }
+};
+
 static const FunctionDoc run_length_encode_doc(
     "Run-length array", ("Return a run-length-encoded version of the input array."),
     {"array"}, "RunLengthEncodeOptions");
+static const FunctionDoc run_length_decode_doc(
+    "Run-length array", ("Return a decoded version of a run-length-encoded input array."),
+    {"array"}, "RunLengthDecodeOptions");
 
 static Result<ValueDescr> ResolveEncodeOutput(KernelContext*,
                                               const std::vector<ValueDescr>& descrs) {
@@ -148,6 +253,22 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
     auto sig = KernelSignature::Make({InputType(ty, ValueDescr::ARRAY)},
                                      OutputType(ResolveEncodeOutput));
+    VectorKernel kernel(sig, exec);
+    DCHECK_OK(function->AddKernel(std::move(kernel)));
+  }
+
+  DCHECK_OK(registry->AddFunction(std::move(function)));
+}
+
+void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
+  auto function = std::make_shared<VectorFunction>("run_length_decode", Arity::Unary(),
+                                              run_length_decode_doc);
+
+  for (const auto& ty : NumericTypes()) {
+    auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
+    auto input_type  = std::make_shared<RunLengthEncodedType>(ty);
+    auto sig = KernelSignature::Make({InputType(input_type, ValueDescr::ARRAY)},
+                                     OutputType({ty, ValueDescr::ARRAY}));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
