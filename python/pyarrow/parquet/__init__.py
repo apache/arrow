@@ -1650,7 +1650,6 @@ coerce_int96_timestamp_unit : str, default None.
     Cast timestamps that are stored in INT96 format to a particular resolution
     (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
     timestamps will be inferred as timestamps in nanoseconds.
-
 thrift_string_size_limit : int, default None
     If not None, override the maximum total string size allocated
     when decoding Thrift structures. The default limit should be
