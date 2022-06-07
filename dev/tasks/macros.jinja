@@ -258,35 +258,33 @@ on:
   read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
   # Our Version should always be > CRAN so we would detect a CRAN version here.
-  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.version}}"' }})
+  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
 
-{%- macro github_setup_local_r_repo(os, get_bin = 'true') -%}
+{%- macro github_setup_local_r_repo(get_nix, get_win) -%}
   - name: Setup local repo
     shell: bash
     run: mkdir repo 
+  {% if get_win %}
   - name: Get windows binary
-    if: {{ '${{' }} ({{ os }} == 'windows-latest') && {{ get_bin }} {{ '}}' }}
     uses: actions/download-artifact@v3
     with:
-      name: r-libarrow-windows
+      name: r-lib__libarrow__bin__windows
       path: repo/libarrow/bin/windows
-  - name: Get ubuntu binary
-    if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
+  {% endif %}
+  {% if get_nix %}
+    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
+  - name: Get {{ os }} binary
     uses: actions/download-artifact@v3
     with:
-      name: r-libarrow-ubuntu
-      path: repo/libarrow/bin/ubuntu-18.04
-  - name: Get centos binary
-    if: {{ '${{' }} ({{ os }} != 'windows-latest') && {{ get_bin }} {{ '}}' }}
-    uses: actions/download-artifact@v3
-    with:
-      name: r-libarrow-centos
-      path: repo/libarrow/bin/centos-7
+      name: r-lib__libarrow__bin__{{ os }}
+      path: repo/libarrow/bin/{{ os }}
+    {% endfor %}
+  {% endif %}
   - name: Get src pkg
     uses: actions/download-artifact@v3
     with:
-      name: r-pkg_src
+      name: r-pkg__src__contrib
       path: repo/src/contrib
   - name: Update repo index
     shell: Rscript {0}

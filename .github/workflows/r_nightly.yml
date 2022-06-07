@@ -16,6 +16,10 @@
 # under the License.
 
 name: Upload R Nightly builds
+# This workflow downloads the (nightly) binaries created in crossbow and uploads them
+# to nightlies.apache.org. Due to authorization requirements, this upload can't be done 
+
+# from the crossbow repository.
 
 on:
   workflow_dispatch:
@@ -25,13 +29,11 @@ on:
         required: false
         default: ''
   schedule:
-    #Crossbow packagin runs at 0 8 * * *
+    #Crossbow packaging runs at 0 8 * * *
     - cron: '0 14 * * *'
 
 jobs:
   upload:
-    env:
-      PREFIX: ${{ github.event.inputs.prefix || ''}}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
@@ -59,59 +61,70 @@ jobs:
         run: pip install -e arrow/dev/archery[all]
       - run: mkdir -p binaries
       - name: Download Artifacts
+        env:
+          PREFIX: ${{ github.event.inputs.prefix || ''}}
         run: |
           if [ -z $PREFIX ]; then
             PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
           fi
           echo $PREFIX
 
-          archery crossbow download-artifacts -f r-nightly-packages -t binaries --skip-pattern-validation $PREFIX
+          archery crossbow download-artifacts -f r-nightly-packages -t binaries $PREFIX
+
+          if [ -n "$(ls -A binaries/*/*/)" ]; then
+            echo "Found files!"
+          else
+            echo "No files found. Stopping upload."
+            exit 1
+          fi
       - name: Build Repository
         shell: Rscript {0}
         run: |
+          # folder that we rsync to nightlies.apache.org
+          repo_root <- "repo"
+          # The binaries are in a nested dir 
+          # so we need to find the correct path.
           art_path <- list.files("binaries",
-              recursive = TRUE,
-              include.dirs = TRUE,
-              pattern = "r-nightly-packages$",
-              full.names = TRUE
+            recursive = TRUE,
+            include.dirs = TRUE,
+            pattern = "r-nightly-packages$",
+            full.names = TRUE
           )
 
-          pkgs <- list.files(art_path, pattern = "r-pkg_*")
-          src_i <- grep("r-pkg_src", pkgs)
-          src_pkg <- pkgs[src_i]
-          pkgs <- pkgs[-src_i]
-          libs <- list.files(art_path, pattern = "r-libarrow*")
+          current_path <- list.files(art_path, full.names = TRUE, recursive = TRUE)
+          files <- sub("r-(pkg|lib)", repo_root, current_path)
 
-          new_names <- sub("r-pkg_", "", pkgs, fixed = T)
-          matches <- regmatches(new_names, regexec("(([a-z]+)-[\\.a-zA-Z0-9]+)_(\\d\\.\\d)-(arrow.+)$", new_names))
+          # decode contrib.url from artifact name:
+          # bin__windows__contrib__4.1 -> bin/windows/contrib/4.1
+          new_paths <- gsub("__", "/", files)
+          # strip superfluous nested dirs
+          new_paths <- sub(art_path, ".", new_paths)
+          dirs <- dirname(new_paths)
+          dir_result <- sapply(dirs, dir.create, recursive = TRUE)
 
-          dir.create("repo/src/contrib", recursive = TRUE)
-          file.copy(paste0(art_path, "/", src_pkg), paste0("repo/src/contrib/", sub("r-pkg_src-", "", src_pkg)))
-          tools::write_PACKAGES("repo/src/contrib", type = "source", verbose = TRUE)
-
-          for (match in matches) {
-              path <- paste0("repo/bin/", match[[3]], "/contrib/", match[[4]])
-              path <- sub("macos", "macosx", path)
-              dir.create(path, recursive = TRUE)
-              file <- list.files(art_path, pattern = paste0(match[[1]], "*"), full.names = TRUE)
-
-              file.copy(file, paste0(path, "/", match[[5]]))
-              tools::write_PACKAGES(path, type = paste0(substring(match[[3]], 1, 3), ".binary"), verbose = TRUE)
+          if (!all(dir_result)) {
+            stop("There was an issue while creating the folders!")
           }
 
-          lib_names <- sub("r-libarrow-", "", libs)
-          lib_match <- regmatches(lib_names, regexec("([[:alpha:]]+)-(.+)", lib_names))
+          copy_result <- file.copy(current_path, new_paths)
 
-          dir.create("repo/libarrow/bin/windows", recursive = TRUE)
-          dir.create("repo/libarrow/bin/centos-7", recursive = TRUE)
-          dir.create("repo/libarrow/bin/ubuntu-18.04", recursive = TRUE)
-
-          for (match in lib_match) {
-              path <- list.files("repo//libarrow//bin", pattern = match[[2]], full.names = TRUE)
-              file <- paste0(art_path, "/r-libarrow-", match[[1]])
-              file.copy(file, paste0(path, "//", match[[3]]))
+          if (!all(copy_result)) {
+            stop("There was an issue while copying the files!")
           }
-      - run: ls -R repo
+
+          tools::write_PACKAGES(file.path(repo_root, "src/contrib"), type = "source", verbose = TRUE)
+
+          repo_dirs <- list.dirs(repo_root)
+          # find dirs with binary R packages: e.g. */contrib/4.1
+          pkg_dirs <- grep(".+contrib\\/\\d.+", repo_dirs, value = TRUE)
+
+
+          for (dir in pkg_dirs) {
+            on_win <- grepl("windows", dir)
+            tools::write_PACKAGES(dir, type = ifelse(on_win, "win.binary", "mac.binary"), verbose = TRUE )
+          }
+      - name: Show repo contents
+        run: ls -R repo
       - name: Upload Files
         uses: burnett01/rsync-deployments@5.2
         with:

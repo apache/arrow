@@ -931,10 +931,17 @@ tasks:
   ######################## R packages & binaries ##############################
   r-nightly-packages:
     ci: github
-    template: r/github.nightly.yml
+    template: r/github.packages.yml
     artifacts:
-      - r-libarrow-.+
-      - r-pkg_.+
+      - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.2__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__macosx__contrib__4.1__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__contrib__4.2__arrow_[0-9\.]+\.tgz
+      - r-pkg__src__contrib__arrow_[0-9\.]+\.tar\.gz
 
 
   ########################### Release verification ############################
