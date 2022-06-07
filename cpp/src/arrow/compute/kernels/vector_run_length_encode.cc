@@ -158,7 +158,7 @@ struct RunLengthDecodeGenerator {
     auto& input_data = batch.values[0].array();
     auto input_validity = input_data->child_data[0]->GetValues<uint8_t>(0);
     auto input_values = input_data->child_data[0]->GetValues<CType>(1);
-    auto input_accumulated_run_length = input_data->GetValues<int32_t>(0);
+    auto input_accumulated_run_length = input_data->GetValues<int64_t>(0);
     bool has_validity_buffer = input_validity != NULLPTR;
 
     int64_t num_values_input = input_data->child_data[0]->length;
