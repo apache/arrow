@@ -31,19 +31,23 @@ struct RunLengthEncodeGenerator {
     ARROW_DCHECK(batch.num_values() == 1);
     auto& input_data = batch.values[0].array();
     if (input_data->length == 0) {
-      return Status::OK();
+      return Status::NotImplemented("TODO");
     }
     auto input_validity = input_data->GetValues<uint8_t>(0);
     auto input_values = input_data->GetValues<CType>(1);
     bool has_validity_buffer = input_validity != NULLPTR;
 
-    size_t num_values_output = 1;
     Element element = Element(input_validity, input_values, 0);
+    size_t num_values_output = 1;
+    size_t output_null_count = element.valid ? 0 : 1;
     for (int64_t index = 1; index < input_data->length; index++) {
       Element previous_element = element;
       element = Element(input_validity, input_values, index);
       if (element != previous_element) {
         num_values_output++;
+        if (!element.valid) {
+          output_null_count++;
+        }
       }
     }
 
@@ -72,6 +76,9 @@ struct RunLengthEncodeGenerator {
     auto output_values = child_array_data->GetMutableValues<CType>(1);
     auto output_run_lengths = output_array_data->GetMutableValues<int64_t>(0);
     output_array_data->child_data.push_back(std::move(child_array_data));
+
+    output_array_data->null_count = output_null_count;
+    child_array_data->null_count = output_null_count;
 
     if (has_validity_buffer) {
       // clear last byte in validity buffer, which won't completely be overwritten with
@@ -135,7 +142,7 @@ static Result<ValueDescr> ResolveEncodeOutput(KernelContext*,
 
 void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
   auto rle = std::make_shared<VectorFunction>("run_length_encode", Arity::Unary(),
-                                              run_length_encode_doc);
+                                                   run_length_encode_doc);
 
   for (const auto& ty : NumericTypes()) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
@@ -147,6 +154,8 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
 
   DCHECK_OK(registry->AddFunction(std::move(rle)));
 }
+
+
 
 }  // namespace internal
 }  // namespace compute
