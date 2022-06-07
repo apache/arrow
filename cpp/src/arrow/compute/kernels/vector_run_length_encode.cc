@@ -141,7 +141,7 @@ static Result<ValueDescr> ResolveEncodeOutput(KernelContext*,
 }
 
 void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
-  auto rle = std::make_shared<VectorFunction>("run_length_encode", Arity::Unary(),
+  auto function = std::make_shared<VectorFunction>("run_length_encode", Arity::Unary(),
                                                    run_length_encode_doc);
 
   for (const auto& ty : NumericTypes()) {
@@ -149,10 +149,10 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     auto sig = KernelSignature::Make({InputType(ty, ValueDescr::ARRAY)},
                                      OutputType(ResolveEncodeOutput));
     VectorKernel kernel(sig, exec);
-    DCHECK_OK(rle->AddKernel(std::move(kernel)));
+    DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
 
-  DCHECK_OK(registry->AddFunction(std::move(rle)));
+  DCHECK_OK(registry->AddFunction(std::move(function)));
 }
 
 
