@@ -1,0 +1,188 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Upload Java Nightly builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      prefix:
+        description: Job prefix to use.
+        required: false
+        default: ''
+      dependency_to_install:
+        description: In case need to upload custom artifact to nightly repository (i.e memory / flight / others).
+        required: false
+        default: 'arrow'
+  schedule:
+    - cron: '0 14 * * *'
+jobs:
+  upload:
+    env:
+      PREFIX: ${{ github.event.inputs.prefix || ''}}
+      DEPENDENCY_TO_INSTALL: ${{ github.event.inputs.dependency_to_install || ''}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          path: arrow
+          repository: apache/arrow
+          ref: master
+          submodules: recursive
+      - name: Checkout Crossbow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          path: crossbow
+          repository: ursacomputing/crossbow
+          ref: master
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          cache: 'pip'
+          python-version: 3.8
+      - name: Install Archery
+        shell: bash
+        run: pip install -e arrow/dev/archery[all]
+#      - name: Download Artifacts
+#        run: |
+#          if [ -z $PREFIX ]; then
+#            PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
+#          fi
+#          echo $PREFIX
+#          # problem about rate limit using github3 without API_TOKEN
+#          archery crossbow download-artifacts -f java-jars -t arrow_java_$(date +"%d-%m-%Y") $PREFIX
+#          if [ -n "$(ls -A arrow_java_$(date +"%d-%m-%Y")/*)" ]; then
+#            echo "Found files!"
+#            echo "GOT_FILES=true" >> $GITHUB_ENV
+#          else
+#            echo "No files found. Stopping upload."
+#            echo "GOT_FILES=false" >> $GITHUB_ENV
+#          fi
+#         tree arrow_java_$(date +"%d-%m-%Y")
+      - shell: bash
+        name: Download Artifacts
+        run: |
+          if [ -z $PREFIX ]; then
+            PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
+          fi
+          if [ -z $DEPENDENCY_TO_INSTALL ]; then
+            DEPENDENCY_TO_INSTALL=arrow
+          fi
+          ARROW_JAVA_NIGHTLY_VERSION=$PREFIX'-github-java-jars'
+          TMP_FOLDER=arrow_java_$(date +%Y-%m-%d)
+          mkdir -p $TMP_FOLDER
+          pushd $TMP_FOLDER
+          # this download artifacts should be executed thru crossbow (workaround to solve problem about rate limit using github3 without API_TOKEN)
+          echo "**************** 1 - Download $ARROW_JAVA_NIGHTLY_VERSION dependencies ****************"
+          wget $( \
+            wget \
+              "-qO-" "https://api.github.com/repos/ursacomputing/crossbow/releases/tags/$ARROW_JAVA_NIGHTLY_VERSION" \
+              | jq -r '.assets[] | select((.name | endswith(".pom")) or (.name | endswith(".jar"))) | .browser_download_url' \
+              | grep $DEPENDENCY_TO_INSTALL )
+          if [ -n "$(ls -A *)" ]; then
+            echo "Found files!"
+            echo "GOT_FILES=true" >> $GITHUB_ENV
+          else
+            echo "No files found. Stopping upload."
+            echo "GOT_FILES=false" >> $GITHUB_ENV
+          fi
+          echo "Downloaded: $(ls | wc -l) files"
+          popd
+      - shell: bash
+        if: env.GOT_FILES == 'true'
+        name: Build Repository
+        run: |
+          TMP_FOLDER=arrow_java_$(date +%Y-%m-%d)
+          PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9].[0-9].[0-9].dev[0-9]+).([a-z]+)'
+          pushd $TMP_FOLDER
+
+          echo "**************** 2 - Install arrow java libraries to local repository ****************"
+          rm -rf ~/.m2/repository/org/apache/arrow
+          for LIBRARY in $(ls | grep -E '.jar|.pom' | grep dev); do
+            [[ $LIBRARY =~ $PATTERN_TO_GET_LIB_AND_VERSION ]]
+            FILE=$PWD/${BASH_REMATCH[0]}
+            ARTIFACTID=${BASH_REMATCH[1]}
+            VERSION=${BASH_REMATCH[2]}
+            PACKAGING="jar"
+            CLASSIFIER=""
+            GENERATEPOM=false
+            INSTALL=1
+            if [[ ( ${BASH_REMATCH[0]} == *"$DEPENDENCY_TO_INSTALL"* ) ]];then
+              if [ -f "$FILE" ]; then
+                FILE=$FILE
+                if [[ $FILE =~ ".pom" ]]; then
+                  FILE=$FILE
+                  PACKAGING="pom"
+                  GENERATEPOM=true
+                fi
+              elif [ -f "$FILE.jar" ]; then
+                FILE=$FILE.jar
+                if [[ $FILE =~ "sources.jar" ]]; then
+                  CLASSIFIER="sources"
+                  PACKAGING="java-source"
+                elif [[ $FILE =~ "javadoc.jar" ]]; then
+                  CLASSIFIER="javadoc"
+                  PACKAGING="javadoc"
+                elif [[ $FILE =~ "tests.jar" ]]; then
+                  CLASSIFIER="tests"
+                  PACKAGING="test-jar"
+                fi
+              elif [ -f "$FILE.pom" ]; then
+                FILE=$FILE.pom
+                PACKAGING="pom"
+                GENERATEPOM=true
+              else
+                echo "Please! Review $FILE, it was not intalled on m2 locally."
+                INSTALL=0
+              fi
+              if [[ $INSTALL =~ "1" ]]; then
+                mvn install:install-file \
+                  -Dfile=$FILE \
+                  -DgroupId=org.apache.arrow \
+                  -DartifactId=$ARTIFACTID \
+                  -Dversion=$VERSION \
+                  -Dpackaging=$PACKAGING \
+                  -Dclassifier=$CLASSIFIER \
+                  -DgeneratePom=$GENERATEPOM
+              fi
+            fi
+            echo "Artifacts $FILE installed locally to ~/.m2/repository/org/apache/arrow"
+          done
+          popd
+          echo "**************** 3 - Local repository to sync ****************"
+          rm -rf repo
+          mkdir repo
+          cp -r ~/.m2/repository/org/apache/arrow repo
+          tree repo
+          echo "Repo configured with Arrow Java artifacts ready to sync"
+      - name: Show repo contents
+        if: env.GOT_FILES == 'true'
+        run: ls -R repo
+      - name: Upload Files
+        if: env.GOT_FILES == 'true'
+        uses: burnett01/rsync-deployments@5.2
+        with:
+          switches: -avzr
+          path: repo/*
+          remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/java
+          remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
+          remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
+          remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
+          remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
