@@ -340,6 +340,10 @@ Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx) {
   return CallFunction("run_length_encode", {value}, &options, ctx);
 }
 
+Result<Datum> RunLengthDecode(const Datum& value, ExecContext* ctx) {
+  return CallFunction("run_length_decode", {value}, ctx);
+}
+
 const char kValuesFieldName[] = "values";
 const char kCountsFieldName[] = "counts";
 const int32_t kValuesFieldIndex = 0;
