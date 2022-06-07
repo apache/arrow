@@ -79,17 +79,20 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&ctx));
-    
-    ASSERT_OK_AND_ASSIGN(auto sn, MakeExecNode("source", plan.get(), {}, SourceNodeOptions{data.schema,
-                                         data.gen(/*parallel=*/true, /*slow=*/false)}));                          
-    ASSERT_OK_AND_ASSIGN(auto pn, MakeExecNode("project", plan.get(), {sn}, ProjectNodeOptions{{
-                                      expr,
-                                  }}));
+
+    ASSERT_OK_AND_ASSIGN(
+        auto sn, MakeExecNode("source", plan.get(), {},
+                              SourceNodeOptions{data.schema, data.gen(/*parallel=*/true,
+                                                                      /*slow=*/false)}));
+    ASSERT_OK_AND_ASSIGN(auto pn, MakeExecNode("project", plan.get(), {sn},
+                                               ProjectNodeOptions{{
+                                                   expr,
+                                               }}));
     MakeExecNode("sink", plan.get(), {pn}, SinkNodeOptions{&sink_gen});
     pn->InputFinished(sn, num_batches);
     state.ResumeTiming();
     for (auto b : data.batches) {
-        pn->InputReceived(sn, b);
+      pn->InputReceived(sn, b);
     }
     pn->finished();
   }
@@ -129,11 +132,9 @@ BENCHMARK_CAPTURE(ProjectionOverhead, complex_expression, complex_expression)
 
 BENCHMARK_CAPTURE(ProjectionOverhead, simple_expression, simple_expression)
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(ProjectionOverhead, zero_copy_expression,
-                  zero_copy_expression)
+BENCHMARK_CAPTURE(ProjectionOverhead, zero_copy_expression, zero_copy_expression)
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(ProjectionOverhead, ref_only_expression,
-                  ref_only_expression)
+BENCHMARK_CAPTURE(ProjectionOverhead, ref_only_expression, ref_only_expression)
     ->Apply(SetArgs);
 
 }  // namespace compute
