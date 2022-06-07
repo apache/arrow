@@ -76,6 +76,8 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   for (auto _ : state) {
     state.PauseTiming();
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&ctx));
     
     ASSERT_OK_AND_ASSIGN(auto sn, MakeExecNode("source", plan.get(), {}, SourceNodeOptions{data.schema,
@@ -83,10 +85,9 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
     ASSERT_OK_AND_ASSIGN(auto pn, MakeExecNode("project", plan.get(), {sn}, ProjectNodeOptions{{
                                       expr,
                                   }}));
-    // sn->PrepareToProduce();
-    // pn->PrepareToProduce();
-    state.ResumeTiming();
+    MakeExecNode("sink", plan.get(), {pn}, SinkNodeOptions{&sink_gen});
     pn->InputFinished(sn, num_batches);
+    state.ResumeTiming();
     for (auto b : data.batches) {
         pn->InputReceived(sn, b);
     }
@@ -116,7 +117,12 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 
 BENCHMARK_CAPTURE(ProjectionOverheadIsolated, complex_expression, complex_expression)
     ->Apply(SetArgs);
-
+BENCHMARK_CAPTURE(ProjectionOverheadIsolated, simple_expression, simple_expression)
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(ProjectionOverheadIsolated, zero_copy_expression, zero_copy_expression)
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(ProjectionOverheadIsolated, ref_only_expression, ref_only_expression)
+    ->Apply(SetArgs);
 
 BENCHMARK_CAPTURE(ProjectionOverhead, complex_expression, complex_expression)
     ->Apply(SetArgs);
