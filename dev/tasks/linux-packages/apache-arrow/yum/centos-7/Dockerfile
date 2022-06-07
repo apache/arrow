@@ -53,6 +53,8 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    thrift-devel \
+    vala \
     zlib-devel && \
   yum clean ${quiet} all
 

@@ -56,10 +56,8 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
 fi
 
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
-if [ "$TEST_R_WITHOUT_LIBARROW" != "TRUE" ]; then
-  # --run-donttest was used in R < 4.0, this is used now
-  export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
-fi
+# --run-donttest was used in R < 4.0, this is used now
+export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
 # Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE

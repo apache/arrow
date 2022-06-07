@@ -20,11 +20,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/internal/bitutils"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/internal/bitutils"
+	"github.com/apache/arrow/go/v9/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
 

@@ -19,10 +19,10 @@ import json
 import sys
 
 dir_path = sys.argv[1]
-# X.Y.Z-SNAPSHOT
+# X.Y.Z
 version = sys.argv[2]
-# {X-1}.Y.Z.9000
-r_version = sys.argv[3]
+# {X+1}.Y.Z
+next_version = sys.argv[3]
 
 main_versions_path = dir_path + "/docs/source/_static/versions.json"
 r_versions_path = dir_path + "/r/pkgdown/assets/versions.json"
@@ -33,8 +33,9 @@ with open(main_versions_path) as json_file:
     old_versions = json.load(json_file)
 
 split_version = version.split(".")
-dev_compatible_version = ".".join(split_version[:2])
-stable_compatible_version = f"{str(int(split_version[0]) - 1)}.0"
+split_next_version = next_version.split(".")
+dev_compatible_version = ".".join(split_next_version[:2])
+stable_compatible_version = ".".join(split_version[:2])
 previous_compatible_version = old_versions[1]["name"].split(" ")[0]
 
 # Create new versions
@@ -56,8 +57,8 @@ with open(main_versions_path, 'w') as json_file:
 with open(r_versions_path) as json_file:
     old_r_versions = json.load(json_file)
 
-dev_r_version = r_version
-release_r_version = ".".join(r_version.split(".")[:3])
+dev_r_version = f"{version}.9000"
+release_r_version = version
 previous_r_name = old_r_versions[1]["name"].split(" ")[0]
 previous_r_version = ".".join(previous_r_name.split(".")[:2])
 

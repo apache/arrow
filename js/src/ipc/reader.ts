@@ -147,7 +147,7 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
     public static from<T extends TypeMap = any>(source: FromArg1): Promise<RecordBatchStreamReader<T>>;
     public static from<T extends TypeMap = any>(source: FromArg2): RecordBatchFileReader<T> | RecordBatchStreamReader<T>;
     public static from<T extends TypeMap = any>(source: FromArg3): Promise<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
-    public static from<T extends TypeMap = any>(source: FromArg4): Promise<RecordBatchFileReader<T> | AsyncRecordBatchReaders<T>>;
+    public static from<T extends TypeMap = any>(source: FromArg4): Promise<AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>>;
     public static from<T extends TypeMap = any>(source: FromArg5): Promise<AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>>;
     /** @nocollapse */
     public static from<T extends TypeMap = any>(source: any) {

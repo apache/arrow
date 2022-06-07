@@ -24,28 +24,61 @@ register_bindings_datetime <- function() {
   register_bindings_duration()
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
+  register_bindings_datetime_parsers()
 }
 
 register_bindings_datetime_utility <- function() {
-  register_binding("strptime", function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL,
+  register_binding("strptime", function(x,
+                                        format = "%Y-%m-%d %H:%M:%S",
+                                        tz = "",
                                         unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
     # Arrow has no default option for strptime (format, unit),
     # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
     # (ARROW-12809)
 
-    # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
-    # Stop if tz is provided.
-    if (is.character(tz)) {
-      arrow_not_supported("Time zone argument")
+    unit <- make_valid_time_unit(
+      unit,
+      c(valid_time64_units, valid_time32_units)
+    )
+
+    output <- build_expr(
+      "strptime",
+      x,
+      options =
+        list(
+          format = format,
+          unit = unit,
+          error_is_null = TRUE
+        )
+    )
+
+    if (tz == "") {
+      tz <- Sys.timezone()
     }
 
-    unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
-
-    build_expr("strptime", x, options = list(format = format, unit = unit, error_is_null = TRUE))
+    # if a timestamp does not contain timezone information (i.e. it is
+    # "timezone-naive") we can attach timezone information (i.e. convert it into
+    # a "timezone-aware" timestamp) with `assume_timezone`
+    # if we want to cast to a different timezone, we can only do it for
+    # timezone-aware timestamps, not for timezone-naive ones
+    if (!is.null(tz)) {
+      output <- build_expr(
+        "assume_timezone",
+        output,
+        options =
+          list(
+            timezone = tz
+          )
+      )
+    }
+    output
   })
 
-  register_binding("strftime", function(x, format = "", tz = "", usetz = FALSE) {
+  register_binding("strftime", function(x,
+                                        format = "",
+                                        tz = "",
+                                        usetz = FALSE) {
     if (usetz) {
       format <- paste(format, "%Z")
     }
@@ -333,7 +366,7 @@ register_bindings_datetime_conversion <- function() {
       "if_else",
       build_expr("is_leap_year", date),
       Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
-      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+      Expression$scalar(31536000L) # number of seconds in a regular year (365 days)
     )
     y + sofar$cast(int64()) / total
   })
@@ -346,13 +379,13 @@ register_bindings_datetime_conversion <- function() {
       "if_else",
       build_expr("is_leap_year", start),
       Expression$scalar(31622400L), # number of seconds in a leap year (366 days)
-      Expression$scalar(31536000L)  # number of seconds in a regular year (365 days)
+      Expression$scalar(31536000L) # number of seconds in a regular year (365 days)
     )
 
     fraction <- decimal - y
     delta <- build_expr("floor", seconds * fraction)
-    delta <- delta$cast(int64())
-    start + delta$cast(duration("s"))
+    delta <- make_duration(delta, "s")
+    start + delta
   })
 }
 
@@ -384,12 +417,12 @@ register_bindings_duration <- function() {
     # TODO delete the casting to "us" once
     # https://issues.apache.org/jira/browse/ARROW-16060 is solved
     if (inherits(time1, "Expression") &&
-        time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
+      time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
       time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp("us")))
     }
 
     if (inherits(time2, "Expression") &&
-        time2$type_id() %in% Type[c("TIMESTAMP")] && time2$type()$unit() != 2L) {
+      time2$type_id() %in% Type[c("TIMESTAMP")] && time2$type()$unit() != 2L) {
       time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp("us")))
     }
 
@@ -412,9 +445,8 @@ register_bindings_duration <- function() {
 
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
-      # complex casting only due to cast type restrictions: time64 -> int64 -> duration(us)
-      # and then we cast to duration ("s") at the end
-      x <- x$cast(time64("us"))$cast(int64())$cast(duration("us"))
+      # we do a final cast to duration ("s") at the end
+      x <- make_duration(x$cast(time64("us")), unit = "us")
     }
 
     # numeric -> duration not supported in Arrow yet so we use int64() as an
@@ -459,8 +491,7 @@ register_bindings_duration_constructor <- function() {
       duration <- duration_from_chunks(chunks)
     }
 
-    duration <- build_expr("cast", duration, options = cast_options(to_type = int64()))
-    duration$cast(duration("s"))
+    make_duration(duration, "s")
   })
 }
 
@@ -483,5 +514,176 @@ register_bindings_duration_helpers <- function() {
 
   register_binding("dpicoseconds", function(x = 1) {
     abort("Duration in picoseconds not supported in Arrow.")
+  })
+}
+
+register_bindings_datetime_parsers <- function() {
+  register_binding("parse_date_time", function(x,
+                                               orders,
+                                               tz = "UTC") {
+
+    # each order is translated into possible formats
+    formats <- build_formats(orders)
+
+    x <- x$cast(string())
+
+    # make all separators (non-letters and non-numbers) into "-"
+    x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
+    # collapse multiple separators into a single one
+    x <- call_binding("gsub", "-{2,}", "-", x)
+
+    # we need to transform `x` when orders are `ym`, `my`, and `yq`
+    # for `ym` and `my` orders we add a day ("01")
+    augmented_x <- NULL
+    if (any(orders %in% c("ym", "my"))) {
+      augmented_x <- call_binding("paste0", x, "-01")
+    }
+
+    # for `yq` we need to transform the quarter into the start month (lubridate
+    # behaviour) and then add 01 to parse to the first day of the quarter
+    augmented_x2 <- NULL
+    if (any(orders == "yq")) {
+      # extract everything that comes after the `-` separator, i.e. the quarter
+      # (e.g. 4 from 2022-4)
+      quarter_x <- call_binding("gsub", "^.*?-", "", x)
+      # we should probably error if quarter is not in 1:4
+      # extract everything that comes before the `-`, i.e. the year (e.g. 2002
+      # in 2002-4)
+      year_x <- call_binding("gsub", "-.*$", "", x)
+      quarter_x <- quarter_x$cast(int32())
+      month_x <- (quarter_x - 1) * 3 + 1
+      augmented_x2 <- call_binding("paste0", year_x, "-", month_x, "-01")
+    }
+
+    # TODO figure out how to parse strings that have no separators
+    # https://issues.apache.org/jira/browse/ARROW-16446
+    # we could insert separators at the "likely" positions, but it might be
+    # tricky given the possible combinations between dmy formats + locale
+
+    # build a list of expressions for each format
+    parse_attempt_expressions <- map(
+      formats,
+      ~ build_expr(
+        "strptime",
+        x,
+        options = list(
+          format = .x,
+          unit = 0L,
+          error_is_null = TRUE
+        )
+      )
+    )
+
+    # build separate expression lists of parsing attempts for the orders that
+    # need an augmented `x`
+    # list for attempts when orders %in% c("ym", "my")
+    parse_attempt_exp_augmented_x <- list()
+
+    if (!is.null(augmented_x)) {
+      parse_attempt_exp_augmented_x <- map(
+        formats,
+        ~ build_expr(
+          "strptime",
+          augmented_x,
+          options = list(
+            format = .x,
+            unit = 0L,
+            error_is_null = TRUE
+          )
+        )
+      )
+    }
+
+    # list for attempts when orders %in% c("yq")
+    parse_attempt_exp_augmented_x2 <- list()
+    if (!is.null(augmented_x2)) {
+      parse_attempt_exp_augmented_x2 <- map(
+        formats,
+        ~ build_expr(
+          "strptime",
+          augmented_x2,
+          options = list(
+            format = .x,
+            unit = 0L,
+            error_is_null = TRUE
+          )
+        )
+      )
+    }
+
+    # combine all attempts expressions in prep for coalesce
+    parse_attempt_expressions <- c(
+      parse_attempt_expressions,
+      parse_attempt_exp_augmented_x,
+      parse_attempt_exp_augmented_x2
+    )
+
+    coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
+
+    # we need this binding to be able to handle a NULL `tz`, which will then be
+    # used by bindings such as `ymd` to return, based on whether tz is NULL or
+    # not, a date or timestamp
+    if (!is.null(tz)) {
+      build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
+    } else {
+      coalesce_output
+    }
+
+  })
+
+  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq")
+
+  ymd_parser_map_factory <- function(order) {
+    force(order)
+    function(x, tz = NULL) {
+      parse_x <- call_binding("parse_date_time", x, order, tz)
+      if (is.null(tz)) {
+        # we cast so we can mimic the behaviour of the `tz` argument in lubridate
+        # "If NULL (default), a Date object is returned. Otherwise a POSIXct with
+        # time zone attribute set to tz."
+        parse_x <- parse_x$cast(date32())
+      }
+      parse_x
+    }
+  }
+
+  for (ymd_order in ymd_parser_vec) {
+    register_binding(ymd_order, ymd_parser_map_factory(ymd_order))
+  }
+
+  register_binding("fast_strptime", function(x,
+                                             format,
+                                             tz = "UTC",
+                                             lt = FALSE,
+                                             cutoff_2000 = 68L) {
+    # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
+    # well with mutate, for example)
+    if (lt) {
+      arrow_not_supported("`lt = TRUE` argument")
+    }
+
+    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16596 is done
+    if (cutoff_2000 != 68L) {
+      arrow_not_supported("`cutoff_2000` != 68L argument")
+    }
+
+    parse_attempt_expressions <- list()
+
+    parse_attempt_expressions <- map(
+      format,
+      ~ build_expr(
+        "strptime",
+        x,
+        options = list(
+          format = .x,
+          unit = 0L,
+          error_is_null = TRUE
+        )
+      )
+    )
+
+    coalesce_output <- build_expr("coalesce", args = parse_attempt_expressions)
+
+    build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
 }

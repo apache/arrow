@@ -23,7 +23,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-version = '8.0.0-SNAPSHOT'
+version = '9.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -52,6 +52,10 @@ base_include_directories = [
 ]
 
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
+generate_vapi = have_gi and get_option('vala')
+if generate_vapi
+  add_languages('vala')
+endif
 
 arrow_cpp_build_dir = get_option('arrow_cpp_build_dir')
 arrow_cpp_build_type = get_option('arrow_cpp_build_type')
@@ -93,7 +97,7 @@ else
 int
 main(void)
 {
-  arrow::adapters::orc::ORCFileReader::Open(nullptr, nullptr, nullptr);
+  arrow::adapters::orc::ORCFileWriter::Open(nullptr);
   return 0;
 }
   '''

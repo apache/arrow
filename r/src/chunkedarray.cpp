@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/builder.h>
 #include <arrow/chunked_array.h>
 #include <arrow/util/byte_size.h>
@@ -150,5 +148,3 @@ int64_t ChunkedArray__ReferencedBufferSize(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return ValueOrStop(arrow::util::ReferencedBufferSize(*chunked_array));
 }
-
-#endif

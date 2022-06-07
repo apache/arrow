@@ -19,11 +19,11 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v9/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,10 +31,11 @@ type testDataType struct {
 	id arrow.Type
 }
 
-func (d *testDataType) ID() arrow.Type      { return d.id }
-func (d *testDataType) Name() string        { panic("implement me") }
-func (d *testDataType) BitWidth() int       { return 8 }
-func (d *testDataType) Fingerprint() string { return "" }
+func (d *testDataType) ID() arrow.Type            { return d.id }
+func (d *testDataType) Name() string              { panic("implement me") }
+func (d *testDataType) BitWidth() int             { return 8 }
+func (d *testDataType) Fingerprint() string       { return "" }
+func (testDataType) Layout() arrow.DataTypeLayout { return arrow.DataTypeLayout{} }
 
 func TestMakeFromData(t *testing.T) {
 	tests := []struct {

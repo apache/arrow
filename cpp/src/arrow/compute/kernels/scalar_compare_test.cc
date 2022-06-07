@@ -502,6 +502,65 @@ TEST(TestCompareTimestamps, DifferentParameters) {
   }
 }
 
+TEST(TestCompareTimestamps, ScalarArray) {
+  std::string scalar_json = R"("1970-01-02")";
+  std::string array_json = R"(["1970-01-02","2000-02-01",null,"1900-02-28"])";
+
+  struct ArrayCase {
+    Datum side1, side2, expected;
+  };
+  auto CheckArrayCase = [&](std::shared_ptr<DataType> scalar_type,
+                            std::shared_ptr<DataType> array_type, CompareOperator op,
+                            const std::string& expected_json,
+                            const std::string& flip_expected_json) {
+    auto scalar_side = ScalarFromJSON(scalar_type, scalar_json);
+    auto array_side = ArrayFromJSON(array_type, array_json);
+    auto expected = ArrayFromJSON(boolean(), expected_json);
+    auto flip_expected = ArrayFromJSON(boolean(), flip_expected_json);
+    for (const auto& array_case :
+         std::vector<ArrayCase>{{scalar_side, array_side, expected},
+                                {array_side, scalar_side, flip_expected}}) {
+      const auto &lhs = array_case.side1, &rhs = array_case.side2;
+      if (scalar_type->Equals(array_type)) {
+        ASSERT_OK_AND_ASSIGN(Datum result,
+                             CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
+        AssertArraysEqual(*array_case.expected.make_array(), *result.make_array(),
+                          /*verbose=*/true);
+      } else {
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            Invalid,
+            ::testing::HasSubstr(
+                "Cannot compare timestamp with timezone to timestamp without timezone"),
+            CallFunction(CompareOperatorToFunctionName(op), {lhs, rhs}));
+      }
+    }
+  };
+
+  for (const auto& unit : TimeUnit::values()) {
+    for (const auto& types :
+         std::vector<std::pair<std::shared_ptr<DataType>, std::shared_ptr<DataType>>>{
+             {timestamp(unit), timestamp(unit)},
+             {timestamp(unit), timestamp(unit, "utc")},
+             {timestamp(unit, "utc"), timestamp(unit)},
+             {timestamp(unit, "utc"), timestamp(unit, "utc")},
+         }) {
+      const auto &t0 = types.first, &t1 = types.second;
+      CheckArrayCase(t0, t1, CompareOperator::EQUAL, "[true, false, null, false]",
+                     "[true, false, null, false]");
+      CheckArrayCase(t0, t1, CompareOperator::NOT_EQUAL, "[false, true, null, true]",
+                     "[false, true, null, true]");
+      CheckArrayCase(t0, t1, CompareOperator::LESS, "[false, true, null, false]",
+                     "[false, false, null, true]");
+      CheckArrayCase(t0, t1, CompareOperator::LESS_EQUAL, "[true, true, null, false]",
+                     "[true, false, null, true]");
+      CheckArrayCase(t0, t1, CompareOperator::GREATER, "[false, false, null, true]",
+                     "[false, true, null, false]");
+      CheckArrayCase(t0, t1, CompareOperator::GREATER_EQUAL, "[true, false, null, true]",
+                     "[true, true, null, false]");
+    }
+  }
+}
+
 template <typename ArrowType>
 class TestCompareDecimal : public ::testing::Test {};
 TYPED_TEST_SUITE(TestCompareDecimal, DecimalArrowTypes);

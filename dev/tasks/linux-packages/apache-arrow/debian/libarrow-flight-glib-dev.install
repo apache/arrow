@@ -2,3 +2,4 @@ usr/include/arrow-flight-glib/
 usr/lib/*/libarrow-flight-glib.so
 usr/lib/*/pkgconfig/arrow-flight-glib.pc
 usr/share/gir-1.0/ArrowFlight-1.0.gir
+usr/share/vala/vapi/arrow-flight-glib.*

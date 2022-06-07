@@ -19,8 +19,8 @@ package encoding
 import (
 	"encoding/binary"
 
-	"github.com/apache/arrow/go/v8/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v9/parquet"
 	"golang.org/x/xerrors"
 )
 

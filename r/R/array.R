@@ -288,7 +288,7 @@ as_arrow_array.Scalar <- function(x, ..., type = NULL) {
 #' @rdname as_arrow_array
 #' @export
 as_arrow_array.ChunkedArray <- function(x, ..., type = NULL) {
-  concat_arrays(!!! x$chunks, type = type)
+  concat_arrays(!!!x$chunks, type = type)
 }
 
 # data.frame conversion can happen in C++ when all the columns can be
@@ -310,7 +310,7 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     names(arrays) <- names
 
     # TODO(ARROW-16266): a hack because there is no StructArray$create() yet
-    batch <- record_batch(!!! arrays)
+    batch <- record_batch(!!!arrays)
     array_ptr <- allocate_arrow_array()
     schema_ptr <- allocate_arrow_schema()
     on.exit({

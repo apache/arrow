@@ -98,6 +98,9 @@ struct ExecPlanImpl : public ExecPlan {
 
     // producers precede consumers
     sorted_nodes_ = TopoSort();
+    for (ExecNode* node : sorted_nodes_) {
+      RETURN_NOT_OK(node->PrepareToProduce());
+    }
 
     std::vector<Future<>> futures;
 

@@ -1971,10 +1971,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CRoundTemporalOptions \
             "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
         CRoundTemporalOptions(int multiple, CCalendarUnit unit,
-                              c_bool week_starts_monday)
+                              c_bool week_starts_monday,
+                              c_bool ceil_is_strictly_greater,
+                              c_bool calendar_based_origin)
         int multiple
         CCalendarUnit unit
         c_bool week_starts_monday
+        c_bool ceil_is_strictly_greater
+        c_bool calendar_based_origin
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
@@ -2245,6 +2249,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t pivot
         CNullPlacement null_placement
 
+    cdef cppclass CCumulativeSumOptions \
+            "arrow::compute::CumulativeSumOptions"(CFunctionOptions):
+        CCumulativeSumOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
+        shared_ptr[CScalar] start
+        c_bool skip_nulls
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
         CArraySortOptions(CSortOrder, CNullPlacement)
@@ -2457,6 +2467,9 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
 
     cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
         pass
+
+    cdef cppclass CFilterNodeOptions "arrow::compute::FilterNodeOptions"(CExecNodeOptions):
+        CFilterNodeOptions(CExpression, c_bool async_mode)
 
     cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
         CProjectNodeOptions(vector[CExpression] expressions)

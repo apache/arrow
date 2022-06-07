@@ -223,14 +223,15 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
 class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
-                       Compression::type codec, ::arrow::MemoryPool* pool,
+                       Compression::type codec, const ReaderProperties& properties,
                        const CryptoContext* crypto_ctx)
-      : stream_(std::move(stream)),
-        decompression_buffer_(AllocateBuffer(pool, 0)),
+      : properties_(properties),
+        stream_(std::move(stream)),
+        decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
         page_ordinal_(0),
         seen_num_rows_(0),
         total_num_rows_(total_num_rows),
-        decryption_buffer_(AllocateBuffer(pool, 0)) {
+        decryption_buffer_(AllocateBuffer(properties_.memory_pool(), 0)) {
     if (crypto_ctx != nullptr) {
       crypto_ctx_ = *crypto_ctx;
       InitDecryption();
@@ -254,6 +255,7 @@ class SerializedPageReader : public PageReader {
                                              int compressed_len, int uncompressed_len,
                                              int levels_byte_len = 0);
 
+  const ReaderProperties properties_;
   std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
@@ -326,9 +328,10 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
 }
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
+  ThriftDeserializer deserializer(properties_);
+
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
-
   while (seen_num_rows_ < total_num_rows_) {
     uint32_t header_size = 0;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
@@ -349,8 +352,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            data_page_header_aad_);
         }
-        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(view.data()), &header_size,
-                             &current_page_header_, crypto_ctx_.meta_decryptor);
+        deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
+                                        &header_size, &current_page_header_,
+                                        crypto_ctx_.meta_decryptor);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -511,10 +515,19 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
+                                             const ReaderProperties& properties,
+                                             const CryptoContext* ctx) {
+  return std::unique_ptr<PageReader>(new SerializedPageReader(
+      std::move(stream), total_num_rows, codec, properties, ctx));
+}
+
+std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
+                                             int64_t total_num_rows,
+                                             Compression::type codec,
                                              ::arrow::MemoryPool* pool,
                                              const CryptoContext* ctx) {
-  return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_rows, codec, pool, ctx));
+  return std::unique_ptr<PageReader>(new SerializedPageReader(
+      std::move(stream), total_num_rows, codec, ReaderProperties(pool), ctx));
 }
 
 namespace {

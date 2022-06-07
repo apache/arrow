@@ -28,12 +28,12 @@
 namespace arrow {
 
 using internal::CpuInfo;
-static CpuInfo* cpu_info = CpuInfo::GetInstance();
+static const CpuInfo* cpu_info = CpuInfo::GetInstance();
 
 static const int kNumCores = cpu_info->num_cores();
-static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
-static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::L2_CACHE);
-static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
+static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L1);
+static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L2);
+static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L3);
 
 constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;

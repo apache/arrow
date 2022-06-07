@@ -129,12 +129,12 @@ update_versions() {
   git add DESCRIPTION
   # Replace dev version with release version
   sed -i.bak -E -e \
-    "0,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
+    "/^<!--/,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
     NEWS.md
   if [ ${type} = "snapshot" ]; then
     # Add a news entry for the new dev version
     sed -i.bak -E -e \
-      "0,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
+      "/^<!--/,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
       NEWS.md
   fi
   rm -f NEWS.md.bak
@@ -152,16 +152,23 @@ update_versions() {
   pushd "${ARROW_DIR}/go"
   find . "(" -name "*.go*" -o -name "go.mod" ")" -exec sed -i.bak -E -e \
     "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|" {} \;
+  # update parquet writer version
+  sed -i.bak -E -e \
+    "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
+    parquet/writer_properties.go
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
 
   case ${type} in
-    snapshot)
+    release)
       pushd "${ARROW_DIR}"
-      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" . "${version}" "${r_version}"
-      git add r/pkgdown/assets/versions.json
+      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                         . \
+                         "${version}" \
+                         "${next_version}"
       git add docs/source/_static/versions.json
+      git add r/pkgdown/assets/versions.json
       popd
       ;;
   esac

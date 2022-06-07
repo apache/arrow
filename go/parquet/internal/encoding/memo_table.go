@@ -20,11 +20,11 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/internal/hashing"
-	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/internal/hashing"
+	"github.com/apache/arrow/go/v9/parquet"
 )
 
 //go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=physical_types.tmpldata memo_table_types.gen.go.tmpl

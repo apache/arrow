@@ -31,3 +31,8 @@ option('gtk_doc',
        type: 'boolean',
        value: false,
        description: 'Build document by GTK-Doc')
+
+option('vala',
+       type: 'boolean',
+       value: false,
+       description: 'Build Vala API')

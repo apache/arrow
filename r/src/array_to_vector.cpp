@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
 #include <arrow/builder.h>
@@ -1415,5 +1414,3 @@ cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& t
                                           bool use_threads) {
   return arrow::r::to_data_frame(table, use_threads);
 }
-
-#endif

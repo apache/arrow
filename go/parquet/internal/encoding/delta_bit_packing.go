@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v9/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 

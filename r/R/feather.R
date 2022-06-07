@@ -45,11 +45,11 @@
 #' @export
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
-#' @include arrow-package.R
+#' @include arrow-object.R
 write_feather <- function(x,
                           sink,
                           version = 2,
@@ -127,7 +127,7 @@ write_feather <- function(x,
 #'
 #' @export
 #' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
-#' @examplesIf arrow_available()
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
@@ -185,7 +185,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #'   file version
 #'
 #' @export
-#' @include arrow-package.R
+#' @include arrow-object.R
 FeatherReader <- R6Class("FeatherReader",
   inherit = ArrowObject,
   public = list(

@@ -174,6 +174,43 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   std::vector<SortKey> sort_keys;
 };
 
+/// \brief Rank options
+class ARROW_EXPORT RankOptions : public FunctionOptions {
+ public:
+  /// Configure how ties between equal values are handled
+  enum Tiebreaker {
+    /// Ties get the smallest possible rank in sorted order.
+    Min,
+    /// Ties get the largest possible rank in sorted order.
+    Max,
+    /// Ranks are assigned in order of when ties appear in the input.
+    /// This ensures the ranks are a stable permutation of the input.
+    First,
+    /// The ranks span a dense [1, M] interval where M is the number
+    /// of distinct values in the input.
+    Dense
+  };
+
+  explicit RankOptions(std::vector<SortKey> sort_keys = {},
+                       NullPlacement null_placement = NullPlacement::AtEnd,
+                       Tiebreaker tiebreaker = RankOptions::First);
+  /// Convenience constructor for array inputs
+  explicit RankOptions(SortOrder order,
+                       NullPlacement null_placement = NullPlacement::AtEnd,
+                       Tiebreaker tiebreaker = RankOptions::First)
+      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
+
+  static constexpr char const kTypeName[] = "RankOptions";
+  static RankOptions Defaults() { return RankOptions(); }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
+  /// Tiebreaker for dealing with equal values in ranks
+  Tiebreaker tiebreaker;
+};
+
 class ARROW_EXPORT RunLengthEncodeOptions : public FunctionOptions {
  public:
   explicit RunLengthEncodeOptions();
@@ -193,6 +230,27 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   int64_t pivot;
   /// Whether nulls and NaNs are partitioned at the start or at the end
   NullPlacement null_placement;
+};
+
+/// \brief Options for cumulative sum function
+class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
+ public:
+  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
+                                bool check_overflow = false);
+  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
+                                bool check_overflow = false);
+  static constexpr char const kTypeName[] = "CumulativeSumOptions";
+  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
+
+  /// Optional starting value for cumulative operation computation
+  std::shared_ptr<Scalar> start;
+
+  /// If true, nulls in the input are ignored and produce a corresponding null output.
+  /// When false, the first null encountered is propagated through the remaining output.
+  bool skip_nulls = false;
+
+  /// When true, returns an Invalid Status when overflow is detected
+  bool check_overflow = false;
 };
 
 /// @}
@@ -538,6 +596,12 @@ Result<Datum> DictionaryEncode(
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> RunLengthEncode(const Datum& value, ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<Datum> CumulativeSum(
+    const Datum& values,
+    const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

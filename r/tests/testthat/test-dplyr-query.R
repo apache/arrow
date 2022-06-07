@@ -224,7 +224,6 @@ test_that("head", {
 })
 
 test_that("arrange then head returns the right data (ARROW-14162)", {
-
   compare_dplyr_binding(
     .input %>%
       # mpg has ties so we need to sort by two things to get deterministic order

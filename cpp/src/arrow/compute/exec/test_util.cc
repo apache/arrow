@@ -165,6 +165,12 @@ ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
   return batch;
 }
 
+Future<> StartAndFinish(ExecPlan* plan) {
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+  return plan->finished();
+}
+
 Future<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());

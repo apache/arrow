@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +46,7 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -225,6 +227,19 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, vector.getValueCount());
   }
 
+  public static void assertListVectorValues(ListVector listVector, int rowCount, Integer[][] values) {
+    assertEquals(rowCount, listVector.getValueCount());
+
+    for (int j = 0; j < listVector.getValueCount(); j++) {
+      if (values[j] == null) {
+        assertTrue(listVector.isNull(j));
+      } else {
+        List<Integer> list = (List<Integer>) listVector.getObject(j);
+        assertEquals(Arrays.asList(values[j]), list);
+      }
+    }
+  }
+
   public static void assertNullValues(BaseValueVector vector, int rowCount) {
     assertEquals(rowCount, vector.getValueCount());
 
@@ -377,5 +392,30 @@ public class JdbcToArrowTestHelper {
       }
     }
     return value.split(",");
+  }
+
+  public static Integer[][] getListValues(String[] values, String dataType) {
+    String[] dataArr = getValues(values, dataType);
+    return getListValues(dataArr);
+  }
+
+  public static Integer[][] getListValues(String[] dataArr) {
+    Integer[][] valueArr = new Integer[dataArr.length][];
+    int i = 0;
+    for (String data : dataArr) {
+      if ("null".equals(data.trim())) {
+        valueArr[i++] = null;
+      } else if ("()".equals(data.trim())) {
+        valueArr[i++] = new Integer[0];
+      } else {
+        String[] row = data.replace("(", "").replace(")", "").split(";");
+        Integer[] arr = new Integer[row.length];
+        for (int j = 0; j < arr.length; j++) {
+          arr[j] = "null".equals(row[j]) ? null : Integer.parseInt(row[j]);
+        }
+        valueArr[i++] = arr;
+      }
+    }
+    return valueArr;
   }
 }

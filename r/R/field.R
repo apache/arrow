@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @title Field class
 #' @usage NULL
 #' @format NULL
@@ -68,7 +68,7 @@ Field$import_from_c <- ImportField
 #' @param metadata currently ignored
 #' @param nullable TRUE if field is nullable
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' field("x", int32())
 #' @rdname Field
 #' @export

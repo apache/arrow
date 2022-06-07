@@ -180,7 +180,8 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 
 test_that("Maps are preserved when writing/reading from Parquet", {
   string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
-                              type = map_of(utf8(), boolean()))
+    type = map_of(utf8(), boolean())
+  )
   int_struct <- Array$create(
     list(tibble::tibble(key = c(2, 4), value = data.frame(x = c(1, 2), y = c("a", "b"), stringsAsFactors = FALSE))),
     type = map_of(int64(), struct(x = int64(), y = utf8()))
@@ -326,7 +327,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
   withr::with_options(
     list(
       arrow.parquet_cells_per_group = 25
-    ), {
+    ),
+    {
       # this will be 4 chunks
       write_parquet(tab, tf)
       reader <- ParquetFileReader$create(tf)
@@ -334,7 +336,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
       expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:26))
       expect_true(reader$ReadRowGroup(3) == Table$create(x = 79:101))
       expect_error(reader$ReadRowGroup(4), "Some index in row_group_indices")
-    })
+    }
+  )
 
   # but we always have no more than max_chunks (even if cells_per_group is low!)
   # use a new tempfile so that windows doesn't complain about the file being over-written
@@ -345,7 +348,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
     list(
       arrow.parquet_cells_per_group = 25,
       arrow.parquet_max_chunks = 2
-    ), {
+    ),
+    {
       # this will be 4 chunks
       write_parquet(tab, tf)
       reader <- ParquetFileReader$create(tf)
@@ -353,7 +357,8 @@ test_that("ParquetFileWrite chunk_size defaults", {
       expect_true(reader$ReadRowGroup(0) == Table$create(x = 1:51))
       expect_true(reader$ReadRowGroup(1) == Table$create(x = 52:101))
       expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
-    })
+    }
+  )
 })
 
 test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow issues (ARROW-14894)", {

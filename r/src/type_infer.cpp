@@ -20,7 +20,6 @@
 #include "./arrow_types.h"
 #include "./arrow_vctrs.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/array_base.h>
 #include <arrow/chunked_array.h>
 
@@ -220,5 +219,3 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
   return arrow::r::InferArrowType(x);
 }
-
-#endif

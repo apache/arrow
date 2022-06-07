@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @title class arrow::DataType
 #'
 #' @usage NULL
@@ -63,7 +63,7 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @param ... Passed to S3 methods
 #'
 #' @return An arrow [data type][data-type]
-#' @examplesIf arrow_available()
+#' @examples
 #' infer_type(1:10)
 #' infer_type(1L:10L)
 #' infer_type(c(1, 1.5, 2))
@@ -95,7 +95,7 @@ infer_type.default <- function(x, ..., from_array_infer_type = FALSE) {
     # Last ditch attempt: if vctrs::vec_is(x), we can use the vctrs
     # extension type.
     if (vctrs::vec_is(x)) {
-     vctrs_extension_type(x)
+      vctrs_extension_type(x)
     } else {
       abort(
         sprintf(
@@ -355,7 +355,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @return An Arrow type object inheriting from DataType.
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
-#' @examplesIf arrow_available()
+#' @examples
 #' bool()
 #' struct(a = int32(), b = double())
 #' timestamp("ms", timezone = "CEST")
@@ -655,7 +655,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function() {
-      call2("fixed_size_list_of",  self$value_type$code(), list_size = self$list_size)
+      call2("fixed_size_list_of", self$value_type$code(), list_size = self$list_size)
     }
   ),
   active = list(
@@ -757,7 +757,7 @@ canonical_type_str <- function(type_str) {
 #' @return A [DataType][data-type] object.
 #' @export
 #'
-#' @examplesIf arrow_available()
+#' @examples
 #' as_data_type(int32())
 #'
 as_data_type <- function(x, ...) {

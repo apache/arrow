@@ -22,7 +22,6 @@ An arrow \link[=data-type]{data type}
 Infer the arrow Array type from an R object
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 infer_type(1:10)
 infer_type(1L:10L)
 infer_type(c(1, 1.5, 2))
@@ -31,5 +30,4 @@ infer_type(mtcars)
 infer_type(Sys.Date())
 infer_type(as.POSIXlt(Sys.Date()))
 infer_type(vctrs::new_vctr(1:5, class = "my_custom_vctr_class"))
-\dontshow{\}) # examplesIf}
 }

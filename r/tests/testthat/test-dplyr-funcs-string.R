@@ -1095,11 +1095,12 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(a = str_starts(x, "b.*"),
-                b = str_starts(x, "b.*", negate = TRUE),
-                c = str_starts(x, fixed("b")),
-                d = str_starts(x, fixed("b"), negate = TRUE)
-                ) %>%
+      transmute(
+        a = str_starts(x, "b.*"),
+        b = str_starts(x, "b.*", negate = TRUE),
+        c = str_starts(x, fixed("b")),
+        d = str_starts(x, fixed("b"), negate = TRUE)
+      ) %>%
       collect(),
     df
   )
@@ -1134,10 +1135,12 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(a = str_ends(x, "r"),
-                b = str_ends(x, "r", negate = TRUE),
-                c = str_ends(x, fixed("r")),
-                d = str_ends(x, fixed("r"), negate = TRUE)) %>%
+      transmute(
+        a = str_ends(x, "r"),
+        b = str_ends(x, "r", negate = TRUE),
+        c = str_ends(x, fixed("r")),
+        d = str_ends(x, fixed("r"), negate = TRUE)
+      ) %>%
       collect(),
     df
   )
@@ -1171,8 +1174,10 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(a = startsWith(x, "b"),
-                b = endsWith(x, "r")) %>%
+      transmute(
+        a = startsWith(x, "b"),
+        b = endsWith(x, "r")
+      ) %>%
       collect(),
     df
   )

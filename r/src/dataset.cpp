@@ -165,54 +165,46 @@ std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
 }
 
 // [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make0(
-    const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
-    const std::shared_ptr<ds::FileFormat>& format) {
-  // TODO(fsaintjacques): Make options configurable
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make(
+    const std::shared_ptr<fs::FileSystem>& fs,
+    const std::shared_ptr<fs::FileSelector>& selector,
+    const std::shared_ptr<ds::FileFormat>& format, cpp11::list fsf_options) {
   auto options = ds::FileSystemFactoryOptions{};
+  if (!Rf_isNull(fsf_options["partitioning"])) {
+    options.partitioning =
+        cpp11::as_cpp<std::shared_ptr<ds::Partitioning>>(fsf_options["partitioning"]);
+  } else if (!Rf_isNull(fsf_options["partitioning_factory"])) {
+    options.partitioning = cpp11::as_cpp<std::shared_ptr<ds::PartitioningFactory>>(
+        fsf_options["partitioning_factory"]);
+  }
+  if (!Rf_isNull(fsf_options["partition_base_dir"])) {
+    options.partition_base_dir =
+        cpp11::as_cpp<std::string>(fsf_options["partition_base_dir"]);
+  }
+  if (!Rf_isNull(fsf_options["exclude_invalid_files"])) {
+    options.exclude_invalid_files =
+        cpp11::as_cpp<bool>(fsf_options["exclude_invalid_files"]);
+  }
+  if (!Rf_isNull(fsf_options["selector_ignore_prefixes"])) {
+    options.selector_ignore_prefixes =
+        cpp11::as_cpp<std::vector<std::string>>(fsf_options["selector_ignore_prefixes"]);
+  }
+
+  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
+      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::FileSystemDatasetFactory>
+dataset___FileSystemDatasetFactory__MakePaths(
+    const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
+    const std::shared_ptr<ds::FileFormat>& format, bool exclude_invalid_files) {
+  // exclude_invalid_files is the only meaningful option with a vector of paths
+  auto options = ds::FileSystemFactoryOptions{};
+  options.exclude_invalid_files = exclude_invalid_files;
 
   return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
       ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, paths, format, options)));
-}
-
-// [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(
-    const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector,
-    const std::shared_ptr<ds::FileFormat>& format,
-    const std::shared_ptr<ds::Partitioning>& partitioning) {
-  // TODO(fsaintjacques): Make options configurable
-  auto options = ds::FileSystemFactoryOptions{};
-  if (partitioning != nullptr) {
-    options.partitioning = partitioning;
-  }
-
-  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
-      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
-}
-
-// [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make1(
-    const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector,
-    const std::shared_ptr<ds::FileFormat>& format) {
-  return dataset___FileSystemDatasetFactory__Make2(fs, selector, format, nullptr);
-}
-
-// [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make3(
-    const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector,
-    const std::shared_ptr<ds::FileFormat>& format,
-    const std::shared_ptr<ds::PartitioningFactory>& factory) {
-  // TODO(fsaintjacques): Make options configurable
-  auto options = ds::FileSystemFactoryOptions{};
-  if (factory != nullptr) {
-    options.partitioning = factory;
-  }
-
-  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
-      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
 }
 
 // FileFormat, ParquetFileFormat, IpcFileFormat

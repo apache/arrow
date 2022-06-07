@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @include enums.R
 #' @include buffer.R
 
@@ -245,13 +245,16 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   }
   if (is.string(file)) {
     if (is_url(file)) {
-      file <- tryCatch({
-        fs_and_path <- FileSystem$from_uri(file)
-        filesystem <- fs_and_path$fs
-        fs_and_path$path
-      }, error = function(e) {
-        MakeRConnectionInputStream(url(file, open = "rb"))
-      })
+      file <- tryCatch(
+        {
+          fs_and_path <- FileSystem$from_uri(file)
+          filesystem <- fs_and_path$fs
+          fs_and_path$path
+        },
+        error = function(e) {
+          MakeRConnectionInputStream(url(file, open = "rb"))
+        }
+      )
     }
 
     if (is.null(compression)) {
@@ -267,7 +270,7 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
       file <- ReadableFile$create(file)
     }
 
-    if (!identical(compression, "uncompressed")) {
+    if (is_compressed(compression)) {
       file <- CompressedInputStream$create(file, compression)
     }
   } else if (inherits(file, c("raw", "Buffer"))) {
@@ -289,7 +292,7 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   file
 }
 
-make_output_stream <- function(x, filesystem = NULL) {
+make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
   if (inherits(x, "connection")) {
     if (!isOpen(x)) {
       open(x, "wb")
@@ -306,11 +309,21 @@ make_output_stream <- function(x, filesystem = NULL) {
     filesystem <- fs_and_path$fs
     x <- fs_and_path$path
   }
+
+  if (is.null(compression)) {
+    # Infer compression from sink
+    compression <- detect_compression(x)
+  }
+
   assert_that(is.string(x))
-  if (is.null(filesystem)) {
-    FileOutputStream$create(x)
+  if (is.null(filesystem) && is_compressed(compression)) {
+    CompressedOutputStream$create(x) ##compressed local
+  } else if (is.null(filesystem) && !is_compressed(compression)) {
+    FileOutputStream$create(x) ## uncompressed local
+  } else if (!is.null(filesystem) && is_compressed(compression)) {
+    CompressedOutputStream$create(filesystem$OpenOutputStream(x)) ## compressed remote
   } else {
-    filesystem$OpenOutputStream(x)
+    filesystem$OpenOutputStream(x) ## uncompressed remote
   }
 }
 
@@ -318,6 +331,9 @@ detect_compression <- function(path) {
   if (!is.string(path)) {
     return("uncompressed")
   }
+
+  # Remove any trailing slashes, which FileSystem$from_uri may add
+  path <- gsub("/$", "", path)
 
   switch(tools::file_ext(path),
     bz2 = "bz2",

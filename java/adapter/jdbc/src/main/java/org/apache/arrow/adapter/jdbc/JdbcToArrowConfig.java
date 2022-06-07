@@ -57,6 +57,8 @@ public final class JdbcToArrowConfig {
   private final boolean reuseVectorSchemaRoot;
   private final Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private final Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
+  private final Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex;
+  private final Map<String, JdbcFieldInfo> explicitTypesByColumnName;
   /**
    * The maximum rowCount to read each time when partially convert data.
    * Default value is 1024 and -1 means disable partial read.
@@ -140,6 +142,31 @@ public final class JdbcToArrowConfig {
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+
+    this(
+        allocator,
+        calendar,
+        includeMetadata,
+        reuseVectorSchemaRoot,
+        arraySubTypesByColumnIndex,
+        arraySubTypesByColumnName,
+        targetBatchSize,
+        jdbcToArrowTypeConverter,
+        null,
+        null);
+  }
+
+  JdbcToArrowConfig(
+      BufferAllocator allocator,
+      Calendar calendar,
+      boolean includeMetadata,
+      boolean reuseVectorSchemaRoot,
+      Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
+      Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
+      int targetBatchSize,
+      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
+      Map<String, JdbcFieldInfo> explicitTypesByColumnName) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
     this.allocator = allocator;
     this.calendar = calendar;
@@ -148,6 +175,8 @@ public final class JdbcToArrowConfig {
     this.arraySubTypesByColumnIndex = arraySubTypesByColumnIndex;
     this.arraySubTypesByColumnName = arraySubTypesByColumnName;
     this.targetBatchSize = targetBatchSize;
+    this.explicitTypesByColumnIndex = explicitTypesByColumnIndex;
+    this.explicitTypesByColumnName = explicitTypesByColumnName;
 
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
@@ -229,6 +258,34 @@ public final class JdbcToArrowConfig {
       return null;
     } else {
       return arraySubTypesByColumnName.get(name);
+    }
+  }
+
+  /**
+   * Returns the type {@link JdbcFieldInfo} explicitly defined for the provided column index.
+   *
+   * @param index The {@link java.sql.ResultSetMetaData} column index to evaluate for explicit type mapping.
+   * @return The {@link JdbcFieldInfo} defined for the column, or <code>null</code> if not defined.
+   */
+  public JdbcFieldInfo getExplicitTypeByColumnIndex(int index) {
+    if (explicitTypesByColumnIndex == null) {
+      return null;
+    } else {
+      return explicitTypesByColumnIndex.get(index);
+    }
+  }
+
+  /**
+   * Returns the type {@link JdbcFieldInfo} explicitly defined for the provided column name.
+   *
+   * @param name The {@link java.sql.ResultSetMetaData} column name to evaluate for explicit type mapping.
+   * @return The {@link JdbcFieldInfo} defined for the column, or <code>null</code> if not defined.
+   */
+  public JdbcFieldInfo getExplicitTypeByColumnName(String name) {
+    if (explicitTypesByColumnName == null) {
+      return null;
+    } else {
+      return explicitTypesByColumnName.get(name);
     }
   }
 }

@@ -30,7 +30,7 @@
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
 
-set(PLASMA_STORE_SERVER "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@")
+set(PLASMA_STORE_SERVER "@CMAKE_INSTALL_FULL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@")
 
 # Load targets only once. If we load targets multiple times, CMake reports
 # already existent target error.
