@@ -49,50 +49,82 @@ test_df <- tibble::tibble(
 
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
-  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  # lubridate defaults to "UTC" as timezone => t_stamp is in "UTC"
+  t_stamp_with_utc_tz <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  t_stamp_with_pm_tz <- tibble(
+    x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA)
+  )
 
+  # base::strptime returns a POSIXlt (a list) => we cannot use compare_dplyr_binding
+  # => we use expect_equal for the tests below
+
+  withr::with_timezone("Pacific/Marquesas", {
+    # the default value for strptime's `tz` argument is "", which is interpreted
+    # as the current timezone. we test here if the strptime binding picks up
+    # correctly the current timezone (similarly to the base R version)
+    expect_equal(
+      t_string %>%
+        record_batch() %>%
+        mutate(
+          x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+        ) %>%
+        collect(),
+      t_stamp_with_pm_tz
+    )
+  })
+
+  # adding a timezone to a timezone-naive timestamp works
+  # and since our TZ when running the test is (typically) Pacific/Marquesas
+  # this also tests that assigning a TZ different from the current session one
+  # works as expected
   expect_equal(
     t_string %>%
-      Table$create() %>%
+      arrow_table() %>%
       mutate(
-        x = strptime(x)
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "Pacific/Marquesas")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_pm_tz
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+        x = strptime(x, tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_utc_tz
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns")
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_utc_tz
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s")
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_utc_tz
+  )
+
+  expect_equal(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s", tz = "UTC")
+      ) %>%
+      collect(),
+    t_stamp_with_utc_tz
   )
 
   tstring <- tibble(x = c("08-05-2008", NA))
@@ -108,15 +140,6 @@ test_that("strptime", {
     # R's strptime returns POSIXlt (list type)
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
-  )
-})
-
-test_that("errors in strptime", {
-  # Error when tz is passed
-  x <- Expression$field_ref("x")
-  expect_error(
-    call_binding("strptime", x, tz = "PDT"),
-    "Time zone argument not supported in Arrow"
   )
 })
 
