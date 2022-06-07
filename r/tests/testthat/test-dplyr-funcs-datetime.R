@@ -111,7 +111,7 @@ test_that("strptime", {
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp
+    t_stamp_with_utc_tz
   )
 
   expect_equal(
