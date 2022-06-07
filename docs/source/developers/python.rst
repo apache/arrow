@@ -112,6 +112,32 @@ For running the benchmarks, see :ref:`python-benchmarks`.
 
 .. _build_pyarrow:
 
+Doctest
+=======
+
+We are using `doctest <https://docs.python.org/3/library/doctest.html>`_
+to check that docstrings examples are up-to-date and correct. You can
+also do that locally by running:
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ pytest --doctest-modules
+   $ pytest --doctest-modules path/to/module.py # checking single file
+   $ popd
+
+for ``.py`` files or
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ pytest --doctest-cython
+   $ pytest --doctest-cython path/to/module.pyx # checking single file
+   $ popd
+
+for ``.pyx`` and ``.pxi`` files. In this case you will also need to
+install `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
+
 Building on Linux and MacOS
 =============================
 
