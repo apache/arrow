@@ -27,9 +27,9 @@ from git import Repo
 from jira import JIRA
 from semver import VersionInfo as SemVer
 
-from .utils.source import ArrowSources
-from .utils.report import JinjaReport
-from .utils.logger import logger
+from ..utils.source import ArrowSources
+from ..utils.logger import logger
+from .reports import ReleaseCuration, JiraChangelog
 
 
 def cached_property(fn):
@@ -225,32 +225,6 @@ class Commit:
     @property
     def title(self):
         return self._title
-
-
-class ReleaseCuration(JinjaReport):
-    templates = {
-        'console': 'release_curation.txt.j2'
-    }
-    fields = [
-        'release',
-        'within',
-        'outside',
-        'nojira',
-        'parquet',
-        'nopatch',
-        'minimal'
-    ]
-
-
-class JiraChangelog(JinjaReport):
-    templates = {
-        'markdown': 'release_changelog.md.j2',
-        'html': 'release_changelog.html.j2'
-    }
-    fields = [
-        'release',
-        'categories'
-    ]
 
 
 class Release:
