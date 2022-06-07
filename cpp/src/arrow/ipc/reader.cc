@@ -2308,7 +2308,7 @@ Status CheckSparseTensorBodyBufferCount(const IpcPayload& payload,
 }  // namespace
 
 Result<size_t> ReadSparseTensorBodyBufferCount(const Buffer& metadata) {
-  SparseTensorFormat::type format_id;
+  SparseTensorFormat::type format_id{};
   std::vector<int64_t> shape;
 
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(metadata, nullptr, &shape, nullptr,
