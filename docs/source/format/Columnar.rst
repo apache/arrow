@@ -789,13 +789,13 @@ As an example, you could have the following data: ::
 
     type: Float32
 
-    [1.0, 1.0, 1.0, 1.0, null, 'null', 2.0]
+    [1.0, 1.0, 1.0, 1.0, null, null, 2.0]
 
 In Run-length-encoded form, this could appear as:
 
 ::
 
-    * Length: 3, Null count: 0
+    * Length: 3, Null count: 2
     * Accumulated run lengths buffer:
 
       | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
