@@ -1167,11 +1167,13 @@ cdef class ParquetReader(_Weakrefable):
         self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source not None, bint use_memory_map=True,
+    def open(self, object source not None, *, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
              int buffer_size=0, bint pre_buffer=False,
              coerce_int96_timestamp_unit=None,
-             FileDecryptionProperties decryption_properties=None):
+             FileDecryptionProperties decryption_properties=None,
+             thrift_string_size_limit=None,
+             thrift_container_size_limit=None):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -1192,6 +1194,18 @@ cdef class ParquetReader(_Weakrefable):
             properties.disable_buffered_stream()
         else:
             raise ValueError('Buffer size must be larger than zero')
+
+        if thrift_string_size_limit is not None:
+            if thrift_string_size_limit <= 0:
+                raise ValueError("thrift_string_size_limit "
+                                 "must be larger than zero")
+            properties.set_thrift_string_size_limit(thrift_string_size_limit)
+        if thrift_container_size_limit is not None:
+            if thrift_container_size_limit <= 0:
+                raise ValueError("thrift_container_size_limit "
+                                 "must be larger than zero")
+            properties.set_thrift_container_size_limit(
+                thrift_container_size_limit)
 
         if decryption_properties is not None:
             properties.file_decryption_properties(

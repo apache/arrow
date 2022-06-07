@@ -748,10 +748,15 @@ def test_parquet_scan_options():
     opts3 = ds.ParquetFragmentScanOptions(
         buffer_size=2**13, use_buffered_stream=True)
     opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
+    opts5 = ds.ParquetFragmentScanOptions(
+        thrift_string_size_limit=123456,
+        thrift_container_size_limit=987654,)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is False
+    assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
+    assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
@@ -765,10 +770,14 @@ def test_parquet_scan_options():
     assert opts4.buffer_size == 2**13
     assert opts4.pre_buffer is True
 
+    assert opts5.thrift_string_size_limit == 123456
+    assert opts5.thrift_container_size_limit == 987654
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
+    assert opts5 != opts1
 
 
 def test_file_format_pickling():
@@ -795,6 +804,8 @@ def test_file_format_pickling():
             ds.ParquetFileFormat(
                 use_buffered_stream=True,
                 buffer_size=4096,
+                thrift_string_size_limit=123,
+                thrift_container_size_limit=456,
             ),
         ])
 

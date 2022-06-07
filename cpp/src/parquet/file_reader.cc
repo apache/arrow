@@ -543,8 +543,8 @@ uint32_t SerializedFile::ParseUnencryptedFileMetadata(
   }
   uint32_t read_metadata_len = metadata_len;
   // The encrypted read path falls through to here, so pass in the decryptor
-  file_metadata_ =
-      FileMetaData::Make(metadata_buffer->data(), &read_metadata_len, file_decryptor_);
+  file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len,
+                                      properties_, file_decryptor_);
   return read_metadata_len;
 }
 

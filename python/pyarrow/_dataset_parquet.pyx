@@ -598,6 +598,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
         filesystems.
+    thrift_string_size_limit : int, default None
+        If not None, override the maximum total string size allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
+    thrift_container_size_limit : int, default None
+        If not None, override the maximum total size of containers allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
     """
 
     cdef:
@@ -606,14 +614,20 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, bint use_buffered_stream=False,
+    def __init__(self, *, bint use_buffered_stream=False,
                  buffer_size=8192,
-                 bint pre_buffer=False):
+                 bint pre_buffer=False,
+                 thrift_string_size_limit=None,
+                 thrift_container_size_limit=None):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
         self.pre_buffer = pre_buffer
+        if thrift_string_size_limit is not None:
+            self.thrift_string_size_limit = thrift_string_size_limit
+        if thrift_container_size_limit is not None:
+            self.thrift_container_size_limit = thrift_container_size_limit
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -654,17 +668,49 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def pre_buffer(self, bint pre_buffer):
         self.arrow_reader_properties().set_pre_buffer(pre_buffer)
 
+    @property
+    def thrift_string_size_limit(self):
+        return self.reader_properties().thrift_string_size_limit()
+
+    @thrift_string_size_limit.setter
+    def thrift_string_size_limit(self, size):
+        if size <= 0:
+            raise ValueError("size must be larger than zero")
+        self.reader_properties().set_thrift_string_size_limit(size)
+
+    @property
+    def thrift_container_size_limit(self):
+        return self.reader_properties().thrift_container_size_limit()
+
+    @thrift_container_size_limit.setter
+    def thrift_container_size_limit(self, size):
+        if size <= 0:
+            raise ValueError("size must be larger than zero")
+        self.reader_properties().set_thrift_container_size_limit(size)
+
     def equals(self, ParquetFragmentScanOptions other):
-        return (
-            self.use_buffered_stream == other.use_buffered_stream and
-            self.buffer_size == other.buffer_size and
-            self.pre_buffer == other.pre_buffer
-        )
+        attrs = (
+            self.use_buffered_stream, self.buffer_size, self.pre_buffer,
+            self.thrift_string_size_limit, self.thrift_container_size_limit)
+        other_attrs = (
+            other.use_buffered_stream, other.buffer_size, other.pre_buffer,
+            other.thrift_string_size_limit,
+            other.thrift_container_size_limit)
+        return attrs == other_attrs
+
+    @classmethod
+    def _reconstruct(cls, kwargs):
+        return cls(**kwargs)
 
     def __reduce__(self):
-        return ParquetFragmentScanOptions, (
-            self.use_buffered_stream, self.buffer_size, self.pre_buffer
+        kwargs = dict(
+            use_buffered_stream=self.use_buffered_stream,
+            buffer_size=self.buffer_size,
+            pre_buffer=self.pre_buffer,
+            thrift_string_size_limit=self.thrift_string_size_limit,
+            thrift_container_size_limit=self.thrift_container_size_limit,
         )
+        return type(self)._reconstruct, (kwargs,)
 
 
 cdef class ParquetFactoryOptions(_Weakrefable):
