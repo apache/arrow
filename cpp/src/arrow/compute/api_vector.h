@@ -588,7 +588,7 @@ Result<Datum> DictionaryEncode(
     ExecContext* ctx = NULLPTR);
 
 /// \brief Run-Length-encode values in an array-like object
-/// \param[in] data array-like input
+/// \param[in] value array-like input
 /// \param[in] ctx the function execution context, optional
 /// \return result with same shape and type as input
 ///
