@@ -43,8 +43,10 @@ try:
     import pygit2
 except ImportError:
     PygitRemoteCallbacks = object
+    GitError = Exception
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
+    GitError = pygit2.GitError
 
 from ..utils.source import ArrowSources
 
@@ -266,9 +268,18 @@ class Repo:
                                 "Crossbow: {}".format(remote.url))
         return remote
 
-    def fetch(self):
+    def fetch(self, retry=3):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
-        self.origin.fetch([refspec])
+        attempt = 1
+        while True:
+            try:
+                self.origin.fetch([refspec])
+                break
+            except GitError as e:
+                if retry and attempt < retry:
+                    attempt += 1
+                else:
+                    raise e
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token

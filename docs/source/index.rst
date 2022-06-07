@@ -98,4 +98,5 @@ target environment.**
    developers/continuous_integration/index
    developers/benchmarks
    developers/documentation
+   developers/release
    developers/computeir

@@ -42,6 +42,8 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ExtensionIdRegistry* registry);
 
+/// \brief Make a nested registry with the default registry as parent.
+/// See arrow::engine::nested_extension_id_registry for details.
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
 
 ARROW_ENGINE_EXPORT Status RegisterFunction(ExtensionIdRegistry& registry,
@@ -49,10 +51,7 @@ ARROW_ENGINE_EXPORT Status RegisterFunction(ExtensionIdRegistry& registry,
                                             const std::string& id_name,
                                             const std::string& arrow_function_name);
 
-ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri() {
-  static std::string uri = engine::kArrowExtTypesUri.to_string();
-  return uri;
-}
+ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri();
 
 }  // namespace substrait
 

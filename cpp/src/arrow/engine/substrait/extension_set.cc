@@ -436,10 +436,14 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     // all functions (and prototypes) that Arrow provides that are relevant
     // for Substrait, and include mappings for all of them here. See
     // ARROW-15535.
-    for (util::string_view name : {
-             "add",
+    for (auto name_pair : std::vector<std::pair<util::string_view, util::string_view>>{
+             {"add", "add"},
+             {"*", "multiply"},
+             {"equal", "equal"},
+             {"is_not_distinct_from", "is_not_distinct_from"},
          }) {
-      DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
+      DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name_pair.first},
+                                 name_pair.second.to_string()));
     }
   }
 };

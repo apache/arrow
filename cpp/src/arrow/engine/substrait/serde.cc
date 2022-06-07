@@ -143,7 +143,7 @@ Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
           const auto& udf = fn.udf();
           const auto& in_types = udf.input_types();
           int size = in_types.size();
-          std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types(size);
+          std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types;
           for (int i=0; i<size; i++) {
             ARROW_ASSIGN_OR_RAISE(auto input_type, FromProto(in_types.Get(i), ext_set));
             input_types.push_back(std::move(input_type));

@@ -99,6 +99,10 @@ static const std::vector<TypeName> kTempTypeNames = {
     TypeName{timestamp(TimeUnit::SECOND, "temp_tz_2"), "temp_type_2"},
 };
 
+static Id kNonExistentId{kArrowExtTypesUri, "non_existent"};
+static TypeName kNonExistentTypeName{timestamp(TimeUnit::SECOND, "non_existent_tz_1"),
+                                     "non_existent_type_1"};
+
 using ExtensionIdRegistryParams =
     std::tuple<std::shared_ptr<ExtensionIdRegistryProvider>, std::string>;
 
@@ -118,6 +122,8 @@ TEST_P(ExtensionIdRegistryTest, GetTypes) {
       ASSERT_EQ(*e.type, *typerec.type);
     }
   }
+  ASSERT_FALSE(registry->GetType(kNonExistentId));
+  ASSERT_FALSE(registry->GetType(*kNonExistentTypeName.type));
 }
 
 TEST_P(ExtensionIdRegistryTest, ReregisterTypes) {
@@ -144,6 +150,8 @@ TEST_P(ExtensionIdRegistryTest, GetFunctions) {
       ASSERT_EQ(name, funcrec.function_name);
     }
   }
+  ASSERT_FALSE(registry->GetType(kNonExistentId));
+  ASSERT_FALSE(registry->GetType(*kNonExistentTypeName.type));
 }
 
 TEST_P(ExtensionIdRegistryTest, ReregisterFunctions) {

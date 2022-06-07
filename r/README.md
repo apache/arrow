@@ -79,7 +79,7 @@ nightly and hosted at <https://arrow-r-nightly.s3.amazonaws.com>. To
 install from there:
 
 ``` r
-install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
+install.packages("arrow", repos = c(arrow = "https://arrow-r-nightly.s3.amazonaws.com", getOption("repos")))
 ```
 
 Conda users can install `arrow` nightly builds with

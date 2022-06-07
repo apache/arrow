@@ -250,10 +250,16 @@ public:
 /// \brief Add a sink node which consumes data within the exec plan run
 class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer)
-      : consumer(std::move(consumer)) {}
+  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer,
+                                    std::vector<std::string> names = {})
+      : consumer(std::move(consumer)), names(std::move(names)) {}
 
   std::shared_ptr<SinkNodeConsumer> consumer;
+  /// \brief Names to rename the sink's schema fields to
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see ARROW-15901).
+  std::vector<std::string> names;
 };
 
 /// \brief Make a node which sorts rows passed through it
@@ -313,6 +319,19 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
     }
+  }
+  HashJoinNodeOptions(std::vector<FieldRef> in_left_keys,
+                      std::vector<FieldRef> in_right_keys)
+      : left_keys(std::move(in_left_keys)), right_keys(std::move(in_right_keys)) {
+    this->join_type = JoinType::INNER;
+    this->output_all = true;
+    this->output_suffix_for_left = default_output_suffix_for_left;
+    this->output_suffix_for_right = default_output_suffix_for_right;
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+    this->filter = literal(true);
   }
   HashJoinNodeOptions(
       JoinType join_type, std::vector<FieldRef> left_keys,
@@ -403,7 +422,6 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   /// SelectK options
   SelectKOptions select_k_options;
 };
-/// @}
 
 /// \brief Adapt a Table as a sink node
 ///

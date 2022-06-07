@@ -58,7 +58,9 @@ like so:
 
 .. code-block::
 
-   $ python -m pytest arrow/python/pyarrow
+   $ pushd arrow/python
+   $ python -m pytest pyarrow
+   $ popd
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r

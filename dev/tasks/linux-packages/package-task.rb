@@ -428,6 +428,8 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-9",
+      # "almalinux-9-arch64",
       "almalinux-8",
       # "almalinux-8-arch64",
       "amazon-linux-2",

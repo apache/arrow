@@ -166,7 +166,7 @@ class PARQUET_EXPORT WriterProperties {
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
           pagesize_(kDefaultDataPageSize),
-          version_(ParquetVersion::PARQUET_1_0),
+          version_(ParquetVersion::PARQUET_2_4),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}
@@ -246,7 +246,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Specify the Parquet file version.
-    /// Default PARQUET_1_0.
+    /// Default PARQUET_2_4.
     Builder* version(ParquetVersion::type version) {
       version_ = version;
       return this;

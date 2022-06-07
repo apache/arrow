@@ -150,6 +150,11 @@ Status RegisterFunction(ExtensionIdRegistry& registry, const std::string& id_uri
   return registry.RegisterFunction({id_uri_sym, id_name_sym}, arrow_function_name_sym);
 }
 
+const std::string& default_extension_types_uri() {
+  static std::string uri = engine::kArrowExtTypesUri.to_string();
+  return uri;
+}
+
 }  // namespace substrait
 
 }  // namespace engine

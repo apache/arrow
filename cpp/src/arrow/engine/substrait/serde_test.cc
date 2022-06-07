@@ -801,5 +801,377 @@ TEST(Substrait, InvalidPlan) {
   ASSERT_RAISES(Invalid, substrait::ExecuteSerializedPlan(*buf));
 }
 
+TEST(Substrait, JoinPlanBasic) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ] 
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "A"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat2.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "args": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 5
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })"));
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlans(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+
+  auto join_decl = sink_decls[0].inputs[0];
+
+  const auto& join_rel = join_decl.get<compute::Declaration>();
+
+  const auto& join_options =
+      checked_cast<const compute::HashJoinNodeOptions&>(*join_rel->options);
+
+  EXPECT_EQ(join_rel->factory_name, "hashjoin");
+  EXPECT_EQ(join_options.join_type, compute::JoinType::INNER);
+
+  const auto& left_rel = join_rel->inputs[0].get<compute::Declaration>();
+  const auto& right_rel = join_rel->inputs[1].get<compute::Declaration>();
+
+  const auto& l_options =
+      checked_cast<const dataset::ScanNodeOptions&>(*left_rel->options);
+  const auto& r_options =
+      checked_cast<const dataset::ScanNodeOptions&>(*right_rel->options);
+
+  AssertSchemaEqual(
+      l_options.dataset->schema(),
+      schema({field("A", int32()), field("B", int32()), field("C", int32())}));
+  AssertSchemaEqual(
+      r_options.dataset->schema(),
+      schema({field("X", int32()), field("Y", int32()), field("A", int32())}));
+
+  EXPECT_EQ(join_options.key_cmp[0], compute::JoinKeyCmp::EQ);
+}
+
+TEST(Substrait, JoinPlanInvalidKeyCmp) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ] 
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "A"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat2.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "args": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 5
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "add"
+      }}
+    ]
+  })"));
+  ExtensionSet ext_set;
+  ASSERT_RAISES(
+      Invalid,
+      DeserializePlans(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+}
+
+TEST(Substrait, JoinPlanInvalidExpression) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ] 
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "A"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat2.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ]
+            }
+          }
+        },
+        "expression": {"literal": {"list": {"values": []}}},
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }]
+  })"));
+  ExtensionSet ext_set;
+  ASSERT_RAISES(
+      Invalid,
+      DeserializePlans(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+}
+
+TEST(Substrait, JoinPlanInvalidKeys) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": { 
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "format": "FILE_FORMAT_PARQUET"
+                }
+              ] 
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "args": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }, {
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 5
+                  }
+                },
+                "rootReference": {
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }]
+  })"));
+  ExtensionSet ext_set;
+  ASSERT_RAISES(
+      Invalid,
+      DeserializePlans(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+}
+
 }  // namespace engine
 }  // namespace arrow

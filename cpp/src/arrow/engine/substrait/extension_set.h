@@ -117,7 +117,7 @@ constexpr util::string_view kArrowExtTypesUri =
 /// Note: Function support is currently very minimal, see ARROW-15538
 ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
 
-/// \brief Makes a nested registry with a given parent.
+/// \brief Make a nested registry with a given parent.
 ///
 /// A nested registry supports registering types and functions other and on top of those
 /// already registered in its parent registry. No conflicts in IDs and names used for
