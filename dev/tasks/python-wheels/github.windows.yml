@@ -57,7 +57,7 @@ jobs:
 
       - name: Test wheel
         shell: cmd
-        run: archery docker run python-wheel-windows-test
+        run: archery docker --src=arrow run python-wheel-windows-test
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
@@ -65,5 +65,5 @@ jobs:
       {% if arrow.branch == 'master' %}
       - name: Push Docker Image
         shell: cmd
-        run: archery docker push python-wheel-windows-vs2017
+        run: archery docker --src=arrow push python-wheel-windows-vs2017
       {% endif %}
