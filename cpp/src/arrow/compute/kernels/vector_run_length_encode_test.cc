@@ -81,7 +81,8 @@ TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
             expected_run_lengths);
   ASSERT_EQ(encoded->child_data[0]->GetMutableValues<int32_t>(1)[1], 1);
   ASSERT_EQ(encoded->child_data[0]->GetMutableValues<int32_t>(1)[3], -5);
-  ASSERT_EQ(*(encoded->child_data[0]->GetMutableValues<uint8_t>(0)), expected_null_bitmap);
+  ASSERT_EQ(*(encoded->child_data[0]->GetMutableValues<uint8_t>(0)),
+            expected_null_bitmap);
   ASSERT_EQ(encoded->buffers[0]->size(), 4 * sizeof(uint64_t));
   ASSERT_EQ(encoded->child_data[0]->buffers[1]->size(), 4 * sizeof(int32_t));
   ASSERT_EQ(encoded->length, 4);
