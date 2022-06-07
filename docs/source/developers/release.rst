@@ -124,7 +124,7 @@ Create or update the corresponding maintenance branch
 
       .. code-block::
 
-            # First run in dry-mode to see which commits that will be cherry-picked.
+            # First run in dry-mode to see which commits will be cherry-picked.
             # If there are commits that we don't want to get applied ensure the version on
             # JIRA is set to the following release.
             archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue
