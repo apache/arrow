@@ -765,6 +765,85 @@ application.
 We discuss dictionary encoding as it relates to serialization further
 below.
 
+.. _run-length-encoded-layout:
+
+Run-Length-encoded Layout
+-------------------------
+
+Run-Length is a data representation that represents data as sequences of the
+same a, called runs. Each run is represented as a value, and an integer
+describing how often this value is repeated.
+
+Any array can be run-length-encoded. A run-length encoded array has a single
+buffer holding as many 32-bit integers, as there are runs. The actual values are
+hold in a child array, which is just a regular array
+
+The dictionary is stored as an optional
+property of an array. When a field is dictionary encoded, the values are
+represented by an array of non-negative integers representing the index of the
+value in the dictionary. The memory layout for a dictionary-encoded array is
+the same as that of a primitive integer layout. The dictionary is handled as a
+separate columnar array with its own respective layout.
+
+As an example, you could have the following data: ::
+
+    type: Float32
+
+    [1.0, 1.0, 1.0, 1.0, null, 'null', 2.0]
+
+In Run-length-encoded form, this could appear as:
+
+::
+
+    * Length: 3, Null count: 0
+    * Accumulated run lengths buffer:
+
+      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
+      |-------------|-------------|-------------|-----------------------|
+      | 4           | 6           | 7           | unspecified (padding) |
+
+    * Children arrays:
+
+      * values (Float32):
+        * Length: 3, Null count: 1
+        * Validity bitmap buffer:
+
+          |Byte 0 (validity bitmap) | Bytes 1-63            |
+          |-------------------------|-----------------------|
+          |00000101                 | 0 (padding)           |
+
+       * Values buffer
+
+         | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
+         |-------------|-------------|-------------|-----------------------|
+         | 1.0         | unspecified | 2.0         | unspecified (padding) |
+
+
+Note that a dictionary is permitted to contain duplicate values or
+nulls:
+
+::
+
+    data VarBinary (dictionary-encoded)
+       index_type: Int32
+       values: [0, 1, 3, 1, 4, 2]
+
+    dictionary
+       type: VarBinary
+       values: ['foo', 'bar', 'baz', 'foo', null]
+
+The null count of such arrays is dictated only by the validity bitmap
+of its indices, irrespective of any null values in the dictionary.
+
+Since unsigned integers can be more difficult to work with in some cases
+(e.g. in the JVM), we recommend preferring signed integers over unsigned
+integers for representing dictionary indices. Additionally, we recommend
+avoiding using 64-bit unsigned integer indices unless they are required by an
+application.
+
+We discuss dictionary encoding as it relates to serialization further
+below.
+
 Buffer Listing for Each Layout
 ------------------------------
 
