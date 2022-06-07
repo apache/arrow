@@ -313,6 +313,7 @@ in column ``"nums"``
 
 .. code-block:: python
 
+   import pyarrow.compute as pc
    even_filter = (pc.bit_wise_and(pc.field("nums"), pc.scalar(1)) == pc.scalar(0))
    
 Once we have our filter, we can provide it to the :meth:`.Table.filter` method
