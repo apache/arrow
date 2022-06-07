@@ -150,6 +150,7 @@ def test_option_class_equality():
         pc.CumulativeSumOptions(start=0, skip_nulls=False),
         pc.QuantileOptions(),
         pc.RandomOptions(),
+        pc.RankOptions(null_placement="at_start", sort_keys=[("b", "ascending")], tiebreaker="Max"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),

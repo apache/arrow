@@ -2060,6 +2060,60 @@ class RandomOptions(_RandomOptions):
         self._set_options(initializer)
 
 
+class _RankOptions(FunctionOptions):
+
+    _tiebreaker_map = {
+        "Min": CRankOptionsTiebreaker_MIN,
+        "Max": CRankOptionsTiebreaker_MAX,
+        "First": CRankOptionsTiebreaker_FIRST,
+        "Dense": CRankOptionsTiebreaker_DENSE,
+    }
+
+    def _set_options(self, sort_keys, null_placement, tiebreaker):
+        cdef vector[CSortKey] c_sort_keys
+        for name, order in sort_keys:
+            c_sort_keys.push_back(
+                CSortKey(tobytes(name), unwrap_sort_order(order))
+            )
+        try:
+            self.wrapped.reset(
+                new CRankOptions(c_sort_keys, unwrap_null_placement(null_placement), self._tiebreaker_map[tiebreaker])
+            )
+        except KeyError:
+            _raise_invalid_function_option(tiebreaker, "Rank Options")
+
+
+class RankOptions(_RankOptions):
+    """
+    Options for the `rank` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted, only applying to
+        columns/fields mentioned in `sort_keys`.
+        Accepted values are "at_start", "at_end".
+    tiebreaker : str, default "First"
+        Configure how ties between equal values are handled.
+        Accepted values are:
+
+        - "Min": Ties get the smallest possible rank in sorted order.
+        - "Max": Ties get the largest possible rank in sorted order.
+        - "First": Ranks are assigned in order of when ties appear in the
+                   input. This ensures the ranks are a stable permutation
+                   of the input.
+        - "Dense": The ranks span a dense [1, M] interval where M is the
+                   number of distinct values in the input.
+    """
+
+    def __init__(self, sort_keys, null_placement, tiebreaker):
+        self._set_options(sort_keys, null_placement, tiebreaker)
+
+
 def _group_by(args, keys, aggregations):
     cdef:
         vector[CDatum] c_args
