@@ -458,6 +458,8 @@ test_that("Writing a dataset: CSV format options", {
 test_that("Dataset writing: unsupported features/input validation", {
   skip_if_not_available("parquet")
   expect_error(write_dataset(4), "'dataset' must be a Dataset, ")
+  expect_error(write_dataset(data.frame(x = 1, x = 2, check.names = FALSE)),
+               "Duplicated field names")
 
   ds <- open_dataset(hive_dir)
   expect_error(
