@@ -239,7 +239,7 @@ cdef class ParquetLogicalType(_Weakrefable):
         -------
         json : str
             JSON representation of type, with at least a field called 'Type'
-            which contains the type name. If the type is parameterized, such 
+            which contains the type name. If the type is parameterized, such
             as a decimal with scale and precision, will contain those as fields
             as well.
         """
@@ -444,7 +444,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """
         Type of compression used for column (str).
 
-        One of 'UNCOMPRESSED', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD', 
+        One of 'UNCOMPRESSED', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD',
         or 'UNKNOWN'.
         """
         return compression_name_from_enum(self.metadata.compression())
@@ -1433,13 +1433,6 @@ cdef class ParquetReader(_Weakrefable):
         with nogil:
             check_status(self.reader.get()
                          .ReadColumn(column_index, &out))
-        return pyarrow_wrap_chunked_array(out)
-
-    def read_schema_field(self, int field_index):
-        cdef shared_ptr[CChunkedArray] out
-        with nogil:
-            check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &out))
         return pyarrow_wrap_chunked_array(out)
 
 
