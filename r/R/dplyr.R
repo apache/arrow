@@ -53,7 +53,7 @@ arrow_dplyr_query <- function(.data) {
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
     abort(c(
-      "Duplicated field names",
+      "Field names must be unique.",
       x = paste0(
         "The following field names were found more than once in the data: ",
         oxford_paste(names(.data)[dupes])
