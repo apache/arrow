@@ -109,7 +109,7 @@ Doctest
 -------
 
 We are using `doctest <https://docs.python.org/3/library/doctest.html>`_
-to check that docstrings examples are up-to-date and correct. You can
+to check that docstring examples are up-to-date and correct. You can
 also do that locally by running:
 
 .. code-block::
@@ -129,7 +129,7 @@ for ``.py`` files or
    $ popd
 
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
-install `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
+install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
 Benchmarking
 ------------
