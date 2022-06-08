@@ -49,7 +49,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tdigest.h"

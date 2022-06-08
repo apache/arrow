@@ -33,7 +33,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/value_parsing.h"

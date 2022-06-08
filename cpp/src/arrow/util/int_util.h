@@ -21,6 +21,7 @@
 #include <type_traits>
 
 #include "arrow/status.h"
+
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -112,6 +113,22 @@ Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
 /// integer narrowing (e.g. int64->int32) is safe to do.
 ARROW_EXPORT
 Status IntegersCanFit(const Datum& datum, const DataType& target_type);
+
+/// Upcast an integer to the largest possible width (currently 64 bits)
+
+template <typename Integer>
+typename std::enable_if<
+    std::is_integral<Integer>::value && std::is_signed<Integer>::value, int64_t>::type
+UpcastInt(Integer v) {
+  return v;
+}
+
+template <typename Integer>
+typename std::enable_if<
+    std::is_integral<Integer>::value && std::is_unsigned<Integer>::value, uint64_t>::type
+UpcastInt(Integer v) {
+  return v;
+}
 
 }  // namespace internal
 }  // namespace arrow
