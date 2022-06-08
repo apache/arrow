@@ -2353,9 +2353,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRankOptions \
             "arrow::compute::RankOptions"(CFunctionOptions):
-        CRankOptions(vector[CSortKey] sort_keys, CNullPlacement,
+        CRankOptions(CSortOrder order, CNullPlacement,
                      CRankOptionsTiebreaker tiebreaker)
-        vector[CSortKey] sort_keys
+        CSortOrder order
         CNullPlacement null_placement
         CRankOptionsTiebreaker tiebreaker
 
