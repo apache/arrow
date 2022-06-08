@@ -173,6 +173,78 @@ class ArrayCompareSorter {
   }
 };
 
+template <>
+class ArrayCompareSorter<DictionaryType> {
+ public:
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
+    const auto& dict_array = checked_cast<const DictionaryArray&>(array);
+    const auto& dict_values = dict_array.dictionary();
+    const auto& dict_indices = dict_array.indices();
+
+    // Algorithm:
+    // 1) Use the Rank function to get an exactly-equivalent-order array
+    //    of the dictionary values, but with a datatype that's friendlier to
+    //    sorting (uint64).
+    // 2) Act as if we were sorting a dictionary array with the same indices,
+    //    but with the ranks as dictionary values.
+    // 2a) Dictionary-decode the ranks by calling Take.
+    // 2b) Sort the decoded ranks. Not only those are uint64, they are dense
+    //     in a [0, k) range where k is the number of unique dictionary values.
+    //     Therefore, unless the dictionary is very large, a fast counting sort
+    //     will be used.
+    //
+    // The bottom line is that performance will usually be much better
+    // (potentially an order of magnitude faster) than by naively decoding
+    // the original dictionary and sorting the decoded version.
+
+    // TODO special-case all-nulls arrays to avoid ranking and decoding them?
+
+    // FIXME Should be able to use the caller's KernelContext for rank() and take()
+
+    // FIXME Propagate errors instead of aborting
+    auto ranks = *RanksWithNulls(dict_values);
+
+    auto decoded_ranks = *Take(*ranks, *dict_indices);
+
+    auto rank_sorter = *GetArraySorter(*decoded_ranks->type() /* should be uint64 */);
+    return rank_sorter(indices_begin, indices_end, *decoded_ranks, offset, options);
+  }
+
+ private:
+  Result<std::shared_ptr<Array>> RanksWithNulls(const std::shared_ptr<Array>& array) {
+    // Notes:
+    // * The order is always ascending here, since the goal is to produce
+    //   an exactly-equivalent-order of the dictionary values.
+    // * We're going to re-emit nulls in the output, so we can just always consider
+    //   them "at the end".  Note that choosing AtStart would merely shift other
+    //   ranks by 1 if there are any nulls...
+    RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
+                             RankOptions::Dense);
+
+    // XXX Should this support Type::NA?
+    auto data = array->data();
+    std::shared_ptr<Buffer> null_bitmap;
+    if (array->null_count() > 0) {
+      null_bitmap = array->null_bitmap();
+      data = array->data()->Copy();
+      data->buffers[0] = nullptr;
+      data->null_count = 0;
+      DCHECK_EQ(data->offset, 0);  // FIXME
+    }
+    ARROW_ASSIGN_OR_RAISE(auto rank_datum, CallFunction("rank", {array}, &rank_options));
+    auto rank_data = rank_datum.array();
+    DCHECK_EQ(rank_data->GetNullCount(), 0);
+    // If there were nulls in the input, paste them in the output
+    if (null_bitmap) {
+      rank_data->buffers[0] = std::move(null_bitmap);
+      rank_data->null_count = array->null_count();
+    }
+    return MakeArray(rank_data);
+  }
+};
+
 template <typename ArrowType>
 class ArrayCountSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -405,7 +477,8 @@ struct ArraySorter<Type, enable_if_t<is_integer_type<Type>::value &&
 template <typename Type>
 struct ArraySorter<
     Type, enable_if_t<is_floating_type<Type>::value || is_base_binary_type<Type>::value ||
-                      is_fixed_size_binary_type<Type>::value>> {
+                      is_fixed_size_binary_type<Type>::value ||
+                      is_dictionary_type<Type>::value>> {
   ArrayCompareSorter<Type> impl;
 };
 
@@ -508,6 +581,13 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   DCHECK_OK(func->AddKernel(base));
 }
 
+template <template <typename...> class ExecTemplate>
+void AddDictArraySortingKernels(VectorKernel base, VectorFunction* func) {
+  base.signature = KernelSignature::Make({Type::DICTIONARY}, uint64());
+  base.exec = ExecTemplate<UInt64Type, DictionaryType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+}
+
 const ArraySortOptions* GetDefaultArraySortOptions() {
   static const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
   return &kDefaultArraySortOptions;
@@ -562,6 +642,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
   base.init = ArraySortIndicesState::Init;
   base.exec_chunked = ArraySortIndicesChunked;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
+  AddDictArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
 
   // partition_nth_indices has a parameter so needs its init function

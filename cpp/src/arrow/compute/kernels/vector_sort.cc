@@ -259,8 +259,8 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     } else {
       // NOTE that null_count_ is merely an upper bound on the number of nulls
       // in this particular range.
-      p = PartitionNullsOnly<StablePartitioner>(indices_begin, indices_end, array_,
-                                                offset, null_placement_);
+      p = PartitionNullsOnly<ArrayType, StablePartitioner>(
+          indices_begin, indices_end, array_, offset, null_placement_);
       DCHECK_LE(p.nulls_end - p.nulls_begin, null_count_);
     }
     const NullPartitionResult q = PartitionNullLikes<ArrayType, StablePartitioner>(
@@ -517,8 +517,8 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     const ArrayType& array =
         ::arrow::internal::checked_cast<const ArrayType&>(first_sort_key.array);
 
-    const auto p = PartitionNullsOnly<StablePartitioner>(indices_begin_, indices_end_,
-                                                         array, 0, null_placement_);
+    const auto p = PartitionNullsOnly<ArrayType, StablePartitioner>(
+        indices_begin_, indices_end_, array, 0, null_placement_);
     const auto q = PartitionNullLikes<ArrayType, StablePartitioner>(
         p.non_nulls_begin, p.non_nulls_end, array, 0, null_placement_);
 

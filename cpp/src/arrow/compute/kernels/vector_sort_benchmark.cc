@@ -27,7 +27,9 @@
 
 namespace arrow {
 namespace compute {
+
 constexpr auto kSeed = 0x0ff1ce;
+constexpr int32_t kDictionarySize = 20;  // a typical dictionary size
 
 //
 // Array sort/rank benchmark helpers
@@ -67,6 +69,8 @@ static void ArraySortFuncBenchmark(benchmark::State& state, const Runner& runner
   for (auto _ : state) {
     ABORT_NOT_OK(runner(values));
   }
+  // This may be redundant with the SetItemsProcessed() call in RegressionArgs,
+  // if size_is_bytes was false.
   state.SetItemsProcessed(state.iterations() * values->length());
 }
 
@@ -80,6 +84,55 @@ static void ArraySortFuncInt64Benchmark(benchmark::State& state, const Runner& r
   auto values = rand.Int64(array_size, min, max, args.null_proportion);
 
   ArraySortFuncBenchmark(state, runner, values);
+}
+
+template <typename Runner>
+static void ArraySortFuncInt64DictBenchmark(benchmark::State& state, const Runner& runner,
+                                            int64_t min, int64_t max) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto dict_values = rand.Int64(kDictionarySize, min, max, args.null_proportion / 2);
+  auto dict_indices =
+      rand.Int64(array_size, 0, kDictionarySize - 1, args.null_proportion / 2);
+  auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
+
+  ArraySortFuncBenchmark(state, runner, dict_array);
+}
+
+template <typename Runner>
+static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& runner) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  // XXX This division to make numbers comparable with ArraySortFuncInt64Benchmark
+  // (including the SetItemsProcessed() call in the RegressionArgs destructor)
+  args.size /= sizeof(int64_t);
+
+  const int64_t array_size = args.size;
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto values =
+      rand.String(array_size, /*min_length=*/3, /*max_length=*/25, args.null_proportion);
+
+  ArraySortFuncBenchmark(state, runner, values);
+}
+
+template <typename Runner>
+static void ArraySortFuncStringDictBenchmark(benchmark::State& state,
+                                             const Runner& runner) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  // XXX Same as in ArraySortFuncStringBenchmark above
+  args.size /= sizeof(int64_t);
+
+  const int64_t array_size = args.size;
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto dict_values = rand.String(kDictionarySize, /*min_length=*/3, /*max_length=*/25,
+                                 args.null_proportion / 2);
+  auto dict_indices =
+      rand.Int64(array_size, 0, kDictionarySize - 1, args.null_proportion / 2);
+  auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
+
+  ArraySortFuncBenchmark(state, runner, dict_array);
 }
 
 template <typename Runner>
@@ -127,6 +180,20 @@ static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
   }
 
   ArraySortFuncBenchmark(state, runner, std::make_shared<ChunkedArray>(chunks));
+}
+
+static void ArraySortIndicesInt64Dict(benchmark::State& state) {
+  const auto min = std::numeric_limits<int64_t>::min();
+  const auto max = std::numeric_limits<int64_t>::max();
+  ArraySortFuncInt64DictBenchmark(state, SortRunner(state), min, max);
+}
+
+static void ArraySortIndicesString(benchmark::State& state) {
+  ArraySortFuncStringBenchmark(state, SortRunner(state));
+}
+
+static void ArraySortIndicesStringDict(benchmark::State& state) {
+  ArraySortFuncStringDictBenchmark(state, SortRunner(state));
 }
 
 template <typename Runner>
@@ -389,6 +456,9 @@ BENCHMARK(ArraySortIndicesInt64Wide)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesBool)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesStringNarrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesStringWide)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesInt64Dict)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesString)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesStringDict)->Apply(ArraySortIndicesSetArgs);
 
 BENCHMARK(ChunkedArraySortIndicesInt64Narrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ChunkedArraySortIndicesInt64Wide)->Apply(ArraySortIndicesSetArgs);
