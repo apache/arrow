@@ -2205,10 +2205,8 @@ else()
   set(ARROW_USE_XSIMD FALSE)
 endif()
 
-set(ARROW_XSIMD_REQUIRED_VERSION "8.1.0")
-
 if(ARROW_USE_XSIMD)
-  resolve_dependency(xsimd REQUIRED_VERSION ${ARROW_XSIMD_REQUIRED_VERSION})
+  resolve_dependency(xsimd REQUIRED_VERSION "8.1.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(xsimd INTERFACE IMPORTED)
