@@ -301,7 +301,7 @@ Filtering by Expressions
 both be filtered using a boolean :class:`.Expression`.
 
 The expression can be built starting from a 
-:func:`pyarrow.field`. Comparisons and transformations
+:func:`pyarrow.compute.field`. Comparisons and transformations
 can then be applied to one or more fields to build the filter
 expression you care about.
 
