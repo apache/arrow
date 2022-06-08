@@ -157,8 +157,11 @@ struct FlightServerBase::Impl {
   void DoHandleSignal(int signum) {
     got_signal_ = signum;
     int saved_errno = errno;
-    // Ignore errors - pipe is nonblocking
-    PIPE_WRITE(self_pipe_wfd_, "0", 1);
+    if (PIPE_WRITE(self_pipe_wfd_, "0", 1) < 0) {
+      // Can't do much here, though, pipe is nonblocking so hopefully this doesn't happen
+      ARROW_LOG(WARNING) << "FlightServerBase: failed to handle signal " << signum
+                         << " errno: " << errno;
+    }
     errno = saved_errno;
   }
 

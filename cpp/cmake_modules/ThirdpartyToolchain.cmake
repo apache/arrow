@@ -2638,6 +2638,11 @@ macro(resolve_dependency_absl)
         city
         civil_time
         cord
+        cord_internal
+        cordz_functions
+        cordz_handle
+        cordz_info
+        cordz_sample_token
         debugging_internal
         demangle_internal
         examine_stack
@@ -2662,6 +2667,7 @@ macro(resolve_dependency_absl)
         leak_check
         leak_check_disable
         log_severity
+        low_level_hash
         malloc_internal
         periodic_sampler
         random_distributions
@@ -2690,8 +2696,7 @@ macro(resolve_dependency_absl)
         synchronization
         throw_delegate
         time
-        time_zone
-        wyhash)
+        time_zone)
     # Abseil creates a number of header-only targets, which are needed to resolve dependencies.
     # The list can be refreshed using:
     #   comm -13 <(ls -l $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
@@ -2713,6 +2718,9 @@ macro(resolve_dependency_absl)
         config
         container_common
         container_memory
+        cordz_statistics
+        cordz_update_scope
+        cordz_update_tracker
         core_headers
         counting_allocator
         debugging
@@ -2759,6 +2767,7 @@ macro(resolve_dependency_absl)
         random_internal_wide_multiply
         random_random
         raw_hash_map
+        sample_recorder
         span
         str_format
         type_traits
@@ -2867,12 +2876,28 @@ macro(resolve_dependency_absl)
                           absl::memory
                           absl::type_traits
                           absl::utility)
-    set_property(TARGET absl::cord
+    set_property(TARGET absl::cord_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
-                          absl::base
                           absl::base_internal
                           absl::compressed_tuple
                           absl::config
+                          absl::core_headers
+                          absl::endian
+                          absl::inlined_vector
+                          absl::layout
+                          absl::raw_logging_internal
+                          absl::strings
+                          absl::throw_delegate
+                          absl::type_traits)
+    set_property(TARGET absl::cord
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
+                          absl::config
+                          absl::cord_internal
+                          absl::cordz_functions
+                          absl::cordz_info
+                          absl::cordz_update_scope
+                          absl::cordz_update_tracker
                           absl::core_headers
                           absl::endian
                           absl::fixed_array
@@ -2881,9 +2906,52 @@ macro(resolve_dependency_absl)
                           absl::optional
                           absl::raw_logging_internal
                           absl::strings
-                          absl::strings_internal
-                          absl::throw_delegate
                           absl::type_traits)
+    set_property(TARGET absl::cordz_functions
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::config
+                          absl::core_headers
+                          absl::exponential_biased
+                          absl::raw_logging_internal)
+    set_property(TARGET absl::cordz_handle
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
+                          absl::config
+                          absl::raw_logging_internal
+                          absl::synchronization)
+    set_property(TARGET absl::cordz_info
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
+                          absl::config
+                          absl::cord_internal
+                          absl::cordz_functions
+                          absl::cordz_handle
+                          absl::cordz_statistics
+                          absl::cordz_update_tracker
+                          absl::core_headers
+                          absl::inlined_vector
+                          absl::span
+                          absl::raw_logging_internal
+                          absl::stacktrace
+                          absl::synchronization)
+    set_property(TARGET absl::cordz_sample_token
+                 PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::cordz_handle
+                          absl::cordz_info)
+    set_property(TARGET absl::cordz_statistics
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::config
+                          absl::core_headers
+                          absl::cordz_update_tracker
+                          absl::synchronization)
+    set_property(TARGET absl::cordz_update_scope
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::config
+                          absl::cord_internal
+                          absl::cordz_info
+                          absl::cordz_update_tracker
+                          absl::core_headers)
+    set_property(TARGET absl::cordz_update_tracker PROPERTY INTERFACE_LINK_LIBRARIES
+                                                            absl::config)
     set_property(TARGET absl::core_headers PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
     set_property(TARGET absl::counting_allocator PROPERTY INTERFACE_LINK_LIBRARIES
                                                           absl::config)
@@ -3026,6 +3094,7 @@ macro(resolve_dependency_absl)
                           absl::flags_private_handle_accessor
                           absl::flags_program_name
                           absl::flags_reflection
+                          absl::flat_hash_map
                           absl::strings
                           absl::synchronization)
     set_property(TARGET absl::flags_usage
@@ -3050,8 +3119,9 @@ macro(resolve_dependency_absl)
                           absl::algorithm_container
                           absl::core_headers
                           absl::memory)
-    set_property(TARGET absl::function_ref PROPERTY INTERFACE_LINK_LIBRARIES
-                                                    absl::base_internal absl::meta)
+    set_property(TARGET absl::function_ref
+                 PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
+                          absl::meta)
     set_property(TARGET absl::graphcycles_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
                           absl::base
@@ -3079,7 +3149,7 @@ macro(resolve_dependency_absl)
                           absl::optional
                           absl::variant
                           absl::utility
-                          absl::wyhash)
+                          absl::low_level_hash)
     set_property(TARGET absl::hash_policy_traits PROPERTY INTERFACE_LINK_LIBRARIES
                                                           absl::meta)
     set_property(TARGET absl::hashtable_debug_hooks PROPERTY INTERFACE_LINK_LIBRARIES
@@ -3091,6 +3161,7 @@ macro(resolve_dependency_absl)
                           absl::base
                           absl::exponential_biased
                           absl::have_sse
+                          absl::sample_recorder
                           absl::synchronization)
     set_property(TARGET absl::inlined_vector_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
@@ -3123,6 +3194,12 @@ macro(resolve_dependency_absl)
                                                   absl::core_headers)
     set_property(TARGET absl::log_severity PROPERTY INTERFACE_LINK_LIBRARIES
                                                     absl::core_headers)
+    set_property(TARGET absl::low_level_hash
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::bits
+                          absl::config
+                          absl::endian
+                          absl::int128)
     set_property(TARGET absl::malloc_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
                           absl::base
@@ -3318,7 +3395,6 @@ macro(resolve_dependency_absl)
                           absl::hash_policy_traits
                           absl::hashtable_debug_hooks
                           absl::have_sse
-                          absl::layout
                           absl::memory
                           absl::meta
                           absl::optional
@@ -3330,6 +3406,8 @@ macro(resolve_dependency_absl)
                           absl::config
                           absl::core_headers
                           absl::log_severity)
+    set_property(TARGET absl::sample_recorder PROPERTY INTERFACE_LINK_LIBRARIES
+                                                       absl::base absl::synchronization)
     set_property(TARGET absl::scoped_set_env
                  PROPERTY INTERFACE_LINK_LIBRARIES absl::config
                           absl::raw_logging_internal)
@@ -3347,6 +3425,7 @@ macro(resolve_dependency_absl)
                           absl::core_headers)
     set_property(TARGET absl::statusor
                  PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
                           absl::status
                           absl::core_headers
                           absl::raw_logging_internal
@@ -3359,6 +3438,7 @@ macro(resolve_dependency_absl)
                           absl::atomic_hook
                           absl::config
                           absl::core_headers
+                          absl::function_ref
                           absl::raw_logging_internal
                           absl::inlined_vector
                           absl::stacktrace
@@ -3439,6 +3519,19 @@ macro(resolve_dependency_absl)
                           absl::raw_logging_internal
                           absl::strings
                           absl::time_zone)
+    set_property(TARGET absl::type_traits PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
+    set_property(TARGET absl::utility
+                 PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::config
+                          absl::type_traits)
+    set_property(TARGET absl::variant
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::bad_variant_access
+                          absl::base_internal
+                          absl::config
+                          absl::core_headers
+                          absl::type_traits
+                          absl::utility)
+
     if(APPLE)
       # This is due to upstream absl::cctz issue
       # https://github.com/abseil/abseil-cpp/issues/283
@@ -3459,8 +3552,6 @@ macro(resolve_dependency_absl)
                           absl::core_headers
                           absl::type_traits
                           absl::utility)
-    set_property(TARGET absl::wyhash PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                              absl::endian absl::int128)
 
     externalproject_add(absl_ep
                         ${EP_LOG_OPTIONS}
@@ -3548,6 +3639,9 @@ macro(build_grpc)
   get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
+  # Put Abseil, etc. first so that local directories are searched
+  # before (what are likely) system directories
+  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
@@ -3555,7 +3649,6 @@ macro(build_grpc)
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
   if(RAPIDJSON_VENDORED)
     add_dependencies(grpc_dependencies rapidjson_ep)
@@ -3625,8 +3718,11 @@ macro(build_grpc)
       absl::debugging_internal
       absl::demangle_internal
       absl::graphcycles_internal
+      absl::hash
       absl::int128
       absl::malloc_internal
+      absl::random_internal_pool_urbg
+      absl::random_internal_randen
       absl::raw_logging_internal
       absl::spinlock_wait
       absl::stacktrace
