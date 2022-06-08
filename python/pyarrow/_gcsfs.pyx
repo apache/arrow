@@ -26,7 +26,7 @@ from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem, TimePoint_to_ns, PyDateTime_to_TimePoint
 from cython.operator cimport dereference as deref
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 cdef class GcsFileSystem(FileSystem):
@@ -156,7 +156,7 @@ cdef class GcsFileSystem(FileSystem):
             self.gcsfs.options().credentials.expiration())
         if expiration_ns == 0:
             return None
-        return datetime.fromtimestamp(expiration_ns / 1e9)
+        return datetime.fromtimestamp(expiration_ns / 1.0e9, timezone.utc)
 
     def __reduce__(self):
         cdef CGcsOptions opts = self.gcsfs.options()
