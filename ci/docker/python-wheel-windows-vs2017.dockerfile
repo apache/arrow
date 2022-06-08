@@ -63,8 +63,7 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
-        --x-feature=parquet \
-        --x-feature=s3
+        --x-feature=parquet
 
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
