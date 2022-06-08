@@ -241,15 +241,19 @@ class build_ext(_build_ext):
 
         # The directory for the module being built
         saved_cwd = os.getcwd()
+        build_temp = pjoin(saved_cwd, 'build/dist/temp')
         build_lib = pjoin(saved_cwd, 'build/dist/lib')
         build_include = pjoin(saved_cwd, 'build/dist/include')
 
+        if not os.path.isdir(build_temp):
+            self.mkpath(build_temp)
         if not os.path.isdir(build_lib):
             self.mkpath(build_lib)
         if not os.path.isdir(build_include):
             self.mkpath(build_include)
 
-        with changed_dir(build_lib):
+        # Change to the build directory
+        with changed_dir(build_temp):
             # cmake args
             cmake_options = [
                 '-DCMAKE_INSTALL_PREFIX=' +
