@@ -64,4 +64,4 @@ parquet:
 
 docs:
   - docs/**/*
-  - **/*.{md, rst, Rmd, Rd}
+  - "**/*.{md, rst, Rmd, Rd}"
