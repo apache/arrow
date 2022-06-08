@@ -95,7 +95,7 @@ Creating a Release Candidate
 These are the different steps that are required to create a Release Candidate.
 
 For the initial Release Candidate, we will create a maintenance branch from master.
-Follow up Release Candidates will update the maintenance branch cherry-picking
+Follow up Release Candidates will update the maintenance branch by cherry-picking
 specific commits.
 
 We have implemented a Feature Freeze policy between Release Candidates.
