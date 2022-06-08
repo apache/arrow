@@ -197,6 +197,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CSchema]& schema() const
         const shared_ptr[CFileWriteOptions]& options() const
         const CFileLocator& destination() const
+        CResult[int64_t] GetBytesWritten()
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         shared_ptr[CFragmentScanOptions] default_fragment_scan_options
