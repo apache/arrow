@@ -2755,9 +2755,9 @@ def test_rank_options():
 
     with pytest.raises(ValueError,
                        match=r'"NonExisting" is not a valid tiebreaker'):
-        rank_options = pc.RankOptions(sort_keys=[("b", "ascending")],
-                                      null_placement="at_end",
-                                      tiebreaker="NonExisting")
+        pc.RankOptions(sort_keys=[("b", "ascending")],
+                       null_placement="at_end",
+                       tiebreaker="NonExisting")
 
 
 def test_expression_serialization():
