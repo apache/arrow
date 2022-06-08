@@ -321,7 +321,7 @@ class ARROW_DS_EXPORT FileWriter {
   const fs::FileLocator& destination() const { return destination_locator_; }
 
   /// \brief After Finish() is called, provides number of bytes written to file.
-  Result<int64_t> GetBytesWritten();
+  Result<int64_t> GetBytesWritten() const;
 
  protected:
   FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options,

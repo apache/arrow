@@ -273,7 +273,7 @@ Future<> FileWriter::Finish() {
       .Then([this]() { return destination_->CloseAsync(); });
 }
 
-Result<int64_t> FileWriter::GetBytesWritten() {
+Result<int64_t> FileWriter::GetBytesWritten() const {
   if (bytes_written_.has_value()) {
     return bytes_written_.value();
   } else {

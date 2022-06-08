@@ -731,7 +731,7 @@ to supply a visitor that will be called as each file is created:
 
     def file_visitor(written_file):
         print(f"path={written_file.path}")
-        print(f"size={written_file.size:,} bytes")
+        print(f"size={written_file.size} bytes")
         print(f"metadata={written_file.metadata}")
 
 .. ipython:: python
