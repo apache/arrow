@@ -61,3 +61,7 @@ parquet:
   - cpp/src/parquet/**/*
   - r/R/parquet.*
   - ruby/red-parquet/**/*
+
+docs:
+  - docs/**/*
+  - **/*.{md, rst, Rmd, Rd}
