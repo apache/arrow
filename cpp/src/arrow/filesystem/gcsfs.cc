@@ -49,7 +49,7 @@ bool GcsCredentials::Equals(const GcsCredentials& other) const {
   }
   ARROW_LOG(INFO) << "anonymous: " << (anonymous_ == other.anonymous_)
                   << " access_token: " << (access_token_ == other.access_token_)
-                  << " expiration: " << (expiration_ == other.expiration_) << " this:"  << expiration_.time_since_epoch().count() << " " << " that" << other.expiration_.time_since_epoch().count()
+                  << " expiration: " << (expiration_ == other.expiration_)
                   << " json credentials: " << (json_credentials_ == other.json_credentials_)
                   << " target service account: " << (target_service_account_ == other.target_service_account_);
   return anonymous_ == other.anonymous_ && access_token_ == other.access_token_ &&
