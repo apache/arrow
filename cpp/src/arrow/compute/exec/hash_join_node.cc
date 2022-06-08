@@ -454,6 +454,20 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
   return Status::OK();
 }
 
+Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
+  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
+      join_options.right_keys.empty()) {
+    return Status::Invalid("key_cmp and keys cannot be empty");
+  }
+
+  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
+      (join_options.key_cmp.size() != join_options.right_keys.size())) {
+    return Status::Invalid("key_cmp and keys must have the same size");
+  }
+
+  return Status::OK();
+}
+
 class HashJoinNode : public ExecNode {
  public:
   HashJoinNode(ExecPlan* plan, NodeVector inputs, const HashJoinNodeOptions& join_options,
@@ -481,6 +495,7 @@ class HashJoinNode : public ExecNode {
         ::arrow::internal::make_unique<HashJoinSchema>();
 
     const auto& join_options = checked_cast<const HashJoinNodeOptions&>(options);
+    RETURN_NOT_OK(ValidateHashJoinNodeOptions(join_options));
 
     const auto& left_schema = *(inputs[0]->output_schema());
     const auto& right_schema = *(inputs[1]->output_schema());
