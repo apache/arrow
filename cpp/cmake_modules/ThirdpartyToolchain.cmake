@@ -3657,14 +3657,15 @@ macro(build_grpc)
   # Yuck, see https://stackoverflow.com/a/45433229/776560
   string(REPLACE ";" "|" GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
 
-  # Negate warnings that gRPC cannot build under
-  # See https://github.com/grpc/grpc/issues/29417
-  set(GRPC_C_FLAGS
-      "${EP_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
-  set(GRPC_CXX_FLAGS
-      "${EP_CXX_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
-  string(REPLACE "-Wformat-security" "" GRPC_C_FLAGS "${GRPC_C_FLAGS}")
-  string(REPLACE "-Wformat-security" "" GRPC_CXX_FLAGS "${GRPC_CXX_FLAGS}")
+  if(NOT MSVC)
+    # Negate warnings that gRPC cannot build under
+    # See https://github.com/grpc/grpc/issues/29417
+    set(GRPC_C_FLAGS
+        "${EP_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+    set(GRPC_CXX_FLAGS
+        "${EP_CXX_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
+    )
+  endif()
 
   set(GRPC_CMAKE_ARGS
       "${EP_COMMON_CMAKE_ARGS}"
