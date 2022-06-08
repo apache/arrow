@@ -28,7 +28,7 @@ namespace tracing {
 class ARROW_EXPORT Span {
  public:
   // Manually specify destructor otherwise MSVC will complain about unused var
-  ~Span() {}
+  virtual ~Span() {}
 };
 
 }  // namespace tracing

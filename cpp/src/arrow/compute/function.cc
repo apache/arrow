@@ -214,7 +214,15 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     return Execute(args, options, &default_ctx);
   }
 
-  util::tracing::Span span;
+  
+// #ifdef ARROW_WITH_OPENTELEMETRY 
+//   auto tracer = arrow::internal::tracing::GetTracer(); 
+//   auto span = tracer->StartSpan("arrow::compute::Function::Execute"); 
+// #else
+//   util::tracing::Span span;
+// #endif 
+  util::tracing::Span span = arrow::internal::tracing::NewSpan("arrow::compute::Function::Execute");
+  
   START_COMPUTE_SPAN(span, name(),
                      {{"function.name", name()},
                       {"function.options", options ? options->ToString() : "<NULLPTR>"},

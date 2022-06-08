@@ -28,7 +28,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/util/tracing_internal.h"
+#include "arrow/util/tracing.h"
 
 namespace arrow {
 namespace compute {

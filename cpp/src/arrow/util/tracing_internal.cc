@@ -54,6 +54,8 @@ namespace arrow {
 namespace internal {
 namespace tracing {
 
+using internal::checked_cast;
+
 namespace nostd = opentelemetry::nostd;
 namespace otel = opentelemetry;
 
@@ -200,6 +202,18 @@ opentelemetry::trace::Tracer* GetTracer() {
   static nostd::shared_ptr<opentelemetry::trace::Tracer> tracer =
       GetTracerProvider()->GetTracer("arrow");
   return tracer.get();
+}
+
+::arrow::util::tracing::Span NewSpan(const std::string& name) noexcept {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = GetTracer(); 
+  OTSpan span;
+  span.Set(tracer->StartSpan(name));
+  return *(checked_cast<::arrow::util::tracing::Span*>(&span));
+#else
+  ::arrow::util::tracing::Span span;
+  return span;
+#endif
 }
 
 #ifdef ARROW_WITH_OPENTELEMETRY

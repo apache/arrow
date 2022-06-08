@@ -44,9 +44,46 @@ namespace arrow {
 namespace internal {
 namespace tracing {
 
+::arrow::util::tracing::Span NewSpan(const std::string& name) noexcept;
+
 #ifdef ARROW_WITH_OPENTELEMETRY
 ARROW_EXPORT
 opentelemetry::trace::Tracer* GetTracer();
+
+class OTSpan : public ::arrow::util::tracing::Span {
+  using InnerSpan = opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>;
+
+ public:
+  OTSpan() {
+    inner_span = nullptr;
+  }
+
+  InnerSpan& Set(const InnerSpan& span) noexcept {
+    inner_span = span;
+    return inner_span;
+  }
+
+  InnerSpan& Set(InnerSpan&& span) noexcept {
+    inner_span = std::move(span);
+    return inner_span;
+  }
+
+  const InnerSpan& Get() const {
+    ARROW_CHECK(inner_span)
+        << "Attempted to dereference a null pointer. Use Span::Set before "
+           "dereferencing.";
+    return inner_span;
+  }
+
+  InnerSpan& Get() {
+    ARROW_CHECK(inner_span)
+        << "Attempted to dereference a null pointer. Use Span::Set before "
+           "dereferencing.";
+    return inner_span;
+  }
+
+  InnerSpan inner_span;
+};
 
 inline void MarkSpan(const Status& s, opentelemetry::trace::Span* span) {
   if (!s.ok()) {
@@ -106,42 +143,11 @@ AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) 
   return PropagateSpanThroughAsyncGenerator(std::move(wrapped), std::move(span));
 }
 
-class OTSpan : ::arrow::util::tracing::Span {
-  using InnerSpan = opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>;
-
- public:
-  InnerSpan& Set(const InnerSpan& span) {
-    inner_span = span;
-    return inner_span;
-  }
-
-  InnerSpan& Set(InnerSpan&& span) {
-    inner_span = std::move(span);
-    return inner_span;
-  }
-
-  const InnerSpan& Get() const {
-    ARROW_CHECK(inner_span)
-        << "Attempted to dereference a null pointer. Use Span::Set before "
-           "dereferencing.";
-    return inner_span;
-  }
-
-  InnerSpan& Get() {
-    ARROW_CHECK(inner_span)
-        << "Attempted to dereference a null pointer. Use Span::Set before "
-           "dereferencing.";
-    return inner_span;
-  }
-
-  InnerSpan inner_span;
-};
-
 opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
     const util::tracing::Span& parent_span);
 
 #define CAST_SPAN(target_span) \
-  (*(reinterpret_cast<::arrow::internal::tracing::OTSpan*>(&(target_span))))
+  (*(::arrow::internal::checked_cast<::arrow::internal::tracing::OTSpan*>(&(target_span))))
 
 #define START_SPAN(target_span, ...)                           \
   auto opentelemetry_scope##__LINE__ =                         \
