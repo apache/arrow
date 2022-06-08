@@ -105,6 +105,32 @@ The test groups currently include:
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
+Doctest
+-------
+
+We are using `doctest <https://docs.python.org/3/library/doctest.html>`_
+to check that docstring examples are up-to-date and correct. You can
+also do that locally by running:
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ python -m pytest --doctest-modules
+   $ python -m pytest --doctest-modules path/to/module.py # checking single file
+   $ popd
+
+for ``.py`` files or
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ python -m pytest --doctest-cython
+   $ python -m pytest --doctest-cython path/to/module.pyx # checking single file
+   $ popd
+
+for ``.pyx`` and ``.pxi`` files. In this case you will also need to
+install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
+
 Benchmarking
 ------------
 
