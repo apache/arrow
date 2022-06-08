@@ -2067,6 +2067,7 @@ def _group_by(args, keys, aggregations):
         vector[CAggregate] c_aggregations
         CDatum result
         CAggregate c_aggr
+        shared_ptr[CFunctionOptions] null_opts
 
     _pack_compute_args(args, &c_args)
     _pack_compute_args(keys, &c_keys)
@@ -2074,9 +2075,9 @@ def _group_by(args, keys, aggregations):
     for aggr_func_name, aggr_opts in aggregations:
         c_aggr.function = tobytes(aggr_func_name)
         if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?> aggr_opts).get_options()
+            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped #(<FunctionOptions?> aggr_opts).get_options()
         else:
-            c_aggr.options = NULL
+            c_aggr.options = null_opts
         c_aggregations.push_back(c_aggr)
 
     with nogil:
