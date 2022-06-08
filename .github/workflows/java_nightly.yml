@@ -24,17 +24,12 @@ on:
         description: Job prefix to use.
         required: false
         default: ''
-      dependency_to_install:
-        description: In case need to upload custom artifact to nightly repository (i.e memory / flight / others).
-        required: false
-        default: 'arrow'
   schedule:
     - cron: '0 14 * * *'
 jobs:
   upload:
     env:
       PREFIX: ${{ github.event.inputs.prefix || ''}}
-      DEPENDENCY_TO_INSTALL: ${{ github.event.inputs.dependency_to_install || ''}}
       CROSSBOW_GITHUB_TOKEN: ${{ github.token }}
     runs-on: ubuntu-latest
     steps:
@@ -61,89 +56,29 @@ jobs:
       - name: Install Archery
         shell: bash
         run: pip install -e arrow/dev/archery[all]
+      - run: mkdir -p binaries
       - name: Download Artifacts
         run: |
           if [ -z $PREFIX ]; then
-            PREFIX=$(date +%Y-%m-%d)
+            PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
           fi
-          archery crossbow download-artifacts -f java-jars -t binaries nightly-packaging-$PREFIX-0
-          if [ -n "$(ls -A binaries/*/*/)" ]; then
-            echo "Found files!"
-            echo "GOT_FILES=true" >> $GITHUB_ENV
-          else
-            echo "No files found. Stopping upload."
-            echo "GOT_FILES=false" >> $GITHUB_ENV
-          fi
-          tree binaries
+          echo $PREFIX
+          archery crossbow download-artifacts -f java-jars -t binaries --skip-pattern-validation $PREFIX
       - shell: bash
-        if: env.GOT_FILES == 'true'
         name: Build Repository
         run: |
           if [ -z $PREFIX ]; then
-            PREFIX=$(date +%Y-%m-%d)
+            PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
           fi
-          PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9].[0-9].[0-9].dev[0-9]+).([a-z]+)'
-          pushd binaries/nightly-packaging-$PREFIX-0/java-jars
-          rm -rf ~/.m2/repository/org/apache/arrow
-          for LIBRARY in $(ls | grep -E '.jar|.pom' | grep dev); do
+          PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9].[0-9].[0-9].dev[0-9]+)'
+          mkdir -p repo/org/apache/arrow/
+          for LIBRARY in $(ls binaries/$PREFIX/java-jars | grep -E '.jar|.pom' | grep dev); do
             [[ $LIBRARY =~ $PATTERN_TO_GET_LIB_AND_VERSION ]]
-            FILE=$PWD/${BASH_REMATCH[0]}
-            ARTIFACTID=${BASH_REMATCH[1]}
-            VERSION=${BASH_REMATCH[2]}
-            PACKAGING="jar"
-            CLASSIFIER=""
-            GENERATEPOM=false
-            INSTALL=1
-            if [[ ( ${BASH_REMATCH[0]} == *"$DEPENDENCY_TO_INSTALL"* ) ]];then
-              if [ -f "$FILE" ]; then
-                FILE=$FILE
-                if [[ $FILE =~ ".pom" ]]; then
-                  FILE=$FILE
-                  PACKAGING="pom"
-                  GENERATEPOM=true
-                fi
-              elif [ -f "$FILE.jar" ]; then
-                FILE=$FILE.jar
-                if [[ $FILE =~ "sources.jar" ]]; then
-                  CLASSIFIER="sources"
-                  PACKAGING="java-source"
-                elif [[ $FILE =~ "javadoc.jar" ]]; then
-                  CLASSIFIER="javadoc"
-                  PACKAGING="javadoc"
-                elif [[ $FILE =~ "tests.jar" ]]; then
-                  CLASSIFIER="tests"
-                  PACKAGING="test-jar"
-                fi
-              elif [ -f "$FILE.pom" ]; then
-                FILE=$FILE.pom
-                PACKAGING="pom"
-                GENERATEPOM=true
-              else
-                echo "Please! Review $FILE, it was not intalled on m2 locally."
-                INSTALL=0
-              fi
-              if [[ $INSTALL =~ "1" ]]; then
-                mvn install:install-file \
-                  -Dfile=$FILE \
-                  -DgroupId=org.apache.arrow \
-                  -DartifactId=$ARTIFACTID \
-                  -Dversion=$VERSION \
-                  -Dpackaging=$PACKAGING \
-                  -Dclassifier=$CLASSIFIER \
-                  -DgeneratePom=$GENERATEPOM
-              fi
-            fi
-            echo "Artifacts $FILE installed locally to ~/.m2/repository/org/apache/arrow"
+            mkdir -p repo/org/apache/arrow/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}
+            cp binaries/$PREFIX/java-jars/$LIBRARY repo/org/apache/arrow/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}
+            echo "Artifacts $LIBRARY configured"
           done
-          popd
-          rm -rf repo
-          mkdir -p repo/org/apache
-          if [ -d "$HOME/.m2/repository/org/apache/arrow" ]; then
-            cp -r ~/.m2/repository/org/apache/arrow repo/org/apache
-          fi
-          echo "Repo configured with Arrow Java artifacts ready to sync"
       - name: Show repo contents
-        if: env.GOT_FILES == 'true'
         run: tree repo
       - name: Upload Files
         if: ${{ github.repository == 'apache/arrow' }}
