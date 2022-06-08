@@ -44,11 +44,16 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+    use_memory_map : bool, default False
+        If the source is a file path, use a memory map to read file, which can
+        improve performance in some environments.
     """
 
-    def __init__(self, source, *, options=None, memory_pool=None):
+    def __init__(self, source, *, options=None, memory_pool=None,
+                 use_memory_map=False):
         options = _ensure_default_ipc_read_options(options)
-        self._open(source, options=options, memory_pool=memory_pool)
+        self._open(source, options=options, memory_pool=memory_pool,
+                   use_memory_map=use_memory_map)
 
 
 _ipc_writer_class_doc = """\
@@ -100,13 +105,16 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+    use_memory_map : boolean, default False
+        Use memory mapping when opening file on disk
     """
 
     def __init__(self, source, footer_offset=None, *, options=None,
-                 memory_pool=None):
+                 memory_pool=None, use_memory_map=False):
         options = _ensure_default_ipc_read_options(options)
         self._open(source, footer_offset=footer_offset,
-                   options=options, memory_pool=memory_pool)
+                   options=options, memory_pool=memory_pool,
+                   use_memory_map=use_memory_map)
 
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):

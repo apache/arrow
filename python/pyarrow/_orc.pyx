@@ -246,7 +246,7 @@ cdef class ORCReader(_Weakrefable):
     def __cinit__(self, MemoryPool memory_pool=None):
         self.allocator = maybe_unbox_memory_pool(memory_pool)
 
-    def open(self, object source, c_bool use_memory_map=True):
+    def open(self, object source, c_bool use_memory_map=False):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
 

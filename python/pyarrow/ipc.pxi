@@ -399,7 +399,7 @@ cdef class MessageReader(_Weakrefable):
                         "instead.".format(self.__class__.__name__))
 
     @staticmethod
-    def open_stream(source):
+    def open_stream(source, use_memory_map=False):
         """
         Open stream from source.
 
@@ -407,13 +407,15 @@ cdef class MessageReader(_Weakrefable):
         ----------
         source
             A readable source, like an InputStream
+        use_memory_map : boolean, default False
+            Use memory mapping when opening file on disk
         """
         cdef:
             MessageReader result = MessageReader.__new__(MessageReader)
             shared_ptr[CInputStream] in_stream
             unique_ptr[CMessageReader] reader
 
-        _get_input_stream(source, &in_stream)
+        _get_input_stream(source, &in_stream, use_memory_map)
         with nogil:
             reader = CMessageReader.Open(in_stream)
             result.reader.reset(reader.release())
@@ -562,14 +564,14 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
                                  self.options))
 
 
-cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
+cdef _get_input_stream(object source, shared_ptr[CInputStream]* out, use_memory_map=False):
     try:
         source = as_buffer(source)
     except TypeError:
         # Non-buffer-like
         pass
 
-    get_input_stream(source, True, out)
+    get_input_stream(source, use_memory_map, out)
 
 
 class _ReadPandasMixin:
@@ -792,10 +794,10 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
         pass
 
     def _open(self, source, IpcReadOptions options=IpcReadOptions(),
-              MemoryPool memory_pool=None):
+              MemoryPool memory_pool=None, use_memory_map=False):
         self.options = options.c_options
         self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
-        _get_input_stream(source, &self.in_stream)
+        _get_input_stream(source, &self.in_stream, use_memory_map)
         with nogil:
             self.reader = GetResultValue(CRecordBatchStreamReader.Open(
                 self.in_stream, self.options))
@@ -839,7 +841,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 
     def _open(self, source, footer_offset=None,
               IpcReadOptions options=IpcReadOptions(),
-              MemoryPool memory_pool=None):
+              MemoryPool memory_pool=None, use_memory_map=False):
         self.options = options.c_options
         self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
         try:
@@ -847,7 +849,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         except TypeError:
             pass
 
-        get_reader(source, True, &self.file)
+        get_reader(source, use_memory_map, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -1065,7 +1067,7 @@ def read_message(source):
     return result
 
 
-def read_schema(obj, DictionaryMemo dictionary_memo=None):
+def read_schema(obj, DictionaryMemo dictionary_memo=None, use_memory_map=False):
     """
     Read Schema from message or buffer
 
@@ -1075,6 +1077,8 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     dictionary_memo : DictionaryMemo, optional
         Needed to be able to reconstruct dictionary-encoded fields
         with read_record_batch
+    use_memory_map : boolean, default False
+        Use memory mapping when opening file on disk
 
     Returns
     -------
@@ -1089,7 +1093,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
-    get_reader(obj, True, &cpp_file)
+    get_reader(obj, use_memory_map, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo
