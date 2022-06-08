@@ -151,7 +151,7 @@ def test_option_class_equality():
         pc.QuantileOptions(),
         pc.RandomOptions(),
         pc.RankOptions(sort_keys=[("b", "ascending")],
-                       null_placement="at_start", tiebreaker="Max"),
+                       null_placement="at_start", tiebreaker="max"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -2722,10 +2722,10 @@ def test_random():
 
 @pytest.mark.parametrize(
     "tiebreaker,expected_values",
-    [("Min", [3, 1, 4, 6, 4, 6, 1]),
-     ("Max", [3, 2, 5, 7, 5, 7, 2]),
-     ("First", [3, 1, 4, 6, 5, 7, 2]),
-     ("Dense", [2, 1, 3, 4, 3, 4, 1])]
+    [("min", [3, 1, 4, 6, 4, 6, 1]),
+     ("max", [3, 2, 5, 7, 5, 7, 2]),
+     ("first", [3, 1, 4, 6, 5, 7, 2]),
+     ("dense", [2, 1, 3, 4, 3, 4, 1])]
 )
 def test_rank_options_tiebreaker(tiebreaker, expected_values):
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])

@@ -2063,10 +2063,10 @@ class RandomOptions(_RandomOptions):
 cdef class _RankOptions(FunctionOptions):
 
     _tiebreaker_map = {
-        "Min": CRankOptionsTiebreaker_MIN,
-        "Max": CRankOptionsTiebreaker_MAX,
-        "First": CRankOptionsTiebreaker_FIRST,
-        "Dense": CRankOptionsTiebreaker_DENSE,
+        "min": CRankOptionsTiebreaker_Min,
+        "max": CRankOptionsTiebreaker_Max,
+        "first": CRankOptionsTiebreaker_First,
+        "dense": CRankOptionsTiebreaker_Dense,
     }
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
@@ -2097,20 +2097,20 @@ class RankOptions(_RankOptions):
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
         Accepted values are "at_start", "at_end".
-    tiebreaker : str, default "First"
+    tiebreaker : str, default "first"
         Configure how ties between equal values are handled.
         Accepted values are:
 
-        - "Min": Ties get the smallest possible rank in sorted order.
-        - "Max": Ties get the largest possible rank in sorted order.
-        - "First": Ranks are assigned in order of when ties appear in the
+        - "min": Ties get the smallest possible rank in sorted order.
+        - "max": Ties get the largest possible rank in sorted order.
+        - "first": Ranks are assigned in order of when ties appear in the
                    input. This ensures the ranks are a stable permutation
                    of the input.
-        - "Dense": The ranks span a dense [1, M] interval where M is the
+        - "dense": The ranks span a dense [1, M] interval where M is the
                    number of distinct values in the input.
     """
 
-    def __init__(self, sort_keys, *, null_placement="at_end", tiebreaker="First"):
+    def __init__(self, sort_keys, *, null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 
