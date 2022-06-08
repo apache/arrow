@@ -105,15 +105,8 @@ The test groups currently include:
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
-Benchmarking
-------------
-
-For running the benchmarks, see :ref:`python-benchmarks`.
-
-.. _build_pyarrow:
-
 Doctest
-=======
+-------
 
 We are using `doctest <https://docs.python.org/3/library/doctest.html>`_
 to check that docstrings examples are up-to-date and correct. You can
@@ -137,6 +130,13 @@ for ``.py`` files or
 
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
+
+Benchmarking
+------------
+
+For running the benchmarks, see :ref:`python-benchmarks`.
+
+.. _build_pyarrow:
 
 Building on Linux and MacOS
 =============================
