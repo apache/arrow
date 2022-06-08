@@ -2739,9 +2739,14 @@ def test_rank_options_tiebreaker(tiebreaker, expected_values):
 
 def test_rank_options():
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
-    rank_options = pc.RankOptions(sort_keys=[("b", "ascending")])
-    result = pc.rank(arr, options=rank_options)
     expected = pa.array([3, 1, 4, 6, 5, 7, 2], type=pa.uint64())
+
+    # Ensure rank can be called without specifying options
+    result = pc.rank(arr)
+    assert result.equals(expected)
+
+    # Ensure default RankOptions
+    result = pc.rank(arr, options=pc.RankOptions())
     assert result.equals(expected)
 
     with pytest.raises(ValueError,

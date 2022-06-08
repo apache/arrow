@@ -2089,7 +2089,7 @@ class RankOptions(_RankOptions):
 
     Parameters
     ----------
-    sort_keys : sequence of (name, order) tuples
+    sort_keys : sequence of (name, order) tuples, optional
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
@@ -2110,7 +2110,7 @@ class RankOptions(_RankOptions):
                    number of distinct values in the input.
     """
 
-    def __init__(self, sort_keys, *, null_placement="at_end", tiebreaker="first"):
+    def __init__(self, *, sort_keys=(), null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 
