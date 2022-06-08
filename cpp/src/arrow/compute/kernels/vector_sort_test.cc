@@ -352,6 +352,17 @@ TEST(ArraySortIndicesFunction, Array) {
   expected = ArrayFromJSON(uint64(), "[2, 4, 6, 1, 0, 3, 5]");
   ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  // Dictionary Array
+  auto dict_arr = DictArrayFromJSON(dictionary(uint64(), utf8()), "[0, null, 1, 0, 2, 3]",
+                                    "[ \"b\", null, \"c\", \"a\"]");
+  expected = ArrayFromJSON(uint64(), "[5, 0, 3, 4, 1, 2]");
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {dict_arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  expected = ArrayFromJSON(uint64(), "[1, 2, 4, 0, 3, 5]");
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {dict_arr}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
 TEST(ArraySortIndicesFunction, ChunkedArray) {

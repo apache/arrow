@@ -173,6 +173,52 @@ class ArrayCompareSorter {
   }
 };
 
+template <>
+class ArrayCompareSorter<DictionaryType> {
+ public:
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
+    const auto& dict_array = checked_cast<const DictionaryArray&>(array);
+
+    const auto& indices = checked_cast<const UInt64Array&>(*(dict_array.indices()));
+    const auto& values = dict_array.dictionary();
+
+    const auto p = PartitionNulls<DictionaryArray, StablePartitioner>(
+        indices_begin, indices_end, dict_array, offset, options.null_placement);
+
+    auto indices_array =
+        CallFunction("array_sort_indices", {values}, &options).ValueOrDie().make_array();
+    const auto& indices_values = checked_cast<const UInt64Array&>(*indices_array);
+
+    std::vector<uint64_t> sort_order(indices_values.length());
+    uint64_t cur = 0;
+    auto cur_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(cur));
+    auto cur_val = values->GetScalar(cur_idx);
+    for (int i = 0; i < indices_values.length(); i++) {
+      auto tmp_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(i));
+      auto tmp_val = values->GetScalar(tmp_idx);
+      if (cur_val != tmp_val) {
+        cur = i;
+        cur_val = tmp_val;
+      }
+      sort_order[tmp_idx] = cur;
+    }
+
+    std::stable_sort(
+        p.non_nulls_begin, p.non_nulls_end,
+        [&indices, &sort_order, &offset](uint64_t left, uint64_t right) {
+          const auto lhs =
+              GetViewType<UInt64Type>::LogicalValue(indices.GetView(left - offset));
+          const auto rhs =
+              GetViewType<UInt64Type>::LogicalValue(indices.GetView(right - offset));
+          return sort_order[lhs] < sort_order[rhs];
+        });
+
+    return p;
+  }
+};
+
 template <typename ArrowType>
 class ArrayCountSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -405,7 +451,8 @@ struct ArraySorter<Type, enable_if_t<is_integer_type<Type>::value &&
 template <typename Type>
 struct ArraySorter<
     Type, enable_if_t<is_floating_type<Type>::value || is_base_binary_type<Type>::value ||
-                      is_fixed_size_binary_type<Type>::value>> {
+                      is_fixed_size_binary_type<Type>::value ||
+                      is_dictionary_type<Type>::value>> {
   ArrayCompareSorter<Type> impl;
 };
 
@@ -507,6 +554,13 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   DCHECK_OK(func->AddKernel(base));
 }
 
+template <template <typename...> class ExecTemplate>
+void AddDictArraySortingKernels(VectorKernel base, VectorFunction* func) {
+  base.signature = KernelSignature::Make({InputType::Array(Type::DICTIONARY)}, uint64());
+  base.exec = ExecTemplate<UInt64Type, DictionaryType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+}
+
 const ArraySortOptions* GetDefaultArraySortOptions() {
   static const auto kDefaultArraySortOptions = ArraySortOptions::Defaults();
   return &kDefaultArraySortOptions;
@@ -561,6 +615,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
   base.init = ArraySortIndicesState::Init;
   base.exec_chunked = ArraySortIndicesChunked;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
+  AddDictArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
 
   // partition_nth_indices has a parameter so needs its init function

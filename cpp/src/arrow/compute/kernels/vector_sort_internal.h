@@ -191,9 +191,9 @@ struct NullPartitionResult {
 // Move nulls (not null-like values) to end of array.
 //
 // `offset` is used when this is called on a chunk of a chunked array
-template <typename Partitioner>
+template <typename ArrayType, typename Partitioner>
 NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indices_end,
-                                       const Array& values, int64_t offset,
+                                       const ArrayType& values, int64_t offset,
                                        NullPlacement null_placement) {
   if (values.null_count() == 0) {
     return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
@@ -254,8 +254,8 @@ NullPartitionResult PartitionNulls(uint64_t* indices_begin, uint64_t* indices_en
                                    const ArrayType& values, int64_t offset,
                                    NullPlacement null_placement) {
   // Partition nulls at start (resp. end), and null-like values just before (resp. after)
-  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
-                                                          values, offset, null_placement);
+  NullPartitionResult p = PartitionNullsOnly<ArrayType, Partitioner>(
+      indices_begin, indices_end, values, offset, null_placement);
   NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
       p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
   return NullPartitionResult{q.non_nulls_begin, q.non_nulls_end,
