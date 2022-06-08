@@ -72,7 +72,7 @@ namespace compute {
 namespace {
 
 Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys,
-                           const std::vector<internal::Aggregate>& aggregates) {
+                           const std::vector<Aggregate>& aggregates) {
   ARROW_ASSIGN_OR_RAISE(auto key_batch, ExecBatch::Make(std::move(keys)));
 
   ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_batch.GetDescriptors()));
@@ -123,7 +123,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 
 Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
                                    const std::vector<std::string>& key_names,
-                                   const std::vector<internal::Aggregate>& aggregates,
+                                   const std::vector<Aggregate>& aggregates,
                                    bool use_threads, ExecContext* ctx) {
   std::vector<FieldRef> keys(key_names.size());
   for (size_t i = 0; i < key_names.size(); ++i) {
@@ -182,7 +182,7 @@ Result<Datum> GroupByUsingExecPlan(const BatchesWithSchema& input,
 /// Simpler overload where you can give the columns as datums
 Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
                                    const std::vector<Datum>& keys,
-                                   const std::vector<internal::Aggregate>& aggregates,
+                                   const std::vector<Aggregate>& aggregates,
                                    bool use_threads, ExecContext* ctx) {
   using arrow::compute::detail::ExecBatchIterator;
 
@@ -215,11 +215,11 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
   return GroupByUsingExecPlan(input, key_names, aggregates, use_threads, ctx);
 }
 
-void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
+void ValidateGroupBy(const std::vector<Aggregate>& aggregates,
                      std::vector<Datum> arguments, std::vector<Datum> keys) {
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveGroupBy(arguments, keys, aggregates));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(arguments, keys, aggregates));
+  ASSERT_OK_AND_ASSIGN(Datum actual, internal::GroupBy(arguments, keys, aggregates));
 
   ASSERT_OK(expected.make_array()->ValidateFull());
   ValidateOutput(actual);
@@ -244,7 +244,7 @@ Result<Datum> GroupByTest(const std::vector<Datum>& arguments,
                           const std::vector<Datum>& keys,
                           const std::vector<TestAggregate>& aggregates, bool use_threads,
                           bool use_exec_plan) {
-  std::vector<internal::Aggregate> internal_aggregates;
+  std::vector<Aggregate> internal_aggregates;
   int idx = 0;
   for (auto t_agg : aggregates) {
     internal_aggregates.push_back(
@@ -3458,7 +3458,6 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
   std::shared_ptr<CountOptions> non_null =
       std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
 
-  using internal::Aggregate;
   for (auto agg : {
            Aggregate{"hash_sum", nullptr, "agg_0", "hash_sum"},
            Aggregate{"hash_count", non_null, "agg_1", "hash_count"},
@@ -3486,7 +3485,6 @@ TEST(GroupBy, CountNull) {
   std::shared_ptr<CountOptions> skipna =
       std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
 
-  using internal::Aggregate;
   for (auto agg : {
            Aggregate{"hash_count", keepna, "agg_0", "hash_count"},
            Aggregate{"hash_count", skipna, "agg_1", "hash_count"},

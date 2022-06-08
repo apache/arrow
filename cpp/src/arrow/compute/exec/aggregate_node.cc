@@ -41,6 +41,25 @@ using internal::checked_cast;
 
 namespace compute {
 
+namespace internal {
+
+Result<std::vector<const HashAggregateKernel*>> GetKernels(
+    ExecContext* ctx, const std::vector<Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs);
+
+Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
+    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
+    const std::vector<Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs);
+
+Result<FieldVector> ResolveKernels(
+    const std::vector<Aggregate>& aggregates,
+    const std::vector<const HashAggregateKernel*>& kernels,
+    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
+    const std::vector<ValueDescr>& descrs);
+
+}  // namespace internal
+
 namespace {
 
 void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
@@ -65,7 +84,7 @@ class ScalarAggregateNode : public ExecNode {
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
                       std::vector<int> target_field_ids,
-                      std::vector<internal::Aggregate> aggs,
+                      std::vector<Aggregate> aggs,
                       std::vector<const ScalarAggregateKernel*> kernels,
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(plan, std::move(inputs), {"target"},
@@ -263,7 +282,7 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   const std::vector<int> target_field_ids_;
-  const std::vector<internal::Aggregate> aggs_;
+  const std::vector<Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
@@ -276,7 +295,7 @@ class GroupByNode : public ExecNode {
  public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
               std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
-              std::vector<internal::Aggregate> aggs,
+              std::vector<Aggregate> aggs,
               std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
@@ -658,7 +677,7 @@ class GroupByNode : public ExecNode {
 
   const std::vector<int> key_field_ids_;
   const std::vector<int> agg_src_field_ids_;
-  const std::vector<internal::Aggregate> aggs_;
+  const std::vector<Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
 
   ThreadIndexer get_thread_index_;

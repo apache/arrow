@@ -2408,7 +2408,7 @@ cdef extern from * namespace "arrow::compute":
 
 cdef extern from "arrow/compute/exec/aggregate.h" namespace \
         "arrow::compute::internal" nogil:
-    cdef cppclass CAggregate "arrow::compute::internal::Aggregate":
+    cdef cppclass CAggregate "arrow::compute::Aggregate":
         c_string function
         shared_ptr[CFunctionOptions] options
 

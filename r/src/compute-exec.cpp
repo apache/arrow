@@ -229,7 +229,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
 std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
     std::vector<std::string> key_names) {
-  std::vector<arrow::compute::internal::Aggregate> aggregates;
+  std::vector<arrow::compute::Aggregate> aggregates;
 
   for (cpp11::list name_opts : options) {
     auto function = cpp11::as_cpp<std::string>(name_opts["fun"]);
@@ -237,7 +237,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     auto target = cpp11::as_cpp<std::string>(name_opts["target"]);
     auto name = cpp11::as_cpp<std::string>(name_opts["name"]);
 
-    aggregates.push_back(arrow::compute::internal::Aggregate{
+    aggregates.push_back(arrow::compute::Aggregate{
         std::move(function), opts.get(), std::move(target), std::move(name)});
   }
 

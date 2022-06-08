@@ -307,7 +307,7 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 //
 
 static void BenchmarkGroupBy(benchmark::State& state,
-                             std::vector<internal::Aggregate> aggregates,
+                             std::vector<Aggregate> aggregates,
                              std::vector<Datum> arguments, std::vector<Datum> keys) {
   for (auto _ : state) {
     ABORT_NOT_OK(GroupBy(arguments, keys, aggregates).status());

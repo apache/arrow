@@ -111,12 +111,12 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
-  AggregateNodeOptions(std::vector<internal::Aggregate> aggregates,
+  AggregateNodeOptions(std::vector<Aggregate> aggregates,
                        std::vector<FieldRef> keys = {})
       : aggregates(std::move(aggregates)), keys(std::move(keys)) {}
 
   // aggregations which will be applied to the targetted fields
-  std::vector<internal::Aggregate> aggregates;
+  std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped
   std::vector<FieldRef> keys;
 };
