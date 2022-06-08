@@ -3101,25 +3101,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_4/', use_legacy_dataset=False).files
     ['dataset_name_4/...-0.parquet']
     """
-    # Check for conflicting kewords
-    msg_conflicting = (
-        "Arguments '{0}' and '{1}' can not be passed together. "
-        "'{0}' is supported with the new dataset implementation "
-        "and '{1}' with the legacy implementation."
-    )
-    if partition_filename_cb is not None and basename_template is not None:
-        raise ValueError(msg_conflicting.format("partition_filename_cb",
-                                                "basename_template"))
-
-    if partition_cols is not None and partitioning is not None:
-        raise ValueError(msg_conflicting.format("partition_cols",
-                                                "partitioning"))
-
-    metadata_collector = kwargs.pop('metadata_collector', None)
-    if metadata_collector is not None and file_visitor is not None:
-        raise ValueError(msg_conflicting.format("metadata_collector",
-                                                "file_visitor"))
-
     # Choose the implementation
     if use_legacy_dataset is None:
         # if partition_filename_cb is specified ->
@@ -3129,6 +3110,32 @@ def write_to_dataset(table, root_path, partition_cols=None,
         # otherwise the default is False
         else:
             use_legacy_dataset = False
+
+    # Check for conflicting kewords
+    msg_confl_0 = (
+        "The '{0}' argument is not supported by legecy_dataset={2}. "
+        "Use only '{1}' instead."
+    )
+    msg_confl_1 = (
+        "The '{1}' argument is not supported by legecy_dataset={2}. "
+        "Use only '{0}' instead."
+    )
+    msg_confl = msg_confl_0 if use_legacy_dataset else msg_confl_1
+    if partition_filename_cb is not None and basename_template is not None:
+        raise ValueError(msg_confl.format("basename_template",
+                                          "partition_filename_cb",
+                                          use_legacy_dataset))
+
+    if partition_cols is not None and partitioning is not None:
+        raise ValueError(msg_confl.format("partitioning",
+                                          "partition_cols",
+                                          use_legacy_dataset))
+
+    metadata_collector = kwargs.pop('metadata_collector', None)
+    if metadata_collector is not None and file_visitor is not None:
+        raise ValueError(msg_confl.format("file_visitor",
+                                          "metadata_collector",
+                                          use_legacy_dataset))
 
     # New dataset implementation
     if not use_legacy_dataset:
@@ -3207,6 +3214,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         raise ValueError(msg2.format("file_visitor"))
     if existing_data_behavior is not None:
         raise ValueError(msg2.format("existing_data_behavior"))
+    if basename_template is not None:
+        raise ValueError(msg2.format("basename_template"))
     if partition_filename_cb is not None:
         warnings.warn(
             _DEPR_MSG.format("partition_filename_cb", " Specify "

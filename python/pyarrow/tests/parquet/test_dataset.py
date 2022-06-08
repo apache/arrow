@@ -1790,9 +1790,14 @@ def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
     with pytest.raises(ValueError, match="file_visitor"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             file_visitor=lambda x: x)
+
     with pytest.raises(ValueError, match="existing_data_behavior"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             existing_data_behavior='error')
+
+    with pytest.raises(ValueError, match="basename_template"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            basename_template='part-{i}.parquet')
 
 
 @pytest.mark.dataset
@@ -1822,22 +1827,46 @@ def test_parquet_write_to_dataset_exposed_keywords(tempdir):
 
 
 @pytest.mark.dataset
-@parametrize_legacy_dataset_fixed
-def test_write_to_dataset_conflicting_keywords(tempdir, use_legacy_dataset):
+def test_write_to_dataset_conflicting_keywords(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
 
-    with pytest.raises(ValueError, match="not be passed together"):
+    with pytest.raises(ValueError, match="'basename_template' argument "
+                       "is not supported by legecy_dataset=True"):
         pq.write_to_dataset(table, path,
-                            use_legacy_dataset=use_legacy_dataset,
+                            use_legacy_dataset=True,
+                            partition_filename_cb=lambda x: 'filename.parquet',
+                            basename_template='file-{i}.parquet')
+    with pytest.raises(ValueError, match="'partition_filename_cb' argument "
+                       "is not supported by legecy_dataset=False"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=False,
                             partition_filename_cb=lambda x: 'filename.parquet',
                             basename_template='file-{i}.parquet')
 
-    with pytest.raises(ValueError, match="not be passed together"):
-        pq.write_to_dataset(table, path, partition_cols=["a"],
-                            use_legacy_dataset=use_legacy_dataset,
+    with pytest.raises(ValueError, match="'partitioning' argument "
+                       "is not supported by legecy_dataset=True"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=True,
+                            partition_cols=["a"],
                             partitioning=["a"])
 
-    with pytest.raises(ValueError, match="not be passed together"):
-        pq.write_to_dataset(table, path, metadata_collector=[],
+    with pytest.raises(ValueError, match="'partition_cols' argument "
+                       "is not supported by legecy_dataset=False"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=False,
+                            partition_cols=["a"],
+                            partitioning=["a"])
+
+    with pytest.raises(ValueError, match="'file_visitor' argument "
+                       "is not supported by legecy_dataset=True"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=True,
+                            metadata_collector=[],
+                            file_visitor=lambda x: x)
+    with pytest.raises(ValueError, match="'metadata_collector' argument "
+                       "is not supported by legecy_dataset=False"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=False,
+                            metadata_collector=[],
                             file_visitor=lambda x: x)
