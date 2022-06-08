@@ -845,7 +845,7 @@ SCALAR_EAGER_BINARY(MinutesBetween, "minutes_between")
 SCALAR_EAGER_BINARY(SecondsBetween, "seconds_between")
 SCALAR_EAGER_BINARY(MillisecondsBetween, "milliseconds_between")
 SCALAR_EAGER_BINARY(MicrosecondsBetween, "microseconds_between")
-SCALAR_EAGER_BINARY(NanoesecondsBetween, "nanoseconds_between")
+SCALAR_EAGER_BINARY(NanosecondsBetween, "nanoseconds_between")
 
 // ----------------------------------------------------------------------
 // Structural transforms

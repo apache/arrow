@@ -1600,8 +1600,8 @@ ARROW_EXPORT Result<Datum> MicrosecondsBetween(const Datum& left, const Datum& r
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> NanoesecondsBetween(const Datum& left, const Datum& right,
-                                               ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> NanosecondsBetween(const Datum& left, const Datum& right,
+                                              ExecContext* ctx = NULLPTR);
 
 /// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
 /// query key in a map.
