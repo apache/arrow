@@ -609,7 +609,7 @@ cdef class RecordBatchReader(_Weakrefable):
     -----
     To import and export using the Arrow C stream interface, use the 
     ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
-    interface is experimental and intended for expert users.
+    interface is intended for expert users.
 
     Examples
     --------
