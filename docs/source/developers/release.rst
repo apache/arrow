@@ -113,7 +113,7 @@ Create or update the corresponding maintenance branch
       .. code-block::
 
             # Execute the following from an up to date master branch.
-            # This will create a branch locally called maint-X.Y.Z
+            # This will create a branch locally called maint-X.Y.Z.
             # X.Y.Z corresponds with the Major, Minor and Patch version number
             # of the release respectively. As an example 9.0.0
             archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --execute
