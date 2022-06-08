@@ -24,8 +24,8 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/task_util.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
@@ -71,7 +71,6 @@ static void ProjectionOverhead(benchmark::State& state, Expression expr) {
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
-
 static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr) {
   const auto batch_size = static_cast<int32_t>(state.range(0));
   const auto num_batches = total_batch_size / batch_size;
@@ -81,10 +80,11 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   for (auto _ : state) {
     state.PauseTiming();
+
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&ctx));
-
+    // Source and sink nodes have no effect on the benchmark.
+    // Used for dummy purposes as they are referenced in InputReceived and InputFinished.
     ASSERT_OK_AND_ASSIGN(
         auto sn, MakeExecNode("source", plan.get(), {},
                               SourceNodeOptions{data.schema, data.gen(/*parallel=*/true,
@@ -94,6 +94,7 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
                                                    expr,
                                                }}));
     MakeExecNode("sink", plan.get(), {pn}, SinkNodeOptions{&sink_gen});
+
     auto scheduler = TaskScheduler::Make();
     std::condition_variable cv;
     std::mutex mutex;
@@ -110,24 +111,25 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
         });
     scheduler->RegisterEnd();
     ThreadIndexer thread_indexer;
+
     state.ResumeTiming();
-    
     auto tp = arrow::internal::GetCpuThreadPool();
     ASSERT_OK(scheduler->StartScheduling(
-        0,
+        thread_indexer(),
         [&](std::function<Status(size_t)> task) -> Status {
-            return tp->Spawn([&, task]() {
+          return tp->Spawn([&, task]() {
             size_t tid = thread_indexer();
             ARROW_DCHECK_OK(task(tid));
-            });
+          });
         },
-        arrow::internal::GetCpuThreadPool()->GetCapacity(),
+        tp->GetCapacity(),
         /*use_sync_execution=*/false));
     std::unique_lock<std::mutex> lk(mutex);
-    ASSERT_OK(scheduler->StartTaskGroup(0, task_group_id, num_batches));
+    ASSERT_OK(scheduler->StartTaskGroup(thread_indexer(), task_group_id, num_batches));
     cv.wait(lk);
     ASSERT_TRUE(pn->finished().is_finished());
   }
+
   state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches * batch_size),
       benchmark::Counter::kIsRate);
@@ -161,7 +163,6 @@ BENCHMARK_CAPTURE(ProjectionOverheadIsolated, ref_only_expression, ref_only_expr
 
 BENCHMARK_CAPTURE(ProjectionOverhead, complex_expression, complex_expression)
     ->Apply(SetArgs);
-
 BENCHMARK_CAPTURE(ProjectionOverhead, simple_expression, simple_expression)
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(ProjectionOverhead, zero_copy_expression, zero_copy_expression)
