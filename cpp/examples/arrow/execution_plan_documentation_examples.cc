@@ -266,7 +266,7 @@ arrow::Status ExecutePlanAndCollectAsTable(
 
   // validate the ExecPlan
   ARROW_RETURN_NOT_OK(plan->Validate());
-  // std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
+  std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
   // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
 
