@@ -115,8 +115,8 @@ also do that locally by running:
 .. code-block::
 
    $ pushd arrow/python
-   $ pytest --doctest-modules
-   $ pytest --doctest-modules path/to/module.py # checking single file
+   $ python -m pytest --doctest-modules
+   $ python -m pytest --doctest-modules path/to/module.py # checking single file
    $ popd
 
 for ``.py`` files or
@@ -124,8 +124,8 @@ for ``.py`` files or
 .. code-block::
 
    $ pushd arrow/python
-   $ pytest --doctest-cython
-   $ pytest --doctest-cython path/to/module.pyx # checking single file
+   $ python -m pytest --doctest-cython
+   $ python -m pytest --doctest-cython path/to/module.pyx # checking single file
    $ popd
 
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
