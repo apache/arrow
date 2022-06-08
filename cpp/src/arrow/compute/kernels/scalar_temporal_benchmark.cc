@@ -90,13 +90,11 @@ static void BenchmarkTemporalBinary(benchmark::State& state) {
   RegressionArgs args(state);
   ExecContext* ctx = default_exec_context();
 
-  const int64_t array_size = args.size / sizeof(int64_t);
+  const int64_t array_size = args.size / sizeof(timestamp_type);
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto lhs =
-      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  auto lhs = rand.ArrayOf(timestamp_type, args.size, args.null_proportion);
   EXPECT_OK_AND_ASSIGN(auto timestamp_array_lhs, lhs->View(timestamp_type));
-  auto rhs =
-      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
+  auto rhs = rand.ArrayOf(timestamp_type, args.size, args.null_proportion);
   EXPECT_OK_AND_ASSIGN(auto timestamp_array_rhs, rhs->View(timestamp_type));
 
   for (auto _ : state) {
@@ -172,6 +170,11 @@ static void BenchmarkAssumeTimezone(benchmark::State& state) {
 
 auto zoned = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
 auto non_zoned = timestamp(TimeUnit::NANO);
+auto time32_type = time32(TimeUnit::MILLI);
+auto time64_type = time64(TimeUnit::NANO);
+auto date32_type = date32();
+auto date64_type = date64();
+auto duration_type = duration(TimeUnit::NANO);
 
 #define DECLARE_TEMPORAL_ROUNDING_BENCHMARKS(OPTIONS)                              \
   BENCHMARK_TEMPLATE(BenchmarkTemporalRounding, CeilTemporal, zoned, OPTIONS)      \
@@ -196,8 +199,16 @@ auto non_zoned = timestamp(TimeUnit::NANO);
 
 #define DECLARE_TEMPORAL_BINARY_BENCHMARKS(OP)                                \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, non_zoned)->Apply(SetArgs); \
-  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, zoned)->Apply(SetArgs);
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, zoned)->Apply(SetArgs);     \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, date64_type)->Apply(SetArgs);
 
+/*                                                                                    \
+these don't work                                                                      \
+BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, time32_type)->Apply(SetArgs);       \ \
+BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, date32_type)->Apply(SetArgs);       \ \
+BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, date64_type)->Apply(SetArgs);       \ \
+                                                                                      \
+*/
 // Temporal rounding benchmarks
 auto round_1_minute = RoundTemporalOptions(1, CalendarUnit::MINUTE);
 auto round_10_minute = RoundTemporalOptions(10, CalendarUnit::MINUTE);
