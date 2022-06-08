@@ -3113,11 +3113,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
     # Check for conflicting kewords
     msg_confl_0 = (
-        "The '{0}' argument is not supported by legecy_dataset={2}. "
+        "The '{0}' argument is not supported by use_legacy_dataset={2}. "
         "Use only '{1}' instead."
     )
     msg_confl_1 = (
-        "The '{1}' argument is not supported by legecy_dataset={2}. "
+        "The '{1}' argument is not supported by use_legacy_dataset={2}. "
         "Use only '{0}' instead."
     )
     msg_confl = msg_confl_0 if use_legacy_dataset else msg_confl_1
