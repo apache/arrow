@@ -22,7 +22,6 @@ from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
 from pyarrow.lib import frombytes, tobytes, KeyValueMetadata, ensure_metadata
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_python cimport TimePoint_from_ns
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem, TimePoint_to_ns, PyDateTime_to_TimePoint
 from cython.operator cimport dereference as deref
@@ -62,10 +61,9 @@ cdef class GcsFileSystem(FileSystem):
         An optional service account to try to impersonate when accessing GCS. This
         requires the specified credential user or service account to have the necessary
         permissions.
-    credential_token_expiration : datetime or int, default None
+    credential_token_expiration : datetime, default None
         Expiration for credential generated with an access token. Must be specified
-        if `access_token` is specified. If it is an int it represents
-        nanoseconds since the epoch.
+        if `access_token` is specified.
     default_bucket_location : str, default 'US'
         GCP region to create buckets in.
     scheme : str, default 'https'
@@ -111,18 +109,12 @@ cdef class GcsFileSystem(FileSystem):
         elif anonymous:
             options = CGcsOptions.Anonymous()
         elif access_token:
-            if isinstance(credential_token_expiration, int):
-                options = CGcsOptions.FromAccessToken(
-                    tobytes(access_token),
-                    TimePoint_from_ns(credential_token_expiration))
-            elif isinstance(credential_token_expiration, datetime):
-                options = CGcsOptions.FromAccessToken(
-                    tobytes(access_token),
-                    PyDateTime_to_TimePoint(<PyDateTime_DateTime*>credential_token_expiration))
-            else:
-              raise ValueError(
-                    "credential_token_expiration must be a datetime or int")
-
+            if not isinstance(credential_token_expiration, datetime):
+                raise ValueError(
+                    "credential_token_expiration must be a datetime")
+            options = CGcsOptions.FromAccessToken(
+                tobytes(access_token),
+                PyDateTime_to_TimePoint(<PyDateTime_DateTime*>credential_token_expiration))
         else:
             options = CGcsOptions.Defaults()
 
@@ -159,17 +151,17 @@ cdef class GcsFileSystem(FileSystem):
     def _reconstruct(cls, kwargs):
         return cls(**kwargs)
 
-    def _expiration_ns_from_options(self):
+    def _expiration_datetime_from_options(self):
         expiration_ns = TimePoint_to_ns(
             self.gcsfs.options().credentials.expiration())
         if expiration_ns == 0:
             return None
-        return expiration_ns
+        return datetime.fromtimestamp(expiration_ns / 1e9)
 
     def __reduce__(self):
         cdef CGcsOptions opts = self.gcsfs.options()
         service_account = frombytes(opts.credentials.target_service_account())
-        expiration_dt = self._expiration_ns_from_options()
+        expiration_dt = self._expiration_datetime_from_options()
         retry_time_limit = None
         if opts.retry_limit_seconds.has_value():
             retry_time_limit = timedelta(
