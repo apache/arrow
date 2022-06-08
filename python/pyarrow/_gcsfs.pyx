@@ -120,7 +120,7 @@ cdef class GcsFileSystem(FileSystem):
                     tobytes(access_token),
                     PyDateTime_to_TimePoint(<PyDateTime_DateTime*>credential_token_expiration))
             else:
-              raise ValueError(
+                raise ValueError(
                     "credential_token_expiration must be a datetime or int")
 
         else:
