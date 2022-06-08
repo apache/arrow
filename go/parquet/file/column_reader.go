@@ -435,7 +435,7 @@ func (c *columnChunkReader) skipValues(nvalues int64, readFn func(batch int64, b
 				valsRead  int64 = 0
 			)
 
-			// TODO: ideally we should re-use a shared pool of buffers to avoid unnecessary memory allocation for skips
+			// TODO(ARROW-16790): ideally we should re-use a shared pool of buffers to avoid unnecessary memory allocation for skips
 			scratch := memory.NewResizableBuffer(c.mem)
 			bufMult := 1
 			if c.descr.PhysicalType() == parquet.Types.Boolean {
