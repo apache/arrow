@@ -315,6 +315,16 @@ in column ``"nums"``
 
    import pyarrow.compute as pc
    even_filter = (pc.bit_wise_and(pc.field("nums"), pc.scalar(1)) == pc.scalar(0))
+
+.. note::
+
+   The filter finds even numbers by performing a bitwise and operation between the number and ``1``.
+   As ``1`` is to ``00000001`` in binary form, only numbers that have the last bit set to ``1``
+   will return a non-zero result from the ``bit_wise_and`` operation. This way we are identifying all
+   odd numbers. Given that we are interested in the even ones, we then check that the number returned
+   by the ``bit_wise_and`` operation equals ``0``. Only the numbers where the last bit was ``0`` will
+   return a ``0`` as the result of ``num & 1`` and as all numbers where the last bit is ``0`` are
+   multiples of ``2`` we will be filtering for the even numbers only.
    
 Once we have our filter, we can provide it to the :meth:`.Table.filter` method
 to filter our table only for the matching rows:
