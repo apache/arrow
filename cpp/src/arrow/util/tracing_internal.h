@@ -44,8 +44,6 @@ namespace arrow {
 namespace internal {
 namespace tracing {
 
-::arrow::util::tracing::Span NewSpan(const std::string& name) noexcept;
-
 #ifdef ARROW_WITH_OPENTELEMETRY
 ARROW_EXPORT
 opentelemetry::trace::Tracer* GetTracer();

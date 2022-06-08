@@ -79,7 +79,7 @@ class ProjectNode : public MapNode {
   Result<ExecBatch> DoProject(const ExecBatch& target) {
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::internal::tracing::OTSpan span;
       START_COMPUTE_SPAN(span, "Project",
                          {{"project.descr", exprs_[i].descr().ToString()},
                           {"project.length", target.length},
@@ -97,7 +97,7 @@ class ProjectNode : public MapNode {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
-      util::tracing::Span span;
+      arrow::internal::tracing::OTSpan span;
       START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
                                      {{"project", ToStringExtra()},
                                       {"node.label", label()},

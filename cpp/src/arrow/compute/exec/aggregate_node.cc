@@ -167,13 +167,13 @@ class ScalarAggregateNode : public ExecNode {
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
-    util::tracing::Span span;
+    arrow::internal::tracing::OTSpan span;
     START_COMPUTE_SPAN(span, "Consume",
                        {{"aggregate", ToStringExtra()},
                         {"node.label", label()},
                         {"batch.length", batch.length}});
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::internal::tracing::OTSpan span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",
@@ -190,7 +190,7 @@ class ScalarAggregateNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    util::tracing::Span span;
+    arrow::internal::tracing::OTSpan span;
     START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
                                    {{"aggregate", ToStringExtra()},
                                     {"node.label", label()},
@@ -265,14 +265,14 @@ class ScalarAggregateNode : public ExecNode {
 
  private:
   Status Finish() {
-    util::tracing::Span span;
+    arrow::internal::tracing::OTSpan span;
     START_COMPUTE_SPAN(span, "Finish",
                        {{"aggregate", ToStringExtra()}, {"node.label", label()}});
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size());
 
     for (size_t i = 0; i < kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::internal::tracing::OTSpan span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",
@@ -396,7 +396,7 @@ class GroupByNode : public ExecNode {
   const char* kind_name() const override { return "GroupByNode"; }
 
   Status Consume(ExecBatch batch) {
-    util::tracing::Span span;
+    arrow::internal::tracing::OTSpan span;
     START_COMPUTE_SPAN(span, "Consume",
                        {{"group_by", ToStringExtra()},
                         {"node.label", label()},
@@ -422,7 +422,7 @@ class GroupByNode : public ExecNode {
 
     // Execute aggregate kernels
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::internal::tracing::OTSpan span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",
@@ -443,7 +443,7 @@ class GroupByNode : public ExecNode {
   }
 
   Status Merge() {
-    util::tracing::Span span;
+    arrow::internal::tracing::OTSpan span;
     START_COMPUTE_SPAN(span, "Merge",
                        {{"group_by", ToStringExtra()}, {"node.label", label()}});
     ThreadLocalState* state0 = &local_states_[0];
@@ -458,7 +458,7 @@ class GroupByNode : public ExecNode {
       state->grouper.reset();
 
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-        util::tracing::Span span;
+        arrow::internal::tracing::OTSpan span;
         START_COMPUTE_SPAN(
             span, aggs_[i].function,
             {{"function.name", aggs_[i].function},
@@ -479,7 +479,7 @@ class GroupByNode : public ExecNode {
   }
 
   Result<ExecBatch> Finalize() {
-    util::tracing::Span span;
+    arrow::internal::tracing::OTSpan span;
     START_COMPUTE_SPAN(span, "Finalize",
                        {{"group_by", ToStringExtra()}, {"node.label", label()}});
 
@@ -492,7 +492,7 @@ class GroupByNode : public ExecNode {
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-      util::tracing::Span span;
+      arrow::internal::tracing::OTSpan span;
       START_COMPUTE_SPAN(span, aggs_[i].function,
                          {{"function.name", aggs_[i].function},
                           {"function.options",
@@ -554,7 +554,7 @@ class GroupByNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    util::tracing::Span span;
+    arrow::internal::tracing::OTSpan span;
     START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
                                    {{"group_by", ToStringExtra()},
                                     {"node.label", label()},

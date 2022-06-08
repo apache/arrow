@@ -204,23 +204,11 @@ opentelemetry::trace::Tracer* GetTracer() {
   return tracer.get();
 }
 
-::arrow::util::tracing::Span NewSpan(const std::string& name) noexcept {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto tracer = GetTracer(); 
-  OTSpan span;
-  span.Set(tracer->StartSpan(name));
-  return *(checked_cast<::arrow::util::tracing::Span*>(&span));
-#else
-  ::arrow::util::tracing::Span span;
-  return span;
-#endif
-}
-
 #ifdef ARROW_WITH_OPENTELEMETRY
 opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
     const util::tracing::Span& parent_span) {
   opentelemetry::trace::StartSpanOptions options;
-  options.parent = ((const ::arrow::internal::tracing::OTSpan&)parent_span).Get()->GetContext();
+  options.parent = (dynamic_cast<const ::arrow::internal::tracing::OTSpan&>(parent_span)).Get()->GetContext();
   return options;
 }
 #endif

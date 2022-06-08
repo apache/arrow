@@ -483,7 +483,7 @@ class TeeNode : public compute::MapNode {
                       [this](std::shared_ptr<RecordBatch> next_batch,
                              const PartitionPathFormat& destination) {
                         return task_group_.AddTask([this, next_batch, destination] {
-                          util::tracing::Span span;
+                          arrow::internal::tracing::OTSpan span;
                           Future<> has_room = dataset_writer_->WriteRecordBatch(
                               next_batch, destination.directory, destination.filename);
                           if (!has_room.is_finished()) {
@@ -499,7 +499,7 @@ class TeeNode : public compute::MapNode {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](compute::ExecBatch batch) {
-      util::tracing::Span span;
+      arrow::internal::tracing::OTSpan span;
       START_SPAN_WITH_PARENT(span, span_, "InputReceived",
                              {{"tee", ToStringExtra()},
                               {"node.label", label()},

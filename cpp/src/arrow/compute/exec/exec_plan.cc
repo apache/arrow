@@ -46,7 +46,9 @@ namespace {
 struct ExecPlanImpl : public ExecPlan {
   explicit ExecPlanImpl(ExecContext* exec_context,
                         std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
-      : ExecPlan(exec_context), metadata_(std::move(metadata)) {}
+      : ExecPlan(exec_context), metadata_(std::move(metadata)) {
+        span_ = arrow::internal::tracing::OTSpan();
+      }
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
