@@ -41,16 +41,6 @@ jobs:
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
 
-      - name: Remove symbolic links
-        run: |
-          Remove-Item arrow\python\cmake_modules
-          Copy-Item arrow\cpp\cmake_modules arrow\python\ -Recurse
-
-      - name: Debug
-        shell: bash
-        run: |
-          ls -lahR
-
       - name: Build wheel
         shell: cmd
         run: |
@@ -66,11 +56,9 @@ jobs:
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
 
-      {% if arrow.branch == 'master' %}
       - name: Push Docker Image
         shell: cmd
         run: |
           cd arrow
           archery docker push python-wheel-windows-vs2017
           archery docker push python-wheel-windows-test
-      {% endif %}
