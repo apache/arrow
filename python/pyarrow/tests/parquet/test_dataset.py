@@ -1832,40 +1832,40 @@ def test_write_to_dataset_conflicting_keywords(tempdir):
     path = tempdir / 'data.parquet'
 
     with pytest.raises(ValueError, match="'basename_template' argument "
-                       "is not supported by legecy_dataset=True"):
+                       "is not supported by use_legacy_dataset=True"):
         pq.write_to_dataset(table, path,
                             use_legacy_dataset=True,
                             partition_filename_cb=lambda x: 'filename.parquet',
                             basename_template='file-{i}.parquet')
     with pytest.raises(ValueError, match="'partition_filename_cb' argument "
-                       "is not supported by legecy_dataset=False"):
+                       "is not supported by use_legacy_dataset=False"):
         pq.write_to_dataset(table, path,
                             use_legacy_dataset=False,
                             partition_filename_cb=lambda x: 'filename.parquet',
                             basename_template='file-{i}.parquet')
 
     with pytest.raises(ValueError, match="'partitioning' argument "
-                       "is not supported by legecy_dataset=True"):
+                       "is not supported by use_legacy_dataset=True"):
         pq.write_to_dataset(table, path,
                             use_legacy_dataset=True,
                             partition_cols=["a"],
                             partitioning=["a"])
 
     with pytest.raises(ValueError, match="'partition_cols' argument "
-                       "is not supported by legecy_dataset=False"):
+                       "is not supported by use_legacy_dataset=False"):
         pq.write_to_dataset(table, path,
                             use_legacy_dataset=False,
                             partition_cols=["a"],
                             partitioning=["a"])
 
     with pytest.raises(ValueError, match="'file_visitor' argument "
-                       "is not supported by legecy_dataset=True"):
+                       "is not supported by use_legacy_dataset=True"):
         pq.write_to_dataset(table, path,
                             use_legacy_dataset=True,
                             metadata_collector=[],
                             file_visitor=lambda x: x)
     with pytest.raises(ValueError, match="'metadata_collector' argument "
-                       "is not supported by legecy_dataset=False"):
+                       "is not supported by use_legacy_dataset=False"):
         pq.write_to_dataset(table, path,
                             use_legacy_dataset=False,
                             metadata_collector=[],
