@@ -63,7 +63,7 @@ jobs:
             PREFIX=nightly-packaging-$(date +%Y-%m-%d)-0
           fi
           echo $PREFIX
-          archery crossbow download-artifacts -f java-jars -t binaries --skip-pattern-validation $PREFIX
+          archery crossbow download-artifacts -f java-jars -t binaries  $PREFIX
       - shell: bash
         name: Build Repository
         run: |
