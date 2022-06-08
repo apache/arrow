@@ -226,6 +226,8 @@ void VisitGroupedValuesNonNull(const ExecBatch& batch, ConsumeValue&& valid_func
 struct GroupedCountImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
               const FunctionOptions* options) override {
+    const auto *opts = options;
+    opts->ToString();
     options_ = checked_cast<const CountOptions&>(*options);
     counts_ = BufferBuilder(ctx->memory_pool());
     return Status::OK();
