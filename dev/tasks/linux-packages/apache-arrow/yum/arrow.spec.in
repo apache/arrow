@@ -64,11 +64,12 @@
 %define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %%define use_s3 (%{rhel} >= 8)
+# %%define use_s3 (%%{rhel} >= 8)
 %define use_s3 0
 
 %define have_rapidjson (%{rhel} != 8)
 %define have_re2 (%{rhel} >= 8)
+%define have_thrift (%{rhel} >= 8)
 %define have_utf8proc (%{rhel} >= 9)
 %define have_zstd (!%{is_amazon_linux})
 
@@ -122,7 +123,9 @@ BuildRequires:	rapidjson-devel
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
+%if %{have_thrift}
 BuildRequires:	thrift-devel
+%endif
 %if %{have_utf8proc}
 BuildRequires:	utf8proc-devel
 %endif
@@ -294,6 +297,9 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/FindArrow.cmake
 %{_libdir}/cmake/arrow/FindBrotli.cmake
 %{_libdir}/cmake/arrow/FindSnappy.cmake
+%if %{have_thrift}
+%{_libdir}/cmake/arrow/FindThrift.cmake
+%endif
 %if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
