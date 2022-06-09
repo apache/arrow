@@ -265,12 +265,10 @@ Status FileWriter::Write(RecordBatchReader* batches) {
 }
 
 Future<> FileWriter::Finish() {
-  return FinishInternal()
-      .Then([this]() {
-        ARROW_ASSIGN_OR_RAISE(bytes_written_, destination_->Tell());
-        return Status::OK();
-      })
-      .Then([this]() { return destination_->CloseAsync(); });
+  return FinishInternal().Then([this]() -> Future<> {
+    ARROW_ASSIGN_OR_RAISE(bytes_written_, destination_->Tell());
+    return destination_->CloseAsync();
+  });
 }
 
 Result<int64_t> FileWriter::GetBytesWritten() const {
