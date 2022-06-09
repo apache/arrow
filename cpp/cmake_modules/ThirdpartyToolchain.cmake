@@ -3663,7 +3663,8 @@ macro(build_grpc)
     # Negate warnings that gRPC cannot build under
     # See https://github.com/grpc/grpc/issues/29417
     set(GRPC_C_FLAGS
-        "${GRPC_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+        "${GRPC_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
+    )
     set(GRPC_CXX_FLAGS
         "${GRPC_CXX_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
     )
