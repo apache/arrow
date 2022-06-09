@@ -181,7 +181,7 @@ class ArrayCompareSorter<DictionaryType> {
                                  const ArraySortOptions& options) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
 
-    const auto& indices = checked_cast<const UInt64Array&>(*(dict_array.indices()));
+    const auto& indices = dict_array.indices();
     const auto& values = dict_array.dictionary();
 
     const auto p = PartitionNulls<DictionaryArray, StablePartitioner>(
@@ -209,9 +209,9 @@ class ArrayCompareSorter<DictionaryType> {
         p.non_nulls_begin, p.non_nulls_end,
         [&indices, &sort_order, &offset](uint64_t left, uint64_t right) {
           const auto lhs =
-              GetViewType<UInt64Type>::LogicalValue(indices.GetView(left - offset));
+              std::stoull(indices->GetScalar(left - offset).ValueOrDie()->ToString());
           const auto rhs =
-              GetViewType<UInt64Type>::LogicalValue(indices.GetView(right - offset));
+              std::stoull(indices->GetScalar(right - offset).ValueOrDie()->ToString());
           return sort_order[lhs] < sort_order[rhs];
         });
 
