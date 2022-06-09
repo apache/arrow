@@ -115,8 +115,9 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
   }
 
   if (!scan_options->filter.IsBound()) {
-    ARROW_ASSIGN_OR_RAISE(scan_options->filter,
-                          scan_options->filter.Bind(*dataset_schema));
+    ARROW_ASSIGN_OR_RAISE(
+        scan_options->filter,
+        scan_options->filter.Bind(*dataset_schema, compute::default_exec_context()));
   }
 
   if (!scan_options->projected_schema) {
@@ -173,7 +174,8 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     }
 
     ARROW_ASSIGN_OR_RAISE(scan_options->projection,
-                          scan_options->projection.Bind(Schema(std::move(fields))));
+                          scan_options->projection.Bind(Schema(std::move(fields)),
+                                                        compute::default_exec_context()));
   }
 
   return Status::OK();
@@ -705,7 +707,7 @@ const std::shared_ptr<Dataset>& AsyncScanner::dataset() const { return dataset_;
 Result<ProjectionDescr> ProjectionDescr::FromStructExpression(
     const compute::Expression& projection, const Schema& dataset_schema) {
   ARROW_ASSIGN_OR_RAISE(compute::Expression bound_expression,
-                        projection.Bind(dataset_schema));
+                        projection.Bind(dataset_schema, compute::default_exec_context()));
 
   if (bound_expression.type()->id() != Type::STRUCT) {
     return Status::Invalid("Projection ", projection.ToString(),
@@ -814,8 +816,9 @@ Status ScannerBuilder::Filter(const compute::Expression& filter) {
   for (const auto& ref : FieldsInExpression(filter)) {
     RETURN_NOT_OK(ref.FindOne(*scan_options_->dataset_schema));
   }
-  ARROW_ASSIGN_OR_RAISE(scan_options_->filter,
-                        filter.Bind(*scan_options_->dataset_schema));
+  ARROW_ASSIGN_OR_RAISE(
+      scan_options_->filter,
+      filter.Bind(*scan_options_->dataset_schema, compute::default_exec_context()));
   return Status::OK();
 }
 

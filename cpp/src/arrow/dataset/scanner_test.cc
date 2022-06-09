@@ -442,7 +442,8 @@ TEST_P(TestScanner, CountRows) {
   ASSERT_EQ(rows, num_datasets * num_batches * items_per_batch);
 
   ASSERT_OK_AND_ASSIGN(options_->filter,
-                       greater_equal(field_ref("i32"), literal(64)).Bind(*schema_));
+                       greater_equal(field_ref("i32"), literal(64))
+                           .Bind(*schema_, compute::default_exec_context()));
   ASSERT_OK_AND_ASSIGN(rows, scanner->CountRows());
   ASSERT_EQ(rows, num_datasets * num_batches * (items_per_batch - 64));
 }

@@ -446,7 +446,8 @@ TEST(Substrait, FieldRefRoundTrip) {
            FieldRef(kBoringSchema->GetFieldIndex("struct"), 1),
        }) {
     ARROW_SCOPED_TRACE(ref.ToString());
-    ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(
+                                        *kBoringSchema, compute::default_exec_context()));
 
     ExtensionSet ext_set;
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
@@ -465,7 +466,8 @@ TEST(Substrait, RecursiveFieldRef) {
   FieldRef ref("struct", "str");
 
   ARROW_SCOPED_TRACE(ref.ToString());
-  ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(
+                                      *kBoringSchema, compute::default_exec_context()));
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
   ASSERT_OK_AND_ASSIGN(auto expected, internal::SubstraitFromJSON("Expression", R"({
@@ -496,7 +498,7 @@ TEST(Substrait, FieldRefsInExpressions) {
                                                         compute::field_ref("struct"),
                                                     })},
                                      compute::StructFieldOptions({0}))
-                           .Bind(*kBoringSchema));
+                           .Bind(*kBoringSchema, compute::default_exec_context()));
 
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
@@ -575,7 +577,8 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
                          compute::StructFieldOptions({0})),
        }) {
     ARROW_SCOPED_TRACE(expr.ToString());
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(expr,
+                         expr.Bind(*kBoringSchema, compute::default_exec_context()));
 
     ExtensionSet ext_set;
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
@@ -585,7 +588,8 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
     EXPECT_EQ(ext_set.num_functions(), 0);
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
-    ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(
+        roundtripped, roundtripped.Bind(*kBoringSchema, compute::default_exec_context()));
     EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
   }
 }
@@ -595,7 +599,8 @@ TEST(Substrait, CallExtensionFunction) {
            compute::call("add", {compute::literal(0), compute::literal(1)}),
        }) {
     ARROW_SCOPED_TRACE(expr.ToString());
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(expr,
+                         expr.Bind(*kBoringSchema, compute::default_exec_context()));
 
     ExtensionSet ext_set;
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
@@ -604,7 +609,8 @@ TEST(Substrait, CallExtensionFunction) {
     EXPECT_EQ(ext_set.num_functions(), 1);
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
-    ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(
+        roundtripped, roundtripped.Bind(*kBoringSchema, compute::default_exec_context()));
     EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
   }
 }

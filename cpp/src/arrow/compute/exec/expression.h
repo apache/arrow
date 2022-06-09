@@ -70,8 +70,10 @@ class ARROW_EXPORT Expression {
   /// Bind this expression to the given input type, looking up Kernels and field types.
   /// Some expression simplification may be performed and implicit casts will be inserted.
   /// Any state necessary for execution will be initialized and returned.
-  Result<Expression> Bind(const ValueDescr& in, ExecContext* = NULLPTR) const;
-  Result<Expression> Bind(const Schema& in_schema, ExecContext* = NULLPTR) const;
+  /// The exec_ctx provides the function registry used to lookup kernels and may also
+  /// be used during expression simplification to evaluate constant functions.
+  Result<Expression> Bind(const ValueDescr& in, ExecContext* exec_ctx) const;
+  Result<Expression> Bind(const Schema& in_schema, ExecContext* exec_ctx) const;
 
   // XXX someday
   // Clone all KernelState in this bound expression. If any function referenced by this

@@ -54,7 +54,8 @@ static void BindAndEvaluate(benchmark::State& state, Expression expr) {
       /*length=*/4);
 
   for (auto _ : state) {
-    ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
+    ASSIGN_OR_ABORT(auto bound,
+                    expr.Bind(*dataset_schema, compute::default_exec_context()));
     ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
   }
 }
@@ -63,7 +64,7 @@ static void BindAndEvaluate(benchmark::State& state, Expression expr) {
 static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filter,
                                         Expression guarantee) {
   auto dataset_schema = schema({field("a", int64()), field("b", int64())});
-  ASSIGN_OR_ABORT(filter, filter.Bind(*dataset_schema));
+  ASSIGN_OR_ABORT(filter, filter.Bind(*dataset_schema, compute::default_exec_context()));
 
   for (auto _ : state) {
     ABORT_NOT_OK(SimplifyWithGuarantee(filter, guarantee));
@@ -81,7 +82,8 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
   ExecBatch input({Datum(ConstantArrayGenerator::Int64(rows_per_batch, 5))},
                   /*length=*/rows_per_batch);
 
-  ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
+  ASSIGN_OR_ABORT(auto bound,
+                  expr.Bind(*dataset_schema, compute::default_exec_context()));
   for (auto _ : state) {
     for (int it = 0; it < num_batches; ++it)
       ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());

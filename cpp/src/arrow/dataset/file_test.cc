@@ -180,7 +180,8 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
               schema({field("i32", int32()), field("f32", float32())}));
 
   auto GetFragments = [&](compute::Expression filter) {
-    return *dataset_->GetFragments(*filter.Bind(*dataset_->schema()));
+    return *dataset_->GetFragments(
+        *filter.Bind(*dataset_->schema(), compute::default_exec_context()));
   };
 
   // Default filter should always return all data.
@@ -245,7 +246,8 @@ TEST_F(TestFileSystemDataset, TreePartitionPruning) {
   AssertFragmentsAreFromPath(*dataset_->GetFragments(), all_cities);
 
   auto GetFragments = [&](compute::Expression filter) {
-    return *dataset_->GetFragments(*filter.Bind(*dataset_->schema()));
+    return *dataset_->GetFragments(
+        *filter.Bind(*dataset_->schema(), compute::default_exec_context()));
   };
 
   // Dataset's partitions are respected

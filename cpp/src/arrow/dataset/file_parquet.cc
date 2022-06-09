@@ -721,8 +721,11 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
       if (auto minmax =
               ColumnChunkStatisticsAsExpression(schema_field, *row_group_metadata)) {
         FoldingAnd(&statistics_expressions_[i], std::move(*minmax));
+        // We are probably fine using the default exec context here.  These expressions
+        // are mainly meant to enable simplification and not to actually be evaluated.
         ARROW_ASSIGN_OR_RAISE(statistics_expressions_[i],
-                              statistics_expressions_[i].Bind(*physical_schema_));
+                              statistics_expressions_[i].Bind(
+                                  *physical_schema_, compute::default_exec_context()));
       }
 
       ++i;

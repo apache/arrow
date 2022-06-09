@@ -123,11 +123,14 @@ TEST(ExpressionUtils, Comparison) {
 
 TEST(ExpressionUtils, StripOrderPreservingCasts) {
   auto Expect = [](Expression expr, util::optional<Expression> expected_stripped) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(expr,
+                         expr.Bind(*kBoringSchema, compute::default_exec_context()));
     if (!expected_stripped) {
       expected_stripped = expr;
     } else {
-      ASSERT_OK_AND_ASSIGN(expected_stripped, expected_stripped->Bind(*kBoringSchema));
+      ASSERT_OK_AND_ASSIGN(
+          expected_stripped,
+          expected_stripped->Bind(*kBoringSchema, compute::default_exec_context()));
     }
     EXPECT_EQ(Comparison::StripOrderPreservingCasts(expr), *expected_stripped);
   };
@@ -392,7 +395,9 @@ TEST(Expression, IsScalarExpression) {
 }
 
 TEST(Expression, IsSatisfiable) {
-  auto Bind = [](Expression expr) { return expr.Bind(*kBoringSchema).ValueOrDie(); };
+  auto Bind = [](Expression expr) {
+    return expr.Bind(*kBoringSchema, compute::default_exec_context()).ValueOrDie();
+  };
 
   EXPECT_TRUE(literal(true).IsSatisfiable());
   EXPECT_FALSE(literal(false).IsSatisfiable());
@@ -506,10 +511,10 @@ void ExpectBindsTo(Expression expr, util::optional<Expression> expected,
     expected = expr;
   }
 
-  ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(schema));
+  ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(schema, compute::default_exec_context()));
   EXPECT_TRUE(bound.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(expected, expected->Bind(schema));
+  ASSERT_OK_AND_ASSIGN(expected, expected->Bind(schema, compute::default_exec_context()));
   EXPECT_EQ(bound, *expected) << " unbound: " << expr.ToString();
 
   if (bound_out) {
@@ -527,12 +532,15 @@ TEST(Expression, BindFieldRef) {
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
   // if the field is not found, an error will be raised
-  ASSERT_RAISES(Invalid, field_ref("no such field").Bind(*kBoringSchema));
+  ASSERT_RAISES(
+      Invalid,
+      field_ref("no such field").Bind(*kBoringSchema, compute::default_exec_context()));
 
   // referencing a field by name is not supported if that name is not unique
   // in the input schema
-  ASSERT_RAISES(Invalid, field_ref("alpha").Bind(Schema(
-                             {field("alpha", int32()), field("alpha", float32())})));
+  ASSERT_RAISES(Invalid, field_ref("alpha").Bind(
+                             Schema({field("alpha", int32()), field("alpha", float32())}),
+                             compute::default_exec_context()));
 }
 
 TEST(Expression, BindNestedFieldRef) {
@@ -547,10 +555,14 @@ TEST(Expression, BindNestedFieldRef) {
   EXPECT_TRUE(expr.IsBound());
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
-  ASSERT_RAISES(Invalid, field_ref(FieldPath({0, 1})).Bind(schema));
-  ASSERT_RAISES(Invalid, field_ref(FieldRef("a", "b"))
-                             .Bind(Schema({field("a", struct_({field("b", int32()),
-                                                               field("b", int64())}))})));
+  ASSERT_RAISES(
+      Invalid,
+      field_ref(FieldPath({0, 1})).Bind(schema, compute::default_exec_context()));
+  ASSERT_RAISES(
+      Invalid,
+      field_ref(FieldRef("a", "b"))
+          .Bind(Schema({field("a", struct_({field("b", int32()), field("b", int64())}))}),
+                compute::default_exec_context()));
 }
 
 TEST(Expression, BindCall) {
@@ -604,9 +616,9 @@ TEST(Expression, BindNestedCall) {
                                      field_ref("d")})});
   EXPECT_FALSE(expr.IsBound());
 
-  ASSERT_OK_AND_ASSIGN(expr,
-                       expr.Bind(Schema({field("a", int32()), field("b", int32()),
-                                         field("c", int32()), field("d", int32())})));
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(Schema({field("a", int32()), field("b", int32()),
+                                               field("c", int32()), field("d", int32())}),
+                                       compute::default_exec_context()));
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
   EXPECT_TRUE(expr.IsBound());
 }
@@ -615,7 +627,7 @@ TEST(Expression, ExecuteFieldRef) {
   auto ExpectRefIs = [](FieldRef ref, Datum in, Datum expected) {
     auto expr = field_ref(ref);
 
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr(), compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(Datum actual,
                          ExecuteScalarExpression(expr, Schema(in.type()->fields()), in));
 
@@ -726,10 +738,10 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& 
 void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
   std::shared_ptr<Schema> schm;
   if (in.is_value()) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr(), compute::default_exec_context()));
     schm = schema(in.type()->fields());
   } else {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.schema()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.schema(), compute::default_exec_context()));
     schm = in.schema();
   }
 
@@ -800,7 +812,7 @@ TEST(Expression, ExecuteDictionaryTransparent) {
 
   ASSERT_OK_AND_ASSIGN(
       auto expr, project({field_ref("i32"), field_ref("dict_str")}, {"i32", "dict_str"})
-                     .Bind(*kBoringSchema));
+                     .Bind(*kBoringSchema, compute::default_exec_context()));
 
   ASSERT_OK_AND_ASSIGN(
       expr, SimplifyWithGuarantee(expr, equal(field_ref("dict_str"), literal("eh"))));
@@ -832,8 +844,10 @@ void ExpectIdenticalIfUnchanged(Expression modified, Expression original) {
 
 struct {
   void operator()(Expression expr, Expression expected) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(expected, expected.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(expr,
+                         expr.Bind(*kBoringSchema, compute::default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(expected,
+                         expected.Bind(*kBoringSchema, compute::default_exec_context()));
 
     ASSERT_OK_AND_ASSIGN(auto folded, FoldConstants(expr));
 
@@ -979,8 +993,11 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
       [](Expression expr,
          const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
          Expression unbound_expected) {
-        ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
-        ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(expr,
+                             expr.Bind(*kBoringSchema, compute::default_exec_context()));
+        ASSERT_OK_AND_ASSIGN(
+            auto expected,
+            unbound_expected.Bind(*kBoringSchema, compute::default_exec_context()));
         ASSERT_OK_AND_ASSIGN(auto replaced, ReplaceFieldsWithKnownValues(
                                                 KnownFieldValues{known_values}, expr));
 
@@ -1052,8 +1069,11 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
 
 struct {
   void operator()(Expression expr, Expression unbound_expected) const {
-    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto bound,
+                         expr.Bind(*kBoringSchema, compute::default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected,
+        unbound_expected.Bind(*kBoringSchema, compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(auto actual, Canonicalize(bound));
 
     EXPECT_EQ(actual, expected);
@@ -1118,11 +1138,14 @@ struct Simplify {
     Expression expr, guarantee;
 
     void Expect(Expression unbound_expected) {
-      ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*kBoringSchema));
+      ASSERT_OK_AND_ASSIGN(auto bound,
+                           expr.Bind(*kBoringSchema, compute::default_exec_context()));
 
       ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(bound, guarantee));
 
-      ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
+      ASSERT_OK_AND_ASSIGN(
+          auto expected,
+          unbound_expected.Bind(*kBoringSchema, compute::default_exec_context()));
       EXPECT_EQ(simplified, expected) << "  original:   " << expr.ToString() << "\n"
                                       << "  guarantee:  " << guarantee.ToString() << "\n"
                                       << (simplified == bound ? "  (no change)\n" : "");
@@ -1235,7 +1258,8 @@ TEST(Expression, SingleComparisonGuarantees) {
             StructArray::Make({ArrayFromJSON(int32(), satisfying_i32[guarantee_op])},
                               {"i32"}));
 
-        ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(
+            filter, filter.Bind(*kBoringSchema, compute::default_exec_context()));
         ASSERT_OK_AND_ASSIGN(Datum evaluated,
                              ExecuteScalarExpression(filter, *kBoringSchema, input));
 
@@ -1397,7 +1421,8 @@ TEST(Expression, SimplifyThenExecute) {
            call("is_in", {field_ref("i64")},
                 compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true})});
 
-  ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(filter,
+                       filter.Bind(*kBoringSchema, compute::default_exec_context()));
   auto guarantee = greater(field_ref("f32"), literal(0.0));
 
   ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
@@ -1424,7 +1449,8 @@ TEST(Expression, Filter) {
     auto batch = RecordBatchFromJSON(s, batch_json);
     auto expected_mask = batch->column(0);
 
-    ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(filter,
+                         filter.Bind(*kBoringSchema, compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(Datum mask,
                          ExecuteScalarExpression(filter, *kBoringSchema, batch));
 
@@ -1524,7 +1550,8 @@ TEST(Projection, AugmentWithNull) {
                              R"([{"i32": 0}, {"i32": 1}, {"i32": 2}])");
 
   auto ExpectProject = [&](Expression proj, Datum expected) {
-    ASSERT_OK_AND_ASSIGN(proj, proj.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(proj,
+                         proj.Bind(*kBoringSchema, compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(auto actual,
                          ExecuteScalarExpression(proj, *kBoringSchema, input));
     AssertDatumsEqual(Datum(expected), actual);
@@ -1554,7 +1581,8 @@ TEST(Projection, AugmentWithKnownValues) {
 
   auto ExpectSimplifyAndProject = [&](Expression proj, Datum expected,
                                       Expression guarantee) {
-    ASSERT_OK_AND_ASSIGN(proj, proj.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(proj,
+                         proj.Bind(*kBoringSchema, compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(proj, SimplifyWithGuarantee(proj, guarantee));
     ASSERT_OK_AND_ASSIGN(auto actual,
                          ExecuteScalarExpression(proj, *kBoringSchema, input));

@@ -178,7 +178,9 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragments of a dataset.
   void AssertDatasetFragmentsEqual(RecordBatchReader* expected, Dataset* dataset,
                                    bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto predicate, options_->filter.Bind(*dataset->schema()));
+    ASSERT_OK_AND_ASSIGN(
+        auto predicate,
+        options_->filter.Bind(*dataset->schema(), compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(auto it, dataset->GetFragments(predicate));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<Fragment> fragment) -> Status {
@@ -302,7 +304,8 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   void SetFilter(compute::Expression filter) {
-    ASSERT_OK_AND_ASSIGN(options_->filter, filter.Bind(*schema_));
+    ASSERT_OK_AND_ASSIGN(options_->filter,
+                         filter.Bind(*schema_, compute::default_exec_context()));
   }
 
   void SetProjectedColumns(std::vector<std::string> column_names) {
@@ -410,7 +413,8 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
   void SetFilter(compute::Expression filter) {
-    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
+    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema,
+                                                    compute::default_exec_context()));
   }
 
   void Project(std::vector<std::string> names) {
@@ -542,17 +546,20 @@ class FileFormatFixtureMixin : public ::testing::Test {
                               fragment->CountRows(literal(true), options));
 
     auto predicate = equal(field_ref("part"), literal(1));
-    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_OK_AND_ASSIGN(predicate,
+                         predicate.Bind(*full_schema, compute::default_exec_context()));
     ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(0),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("part"), literal(2));
-    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_OK_AND_ASSIGN(predicate,
+                         predicate.Bind(*full_schema, compute::default_exec_context()));
     ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(call("add", {field_ref("f64"), literal(3)}), literal(2));
-    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_OK_AND_ASSIGN(predicate,
+                         predicate.Bind(*full_schema, compute::default_exec_context()));
     ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
   }
 

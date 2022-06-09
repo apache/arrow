@@ -64,7 +64,8 @@ static void GetAllFragments(benchmark::State& state) {
 
 static void GetFilteredFragments(benchmark::State& state, compute::Expression filter) {
   auto dataset = GetDataset();
-  ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*dataset->schema()));
+  compute::ExecContext exec_ctx;
+  ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*dataset->schema(), &exec_ctx));
   for (auto _ : state) {
     ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments(filter));
     ABORT_NOT_OK(fragments.Visit([](std::shared_ptr<Fragment>) { return Status::OK(); }));

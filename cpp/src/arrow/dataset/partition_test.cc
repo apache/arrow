@@ -72,7 +72,9 @@ class TestPartitioning : public ::testing::Test {
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
                          partitioning_->Parse(formatted.directory + formatted.filename));
-    ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
+    ASSERT_OK_AND_ASSIGN(
+        roundtripped,
+        roundtripped.Bind(*written_schema_, compute::default_exec_context()));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
     ASSERT_EQ(simplified, literal(true));
   }
