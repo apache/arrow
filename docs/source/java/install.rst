@@ -143,21 +143,26 @@ Installing Nightly Packages
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
 The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
-Installing from GitHub Raw
-**************************
+Installing from Apache Nightlies
+********************************
 
-Steps involved to install to local Maven repository using GitHub Raw Repository:
+Steps involved to install to local Maven repository using Apache Nightlies Repository:
 
-1. Is needed to add GitHub Raw Repository to the Maven/Gradle project. For Maven pom.xml is needed to add repositories tag.
+1. Is needed to add Apache Nightlies Repository to the Maven/Gradle project. For Maven pom.xml is needed to add arrow/java directory.
 
 .. code-block:: xml
 
+    <properties>
+        <arrow.version>9.0.0.dev191</arrow.version>
+    </properties>
+    ...
     <repositories>
         <repository>
-            <id>arrow-nightly</id>
-            <url>https://raw.github.com/davisusanibar/tmprepocrossbow/actions-7a102b9b5e-github-java-jars/repo</url>
+            <id>arrow-apache-nightlies</id>
+            <url>https://nightlies.apache.org/arrow/java</url>
         </repository>
     </repositories>
+    ...
 
 Installing Manually
 *******************
