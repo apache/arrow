@@ -1040,7 +1040,7 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       target: {{ target }}
-      github_runner: "self-hosted"
+      github_runner: ["self-hosted", "macOS", "arm64"]
   {% endfor %}
 
   {% for macos_version in ["10.15", "11"] %}
@@ -1067,7 +1067,7 @@ tasks:
     params:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      github_runner: "self-hosted"
+      github_runner: ["self-hosted", "macOS", "arm64"]
       arch_emulation: arm64
       target: "wheels"
 
