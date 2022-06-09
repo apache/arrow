@@ -147,7 +147,7 @@ Installing from Apache Nightlies
 ********************************
 1. Look up the nightly version number for the Arrow libraries used.
 
-    For example, for ``arrow-memory``, visit  https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what versions are available (e.g. 9.0.0.dev191).
+   For example, for ``arrow-memory``, visit  https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what versions are available (e.g. 9.0.0.dev191).
 2. Add Apache Nightlies Repository to the Maven/Gradle project.
 
 .. code-block:: xml
