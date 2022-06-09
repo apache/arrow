@@ -518,7 +518,7 @@ substrait::Expression::ScalarFunction arrow_convert_arguments(const arrow::compu
   return std::move(substrait_call);
 }
 
-substrait::Expression::ScalarFunction arrow_convert_arithmetic_arguments(const arrow::compute::Expression::Call& call, substrait::Expression::ScalarFunction& substrait_call, ExtensionSet* ext_set_, std::string overflow_handling){
+substrait::Expression::ScalarFunction arrow_convert_enum_arguments(const arrow::compute::Expression::Call& call, substrait::Expression::ScalarFunction& substrait_call, ExtensionSet* ext_set_, std::string overflow_handling){
   substrait::Expression::Enum options;
   options.set_specified(overflow_handling);
   substrait_call.add_args()->set_allocated_enum_(&options);
@@ -567,42 +567,42 @@ ArrowToSubstrait arrow_add_to_substrait = [] (const arrow::compute::Expression::
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("add"));
   substrait_call.set_function_reference(function_reference);
-  return arrow_convert_arithmetic_arguments(call, substrait_call, ext_set_, "ERROR");
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "ERROR");
  };
 
 ArrowToSubstrait arrow_unchecked_add_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("add"));
   substrait_call.set_function_reference(function_reference);
-  return arrow_convert_arithmetic_arguments(call, substrait_call, ext_set_, "SILENT");
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "SILENT");
 };
 
 ArrowToSubstrait arrow_subtract_to_substrait = [] (const arrow::compute::Expression::Call& call, arrow::engine::ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("subtract"));
   substrait_call.set_function_reference(function_reference);
-  return arrow_convert_arithmetic_arguments(call, substrait_call, ext_set_, "ERROR");
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "ERROR");
 };
 
 ArrowToSubstrait arrow_unchecked_subtract_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("subtract"));
   substrait_call.set_function_reference(function_reference);
-  return arrow_convert_arithmetic_arguments(call, substrait_call, ext_set_, "SILENT") ;
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "SILENT") ;
 };
 
 ArrowToSubstrait arrow_multiply_to_substrait = [] (const arrow::compute::Expression::Call& call, arrow::engine::ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("multiply"));
   substrait_call.set_function_reference(function_reference);
-  return arrow_convert_arithmetic_arguments(call, substrait_call, ext_set_, "ERROR");
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "ERROR");
 };
 
 ArrowToSubstrait arrow_unchecked_multiply_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("multiply"));
   substrait_call.set_function_reference(function_reference);
-  return arrow_convert_arithmetic_arguments(call, substrait_call, ext_set_, "SILENT");
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "SILENT");
 };
 
 ArrowToSubstrait arrow_abs_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
@@ -863,5 +863,85 @@ ArrowToSubstrait arrow_cast_to_substrait = [] (const arrow::compute::Expression:
   
   return substrait_call;
 };
+
+// Datetime functions mapping
+SubstraitToArrow substrait_extract_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto func_args = substrait_convert_arguments(call);
+  if(func_args[0].ToString() == "YEAR"){
+    return arrow::compute::call("year", {func_args[1]});
+  } else if (func_args[0].ToString() == "MONTH") {
+    return arrow::compute::call("month", {func_args[1]});
+  } else if (func_args[0].ToString() == "DAY") {
+    return arrow::compute::call("day", {func_args[1]});
+  } else {
+    return arrow::compute::call("second", {func_args[1]});
+  }
+};
+
+ArrowToSubstrait arrow_year_to_arrow = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("extract"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "YEAR");
+};
+
+ArrowToSubstrait arrow_month_to_arrow = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("extract"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "MONTH");
+};
+
+ArrowToSubstrait arrow_day_to_arrow = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("extract"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "DAY");
+};
+
+ArrowToSubstrait arrow_second_to_arrow = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("extract"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "SECOND");
+};
+
+// Substrait Datetime add/subtract mappings should work for datetime intervals functions as well
+SubstraitToArrow substrait_datetime_add_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  return arrow::compute::call("add", substrait_convert_arguments(call), compute::ArithmeticOptions());
+ };
+
+SubstraitToArrow substrait_datetime_subtract_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  return arrow::compute::call("subtract", substrait_convert_arguments(call), compute::ArithmeticOptions());
+ };
+
+ArrowToSubstrait arrow_datetime_add_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("add"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_datetime_subtract_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("subtract"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_datetime_add_intervals_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("add_intervals"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+ArrowToSubstrait arrow_datetime_subtract_intervals_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("subtract_intervals"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
 }  // namespace engine
 }  // namespace arrow
