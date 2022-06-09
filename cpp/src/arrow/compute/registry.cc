@@ -38,35 +38,32 @@ class FunctionRegistry::FunctionRegistryImpl {
       : parent_(parent) {}
   ~FunctionRegistryImpl() {}
 
-  Status CanAddFunction(std::shared_ptr<Function> function,
-                        bool allow_overwrite) {
+  Status CanAddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
     if (parent_ != NULLPTR) {
-        RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
+      RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
     }
     return DoAddFunction(function, allow_overwrite, /*add=*/false);
   }
 
   Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
     if (parent_ != NULLPTR) {
-        RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
+      RETURN_NOT_OK(parent_->CanAddFunction(function, allow_overwrite));
     }
     return DoAddFunction(function, allow_overwrite, /*add=*/true);
   }
 
-  Status CanAddAlias(const std::string& target_name,
-                     const std::string& source_name) {
+  Status CanAddAlias(const std::string& target_name, const std::string& source_name) {
     if (parent_ != NULLPTR) {
-        RETURN_NOT_OK(parent_->CanAddFunctionName(target_name,
-                                                  /*allow_overwrite=*/false));
+      RETURN_NOT_OK(parent_->CanAddFunctionName(target_name,
+                                                /*allow_overwrite=*/false));
     }
     return DoAddAlias(target_name, source_name, /*add=*/false);
   }
 
-  Status AddAlias(const std::string& target_name,
-                  const std::string& source_name) {
+  Status AddAlias(const std::string& target_name, const std::string& source_name) {
     if (parent_ != NULLPTR) {
-        RETURN_NOT_OK(parent_->CanAddFunctionName(target_name,
-                                                  /*allow_overwrite=*/false));
+      RETURN_NOT_OK(parent_->CanAddFunctionName(target_name,
+                                                /*allow_overwrite=*/false));
     }
     return DoAddAlias(target_name, source_name, /*add=*/true);
   }
@@ -74,7 +71,7 @@ class FunctionRegistry::FunctionRegistryImpl {
   Status CanAddFunctionOptionsType(const FunctionOptionsType* options_type,
                                    bool allow_overwrite = false) {
     if (parent_ != NULLPTR) {
-        RETURN_NOT_OK(parent_->CanAddFunctionOptionsType(options_type, allow_overwrite));
+      RETURN_NOT_OK(parent_->CanAddFunctionOptionsType(options_type, allow_overwrite));
     }
     return DoAddFunctionOptionsType(options_type, allow_overwrite, /*add=*/false);
   }
@@ -82,7 +79,7 @@ class FunctionRegistry::FunctionRegistryImpl {
   Status AddFunctionOptionsType(const FunctionOptionsType* options_type,
                                 bool allow_overwrite = false) {
     if (parent_ != NULLPTR) {
-        RETURN_NOT_OK(parent_->CanAddFunctionOptionsType(options_type, allow_overwrite));
+      RETURN_NOT_OK(parent_->CanAddFunctionOptionsType(options_type, allow_overwrite));
     }
     return DoAddFunctionOptionsType(options_type, allow_overwrite, /*add=*/true);
   }
