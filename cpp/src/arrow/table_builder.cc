@@ -38,7 +38,8 @@ RecordBatchBuilder::RecordBatchBuilder(const std::shared_ptr<Schema>& schema,
 
 Status RecordBatchBuilder::Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                                 std::unique_ptr<RecordBatchBuilder>* builder) {
-  return Make(schema, pool, kMinBuilderCapacity, builder);
+  ARROW_ASSIGN_OR_RAISE(*builder, Make(schema, pool, kMinBuilderCapacity))
+  return Status::OK();
 }
 
 Status RecordBatchBuilder::Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
@@ -69,7 +70,8 @@ Status RecordBatchBuilder::Flush(bool reset_builders,
 }
 
 Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
-  return Flush(true, batch);
+  ARROW_ASSIGN_OR_RAISE(*batch, Flush(true));
+  return Status::OK();
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatchBuilder::Flush(bool reset_builders) {
