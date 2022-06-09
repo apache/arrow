@@ -188,18 +188,6 @@ class TestFileDescriptor : public ::testing::Test {
   void AssertInvalidFileDescriptor(int fd) {
     ASSERT_TRUE(FileIsClosed(fd)) << "Unexpectedly valid file descriptor: " << fd;
   }
-
-  Result<bool> IsValidFileDescriptor(int fd) {
-    int new_fd = dup(fd);
-    if (new_fd >= 0) {
-      close(new_fd);
-      return true;
-    } else if (errno == EBADF) {
-      return false;
-    } else {
-      return IOErrorFromErrno(errno, "Failed to dup fd ", fd);
-    }
-  }
 };
 
 TEST_F(TestFileDescriptor, Basics) {

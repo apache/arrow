@@ -1073,7 +1073,7 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
 #endif
 
-  return fd;
+  return std::move(fd);
 }
 
 Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
@@ -1146,7 +1146,7 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     // Seek to end, as O_APPEND does not necessarily do it
     RETURN_NOT_OK(lseek64_compat(fd.fd(), 0, SEEK_END));
   }
-  return fd;
+  return std::move(fd);
 }
 
 Result<int64_t> FileTell(int fd) {
