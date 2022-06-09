@@ -35,11 +35,11 @@
 namespace arrow {
 namespace compute {
 
-static constexpr int64_t kTotalBatchSize = 1e6;
+static constexpr int64_t kTotalBatchSize = 1000000;
 
 static void ProjectionOverhead(benchmark::State& state, Expression expr) {
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
-  const int64_t num_batches = kTotalBatchSize / batch_size;
+  const int32_t num_batches = kTotalBatchSize / batch_size;
 
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
@@ -75,7 +75,7 @@ static void ProjectionOverhead(benchmark::State& state, Expression expr) {
 
 static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr) {
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
-  const int64_t num_batches = kTotalBatchSize / batch_size;
+  const int32_t num_batches = kTotalBatchSize / batch_size;
 
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
@@ -98,7 +98,8 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
                                       ProjectNodeOptions{{
                                           expr,
                                       }}));
-    MakeExecNode("sink", plan.get(), {project_node}, SinkNodeOptions{&sink_gen});
+    ASSERT_OK(
+        MakeExecNode("sink", plan.get(), {project_node}, SinkNodeOptions{&sink_gen}));
 
     std::unique_ptr<arrow::compute::TaskScheduler> scheduler = TaskScheduler::Make();
     std::condition_variable all_tasks_finished_cv;
@@ -109,7 +110,7 @@ static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr)
           return Status::OK();
         },
         [&](size_t thread_id) {
-          project_node->InputFinished(source_node, data.batches.size());
+          project_node->InputFinished(source_node, static_cast<int>(data.batches.size()));
           std::unique_lock<std::mutex> lk(mutex);
           all_tasks_finished_cv.notify_one();
           return Status::OK();
