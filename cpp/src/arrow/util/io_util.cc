@@ -95,7 +95,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/ubsan.h"
 
 // For filename conversion
 #if defined(_WIN32)
@@ -1204,8 +1203,6 @@ namespace {
 #endif
 
 class SelfPipeImpl : public SelfPipe {
-  using PayloadBytes = std::array<char, 8>;
-
   static constexpr uint64_t kEofPayload = 5804561806345822987ULL;
 
  public:
@@ -1228,9 +1225,9 @@ class SelfPipeImpl : public SelfPipe {
       // Already closed
       return ClosedPipe();
     }
-    PayloadBytes bytes;
-    char* buf = bytes.data();
-    auto buf_size = static_cast<int64_t>(bytes.size());
+    uint64_t payload = 0;
+    char* buf = reinterpret_cast<char*>(&payload);
+    auto buf_size = static_cast<int64_t>(sizeof(payload));
     while (buf_size > 0) {
       int64_t n_read = PIPE_READ(pipe_.rfd.fd(), buf, static_cast<uint32_t>(buf_size));
       if (n_read < 0) {
@@ -1245,7 +1242,6 @@ class SelfPipeImpl : public SelfPipe {
       buf += n_read;
       buf_size -= n_read;
     }
-    const auto payload = PayloadFromBytes(bytes);
     if (payload == kEofPayload && please_shutdown_.load()) {
       RETURN_NOT_OK(pipe_.rfd.Close());
       return ClosedPipe();
@@ -1285,14 +1281,6 @@ class SelfPipeImpl : public SelfPipe {
   }
 
  protected:
-  PayloadBytes PayloadToBytes(uint64_t payload) const {
-    return arrow::util::SafeCopy<PayloadBytes>(payload);
-  }
-
-  uint64_t PayloadFromBytes(PayloadBytes bytes) const {
-    return arrow::util::SafeCopy<uint64_t>(bytes);
-  }
-
   Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
 
   bool DoSend(uint64_t payload) {
@@ -1301,9 +1289,8 @@ class SelfPipeImpl : public SelfPipe {
       // Already closed
       return false;
     }
-    const auto bytes = PayloadToBytes(payload);
-    const char* buf = bytes.data();
-    auto buf_size = static_cast<int64_t>(bytes.size());
+    const char* buf = reinterpret_cast<const char*>(&payload);
+    auto buf_size = static_cast<int64_t>(sizeof(payload));
     while (buf_size > 0) {
       int64_t n_written =
           PIPE_WRITE(pipe_.wfd.fd(), buf, static_cast<uint32_t>(buf_size));
