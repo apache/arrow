@@ -559,6 +559,17 @@ SubstraitToArrow substrait_multiply_to_arrow = [] (const substrait::Expression::
   }
 };
 
+SubstraitToArrow substrait_divide_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  auto func_args = substrait_convert_arguments(call);
+  if(func_args[0].ToString() == "SILENT"){
+    return arrow::compute::call("divide", {func_args[1], func_args[2]}, compute::ArithmeticOptions());
+  } else if (func_args[0].ToString() == "SATURATE") {
+    return Status::Invalid("Arrow does not support a saturating divide");
+  } else {
+    return arrow::compute::call("divide_checked", {func_args[1], func_args[2]}, compute::ArithmeticOptions(true));
+  }
+};
+
 SubstraitToArrow substrait_modulus_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
   return arrow::compute::call("abs", substrait_convert_arguments(call));
 };
@@ -601,6 +612,21 @@ ArrowToSubstrait arrow_multiply_to_substrait = [] (const arrow::compute::Express
 ArrowToSubstrait arrow_unchecked_multiply_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("multiply"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "SILENT");
+};
+
+
+ArrowToSubstrait arrow_divide_to_substrait = [] (const arrow::compute::Expression::Call& call, arrow::engine::ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("divide"));
+  substrait_call.set_function_reference(function_reference);
+  return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "ERROR");
+};
+
+ArrowToSubstrait arrow_unchecked_divide_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
+  substrait::Expression::ScalarFunction substrait_call;
+  ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("divide"));
   substrait_call.set_function_reference(function_reference);
   return arrow_convert_enum_arguments(call, substrait_call, ext_set_, "SILENT");
 };
