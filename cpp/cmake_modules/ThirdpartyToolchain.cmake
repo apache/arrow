@@ -3657,13 +3657,15 @@ macro(build_grpc)
   # Yuck, see https://stackoverflow.com/a/45433229/776560
   string(REPLACE ";" "|" GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
 
+  set(GRPC_C_FLAGS "${EP_C_FLAGS}")
+  set(GRPC_CXX_FLAGS "${EP_CXX_FLAGS}")
   if(NOT MSVC)
     # Negate warnings that gRPC cannot build under
     # See https://github.com/grpc/grpc/issues/29417
     set(GRPC_C_FLAGS
-        "${EP_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+        "${GRPC_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
     set(GRPC_CXX_FLAGS
-        "${EP_CXX_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
+        "${GRPC_CXX_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
     )
   endif()
 
