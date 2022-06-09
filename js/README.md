@@ -43,11 +43,11 @@ Check out our [API documentation][5] to learn more about how to use Apache Arrow
 
 ## Cookbook
 
-### Get a table from an Arrow file on disk (in IPC format)
+### Read and Write a Table from/to Arrow file on disk (in IPC format)
 
 ```js
-import { readFileSync } from 'fs';
-import { tableFromIPC } from 'apache-arrow';
+import { readFileSync, writeFileSync } from 'fs';
+import { tableFromIPC, tableToIPC } from 'apache-arrow';
 
 const arrow = readFileSync('simple.arrow');
 const table = tableFromIPC(arrow);
@@ -62,6 +62,10 @@ null, null, null
    4,    4,  bbb
    5,    5, cccc
 */
+
+const path = "outfile.arrow"
+const data = arrow.tableToIPC(table, path);
+writeFileSync(path, data, "binary");
 ```
 
 ### Create a Table when the Arrow file is split across buffers
