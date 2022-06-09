@@ -56,9 +56,11 @@ jobs:
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
 
+      {% if arrow.branch == 'master' %}
       - name: Push Docker Image
         shell: cmd
         run: |
           cd arrow
           archery docker push python-wheel-windows-vs2017
           archery docker push python-wheel-windows-test
+      {% endif %}
