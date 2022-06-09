@@ -59,7 +59,7 @@ class ARROW_EXPORT HashJoinSchema {
                                 const std::string& right_field_name_prefix);
 
   Result<Expression> BindFilter(Expression filter, const Schema& left_schema,
-                                const Schema& right_schema);
+                                const Schema& right_schema, ExecContext* exec_context);
   std::shared_ptr<Schema> MakeOutputSchema(const std::string& left_field_name_suffix,
                                            const std::string& right_field_name_suffix);
 

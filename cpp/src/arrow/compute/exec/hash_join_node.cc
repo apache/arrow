@@ -336,7 +336,8 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
 
 Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                               const Schema& left_schema,
-                                              const Schema& right_schema) {
+                                              const Schema& right_schema,
+                                              ExecContext* exec_context) {
   if (filter.IsBound() || filter == literal(true)) {
     return std::move(filter);
   }
@@ -367,7 +368,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                           filter);
 
   // Step 3: Bind
-  ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(filter_schema));
+  ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(filter_schema, exec_context));
   if (filter.type()->id() != Type::BOOL) {
     return Status::TypeError("Filter expression must evaluate to bool, but ",
                              filter.ToString(), " evaluates to ",
@@ -454,20 +455,6 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
   return Status::OK();
 }
 
-Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
-  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
-      join_options.right_keys.empty()) {
-    return Status::Invalid("key_cmp and keys cannot be empty");
-  }
-
-  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
-      (join_options.key_cmp.size() != join_options.right_keys.size())) {
-    return Status::Invalid("key_cmp and keys must have the same size");
-  }
-
-  return Status::OK();
-}
-
 class HashJoinNode : public ExecNode {
  public:
   HashJoinNode(ExecPlan* plan, NodeVector inputs, const HashJoinNodeOptions& join_options,
@@ -495,7 +482,6 @@ class HashJoinNode : public ExecNode {
         ::arrow::internal::make_unique<HashJoinSchema>();
 
     const auto& join_options = checked_cast<const HashJoinNodeOptions&>(options);
-    RETURN_NOT_OK(ValidateHashJoinNodeOptions(join_options));
 
     const auto& left_schema = *(inputs[0]->output_schema());
     const auto& right_schema = *(inputs[1]->output_schema());
@@ -514,9 +500,9 @@ class HashJoinNode : public ExecNode {
           join_options.output_suffix_for_left, join_options.output_suffix_for_right));
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        Expression filter,
-        schema_mgr->BindFilter(join_options.filter, left_schema, right_schema));
+    ARROW_ASSIGN_OR_RAISE(Expression filter,
+                          schema_mgr->BindFilter(join_options.filter, left_schema,
+                                                 right_schema, plan->exec_context()));
 
     // Generate output schema
     std::shared_ptr<Schema> output_schema = schema_mgr->MakeOutputSchema(
