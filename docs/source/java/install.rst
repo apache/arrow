@@ -146,9 +146,10 @@ The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be f
 Installing from Apache Nightlies
 ********************************
 
-Steps involved to install to local Maven repository using Apache Nightlies Repository:
+Steps involved to download Java artifacts from Apache Nightlies Repository:
 
-1. Is needed to add Apache Nightlies Repository to the Maven/Gradle project. For Maven pom.xml is needed to add arrow/java directory.
+1. Once you have the Java nightly library needed (i.e. arrow-memory), please go to https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what version are available (i.e. 9.0.0.dev191), this is alligned with Arrow nightly builds.
+2. Add Apache Nightlies Repository to the Maven/Gradle project.
 
 .. code-block:: xml
 
@@ -162,6 +163,14 @@ Steps involved to install to local Maven repository using Apache Nightlies Repos
             <url>https://nightlies.apache.org/arrow/java</url>
         </repository>
     </repositories>
+    ...
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-vector</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+    </dependencies>
     ...
 
 Installing Manually
