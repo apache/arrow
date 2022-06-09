@@ -178,7 +178,7 @@ class ArrowConan(ConanFile):
 
     def _compute(self, required=False):
         if required or self.options.compute == "auto":
-            return bool(self.options.dataset_modules)
+            return bool(self.options.dataset_modules) or bool(self.options.parquet)
         else:
             return bool(self.options.compute)
 
@@ -190,7 +190,7 @@ class ArrowConan(ConanFile):
 
     def _with_re2(self, required=False):
         if required or self.options.with_re2 == "auto":
-            return bool(self.options.gandiva)
+            return bool(self.options.gandiva) or bool(self._compute())
         else:
             return bool(self.options.with_re2)
 
@@ -340,6 +340,7 @@ class ArrowConan(ConanFile):
             self._cmake.definitions["CMAKE_SYSTEM_PROCESSOR"] = cmake_system_processor
         if self.settings.compiler == "Visual Studio":
             self._cmake.definitions["ARROW_USE_STATIC_CRT"] = "MT" in str(self.settings.compiler.runtime)
+        self._cmake.definitions["ARROW_DEFINE_OPTIONS"] = True
         self._cmake.definitions["ARROW_DEPENDENCY_SOURCE"] = "SYSTEM"
         self._cmake.definitions["ARROW_GANDIVA"] = self.options.gandiva
         self._cmake.definitions["ARROW_PARQUET"] = self.options.parquet
