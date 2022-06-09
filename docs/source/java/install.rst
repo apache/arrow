@@ -145,10 +145,9 @@ The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be f
 
 Installing from Apache Nightlies
 ********************************
+1. Look up the nightly version number for the Arrow libraries used.
 
-Steps involved to download Java artifacts from Apache Nightlies Repository:
-
-1. Once you have the Java nightly library needed (i.e. arrow-memory), please go to https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what version are available (i.e. 9.0.0.dev191), this is alligned with Arrow nightly builds.
+    For example, for ``arrow-memory``, visit  https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what versions are available (e.g. 9.0.0.dev191).
 2. Add Apache Nightlies Repository to the Maven/Gradle project.
 
 .. code-block:: xml
@@ -175,8 +174,6 @@ Steps involved to download Java artifacts from Apache Nightlies Repository:
 
 Installing Manually
 *******************
-
-Steps involved to install to local Maven repository manually:
 
 1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-19-0-github-java-jars
 2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memeory-core and arrow-memory-netty).
