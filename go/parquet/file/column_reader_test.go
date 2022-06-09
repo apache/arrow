@@ -312,7 +312,7 @@ func (p *PrimitiveReaderSuite) TestBoolFlatOptional() {
 
 func (p *PrimitiveReaderSuite) TestBoolFlatOptionalSkip() {
 	const (
-		levelsPerPage int = 100
+		levelsPerPage int = 1000
 		npages        int = 5
 	)
 
