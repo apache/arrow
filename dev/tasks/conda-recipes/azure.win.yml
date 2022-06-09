@@ -62,8 +62,7 @@ jobs:
       workingDirectory: arrow\dev\tasks\conda-recipes
 
     - script: |
-        call activate base
-        conda.exe mambabuild arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
+        conda.exe build arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
       displayName: Build recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
@@ -71,8 +70,7 @@ jobs:
       condition: not(contains(variables['CONFIG'], 'vs2008'))
 
     - script: |
-        call activate base
-        conda.exe mambabuild r-arrow -m .ci_support\r\%R_CONFIG%.yaml
+        conda.exe build r-arrow -m .ci_support\r\%R_CONFIG%.yaml
       displayName: Build recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
