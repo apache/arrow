@@ -673,3 +673,31 @@ def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
     assert res_tb.schema == pa.schema(
         [("key", pa.string()), ("value", pa.float64()), ("twice", pa.float64())])
     assert res_tb.drop(["twice"]) == table
+
+
+def _test_query(path):
+    with open(path) as f:
+        querystr = f.read()
+    query = tobytes(querystr)
+
+    plan = substrait._parse_json_plan(query)
+
+    extid_registry = substrait.make_extension_id_registry()
+    func_registry = substrait.make_function_registry()
+    substrait.register_udf_declarations(plan, extid_registry, func_registry)
+
+    reader = substrait.run_query(plan, extid_registry, func_registry)
+    res_tb = reader.read_all()
+
+
+def test_modelstate_udf_add():
+    _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_udf_add")
+    _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_udf_add")
+    #import timeit
+    #timeit.timeit(lambda: _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_udf_add"))
+
+
+def test_modelstate_reg_add():
+    _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_reg_add")
+    #import timeit
+    #timeit.timeit(lambda: _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_reg_add"))

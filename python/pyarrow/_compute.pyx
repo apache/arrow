@@ -465,15 +465,13 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
                         "for compute function")
 
 
-cdef class FunctionRegistry(BaseFunctionRegistry):
-    cdef unique_ptr[CFunctionRegistry] up_registry
-
+cdef class FunctionRegistry(_Weakrefable):
     def __init__(self, registry=None):
         if registry is None:
             self.registry = GetFunctionRegistry()
         else:
             self.registry = pyarrow_unwrap_function_registry(registry)
-            self.up_registry.reset(self.registry)
+        print(f"self: {self} , self.registry: {self.registry != NULL}")
 
     def list_functions(self):
         """
@@ -510,6 +508,7 @@ def make_function_registry():
     up_registry = MakeFunctionRegistry()
     c_registry = up_registry.get()
     up_registry.release()
+    print(f"up_registry: {c_registry != NULL}")
     return FunctionRegistry(pyarrow_wrap_function_registry(c_registry))
 
 
@@ -2527,7 +2526,11 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
     c_func_name = tobytes(function_name)
 
-    func_spec = inspect.getfullargspec(func)
+    try:
+        func_spec = inspect.getfullargspec(func)
+        is_varargs = func_spec.varargs is not None
+    except:
+        is_varargs = True
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
@@ -2539,7 +2542,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         raise TypeError(
             "in_types must be a dictionary of DataType")
 
-    c_arity = CArity(num_args, func_spec.varargs)
+    c_arity = CArity(num_args, is_varargs)
 
     if "summary" not in function_doc:
         raise ValueError("Function doc must contain a summary")
@@ -2563,7 +2566,9 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     if func_registry is None:
         c_func_registry = NULL
     else:
-        c_func_registry = pyarrow_unwrap_function_registry(func_registry)
+        print(f"func_registry: {func_registry}")
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+        print(f"c_func_registry: {c_func_registry != NULL}")
 
     check_status(RegisterScalarFunction(c_function,
                                         <function[CallbackUdf]> &_scalar_udf_callback,

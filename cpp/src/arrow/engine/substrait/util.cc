@@ -112,11 +112,11 @@ class SubstraitExecutor {
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* extid_registry,
     compute::FunctionRegistry* func_registry) {
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
   // TODO(ARROW-15732)
   compute::ExecContext exec_context(arrow::default_memory_pool(),
                                     ::arrow::internal::GetCpuThreadPool(),
                                     func_registry);
+  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   SubstraitExecutor executor(std::move(plan), exec_context);
   RETURN_NOT_OK(executor.Init(substrait_buffer, extid_registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());

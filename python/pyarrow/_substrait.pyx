@@ -28,6 +28,7 @@ from pyarrow.lib import frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
+from pyarrow._compute cimport FunctionRegistry
 
 
 from pyarrow._exec_plan cimport is_supported_execplan_output_type, execplan
@@ -115,14 +116,25 @@ def register_udf_declarations(plan, extid_registry, func_registry, udf_decls=Non
         udf_arg_names = list(inspect.signature(udf_func).parameters.keys())
         udf_arg_types = udf_decl["input_types"]
         register_function(extid_registry, None, udf_name, udf_name)
+        def udf(ctx, *args):
+            try:
+                r = udf_func(*args)
+                with open("bblah", "w") as f:
+                    f.write(str((ctx,args,r)))
+                return r
+            except:
+                import sys
+                with open("bblah", "w") as f:
+                    f.write(str((ctx,args,sys.exc_info())))
+                raise
         pc.register_scalar_function(
-            udf_func,
+            udf,
             udf_name,
             {"summary": udf_decl["summary"],
                 "description": udf_decl["description"]},
             # range start from 1 to skip over udf scalar context argument
             {udf_arg_names[i]: udf_arg_types[i][0]
-                for i in range(1 ,len(udf_arg_types))},
+                for i in range(0 ,len(udf_arg_types))},
             udf_decl["output_type"][0],
             func_registry,
         )
@@ -147,7 +159,12 @@ def _run_query(plan, extid_registry, func_registry, output_type):
 
     c_buf_plan = pyarrow_unwrap_buffer(plan)
     c_extid_registry = pyarrow_unwrap_extension_id_registry(extid_registry)
+    print("substrait _1")
     c_func_registry = pyarrow_unwrap_function_registry(func_registry)
+    if c_func_registry == NULL:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+    print(f"c_func_registry: {c_func_registry != NULL}")
+    print("substrait _2")
     with nogil:
         c_res_decls = DeserializePlans(
             deref(c_buf_plan), c_extid_registry.get())
@@ -179,7 +196,12 @@ def run_query(plan, extid_registry, func_registry):
 
     c_buf_plan = pyarrow_unwrap_buffer(plan)
     c_extid_registry = pyarrow_unwrap_extension_id_registry(extid_registry)
+    print("substrait 1")
     c_func_registry = pyarrow_unwrap_function_registry(func_registry)
+    if c_func_registry == NULL:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+    print(f"c_func_registry: {c_func_registry != NULL}")
+    print("substrait 2")
     with nogil:
         c_res_reader = ExecuteSerializedPlan(
             deref(c_buf_plan), c_extid_registry.get(), c_func_registry

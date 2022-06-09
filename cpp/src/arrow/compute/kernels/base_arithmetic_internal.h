@@ -425,6 +425,102 @@ struct DivideChecked {
   }
 };
 
+// if at least one argument is NaN, returns the first one that is NaN
+struct Minimum {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    return std::isnan(left) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
+    return std::isnan(left) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
+    return std::isnan(left) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left < right ? left : right;
+  }
+};
+
+// if both arguments are NaN, returns the first one
+struct MinimumChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left < right ? left : right;
+  }
+};
+
+// if at least one argument is NaN, returns the first one that is NaN
+struct Maximum {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    return std::isnan(left) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
+    return std::isnan(left) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
+    return std::isnan(left) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left > right ? left : right;
+  }
+};
+
+// if both arguments are NaN, returns the first one
+struct MaximumChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left > right ? left : right;
+  }
+};
+
 struct Negate {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {
