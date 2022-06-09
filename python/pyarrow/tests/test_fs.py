@@ -215,7 +215,7 @@ def gcsfs(request, gcs_server):
         scheme='http',
         # Mock endpoint doesn't check credentials.
         anonymous=True,
-        retry_time_limit=timedelta(seconds=5)
+        retry_time_limit=timedelta(seconds=45)
     )
     fs.create_dir(bucket)
 
