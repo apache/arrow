@@ -766,7 +766,8 @@ cdef class FileFormat(_Weakrefable):
     cdef WrittenFile _finish_write(self, path, base_dir,
                                    CFileWriter* file_writer):
         parquet_metadata = None
-        return WrittenFile(path, parquet_metadata)
+        size = GetResultValue(file_writer.GetBytesWritten())
+        return WrittenFile(path, parquet_metadata, size)
 
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
@@ -2677,11 +2678,21 @@ cdef class WrittenFile(_Weakrefable):
     """
     Metadata information about files written as
     part of a dataset write operation
+
+    Parameters
+    ----------
+    path : str
+        Path to the file.
+    metadata : pyarrow.parquet.FileMetaData, optional
+        For Parquet files, the Parquet file metadata.
+    size : int
+        The size of the file in bytes.
     """
 
-    def __init__(self, path, metadata):
+    def __init__(self, path, metadata, size):
         self.path = path
         self.metadata = metadata
+        self.size = size
 
 
 cdef void _filesystemdataset_write_visitor(

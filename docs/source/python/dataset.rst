@@ -733,6 +733,7 @@ to supply a visitor that will be called as each file is created:
 
     def file_visitor(written_file):
         print(f"path={written_file.path}")
+        print(f"size={written_file.size} bytes")
         print(f"metadata={written_file.metadata}")
 
 .. ipython:: python
@@ -743,7 +744,7 @@ to supply a visitor that will be called as each file is created:
 This will allow you to collect the filenames that belong to the dataset and store them elsewhere
 which can be useful when you want to avoid scanning directories the next time you need to read
 the data.  It can also be used to generate the _metadata index file used by other tools such as
-dask or spark to create an index of the dataset.
+Dask or Spark to create an index of the dataset.
 
 Configuring format-specific parameters during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
