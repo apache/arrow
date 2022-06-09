@@ -840,6 +840,20 @@ Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
   return CallFunction("week", {arg}, &options, ctx);
 }
 
+SCALAR_EAGER_BINARY(YearsBetween, "years_between")
+SCALAR_EAGER_BINARY(QuartersBetween, "quarters_between")
+SCALAR_EAGER_BINARY(MonthsBetween, "month_interval_between")
+SCALAR_EAGER_BINARY(WeeksBetween, "weeks_between")
+SCALAR_EAGER_BINARY(MonthDayNanoBetween, "month_day_nano_interval_between")
+SCALAR_EAGER_BINARY(DayTimeBetween, "day_time_interval_between")
+SCALAR_EAGER_BINARY(DaysBetween, "days_between")
+SCALAR_EAGER_BINARY(HoursBetween, "hours_between")
+SCALAR_EAGER_BINARY(MinutesBetween, "minutes_between")
+SCALAR_EAGER_BINARY(SecondsBetween, "seconds_between")
+SCALAR_EAGER_BINARY(MillisecondsBetween, "milliseconds_between")
+SCALAR_EAGER_BINARY(MicrosecondsBetween, "microseconds_between")
+SCALAR_EAGER_BINARY(NanosecondsBetween, "nanoseconds_between")
+
 // ----------------------------------------------------------------------
 // Structural transforms
 Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext* ctx) {
