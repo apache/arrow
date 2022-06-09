@@ -31,9 +31,9 @@ arrow_dplyr_query <- function(.data) {
   )
   if (!inherits(.data, supported)) {
     stop(
-      "'dataset' must be a ",
+      "You must supply a ",
       oxford_paste(supported, "or", quote = FALSE),
-      ", not ",
+      ", not an object of type ",
       deparse(class(.data)),
       call. = FALSE
     )
