@@ -90,19 +90,6 @@ static void BenchmarkTemporalBinary(benchmark::State& state) {
   RegressionArgs args(state);
   ExecContext* ctx = default_exec_context();
 
-<<<<<<< HEAD
-  const int64_t array_size = args.size / sizeof(int64_t);
-  auto rand = random::RandomArrayGenerator(kSeed);
-  auto lhs =
-      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
-  EXPECT_OK_AND_ASSIGN(auto timestamp_array_lhs, lhs->View(timestamp_type));
-  auto rhs = 
-      rand.Numeric<Int64Type>(array_size, kInt64Min, kInt64Max, args.null_proportion);
-  EXPECT_OK_AND_ASSIGN(auto timestamp_array_rhs, rhs->View(timestamp_type));
-
-  for (auto _ : state) {
-    ABORT_NOT_OK(Op(timestamp_array_lhs, timestamp_array_rhs, ctx).status());
-=======
   const int64_t array_size = args.size / sizeof(timestamp_type);
 
   auto rand = random::RandomArrayGenerator(kSeed);
@@ -111,7 +98,6 @@ static void BenchmarkTemporalBinary(benchmark::State& state) {
 
   for (auto _ : state) {
     ABORT_NOT_OK(Op(lhs, rhs, ctx).status());
->>>>>>> 6af8b472237203b0371b347e6efd3a383d36ffca
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -209,11 +195,6 @@ auto date64_type = date64();
 #define DECLARE_TEMPORAL_BENCHMARKS_ZONED(OP) \
   BENCHMARK_TEMPLATE(BenchmarkTemporal, OP, zoned)->Apply(SetArgs);
 
-<<<<<<< HEAD
-#define DECLARE_TEMPORAL_BINARY_BENCHMARKS(OP)                                 \
-  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, non_zoned)->Apply(SetArgs); \
-  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, zoned)->Apply(SetArgs);
-=======
 #define DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(OP)             \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, non_zoned)->Apply(SetArgs);   \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, zoned)->Apply(SetArgs);       \
@@ -224,7 +205,6 @@ auto date64_type = date64();
   DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(OP);                  \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, time32_type)->Apply(SetArgs); \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, time64_type)->Apply(SetArgs);
->>>>>>> 6af8b472237203b0371b347e6efd3a383d36ffca
 
 // Temporal rounding benchmarks
 auto round_1_minute = RoundTemporalOptions(1, CalendarUnit::MINUTE);
@@ -269,9 +249,6 @@ BENCHMARK_TEMPLATE(BenchmarkStrptime, zoned)->Apply(SetArgs);
 BENCHMARK(BenchmarkAssumeTimezone)->Apply(SetArgs);
 
 // binary temporal benchmarks
-<<<<<<< HEAD
-DECLARE_TEMPORAL_BINARY_BENCHMARKS(YearsBetween);
-=======
 DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(YearsBetween);
 DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(QuartersBetween);
 DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(MonthsBetween);
@@ -285,6 +262,5 @@ DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(SecondsBetween);
 DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(MillisecondsBetween);
 DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(MicrosecondsBetween);
 DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(NanosecondsBetween);
->>>>>>> 6af8b472237203b0371b347e6efd3a383d36ffca
 }  // namespace compute
 }  // namespace arrow
