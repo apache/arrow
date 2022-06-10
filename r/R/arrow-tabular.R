@@ -70,7 +70,6 @@ ArrowTabular <- R6Class("ArrowTabular",
         self$schema$metadata
       } else {
         # Set the metadata
-        new <- prepare_key_value_metadata(new)
         out <- self$ReplaceSchemaMetadata(new)
         # ReplaceSchemaMetadata returns a new object but we're modifying in place,
         # so swap in that new C++ object pointer into our R6 object
@@ -82,16 +81,10 @@ ArrowTabular <- R6Class("ArrowTabular",
       # Helper for the R metadata that handles the serialization
       # See also method on Schema
       if (missing(new)) {
-        out <- self$metadata$r
-        if (!is.null(out)) {
-          # Can't unserialize NULL
-          out <- .unserialize_arrow_r_metadata(out)
-        }
-        # Returns either NULL or a named list
-        out
+        self$metadata$r
       } else {
         # Set the R metadata
-        self$metadata$r <- .serialize_arrow_r_metadata(new)
+        self$metadata$r <- new
         self
       }
     }
@@ -101,11 +94,7 @@ ArrowTabular <- R6Class("ArrowTabular",
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
   df <- x$to_data_frame()
-
-  if (!is.null(r_metadata <- x$metadata$r)) {
-    df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
-  }
-  df
+  apply_arrow_r_metadata(df, x$metadata$r)
 }
 
 #' @export

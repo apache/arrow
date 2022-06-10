@@ -15,6 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(find_package_args)
+if(lz4Alt_FIND_VERSION)
+  list(APPEND find_package_args ${lz4Alt_FIND_VERSION})
+endif()
+if(lz4Alt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(lz4 ${find_package_args})
+if(lz4_FOUND)
+  set(lz4Alt_FOUND TRUE)
+  return()
+endif()
+
 if(MSVC_TOOLCHAIN AND NOT DEFINED LZ4_MSVC_LIB_PREFIX)
   set(LZ4_MSVC_LIB_PREFIX "lib")
 endif()
@@ -73,12 +86,13 @@ else()
   endif()
 endif()
 
-find_package_handle_standard_args(Lz4 REQUIRED_VARS LZ4_LIB LZ4_INCLUDE_DIR)
+find_package_handle_standard_args(lz4Alt REQUIRED_VARS LZ4_LIB LZ4_INCLUDE_DIR)
 
-if(Lz4_FOUND)
-  set(Lz4_FOUND TRUE)
-  add_library(LZ4::lz4 UNKNOWN IMPORTED)
-  set_target_properties(LZ4::lz4
-                        PROPERTIES IMPORTED_LOCATION "${LZ4_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${LZ4_INCLUDE_DIR}")
+if(lz4Alt_FOUND)
+  if(NOT TARGET lz4::lz4)
+    add_library(lz4::lz4 UNKNOWN IMPORTED)
+    set_target_properties(lz4::lz4
+                          PROPERTIES IMPORTED_LOCATION "${LZ4_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${LZ4_INCLUDE_DIR}")
+  endif()
 endif()

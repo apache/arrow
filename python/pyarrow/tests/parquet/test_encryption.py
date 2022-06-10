@@ -38,7 +38,11 @@ COL_KEY_NAME = "col_key"
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet_encryption'
-pytestmark = pytest.mark.parquet_encryption
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = [
+    pytest.mark.parquet_encryption,
+    pytest.mark.parquet
+]
 
 
 @pytest.fixture(scope='module')

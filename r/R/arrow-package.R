@@ -41,7 +41,7 @@
       "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
       "arrange", "rename", "pull", "relocate", "compute", "collapse",
       "distinct", "left_join", "right_join", "inner_join", "full_join",
-      "semi_join", "anti_join", "count", "tally", "rename_with"
+      "semi_join", "anti_join", "count", "tally", "rename_with", "union", "union_all"
     )
   )
   for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {

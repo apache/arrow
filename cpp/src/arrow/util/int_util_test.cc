@@ -29,7 +29,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 
 namespace arrow {
 namespace internal {

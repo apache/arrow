@@ -41,7 +41,7 @@ env:
 jobs:
   build:
     name: Build wheel for OS X
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "macOS", "arm64"]
     steps:
       - name: Cleanup
         run: rm -rf arrow vcpkg build crossbow-env build-*-env test-*-env

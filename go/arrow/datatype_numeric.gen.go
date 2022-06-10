@@ -25,6 +25,10 @@ func (t *Int8Type) Name() string        { return "int8" }
 func (t *Int8Type) String() string      { return "int8" }
 func (t *Int8Type) BitWidth() int       { return 8 }
 func (t *Int8Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Int8Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Int8SizeBytes)}}
+}
 
 type Int16Type struct{}
 
@@ -33,6 +37,10 @@ func (t *Int16Type) Name() string        { return "int16" }
 func (t *Int16Type) String() string      { return "int16" }
 func (t *Int16Type) BitWidth() int       { return 16 }
 func (t *Int16Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Int16Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Int16SizeBytes)}}
+}
 
 type Int32Type struct{}
 
@@ -41,6 +49,10 @@ func (t *Int32Type) Name() string        { return "int32" }
 func (t *Int32Type) String() string      { return "int32" }
 func (t *Int32Type) BitWidth() int       { return 32 }
 func (t *Int32Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Int32Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Int32SizeBytes)}}
+}
 
 type Int64Type struct{}
 
@@ -49,6 +61,10 @@ func (t *Int64Type) Name() string        { return "int64" }
 func (t *Int64Type) String() string      { return "int64" }
 func (t *Int64Type) BitWidth() int       { return 64 }
 func (t *Int64Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Int64Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Int64SizeBytes)}}
+}
 
 type Uint8Type struct{}
 
@@ -57,6 +73,10 @@ func (t *Uint8Type) Name() string        { return "uint8" }
 func (t *Uint8Type) String() string      { return "uint8" }
 func (t *Uint8Type) BitWidth() int       { return 8 }
 func (t *Uint8Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Uint8Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Uint8SizeBytes)}}
+}
 
 type Uint16Type struct{}
 
@@ -65,6 +85,10 @@ func (t *Uint16Type) Name() string        { return "uint16" }
 func (t *Uint16Type) String() string      { return "uint16" }
 func (t *Uint16Type) BitWidth() int       { return 16 }
 func (t *Uint16Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Uint16Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Uint16SizeBytes)}}
+}
 
 type Uint32Type struct{}
 
@@ -73,6 +97,10 @@ func (t *Uint32Type) Name() string        { return "uint32" }
 func (t *Uint32Type) String() string      { return "uint32" }
 func (t *Uint32Type) BitWidth() int       { return 32 }
 func (t *Uint32Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Uint32Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Uint32SizeBytes)}}
+}
 
 type Uint64Type struct{}
 
@@ -81,6 +109,10 @@ func (t *Uint64Type) Name() string        { return "uint64" }
 func (t *Uint64Type) String() string      { return "uint64" }
 func (t *Uint64Type) BitWidth() int       { return 64 }
 func (t *Uint64Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Uint64Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Uint64SizeBytes)}}
+}
 
 type Float32Type struct{}
 
@@ -89,6 +121,10 @@ func (t *Float32Type) Name() string        { return "float32" }
 func (t *Float32Type) String() string      { return "float32" }
 func (t *Float32Type) BitWidth() int       { return 32 }
 func (t *Float32Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Float32Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Float32SizeBytes)}}
+}
 
 type Float64Type struct{}
 
@@ -97,6 +133,10 @@ func (t *Float64Type) Name() string        { return "float64" }
 func (t *Float64Type) String() string      { return "float64" }
 func (t *Float64Type) BitWidth() int       { return 64 }
 func (t *Float64Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Float64Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Float64SizeBytes)}}
+}
 
 type Date32Type struct{}
 
@@ -105,6 +145,10 @@ func (t *Date32Type) Name() string        { return "date32" }
 func (t *Date32Type) String() string      { return "date32" }
 func (t *Date32Type) BitWidth() int       { return 32 }
 func (t *Date32Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Date32Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Date32SizeBytes)}}
+}
 
 type Date64Type struct{}
 
@@ -113,6 +157,10 @@ func (t *Date64Type) Name() string        { return "date64" }
 func (t *Date64Type) String() string      { return "date64" }
 func (t *Date64Type) BitWidth() int       { return 64 }
 func (t *Date64Type) Fingerprint() string { return typeFingerprint(t) }
+func (t *Date64Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{
+		SpecBitmap(), SpecFixedWidth(Date64SizeBytes)}}
+}
 
 var (
 	PrimitiveTypes = struct {

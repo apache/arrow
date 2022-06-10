@@ -201,6 +201,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 			arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			arrow.Field{Name: "str", Type: arrow.BinaryTypes.String},
+			arrow.Field{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
 		},
 		nil,
 	)
@@ -246,6 +247,7 @@ rec[0]["u64"]: [1]
 rec[0]["f32"]: [1.1]
 rec[0]["f64"]: [1.1]
 rec[0]["str"]: ["str-1"]
+rec[0]["ts"]: [1652054461000]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -258,6 +260,7 @@ rec[1]["u64"]: [2]
 rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
 rec[1]["str"]: ["str-2"]
+rec[1]["ts"]: [1652140799000]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -270,6 +273,7 @@ rec[2]["u64"]: [(null)]
 rec[2]["f32"]: [(null)]
 rec[2]["f64"]: [(null)]
 rec[2]["str"]: [(null)]
+rec[2]["ts"]: [(null)]
 `
 
 	if got, want := out.String(), want; got != want {

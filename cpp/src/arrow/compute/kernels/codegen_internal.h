@@ -1134,6 +1134,37 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
   }
 }
 
+template <template <typename...> class KernelGenerator, typename Op, typename... Args>
+ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
+    case Type::UINT8:
+      return KernelGenerator<UInt8Type, UInt8Type, Op, Args...>::Exec;
+    case Type::INT16:
+      return KernelGenerator<Int16Type, Int16Type, Op, Args...>::Exec;
+    case Type::UINT16:
+      return KernelGenerator<UInt16Type, UInt16Type, Op, Args...>::Exec;
+    case Type::INT32:
+      return KernelGenerator<Int32Type, Int32Type, Op, Args...>::Exec;
+    case Type::UINT32:
+      return KernelGenerator<UInt32Type, UInt32Type, Op, Args...>::Exec;
+    case Type::DURATION:
+    case Type::INT64:
+    case Type::TIMESTAMP:
+      return KernelGenerator<Int64Type, Int64Type, Op, Args...>::Exec;
+    case Type::UINT64:
+      return KernelGenerator<UInt64Type, UInt64Type, Op, Args...>::Exec;
+    case Type::FLOAT:
+      return KernelGenerator<FloatType, FloatType, Op, Args...>::Exec;
+    case Type::DOUBLE:
+      return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 template <template <typename... Args> class Generator, typename... Args>
 ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {

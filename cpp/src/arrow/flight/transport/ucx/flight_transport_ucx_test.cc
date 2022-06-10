@@ -50,45 +50,59 @@ testing::Environment* const kUcxEnvironment =
 //------------------------------------------------------------
 // Common transport tests
 
-class UcxConnectivityTest : public ConnectivityTest {
+class UcxConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "ucx"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CONNECTIVITY(UcxConnectivityTest);
 
-class UcxDataTest : public DataTest {
+class UcxDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "ucx"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DATA(UcxDataTest);
 
-class UcxDoPutTest : public DoPutTest {
+class UcxDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "ucx"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DO_PUT(UcxDoPutTest);
 
-class UcxAppMetadataTest : public AppMetadataTest {
+class UcxAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "ucx"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_APP_METADATA(UcxAppMetadataTest);
 
-class UcxIpcOptionsTest : public IpcOptionsTest {
+class UcxIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "ucx"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_IPC_OPTIONS(UcxIpcOptionsTest);
 
-class UcxCudaDataTest : public CudaDataTest {
+class UcxCudaDataTest : public CudaDataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "ucx"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CUDA_DATA(UcxCudaDataTest);
 
-class UcxErrorHandlingTest : public ErrorHandlingTest {
+class UcxErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "ucx"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_ERROR_HANDLING(UcxErrorHandlingTest);
 

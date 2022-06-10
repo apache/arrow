@@ -98,6 +98,9 @@ struct ExecPlanImpl : public ExecPlan {
 
     // producers precede consumers
     sorted_nodes_ = TopoSort();
+    for (ExecNode* node : sorted_nodes_) {
+      RETURN_NOT_OK(node->PrepareToProduce());
+    }
 
     std::vector<Future<>> futures;
 
@@ -469,6 +472,16 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
         ARROW_ASSIGN_OR_RAISE(*record_batch, batch->ToRecordBatch(schema_, pool_));
       } else {
         *record_batch = IterationEnd<std::shared_ptr<RecordBatch>>();
+      }
+      return Status::OK();
+    }
+
+    Status Close() override {
+      // reading from generator until end is reached.
+      std::shared_ptr<RecordBatch> batch;
+      RETURN_NOT_OK(ReadNext(&batch));
+      while (batch != NULLPTR) {
+        RETURN_NOT_OK(ReadNext(&batch));
       }
       return Status::OK();
     }

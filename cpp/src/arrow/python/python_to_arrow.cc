@@ -41,7 +41,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/converter.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/datetime.h"
@@ -1135,7 +1135,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
                                                         MemoryPool* pool) {
   PyAcquireGIL lock;
 
-  PyObject* seq;
+  PyObject* seq = nullptr;
   OwnedRef tmp_seq_nanny;
 
   ARROW_ASSIGN_OR_RAISE(auto is_pandas_imported, internal::IsModuleImported("pandas"));

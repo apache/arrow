@@ -332,7 +332,10 @@ static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
     DataMember("unit", &RoundTemporalOptions::unit),
-    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday));
+    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday),
+    DataMember("ceil_is_strictly_greater",
+               &RoundTemporalOptions::ceil_is_strictly_greater),
+    DataMember("calendar_based_origin", &RoundTemporalOptions::calendar_based_origin));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -491,11 +494,15 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 constexpr char RoundOptions::kTypeName[];
 
 RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
-                                           bool week_starts_monday)
+                                           bool week_starts_monday,
+                                           bool ceil_is_strictly_greater,
+                                           bool calendar_based_origin)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
       unit(unit),
-      week_starts_monday(week_starts_monday) {}
+      week_starts_monday(week_starts_monday),
+      ceil_is_strictly_greater(ceil_is_strictly_greater),
+      calendar_based_origin(calendar_based_origin) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
@@ -832,6 +839,20 @@ Result<Datum> Strptime(const Datum& arg, StrptimeOptions options, ExecContext* c
 Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
   return CallFunction("week", {arg}, &options, ctx);
 }
+
+SCALAR_EAGER_BINARY(YearsBetween, "years_between")
+SCALAR_EAGER_BINARY(QuartersBetween, "quarters_between")
+SCALAR_EAGER_BINARY(MonthsBetween, "month_interval_between")
+SCALAR_EAGER_BINARY(WeeksBetween, "weeks_between")
+SCALAR_EAGER_BINARY(MonthDayNanoBetween, "month_day_nano_interval_between")
+SCALAR_EAGER_BINARY(DayTimeBetween, "day_time_interval_between")
+SCALAR_EAGER_BINARY(DaysBetween, "days_between")
+SCALAR_EAGER_BINARY(HoursBetween, "hours_between")
+SCALAR_EAGER_BINARY(MinutesBetween, "minutes_between")
+SCALAR_EAGER_BINARY(SecondsBetween, "seconds_between")
+SCALAR_EAGER_BINARY(MillisecondsBetween, "milliseconds_between")
+SCALAR_EAGER_BINARY(MicrosecondsBetween, "microseconds_between")
+SCALAR_EAGER_BINARY(NanosecondsBetween, "nanoseconds_between")
 
 // ----------------------------------------------------------------------
 // Structural transforms

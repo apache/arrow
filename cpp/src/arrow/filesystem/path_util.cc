@@ -34,12 +34,12 @@ namespace internal {
 std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   std::vector<std::string> parts;
   auto v = util::string_view(path);
-  // Strip trailing slash
-  if (v.length() > 0 && v.back() == kSep) {
+  // Strip trailing separator
+  if (v.length() > 0 && v.back() == sep) {
     v = v.substr(0, v.length() - 1);
   }
-  // Strip leading slash
-  if (v.length() > 0 && v.front() == kSep) {
+  // Strip leading separator
+  if (v.length() > 0 && v.front() == sep) {
     v = v.substr(1);
   }
   if (v.length() == 0) {

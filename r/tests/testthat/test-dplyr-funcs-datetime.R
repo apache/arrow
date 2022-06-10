@@ -49,50 +49,82 @@ test_df <- tibble::tibble(
 
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
-  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  # lubridate defaults to "UTC" as timezone => t_stamp is in "UTC"
+  t_stamp_with_utc_tz <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  t_stamp_with_pm_tz <- tibble(
+    x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA)
+  )
 
+  # base::strptime returns a POSIXlt (a list) => we cannot use compare_dplyr_binding
+  # => we use expect_equal for the tests below
+
+  withr::with_timezone("Pacific/Marquesas", {
+    # the default value for strptime's `tz` argument is "", which is interpreted
+    # as the current timezone. we test here if the strptime binding picks up
+    # correctly the current timezone (similarly to the base R version)
+    expect_equal(
+      t_string %>%
+        record_batch() %>%
+        mutate(
+          x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+        ) %>%
+        collect(),
+      t_stamp_with_pm_tz
+    )
+  })
+
+  # adding a timezone to a timezone-naive timestamp works
+  # and since our TZ when running the test is (typically) Pacific/Marquesas
+  # this also tests that assigning a TZ different from the current session one
+  # works as expected
   expect_equal(
     t_string %>%
-      Table$create() %>%
+      arrow_table() %>%
       mutate(
-        x = strptime(x)
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "Pacific/Marquesas")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_pm_tz
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+        x = strptime(x, tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_utc_tz
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns")
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_utc_tz
   )
 
   expect_equal(
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s")
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns", tz = "UTC")
       ) %>%
       collect(),
-    t_stamp,
-    ignore_attr = "tzone"
+    t_stamp_with_utc_tz
+  )
+
+  expect_equal(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s", tz = "UTC")
+      ) %>%
+      collect(),
+    t_stamp_with_utc_tz
   )
 
   tstring <- tibble(x = c("08-05-2008", NA))
@@ -108,15 +140,6 @@ test_that("strptime", {
     # R's strptime returns POSIXlt (list type)
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
-  )
-})
-
-test_that("errors in strptime", {
-  # Error when tz is passed
-  x <- Expression$field_ref("x")
-  expect_error(
-    call_binding("strptime", x, tz = "PDT"),
-    "Time zone argument not supported in Arrow"
   )
 })
 
@@ -1735,7 +1758,7 @@ test_that("parse_date_time() doesn't work with hour, minutes, and second compone
   )
 })
 
-test_that("year, month, day date/time parsers work", {
+test_that("year, month, day date/time parsers", {
   test_df <- tibble::tibble(
     ymd_string = c("2022-05-11", "2022/05/12", "22.05-13"),
     ydm_string = c("2022-11-05", "2022/12/05", "22.13-05"),
@@ -1774,5 +1797,171 @@ test_that("year, month, day date/time parsers work", {
       ) %>%
       collect(),
     test_df
+  )
+})
+
+test_that("ym, my & yq parsers", {
+  test_df <- tibble::tibble(
+    ym_string = c("2022-05", "2022/02", "22.03", "1979//12", "88.09", NA),
+    my_string = c("05-2022", "02/2022", "03.22", "12//1979", "09.88", NA),
+    yq_string = c("2007.3", "1970.2", "2020.1", "2009.4", "1975.1", NA),
+    yq_numeric = c(2007.3, 1970.2, 2020.1, 2009.4, 1975.1, NA),
+    yq_space = c("2007 3", "1970 2", "2020 1", "2009 4", "1975 1", NA)
+  )
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ym_date = ym(ym_string),
+        ym_datetime = ym(ym_string, tz = "Pacific/Marquesas"),
+        my_date = my(my_string),
+        my_datetime = my(my_string, tz = "Pacific/Marquesas"),
+        yq_date_from_string = yq(yq_string),
+        yq_datetime_from_string = yq(yq_string, tz = "Pacific/Marquesas"),
+        yq_date_from_numeric = yq(yq_numeric),
+        yq_datetime_from_numeric = yq(yq_numeric, tz = "Pacific/Marquesas"),
+        yq_date_from_string_with_space = yq(yq_space),
+        yq_datetime_from_string_with_space = yq(yq_space, tz = "Pacific/Marquesas"),
+        ym_date2 = parse_date_time(ym_string, orders = c("ym", "ymd")),
+        my_date2 = parse_date_time(my_string, orders = c("my", "myd")),
+        yq_date_from_string2 = parse_date_time(yq_string, orders = "yq"),
+        yq_date_from_numeric2 = parse_date_time(yq_numeric, orders = "yq"),
+        yq_date_from_string_with_space2 = parse_date_time(yq_space, orders = "yq")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("lubridate's fast_strptime", {
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y =
+          fast_strptime(
+            x,
+            format = "%Y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", "2022-05-17 21:23:45", NA)
+    )#,
+    # arrow does not preserve the `tzone` attribute
+    # test ignore_attr = TRUE
+  )
+
+  # R object
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y =
+          fast_strptime(
+            "68-10-07 19:04:05",
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", NA)
+    )#,
+    # test ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_multi_formats =
+          fast_strptime(
+            x,
+            format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", "10-07-1968 19:04:05")
+    )
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm_with_tz = fast_strptime(
+          dttm_as_string,
+          format = "%Y-%m-%d %H:%M:%S",
+          tz = "Pacific/Marquesas",
+          lt = FALSE
+        )
+      ) %>%
+      collect(),
+    tibble(
+      dttm_as_string =
+        c("2018-10-07 19:04:05", "1969-10-07 19:04:05", NA)
+    )
+  )
+
+  # fast_strptime()'s `cutoff_2000` argument is not supported, but its value is
+  # implicitly set to 68L both in lubridate and in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x =
+        c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    )#,
+    # arrow does not preserve the `tzone` attribute
+    # test ignore_attr = TRUE
+  )
+
+  # the arrow binding errors for a value different from 68L for `cutoff_2000`
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = FALSE,
+            cutoff_2000 = 69L
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ),
+    warning = TRUE
+  )
+
+  # compare_dplyr_binding would not work here since lt = TRUE returns a list
+  # and it also errors in regular dplyr pipelines
+  expect_warning(
+    tibble(
+      x = c("68-10-07 19:04:05", "69-10-07 19:04:05", NA)
+    ) %>%
+      arrow_table() %>%
+      mutate(
+        date_short_year =
+          fast_strptime(
+            x,
+            format = "%y-%m-%d %H:%M:%S",
+            lt = TRUE
+          )
+      ) %>%
+      collect()
   )
 })

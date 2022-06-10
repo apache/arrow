@@ -52,7 +52,11 @@ test_that("Table metadata", {
 
 test_that("Table R metadata", {
   tab <- Table$create(example_with_metadata)
-  expect_output(print(tab$metadata), "arrow_r_metadata")
+  expect_output(
+    print(tab$metadata),
+    "$r$columns$c$columns$c1$attributes$extra_attr",
+    fixed = TRUE
+  )
   expect_identical(as.data.frame(tab), example_with_metadata)
 })
 
@@ -96,6 +100,7 @@ test_that("Garbage R metadata doesn't break things", {
   )
   # serialize data like .serialize_arrow_r_metadata does, but don't call that
   # directly since it checks to ensure that the data is a list
+  tab <- Table$create(example_data[1:6])
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
     expect_identical(as.data.frame(tab), example_data[1:6]),

@@ -76,8 +76,27 @@ def test_crossbow_email_report(load_fixture):
     job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
     report = Report(job)
     assert report.tasks_by_state is not None
-    empail_report = EmailReport(report=report, sender_name="Sender Reporter",
-                                sender_email="sender@arrow.com",
-                                recipient_email="recipient@arrow.com")
+    email_report = EmailReport(report=report, sender_name="Sender Reporter",
+                               sender_email="sender@arrow.com",
+                               recipient_email="recipient@arrow.com")
 
-    assert empail_report.render("text") == textwrap.dedent(expected_msg)
+    assert email_report.render("text") == textwrap.dedent(expected_msg)
+
+
+def test_crossbow_export_report(load_fixture):
+    job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
+    report = Report(job)
+    assert len(list(report.rows)) == 4
+    expected_first_row = [
+        'docker-cpp-cmake32',
+        'success',
+        ['https://github.com/apache/crossbow/runs/1'],
+        'https://github.com/apache/crossbow/tree/'
+        'ursabot-1-circle-docker-cpp-cmake32',
+        'circle',
+        {'commands': ['docker-compose build cpp-cmake32',
+                      'docker-compose run cpp-cmake32']},
+        'docker-tests/circle.linux.yml',
+        'f766a1d615dd1b7ee706d05102e579195951a61c'
+    ]
+    assert next(report.rows) == expected_first_row

@@ -37,6 +37,14 @@ func (PlainBooleanDecoder) Type() parquet.Type {
 	return parquet.Types.Boolean
 }
 
+func (dec *PlainBooleanDecoder) SetData(nvals int, data []byte) error {
+	if err := dec.decoder.SetData(nvals, data); err != nil {
+		return err
+	}
+	dec.bitOffset = 0
+	return nil
+}
+
 // Decode fills out with bools decoded from the data at the current point
 // or until we reach the end of the data.
 //
@@ -44,41 +52,42 @@ func (PlainBooleanDecoder) Type() parquet.Type {
 func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	max := shared_utils.MinInt(len(out), dec.nvals)
 
-	unalignedExtract := func(start, end, curBitOffset int) int {
-		i := start
-		for ; curBitOffset < end && i < max; i, curBitOffset = i+1, curBitOffset+1 {
-			out[i] = (dec.data[0] & byte(1<<curBitOffset)) != 0
+	// attempts to read all remaining bool values from the current data byte
+	unalignedExtract := func(i int) int {
+		for ; dec.bitOffset < 8 && i < max; i, dec.bitOffset = i+1, dec.bitOffset+1 {
+			out[i] = (dec.data[0] & byte(1<<dec.bitOffset)) != 0
 		}
-		return i // return the number of bits we extracted
+		if dec.bitOffset == 8 {
+			// we read every bit from this byte
+			dec.bitOffset = 0
+			dec.data = dec.data[1:] // move data forward
+		}
+		return i // return the next index for out[]
 	}
 
 	// if we aren't at a byte boundary, then get bools until we hit
 	// a byte boundary with the bit offset.
 	i := 0
 	if dec.bitOffset != 0 {
-		i = unalignedExtract(0, 8, dec.bitOffset)
-		dec.bitOffset = (dec.bitOffset + i) % 8
+		i = unalignedExtract(i)
 	}
 
 	// determine the number of full bytes worth of bits we can decode
 	// given the number of values we want to decode.
 	bitsRemain := max - i
-	batch := bitsRemain / 8 * 8
+	batch := (bitsRemain / 8) * 8
 	if batch > 0 { // only go in here if there's at least one full byte to decode
-		if i > 0 { // skip our data forward if we decoded anything above
-			dec.data = dec.data[1:]
-			out = out[i:]
-		}
 		// determine the number of aligned bytes we can grab using SIMD optimized
 		// functions to improve performance.
 		alignedBytes := bitutil.BytesForBits(int64(batch))
-		utils.BytesToBools(dec.data[:alignedBytes], out)
-		dec.data = dec.data[alignedBytes:]
-		out = out[alignedBytes*8:]
+		utils.BytesToBools(dec.data[:alignedBytes], out[i:])
+
+		dec.data = dec.data[alignedBytes:] // move data forward
+		i += int(alignedBytes) * 8
 	}
 
 	// grab any trailing bits now that we've got our aligned bytes.
-	dec.bitOffset += unalignedExtract(dec.bitOffset, bitsRemain-batch, dec.bitOffset)
+	_ = unalignedExtract(i)
 
 	dec.nvals -= max
 	return max, nil

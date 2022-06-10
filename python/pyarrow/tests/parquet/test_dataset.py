@@ -17,6 +17,7 @@
 
 import datetime
 import os
+import pathlib
 
 import numpy as np
 import pytest
@@ -45,6 +46,11 @@ try:
 
 except ImportError:
     pd = tm = None
+
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
+pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
@@ -1784,6 +1790,83 @@ def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
     with pytest.raises(ValueError, match="file_visitor"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             file_visitor=lambda x: x)
+
     with pytest.raises(ValueError, match="existing_data_behavior"):
         pq.write_to_dataset(table, path, use_legacy_dataset=True,
                             existing_data_behavior='error')
+
+    with pytest.raises(ValueError, match="basename_template"):
+        pq.write_to_dataset(table, path, use_legacy_dataset=True,
+                            basename_template='part-{i}.parquet')
+
+
+@pytest.mark.dataset
+def test_parquet_write_to_dataset_exposed_keywords(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'partitioning'
+
+    paths_written = []
+
+    def file_visitor(written_file):
+        paths_written.append(written_file.path)
+
+    basename_template = 'part-{i}.parquet'
+
+    pq.write_to_dataset(table, path, partitioning=["a"],
+                        file_visitor=file_visitor,
+                        basename_template=basename_template,
+                        use_legacy_dataset=False)
+
+    expected_paths = {
+        path / '1' / 'part-0.parquet',
+        path / '2' / 'part-0.parquet',
+        path / '3' / 'part-0.parquet'
+    }
+    paths_written_set = set(map(pathlib.Path, paths_written))
+    assert paths_written_set == expected_paths
+
+
+@pytest.mark.dataset
+def test_write_to_dataset_conflicting_keywords(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+
+    with pytest.raises(ValueError, match="'basename_template' argument "
+                       "is not supported by use_legacy_dataset=True"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=True,
+                            partition_filename_cb=lambda x: 'filename.parquet',
+                            basename_template='file-{i}.parquet')
+    with pytest.raises(ValueError, match="'partition_filename_cb' argument "
+                       "is not supported by use_legacy_dataset=False"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=False,
+                            partition_filename_cb=lambda x: 'filename.parquet',
+                            basename_template='file-{i}.parquet')
+
+    with pytest.raises(ValueError, match="'partitioning' argument "
+                       "is not supported by use_legacy_dataset=True"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=True,
+                            partition_cols=["a"],
+                            partitioning=["a"])
+
+    with pytest.raises(ValueError, match="'partition_cols' argument "
+                       "is not supported by use_legacy_dataset=False"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=False,
+                            partition_cols=["a"],
+                            partitioning=["a"])
+
+    with pytest.raises(ValueError, match="'file_visitor' argument "
+                       "is not supported by use_legacy_dataset=True"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=True,
+                            metadata_collector=[],
+                            file_visitor=lambda x: x)
+    with pytest.raises(ValueError, match="'metadata_collector' argument "
+                       "is not supported by use_legacy_dataset=False"):
+        pq.write_to_dataset(table, path,
+                            use_legacy_dataset=False,
+                            metadata_collector=[],
+                            file_visitor=lambda x: x)

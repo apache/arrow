@@ -93,7 +93,7 @@ Table <- R6Class("Table",
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
     ReplaceSchemaMetadata = function(new) {
-      Table__ReplaceSchemaMetadata(self, new)
+      Table__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
@@ -138,6 +138,13 @@ Table$create <- function(..., schema = NULL) {
 
   if (all_record_batches(dots)) {
     return(Table__from_record_batches(dots, schema))
+  }
+  if (length(dots) == 1 && inherits(dots[[1]], c("RecordBatchReader", "RecordBatchFileReader"))) {
+    tab <- dots[[1]]$read_table()
+    if (!is.null(schema)) {
+      tab <- tab$cast(schema)
+    }
+    return(tab)
   }
 
   # If any arrays are length 1, recycle them

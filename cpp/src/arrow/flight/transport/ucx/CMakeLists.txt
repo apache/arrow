@@ -53,6 +53,7 @@ if(ARROW_BUILD_TESTS)
         arrow_flight_static
         arrow_flight_testing_static
         arrow_flight_transport_ucx_static
+        ucx::ucx
         ${ARROW_TEST_LINK_LIBS})
   else()
     set(ARROW_FLIGHT_UCX_TEST_LINK_LIBS
@@ -60,6 +61,7 @@ if(ARROW_BUILD_TESTS)
         arrow_flight_shared
         arrow_flight_testing_shared
         arrow_flight_transport_ucx_shared
+        ucx::ucx
         ${ARROW_TEST_LINK_LIBS})
   endif()
   add_arrow_test(flight_transport_ucx_test

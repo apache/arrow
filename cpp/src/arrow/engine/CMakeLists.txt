@@ -26,7 +26,8 @@ set(ARROW_SUBSTRAIT_SRCS
     substrait/serde.cc
     substrait/plan_internal.cc
     substrait/relation_internal.cc
-    substrait/type_internal.cc)
+    substrait/type_internal.cc
+    substrait/util.cc)
 
 add_arrow_lib(arrow_substrait
               CMAKE_PACKAGE_NAME
@@ -65,6 +66,7 @@ endif()
 
 add_arrow_test(substrait_test
                SOURCES
+               substrait/ext_test.cc
                substrait/serde_test.cc
                EXTRA_LINK_LIBS
                ${ARROW_SUBSTRAIT_TEST_LINK_LIBS}

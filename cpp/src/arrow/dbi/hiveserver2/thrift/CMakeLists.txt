@@ -39,14 +39,14 @@ function(HS2_THRIFT_GEN VAR)
     # Get basename
     get_filename_component(FIL_WE ${FIL} NAME_WE)
 
-    set(GEN_DIR "${OUTPUT_DIR}/arrow/dbi/hiveserver2")
-
     # All the output files we can determine based on filename.
     #   - Does not include .skeleton.cpp files
     #   - Does not include java output files
     set(OUTPUT_BE_FILE
-        "${GEN_DIR}/${FIL_WE}_types.cpp" "${GEN_DIR}/${FIL_WE}_types.h"
-        "${GEN_DIR}/${FIL_WE}_constants.cpp" "${GEN_DIR}/${FIL_WE}_constants.h")
+        "${HIVESERVER2_THRIFT_SRC_DIR}/${FIL_WE}_types.cpp"
+        "${HIVESERVER2_THRIFT_SRC_DIR}/${FIL_WE}_types.h"
+        "${HIVESERVER2_THRIFT_SRC_DIR}/${FIL_WE}_constants.cpp"
+        "${HIVESERVER2_THRIFT_SRC_DIR}/${FIL_WE}_constants.h")
     list(APPEND ${VAR} ${OUTPUT_BE_FILE})
 
     # BeeswaxService thrift generation
@@ -58,7 +58,7 @@ function(HS2_THRIFT_GEN VAR)
         --gen
         cpp
         -out
-        ${GEN_DIR})
+        ${HIVESERVER2_THRIFT_SRC_DIR})
     if(FIL STREQUAL "beeswax.thrift")
       set(CPP_ARGS
           -r
@@ -66,14 +66,14 @@ function(HS2_THRIFT_GEN VAR)
           --gen
           cpp
           -out
-          ${GEN_DIR})
+          ${HIVESERVER2_THRIFT_SRC_DIR})
     endif(FIL STREQUAL "beeswax.thrift")
 
     # Be able to include generated ErrorCodes.thrift file
     set(CPP_ARGS ${CPP_ARGS} -I ${CMAKE_CURRENT_BINARY_DIR})
 
     add_custom_command(OUTPUT ${OUTPUT_BE_FILE}
-                       COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
+                       COMMAND thrift::compiler ${CPP_ARGS} ${FIL}
                        DEPENDS ${ABS_FIL}
                        COMMENT "Running thrift compiler on ${FIL}"
                        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -85,10 +85,8 @@ function(HS2_THRIFT_GEN VAR)
       PARENT_SCOPE)
 endfunction(HS2_THRIFT_GEN)
 
-message("Using Thrift compiler: ${THRIFT_COMPILER}")
-
-set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src)
-file(MAKE_DIRECTORY ${OUTPUT_DIR})
+get_target_property(THRIFT_COMPILER thrift::compiler IMPORTED_LOCATION)
+message(STATUS "Using Thrift compiler: ${THRIFT_COMPILER}")
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
                    COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}

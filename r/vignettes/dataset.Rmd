@@ -192,11 +192,18 @@ files, you've parsed file paths to identify partitions, and you've read the
 headers of the Parquet files to inspect their schemas so that you can make sure
 they all are as expected.
 
-In the current release, arrow supports the dplyr verbs `mutate()`, 
-`transmute()`, `select()`, `rename()`, `relocate()`, `filter()`, and 
-`arrange()`. Aggregation is not yet supported, so before you call `summarise()`
-or other verbs with aggregate functions, use `collect()` to pull the selected
-subset of the data into an in-memory R data frame.
+In the current release, arrow supports the dplyr verbs:
+
+ * `mutate()` and `transmute()`,
+ * `select()`, `rename()`, and `relocate()`,
+ * `filter()`,
+ * `arrange()`,
+ * `union()` and `union_all()`,
+ * `left_join()`, `right_join()`, `full_join()`, `inner_join()`, and `anti_join()`,
+ * `group_by()` and `summarise()`.
+
+At any point in a chain, you can use `collect()` to pull the selected subset of
+the data into an in-memory R data frame. 
 
 Suppose you attempt to call unsupported dplyr verbs or unimplemented functions
 in your query on an Arrow Dataset. In that case, the arrow package raises an error. However,
@@ -213,11 +220,11 @@ system.time(ds %>%
   select(tip_amount, total_amount, passenger_count) %>%
   mutate(tip_pct = 100 * tip_amount / total_amount) %>%
   group_by(passenger_count) %>%
-  collect() %>%
   summarise(
     median_tip_pct = median(tip_pct),
     n = n()
   ) %>%
+  collect() %>%
   print())
 ```
 
@@ -226,16 +233,16 @@ cat("
 # A tibble: 10 x 3
    passenger_count median_tip_pct      n
              <int>          <dbl>  <int>
- 1               0           9.84    380
- 2               1          16.7  143087
- 3               2          16.6   34418
- 4               3          14.4    8922
- 5               4          11.4    4771
- 6               5          16.7    5806
- 7               6          16.7    3338
- 8               7          16.7      11
- 9               8          16.7      32
-10               9          16.7      42
+ 1               1           16.6 143087
+ 2               2           16.2  34418
+ 3               5           16.7   5806
+ 4               4           11.4   4771
+ 5               6           16.7   3338
+ 6               3           14.6   8922
+ 7               0           10.1    380
+ 8               8           16.7     32
+ 9               9           16.7     42
+10               7           16.7     11
 
    user  system elapsed
   4.436   1.012   1.402
@@ -243,31 +250,31 @@ cat("
 ```
 
 You've just selected a subset out of a dataset with around 2 billion rows, computed
-a new column, and aggregated it in under 2 seconds on a modern laptop. How does
+a new column, and aggregated it in a few seconds on a modern laptop. How does
 this work?
 
-First, `mutate()`/`transmute()`, `select()`/`rename()`/`relocate()`, `filter()`, 
-`group_by()`, and `arrange()` record their actions but don't evaluate on the
-data until you run `collect()`.
+First, the dplyr verbs on the dataset record their actions but don't evaluate on
+the data until you run `collect()`.
 
 ```{r, eval = file.exists("nyc-taxi")}
 ds %>%
   filter(total_amount > 100, year == 2015) %>%
   select(tip_amount, total_amount, passenger_count) %>%
   mutate(tip_pct = 100 * tip_amount / total_amount) %>%
-  group_by(passenger_count)
+  group_by(passenger_count) %>%
+  summarise(
+    median_tip_pct = median(tip_pct),
+    n = n()
+  )
 ```
 
 ```{r, echo = FALSE, eval = !file.exists("nyc-taxi")}
 cat("
 FileSystemDataset (query)
-tip_amount: float
-total_amount: float
 passenger_count: int8
-tip_pct: expr
+median_tip_pct: double
+n: int32
 
-* Filter: ((total_amount > 100) and (year == 2015))
-* Grouped by passenger_count
 See $.data for the source Arrow object
 ")
 ```

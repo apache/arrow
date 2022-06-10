@@ -259,13 +259,19 @@ def _perform_join(join_type, left_operand not None, left_keys,
         left_columns = []
     elif join_type == "inner":
         c_join_type = CJoinType_INNER
-        right_columns = set(right_columns) - set(right_keys)
+        right_columns = [
+            col for col in right_columns if col not in right_keys_order
+        ]
     elif join_type == "left outer":
         c_join_type = CJoinType_LEFT_OUTER
-        right_columns = set(right_columns) - set(right_keys)
+        right_columns = [
+            col for col in right_columns if col not in right_keys_order
+        ]
     elif join_type == "right outer":
         c_join_type = CJoinType_RIGHT_OUTER
-        left_columns = set(left_columns) - set(left_keys)
+        left_columns = [
+            col for col in left_columns if col not in left_keys_order
+        ]
     elif join_type == "full outer":
         c_join_type = CJoinType_FULL_OUTER
     else:

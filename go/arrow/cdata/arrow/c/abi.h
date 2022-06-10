@@ -23,6 +23,9 @@
 extern "C" {
 #endif
 
+#ifndef ARROW_C_DATA_INTERFACE
+#define ARROW_C_DATA_INTERFACE
+
 #define ARROW_FLAG_DICTIONARY_ORDERED 1
 #define ARROW_FLAG_NULLABLE 2
 #define ARROW_FLAG_MAP_KEYS_SORTED 4
@@ -60,7 +63,12 @@ struct ArrowArray {
   void* private_data;
 };
 
+#endif  // ARROW_C_DATA_INTERFACE
+
 // EXPERIMENTAL: C stream interface
+
+#ifndef ARROW_C_STREAM_INTERFACE
+#define ARROW_C_STREAM_INTERFACE
 
 struct ArrowArrayStream {
   // Callback to get the stream type
@@ -97,6 +105,8 @@ struct ArrowArrayStream {
   // Opaque producer-specific data
   void* private_data;
 };
+
+#endif  // ARROW_C_STREAM_INTERFACE
 
 #ifdef __cplusplus
 }

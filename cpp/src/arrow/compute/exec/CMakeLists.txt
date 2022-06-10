@@ -39,7 +39,12 @@ add_arrow_compute_test(asof_join_node_test
                        asof_join_node_test.cc)
 add_arrow_compute_test(tpch_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
-add_arrow_compute_test(util_test PREFIX "arrow-compute")
+add_arrow_compute_test(util_test
+                       PREFIX
+                       "arrow-compute"
+                       SOURCES
+                       util_test.cc
+                       task_util_test.cc)
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 

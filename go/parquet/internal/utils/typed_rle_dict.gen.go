@@ -31,9 +31,9 @@ func (r *RleDecoder) GetBatchWithDictSpacedInt32(dc DictionaryConverter, vals []
 	}
 
 	var (
-		blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+		blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 		processed    = 0
-		block        BitBlockCount
+		block        bitutils.BitBlockCount
 	)
 
 	for {
@@ -224,9 +224,9 @@ func (r *RleDecoder) GetBatchWithDictSpacedInt64(dc DictionaryConverter, vals []
 	}
 
 	var (
-		blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+		blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 		processed    = 0
-		block        BitBlockCount
+		block        bitutils.BitBlockCount
 	)
 
 	for {
@@ -417,9 +417,9 @@ func (r *RleDecoder) GetBatchWithDictSpacedInt96(dc DictionaryConverter, vals []
 	}
 
 	var (
-		blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+		blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 		processed    = 0
-		block        BitBlockCount
+		block        bitutils.BitBlockCount
 	)
 
 	for {
@@ -610,9 +610,9 @@ func (r *RleDecoder) GetBatchWithDictSpacedFloat32(dc DictionaryConverter, vals 
 	}
 
 	var (
-		blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+		blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 		processed    = 0
-		block        BitBlockCount
+		block        bitutils.BitBlockCount
 	)
 
 	for {
@@ -803,9 +803,9 @@ func (r *RleDecoder) GetBatchWithDictSpacedFloat64(dc DictionaryConverter, vals 
 	}
 
 	var (
-		blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+		blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 		processed    = 0
-		block        BitBlockCount
+		block        bitutils.BitBlockCount
 	)
 
 	for {
@@ -996,9 +996,9 @@ func (r *RleDecoder) GetBatchWithDictSpacedByteArray(dc DictionaryConverter, val
 	}
 
 	var (
-		blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+		blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 		processed    = 0
-		block        BitBlockCount
+		block        bitutils.BitBlockCount
 	)
 
 	for {
@@ -1189,9 +1189,9 @@ func (r *RleDecoder) GetBatchWithDictSpacedFixedLenByteArray(dc DictionaryConver
 	}
 
 	var (
-		blockCounter = NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
+		blockCounter = bitutils.NewBitBlockCounter(validBits, validBitsOffset, int64(len(vals)))
 		processed    = 0
-		block        BitBlockCount
+		block        bitutils.BitBlockCount
 	)
 
 	for {

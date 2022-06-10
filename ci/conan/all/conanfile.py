@@ -178,7 +178,7 @@ class ArrowConan(ConanFile):
 
     def _compute(self, required=False):
         if required or self.options.compute == "auto":
-            return bool(self.options.dataset_modules)
+            return bool(self.options.dataset_modules) or bool(self.options.parquet)
         else:
             return bool(self.options.compute)
 
@@ -190,7 +190,7 @@ class ArrowConan(ConanFile):
 
     def _with_re2(self, required=False):
         if required or self.options.with_re2 == "auto":
-            return bool(self.options.gandiva)
+            return bool(self.options.gandiva) or bool(self._compute())
         else:
             return bool(self.options.with_re2)
 
@@ -263,7 +263,7 @@ class ArrowConan(ConanFile):
         if self._with_jemalloc():
             self.requires("jemalloc/5.2.1")
         if self._with_boost():
-            self.requires("boost/1.78.0")
+            self.requires("boost/1.79.0")
         if self._with_gflags():
             self.requires("gflags/2.2.2")
         if self._with_glog():
@@ -331,6 +331,7 @@ class ArrowConan(ConanFile):
         if self._cmake:
             return self._cmake
         self._cmake = CMake(self)
+        self._cmake.definitions["CMAKE_FIND_PACKAGE_PREFER_CONFIG"] = True
         if tools.cross_building(self):
             cmake_system_processor = {
                 "armv8": "aarch64",
@@ -339,6 +340,7 @@ class ArrowConan(ConanFile):
             self._cmake.definitions["CMAKE_SYSTEM_PROCESSOR"] = cmake_system_processor
         if self.settings.compiler == "Visual Studio":
             self._cmake.definitions["ARROW_USE_STATIC_CRT"] = "MT" in str(self.settings.compiler.runtime)
+        self._cmake.definitions["ARROW_DEFINE_OPTIONS"] = True
         self._cmake.definitions["ARROW_DEPENDENCY_SOURCE"] = "SYSTEM"
         self._cmake.definitions["ARROW_GANDIVA"] = self.options.gandiva
         self._cmake.definitions["ARROW_PARQUET"] = self.options.parquet
@@ -382,7 +384,10 @@ class ArrowConan(ConanFile):
         if self.options.with_bz2:
             self._cmake.definitions["ARROW_BZ2_USE_SHARED"] = self.options["bzip2"].shared
         self._cmake.definitions["ARROW_WITH_LZ4"] = self.options.with_lz4
-        self._cmake.definitions["Lz4_SOURCE"] = "SYSTEM"
+        if tools.Version(self.version) >= "9.0.0":
+            self._cmake.definitions["lz4_SOURCE"] = "SYSTEM"
+        else:
+            self._cmake.definitions["Lz4_SOURCE"] = "SYSTEM"
         if self.options.with_lz4:
             self._cmake.definitions["ARROW_LZ4_USE_SHARED"] = self.options["lz4"].shared
         self._cmake.definitions["ARROW_WITH_SNAPPY"] = self.options.with_snappy

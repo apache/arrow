@@ -25,27 +25,29 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
 
-set(ARROW_FLIGHT_TEST_LINKAGE
-    "${ARROW_TEST_LINKAGE}"
-    PARENT_SCOPE)
+set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
 if(Protobuf_USE_STATIC_LIBS)
   message(STATUS "Linking Arrow Flight tests statically due to static Protobuf")
-  set(ARROW_FLIGHT_TEST_LINKAGE
-      "static"
-      PARENT_SCOPE)
+  set(ARROW_FLIGHT_TEST_LINKAGE "static")
 endif()
 if(NOT ARROW_GRPC_USE_SHARED)
   message(STATUS "Linking Arrow Flight tests statically due to static gRPC")
-  set(ARROW_FLIGHT_TEST_LINKAGE
-      "static"
-      PARENT_SCOPE)
+  set(ARROW_FLIGHT_TEST_LINKAGE "static")
 endif()
 
 set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_TEST_LINK_LIBS
-      arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-      ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_BUILD_STATIC)
+    set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static)
+  else()
+    set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared)
+  endif()
+  if(ARROW_FLIGHT_TESTING_BUILD_STATIC)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_testing_static)
+  else()
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_testing_shared)
+  endif()
+  list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
     list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_static)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
@@ -65,11 +67,7 @@ list(APPEND
      Boost::system
      GTest::gtest
      GTest::gmock)
-
-# Needed for Flight SQL and integration
-set(ARROW_FLIGHT_TEST_LINK_LIBS
-    ${ARROW_FLIGHT_TEST_LINK_LIBS}
-    PARENT_SCOPE)
+list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
 
@@ -159,7 +157,8 @@ elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
 elseif(GRPC_VERSION EQUAL "1.36")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
-elseif(GRPC_VERSION EQUAL "1.43")
+elseif((GRPC_VERSION EQUAL "1.43") OR (GRPC_VERSION EQUAL "1.46"))
+  # 1.46 is the bundled version
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental
                   -DGRPC_USE_CERTIFICATE_VERIFIER)
@@ -239,6 +238,25 @@ endforeach()
 
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
+  if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+  elseif(ARROW_BUILD_SHARED)
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_shared arrow_flight_shared)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_shared arrow_flight_shared)
+  else()
+    set(ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_static arrow_flight_static)
+    set(ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_static arrow_flight_static)
+  endif()
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_shared)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
+  else()
+    list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS arrow_testing_static)
+    list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS arrow_testing_static)
+  endif()
+  list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
+  list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
   add_arrow_lib(arrow_flight_testing
                 CMAKE_PACKAGE_NAME
                 ArrowFlightTesting
@@ -254,15 +272,9 @@ if(ARROW_TESTING)
                 flight_grpc_gen
                 arrow_dependencies
                 SHARED_LINK_LIBS
-                arrow_shared
-                arrow_flight_shared
-                arrow_testing_shared
-                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
+                ${ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS}
                 STATIC_LINK_LIBS
-                arrow_static
-                arrow_flight_static
-                arrow_testing_static
-                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
+                ${ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS}
                 PRIVATE_INCLUDES
                 "${Protobuf_INCLUDE_DIRS}")
 
@@ -287,7 +299,7 @@ add_arrow_test(flight_test
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test_server.cc)
   target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
+                        ${GFLAGS_LIBRARIES})
 
   if(ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-test flight-test-server)
@@ -308,11 +320,11 @@ if(ARROW_BUILD_BENCHMARKS)
 
   add_executable(arrow-flight-perf-server perf_server.cc perf.pb.cc)
   target_link_libraries(arrow-flight-perf-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
+                        ${GFLAGS_LIBRARIES})
 
   add_executable(arrow-flight-benchmark flight_benchmark.cc perf.pb.cc)
   target_link_libraries(arrow-flight-benchmark ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
+                        ${GFLAGS_LIBRARIES})
 
   add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
 
@@ -328,3 +340,15 @@ if(ARROW_BUILD_BENCHMARKS)
     endif()
   endif()
 endif(ARROW_BUILD_BENCHMARKS)
+
+if(ARROW_WITH_UCX)
+  add_subdirectory(transport/ucx)
+endif()
+
+if(ARROW_FLIGHT_SQL)
+  add_subdirectory(sql)
+
+  if(ARROW_BUILD_INTEGRATION)
+    add_subdirectory(integration_tests)
+  endif()
+endif()

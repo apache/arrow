@@ -23,6 +23,10 @@ func (t *BinaryType) Name() string        { return "binary" }
 func (t *BinaryType) String() string      { return "binary" }
 func (t *BinaryType) binary()             {}
 func (t *BinaryType) Fingerprint() string { return typeFingerprint(t) }
+func (t *BinaryType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
+		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
+}
 
 type StringType struct{}
 
@@ -31,6 +35,10 @@ func (t *StringType) Name() string        { return "utf8" }
 func (t *StringType) String() string      { return "utf8" }
 func (t *StringType) binary()             {}
 func (t *StringType) Fingerprint() string { return typeFingerprint(t) }
+func (t *StringType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
+		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
+}
 
 var (
 	BinaryTypes = struct {

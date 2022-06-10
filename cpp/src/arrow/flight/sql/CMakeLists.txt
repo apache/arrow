@@ -63,13 +63,12 @@ add_arrow_lib(arrow_flight_sql
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 
-if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_static
-                                      ${ARROW_FLIGHT_TEST_LINK_LIBS})
+if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_static)
 else()
-  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared
-                                      ${ARROW_FLIGHT_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_sql_shared)
 endif()
+list(APPEND ARROW_FLIGHT_SQL_TEST_LINK_LIBS ${ARROW_FLIGHT_TEST_LINK_LIBS})
 
 # Build test server for unit tests
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)

@@ -420,7 +420,11 @@ func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops Arrow
 		nodes = append(nodes, n)
 	}
 
-	root, err := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, nodes, -1)
+	root, err := schema.NewGroupNode(props.RootName(), props.RootRepetition(), nodes, -1)
+	if err != nil {
+		return nil, err
+	}
+
 	return schema.NewSchema(root), err
 }
 

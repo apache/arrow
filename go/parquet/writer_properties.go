@@ -47,6 +47,7 @@ const (
 	// If the stats are larger than 4K the writer will skip writing them out anyways.
 	DefaultMaxStatsSize int64 = 4096
 	DefaultCreatedBy          = "parquet-go version 9.0.0-SNAPSHOT"
+	DefaultRootName           = "schema"
 )
 
 // ColumnProperties defines the encoding, codec, and so on for a given column.
@@ -167,6 +168,22 @@ func WithCreatedBy(createdby string) WriterProperty {
 	}
 }
 
+// WithRootName enables customization of the name used for the root schema node. This is required
+// to maintain compatibility with other tools.
+func WithRootName(name string) WriterProperty {
+	return func(cfg *writerPropConfig) {
+		cfg.wr.rootName = name
+	}
+}
+
+// WithRootRepetition enables customization of the repetition used for the root schema node.
+// This is required to maintain compatibility with other tools.
+func WithRootRepetition(repetition Repetition) WriterProperty {
+	return func(cfg *writerPropConfig) {
+		cfg.wr.rootRepetition = repetition
+	}
+}
+
 // WithEncoding defines the encoding that is used when we aren't using dictionary encoding.
 //
 // This is either applied if dictionary encoding is disabled, or if we fallback if the dictionary
@@ -284,6 +301,8 @@ type WriterProperties struct {
 	parquetVersion  Version
 	createdBy       string
 	dataPageVersion DataPageVersion
+	rootName        string
+	rootRepetition  Repetition
 
 	defColumnProps  ColumnProperties
 	columnProps     map[string]*ColumnProperties
@@ -300,6 +319,8 @@ func defaultWriterProperties() *WriterProperties {
 		parquetVersion:  V2_LATEST,
 		dataPageVersion: DataPageV1,
 		createdBy:       DefaultCreatedBy,
+		rootName:        DefaultRootName,
+		rootRepetition:  Repetitions.Repeated,
 		defColumnProps:  DefaultColumnProperties(),
 	}
 }
@@ -370,6 +391,8 @@ func (w *WriterProperties) FileEncryptionProperties() *FileEncryptionProperties 
 
 func (w *WriterProperties) Allocator() memory.Allocator      { return w.mem }
 func (w *WriterProperties) CreatedBy() string                { return w.createdBy }
+func (w *WriterProperties) RootName() string                 { return w.rootName }
+func (w *WriterProperties) RootRepetition() Repetition       { return w.rootRepetition }
 func (w *WriterProperties) WriteBatchSize() int64            { return w.batchSize }
 func (w *WriterProperties) DataPageSize() int64              { return w.pageSize }
 func (w *WriterProperties) DictionaryPageSizeLimit() int64   { return w.dictPagesize }

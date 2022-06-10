@@ -83,7 +83,8 @@ else
   if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
     # Set the search paths and compile flags
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_LIBS=`pkg-config --libs-only-l --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_LIBS="${PKGCONFIG_LIBS} `pkg-config --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`"
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
   fi
 
@@ -182,7 +183,8 @@ else
 
         # Use pkg-config to do static linking of libarrow's dependencies
         if [ "$ARROW_DEPENDENCY_SOURCE" = "AUTO" ] || [ "$ARROW_DEPENDENCY_SOURCE" = "SYSTEM" ]; then
-          PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-l --libs-only-other --static  --silence-errors ${PKG_CONFIG_NAME}`"
+          PKG_LIBS="`PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-l --static  --silence-errors ${PKG_CONFIG_NAME}`"
+          PKG_LIBS="$PKG_LIBS `PKG_CONFIG_PATH=${LIB_DIR}/pkgconfig pkg-config --libs-only-other --static  --silence-errors ${PKG_CONFIG_NAME}`"
         fi
 
         # When using brew's openssl it is not bundled and it is not on the system

@@ -36,7 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/debug.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 #include "arrow/util/optional.h"

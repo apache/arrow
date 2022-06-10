@@ -119,6 +119,7 @@
 #' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 #' These may include `format` to indicate the file format, or other
 #' format-specific options (see [read_csv_arrow()], [read_parquet()] and [read_feather()] on how to specify these).
+#' @inheritParams dataset_factory
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
@@ -178,6 +179,7 @@ open_dataset <- function(sources,
                          hive_style = NA,
                          unify_schemas = NULL,
                          format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+                         factory_options = list(),
                          ...) {
   stop_if_no_datasets()
 
@@ -212,6 +214,7 @@ open_dataset <- function(sources,
     format = format,
     schema = schema,
     hive_style = hive_style,
+    factory_options = factory_options,
     ...
   )
   tryCatch(

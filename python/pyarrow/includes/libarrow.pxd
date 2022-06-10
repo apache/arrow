@@ -1971,10 +1971,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CRoundTemporalOptions \
             "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
         CRoundTemporalOptions(int multiple, CCalendarUnit unit,
-                              c_bool week_starts_monday)
+                              c_bool week_starts_monday,
+                              c_bool ceil_is_strictly_greater,
+                              c_bool calendar_based_origin)
         int multiple
         CCalendarUnit unit
         c_bool week_starts_monday
+        c_bool ceil_is_strictly_greater
+        c_bool calendar_based_origin
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
@@ -2244,6 +2248,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPartitionNthOptions(int64_t pivot, CNullPlacement)
         int64_t pivot
         CNullPlacement null_placement
+
+    cdef cppclass CCumulativeSumOptions \
+            "arrow::compute::CumulativeSumOptions"(CFunctionOptions):
+        CCumulativeSumOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
+        shared_ptr[CScalar] start
+        c_bool skip_nulls
 
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):

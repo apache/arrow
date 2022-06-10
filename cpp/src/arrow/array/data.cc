@@ -29,9 +29,9 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/slice_util_internal.h"
 
 namespace arrow {
 

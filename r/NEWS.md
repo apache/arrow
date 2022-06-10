@@ -39,10 +39,10 @@
     if the query contains contains aggregations or joins.
   - supports `dplyr::rename_with()`.
   - `dplyr::count()` returns an ungrouped dataframe.
-* `write_dataset` has more options for controlling row group and file sizes when
+* `write_dataset()` has more options for controlling row group and file sizes when
   writing partitioned datasets, such as `max_open_files`, `max_rows_per_file`,
   `min_rows_per_group`, and `max_rows_per_group`.
-* `write_csv_arrow` accepts a `Dataset` or an Arrow dplyr query.
+* `write_csv_arrow()` accepts a `Dataset` or an Arrow dplyr query.
 * Joining one or more datasets while `option(use_threads = FALSE)` no longer
   crashes R. That option is set by default on Windows.
 * `dplyr` joins support the `suffix` argument to handle overlap in column names.
@@ -62,11 +62,12 @@
     * `lubridate::epiyear()` (year according to epidemiological week calendar),
   * `lubridate::month()` works with integer inputs.
   * `lubridate::make_date()` & `lubridate::make_datetime()` +
-    `lubridate::ISOdatetime()` & `lubridate::ISOdate()` to
+    `base::ISOdatetime()` & `base::ISOdate()` to
     create date-times from numeric representations.
   * `lubridate::decimal_date()` and `lubridate::date_decimal()`
   * `lubridate::make_difftime()` (duration constructor)
-  * `?lubridate::duration` helper functions, such as `dyears()`, `dhours()`, `dseconds()`.
+  * `?lubridate::duration` helper functions,
+    such as `lubridate::dyears()`, `lubridate::dhours()`, `lubridate::dseconds()`.
   * `lubridate::leap_year()`
   * `lubridate::as_date()` and `lubridate::as_datetime()`
 * Also for Arrow dplyr queries, added support and fixes for base date and time functions:

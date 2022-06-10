@@ -582,7 +582,7 @@ def test_partitioning():
     )
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
-    expr = partitioning.parse('/3/3.14')
+    expr = partitioning.parse('/3/3.14/')
     assert isinstance(expr, ds.Expression)
 
     expected = (ds.field('group') == 3) & (ds.field('key') == 3.14)
@@ -591,7 +591,7 @@ def test_partitioning():
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('/prefix/3/aaa')
 
-    expr = partitioning.parse('/3')
+    expr = partitioning.parse('/3/')
     expected = ds.field('group') == 3
     assert expr.equals(expected)
 
@@ -604,20 +604,20 @@ def test_partitioning():
     )
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
-    expr = partitioning.parse('/alpha=0/beta=3')
+    expr = partitioning.parse('/alpha=0/beta=3/')
     expected = (
         (ds.field('alpha') == ds.scalar(0)) &
         (ds.field('beta') == ds.scalar(3))
     )
     assert expr.equals(expected)
 
-    expr = partitioning.parse('/alpha=xyz/beta=3')
+    expr = partitioning.parse('/alpha=xyz/beta=3/')
     expected = (
         (ds.field('alpha').is_null() & (ds.field('beta') == ds.scalar(3)))
     )
     assert expr.equals(expected)
 
-    for shouldfail in ['/alpha=one/beta=2', '/alpha=one', '/beta=two']:
+    for shouldfail in ['/alpha=one/beta=2/', '/alpha=one/', '/beta=two/']:
         with pytest.raises(pa.ArrowInvalid):
             partitioning.parse(shouldfail)
 
@@ -661,6 +661,24 @@ def test_partitioning():
     assert partitioning.dictionaries[0] is None
     assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
+
+    # test partitioning roundtrip
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))],
+        names=["f1", "f2", "part"]
+    )
+    partitioning_schema = pa.schema([("part", pa.string())])
+    for klass in [ds.DirectoryPartitioning, ds.HivePartitioning,
+                  ds.FilenamePartitioning]:
+        with tempfile.TemporaryDirectory() as tempdir:
+            partitioning = klass(partitioning_schema)
+            ds.write_dataset(table, tempdir,
+                             format='ipc', partitioning=partitioning)
+            load_back = ds.dataset(tempdir, format='ipc',
+                                   partitioning=partitioning)
+            load_back_table = load_back.to_table()
+            assert load_back_table.equals(table)
 
 
 def test_expression_arithmetic_operators():
@@ -730,10 +748,15 @@ def test_parquet_scan_options():
     opts3 = ds.ParquetFragmentScanOptions(
         buffer_size=2**13, use_buffered_stream=True)
     opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
+    opts5 = ds.ParquetFragmentScanOptions(
+        thrift_string_size_limit=123456,
+        thrift_container_size_limit=987654,)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is False
+    assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
+    assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
@@ -747,10 +770,14 @@ def test_parquet_scan_options():
     assert opts4.buffer_size == 2**13
     assert opts4.pre_buffer is True
 
+    assert opts5.thrift_string_size_limit == 123456
+    assert opts5.thrift_container_size_limit == 987654
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
+    assert opts5 != opts1
 
 
 def test_file_format_pickling():
@@ -777,6 +804,8 @@ def test_file_format_pickling():
             ds.ParquetFileFormat(
                 use_buffered_stream=True,
                 buffer_size=4096,
+                thrift_string_size_limit=123,
+                thrift_container_size_limit=456,
             ),
         ])
 
@@ -1776,6 +1805,12 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
         pa.schema([pa.field('a', pa.string()), pa.field('b', pa.string())]))
     with pytest.raises(pa.ArrowInvalid):
         ds.write_dataset(table, tempdir, format='ipc', partitioning=part)
+
+
+def test_positional_keywords_raises(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+    with pytest.raises(TypeError):
+        ds.write_dataset(table, tempdir, "basename-{i}.arrow")
 
 
 @pytest.mark.parquet
@@ -4123,9 +4158,11 @@ def test_write_table(tempdir):
     ]
 
     visited_paths = []
+    visited_sizes = []
 
     def file_visitor(written_file):
         visited_paths.append(written_file.path)
+        visited_sizes.append(written_file.size)
 
     partitioning = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
@@ -4134,6 +4171,8 @@ def test_write_table(tempdir):
                      partitioning=partitioning, file_visitor=file_visitor)
     file_paths = list(base_dir.rglob("*"))
     assert set(file_paths) == set(expected_paths)
+    actual_sizes = [os.path.getsize(path) for path in visited_paths]
+    assert visited_sizes == actual_sizes
     result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
     assert result.to_table().equals(table)
     assert len(visited_paths) == 2
@@ -4538,15 +4577,15 @@ def test_dataset_join(tempdir):
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="parquet")
-    ds1 = ds.dataset(tempdir / "t1")
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
     t2 = pa.table({
         "colB": [99, 2, 1],
         "col3": ["Z", "B", "A"]
     })
-    ds.write_dataset(t2, tempdir / "t2", format="parquet")
-    ds2 = ds.dataset(tempdir / "t2")
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
 
     result = ds1.join(ds2, "colA", "colB")
     assert result.to_table() == pa.table({
@@ -4569,15 +4608,15 @@ def test_dataset_join_unique_key(tempdir):
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="parquet")
-    ds1 = ds.dataset(tempdir / "t1")
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
     t2 = pa.table({
         "colA": [99, 2, 1],
         "col3": ["Z", "B", "A"]
     })
-    ds.write_dataset(t2, tempdir / "t2", format="parquet")
-    ds2 = ds.dataset(tempdir / "t2")
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
 
     result = ds1.join(ds2, "colA")
     assert result.to_table() == pa.table({
@@ -4601,16 +4640,16 @@ def test_dataset_join_collisions(tempdir):
         "colB": [10, 20, 60],
         "colVals": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="parquet")
-    ds1 = ds.dataset(tempdir / "t1")
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
     t2 = pa.table({
         "colA": [99, 2, 1],
         "colB": [99, 20, 10],
         "colVals": ["Z", "B", "A"]
     })
-    ds.write_dataset(t2, tempdir / "t2", format="parquet")
-    ds2 = ds.dataset(tempdir / "t2")
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
 
     result = ds1.join(ds2, "colA", join_type="full outer", right_suffix="_r")
     assert result.to_table().sort_by("colA") == pa.table([
@@ -4620,3 +4659,19 @@ def test_dataset_join_collisions(tempdir):
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
     ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])
+
+
+@pytest.mark.dataset
+def test_dataset_filter(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    result = ds1.scanner(filter=pc.field("colA") < 3)
+    assert result.to_table() == pa.table({
+        "colA": [1, 2],
+        "col2": ["a", "b"]
+    })

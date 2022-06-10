@@ -196,9 +196,26 @@ func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append({{.QualifiedType}}FromTime(tm))
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v.String(),
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.QualifiedType}}(n))
+	case float64:
+		b.Append({{.QualifiedType}}(v))
 {{else if or (eq .Name "Time32") (eq .Name "Time64") (eq .Name "Timestamp") -}}
 	case string:
+{{if (eq .Name "Timestamp") -}}
+		loc, _ := b.dtype.GetZone()
+		tm, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
+{{else -}}
 		tm, err := {{.QualifiedType}}FromString(v, b.dtype.Unit)
+{{end}}
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value: v,
@@ -208,7 +225,31 @@ func (b *{{.Name}}Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(tm)
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v.String(),
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.QualifiedType}}(n))
+	case float64:
+		b.Append({{.QualifiedType}}(v))
 {{else if eq .Name "Duration" -}}
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value: v.String(),
+				Type: reflect.TypeOf({{.QualifiedType}}(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append({{.QualifiedType}}(n))
+	case float64:
+		b.Append({{.QualifiedType}}(v))
 	case string:
 		// be flexible for specifying durations by accepting forms like
 		// 3h2m0.5s regardless of the unit and converting it to the proper

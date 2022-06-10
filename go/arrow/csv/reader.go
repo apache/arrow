@@ -261,7 +261,7 @@ func (r *Reader) read(recs []string) {
 }
 
 func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, string) {
-	switch field.Type.(type) {
+	switch dt := field.Type.(type) {
 	case *arrow.BooleanType:
 		return func(field array.Builder, str string) {
 			r.parseBool(field, str)
@@ -320,6 +320,10 @@ func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, stri
 			return func(field array.Builder, str string) {
 				field.(*array.StringBuilder).Append(str)
 			}
+		}
+	case *arrow.TimestampType:
+		return func(field array.Builder, str string) {
+			r.parseTimestamp(field, str, dt.Unit)
 		}
 
 	default:
@@ -505,6 +509,23 @@ func (r *Reader) parseFloat64(field array.Builder, str string) {
 		return
 	}
 	field.(*array.Float64Builder).Append(v)
+}
+
+// parses timestamps using millisecond precision
+func (r *Reader) parseTimestamp(field array.Builder, str string, unit arrow.TimeUnit) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := arrow.TimestampFromString(str, unit)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.TimestampBuilder).Append(v)
 }
 
 // Retain increases the reference count by 1.

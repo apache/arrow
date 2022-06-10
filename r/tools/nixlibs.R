@@ -19,7 +19,7 @@ args <- commandArgs(TRUE)
 VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 
-arrow_repo <- "https://arrow-r-nightly.s3.amazonaws.com/libarrow/"
+arrow_repo <- paste0(getOption("arrow.dev_repo", "https://arrow-r-nightly.s3.amazonaws.com"), "/libarrow/")
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))

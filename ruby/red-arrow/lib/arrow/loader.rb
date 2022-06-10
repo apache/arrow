@@ -34,6 +34,7 @@ module Arrow
     end
 
     def require_libraries
+      require "arrow/array-computable"
       require "arrow/column-containable"
       require "arrow/field-containable"
       require "arrow/generic-filterable"

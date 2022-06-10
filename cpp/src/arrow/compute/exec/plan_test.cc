@@ -589,6 +589,45 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
   }
 }
 
+TEST(ExecPlanExecution, ConsumingSinkNames) {
+  struct SchemaKeepingConsumer : public SinkNodeConsumer {
+    std::shared_ptr<Schema> schema_;
+    Status Init(const std::shared_ptr<Schema>& schema,
+                BackpressureControl* backpressure_control) override {
+      schema_ = schema;
+      return Status::OK();
+    }
+    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Future<> Finish() override { return Future<>::MakeFinished(); }
+  };
+  std::vector<std::vector<std::string>> names_data = {{}, {"a", "b"}, {"a", "b", "c"}};
+  for (const auto& names : names_data) {
+    auto consumer = std::make_shared<SchemaKeepingConsumer>();
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    auto basic_data = MakeBasicBatches();
+    ASSERT_OK(Declaration::Sequence(
+                  {{"source",
+                    SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
+                   {"consuming_sink", ConsumingSinkNodeOptions(consumer, names)}})
+                  .AddToPlan(plan.get()));
+    ASSERT_OK_AND_ASSIGN(
+        auto source,
+        MakeExecNode("source", plan.get(), {},
+                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
+    ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
+                           ConsumingSinkNodeOptions(consumer, names)));
+    if (names.size() != 0 &&
+        names.size() != static_cast<size_t>(basic_data.batches[0].num_values())) {
+      ASSERT_RAISES(Invalid, plan->StartProducing());
+    } else {
+      auto expected_names = names.size() == 0 ? basic_data.schema->field_names() : names;
+      ASSERT_OK(plan->StartProducing());
+      ASSERT_FINISHES_OK(plan->finished());
+      ASSERT_EQ(expected_names, consumer->schema_->field_names());
+    }
+  }
+}
+
 TEST(ExecPlanExecution, ConsumingSinkError) {
   struct InitErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,

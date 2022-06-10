@@ -382,7 +382,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
 
-    if(ARROW_BUILD_STATIC AND WIN32)
+    if(WIN32)
       target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
       target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_FLIGHT_STATIC)
     endif()

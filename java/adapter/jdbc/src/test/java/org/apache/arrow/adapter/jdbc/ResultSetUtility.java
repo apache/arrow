@@ -332,17 +332,13 @@ public class ResultSetUtility {
       private int precision;
       private int scale;
       private int nullable;
+      private String label;
 
-      private MockColumnMetaData(int i, MockDataElement element) throws SQLException {
-        this.index = i;
-        this.sqlType = element.sqlType;
-        this.precision = element.getPrecision();
-        this.scale = element.getScale();
-        this.nullable = element.isNullable();
-      }
+
+      private MockColumnMetaData() {}
 
       private String getLabel() {
-        return "col_" + index;
+        return label;
       }
 
       private String getName() {
@@ -365,8 +361,57 @@ public class ResultSetUtility {
         return nullable;
       }
 
-      static MockColumnMetaData fromDataElement(MockDataElement element, int i) throws SQLException {
-        return new MockColumnMetaData(i, element);
+      public static MockColumnMetaData fromDataElement(MockDataElement element, int i) throws SQLException {
+        return MockColumnMetaData.builder()
+                .index(i)
+                .sqlType(element.getSqlType())
+                .precision(element.getPrecision())
+                .scale(element.getScale())
+                .nullable(element.isNullable())
+                .label("col_" + i)
+                .build();
+      }
+
+      public static Builder builder() {
+        return new Builder();
+      }
+
+      public static class Builder {
+        private MockColumnMetaData columnMetaData = new MockColumnMetaData();
+
+        public Builder index(int index) {
+          this.columnMetaData.index = index;
+          return this;
+        }
+
+        public Builder label(String label) {
+          this.columnMetaData.label = label;
+          return this;
+        }
+
+        public Builder sqlType(int sqlType) {
+          this.columnMetaData.sqlType = sqlType;
+          return this;
+        }
+
+        public Builder precision(int precision) {
+          this.columnMetaData.precision = precision;
+          return this;
+        }
+
+        public Builder scale(int scale) {
+          this.columnMetaData.scale = scale;
+          return this;
+        }
+
+        public Builder nullable(int nullable) {
+          this.columnMetaData.nullable = nullable;
+          return this;
+        }
+
+        public MockColumnMetaData build() {
+          return this.columnMetaData;
+        }
       }
 
     }
@@ -410,24 +455,39 @@ public class ResultSetUtility {
     }
 
     private int getPrecision() throws SQLException {
-      if (this.sqlType == Types.VARCHAR) {
-        return getValueAsString().length();
+      switch (this.sqlType) {
+        case Types.VARCHAR:
+          return getValueAsString().length();
+        case Types.DECIMAL:
+          return getBigDecimal().precision();
+        default:
+          throw getExceptionToThrow("Unable to determine precision for data type: " + sqlType);
       }
-      throw getExceptionToThrow("Unable to determine precision for data type!");
     }
 
     private int getScale() throws SQLException {
-      if (this.sqlType == Types.VARCHAR) {
-        return 0;
+      switch (this.sqlType) {
+        case Types.VARCHAR:
+          return 0;
+        case Types.DECIMAL:
+          return getBigDecimal().scale();
+        default:
+          throw getExceptionToThrow("Unable to determine scale for data type!");
       }
-      throw getExceptionToThrow("Unable to determine scale for data type!");
     }
 
     private int isNullable() throws SQLException {
-      if (this.sqlType == Types.VARCHAR) {
-        return ResultSetMetaData.columnNullable;
+      switch (this.sqlType) {
+        case Types.VARCHAR:
+        case Types.DECIMAL:
+          return ResultSetMetaData.columnNullable;
+        default:
+          return ResultSetMetaData.columnNullableUnknown;
       }
-      return ResultSetMetaData.columnNullableUnknown;
+    }
+
+    private int getSqlType() throws SQLException {
+      return this.sqlType;
     }
 
     public BigDecimal getBigDecimal() throws SQLException {
