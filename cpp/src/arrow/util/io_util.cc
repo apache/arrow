@@ -102,8 +102,8 @@
 #endif
 
 #ifdef _WIN32
+#include "arrow/util/windows_compatibility.h"
 #include <psapi.h>
-#include <windows.h>
 
 #elif __APPLE__
 #include <mach/mach.h>
