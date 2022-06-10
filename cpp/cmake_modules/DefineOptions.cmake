@@ -83,6 +83,12 @@ endmacro()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  set(ARROW_DEFINE_OPTIONS_DEFAULT ON)
+else()
+  set(ARROW_DEFINE_OPTIONS_DEFAULT OFF)
+endif()
+option(ARROW_DEFINE_OPTIONS "Define Arrow options" ${ARROW_DEFINE_OPTIONS_DEFAULT})
+if(ARROW_DEFINE_OPTIONS)
   #----------------------------------------------------------------------
   set_option_category("Compile and link")
 
