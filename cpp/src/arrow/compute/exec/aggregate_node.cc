@@ -121,7 +121,6 @@ class ScalarAggregateNode : public ExecNode {
       }
       if (aggregates[i].options) {
         owned_options[i] = aggregates[i].options->Copy();
-        // aggregates[i].options = owned_options[i];
       }
 
       KernelContext kernel_ctx{exec_ctx};
