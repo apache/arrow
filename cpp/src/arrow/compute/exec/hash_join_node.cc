@@ -336,7 +336,8 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
 
 Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                               const Schema& left_schema,
-                                              const Schema& right_schema) {
+                                              const Schema& right_schema,
+                                              ExecContext* exec_context) {
   if (filter.IsBound() || filter == literal(true)) {
     return std::move(filter);
   }
@@ -367,7 +368,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                           filter);
 
   // Step 3: Bind
-  ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(filter_schema));
+  ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(filter_schema, exec_context));
   if (filter.type()->id() != Type::BOOL) {
     return Status::TypeError("Filter expression must evaluate to bool, but ",
                              filter.ToString(), " evaluates to ",
@@ -514,9 +515,9 @@ class HashJoinNode : public ExecNode {
           join_options.output_suffix_for_left, join_options.output_suffix_for_right));
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        Expression filter,
-        schema_mgr->BindFilter(join_options.filter, left_schema, right_schema));
+    ARROW_ASSIGN_OR_RAISE(Expression filter,
+                          schema_mgr->BindFilter(join_options.filter, left_schema,
+                                                 right_schema, plan->exec_context()));
 
     // Generate output schema
     std::shared_ptr<Schema> output_schema = schema_mgr->MakeOutputSchema(

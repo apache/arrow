@@ -64,7 +64,8 @@ class ProjectNode : public MapNode {
     int i = 0;
     for (auto& expr : exprs) {
       if (!expr.IsBound()) {
-        ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*inputs[0]->output_schema()));
+        ARROW_ASSIGN_OR_RAISE(
+            expr, expr.Bind(*inputs[0]->output_schema(), plan->exec_context()));
       }
       fields[i] = field(std::move(names[i]), expr.type());
       ++i;
