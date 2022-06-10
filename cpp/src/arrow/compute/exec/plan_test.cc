@@ -375,7 +375,8 @@ TEST(ExecPlan, ToString) {
 )");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  std::shared_ptr<CountOptions> options = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  std::shared_ptr<CountOptions> options =
+      std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
   ASSERT_OK(
       Declaration::Sequence(
           {

@@ -238,7 +238,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     auto opts = make_compute_options(name, name_opts[1]);
 
     aggregates.push_back(
-        arrow::compute::internal::Aggregate{std::move(name), opts.get()});
+        arrow::compute::internal::Aggregate{std::move(name), std::move(opts)});
     keep_alives.push_back(std::move(opts));
   }
 

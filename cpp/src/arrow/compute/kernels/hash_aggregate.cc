@@ -226,8 +226,6 @@ void VisitGroupedValuesNonNull(const ExecBatch& batch, ConsumeValue&& valid_func
 struct GroupedCountImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
               const FunctionOptions* options) override {
-    const auto *opts = options;
-    opts->ToString();
     options_ = checked_cast<const CountOptions&>(*options);
     counts_ = BufferBuilder(ctx->memory_pool());
     return Status::OK();
@@ -2721,14 +2719,16 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    auto options = aggregates[i].options;
+    std::shared_ptr<FunctionOptions> options = aggregates[i].options;
 
     if (options == nullptr) {
       // use known default options for the named function if possible
       auto maybe_function = ctx->func_registry()->GetFunction(aggregates[i].function);
       if (maybe_function.ok()) {
-        auto func_opts = *maybe_function.ValueOrDie()->default_options();
-        options = std::make_shared<FunctionOptions>(func_opts);
+        auto default_opts = maybe_function.ValueOrDie()->default_options();
+        if (default_opts != nullptr) {
+          options = default_opts->Copy();
+        }
       }
     }
 
