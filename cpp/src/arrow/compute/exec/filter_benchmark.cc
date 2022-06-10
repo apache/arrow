@@ -85,6 +85,8 @@ static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
 
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
                          ExecPlan::Make(&ctx));
+    // Source and sink nodes have no effect on the benchmark.
+    // Used for dummy purposes as they are referenced in InputReceived and InputFinished.
     ASSERT_OK_AND_ASSIGN(
         arrow::compute::ExecNode * source_node,
         MakeExecNode("source", plan.get(), {},
