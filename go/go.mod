@@ -32,7 +32,7 @@ require (
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
 	github.com/pierrec/lz4/v4 v4.1.12
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.2
 	github.com/zeebo/xxh3 v1.0.1
 	golang.org/x/exp v0.0.0-20211216164055-b2b84827b756
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
