@@ -23,14 +23,6 @@
 
 #include "arrow/flight/server.h"
 
-#ifdef _WIN32
-#include "arrow/util/windows_compatibility.h"
-
-#include <io.h>
-#else
-#include <fcntl.h>
-#include <unistd.h>
-#endif
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -52,21 +44,15 @@
 
 namespace arrow {
 namespace flight {
+
 namespace {
 #if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
 #error "atomic ints and atomic pointers not always lock-free!"
 #endif
 
+using ::arrow::internal::SelfPipe;
 using ::arrow::internal::SetSignalHandler;
 using ::arrow::internal::SignalHandler;
-
-#ifdef WIN32
-#define PIPE_WRITE _write
-#define PIPE_READ _read
-#else
-#define PIPE_WRITE write
-#define PIPE_READ read
-#endif
 
 /// RAII guard that manages a self-pipe and a thread that listens on
 /// the self-pipe, shutting down the server when a signal handler
@@ -80,51 +66,22 @@ class ServerSignalHandler {
   ///
   /// \return the fd of the write side of the pipe.
   template <typename Fn>
-  arrow::Result<int> Init(Fn handler) {
-    ARROW_ASSIGN_OR_RAISE(auto pipe, arrow::internal::CreatePipe());
-#ifndef WIN32
-    // Make write end nonblocking
-    int flags = fcntl(pipe.wfd, F_GETFL);
-    if (flags == -1) {
-      RETURN_NOT_OK(arrow::internal::FileClose(pipe.rfd));
-      RETURN_NOT_OK(arrow::internal::FileClose(pipe.wfd));
-      return arrow::internal::IOErrorFromErrno(
-          errno, "Could not initialize self-pipe to wait for signals");
-    }
-    flags |= O_NONBLOCK;
-    if (fcntl(pipe.wfd, F_SETFL, flags) == -1) {
-      RETURN_NOT_OK(arrow::internal::FileClose(pipe.rfd));
-      RETURN_NOT_OK(arrow::internal::FileClose(pipe.wfd));
-      return arrow::internal::IOErrorFromErrno(
-          errno, "Could not initialize self-pipe to wait for signals");
-    }
-#endif
-    self_pipe_ = pipe;
-    handle_signals_ = std::thread(handler, self_pipe_.rfd);
-    return self_pipe_.wfd;
+  arrow::Result<std::shared_ptr<SelfPipe>> Init(Fn handler) {
+    ARROW_ASSIGN_OR_RAISE(self_pipe_, SelfPipe::Make(/*signal_safe=*/true));
+    handle_signals_ = std::thread(handler, self_pipe_);
+    return self_pipe_;
   }
 
   Status Shutdown() {
-    if (self_pipe_.rfd == 0) {
-      // Already closed
-      return Status::OK();
-    }
-    if (PIPE_WRITE(self_pipe_.wfd, "0", 1) < 0 && errno != EAGAIN &&
-        errno != EWOULDBLOCK && errno != EINTR) {
-      return arrow::internal::IOErrorFromErrno(errno, "Could not unblock signal thread");
-    }
+    RETURN_NOT_OK(self_pipe_->Shutdown());
     handle_signals_.join();
-    RETURN_NOT_OK(arrow::internal::FileClose(self_pipe_.rfd));
-    RETURN_NOT_OK(arrow::internal::FileClose(self_pipe_.wfd));
-    self_pipe_.rfd = 0;
-    self_pipe_.wfd = 0;
     return Status::OK();
   }
 
   ~ServerSignalHandler() { ARROW_CHECK_OK(Shutdown()); }
 
  private:
-  arrow::internal::Pipe self_pipe_;
+  std::shared_ptr<SelfPipe> self_pipe_;
   std::thread handle_signals_;
 };
 }  // namespace
@@ -140,7 +97,7 @@ struct FlightServerBase::Impl {
   static std::atomic<Impl*> running_instance_;
   // We'll use the self-pipe trick to notify a thread from the signal
   // handler. The thread will then shut down the server.
-  int self_pipe_wfd_;
+  std::shared_ptr<SelfPipe> self_pipe_;
 
   // Signal handling
   std::vector<int> signals_;
@@ -156,24 +113,17 @@ struct FlightServerBase::Impl {
 
   void DoHandleSignal(int signum) {
     got_signal_ = signum;
-    int saved_errno = errno;
-    if (PIPE_WRITE(self_pipe_wfd_, "0", 1) < 0) {
-      // Can't do much here, though, pipe is nonblocking so hopefully this doesn't happen
-      ARROW_LOG(WARNING) << "FlightServerBase: failed to handle signal " << signum
-                         << " errno: " << errno;
-    }
-    errno = saved_errno;
+
+    // Send dummy payload over self-pipe
+    self_pipe_->Send(/*payload=*/0);
   }
 
-  static void WaitForSignals(int fd) {
-    // Wait for a signal handler to write to the pipe
-    int8_t buf[1];
-    while (PIPE_READ(fd, /*buf=*/buf, /*count=*/1) == -1) {
-      if (errno == EINTR) {
-        continue;
-      }
-      ARROW_CHECK_OK(arrow::internal::IOErrorFromErrno(
-          errno, "Error while waiting for shutdown signal"));
+  static void WaitForSignals(std::shared_ptr<SelfPipe> self_pipe) {
+    // Wait for a signal handler to wake up the pipe
+    auto st = self_pipe->Wait().status();
+    // Status::Invalid means the pipe was shutdown without any wakeup
+    if (!st.ok() && !st.IsInvalid()) {
+      ARROW_LOG(FATAL) << "Failed to wait on self-pipe: " << st.ToString();
     }
     auto instance = running_instance_.load();
     if (instance != nullptr) {
@@ -232,8 +182,7 @@ Status FlightServerBase::Serve() {
   impl_->running_instance_ = impl_.get();
 
   ServerSignalHandler signal_handler;
-  ARROW_ASSIGN_OR_RAISE(impl_->self_pipe_wfd_,
-                        signal_handler.Init(&Impl::WaitForSignals));
+  ARROW_ASSIGN_OR_RAISE(impl_->self_pipe_, signal_handler.Init(&Impl::WaitForSignals));
   // Override existing signal handlers with our own handler so as to stop the server.
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
     int signum = impl_->signals_[i];
