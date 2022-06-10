@@ -391,7 +391,7 @@ TEST(ExecPlan, ToString) {
                           }}},
               {"aggregate",
                AggregateNodeOptions{
-                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", options}},
+                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", std::move(options)}},
                    /*targets=*/{"multiply(i32, 2)", "multiply(i32, 2)"},
                    /*names=*/{"sum(multiply(i32, 2))", "count(multiply(i32, 2))"},
                    /*keys=*/{"bool"}}},
@@ -433,7 +433,7 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
       Declaration::Sequence(
           {
               union_node,
-              {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count", options}},
+              {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count", std::move(options)}},
                                                  /*targets=*/{"i32"},
                                                  /*names=*/{"count(i32)"},
                                                  /*keys=*/{}}},
