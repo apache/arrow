@@ -22,7 +22,7 @@
 jobs:
   package:
     name: Package
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
@@ -30,7 +30,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.0'
+          ruby-version: '3.1'
       - name: Cache ccache
         uses: actions/cache@v2
         with:
@@ -66,10 +66,9 @@ jobs:
         run: |
           set -e
           sudo apt update
-          # We can install createrepo_c by package with Ubuntu 22.04.
-          #   createrepo_c \
           sudo apt install -y \
             apt-utils \
+            createrepo-c \
             devscripts \
             gpg \
             rpm
@@ -92,38 +91,6 @@ jobs:
               ;;
           esac
           gpg --export --armor test@example.com >> arrow/dev/tasks/linux-packages/KEYS
-      # We can install createrepo_c by package with Ubuntu 22.04.
-      # This is workaround:
-      - name: Install createrepo_c
-        run: |
-          sudo apt install -y \
-            cmake \
-            libbz2-dev \
-            libcurl4-openssl-dev \
-            libglib2.0-dev \
-            liblzma-dev \
-            libmagic-dev \
-            librpm-dev \
-            libsqlite3-dev \
-            libssl-dev \
-            libxml2-dev \
-            libzstd-dev \
-            pkg-config \
-            zlib1g-dev
-          git clone --depth 1 https://github.com/rpm-software-management/createrepo_c.git
-          pushd createrepo_c
-          /usr/bin/cmake \
-            -DCMAKE_INSTALL_PREFIX=/usr \
-            -DENABLE_BASHCOMP=OFF \
-            -DENABLE_DRPM=OFF \
-            -DENABLE_PYTHON=OFF \
-            -DWITH_LIBMODULEMD=OFF \
-            -DWITH_ZCHUNK=OFF \
-            .
-          make -j$(nproc)
-          sudo make install
-          popd
-          rm -rf createrepo_c
       - name: Test
         run: |
           set -e

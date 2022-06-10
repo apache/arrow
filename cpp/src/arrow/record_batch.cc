@@ -390,4 +390,11 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
   return std::make_shared<SimpleRecordBatchReader>(std::move(batches), schema);
 }
 
+RecordBatchReader::~RecordBatchReader() {
+  auto st = this->Close();
+  if (!st.ok()) {
+    ARROW_LOG(WARNING) << "Implicitly called RecordBatchReader::Close failed: " << st;
+  }
+}
+
 }  // namespace arrow

@@ -17,7 +17,7 @@
 
 import pytest
 
-from archery.release import (
+from archery.release.core import (
     Release, MajorRelease, MinorRelease, PatchRelease,
     Jira, Version, Issue, CommitTitle, Commit
 )

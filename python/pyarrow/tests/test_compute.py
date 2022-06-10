@@ -153,7 +153,7 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
-        pc.RoundTemporalOptions(1, "second", True),
+        pc.RoundTemporalOptions(1, "second", week_starts_monday=True),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -2038,6 +2038,14 @@ def _check_temporal_rounding(ts, values, unit):
         "hour": "H",
         "day": "D"
     }
+    greater_unit = {
+        "nanosecond": "us",
+        "microsecond": "ms",
+        "millisecond": "s",
+        "second": "min",
+        "minute": "H",
+        "hour": "d",
+    }
     ta = pa.array(ts)
 
     for value in values:
@@ -2056,6 +2064,27 @@ def _check_temporal_rounding(ts, values, unit):
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
+        # Check rounding with calendar_based_origin=True.
+        # Note: rounding to month is not supported in Pandas so we can't
+        # approximate this functionallity and exclude unit == "day".
+        if unit != "day":
+            options = pc.RoundTemporalOptions(
+                value, unit, calendar_based_origin=True)
+            origin = ts.dt.floor(greater_unit[unit])
+
+            if ta.type.tz is None:
+                result = pc.ceil_temporal(ta, options=options).to_pandas()
+                expected = (ts - origin).dt.ceil(frequency) + origin
+                np.testing.assert_array_equal(result, expected)
+
+            result = pc.floor_temporal(ta, options=options).to_pandas()
+            expected = (ts - origin).dt.floor(frequency) + origin
+            np.testing.assert_array_equal(result, expected)
+
+            result = pc.round_temporal(ta, options=options).to_pandas()
+            expected = (ts - origin).dt.round(frequency) + origin
+            np.testing.assert_array_equal(result, expected)
+
         # Check RoundTemporalOptions partial defaults
         if unit == "day":
             result = pc.ceil_temporal(ta, multiple=value).to_pandas()
@@ -2069,6 +2098,22 @@ def _check_temporal_rounding(ts, values, unit):
             result = pc.round_temporal(ta, multiple=value).to_pandas()
             expected = ts.dt.round(frequency)
             np.testing.assert_array_equal(result, expected)
+
+    # We naively test ceil_is_strictly_greater by adding time unit multiple
+    # to regular ceiled timestamp if it is equal to the original timestamp.
+    # This does not work if timestamp is zoned since our logic will not
+    # account for DST jumps.
+    if ta.type.tz is None:
+        options = pc.RoundTemporalOptions(
+            value, unit, ceil_is_strictly_greater=True)
+        result = pc.ceil_temporal(ta, options=options)
+        expected = ts.dt.ceil(frequency)
+
+        expected = np.where(
+            expected == ts,
+            expected + pd.Timedelta(value, unit_shorthand[unit]),
+            expected)
+        np.testing.assert_array_equal(result, expected)
 
     # Check RoundTemporalOptions defaults
     if unit == "day":
@@ -2096,9 +2141,8 @@ def _check_temporal_rounding(ts, values, unit):
 def test_round_temporal(unit):
     from pyarrow.vendored.version import Version
 
-    if Version(pd.__version__) < Version('1.0.0') and \
-            unit in ("nanosecond", "microsecond"):
-        pytest.skip('Pandas < 1.0 rounds zoned small units differently.')
+    if Version(pd.__version__) < Version('1.0.0'):
+        pytest.skip('Pandas < 1.0 rounds differently.')
 
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
     timestamps = [
@@ -2112,6 +2156,7 @@ def test_round_temporal(unit):
         "1967-02-26 05:56:46.922376960",
         "1975-11-01 10:55:37.016146432",
         "1982-01-21 18:43:44.517366784",
+        "1992-01-01 00:00:00.100000000",
         "1999-12-04 05:55:34.794991104",
         "2026-10-26 08:39:00.316686848"]
     ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])

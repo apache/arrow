@@ -19,9 +19,9 @@ import '../../jest-extensions.js';
 import * as generate from '../../generate-test-data.js';
 
 import {
-    Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Utf8, Null,
+    Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Uint8, Utf8, Null,
     makeVector,
-    tableFromIPC, tableToIPC
+    tableFromIPC, tableToIPC, RecordBatchReader, RecordBatchStreamWriter
 } from 'apache-arrow';
 
 const deepCopy = (t: Table) => tableFromIPC(tableToIPC(t));
@@ -37,6 +37,30 @@ function createTable<T extends TypeMap = any>(schema: Schema<T>, chunkLengths: n
     return generate.table(chunkLengths, schema).table;
 }
 
+describe('tableFromIPC', () => {
+    test('handles AsyncRecordBatchReader input', async () => {
+        type T = { a: Uint8 };
+
+        const sources = [
+            new Table({ a: makeVector(new Uint8Array([1, 2, 3])) }),
+            new Table({ a: makeVector(new Uint8Array([4, 5, 6])) }),
+        ];
+
+        const writer = sources.reduce(
+            (writer, source) => writer.writeAll(source),
+            new RecordBatchStreamWriter<T>({ autoDestroy: false })
+        );
+
+        writer.close();
+
+        let index = 0;
+
+        for await (const reader of RecordBatchReader.readAll<T>(writer[Symbol.asyncIterator]())) {
+            expect(await tableFromIPC(reader)).toEqualTable(sources[index++]);
+        }
+    });
+});
+
 describe('tableToIPC()', () => {
 
     test(`to file format`, () => {
@@ -45,7 +69,7 @@ describe('tableToIPC()', () => {
         });
         const buffer = tableToIPC(source, 'file');
         const result = tableFromIPC(buffer);
-        expect(source).toEqualTable(result);
+        expect(result).toEqualTable(source);
     });
 
     test(`to stream format`, () => {
@@ -54,7 +78,7 @@ describe('tableToIPC()', () => {
         });
         const buffer = tableToIPC(source, 'stream');
         const result = tableFromIPC(buffer);
-        expect(source).toEqualTable(result);
+        expect(result).toEqualTable(source);
     });
 
     test(`doesn't swap the order of buffers that share the same underlying ArrayBuffer but are in a different order`, () => {

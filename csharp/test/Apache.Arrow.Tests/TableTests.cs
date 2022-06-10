@@ -69,7 +69,7 @@ namespace Apache.Arrow.Tests
 
             List<Field> fields = new List<Field>();
             Field.Builder fieldBuilder = new Field.Builder();
-            fields.Add(fieldBuilder.Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()); 
+            fields.Add(fieldBuilder.Name("Ints").DataType(Int32Type.Default).Nullable(true).Build());
             fieldBuilder = new Field.Builder();
             fields.Add(fieldBuilder.Name("Strings").DataType(StringType.Default).Nullable(true).Build());
             StructType structType = new StructType(fields);
@@ -107,5 +107,19 @@ namespace Apache.Arrow.Tests
             newTable = table.SetColumn(0, existingColumn);
             Assert.True(newTable.Column(0) == existingColumn);
         }
+
+        [Fact]
+        public void TestBuildFromRecordBatch()
+        {
+            Schema.Builder builder = new Schema.Builder();
+            builder.Field(new Field("A", Int64Type.Default, nullable: false));
+            Schema schema = builder.Build();
+
+            RecordBatch batch = TestData.CreateSampleRecordBatch(schema, 10);
+            Table table = Table.TableFromRecordBatches(schema, new[] { batch });
+
+            Assert.NotNull(table.Column(0).Data.Array(0) as Int64Array);
+        }
     }
+
 }

@@ -373,6 +373,8 @@ Future<> SleepAsync(double seconds);
 ARROW_TESTING_EXPORT
 Future<> SleepABitAsync();
 
+ARROW_TESTING_EXPORT bool FileIsClosed(int fd);
+
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {
   EXPECT_OK_AND_ASSIGN(auto out, iterator.ToVector());

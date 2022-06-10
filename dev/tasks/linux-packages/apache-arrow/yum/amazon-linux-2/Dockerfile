@@ -48,8 +48,9 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    thrift-devel \
     utf8proc-devel \
-    vala-devel \
+    vala \
     zlib-devel && \
   # Install ninja-build dependencies in amzn2-core
   yum install -y ${quiet} ninja-build && \

@@ -19,10 +19,8 @@
 # Install a copy of this file at ~/.config/arrow/merge.conf
 
 [jira]
-# issues.apache.org JIRA credentials. Sadly, the jira instance doesn't offer
-# token credentials. Ensure that the file is properly protected.
-username=johnsmith
-password=123456
+# issues.apache.org Jira personal access token
+token=abc123
 
 [github]
 # GitHub's personal access token. "workflow" scope is needed.

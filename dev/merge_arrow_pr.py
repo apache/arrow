@@ -31,8 +31,7 @@
 # variables.
 #
 # Configuration environment variables:
-#   - APACHE_JIRA_USERNAME: your Apache JIRA ID
-#   - APACHE_JIRA_PASSWORD: your Apache JIRA password
+#   - APACHE_JIRA_TOKEN: your Apache JIRA Personal Access Token
 #   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
 #   - PR_REMOTE_NAME: the name of the remote to the Apache git repo (set to
 #                     'apache' by default)
@@ -492,47 +491,28 @@ def load_configuration():
 
 
 def get_credentials(cmd):
-    username, password = None, None
+    token = None
 
     config = load_configuration()
     if "jira" in config.sections():
-        username = config["jira"].get("username")
-        password = config["jira"].get("password")
+        token = config["jira"].get("token")
 
     # Fallback to environment variables
-    if not username:
-        username = os.environ.get("APACHE_JIRA_USERNAME")
-
-    if not password:
-        password = os.environ.get("APACHE_JIRA_PASSWORD")
+    if not token:
+        token = os.environ.get("APACHE_JIRA_TOKEN")
 
     # Fallback to user tty prompt
-    if not username:
-        username = cmd.prompt("Env APACHE_JIRA_USERNAME not set, "
-                              "please enter your JIRA username:")
+    if not token:
+        token = cmd.prompt("Env APACHE_JIRA_TOKEN not set, "
+                           "please enter your Jira API token "
+                           "(Jira personal access token):")
 
-    if not password:
-        password = cmd.getpass("Env APACHE_JIRA_PASSWORD not set, "
-                               "please enter your JIRA password:")
-
-    return (username, password)
+    return token
 
 
 def connect_jira(cmd):
-    try:
-        return jira.client.JIRA(options={'server': JIRA_API_BASE},
-                                basic_auth=get_credentials(cmd))
-    except jira.exceptions.JIRAError as e:
-        if "CAPTCHA_CHALLENGE" in e.text:
-            print("")
-            print("It looks like you need to answer a captcha challenge for "
-                  "this account (probably due to a login attempt with an "
-                  "incorrect password). Please log in at "
-                  "https://issues.apache.org/jira and complete the captcha "
-                  "before running this tool again.")
-            print("Exiting.")
-            sys.exit(1)
-        raise e
+    return jira.client.JIRA(options={'server': JIRA_API_BASE},
+                            token_auth=get_credentials(cmd))
 
 
 def get_pr_num():

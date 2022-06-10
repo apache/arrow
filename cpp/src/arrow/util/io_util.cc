@@ -989,82 +989,97 @@ Result<bool> FileExists(const PlatformFilename& path) {
 }
 
 //
-// Functions for creating file descriptors
+// Creating and destroying file descriptors
 //
 
-#define CHECK_LSEEK(retval) \
-  if ((retval) == -1) return Status::IOError("lseek failed");
+FileDescriptor::FileDescriptor(FileDescriptor&& other) : fd_(other.fd_.exchange(-1)) {}
 
-static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
-#if defined(_WIN32)
-  return _lseeki64(fd, pos, whence);
-#else
-  return lseek(fd, pos, whence);
-#endif
-}
-
-static inline Result<int> CheckFileOpResult(int fd_ret, int errno_actual,
-                                            const PlatformFilename& file_name,
-                                            const char* opname) {
-  if (fd_ret == -1) {
-#ifdef _WIN32
-    int winerr = GetLastError();
-    if (winerr != ERROR_SUCCESS) {
-      return IOErrorFromWinError(GetLastError(), "Failed to ", opname, " file '",
-                                 file_name.ToString(), "'");
-    }
-#endif
-    return IOErrorFromErrno(errno_actual, "Failed to ", opname, " file '",
-                            file_name.ToString(), "'");
+FileDescriptor& FileDescriptor::operator=(FileDescriptor&& other) {
+  int old_fd = fd_.exchange(other.fd_.exchange(-1));
+  if (old_fd != -1) {
+    CloseFromDestructor(old_fd);
   }
-  return fd_ret;
+  return *this;
 }
 
-Result<int> FileOpenReadable(const PlatformFilename& file_name) {
-  int fd, errno_actual;
+void FileDescriptor::CloseFromDestructor(int fd) {
+  auto st = FileClose(fd);
+  if (!st.ok()) {
+    ARROW_LOG(WARNING) << "Failed to close file descriptor: " << st.ToString();
+  }
+}
+
+FileDescriptor::~FileDescriptor() {
+  int fd = fd_.load();
+  if (fd != -1) {
+    CloseFromDestructor(fd);
+  }
+}
+
+Status FileDescriptor::Close() {
+  int fd = fd_.exchange(-1);
+  if (fd != -1) {
+    return FileClose(fd);
+  }
+  return Status::OK();
+}
+
+int FileDescriptor::Detach() { return fd_.exchange(-1); }
+
+static Result<int64_t> lseek64_compat(int fd, int64_t pos, int whence) {
 #if defined(_WIN32)
-  SetLastError(0);
+  int64_t ret = _lseeki64(fd, pos, whence);
+#else
+  int64_t ret = lseek(fd, pos, whence);
+#endif
+  if (ret == -1) {
+    return Status::IOError("lseek failed");
+  }
+  return ret;
+}
+
+Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
+  FileDescriptor fd;
+#if defined(_WIN32)
   HANDLE file_handle = CreateFileW(file_name.ToNative().c_str(), GENERIC_READ,
                                    FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-  DWORD last_error = GetLastError();
-  if (last_error == ERROR_SUCCESS) {
-    errno_actual = 0;
-    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
-                         _O_RDONLY | _O_BINARY | _O_NOINHERIT);
-  } else {
-    return IOErrorFromWinError(last_error, "Failed to open local file '",
+  if (file_handle == INVALID_HANDLE_VALUE) {
+    return IOErrorFromWinError(GetLastError(), "Failed to open local file '",
                                file_name.ToString(), "'");
   }
+  int ret = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
+                            _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+  if (ret == -1) {
+    CloseHandle(file_handle);
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  fd = FileDescriptor(ret);
 #else
-  fd = open(file_name.ToNative().c_str(), O_RDONLY);
-  errno_actual = errno;
-
-  if (fd >= 0) {
-    // open(O_RDONLY) succeeds on directories, check for it
-    struct stat st;
-    int ret = fstat(fd, &st);
-    if (ret == -1) {
-      ARROW_UNUSED(FileClose(fd));
-      // Will propagate error below
-    } else if (S_ISDIR(st.st_mode)) {
-      ARROW_UNUSED(FileClose(fd));
-      return Status::IOError("Cannot open for reading: path '", file_name.ToString(),
-                             "' is a directory");
-    }
+  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
+  if (ret < 0) {
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  // open(O_RDONLY) succeeds on directories, check for it
+  fd = FileDescriptor(ret);
+  struct stat st;
+  ret = fstat(fd.fd(), &st);
+  if (ret == 0 && S_ISDIR(st.st_mode)) {
+    return Status::IOError("Cannot open for reading: path '", file_name.ToString(),
+                           "' is a directory");
   }
 #endif
 
-  return CheckFileOpResult(fd, errno_actual, file_name, "open local");
+  return std::move(fd);
 }
 
-Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
-                             bool truncate, bool append) {
-  int fd, errno_actual;
+Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
+                                        bool write_only, bool truncate, bool append) {
+  FileDescriptor fd;
 
 #if defined(_WIN32)
-  SetLastError(0);
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   DWORD desired_access = GENERIC_WRITE;
   DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
@@ -1089,15 +1104,19 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
   HANDLE file_handle =
       CreateFileW(file_name.ToNative().c_str(), desired_access, share_mode, NULL,
                   creation_disposition, FILE_ATTRIBUTE_NORMAL, NULL);
-
-  DWORD last_error = GetLastError();
-  if (last_error == ERROR_SUCCESS || last_error == ERROR_ALREADY_EXISTS) {
-    errno_actual = 0;
-    fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle), oflag);
-  } else {
-    return IOErrorFromWinError(last_error, "Failed to open local file '",
+  if (file_handle == INVALID_HANDLE_VALUE) {
+    return IOErrorFromWinError(GetLastError(), "Failed to open local file '",
                                file_name.ToString(), "'");
   }
+
+  int ret = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle),
+                            _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+  if (ret == -1) {
+    CloseHandle(file_handle);
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  fd = FileDescriptor(ret);
 #else
   int oflag = O_CREAT;
 
@@ -1114,59 +1133,208 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
     oflag |= O_RDWR;
   }
 
-  fd = open(file_name.ToNative().c_str(), oflag, 0666);
-  errno_actual = errno;
+  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  if (ret == -1) {
+    return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
+                            "'");
+  }
+  fd = FileDescriptor(ret);
 #endif
 
-  RETURN_NOT_OK(CheckFileOpResult(fd, errno_actual, file_name, "open local"));
   if (append) {
     // Seek to end, as O_APPEND does not necessarily do it
-    auto ret = lseek64_compat(fd, 0, SEEK_END);
-    if (ret == -1) {
-      ARROW_UNUSED(FileClose(fd));
-      return Status::IOError("lseek failed");
-    }
+    RETURN_NOT_OK(lseek64_compat(fd.fd(), 0, SEEK_END));
   }
-  return fd;
+  return std::move(fd);
 }
 
 Result<int64_t> FileTell(int fd) {
-  int64_t current_pos;
 #if defined(_WIN32)
-  current_pos = _telli64(fd);
+  int64_t current_pos = _telli64(fd);
   if (current_pos == -1) {
     return Status::IOError("_telli64 failed");
   }
-#else
-  current_pos = lseek64_compat(fd, 0, SEEK_CUR);
-  CHECK_LSEEK(current_pos);
-#endif
   return current_pos;
+#else
+  return lseek64_compat(fd, 0, SEEK_CUR);
+#endif
 }
 
 Result<Pipe> CreatePipe() {
   int ret;
-  int fd[2];
-#if defined(_WIN32)
-  ret = _pipe(fd, 4096, _O_BINARY);
-#else
-  ret = pipe(fd);
-#endif
+  int fds[2];
 
+#if defined(_WIN32)
+  ret = _pipe(fds, 4096, _O_BINARY);
+#else
+  ret = ::pipe(fds);
+#endif
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Error creating pipe");
   }
-  return Pipe{fd[0], fd[1]};
+
+  return Pipe{FileDescriptor(fds[0]), FileDescriptor(fds[1])};
 }
 
-static Status StatusFromMmapErrno(const char* prefix) {
+Status SetPipeFileDescriptorNonBlocking(int fd) {
+#if defined(_WIN32)
+  const auto handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+  DWORD mode = PIPE_NOWAIT;
+  if (!SetNamedPipeHandleState(handle, &mode, nullptr, nullptr)) {
+    return IOErrorFromWinError(GetLastError(), "Error making pipe non-blocking");
+  }
+#else
+  int flags = fcntl(fd, F_GETFL);
+  if (flags == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    return IOErrorFromErrno(errno, "Error making pipe non-blocking");
+  }
+#endif
+  return Status::OK();
+}
+
+namespace {
+
+#ifdef WIN32
+#define PIPE_WRITE _write
+#define PIPE_READ _read
+#else
+#define PIPE_WRITE write
+#define PIPE_READ read
+#endif
+
+class SelfPipeImpl : public SelfPipe {
+  static constexpr uint64_t kEofPayload = 5804561806345822987ULL;
+
+ public:
+  explicit SelfPipeImpl(bool signal_safe) : signal_safe_(signal_safe) {}
+
+  Status Init() {
+    ARROW_ASSIGN_OR_RAISE(pipe_, CreatePipe());
+    if (signal_safe_) {
+      if (!please_shutdown_.is_lock_free()) {
+        return Status::IOError("Cannot use non-lock-free atomic in a signal handler");
+      }
+      // We cannot afford blocking writes in a signal handler
+      RETURN_NOT_OK(SetPipeFileDescriptorNonBlocking(pipe_.wfd.fd()));
+    }
+    return Status::OK();
+  }
+
+  Result<uint64_t> Wait() override {
+    if (pipe_.rfd.closed()) {
+      // Already closed
+      return ClosedPipe();
+    }
+    uint64_t payload = 0;
+    char* buf = reinterpret_cast<char*>(&payload);
+    auto buf_size = static_cast<int64_t>(sizeof(payload));
+    while (buf_size > 0) {
+      int64_t n_read = PIPE_READ(pipe_.rfd.fd(), buf, static_cast<uint32_t>(buf_size));
+      if (n_read < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        if (pipe_.rfd.closed()) {
+          return ClosedPipe();
+        }
+        return IOErrorFromErrno(errno, "Failed reading from self-pipe");
+      }
+      buf += n_read;
+      buf_size -= n_read;
+    }
+    if (payload == kEofPayload && please_shutdown_.load()) {
+      RETURN_NOT_OK(pipe_.rfd.Close());
+      return ClosedPipe();
+    }
+    return payload;
+  }
+
+  // XXX return StatusCode from here?
+  void Send(uint64_t payload) override {
+    if (signal_safe_) {
+      int saved_errno = errno;
+      DoSend(payload);
+      errno = saved_errno;
+    } else {
+      DoSend(payload);
+    }
+  }
+
+  Status Shutdown() override {
+    please_shutdown_.store(true);
+    errno = 0;
+    if (!DoSend(kEofPayload)) {
+      if (errno) {
+        return IOErrorFromErrno(errno, "Could not shutdown self-pipe");
+      } else if (!pipe_.wfd.closed()) {
+        return Status::UnknownError("Could not shutdown self-pipe");
+      }
+    }
+    return pipe_.wfd.Close();
+  }
+
+  ~SelfPipeImpl() {
+    auto st = Shutdown();
+    if (!st.ok()) {
+      ARROW_LOG(WARNING) << "On self-pipe destruction: " << st.ToString();
+    }
+  }
+
+ protected:
+  Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
+
+  bool DoSend(uint64_t payload) {
+    // This needs to be async-signal safe as it's called from Send()
+    if (pipe_.wfd.closed()) {
+      // Already closed
+      return false;
+    }
+    const char* buf = reinterpret_cast<const char*>(&payload);
+    auto buf_size = static_cast<int64_t>(sizeof(payload));
+    while (buf_size > 0) {
+      int64_t n_written =
+          PIPE_WRITE(pipe_.wfd.fd(), buf, static_cast<uint32_t>(buf_size));
+      if (n_written < 0) {
+        if (errno == EINTR) {
+          continue;
+        } else {
+          // Perhaps EAGAIN if non-blocking, or EBADF if closed in the meantime?
+          // In any case, we can't do anything more here.
+          break;
+        }
+      }
+      buf += n_written;
+      buf_size -= n_written;
+    }
+    return buf_size == 0;
+  }
+
+  const bool signal_safe_;
+  Pipe pipe_;
+  std::atomic<bool> please_shutdown_{false};
+};
+
+#undef PIPE_WRITE
+#undef PIPE_READ
+
+}  // namespace
+
+Result<std::shared_ptr<SelfPipe>> SelfPipe::Make(bool signal_safe) {
+  auto ptr = std::make_shared<SelfPipeImpl>(signal_safe);
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
+}
+
+SelfPipe::~SelfPipe() = default;
+
+namespace {
+
+Status StatusFromMmapErrno(const char* prefix) {
 #ifdef _WIN32
   errno = __map_mman_error(GetLastError(), EPERM);
 #endif
   return IOErrorFromErrno(errno, prefix);
 }
-
-namespace {
 
 int64_t GetPageSizeInternal() {
 #if defined(__APPLE__)
@@ -1342,9 +1510,7 @@ Status FileClose(int fd) {
 //
 
 Status FileSeek(int fd, int64_t pos, int whence) {
-  int64_t ret = lseek64_compat(fd, pos, whence);
-  CHECK_LSEEK(ret);
-  return Status::OK();
+  return lseek64_compat(fd, pos, whence).status();
 }
 
 Status FileSeek(int fd, int64_t pos) { return FileSeek(fd, pos, SEEK_SET); }
@@ -1408,32 +1574,44 @@ static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t po
 }
 
 Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
-  int64_t bytes_read = 0;
-
-  while (bytes_read < nbytes) {
-    const int64_t chunksize =
-        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_read);
 #if defined(_WIN32)
-    int64_t ret =
-        static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(chunksize)));
+  HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+#endif
+  int64_t total_bytes_read = 0;
+
+  while (total_bytes_read < nbytes) {
+    const int64_t chunksize =
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - total_bytes_read);
+    int64_t bytes_read = 0;
+#if defined(_WIN32)
+    DWORD dwBytesRead = 0;
+    if (!ReadFile(handle, buffer, static_cast<uint32_t>(chunksize), &dwBytesRead,
+                  nullptr)) {
+      auto errnum = GetLastError();
+      // Return a normal EOF when the write end of a pipe was closed
+      if (errnum != ERROR_HANDLE_EOF && errnum != ERROR_BROKEN_PIPE) {
+        return IOErrorFromWinError(GetLastError(), "Error reading bytes from file");
+      }
+    }
+    bytes_read = dwBytesRead;
 #else
-    int64_t ret = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(chunksize)));
-    if (ret == -1 && errno == EINTR) {
-      continue;
+    bytes_read = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(chunksize)));
+    if (bytes_read == -1) {
+      if (errno == EINTR) {
+        continue;
+      }
+      return IOErrorFromErrno(errno, "Error reading bytes from file");
     }
 #endif
 
-    if (ret == -1) {
-      return IOErrorFromErrno(errno, "Error reading bytes from file");
-    }
-    if (ret == 0) {
+    if (bytes_read == 0) {
       // EOF
       break;
     }
-    buffer += ret;
-    bytes_read += ret;
+    buffer += bytes_read;
+    total_bytes_read += bytes_read;
   }
-  return bytes_read;
+  return total_bytes_read;
 }
 
 Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes) {

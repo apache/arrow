@@ -91,7 +91,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 }
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
-                                             ExtensionIdRegistry* registry) {
+                                             const ExtensionIdRegistry* registry) {
   std::unordered_map<uint32_t, util::string_view> uris;
   uris.reserve(plan.extension_uris_size());
   for (const auto& uri : plan.extension_uris()) {

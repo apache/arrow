@@ -341,7 +341,7 @@ jobs:
           mkdir -p /usr/local/bin
           wget \
             --output-document /usr/local/bin/minio.exe \
-            https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
       - name: Test
         shell: msys2 {0}

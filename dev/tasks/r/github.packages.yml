@@ -20,7 +20,7 @@
 # This allows us to set a custom version via param:
 # crossbow submit --param custom_version=8.5.3 r-nightly-packages
 # if the param is unset defaults to the usual Ymd naming scheme
-{% set version = custom_version|default("\\2.\'\"$(date +%Y%m%d)\"\'") %}
+{% set package_version = custom_version|default("\\2.\'\"$(date +%Y%m%d)\"\'") %}
 # We need this as boolean and string
 {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
 # use filter to cast to string and convert to lowercase to match yaml boolean
@@ -37,15 +37,15 @@ jobs:
     name: Source Package
     runs-on: ubuntu-latest
     outputs:
-      version: {{ '${{ steps.save-version.outputs.version }}' }}
+      pkg_version: {{ '${{ steps.save-version.outputs.pkg_version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_change_r_pkg_version(is_fork, version)|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, package_version)|indent }}
       - name: Save Version
         id: save-version
         shell: bash
         run: | 
-          echo "::set-output name=version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
+          echo "::set-output name=pkg_version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -62,7 +62,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-pkg_src
+          name: r-pkg__src__contrib
           path: arrow/r/arrow_*.tar.gz
 
   linux-cpp:
@@ -74,15 +74,18 @@ jobs:
       matrix:
         config:
           - { os: ubuntu, version: "18.04" }
+          - { os: ubuntu, version: "22.04" }
           - { os: centos, version: "7" }
     env:
       UBUNTU: {{ '${{ matrix.config.version }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.version }}')|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build libarrow
         shell: bash
+        env:
+          UBUNTU: {{ '${{ matrix.config.version}}' }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -90,8 +93,8 @@ jobs:
       - name: Bundle libarrow
         shell: bash
         env:
-          PKG_FILE: arrow-{{ '${{ needs.source.outputs.version }}' }}.zip
-          VERSION: {{ '${{ needs.source.outputs.version }}' }}
+          PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+          VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
           cd arrow/r/libarrow/dist
           # These files were created by the docker user so we have to sudo to get them
@@ -100,7 +103,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-libarrow-{{ '${{ matrix.config.os}}' }}
+          name: r-lib__libarrow__bin__{{ '${{ matrix.config.os}}-${{ matrix.config.version}}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip
 
   windows-cpp:
@@ -110,7 +113,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.version }}')|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -127,11 +130,10 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-libarrow-windows
+          name: r-lib__libarrow__bin__windows
           path: build/arrow-*.zip 
 
   r-packages:
-    if: true && !cancelled()
     needs: [source, windows-cpp]
     name: {{ '${{ matrix.platform }} ${{ matrix.r_version.r }}' }}
     runs-on: {{ '${{ matrix.platform }}' }}
@@ -152,8 +154,9 @@ jobs:
           r-version: {{ '${{ matrix.r_version.r }}' }}
           rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
           Ncpus: 2
-      {{ macros.github_setup_local_r_repo('matrix.platform')|indent }}
+      {{ macros.github_setup_local_r_repo(false, true)|indent }}
       - name: Build Binary
+        id: build
         shell: Rscript {0}
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
@@ -171,6 +174,8 @@ jobs:
             getwd(),
             "/repo")
           
+          # This is necessary to use the local folder as a repo in both
+          # install_arrow & tools/*libs.R
           options(arrow.dev_repo = dev_repo)
           
           # Build
@@ -193,14 +198,24 @@ jobs:
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
+          # encode contrib.url for artifact name
+          cmd <- paste0(
+            "::set-output name=path::", 
+            gsub(
+              "/", "__",
+              contrib.url("", type = "binary")
+            ),
+            "\n"
+          )
+          cat(cmd)
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-pkg_{{ '${{ matrix.platform }}_${{ matrix.r_version.r }}' }}
+          name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
 
   test-linux-binary:
-    if: true && !cancelled()
     needs: [source, linux-cpp]
     name: Test binary {{ '${{ matrix.image }}' }}
     runs-on: ubuntu-latest
@@ -214,7 +229,8 @@ jobs:
           - "rstudio/r-base:4.2-centos7"
           - "rocker/r-ver:3.6.3" # for debian:buster (10)
           - "rocker/r-ver" # ubuntu-20.04
-          - "rhub/fedora-clang-devel" # tests distro-map.csv, mapped t
+          - "rhub/fedora-clang-devel" # tests distro-map.csv, mapped to ubuntu-18.04
+          - "rocker/r-ubuntu:22.04" # tests openssl3 compatibility
     steps:
       - name: Install system requirements
         shell: bash
@@ -232,7 +248,7 @@ jobs:
 
           # Add R-devel to PATH
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
-      {{ macros.github_setup_local_r_repo("'ubuntu-latest'")|indent }}
+      {{ macros.github_setup_local_r_repo(true, false)|indent }}
       - name: Set dev repo
         shell: bash
         run: |
@@ -248,7 +264,6 @@ jobs:
           {{  macros.github_test_r_src_pkg()|indent(8) }}
 
   test-source:
-    if: true && !cancelled()
     needs: source
     name: Test linux source build
     runs-on: ubuntu-latest
@@ -257,7 +272,7 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           install-r: false
-      {{ macros.github_setup_local_r_repo("'ubuntu-latest'", 'false')|indent }}
+      {{ macros.github_setup_local_r_repo(false, false)|indent }}
       - name: Set dev repo
         shell: bash
         run: |
@@ -279,8 +294,8 @@ jobs:
           {{ macros.github_test_r_src_pkg()|indent(8) }}
 
   upload-binaries:
-    needs: r-packages
-    if: true && !cancelled()
+    # Only upload binaries if all tests pass.
+    needs: [ r-packages, test-source, test-linux-binary]
     name: Upload artifacts
     runs-on: ubuntu-latest
     steps:
@@ -297,8 +312,9 @@ jobs:
         shell: Rscript {0}
         run: |
           file_paths <- list.files("artifacts", include.dirs = FALSE, recursive = TRUE)
-          new_names <- paste0("binaries/", sub("/","-",file_paths))
+          new_names <- file.path("binaries", sub("/", "__", file_paths))
           dir.create("binaries", showWarnings = FALSE)
-          file.copy(paste0("artifacts/", file_paths), new_names)
+          file.copy(file.path("artifacts", file_paths), new_names)
 
       {{ macros.github_upload_releases("binaries/r-*")|indent }}
+          

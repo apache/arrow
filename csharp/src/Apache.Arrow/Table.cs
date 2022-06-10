@@ -35,15 +35,14 @@ namespace Apache.Arrow
             int nColumns = schema.Fields.Count;
 
             List<Column> columns = new List<Column>(nColumns);
-            List<Array> columnArrays = new List<Array>(nBatches);
             for (int icol = 0; icol < nColumns; icol++)
             {
+                List<Array> columnArrays = new List<Array>(nBatches);
                 for (int jj = 0; jj < nBatches; jj++)
                 {
                     columnArrays.Add(recordBatches[jj].Column(icol) as Array);
                 }
                 columns.Add(new Arrow.Column(schema.GetFieldByIndex(icol), columnArrays));
-                columnArrays.Clear();
             }
 
             return new Table(schema, columns);

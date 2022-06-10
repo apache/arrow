@@ -2424,18 +2424,27 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
                                 const char* word2, int32_t word2_len, bool word2_validity,
                                 bool* out_valid, int32_t* out_len) {
   *out_len = 0;
+  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  *out_len += separator_len;
+
   if (word1_validity) {
     *out_len += word1_len;
+    numValidInput++;
   }
   if (word2_validity) {
     *out_len += word2_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+  if (*out_len == 0) {
+    *out_valid = true;
+    return "";
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
@@ -2467,20 +2476,33 @@ const char* concat_ws_utf8_utf8_utf8(
     const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
     int32_t word3_len, bool word3_validity, bool* out_valid, int32_t* out_len) {
   *out_len = 0;
+  int numValidInput = 0;
+  // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  *out_len += separator_len * 2;
+
   if (word1_validity) {
     *out_len += word1_len;
+    numValidInput++;
   }
   if (word2_validity) {
     *out_len += word2_len;
+    numValidInput++;
   }
   if (word3_validity) {
     *out_len += word3_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+
+  if (*out_len == 0) {
+    *out_len = 0;
+    *out_valid = true;
+    return "";
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
@@ -2515,23 +2537,36 @@ const char* concat_ws_utf8_utf8_utf8_utf8(
     int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
     bool word4_validity, bool* out_valid, int32_t* out_len) {
   *out_len = 0;
+  int numValidInput = 0;
+  // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  *out_len += separator_len;
   if (word1_validity) {
     *out_len += word1_len;
+    numValidInput++;
   }
   if (word2_validity) {
     *out_len += word2_len;
+    numValidInput++;
   }
   if (word3_validity) {
     *out_len += word3_len;
+    numValidInput++;
   }
   if (word4_validity) {
     *out_len += word4_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+
+  if (*out_len == 0) {
+    *out_len = 0;
+    *out_valid = true;
+    return "";
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
@@ -2569,26 +2604,40 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
     bool word4_validity, const char* word5, int32_t word5_len, bool word5_validity,
     bool* out_valid, int32_t* out_len) {
   *out_len = 0;
+  int numValidInput = 0;
+  // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  *out_len += separator_len;
   if (word1_validity) {
     *out_len += word1_len;
+    numValidInput++;
   }
   if (word2_validity) {
     *out_len += word2_len;
+    numValidInput++;
   }
   if (word3_validity) {
     *out_len += word3_len;
+    numValidInput++;
   }
   if (word4_validity) {
     *out_len += word4_len;
+    numValidInput++;
   }
   if (word5_validity) {
     *out_len += word5_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+
+  if (*out_len == 0) {
+    *out_len = 0;
+    *out_valid = true;
+    return "";
   }
 
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));

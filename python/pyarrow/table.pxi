@@ -2913,6 +2913,20 @@ cdef class Table(_PandasConvertible):
         ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
 
+        Define an expression and select rows:
+
+        >>> import pyarrow.compute as pc
+        >>> expr = pc.field("year") <= 2020
+        >>> table.filter(expr)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2019]]
+        n_legs: [[2,5]]
+        animals: [["Flamingo","Brittle stars"]]
+
         Define a mask and select rows:
 
         >>> mask=[True, True, False, None]

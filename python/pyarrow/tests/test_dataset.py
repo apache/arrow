@@ -748,10 +748,15 @@ def test_parquet_scan_options():
     opts3 = ds.ParquetFragmentScanOptions(
         buffer_size=2**13, use_buffered_stream=True)
     opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
+    opts5 = ds.ParquetFragmentScanOptions(
+        thrift_string_size_limit=123456,
+        thrift_container_size_limit=987654,)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is False
+    assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
+    assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
@@ -765,10 +770,14 @@ def test_parquet_scan_options():
     assert opts4.buffer_size == 2**13
     assert opts4.pre_buffer is True
 
+    assert opts5.thrift_string_size_limit == 123456
+    assert opts5.thrift_container_size_limit == 987654
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
+    assert opts5 != opts1
 
 
 def test_file_format_pickling():
@@ -795,6 +804,8 @@ def test_file_format_pickling():
             ds.ParquetFileFormat(
                 use_buffered_stream=True,
                 buffer_size=4096,
+                thrift_string_size_limit=123,
+                thrift_container_size_limit=456,
             ),
         ])
 
@@ -1794,6 +1805,12 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
         pa.schema([pa.field('a', pa.string()), pa.field('b', pa.string())]))
     with pytest.raises(pa.ArrowInvalid):
         ds.write_dataset(table, tempdir, format='ipc', partitioning=part)
+
+
+def test_positional_keywords_raises(tempdir):
+    table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z']})
+    with pytest.raises(TypeError):
+        ds.write_dataset(table, tempdir, "basename-{i}.arrow")
 
 
 @pytest.mark.parquet
@@ -4141,9 +4158,11 @@ def test_write_table(tempdir):
     ]
 
     visited_paths = []
+    visited_sizes = []
 
     def file_visitor(written_file):
         visited_paths.append(written_file.path)
+        visited_sizes.append(written_file.size)
 
     partitioning = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
@@ -4152,6 +4171,8 @@ def test_write_table(tempdir):
                      partitioning=partitioning, file_visitor=file_visitor)
     file_paths = list(base_dir.rglob("*"))
     assert set(file_paths) == set(expected_paths)
+    actual_sizes = [os.path.getsize(path) for path in visited_paths]
+    assert visited_sizes == actual_sizes
     result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
     assert result.to_table().equals(table)
     assert len(visited_paths) == 2

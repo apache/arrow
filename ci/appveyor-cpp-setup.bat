@@ -109,7 +109,7 @@ powershell.exe -Command "Start-Process clcache-server" || exit /B
 @rem Download Minio somewhere on PATH, for unit tests
 @rem
 if "%ARROW_S3%" == "ON" (
-    appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/minio.exe -FileName C:\Windows\Minio.exe || exit /B
+    appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z -FileName C:\Windows\Minio.exe || exit /B
 )
 
 

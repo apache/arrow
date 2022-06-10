@@ -204,6 +204,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       flags: >-
+        -e ARROW_CONAN_PARQUET=True
         -e ARROW_CONAN_WITH_LZ4=True
       image: conan
 
@@ -652,13 +653,14 @@ tasks:
   {% endfor %}
 {% endfor %}
 
-{% for target in ["almalinux-8",
+{% for target in ["almalinux-9",
+                  "almalinux-8",
                   "amazon-linux-2",
                   "centos-8-stream",
                   "centos-7"] %}
-  {% set is_rhel8_based = (target in ["almalinux-8", "centos-8-stream"]) %}
+  {% set is_rhel7_based = (target in ["amazon-linux-2", "centos-7"]) %}
   {% for architecture in ["amd64", "arm64"] %}
-    {% if not (target in ["amazon-linux-2", "centos-7"] and architecture == "arm64") %}
+    {% if not (is_rhel7_based and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:
       {% if architecture == "amd64" %}
     ci: github
@@ -684,20 +686,20 @@ tasks:
       - arrow-dataset-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-dataset-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -708,17 +710,17 @@ tasks:
       {% endif %}
       - arrow-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - arrow[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - arrow[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% if target != "amazon-linux-2" %}
       - arrow-python-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-        {% if is_rhel8_based %}
+        {% if not is_rhel7_based %}
       - arrow-python-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-python-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-python-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -729,7 +731,7 @@ tasks:
       {% if architecture == "amd64" %}
       - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
       {% endif %}
-      {% if is_rhel8_based and architecture == "amd64" %}
+      {% if not is_rhel7_based and architecture == "amd64" %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -741,26 +743,26 @@ tasks:
       - parquet-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - parquet-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - parquet-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - parquet[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - parquet[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - parquet[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - parquet[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - plasma[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - plasma[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - plasma[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - plasma[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if is_rhel8_based %}
+      {% if not is_rhel7_based %}
       - plasma-store-server-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
       - plasma-store-server-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -929,10 +931,17 @@ tasks:
   ######################## R packages & binaries ##############################
   r-nightly-packages:
     ci: github
-    template: r/github.nightly.yml
+    template: r/github.packages.yml
     artifacts:
-      - r-libarrow-.+
-      - r-pkg_.+
+      - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.2__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__macosx__contrib__4.1__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__contrib__4.2__arrow_[0-9\.]+\.tgz
+      - r-pkg__src__contrib__arrow_[0-9\.]+\.tar\.gz
 
 
   ########################### Release verification ############################
@@ -1031,7 +1040,7 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       target: {{ target }}
-      github_runner: "self-hosted"
+      github_runner: ["self-hosted", "macOS", "arm64"]
   {% endfor %}
 
   {% for macos_version in ["10.15", "11"] %}
@@ -1058,7 +1067,7 @@ tasks:
     params:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      github_runner: "self-hosted"
+      github_runner: ["self-hosted", "macOS", "arm64"]
       arch_emulation: arm64
       target: "wheels"
 
@@ -1331,8 +1340,7 @@ tasks:
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
                                  ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-opensuse15"),
-                                 ("rstudio", "r-base", "4.2-opensuse42")] %}
+                                 ("rstudio", "r-base", "4.1-opensuse153")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml

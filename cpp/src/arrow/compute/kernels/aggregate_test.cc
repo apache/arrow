@@ -38,7 +38,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"

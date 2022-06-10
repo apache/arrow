@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #}
+{%- if not minimal -%}
 Total number of JIRA tickets assigned to version {{ release.version }}: {{ release.issues|length }}
 
 Total number of applied patches since version {{ release.previous.version }}: {{ release.commits|length }}
@@ -24,18 +25,18 @@ Patches with assigned issue in version {{ release.version }}:
 {% for issue, commit in within -%}
  - {{ commit.url }} {{ commit.title }}
 {% endfor %}
-
+{% endif -%}
 Patches with assigned issue outside of version {{ release.version }}:
 {% for issue, commit in outside -%}
  - {{ commit.url }} {{ commit.title }}
 {% endfor %}
-
+{% if not minimal -%}
 Patches in version {{ release.version }} without a linked issue:
 {% for commit in nojira -%}
  - {{ commit.url }} {{ commit.title }}
 {% endfor %}
-
 JIRA issues in version {{ release.version }} without a linked patch:
 {% for issue in nopatch -%}
  - https://issues.apache.org/jira/browse/{{ issue.key }}
 {% endfor %}
+{%- endif -%}
