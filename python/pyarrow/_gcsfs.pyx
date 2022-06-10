@@ -91,7 +91,7 @@ cdef class GcsFileSystem(FileSystem):
         cdef:
             CGcsOptions options
             shared_ptr[CGcsFileSystem] wrapped
-            int64_t time_limit_seconds
+            double time_limit_seconds
 
         # Intentional use of truthiness because empty strings aren't valid and
         # for reconstruction from pickling will give empty strings.
@@ -135,7 +135,7 @@ cdef class GcsFileSystem(FileSystem):
             options.default_metadata = pyarrow_unwrap_metadata(
                 ensure_metadata(default_metadata))
         if retry_time_limit is not None:
-            time_limit_seconds = int(retry_time_limit.total_seconds())
+            time_limit_seconds = retry_time_limit.total_seconds()
             options.retry_limit_seconds = time_limit_seconds
 
         with nogil:

@@ -70,7 +70,7 @@ struct ARROW_EXPORT GcsOptions {
   /// errors.
   ///
   /// The default policy is to retry for up to 15 minutes.
-  arrow::util::optional<int> retry_limit_seconds;
+  arrow::util::optional<double> retry_limit_seconds;
 
   /// \brief Default metadata for OpenOutputStream.
   ///

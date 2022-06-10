@@ -320,7 +320,8 @@ google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
   }
   if (o.retry_limit_seconds.has_value()) {
     options.set<gcs::RetryPolicyOption>(
-        gcs::LimitedTimeRetryPolicy(std::chrono::seconds(*o.retry_limit_seconds))
+        gcs::LimitedTimeRetryPolicy(
+            std::chrono::milliseconds(static_cast<int>(*o.retry_limit_seconds * 1000)))
             .clone());
   }
   return options;
@@ -801,10 +802,10 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
     } else if (kv.first == "retry_limit_seconds") {
-      int parsed_seconds = atoi(kv.second.c_str());
-      if (parsed_seconds <= 0) {
-        return Status::Invalid(
-            "retry_limit_seconds must be a positive integer, got '", kv.second, "'");
+      double parsed_seconds = atof(kv.second.c_str());
+      if (parsed_seconds <= 0.0) {
+        return Status::Invalid("retry_limit_seconds must be a positive integer, got '",
+                               kv.second, "'");
       }
       options.retry_limit_seconds = parsed_seconds;
     } else {

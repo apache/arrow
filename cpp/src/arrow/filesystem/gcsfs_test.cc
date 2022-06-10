@@ -175,7 +175,7 @@ class GcsIntegrationTest : public ::testing::Test {
   GcsOptions TestGcsOptions() {
     auto options = GcsOptions::Anonymous();
     options.endpoint_override = "127.0.0.1:" + Testbench()->port();
-    options.retry_limit_seconds = 40;
+    options.retry_limit_seconds = 60;
     return options;
   }
 
@@ -337,14 +337,14 @@ TEST(GcsFileSystem, OptionsFromUri) {
       options,
       GcsOptions::FromUri("gs://mybucket/foo/bar/"
                           "?endpoint_override=localhost&scheme=http&location=us-west2"
-                          "&retry_limit_seconds=40",
+                          "&retry_limit_seconds=40.5",
                           &path));
   EXPECT_EQ(options.default_bucket_location, "us-west2");
   EXPECT_EQ(options.scheme, "http");
   EXPECT_EQ(options.endpoint_override, "localhost");
   EXPECT_EQ(path, "mybucket/foo/bar");
   ASSERT_TRUE(options.retry_limit_seconds.has_value());
-  EXPECT_EQ(*options.retry_limit_seconds, 40);
+  EXPECT_EQ(*options.retry_limit_seconds, 40.5);
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs:///foo/bar/", &path));
@@ -796,7 +796,7 @@ TEST_F(GcsIntegrationTest, CreateDirUri) {
 TEST_F(GcsIntegrationTest, DeleteBucketDirSuccess) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK(fs->CreateDir("pyarrow-filesystem/", /*recursive=*/true));
-  EXPECT_FALSE(fs->CreateDir("/", false).ok());
+  ASSERT_RAISES(Invalid, fs->CreateDir("/", false));
   ASSERT_OK(fs->DeleteDir("pyarrow-filesystem/"));
 }
 
