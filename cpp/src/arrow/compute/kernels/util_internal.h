@@ -67,13 +67,13 @@ int GetBitWidth(const DataType& type);
 // rather than duplicating compiled code to do all these in each kernel.
 PrimitiveArg GetPrimitiveArg(const ArrayData& arr);
 
-// Augment a unary ScalarernelExec which supports only array-like inputs with
-// support for scalar inputs. Scalars will be transformed to 1-long arrays with
-// the scalar's value (or null if the scalar is null) as its only element. This
-// 1-long array will be passed to the original exec, then the only element of
-// the resulting array will be extracted as the output scalar. This could be
-// far more efficient, but instead of optimizing this it'd be better to support
-// scalar inputs "upstream" in original exec.
+// Augment a unary ScalarKernel::ExecFunc which supports only array-like inputs
+// with support for scalar inputs. Scalars will be transformed to 1-long arrays
+// with the scalar's value (or null if the scalar is null) as its only
+// element. This 1-long array will be passed to the original exec, then the
+// only element of the resulting array will be extracted as the output
+// scalar. This could be far more efficient, but instead of optimizing this
+// it'd be better to support scalar inputs "upstream" in original exec.
 ScalarKernel::ExecFunc TrivialScalarUnaryAsArraysExec(
     ScalarKernel::ExecFunc exec, bool use_array_span = true,
     NullHandling::type null_handling = NullHandling::INTERSECTION);

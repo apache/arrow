@@ -355,32 +355,30 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
 // ----------------------------------------------------------------------
 // ExecSpanIterator; to eventually replace ExecBatchIterator
 
-ExecSpanIterator::ExecSpanIterator(const std::vector<Datum>& args, int64_t length,
-                                   int64_t max_chunksize)
-    : args_(args), position_(0), length_(length), max_chunksize_(max_chunksize) {
-  chunk_indexes_.resize(args_.size(), 0);
-  value_positions_.resize(args_.size(), 0);
-  value_offsets_.resize(args_.size(), 0);
-}
-
-Result<std::unique_ptr<ExecSpanIterator>> ExecSpanIterator::Make(
-    const std::vector<Datum>& args, int64_t max_chunksize) {
-  int64_t length = 1;
-  RETURN_NOT_OK(GetBatchLength(args, &length));
-  max_chunksize = std::min(length, max_chunksize);
-  return std::unique_ptr<ExecSpanIterator>(
-      new ExecSpanIterator(args, length, max_chunksize));
+Status ExecSpanIterator::Init(const std::vector<Datum>& args, int64_t max_chunksize) {
+  args_ = &args;
+  initialized_ = have_chunked_arrays_ = false;
+  position_ = 0;
+  chunk_indexes_.clear();
+  chunk_indexes_.resize(args_->size(), 0);
+  value_positions_.clear();
+  value_positions_.resize(args_->size(), 0);
+  value_offsets_.clear();
+  value_offsets_.resize(args_->size(), 0);
+  RETURN_NOT_OK(GetBatchLength(*args_, &length_));
+  max_chunksize_ = std::min(length_, max_chunksize);
+  return Status::OK();
 }
 
 int64_t ExecSpanIterator::GetNextChunkSpan(int64_t iteration_size, ExecSpan* span) {
-  for (size_t i = 0; i < args_.size() && iteration_size > 0; ++i) {
+  for (size_t i = 0; i < args_->size() && iteration_size > 0; ++i) {
     // If the argument is not a chunked array, it's either a Scalar or Array,
     // in which case it doesn't influence the size of this span. Note that if
     // the args are all scalars the span length is 1
-    if (!args_[i].is_chunked_array()) {
+    if (!args_->at(i).is_chunked_array()) {
       continue;
     }
-    const ChunkedArray* arg = args_[i].chunked_array().get();
+    const ChunkedArray* arg = args_->at(i).chunked_array().get();
     const Array* current_chunk;
     while (true) {
       current_chunk = arg->chunk(chunk_indexes_[i]).get();
@@ -412,22 +410,22 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
   if (!initialized_) {
     span->length = 0;
 
-    // The first this this is called, we populate the output span with
-    // any Scalar or Array arguments in the ExecValue struct, and then
-    // just increment array offsets below. If any arguments are
-    // ChunkedArray, then the internal ArraySpans will see their
-    // members updated during hte iteration
-    span->values.resize(args_.size());
-    for (size_t i = 0; i < args_.size(); ++i) {
-      if (args_[i].is_scalar()) {
-        span->values[i].SetScalar(args_[i].scalar().get());
-      } else if (args_[i].is_array()) {
-        const ArrayData& arr = *args_[i].array();
+    // The first time this is called, we populate the output span with any
+    // Scalar or Array arguments in the ExecValue struct, and then just
+    // increment array offsets below. If any arguments are ChunkedArray, then
+    // the internal ArraySpans will see their members updated during hte
+    // iteration
+    span->values.resize(args_->size());
+    for (size_t i = 0; i < args_->size(); ++i) {
+      if (args_->at(i).is_scalar()) {
+        span->values[i].SetScalar(args_->at(i).scalar().get());
+      } else if (args_->at(i).is_array()) {
+        const ArrayData& arr = *args_->at(i).array();
         span->values[i].SetArray(arr);
         value_offsets_[i] = arr.offset;
       } else {
         // Populate members from the first chunk
-        const Array* first_chunk = args_[i].chunked_array()->chunk(0).get();
+        const Array* first_chunk = args_->at(i).chunked_array()->chunk(0).get();
         const ArrayData& arr = *first_chunk->data();
         span->values[i].SetArray(arr);
         value_offsets_[i] = arr.offset;
@@ -449,8 +447,8 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
 
   // Now, adjust the span
   span->length = iteration_size;
-  for (size_t i = 0; i < args_.size(); ++i) {
-    const Datum& arg = args_[i];
+  for (size_t i = 0; i < args_->size(); ++i) {
+    const Datum& arg = args_->at(i);
     if (!arg.is_scalar()) {
       ArraySpan* arr = &span->values[i].array;
       arr->length = iteration_size;
@@ -774,8 +772,7 @@ class KernelExecutorImpl : public KernelExecutor {
 class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
  public:
   Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
-    ARROW_ASSIGN_OR_RAISE(span_iterator_,
-                          ExecSpanIterator::Make(args, exec_context()->exec_chunksize()));
+    RETURN_NOT_OK(span_iterator_.Init(args, exec_context()->exec_chunksize()));
 
     // TODO(wesm): remove if with ARROW-16757
     if (output_descr_.shape != ValueDescr::SCALAR) {
@@ -783,7 +780,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // kernels supporting preallocation, then we do so up front and then
       // iterate over slices of that large array. Otherwise, we preallocate prior
       // to processing each span emitted from the ExecSpanIterator
-      RETURN_NOT_OK(SetupPreallocation(span_iterator_->length(), args));
+      RETURN_NOT_OK(SetupPreallocation(span_iterator_.length(), args));
     }
 
     // ARROW-16756: Here we have to accommodate the distinct cases
@@ -836,16 +833,16 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     ArraySpan* output_span = output.array_span();
     if (preallocate_contiguous_) {
       // Make one big output allocation
-      ARROW_ASSIGN_OR_RAISE(preallocation, PrepareOutput(span_iterator_->length()));
+      ARROW_ASSIGN_OR_RAISE(preallocation, PrepareOutput(span_iterator_.length()));
 
       // Populate and then reuse the ArraySpan inside
       output_span->SetMembers(*preallocation);
       output_span->offset = 0;
-      while (span_iterator_->Next(&input)) {
+      while (span_iterator_.Next(&input)) {
         // Set absolute output span position and length
         output_span->length = input.length;
         RETURN_NOT_OK(ExecuteSingleSpan(input, &output));
-        output_span->SetOffset(span_iterator_->position());
+        output_span->SetOffset(span_iterator_.position());
       }
 
       // Kernel execution is complete; emit result
@@ -854,7 +851,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // Fully preallocating, but not contiguously
       // We preallocate (maybe) only for the output of processing the current
       // chunk
-      while (span_iterator_->Next(&input)) {
+      while (span_iterator_.Next(&input)) {
         ARROW_ASSIGN_OR_RAISE(preallocation, PrepareOutput(input.length));
         output_span->SetMembers(*preallocation);
         RETURN_NOT_OK(ExecuteSingleSpan(input, &output));
@@ -889,7 +886,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     // ARROW-16757.
     ExecSpan input;
     ExecResult output;
-    while (span_iterator_->Next(&input)) {
+    while (span_iterator_.Next(&input)) {
       if (output_descr_.shape == ValueDescr::ARRAY) {
         ARROW_ASSIGN_OR_RAISE(output.value, PrepareOutput(input.length));
         DCHECK(output.is_array_data());
@@ -1003,7 +1000,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   // iterate through it while executing the kernel in chunks
   bool preallocate_contiguous_ = false;
 
-  std::unique_ptr<ExecSpanIterator> span_iterator_;
+  ExecSpanIterator span_iterator_;
 };
 
 Status PackBatchNoChunks(const std::vector<Datum>& args, ExecBatch* out) {

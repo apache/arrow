@@ -273,7 +273,6 @@ struct ARROW_EXPORT ArraySpan {
   explicit ArraySpan(const Scalar& data) { FillFromScalar(data); }
 
   /// If dictionary-encoded, put dictionary in the first entry
-  // TODO(wesm): would a std::unique_ptr<vector<...>> be better?
   std::vector<ArraySpan> child_data;
 
   /// \brief Populate ArraySpan to look like an array of length 1 pointing at

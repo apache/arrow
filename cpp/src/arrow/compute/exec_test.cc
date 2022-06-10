@@ -795,7 +795,7 @@ class TestExecSpanIterator : public TestComputeInternals {
  public:
   void SetupIterator(const std::vector<Datum>& args,
                      int64_t max_chunksize = kDefaultMaxChunksize) {
-    ASSERT_OK_AND_ASSIGN(iterator_, ExecSpanIterator::Make(args, max_chunksize));
+    ASSERT_OK(iterator_.Init(args, max_chunksize));
   }
   void CheckIteration(const std::vector<Datum>& args, int chunksize,
                       const std::vector<int>& ex_batch_sizes) {
@@ -803,8 +803,8 @@ class TestExecSpanIterator : public TestComputeInternals {
     ExecSpan batch;
     int64_t position = 0;
     for (size_t i = 0; i < ex_batch_sizes.size(); ++i) {
-      ASSERT_EQ(position, iterator_->position());
-      ASSERT_TRUE(iterator_->Next(&batch));
+      ASSERT_EQ(position, iterator_.position());
+      ASSERT_TRUE(iterator_.Next(&batch));
       ASSERT_EQ(ex_batch_sizes[i], batch.length);
 
       for (size_t j = 0; j < args.size(); ++j) {
@@ -834,13 +834,13 @@ class TestExecSpanIterator : public TestComputeInternals {
       position += ex_batch_sizes[i];
     }
     // Ensure that the iterator is exhausted
-    ASSERT_FALSE(iterator_->Next(&batch));
+    ASSERT_FALSE(iterator_.Next(&batch));
 
-    ASSERT_EQ(iterator_->length(), iterator_->position());
+    ASSERT_EQ(iterator_.length(), iterator_.position());
   }
 
  protected:
-  std::unique_ptr<ExecSpanIterator> iterator_;
+  ExecSpanIterator iterator_;
 };
 
 TEST_F(TestExecSpanIterator, Basics) {
@@ -852,7 +852,7 @@ TEST_F(TestExecSpanIterator, Basics) {
   SetupIterator(args);
 
   ExecSpan batch;
-  ASSERT_TRUE(iterator_->Next(&batch));
+  ASSERT_TRUE(iterator_.Next(&batch));
   ASSERT_EQ(3, batch.values.size());
   ASSERT_EQ(3, batch.num_values());
   ASSERT_EQ(length, batch.length);
@@ -861,22 +861,24 @@ TEST_F(TestExecSpanIterator, Basics) {
   AssertArraysEqual(*args[1].make_array(), *batch[1].array.ToArray());
   ASSERT_TRUE(args[2].scalar()->Equals(*batch[2].scalar));
 
-  ASSERT_EQ(length, iterator_->position());
-  ASSERT_FALSE(iterator_->Next(&batch));
+  ASSERT_EQ(length, iterator_.position());
+  ASSERT_FALSE(iterator_.Next(&batch));
 
   // Split into chunks of size 16
   CheckIteration(args, /*chunksize=*/16, {16, 16, 16, 16, 16, 16, 4});
 }
 
 TEST_F(TestExecSpanIterator, InputValidation) {
+  ExecSpanIterator iterator;
+
   std::vector<Datum> args = {Datum(GetInt32Array(10)), Datum(GetInt32Array(9))};
-  ASSERT_RAISES(Invalid, ExecSpanIterator::Make(args));
+  ASSERT_RAISES(Invalid, iterator.Init(args));
 
   args = {Datum(GetInt32Array(9)), Datum(GetInt32Array(10))};
-  ASSERT_RAISES(Invalid, ExecSpanIterator::Make(args));
+  ASSERT_RAISES(Invalid, iterator.Init(args));
 
   args = {Datum(GetInt32Array(10))};
-  ASSERT_OK_AND_ASSIGN(auto iterator, ExecSpanIterator::Make(args));
+  ASSERT_OK(iterator.Init(args));
 }
 
 TEST_F(TestExecSpanIterator, ChunkedArrays) {
@@ -894,9 +896,10 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
   auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
 
   auto CheckArgs = [&](const std::vector<Datum>& args) {
-    auto iterator = ExecSpanIterator::Make(args).ValueOrDie();
+    ExecSpanIterator iterator;
+    ASSERT_OK(iterator.Init(args));
     ExecSpan batch;
-    ASSERT_FALSE(iterator->Next(&batch));
+    ASSERT_FALSE(iterator.Next(&batch));
   };
 
   // Zero-length ChunkedArray with zero chunks

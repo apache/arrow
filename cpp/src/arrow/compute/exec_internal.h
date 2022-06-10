@@ -79,13 +79,15 @@ class ARROW_EXPORT ExecBatchIterator {
 /// must be longer than the lifetime of this object
 class ARROW_EXPORT ExecSpanIterator {
  public:
-  /// \brief Construct iterator and do basic argument validation
+  ExecSpanIterator() = default;
+
+  /// \brief Initialize itertor iterator and do basic argument validation
   ///
   /// \param[in] args the Datum argument, must be all array-like or scalar
   /// \param[in] max_chunksize the maximum length of each ExecSpan. Depending
   /// on the chunk layout of ChunkedArray.
-  static Result<std::unique_ptr<ExecSpanIterator>> Make(
-      const std::vector<Datum>& args, int64_t max_chunksize = kDefaultMaxChunksize);
+  Status Init(const std::vector<Datum>& args,
+              int64_t max_chunksize = kDefaultMaxChunksize);
 
   /// \brief Compute the next span by updating the state of the
   /// previous span object. You must keep passing in the previous
@@ -108,7 +110,7 @@ class ARROW_EXPORT ExecSpanIterator {
 
   bool initialized_ = false;
   bool have_chunked_arrays_ = false;
-  const std::vector<Datum>& args_;
+  const std::vector<Datum>* args_;
   std::vector<int> chunk_indexes_;
   std::vector<int64_t> value_positions_;
 
