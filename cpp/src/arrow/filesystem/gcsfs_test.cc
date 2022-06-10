@@ -147,7 +147,7 @@ class GcsIntegrationTest : public ::testing::Test {
             .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
             .set<gcs::TransferStallTimeoutOption>(std::chrono::seconds(5))
             .set<gcs::RetryPolicyOption>(
-                gcs::LimitedTimeRetryPolicy(std::chrono::seconds(5)).clone()));
+                gcs::LimitedTimeRetryPolicy(std::chrono::seconds(45)).clone()));
 
     google::cloud::StatusOr<gcs::BucketMetadata> bucket = client.CreateBucketForProject(
         PreexistingBucketName(), "ignored-by-testbench", gcs::BucketMetadata{});
