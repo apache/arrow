@@ -280,6 +280,9 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 					data[idx] = int32(val) * 1000
 				}
 			}
+		case arrow.NULL:
+			wr.WriteBatchSpaced(nil, defLevels, repLevels, leafArr.NullBitmapBytes(), 0)
+			return
 
 		default:
 			// simple integral cases, parquet physical storage is int32 or int64
