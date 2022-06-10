@@ -495,7 +495,7 @@ namespace {
 
 Result<NativePathString> NativeReal(const NativePathString& path) {
 #if _WIN32
-  std::array<wchar_t, _MAX_PATH> resolved;
+  std::array<wchar_t, _MAX_PATH> resolved = {};
   if (_wfullpath(const_cast<wchar_t*>(path.c_str()), resolved.data(), resolved.size()) ==
       nullptr) {
     return IOErrorFromWinError(errno, "Failed to resolve real path");
