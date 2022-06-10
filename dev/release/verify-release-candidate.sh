@@ -515,8 +515,8 @@ maybe_setup_virtualenv() {
       $python -m venv ${virtualenv}
       # Activate the environment
       source "${virtualenv}/bin/activate"
-      # Upgrade pip
-      pip install -U pip
+      # Upgrade pip and setuptools
+      pip install -U pip setuptools
     else
       show_info "Using already created virtualenv at ${virtualenv}"
       # Activate the environment
