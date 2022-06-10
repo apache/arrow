@@ -1254,7 +1254,7 @@ garrow_aggregate_node_options_new(GList *aggregations,
                                   gsize n_keys,
                                   GError **error)
 {
-  std::vector<arrow::compute::internal::Aggregate> arrow_aggregates;
+  std::vector<arrow::compute::Aggregate> arrow_aggregates;
   std::vector<arrow::FieldRef> arrow_keys;
   for (auto node = aggregations; node; node = node->next) {
     auto aggregation_priv = GARROW_AGGREGATION_GET_PRIVATE(node->data);
