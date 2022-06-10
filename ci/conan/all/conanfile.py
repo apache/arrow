@@ -168,6 +168,8 @@ class ArrowConan(ConanFile):
             raise ConanInvalidConfiguration("CCI has no hiveserver2 recipe (yet)")
         if self.options.with_orc:
             raise ConanInvalidConfiguration("CCI has no orc recipe (yet)")
+        if self.options.with_s3 and not self.options["aws-sdk-cpp"].config:
+            raise ConanInvalidConfiguration("arrow:with_s3 requires aws-sdk-cpp:config is True.")
 
         if self.options.shared and self._with_jemalloc():
             if self.options["jemalloc"].enable_cxx:
@@ -259,7 +261,7 @@ class ArrowConan(ConanFile):
         if self._with_thrift():
             self.requires("thrift/0.15.0")
         if self._with_protobuf():
-            self.requires("protobuf/3.19.2")
+            self.requires("protobuf/3.20.0")
         if self._with_jemalloc():
             self.requires("jemalloc/5.2.1")
         if self._with_boost():
@@ -267,17 +269,21 @@ class ArrowConan(ConanFile):
         if self._with_gflags():
             self.requires("gflags/2.2.2")
         if self._with_glog():
-            self.requires("glog/0.5.0")
+            self.requires("glog/0.6.0")
         if self._with_grpc():
-            self.requires("grpc/1.44.0")
+            self.requires("grpc/1.45.2")
         if self.options.with_json:
             self.requires("rapidjson/1.1.0")
         if self._with_llvm():
             self.requires("llvm-core/13.0.0")
         if self._with_openssl():
-            self.requires("openssl/1.1.1m")
+            # aws-sdk-cpp requires openssl/1.1.1. it uses deprecated functions in openssl/3.0.0
+            if self.options.with_s3:
+                self.requires("openssl/1.1.1o")
+            else:
+                self.requires("openssl/3.0.3")
         if self.options.with_s3:
-            self.requires("aws-sdk-cpp/1.9.100")
+            self.requires("aws-sdk-cpp/1.9.234")
         if self.options.with_brotli:
             self.requires("brotli/1.0.9")
         if self.options.with_bz2:
@@ -295,11 +301,11 @@ class ArrowConan(ConanFile):
             else:
                 self.requires("xsimd/8.0.3")
         if self.options.with_zlib:
-            self.requires("zlib/1.2.11")
+            self.requires("zlib/1.2.12")
         if self.options.with_zstd:
             self.requires("zstd/1.5.2")
         if self._with_re2():
-            self.requires("re2/20211101")
+            self.requires("re2/20220201")
         if self._with_utf8proc():
             self.requires("utf8proc/2.7.0")
         if self.options.with_backtrace:
@@ -410,8 +416,8 @@ class ArrowConan(ConanFile):
         self._cmake.definitions["ORC_SOURCE"] = "SYSTEM"
         self._cmake.definitions["ARROW_WITH_THRIFT"] = self._with_thrift()
         self._cmake.definitions["Thrift_SOURCE"] = "SYSTEM"
-        self._cmake.definitions["THRIFT_VERSION"] = "1.0"  # a recent thrift does not require boost
         if self._with_thrift():
+            self._cmake.definitions["THRIFT_VERSION"] = self.deps_cpp_info["thrift"].version # a recent thrift does not require boost
             self._cmake.definitions["ARROW_THRIFT_USE_SHARED"] = self.options["thrift"].shared
         self._cmake.definitions["ARROW_USE_OPENSSL"] = self._with_openssl()
         if self._with_openssl():
@@ -563,7 +569,7 @@ class ArrowConan(ConanFile):
         if self.options.with_json:
             self.cpp_info.components["libarrow"].requires.append("rapidjson::rapidjson")
         if self.options.with_s3:
-            self.cpp_info.components["libarrow"].requires.append("aws-sdk-cpp::filesystem")
+            self.cpp_info.components["libarrow"].requires.append("aws-sdk-cpp::s3")
         if self.options.with_orc:
             self.cpp_info.components["libarrow"].requires.append("orc::orc")
         if self.options.with_brotli:
