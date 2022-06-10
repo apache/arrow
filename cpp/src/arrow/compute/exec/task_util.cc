@@ -127,6 +127,7 @@ void TaskSchedulerImpl::RegisterEnd() {
 
 Status TaskSchedulerImpl::StartTaskGroup(size_t thread_id, int group_id,
                                          int64_t total_num_tasks) {
+  std::printf("starting task %ld, %d, %ld\n", thread_id, group_id, total_num_tasks);
   ARROW_DCHECK(group_id >= 0 && group_id < static_cast<int>(task_groups_.size()));
   TaskGroup& task_group = task_groups_[group_id];
 

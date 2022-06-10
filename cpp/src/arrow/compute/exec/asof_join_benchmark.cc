@@ -17,7 +17,6 @@
 
 #include <condition_variable>
 #include <mutex>
-#include <string>
 
 #include "benchmark/benchmark.h"
 
@@ -37,22 +36,26 @@ namespace arrow {
 namespace compute {
 
 static constexpr int64_t kTotalBatchSize = 1e2;
-static std::string time_col = "time";
-static std::string key_col = "key"; 
+static const char* time_col = "time";
+static const char* key_col = "key";
 
-static void AsOfJoinOverhead(benchmark::State& state, Expression expr, int64_t tolerance) {
+static void AsOfJoinOverhead(benchmark::State& state, Expression expr,
+                             int64_t tolerance) {
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
   const int64_t num_batches = kTotalBatchSize / batch_size;
-  
-  arrow::compute::BatchesWithSchema left_table = MakeRandomBatches(
-      schema({field(time_col, int64()), field(key_col, int32()), field("l_v0", float64())}),
-      num_batches, batch_size);
-  arrow::compute::BatchesWithSchema right_table0 = MakeRandomBatches(
-      schema({field(time_col, int64()), field(key_col, int32()), field("r0_v0", float64())}),
-      num_batches, batch_size);
-  arrow::compute::BatchesWithSchema right_table1 = MakeRandomBatches(
-      schema({field(time_col, int64()), field(key_col, int32()), field("r1_v0", float32())}),
-      num_batches, batch_size);
+
+  arrow::compute::BatchesWithSchema left_table =
+      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
+                                field("l_v0", float64())}),
+                        num_batches, batch_size);
+  arrow::compute::BatchesWithSchema right_table0 =
+      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
+                                field("r0_v0", float64())}),
+                        num_batches, batch_size);
+  arrow::compute::BatchesWithSchema right_table1 =
+      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
+                                field("r1_v0", float32())}),
+                        num_batches, batch_size);
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
 
   for (auto _ : state) {
@@ -61,27 +64,28 @@ static void AsOfJoinOverhead(benchmark::State& state, Expression expr, int64_t t
                          ExecPlan::Make(&ctx));
     AsofJoinNodeOptions join_options(time_col, key_col, tolerance);
     Declaration join{"asofjoin", join_options};
-    ASSERT_OK_AND_ASSIGN(
-        arrow::compute::ExecNode * left_table_source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions{left_table.schema, left_table.gen(/*parallel=*/true,
-                                                                        /*slow=*/false)}));
+    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * left_table_source,
+                         MakeExecNode("source", plan.get(), {},
+                                      SourceNodeOptions{left_table.schema,
+                                                        left_table.gen(/*parallel=*/true,
+                                                                       /*slow=*/false)}));
     ASSERT_OK_AND_ASSIGN(
         arrow::compute::ExecNode * right_table0_source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions{right_table0.schema, right_table0.gen(/*parallel=*/true,
-                                                                        /*slow=*/false)}));
+        MakeExecNode(
+            "source", plan.get(), {},
+            SourceNodeOptions{right_table0.schema, right_table0.gen(/*parallel=*/true,
+                                                                    /*slow=*/false)}));
     ASSERT_OK_AND_ASSIGN(
         arrow::compute::ExecNode * right_table1_source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions{right_table1.schema, right_table1.gen(/*parallel=*/true,
-                                                                        /*slow=*/false)}));
-    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * asof_join_node,
-                         MakeExecNode("asofjoin", plan.get(), {left_table_source, right_table0_source, right_table1_source}, AsofJoinNodeOptions{
-                                      time_col,
-                                      key_col,
-                                      tolerance
-                                  }));
+        MakeExecNode(
+            "source", plan.get(), {},
+            SourceNodeOptions{right_table1.schema, right_table1.gen(/*parallel=*/true,
+                                                                    /*slow=*/false)}));
+    ASSERT_OK_AND_ASSIGN(
+        arrow::compute::ExecNode * asof_join_node,
+        MakeExecNode("asofjoin", plan.get(),
+                     {left_table_source, right_table0_source, right_table1_source},
+                     AsofJoinNodeOptions{time_col, key_col, tolerance}));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     MakeExecNode("sink", plan.get(), {asof_join_node}, SinkNodeOptions{&sink_gen});
     state.ResumeTiming();
@@ -96,19 +100,23 @@ static void AsOfJoinOverhead(benchmark::State& state, Expression expr, int64_t t
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
-static void AsOfJoinOverheadIsolated(benchmark::State& state, Expression expr, int64_t tolerance) {
-  const int32_t batch_size = static_cast<int32_t>(state.range(0));
-  const int64_t num_batches = kTotalBatchSize / batch_size;
+static void AsOfJoinOverheadIsolated(benchmark::State& state, Expression expr,
+                                     int64_t tolerance) {
+  const int32_t batch_size = 100;  // static_cast<int32_t>(state.range(0));
+  const int64_t num_batches = 1;   // kTotalBatchSize / batch_size;
 
-  arrow::compute::BatchesWithSchema left_table = MakeRandomBatches(
-      schema({field(time_col, int64()), field(key_col, int32()), field("l_v0", float64())}),
-      num_batches, batch_size);
-  arrow::compute::BatchesWithSchema right_table0 = MakeRandomBatches(
-      schema({field(time_col, int64()), field(key_col, int32()), field("r0_v0", float64())}),
-      num_batches, batch_size);
-  arrow::compute::BatchesWithSchema right_table1 = MakeRandomBatches(
-      schema({field(time_col, int64()), field(key_col, int32()), field("r1_v0", float32())}),
-      num_batches, batch_size);
+  arrow::compute::BatchesWithSchema left_table =
+      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
+                                field("l_v0", float64())}),
+                        num_batches, batch_size);
+  arrow::compute::BatchesWithSchema right_table0 =
+      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
+                                field("r0_v0", float64())}),
+                        num_batches, batch_size);
+  arrow::compute::BatchesWithSchema right_table1 =
+      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
+                                field("r1_v0", float32())}),
+                        num_batches, batch_size);
 
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
@@ -121,32 +129,33 @@ static void AsOfJoinOverheadIsolated(benchmark::State& state, Expression expr, i
     // Used for dummy purposes as they are referenced in InputReceived and InputFinished.
     AsofJoinNodeOptions join_options(time_col, key_col, tolerance);
     Declaration join{"asofjoin", join_options};
-    ASSERT_OK_AND_ASSIGN(
-        arrow::compute::ExecNode * left_table_source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions{left_table.schema, left_table.gen(/*parallel=*/true,
-                                                                        /*slow=*/false)}));
+    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * left_table_source,
+                         MakeExecNode("source", plan.get(), {},
+                                      SourceNodeOptions{left_table.schema,
+                                                        left_table.gen(/*parallel=*/true,
+                                                                       /*slow=*/false)}));
     ASSERT_OK_AND_ASSIGN(
         arrow::compute::ExecNode * right_table0_source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions{right_table0.schema, right_table0.gen(/*parallel=*/true,
-                                                                        /*slow=*/false)}));
+        MakeExecNode(
+            "source", plan.get(), {},
+            SourceNodeOptions{right_table0.schema, right_table0.gen(/*parallel=*/true,
+                                                                    /*slow=*/false)}));
     ASSERT_OK_AND_ASSIGN(
         arrow::compute::ExecNode * right_table1_source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions{right_table1.schema, right_table1.gen(/*parallel=*/true,
-                                                                        /*slow=*/false)}));
-    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * asof_join_node,
-                         MakeExecNode("asofjoin", plan.get(), {left_table_source, right_table0_source, right_table1_source}, AsofJoinNodeOptions{
-                                      time_col,
-                                      key_col,
-                                      tolerance
-                                  }));
+        MakeExecNode(
+            "source", plan.get(), {},
+            SourceNodeOptions{right_table1.schema, right_table1.gen(/*parallel=*/true,
+                                                                    /*slow=*/false)}));
+    ASSERT_OK_AND_ASSIGN(
+        arrow::compute::ExecNode * asof_join_node,
+        MakeExecNode("asofjoin", plan.get(),
+                     {left_table_source, right_table0_source, right_table1_source},
+                     AsofJoinNodeOptions{time_col, key_col, tolerance}));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     MakeExecNode("sink", plan.get(), {asof_join_node}, SinkNodeOptions{&sink_gen});
 
     std::unique_ptr<arrow::compute::TaskScheduler> scheduler = TaskScheduler::Make();
-    
+
     std::condition_variable left_table_batch_finished_cv;
     std::condition_variable right_table0_batch_finished_cv;
     std::condition_variable right_table1_batch_finished_cv;
@@ -154,26 +163,32 @@ static void AsOfJoinOverheadIsolated(benchmark::State& state, Expression expr, i
     std::mutex mutex_right_table0;
     std::mutex mutex_right_table1;
 
-    auto register_task_group = [&](ExecNode *node, arrow::compute::BatchesWithSchema data, std::condition_variable &tasks_finished_cv, std::mutex &mutex) {
-        int task_group_id = scheduler->RegisterTaskGroup(
-            [&](size_t thread_id, int64_t task_id) {
-                std::cout << task_id << " batch wanted with size : " << data.batches.size() << std::endl;
-                asof_join_node->InputReceived(node, data.batches[task_id]);
-                return Status::OK();
-            },
-            [&](size_t thread_id) {
-                asof_join_node->InputFinished(node, static_cast<int>(data.batches.size()));
-                std::unique_lock<std::mutex> lk(mutex);
-                tasks_finished_cv.notify_one();
-                return Status::OK();
-            }
-        );
-        return task_group_id;
+    auto register_task_group = [&](ExecNode* node, arrow::compute::BatchesWithSchema data,
+                                   std::condition_variable& tasks_finished_cv,
+                                   std::mutex& mutex) {
+      return scheduler->RegisterTaskGroup(
+          [&](size_t thread_id, int64_t task_id) {
+            std::cout << task_id << " batch wanted with size : " << data.batches.size()
+                      << std::endl;
+            asof_join_node->InputReceived(node, data.batches[task_id]);
+            return Status::OK();
+          },
+          [&](size_t thread_id) {
+            asof_join_node->InputFinished(node, static_cast<int>(data.batches.size()));
+            std::unique_lock<std::mutex> lk(mutex);
+            tasks_finished_cv.notify_one();
+            return Status::OK();
+          });
     };
-    
-    int task_group_left_table = register_task_group(left_table_source, left_table, left_table_batch_finished_cv, mutex_left_table);
-    int task_group_right_table0 = register_task_group(right_table0_source, right_table0, right_table0_batch_finished_cv, mutex_right_table0);
-    int task_group_right_table1 = register_task_group(right_table1_source, right_table1, right_table1_batch_finished_cv, mutex_right_table1);
+
+    int task_group_left_table = register_task_group(
+        left_table_source, left_table, left_table_batch_finished_cv, mutex_left_table);
+    int task_group_right_table0 =
+        register_task_group(right_table0_source, right_table0,
+                            right_table0_batch_finished_cv, mutex_right_table0);
+    int task_group_right_table1 =
+        register_task_group(right_table1_source, right_table1,
+                            right_table1_batch_finished_cv, mutex_right_table1);
 
     std::cout << task_group_left_table << " registered" << std::endl;
     std::cout << task_group_right_table0 << " registered" << std::endl;
@@ -198,7 +213,7 @@ static void AsOfJoinOverheadIsolated(benchmark::State& state, Expression expr, i
     std::unique_lock<std::mutex> lk(mutex_left_table);
     std::unique_lock<std::mutex> lk1(mutex_right_table0);
     std::unique_lock<std::mutex> lk2(mutex_right_table1);
-    
+
     std::cout << "reached mutex" << std::endl;
 
     ASSERT_OK(scheduler->StartTaskGroup(0, task_group_left_table, num_batches));
@@ -237,14 +252,15 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
       ->UseRealTime();
 }
 
-
 BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, complex_expression, complex_expression, 1000)
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, simple_expression, simple_expression, 1000)
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, zero_copy_expression, zero_copy_expression, 1000)
+BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, zero_copy_expression, zero_copy_expression,
+                  1000)
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, ref_only_expression, ref_only_expression, 1000)
+BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, ref_only_expression, ref_only_expression,
+                  1000)
     ->Apply(SetArgs);
 /*
 BENCHMARK_CAPTURE(AsOfJoinOverhead, complex_expression, complex_expression, 1000)
