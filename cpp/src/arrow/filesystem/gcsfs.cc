@@ -804,7 +804,7 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
       int parsed_seconds = atoi(kv.second.c_str());
       if (parsed_seconds <= 0) {
         return Status::Invalid(
-            "retry_limit_seconds  must be a positive integer.  found '", kv.second, "'");
+            "retry_limit_seconds must be a positive integer, got '", kv.second, "'");
       }
       options.retry_limit_seconds = parsed_seconds;
     } else {

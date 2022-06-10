@@ -57,7 +57,7 @@ class ARROW_EXPORT GcsCredentials {
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
-  /// \brief Equivelant to the GcsOptions::Defaults() that returns.
+  /// \brief Equivalent to GcsOptions::Defaults().
   GcsOptions();
   GcsCredentials credentials;
 
