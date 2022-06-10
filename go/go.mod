@@ -29,12 +29,13 @@ require (
 	github.com/klauspost/compress v1.13.6
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
-	github.com/pierrec/lz4/v4 v4.1.9
-	github.com/stretchr/testify v1.7.0
-	github.com/zeebo/xxh3 v0.13.0
-	golang.org/x/exp v0.0.0-20211028214138-64b4c8e87d1a
-	golang.org/x/sys v0.0.0-20211025201205-69cdffdb9359
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+	github.com/pierrec/lz4/v4 v4.1.12
+	github.com/stretchr/testify v1.7.2
+	github.com/zeebo/xxh3 v1.0.1
+	golang.org/x/exp v0.0.0-20211216164055-b2b84827b756
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
+	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f
 	gonum.org/v1/gonum v0.9.3
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
