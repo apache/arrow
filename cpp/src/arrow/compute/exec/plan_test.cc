@@ -391,7 +391,8 @@ TEST(ExecPlan, ToString) {
                           }}},
               {"aggregate",
                AggregateNodeOptions{
-                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", std::move(options)}},
+                   /*aggregates=*/{{"hash_sum", nullptr},
+                                   {"hash_count", std::move(options)}},
                    /*targets=*/{"multiply(i32, 2)", "multiply(i32, 2)"},
                    /*names=*/{"sum(multiply(i32, 2))", "count(multiply(i32, 2))"},
                    /*keys=*/{"bool"}}},
@@ -429,17 +430,17 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
   rhs.label = "rhs";
   union_node.inputs.emplace_back(lhs);
   union_node.inputs.emplace_back(rhs);
-  ASSERT_OK(
-      Declaration::Sequence(
-          {
-              union_node,
-              {"aggregate", AggregateNodeOptions{/*aggregates=*/{{"count", std::move(options)}},
-                                                 /*targets=*/{"i32"},
-                                                 /*names=*/{"count(i32)"},
-                                                 /*keys=*/{}}},
-              {"sink", SinkNodeOptions{&sink_gen}},
-          })
-          .AddToPlan(plan.get()));
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    union_node,
+                    {"aggregate",
+                     AggregateNodeOptions{/*aggregates=*/{{"count", std::move(options)}},
+                                          /*targets=*/{"i32"},
+                                          /*names=*/{"count(i32)"},
+                                          /*keys=*/{}}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
 :SinkNode{}
   :ScalarAggregateNode{aggregates=[

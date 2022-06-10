@@ -119,10 +119,10 @@ class ScalarAggregateNode : public ExecNode {
         auto opts = function->default_options()->Copy();
         aggregates[i].options = std::move(opts);
       }
-      // if (aggregates[i].options) {
-      //   owned_options[i] = aggregates[i].options->Copy();
-      //   aggregates[i].options = owned_options[i];
-      // }
+      if (aggregates[i].options) {
+        owned_options[i] = aggregates[i].options->Copy();
+        // aggregates[i].options = owned_options[i];
+      }
 
       KernelContext kernel_ctx{exec_ctx};
       states[i].resize(ThreadIndexer::Capacity());
@@ -368,7 +368,9 @@ class GroupByNode : public ExecNode {
     owned_options.reserve(aggs.size());
     for (auto& agg : aggs) {
       owned_options.push_back(agg.options ? agg.options->Copy() : nullptr);
-      agg.options = std::move(owned_options.back());
+      if (owned_options.back()) {
+        agg.options = owned_options.back()->Copy();
+      }
     }
 
     return input->plan()->EmplaceNode<GroupByNode>(
