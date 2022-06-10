@@ -14,8 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include <mutex>
 #include <condition_variable>
+#include <mutex>
 
 #include "benchmark/benchmark.h"
 
@@ -34,18 +34,19 @@
 namespace arrow {
 namespace compute {
 
-static constexpr int64_t total_batch_size = 1e6;
+static constexpr int64_t kTotalBatchSize = 1000000;
 
 static void FilterOverhead(benchmark::State& state, Expression expr) {
-  const auto batch_size = static_cast<int32_t>(state.range(0));
-  const auto num_batches = total_batch_size / batch_size;
+  const int32_t batch_size = static_cast<int32_t>(state.range(0));
+  const int32_t num_batches = kTotalBatchSize / batch_size;
 
-  auto data = MakeRandomBatches(schema({field("i64", int64()), field("bool", boolean())}),
-                                num_batches, batch_size);
+  arrow::compute::BatchesWithSchema data = MakeRandomBatches(
+      schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   for (auto _ : state) {
     state.PauseTiming();
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&ctx));
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
+                         ExecPlan::Make(&ctx));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     ASSERT_OK(Declaration::Sequence(
                   {
@@ -72,60 +73,63 @@ static void FilterOverhead(benchmark::State& state, Expression expr) {
 }
 
 static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
-  const auto batch_size = static_cast<int32_t>(state.range(0));
-  const auto num_batches = total_batch_size / batch_size;
+  const int32_t batch_size = static_cast<int32_t>(state.range(0));
+  const int32_t num_batches = kTotalBatchSize / batch_size;
 
-  auto data = MakeRandomBatches(schema({field("i64", int64()), field("bool", boolean())}),
-                                num_batches, batch_size);
+  arrow::compute::BatchesWithSchema data = MakeRandomBatches(
+      schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   for (auto _ : state) {
     state.PauseTiming();
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&ctx));
-    auto source_node_options = SourceNodeOptions{data.schema, data.gen(/*parallel=*/true,
-                                                                       /*slow=*/false)};
-    ASSERT_OK_AND_ASSIGN(auto sn,
-                         MakeExecNode("source", plan.get(), {}, source_node_options));
-    ASSERT_OK_AND_ASSIGN(auto pn, MakeExecNode("filter", plan.get(), {sn},
-                                               FilterNodeOptions{
-                                                   expr,
-                                               }));
-    MakeExecNode("sink", plan.get(), {pn}, SinkNodeOptions{&sink_gen});
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
+                         ExecPlan::Make(&ctx));
+    ASSERT_OK_AND_ASSIGN(
+        arrow::compute::ExecNode * source_node,
+        MakeExecNode("source", plan.get(), {},
+                     SourceNodeOptions{data.schema, data.gen(/*parallel=*/true,
+                                                             /*slow=*/false)}));
+    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * project_node,
+                         MakeExecNode("filter", plan.get(), {source_node},
+                                      FilterNodeOptions{
+                                          expr,
+                                      }));
+    MakeExecNode("sink", plan.get(), {project_node}, SinkNodeOptions{&sink_gen});
 
-    auto scheduler = TaskScheduler::Make();
-    std::condition_variable cv;
+    std::unique_ptr<arrow::compute::TaskScheduler> scheduler = TaskScheduler::Make();
+    std::condition_variable all_tasks_finished_cv;
     std::mutex mutex;
     int task_group_id = scheduler->RegisterTaskGroup(
         [&](size_t thread_id, int64_t task_id) {
-          pn->InputReceived(sn, data.batches[task_id]);
+          project_node->InputReceived(source_node, data.batches[task_id]);
           return Status::OK();
         },
         [&](size_t thread_id) {
-          pn->InputFinished(sn, data.batches.size());
+          project_node->InputFinished(source_node, static_cast<int>(data.batches.size()));
           std::unique_lock<std::mutex> lk(mutex);
-          cv.notify_one();
+          all_tasks_finished_cv.notify_one();
           return Status::OK();
         });
     scheduler->RegisterEnd();
     ThreadIndexer thread_indexer;
 
     state.ResumeTiming();
-    auto tp = arrow::internal::GetCpuThreadPool();
+    arrow::internal::ThreadPool* thread_pool = arrow::internal::GetCpuThreadPool();
     ASSERT_OK(scheduler->StartScheduling(
         thread_indexer(),
         [&](std::function<Status(size_t)> task) -> Status {
-          return tp->Spawn([&, task]() {
+          return thread_pool->Spawn([&, task]() {
             size_t tid = thread_indexer();
             ARROW_DCHECK_OK(task(tid));
           });
         },
-        tp->GetCapacity(),
+        thread_pool->GetCapacity(),
         /*use_sync_execution=*/false));
     std::unique_lock<std::mutex> lk(mutex);
     ASSERT_OK(scheduler->StartTaskGroup(thread_indexer(), task_group_id, num_batches));
-    cv.wait(lk);
-    ASSERT_TRUE(pn->finished().is_finished());
+    all_tasks_finished_cv.wait(lk);
+    ASSERT_TRUE(project_node->finished().is_finished());
   }
   state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches * batch_size),
@@ -135,17 +139,18 @@ static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
-auto complex_expression =
+arrow::compute::Expression complex_expression =
     less(less(field_ref("i64"), literal(20)), greater(field_ref("i64"), literal(0)));
-auto simple_expression = less(call("negate", {field_ref("i64")}), literal(0));
-auto zero_copy_expression = is_valid((call(
+arrow::compute::Expression simple_expression =
+    less(call("negate", {field_ref("i64")}), literal(0));
+arrow::compute::Expression zero_copy_expression = is_valid((call(
     "cast", {field_ref("i64")}, compute::CastOptions::Safe(timestamp(TimeUnit::NANO)))));
-auto ref_only_expression = less(field_ref("i64"), literal(0));
+arrow::compute::Expression ref_only_expression = less(field_ref("i64"), literal(0));
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
   bench->ArgNames({"batch_size"})
       ->RangeMultiplier(10)
-      ->Range(1000, total_batch_size)
+      ->Range(1000, kTotalBatchSize)
       ->UseRealTime();
 }
 
