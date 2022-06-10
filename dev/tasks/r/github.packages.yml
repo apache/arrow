@@ -35,7 +35,7 @@ jobs:
     # This job will change the version to either the custom_version param or YMD format.
     # The output allows other steps to use the exact version to prevent issues (e.g. date changes during run)
     name: Source Package
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "X64", "Linux"]
     outputs:
       pkg_version: {{ '${{ steps.save-version.outputs.pkg_version }}' }}
     steps:
@@ -67,7 +67,7 @@ jobs:
 
   linux-cpp:
     name: C++ Binary {{ '${{ matrix.config.os }}-${{ matrix.config.version }}' }}
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "X64", "Linux"]
     needs: source
     strategy:
       fail-fast: false
@@ -109,7 +109,7 @@ jobs:
   windows-cpp:
     name: C++ Binary Windows RTools (40 only)
     needs: source
-    runs-on: windows-latest
+    runs-on: ["self-hosted", "X64", "Windows"]
     steps:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
@@ -141,9 +141,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - windows-latest
+          - ["self-hosted", "X64", "Windows"]
           # This is newer than what CRAN builds on, but Travis is no longer an option for us, so...
-          - macos-10.15
+          # - macos-10.15
           # - devops-managed # No M1 until the runner application runs native
         r_version:
           - { rtools: 40, r: "4.1" }
@@ -218,7 +218,7 @@ jobs:
   test-linux-binary:
     needs: [source, linux-cpp]
     name: Test binary {{ '${{ matrix.image }}' }}
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "X64", "Linux"]
     container: {{ '${{ matrix.image }}' }}
     strategy:
       fail-fast: false
@@ -266,7 +266,7 @@ jobs:
   test-source:
     needs: source
     name: Test linux source build
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "X64", "Linux"]
     steps:
       - name: Install R
         uses: r-lib/actions/setup-r@v2
@@ -293,28 +293,28 @@ jobs:
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
 
-  upload-binaries:
-    # Only upload binaries if all tests pass.
-    needs: [ r-packages, test-source, test-linux-binary]
-    name: Upload artifacts
-    runs-on: ubuntu-latest
-    steps:
-      {{ macros.github_checkout_arrow()|indent }}
-      - name: Download Artifacts 
-        uses: actions/download-artifact@v3
-        with: 
-          path: artifacts
-      - name: Install R
-        uses: r-lib/actions/setup-r@v2
-        with:
-          install-r: false
-      - name: Rename artifacts
-        shell: Rscript {0}
-        run: |
-          file_paths <- list.files("artifacts", include.dirs = FALSE, recursive = TRUE)
-          new_names <- file.path("binaries", sub("/", "__", file_paths))
-          dir.create("binaries", showWarnings = FALSE)
-          file.copy(file.path("artifacts", file_paths), new_names)
+  # upload-binaries:
+  #   # Only upload binaries if all tests pass.
+  #   needs: [ r-packages, test-source, test-linux-binary]
+  #   name: Upload artifacts
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     {{ macros.github_checkout_arrow()|indent }}
+  #     - name: Download Artifacts 
+  #       uses: actions/download-artifact@v3
+  #       with: 
+  #         path: artifacts
+  #     - name: Install R
+  #       uses: r-lib/actions/setup-r@v2
+  #       with:
+  #         install-r: false
+  #     - name: Rename artifacts
+  #       shell: Rscript {0}
+  #       run: |
+  #         file_paths <- list.files("artifacts", include.dirs = FALSE, recursive = TRUE)
+  #         new_names <- file.path("binaries", sub("/", "__", file_paths))
+  #         dir.create("binaries", showWarnings = FALSE)
+  #         file.copy(file.path("artifacts", file_paths), new_names)
 
-      {{ macros.github_upload_releases("binaries/r-*")|indent }}
+  #     {{ macros.github_upload_releases("binaries/r-*")|indent }}
           
