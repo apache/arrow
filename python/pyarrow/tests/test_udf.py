@@ -17,6 +17,7 @@
 
 
 import os
+import json
 import pytest
 
 import pyarrow as pa
@@ -675,11 +676,7 @@ def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
     assert res_tb.drop(["twice"]) == table
 
 
-def _test_query(path):
-    with open(path) as f:
-        querystr = f.read()
-    query = tobytes(querystr)
-
+def _test_query(query):
     plan = substrait._parse_json_plan(query)
 
     extid_registry = substrait.make_extension_id_registry()
@@ -690,14 +687,526 @@ def _test_query(path):
     res_tb = reader.read_all()
 
 
+def _test_query_string(querystr):
+    query = tobytes(querystr)
+    return _test_query(query)
+
+
+def _test_query_path(path):
+    with open(path) as f:
+        querystr = f.read()
+    return _test_query_string(querystr)
+
+
 def test_modelstate_udf_add():
-    _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_udf_add")
-    _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_udf_add")
-    #import timeit
-    #timeit.timeit(lambda: _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_udf_add"))
+    code = (
+        "gAWVGgMAAAAAAACMF2Nsb3VkcGlja2xlLmNsb3VkcGlja2xllIwNX2J1aWx0aW5fdHlwZZSTlIwKTGFt" +
+        "YmRhVHlwZZSFlFKUKGgCjAhDb2RlVHlwZZSFlFKUKEsBSwBLAEsCSwRLQ0MYZAFkAmwAbQF9AQEAfAGg" +
+        "AnwAZAOhAlMAlCiMJENvbXB1dGUgdHdpY2UgdGhlIHZhbHVlIG9mIHRoZSBpbnB1dJRLAE5LAnSUjA9w" +
+        "eWFycm93LmNvbXB1dGWUjAdjb21wdXRllIwIbXVsdGlwbHmUh5SMAXaUjAJwY5SGlIxgL21udC91c2Vy" +
+        "MS90c2NvbnRyYWN0L2dpdGh1Yi9ydHBzdy9pYmlzLXN1YnN0cmFpdC9pYmlzX3N1YnN0cmFpdC90ZXN0" +
+        "cy9jb21waWxlci90ZXN0X2NvbXBpbGVyLnB5lIwFdHdpY2WUTUYBQwQAAwwBlCkpdJRSlH2UKIwLX19w" +
+        "YWNrYWdlX1+UjB1pYmlzX3N1YnN0cmFpdC50ZXN0cy5jb21waWxlcpSMCF9fbmFtZV9flIwraWJpc19z" +
+        "dWJzdHJhaXQudGVzdHMuY29tcGlsZXIudGVzdF9jb21waWxlcpSMCF9fZmlsZV9flIxgL21udC91c2Vy" +
+        "MS90c2NvbnRyYWN0L2dpdGh1Yi9ydHBzdy9pYmlzLXN1YnN0cmFpdC9pYmlzX3N1YnN0cmFpdC90ZXN0" +
+        "cy9jb21waWxlci90ZXN0X2NvbXBpbGVyLnB5lHVOTk50lFKUjBxjbG91ZHBpY2tsZS5jbG91ZHBpY2ts" +
+        "ZV9mYXN0lIwSX2Z1bmN0aW9uX3NldHN0YXRllJOUaCB9lH2UKGgbaBSMDF9fcXVhbG5hbWVfX5RoFIwP" +
+        "X19hbm5vdGF0aW9uc19flH2UjA5fX2t3ZGVmYXVsdHNfX5ROjAxfX2RlZmF1bHRzX1+UTowKX19tb2R1" +
+        "bGVfX5RoHIwHX19kb2NfX5RoCowLX19jbG9zdXJlX1+UTowXX2Nsb3VkcGlja2xlX3N1Ym1vZHVsZXOU" +
+        "XZSMC19fZ2xvYmFsc19flH2UdYaUhlIwLg=="
+    )
+    querystr = json.dumps(
+        {
+          "extensionUris": [
+            {
+              "extensionUriAnchor": 1,
+              "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+            }
+          ],
+          "extensions": [
+            {
+              "extensionFunction": {
+                "extensionUriReference": 1,
+                "functionAnchor": 1,
+                "name": "twice",
+                "udf": {
+                  "code": code,
+                  "summary": "twice",
+                  "description": "Compute twice the value of the input",
+                  "inputTypes": [
+                    {
+                      "fp64": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    }
+                  ],
+                  "outputType": {
+                    "fp64": {
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "relations": [
+            {
+              "root": {
+                "input": {
+                  "project": {
+                    "input": {
+                      "read": {
+                        "baseSchema": {
+                          "names": [
+                            "time",
+                            "id",
+                            "return_prev_1d_lag",
+                            "return_next_1d_lead",
+                            "variance",
+                            "volume",
+                            "market_cap",
+                            "factor_id",
+                            "price"
+                          ],
+                          "struct": {
+                            "types": [
+                              {
+                                "timestamp": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              }
+                            ],
+                            "nullability": "NULLABILITY_REQUIRED"
+                          }
+                        },
+                        "localFiles": {
+                          "items": [
+                            {
+                              "uriFile": "file:///mnt/user1/tscontract/github/rtpsw/bamboo-streaming/data/modelstate2.feather"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "expressions": [
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {}
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 1
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 2
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 3
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 4
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 5
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 6
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 7
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 8
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "scalarFunction": {
+                          "functionReference": 1,
+                          "args": [
+                            {
+                              "selection": {
+                                "directReference": {
+                                  "structField": {
+                                    "field": 5
+                                  }
+                                },
+                                "rootReference": {}
+                              }
+                            }
+                          ],
+                          "outputType": {
+                            "fp64": {
+                              "nullability": "NULLABILITY_NULLABLE"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                "names": [
+                  "time",
+                  "id",
+                  "return_prev_1d_lag",
+                  "return_next_1d_lead",
+                  "variance",
+                  "volume",
+                  "market_cap",
+                  "factor_id",
+                  "price",
+                  "twice_volume"
+                ]
+              }
+            }
+          ]
+        }
+    )
+    import timeit
+    n = 5
+    secs = timeit.timeit(
+        lambda: _test_query_string(querystr),
+        number=n
+    )
+    with open("test_modelstate_udf_add.timeit", "w") as f:
+        f.write(f"seconds: {secs/n}\n")
 
 
 def test_modelstate_reg_add():
-    _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_reg_add")
-    #import timeit
-    #timeit.timeit(lambda: _test_query("/mnt/user1/tscontract/github/rtpsw/ibis-substrait/blah_reg_add"))
+    querystr = json.dumps(
+        {
+          "extensionUris": [
+            {
+              "extensionUriAnchor": 1,
+              "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+            }
+          ],
+          "extensions": [
+            {
+              "extensionFunction": {
+                "extensionUriReference": 1,
+                "functionAnchor": 1,
+                "name": "*"
+              }
+            }
+          ],
+          "relations": [
+            {
+              "root": {
+                "input": {
+                  "project": {
+                    "input": {
+                      "read": {
+                        "baseSchema": {
+                          "names": [
+                            "time",
+                            "id",
+                            "return_prev_1d_lag",
+                            "return_next_1d_lead",
+                            "variance",
+                            "volume",
+                            "market_cap",
+                            "factor_id",
+                            "price"
+                          ],
+                          "struct": {
+                            "types": [
+                              {
+                                "timestamp": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                              {
+                                "fp64": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              }
+                            ],
+                            "nullability": "NULLABILITY_REQUIRED"
+                          }
+                        },
+                        "localFiles": {
+                          "items": [
+                            {
+                              "uriFile": "file:///mnt/user1/tscontract/github/rtpsw/bamboo-streaming/data/modelstate2.feather"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "expressions": [
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {}
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 1
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 2
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 3
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 4
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 5
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 6
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 7
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "selection": {
+                          "directReference": {
+                            "structField": {
+                              "field": 8
+                            }
+                          },
+                          "rootReference": {}
+                        }
+                      },
+                      {
+                        "scalarFunction": {
+                          "functionReference": 1,
+                          "args": [
+                            {
+                              "selection": {
+                                "directReference": {
+                                  "structField": {
+                                    "field": 5
+                                  }
+                                },
+                                "rootReference": {}
+                              }
+                            },
+                            {
+                              "literal": {
+                                "i8": 2
+                              }
+                            }
+                          ],
+                          "outputType": {
+                            "fp64": {
+                              "nullability": "NULLABILITY_NULLABLE"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                "names": [
+                  "time",
+                  "id",
+                  "return_prev_1d_lag",
+                  "return_next_1d_lead",
+                  "variance",
+                  "volume",
+                  "market_cap",
+                  "factor_id",
+                  "price",
+                  "twice_volume"
+                ]
+              }
+            }
+          ]
+        }
+    )
+    import timeit
+    n = 5
+    secs = timeit.timeit(
+        lambda: _test_query_string(querystr),
+        number=n
+    )
+    with open("test_modelstate_reg_add.timeit", "w") as f:
+        f.write(f"seconds: {secs/n}\n")
