@@ -132,7 +132,7 @@ func (w *Int32ColumnChunkWriter) WriteBatchSpaced(values []int32, defLevels, rep
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
@@ -290,7 +290,7 @@ func (w *Int64ColumnChunkWriter) WriteBatchSpaced(values []int64, defLevels, rep
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
@@ -448,7 +448,7 @@ func (w *Int96ColumnChunkWriter) WriteBatchSpaced(values []parquet.Int96, defLev
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
@@ -606,7 +606,7 @@ func (w *Float32ColumnChunkWriter) WriteBatchSpaced(values []float32, defLevels,
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
@@ -764,7 +764,7 @@ func (w *Float64ColumnChunkWriter) WriteBatchSpaced(values []float64, defLevels,
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
@@ -925,7 +925,7 @@ func (w *BooleanColumnChunkWriter) WriteBatchSpaced(values []bool, defLevels, re
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
@@ -1083,7 +1083,7 @@ func (w *ByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.ByteArray
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
@@ -1241,7 +1241,7 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.F
 
 		w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
 		if values != nil {
-			vals = values[valueOffset:][:info.numSpaced()]
+			vals = values[valueOffset : valueOffset+info.numSpaced()]
 		}
 
 		if w.bitsBuffer != nil {
