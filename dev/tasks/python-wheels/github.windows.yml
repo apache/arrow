@@ -35,6 +35,7 @@ jobs:
       REPO: ghcr.io/ursacomputing/arrow
       # prefer the docker cli over docker-compose
       ARCHERY_USE_DOCKER_CLI: 1
+      ARCHERY_USE_DOCKER_BUILDX: 1
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -61,4 +62,3 @@ jobs:
         run: |
           cd arrow
           archery docker push python-wheel-windows-vs2017
-          archery docker push python-wheel-windows-test
