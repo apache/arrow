@@ -381,7 +381,7 @@ struct ScalarMinMax {
     bool initialize_output = true;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
-                            MakeScalar(out->type()->GetSharedPtr(), 0));
+                            MakeScalar(out->type()->Copy(), 0));
       ExecScalar(batch, options, temp_scalar.get());
       if (temp_scalar->is_valid) {
         const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
@@ -575,7 +575,7 @@ struct BinaryScalarMinMax {
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
     out->value = std::move(string_array->data());
-    out->array_data()->type = batch[0].type()->GetSharedPtr();
+    out->array_data()->type = batch[0].type()->Copy();
     DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }
@@ -618,7 +618,7 @@ struct FixedSizeBinaryScalarMinMax {
     int32_t byte_width = binary_type->byte_width();
     // Presize data to avoid reallocations.
     int64_t estimated_final_size = batch.length * byte_width;
-    FixedSizeBinaryBuilder builder(batch_type->GetSharedPtr());
+    FixedSizeBinaryBuilder builder(batch_type->Copy());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
@@ -662,7 +662,7 @@ struct FixedSizeBinaryScalarMinMax {
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
     out->value = std::move(string_array->data());
-    out->array_data()->type = batch[0].type()->GetSharedPtr();
+    out->array_data()->type = batch[0].type()->Copy();
     DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }

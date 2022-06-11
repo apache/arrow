@@ -333,7 +333,7 @@ struct StructFieldFunctor {
       }
     }
     // XXX: Revisit the above to see if we can avoid shared_from_this
-    out->value = current->GetSharedPtr();
+    out->value = current->Copy();
     return Status::OK();
   }
 
@@ -456,7 +456,7 @@ Status MakeStructExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out
   if (descr.shape == ValueDescr::SCALAR) {
     ScalarVector scalars(batch.num_values());
     for (int i = 0; i < batch.num_values(); ++i) {
-      scalars[i] = batch[i].scalar->GetSharedPtr();
+      scalars[i] = batch[i].scalar->Copy();
     }
     out->value =
         std::make_shared<StructScalar>(std::move(scalars), std::move(descr.type));

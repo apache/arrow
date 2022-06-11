@@ -107,7 +107,7 @@ static void CheckIndexBoundsInt32(
   random::RandomArrayGenerator rand(kSeed);
   auto arr = rand.Int32(args.size, 0, 100000, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(CheckIndexBounds(ArraySpan(*arr->data()), 100001));
+    ABORT_NOT_OK(CheckIndexBounds(*arr->data(), 100001));
   }
 }
 
@@ -117,7 +117,7 @@ static void CheckIndexBoundsUInt32(
   random::RandomArrayGenerator rand(kSeed);
   auto arr = rand.UInt32(args.size, 0, 100000, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(CheckIndexBounds(ArraySpan(*arr->data()), 100001));
+    ABORT_NOT_OK(CheckIndexBounds(*arr->data(), 100001));
   }
 }
 

@@ -37,7 +37,7 @@ Status ExecFailOld(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::NotImplemented("This kernel is malformed");
 }
 
-ScalarKernel::ExecFunc MakeFlippedBinaryExec(ScalarKernel::ExecFunc exec) {
+ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec) {
   return [exec](KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
     ExecSpan flipped_span = span;
     std::swap(flipped_span.values[0], flipped_span.values[1]);

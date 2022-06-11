@@ -495,7 +495,7 @@ void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
 
 Status PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(ArraySpan(*batch[1].array()), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
 
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
@@ -1134,7 +1134,7 @@ Status BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 Status NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(ArraySpan(*batch[1].array()), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   // batch.length doesn't take into account the take indices
   auto new_length = batch[1].array()->length;
@@ -2319,7 +2319,7 @@ Status FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 template <typename Impl>
 Status TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(ArraySpan(*batch[1].array()), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
   return kernel.ExecTake();
@@ -2327,7 +2327,7 @@ Status TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 struct SelectionKernelDescr {
   InputType input;
-  KernelBatchExec exec;
+  ArrayKernelExecOld exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
@@ -2385,7 +2385,7 @@ struct NonZeroVisitor {
 
     for (const std::shared_ptr<ArrayData>& current_array : arrays) {
       VisitArrayValuesInline<Type>(
-          ArraySpan(*current_array),
+          *current_array,
           [&](T v) {
             if (v != zero) {
               this->builder->UnsafeAppend(index++);

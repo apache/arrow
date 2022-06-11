@@ -184,9 +184,8 @@ struct IsNanOperator {
 };
 
 void MakeFunction(std::string name, FunctionDoc doc, std::vector<InputType> in_types,
-                  OutputType out_type, ScalarKernel::ExecFunc exec,
-                  FunctionRegistry* registry, NullHandling::type null_handling,
-                  bool can_write_into_slices,
+                  OutputType out_type, ArrayKernelExec exec, FunctionRegistry* registry,
+                  NullHandling::type null_handling, bool can_write_into_slices,
                   const FunctionOptions* default_options = NULLPTR,
                   KernelInit init = NULLPTR) {
   Arity arity{static_cast<int>(in_types.size())};

@@ -50,7 +50,7 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 
     // if invalid scalar, return null scalar
     if (!in_scalar.is_valid) {
-      out->value = MakeNullScalar(out_type.GetSharedPtr());
+      out->value = MakeNullScalar(out_type.Copy());
       return Status::OK();
     }
 

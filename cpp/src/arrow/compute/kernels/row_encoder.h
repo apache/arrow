@@ -117,7 +117,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
   void AddLength(const Datum& data, int64_t batch_length, int32_t* lengths) override {
     if (data.is_array()) {
       int64_t i = 0;
-      VisitArrayDataInline<T>(
+      VisitArraySpanInline<T>(
           *data.array(),
           [&](util::string_view bytes) {
             lengths[i++] +=
@@ -142,7 +142,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
   Status Encode(const Datum& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override {
     if (data.is_array()) {
-      VisitArrayDataInline<T>(
+      VisitArraySpanInline<T>(
           *data.array(),
           [&](util::string_view bytes) {
             auto& encoded_ptr = *encoded_bytes++;

@@ -389,7 +389,7 @@ Result<ValueDescr> ModeType(KernelContext*, const std::vector<ValueDescr>& descr
 }
 
 VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type,
-                           KernelBatchExec exec) {
+                           ArrayKernelExecOld exec) {
   VectorKernel kernel;
   kernel.init = ModeState::Init;
   kernel.can_execute_chunkwise = false;

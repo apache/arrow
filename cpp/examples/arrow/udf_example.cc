@@ -59,11 +59,17 @@ const cp::FunctionDoc func_doc{
     {"x", "y", "z"},
     "UDFOptions"};
 
-arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                             arrow::Datum* out) {
-  // temp = x + y; return temp + z
-  ARROW_ASSIGN_OR_RAISE(auto temp, cp::CallFunction("add", {batch[0], batch[1]}));
-  return cp::CallFunction("add", {temp, batch[2]}).Value(out);
+arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecSpan& batch,
+                             cp::ExecResult* out) {
+  // return x + y + z
+  const int64_t* x = batch[0].array.GetValues<int64_t>(1);
+  const int64_t* y = batch[1].array.GetValues<int64_t>(1);
+  const int64_t* z = batch[2].array.GetValues<int64_t>(1);
+  int64_t* out_values = out->array_span()->GetValues<int64_t>(1);
+  for (int64_t i = 0; i < batch.length; ++i) {
+    *out_values++ = *x++ + *y++ + *z++;
+  }
+  return arrow::Status::OK();
 }
 
 arrow::Status Execute() {
@@ -74,8 +80,8 @@ arrow::Status Execute() {
        cp::InputType::Array(arrow::int64())},
       arrow::int64(), SampleFunction);
 
-  kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
-  kernel.null_handling = cp::NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = cp::MemAllocation::PREALLOCATE;
+  kernel.null_handling = cp::NullHandling::INTERSECTION;
 
   ARROW_RETURN_NOT_OK(func->AddKernel(std::move(kernel)));
 

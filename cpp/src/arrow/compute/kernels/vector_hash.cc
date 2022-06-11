@@ -292,7 +292,7 @@ class RegularHashKernel : public HashKernel {
 
   template <bool HasError = with_error_status>
   enable_if_t<!HasError, Status> DoAppend(const ArrayData& arr) {
-    return VisitArrayDataInline<Type>(
+    return VisitArraySpanInline<Type>(
         arr,
         [this](Scalar v) {
           auto on_found = [this](int32_t memo_index) {
@@ -324,7 +324,7 @@ class RegularHashKernel : public HashKernel {
 
   template <bool HasError = with_error_status>
   enable_if_t<HasError, Status> DoAppend(const ArrayData& arr) {
-    return VisitArrayDataInline<Type>(
+    return VisitArraySpanInline<Type>(
         arr,
         [this](Scalar v) {
           Status s = Status::OK();

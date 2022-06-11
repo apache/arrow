@@ -651,7 +651,7 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
   auto g = batch[1].array()->GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     VisitArrayValuesInline<Type>(
-        ArraySpan(*batch[0].array()),
+        *batch[0].array(),
         [&](typename TypeTraits<Type>::CType val) { valid_func(*g++, val); },
         [&]() { null_func(*g++); });
     return;
@@ -676,7 +676,7 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
   auto g = batch[1].array()->GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     return VisitArrayValuesInline<Type>(
-        ArraySpan(*batch[0].array()),
+        *batch[0].array(),
         [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
         [&]() { return null_func(*g++); });
   }
@@ -2166,10 +2166,10 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
 
     if (batch[0].is_array()) {
       const auto& input = *batch[0].array();
+      const uint8_t* bitmap = input.buffers[1]->data();
       if (input.MayHaveNulls()) {
-        const uint8_t* bitmap = input.buffers[1]->data();
         arrow::internal::VisitBitBlocksVoid(
-            input.buffers[0], input.offset, input.length,
+            input.buffers[0]->data(), input.offset, input.length,
             [&](int64_t position) {
               counts[*g]++;
               Impl::UpdateGroupWith(reduced, *g, bit_util::GetBit(bitmap, position));
@@ -2178,7 +2178,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             [&] { bit_util::SetBitTo(no_nulls, *g++, false); });
       } else {
         arrow::internal::VisitBitBlocksVoid(
-            input.buffers[1], input.offset, input.length,
+            bitmap, input.offset, input.length,
             [&](int64_t) {
               Impl::UpdateGroupWith(reduced, *g, true);
               counts[*g++]++;

@@ -246,7 +246,7 @@ struct ARROW_EXPORT ArrayData {
 };
 
 /// \brief A non-owning Buffer reference
-struct ARROW_EXPORT BufferRef {
+struct ARROW_EXPORT BufferSpan {
   // It is the user of this class's responsibility to ensure that
   // buffers that were const originally are not written to
   // accidentally.
@@ -264,13 +264,18 @@ struct ARROW_EXPORT ArraySpan {
   int64_t length = 0;
   mutable int64_t null_count = kUnknownNullCount;
   int64_t offset = 0;
-  BufferRef buffers[3];
+  BufferSpan buffers[3];
 
   ArraySpan() = default;
 
   explicit ArraySpan(const DataType* type, int64_t length) : type(type), length(length) {}
-  explicit ArraySpan(const ArrayData& data) { SetMembers(data); }
-  explicit ArraySpan(const Scalar& data) { FillFromScalar(data); }
+
+  ArraySpan(const ArrayData& data) {  // NOLINT implicit conversion
+    SetMembers(data);
+  }
+  ArraySpan(const Scalar& data) {  // NOLINT implicit converstion
+    FillFromScalar(data);
+  }
 
   /// If dictionary-encoded, put dictionary in the first entry
   std::vector<ArraySpan> child_data;

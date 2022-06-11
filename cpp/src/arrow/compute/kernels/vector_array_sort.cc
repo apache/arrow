@@ -112,8 +112,10 @@ inline void VisitRawValuesInline(const ArrayType& values,
                                  VisitorNotNull&& visitor_not_null,
                                  VisitorNull&& visitor_null) {
   const auto data = values.raw_values();
+  auto validity_buf = values.data()->buffers[0];
+  const uint8_t* bitmap = validity_buf == nullptr ? nullptr : validity_buf->data();
   VisitBitBlocksVoid(
-      values.null_bitmap(), values.offset(), values.length(),
+      bitmap, values.offset(), values.length(),
       [&](int64_t i) { visitor_not_null(data[i]); }, [&]() { visitor_null(); });
 }
 
@@ -123,14 +125,15 @@ inline void VisitRawValuesInline(const BooleanArray& values,
                                  VisitorNull&& visitor_null) {
   if (values.null_count() != 0) {
     const uint8_t* data = values.data()->GetValues<uint8_t>(1, 0);
+    const uint8_t* bitmap = values.data()->buffers[0]->data();
     VisitBitBlocksVoid(
-        values.null_bitmap(), values.offset(), values.length(),
+        bitmap, values.offset(), values.length(),
         [&](int64_t i) { visitor_not_null(bit_util::GetBit(data, values.offset() + i)); },
         [&]() { visitor_null(); });
   } else {
     // Can avoid GetBit() overhead in the no-nulls case
     VisitBitBlocksVoid(
-        values.data()->buffers[1], values.offset(), values.length(),
+        values.data()->buffers[1]->data(), values.offset(), values.length(),
         [&](int64_t i) { visitor_not_null(true); }, [&]() { visitor_not_null(false); });
   }
 }

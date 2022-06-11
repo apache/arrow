@@ -391,13 +391,13 @@ TEST(TransposeInts, Int8ToInt64) {
 void BoundsCheckPasses(const std::shared_ptr<DataType>& type,
                        const std::string& indices_json, uint64_t upper_limit) {
   auto indices = ArrayFromJSON(type, indices_json);
-  ASSERT_OK(CheckIndexBounds(ArraySpan(*indices->data()), upper_limit));
+  ASSERT_OK(CheckIndexBounds(*indices->data(), upper_limit));
 }
 
 void BoundsCheckFails(const std::shared_ptr<DataType>& type,
                       const std::string& indices_json, uint64_t upper_limit) {
   auto indices = ArrayFromJSON(type, indices_json);
-  ASSERT_RAISES(IndexError, CheckIndexBounds(ArraySpan(*indices->data()), upper_limit));
+  ASSERT_RAISES(IndexError, CheckIndexBounds(*indices->data(), upper_limit));
 }
 
 TEST(CheckIndexBounds, Batching) {
@@ -490,7 +490,7 @@ void CheckInRangePasses(const std::shared_ptr<DataType>& type,
                         const std::string& values_json, const std::string& limits_json) {
   auto values = ArrayFromJSON(type, values_json);
   auto limits = ArrayFromJSON(type, limits_json);
-  ASSERT_OK(CheckIntegersInRange(ArraySpan(*values->data()), **limits->GetScalar(0),
+  ASSERT_OK(CheckIntegersInRange(*values->data(), **limits->GetScalar(0),
                                  **limits->GetScalar(1)));
 }
 
@@ -498,9 +498,8 @@ void CheckInRangeFails(const std::shared_ptr<DataType>& type,
                        const std::string& values_json, const std::string& limits_json) {
   auto values = ArrayFromJSON(type, values_json);
   auto limits = ArrayFromJSON(type, limits_json);
-  ASSERT_RAISES(Invalid,
-                CheckIntegersInRange(ArraySpan(*values->data()), **limits->GetScalar(0),
-                                     **limits->GetScalar(1)));
+  ASSERT_RAISES(Invalid, CheckIntegersInRange(*values->data(), **limits->GetScalar(0),
+                                              **limits->GetScalar(1)));
 }
 
 TEST(CheckIntegersInRange, Batching) {

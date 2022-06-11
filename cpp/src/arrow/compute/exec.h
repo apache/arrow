@@ -348,7 +348,7 @@ struct ARROW_EXPORT ExecResult {
       default:
         // scalar
         return this->scalar()->type.get();
-    };
+    }
   }
 
   ArraySpan* array_span() const {

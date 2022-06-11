@@ -140,7 +140,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   this->null_count = data.null_count.load();
   this->offset = data.offset;
 
-  for (size_t i = 0; i < data.buffers.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
     const std::shared_ptr<Buffer>& buffer = data.buffers[i];
     // It is the invoker-of-kernels's responsibility to ensure that
     // const buffers are not written to accidentally.
@@ -152,11 +152,9 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   }
 
   // Makes sure any other buffers are seen as null / non-existent
-  for (size_t i = data.buffers.size(); i < 3; ++i) {
+  for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
     ClearBuffer(i);
   }
-
-  // TODO(wesm): what about extension arrays?
 
   if (this->type->id() == Type::DICTIONARY) {
     this->child_data.resize(1);
@@ -184,7 +182,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
   if (is_primitive(value.type->id())) {
     const auto& scalar =
         internal::checked_cast<const internal::PrimitiveScalarBase&>(value);
-    const uint8_t* scalar_data = reinterpret_cast<const uint8_t*>(scalar.data());
+    const uint8_t* scalar_data = reinterpret_cast<const uint8_t*>(scalar.view().data());
     this->buffers[1].data = const_cast<uint8_t*>(scalar_data);
     this->buffers[1].size = scalar.type->byte_width();
   } else {
@@ -233,7 +231,7 @@ int GetNumBuffers(const DataType& type) {
 int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
 
 std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
-  auto result = std::make_shared<ArrayData>(this->type->GetSharedPtr(), this->length,
+  auto result = std::make_shared<ArrayData>(this->type->Copy(), this->length,
                                             kUnknownNullCount, this->offset);
 
   for (int i = 0; i < this->num_buffers(); ++i) {

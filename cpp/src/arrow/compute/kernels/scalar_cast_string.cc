@@ -54,7 +54,7 @@ struct NumericToStringCastFunctor {
     DCHECK(out->is_array_data());
     const ArraySpan& input = batch[0].array;
     FormatterType formatter(input.type);
-    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(input.type->Copy(), ctx->memory_pool());
     RETURN_NOT_OK(VisitArraySpanInline<I>(
         input,
         [&](value_type v) {
@@ -82,7 +82,7 @@ struct TemporalToStringCastFunctor {
     DCHECK(out->is_array_data());
     const ArraySpan& input = batch[0].array;
     FormatterType formatter(input.type);
-    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(input.type->Copy(), ctx->memory_pool());
     RETURN_NOT_OK(VisitArraySpanInline<I>(
         input,
         [&](value_type v) {
@@ -108,7 +108,7 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
     const ArraySpan& input = batch[0].array;
     const auto& timezone = GetInputTimezone(*input.type);
     const auto& ty = checked_cast<const TimestampType&>(*input.type);
-    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(input.type->Copy(), ctx->memory_pool());
 
     // Preallocate
     int64_t string_length = 19;  // YYYY-MM-DD HH:MM:SS

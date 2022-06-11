@@ -538,25 +538,31 @@ struct Kernel {
   SimdLevel::type simd_level = SimdLevel::NONE;
 };
 
+/// \brief The scalar kernel execution API that must be implemented for SCALAR
+/// kernel types. This includes both stateless and stateful kernels. Kernels
+/// depending on some execution state access that state via subclasses of
+/// KernelState set on the KernelContext object. Implementations should
+/// endeavor to write into pre-allocated memory if they are able, though for
+/// some kernels (e.g. in cases when a builder like StringBuilder) must be
+/// employed this may not be possible.
+using ArrayKernelExec =
+    std::function<Status(KernelContext*, const ExecSpan&, ExecResult*)>;
+
+/// \brief Kernel execution API being phased out per ARROW-16756
+using ArrayKernelExecOld =
+    std::function<Status(KernelContext*, const ExecBatch&, Datum*)>;
+
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
 /// and memory pre-allocation preferences.
 struct ScalarKernel : public Kernel {
-  /// \brief The scalar kernel execution API that must be implemented for SCALAR
-  /// kernel types. This includes both stateless and stateful kernels. Kernels
-  /// depending on some execution state access that state via subclasses of
-  /// KernelState set on the KernelContext object. Implementations should
-  /// endeavor to write into pre-allocated memory if they are able, though for
-  /// some kernels (e.g. in cases when a builder like StringBuilder) must be
-  /// employed this may not be possible.
-  using ExecFunc = std::function<Status(KernelContext*, const ExecSpan&, ExecResult*)>;
   ScalarKernel() = default;
 
-  ScalarKernel(std::shared_ptr<KernelSignature> sig, ExecFunc exec,
+  ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
                KernelInit init = NULLPTR)
       : Kernel(std::move(sig), init), exec(std::move(exec)) {}
 
-  ScalarKernel(std::vector<InputType> in_types, OutputType out_type, ExecFunc exec,
+  ScalarKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
         exec(std::move(exec)) {}
@@ -565,7 +571,7 @@ struct ScalarKernel : public Kernel {
   /// implementation, it may only write into preallocated memory, while in some
   /// cases it will allocate its own memory. Any required state is managed
   /// through the KernelContext.
-  ExecFunc exec;
+  ArrayKernelExec exec;
 
   /// \brief Writing execution results into larger contiguous allocations
   /// requires that the kernel be able to write into sliced output ArrayData*,
@@ -583,12 +589,6 @@ struct ScalarKernel : public Kernel {
 // ----------------------------------------------------------------------
 // VectorKernel (for VectorFunction)
 
-/// \brief scalar kernel execution API that must be implemented for VECTOR
-/// kernel types. This includes both stateless and stateful kernels. Kernels
-/// depending on some execution state access that state via subclasses of
-/// KernelState set on the KernelContext object.
-using KernelBatchExec = std::function<Status(KernelContext*, const ExecBatch&, Datum*)>;
-
 /// \brief Kernel data structure for implementations of VectorFunction. In
 /// contains an optional finalizer function, the null handling and memory
 /// pre-allocation preferences (which have different defaults from
@@ -599,13 +599,14 @@ struct VectorKernel : public Kernel {
 
   VectorKernel() = default;
 
-  VectorKernel(std::vector<InputType> in_types, OutputType out_type, KernelBatchExec exec,
-               KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
+  VectorKernel(std::vector<InputType> in_types, OutputType out_type,
+               ArrayKernelExecOld exec, KernelInit init = NULLPTR,
+               FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
         exec(std::move(exec)),
         finalize(std::move(finalize)) {}
 
-  VectorKernel(std::shared_ptr<KernelSignature> sig, KernelBatchExec exec,
+  VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExecOld exec,
                KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(sig), std::move(init)),
         exec(std::move(exec)),
@@ -613,7 +614,7 @@ struct VectorKernel : public Kernel {
 
   /// \brief Perform a single invocation of this kernel. Any required state is
   /// managed through the KernelContext.
-  KernelBatchExec exec;
+  ArrayKernelExecOld exec;
 
   /// \brief For VectorKernel, convert intermediate results into finalized
   /// results. Mutates input argument. Some kernels may accumulate state

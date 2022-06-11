@@ -58,9 +58,8 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
 }
 
 // TODO(wesm): ARROW-16577: this will be unneeded later
-ScalarKernel::ExecFunc TrivialScalarUnaryAsArraysExec(ScalarKernel::ExecFunc exec,
-                                                      bool use_array_span,
-                                                      NullHandling::type null_handling) {
+ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec, bool use_array_span,
+                                               NullHandling::type null_handling) {
   return [=](KernelContext* ctx, const ExecSpan& span, ExecResult* out) -> Status {
     if (!out->is_scalar()) {
       return exec(ctx, span, out);

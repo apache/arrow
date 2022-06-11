@@ -186,13 +186,7 @@ struct IfElseNullPromoter {
     if (output->is_array_data()) {
       return ExecIntoArrayData(need_to_allocate);
     } else {
-      if (need_to_allocate) {
-        // TODO: turn this into a DCHECK, but have this strong error to be
-        // helpful for now
-        return Status::Invalid(
-            "Conditional kernel writing into array span must "
-            "preallocate validity bitmap");
-      }
+      DCHECK(!need_to_allocate) << "Conditional kernel must preallocate validity bitmap";
       return ExecIntoArraySpan();
     }
   }
@@ -380,9 +374,9 @@ Status RunIfElseScalar(const BooleanScalar& cond, const ExecValue& left,
   if (left.is_scalar() && right.is_scalar()) {  // output will be a scalar
     if (cond.is_valid) {
       const Scalar* which_scalar = cond.value ? left.scalar : right.scalar;
-      out->value = which_scalar->GetSharedPtr();
+      out->value = which_scalar->Copy();
     } else {
-      out->value = MakeNullScalar(left.type()->GetSharedPtr());
+      out->value = MakeNullScalar(left.type()->Copy());
     }
     return Status::OK();
   }
@@ -662,9 +656,9 @@ static Status IfElseGenericSXXCall(KernelContext* ctx, const BooleanScalar& cond
   if (left.is_scalar() && right.is_scalar()) {
     if (cond.is_valid) {
       const Scalar* which_scalar = cond.value ? left.scalar : right.scalar;
-      out->value = which_scalar->GetSharedPtr();
+      out->value = which_scalar->Copy();
     } else {
-      out->value = MakeNullScalar(left.type()->GetSharedPtr());
+      out->value = MakeNullScalar(left.type()->Copy());
     }
     return Status::OK();
   }
@@ -674,7 +668,7 @@ static Status IfElseGenericSXXCall(KernelContext* ctx, const BooleanScalar& cond
     // cond is null; just create a null array
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Array> result,
-        MakeArrayOfNull(left.type()->GetSharedPtr(), out_arr_len, ctx->memory_pool()));
+        MakeArrayOfNull(left.type()->Copy(), out_arr_len, ctx->memory_pool()));
     out->value = std::move(result->data());
     return Status::OK();
   }
@@ -1069,8 +1063,8 @@ struct NestedIfElseExec {
   static Status RunLoop(KernelContext* ctx, const ArraySpan& cond, ExecResult* out,
                         HandleLeft&& handle_left, HandleRight&& handle_right) {
     std::unique_ptr<ArrayBuilder> raw_builder;
-    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
-                                        &raw_builder));
+    RETURN_NOT_OK(
+        MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
     RETURN_NOT_OK(raw_builder->Reserve(out->length()));
 
     const auto* cond_data = cond.buffers[1].data;
@@ -1469,15 +1463,15 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult*
     }
   }
   if (out->is_scalar()) {
-    out->value = result.is_scalar() ? result.scalar->GetSharedPtr()
-                                    : MakeNullScalar(out->type()->GetSharedPtr());
+    out->value =
+        result.is_scalar() ? result.scalar->Copy() : MakeNullScalar(out->type()->Copy());
     return Status::OK();
   }
 
   std::shared_ptr<Scalar> temp;
   if (!has_result) {
     // All conditions false, no 'else' argument
-    temp = MakeNullScalar(out->type()->GetSharedPtr());
+    temp = MakeNullScalar(out->type()->Copy());
     result = temp.get();
   }
 
@@ -1675,15 +1669,15 @@ Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch,
   }
   if (out->is_scalar()) {
     DCHECK(result.is_scalar() || !has_result);
-    out->value = result.is_scalar() ? result.scalar->GetSharedPtr()
-                                    : MakeNullScalar(out->type()->GetSharedPtr());
+    out->value =
+        result.is_scalar() ? result.scalar->Copy() : MakeNullScalar(out->type()->Copy());
     return Status::OK();
   }
   if (!has_result) {
     // All conditions false, no 'else' argument
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Array> array,
-        MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length, ctx->memory_pool()));
+        MakeArrayOfNull(out->type()->Copy(), batch.length, ctx->memory_pool()));
     out->value = std::move(array->data());
   } else if (result.is_scalar()) {
     ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*result.scalar, batch.length,
@@ -1703,8 +1697,8 @@ static Status ExecVarWidthArrayCaseWhenImpl(
   const ArraySpan& conds_array = batch[0].array;
   const bool have_else_arg = conds_array.type->num_fields() < (batch.num_values() - 1);
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
-                                      &raw_builder));
+  RETURN_NOT_OK(
+      MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
@@ -1992,7 +1986,7 @@ struct CoalesceFunction : ScalarFunction {
 Status ExecScalarCoalesce(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   for (const auto& value : batch.values) {
     if (value.scalar->is_valid) {
-      out->value = value.scalar->GetSharedPtr();
+      out->value = value.scalar->Copy();
       break;
     }
   }
@@ -2196,7 +2190,7 @@ Status ExecBinaryCoalesce(KernelContext* ctx, const ExecValue& left,
   // TODO(wesm): remove the scalar output path
   if (left.is_scalar() && right.is_scalar()) {
     // Both scalar
-    out->value = (left.scalar->is_valid ? left : right).scalar->GetSharedPtr();
+    out->value = (left.scalar->is_valid ? left : right).scalar->Copy();
     return Status::OK();
   }
 
@@ -2281,8 +2275,8 @@ static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecSpan& batch
     break;
   }
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
-                                      &raw_builder));
+  RETURN_NOT_OK(
+      MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
@@ -2309,7 +2303,7 @@ static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecSpan& batch
   }
   ARROW_ASSIGN_OR_RAISE(auto temp_output, raw_builder->Finish());
   out->value = std::move(temp_output->data());
-  out->array_data()->type = batch[0].type()->GetSharedPtr();
+  out->array_data()->type = batch[0].type()->Copy();
   return Status::OK();
 }
 
@@ -2374,7 +2368,7 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
       out->value = left.ToArrayData();
       return Status::OK();
     }
-    BuilderType builder(left.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(left.type->Copy(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(left.length));
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(right);
     const offset_type* offsets = left.GetValues<offset_type>(1);
@@ -2393,7 +2387,7 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
 
     ARROW_ASSIGN_OR_RAISE(auto temp_output, builder.Finish());
     out->value = std::move(temp_output->data());
-    out->array_data()->type = left.type->GetSharedPtr();
+    out->array_data()->type = left.type->Copy();
     return Status::OK();
   }
 
@@ -2459,8 +2453,8 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
 
   static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     std::unique_ptr<ArrayBuilder> raw_builder;
-    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
-                                        &raw_builder));
+    RETURN_NOT_OK(
+        MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
     RETURN_NOT_OK(raw_builder->Reserve(batch.length));
 
     const UnionType& type = checked_cast<const UnionType&>(*out->type());
@@ -2514,7 +2508,7 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
       const auto& scalar = checked_cast<const UnionScalar&>(*value.scalar);
       // Union scalars can have top-level validity
       if (scalar.is_valid && scalar.value->is_valid) {
-        out->value = value.scalar->GetSharedPtr();
+        out->value = value.scalar->Copy();
         break;
       }
     }
@@ -2531,7 +2525,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
     if (out->is_array_span()) {
       // TODO(wesm): more graceful implementation than using
       // MakeNullScalar, which is a little bit lazy
-      std::shared_ptr<Scalar> source = MakeNullScalar(out->type()->GetSharedPtr());
+      std::shared_ptr<Scalar> source = MakeNullScalar(out->type()->Copy());
       ArraySpan* output = out->array_span();
       ExecValue copy_source;
       copy_source.SetScalar(source.get());
@@ -2549,7 +2543,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   auto source = batch[index + 1];
   if (out->is_scalar()) {
     // All inputs to choose were scalar values
-    out->value = source.scalar->GetSharedPtr();
+    out->value = source.scalar->Copy();
   } else {
     ArraySpan* output = out->array_span();
     CopyValues<Type>(source, /*row=*/0, batch.length,
@@ -2622,9 +2616,9 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
       const Scalar& index_scalar = *batch[0].scalar;
       if (!index_scalar.is_valid) {
         if (out->is_array_data()) {
-          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> temp_array,
-                                MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length,
-                                                ctx->memory_pool()));
+          ARROW_ASSIGN_OR_RAISE(
+              std::shared_ptr<Array> temp_array,
+              MakeArrayOfNull(out->type()->Copy(), batch.length, ctx->memory_pool()));
           out->value = std::move(temp_array->data());
         }
         return Status::OK();
@@ -2642,7 +2636,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
           out->value = std::move(temp_array->data());
         } else {
           DCHECK(out->is_scalar());
-          out->value = source.scalar->GetSharedPtr();
+          out->value = source.scalar->Copy();
         }
       } else {
         DCHECK(out->is_array_data());
@@ -2654,7 +2648,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
     }
 
     // Row-wise implementation
-    BuilderType builder(out->type()->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(out->type()->Copy(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     int64_t reserve_data = 0;
     for (const auto& value : batch.values) {
@@ -2687,7 +2681,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
         }));
     std::shared_ptr<Array> temp_output;
     RETURN_NOT_OK(builder.Finish(&temp_output));
-    std::shared_ptr<DataType> actual_result_type = out->type()->GetSharedPtr();
+    std::shared_ptr<DataType> actual_result_type = out->type()->Copy();
     out->value = std::move(temp_output->data());
     // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
     out->array_data()->type = std::move(actual_result_type);
@@ -2736,7 +2730,7 @@ struct ChooseFunction : ScalarFunction {
 };
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                       detail::GetTypeId get_id, ScalarKernel::ExecFunc exec) {
+                       detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(
       KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)},
                             OutputType(LastType),
@@ -2771,7 +2765,7 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
 }
 
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
-                       detail::GetTypeId get_id, ScalarKernel::ExecFunc exec) {
+                       detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, OutputType(FirstType),
                                             /*is_varargs=*/true),
                       exec);
@@ -2790,7 +2784,7 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
 }
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
-                     detail::GetTypeId get_id, ScalarKernel::ExecFunc exec) {
+                     detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(
       KernelSignature::Make({Type::INT64, InputType(get_id.id)}, OutputType(LastType),
                             /*is_varargs=*/true),

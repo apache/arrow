@@ -84,7 +84,7 @@ class CastFunction : public ScalarFunction {
   const std::vector<Type::type>& in_type_ids() const { return in_type_ids_; }
 
   Status AddKernel(Type::type in_type_id, std::vector<InputType> in_types,
-                   OutputType out_type, ScalarKernel::ExecFunc exec,
+                   OutputType out_type, ArrayKernelExec exec,
                    NullHandling::type = NullHandling::INTERSECTION,
                    MemAllocation::type = MemAllocation::PREALLOCATE);
 

@@ -132,7 +132,7 @@ struct CumulativeGeneric {
 
     if (skip_nulls || (input.GetNullCount() == 0 && !encountered_null)) {
       VisitArrayValuesInline<ArgType>(
-          ArraySpan(input),
+          input,
           [&](ArgValue v) {
             accumulator =
                 Op::template Call<OutValue, ArgValue, ArgValue>(ctx, v, accumulator, &st);
@@ -142,7 +142,7 @@ struct CumulativeGeneric {
     } else {
       int64_t nulls_start_idx = 0;
       VisitArrayValuesInline<ArgType>(
-          ArraySpan(input),
+          input,
           [&](ArgValue v) {
             if (!encountered_null) {
               accumulator = Op::template Call<OutValue, ArgValue, ArgValue>(

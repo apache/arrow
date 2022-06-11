@@ -70,7 +70,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
         length_(length) {}
 
   Bitmap Slice(int64_t offset) const {
-    if (mutable_data_ != nullptr) {
+    if (mutable_data_ != NULLPTR) {
       return Bitmap(mutable_data_, offset_ + offset, length_ - offset);
     } else {
       return Bitmap(data_, offset_ + offset, length_ - offset);
@@ -78,7 +78,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   }
 
   Bitmap Slice(int64_t offset, int64_t length) const {
-    if (mutable_data_ != nullptr) {
+    if (mutable_data_ != NULLPTR) {
       return Bitmap(mutable_data_, offset_ + offset, length);
     } else {
       return Bitmap(data_, offset_ + offset, length);

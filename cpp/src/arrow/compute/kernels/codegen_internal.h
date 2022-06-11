@@ -400,195 +400,11 @@ struct BoxScalar<Decimal256Type> {
   static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
-// ----------------------------------------------------------------------
-// Like VisitArrayDataInline, but for ArraySpans
-
-template <typename T, typename Enable = void>
-struct ArraySpanInlineVisitor {};
-
-// Numeric and primitive C-compatible types
-template <typename T>
-struct ArraySpanInlineVisitor<T, enable_if_has_c_type<T>> {
-  using c_type = typename T::c_type;
-
-  template <typename ValidFunc, typename NullFunc>
-  static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
-                            NullFunc&& null_func) {
-    const c_type* data = arr.GetValues<c_type>(1);
-    auto visit_valid = [&](int64_t i) { return valid_func(data[i]); };
-    return VisitBitBlocks(arr.buffers[0].data, arr.offset, arr.length,
-                          std::move(visit_valid), std::forward<NullFunc>(null_func));
-  }
-
-  template <typename ValidFunc, typename NullFunc>
-  static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
-                        NullFunc&& null_func) {
-    using c_type = typename T::c_type;
-    const c_type* data = arr.GetValues<c_type>(1);
-    auto visit_valid = [&](int64_t i) { valid_func(data[i]); };
-    VisitBitBlocksVoid(arr.buffers[0].data, arr.offset, arr.length,
-                       std::move(visit_valid), std::forward<NullFunc>(null_func));
-  }
-};
-
-// Boolean
-template <>
-struct ArraySpanInlineVisitor<BooleanType> {
-  using c_type = bool;
-
-  template <typename ValidFunc, typename NullFunc>
-  static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
-                            NullFunc&& null_func) {
-    int64_t offset = arr.offset;
-    const uint8_t* data = arr.buffers[1].data;
-    return VisitBitBlocks(
-        arr.buffers[0].data, offset, arr.length,
-        [&](int64_t i) { return valid_func(bit_util::GetBit(data, offset + i)); },
-        std::forward<NullFunc>(null_func));
-  }
-
-  template <typename ValidFunc, typename NullFunc>
-  static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
-                        NullFunc&& null_func) {
-    int64_t offset = arr.offset;
-    const uint8_t* data = arr.buffers[1].data;
-    VisitBitBlocksVoid(
-        arr.buffers[0].data, offset, arr.length,
-        [&](int64_t i) { valid_func(bit_util::GetBit(data, offset + i)); },
-        std::forward<NullFunc>(null_func));
-  }
-};
-
-// Binary, String...
-template <typename T>
-struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
-  using c_type = util::string_view;
-
-  template <typename ValidFunc, typename NullFunc>
-  static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
-                            NullFunc&& null_func) {
-    using offset_type = typename T::offset_type;
-    constexpr char empty_value = 0;
-
-    if (arr.length == 0) {
-      return Status::OK();
-    }
-    const offset_type* offsets = arr.GetValues<offset_type>(1);
-    const char* data;
-    if (arr.buffers[2].data == NULLPTR) {
-      data = &empty_value;
-    } else {
-      // Do not apply the array offset to the values array; the value_offsets
-      // index the non-sliced values array.
-      data = arr.GetValues<char>(2, /*absolute_offset=*/0);
-    }
-    offset_type cur_offset = *offsets++;
-    return VisitBitBlocks(
-        arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t i) {
-          ARROW_UNUSED(i);
-          auto value = util::string_view(data + cur_offset, *offsets - cur_offset);
-          cur_offset = *offsets++;
-          return valid_func(value);
-        },
-        [&]() {
-          cur_offset = *offsets++;
-          return null_func();
-        });
-  }
-
-  template <typename ValidFunc, typename NullFunc>
-  static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
-                        NullFunc&& null_func) {
-    using offset_type = typename T::offset_type;
-    constexpr uint8_t empty_value = 0;
-
-    if (arr.length == 0) {
-      return;
-    }
-    const offset_type* offsets = arr.GetValues<offset_type>(1);
-    const uint8_t* data;
-    if (arr.buffers[2].data == NULLPTR) {
-      data = &empty_value;
-    } else {
-      // Do not apply the array offset to the values array; the value_offsets
-      // index the non-sliced values array.
-      data = arr.GetValues<uint8_t>(2, /*absolute_offset=*/0);
-    }
-
-    VisitBitBlocksVoid(
-        arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t i) {
-          auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
-                                         offsets[i + 1] - offsets[i]);
-          valid_func(value);
-        },
-        std::forward<NullFunc>(null_func));
-  }
-};
-
-// FixedSizeBinary, Decimal128
-template <typename T>
-struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
-  using c_type = util::string_view;
-
-  template <typename ValidFunc, typename NullFunc>
-  static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
-                            NullFunc&& null_func) {
-    const int32_t byte_width = arr.type->byte_width();
-    const char* data = arr.GetValues<char>(1,
-                                           /*absolute_offset=*/arr.offset * byte_width);
-    return VisitBitBlocks(
-        arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t i) {
-          auto value = util::string_view(data, byte_width);
-          data += byte_width;
-          return valid_func(value);
-        },
-        [&]() {
-          data += byte_width;
-          return null_func();
-        });
-  }
-
-  template <typename ValidFunc, typename NullFunc>
-  static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
-                        NullFunc&& null_func) {
-    const int32_t byte_width = arr.type->byte_width();
-    const char* data = arr.GetValues<char>(1,
-                                           /*absolute_offset=*/arr.offset * byte_width);
-    VisitBitBlocksVoid(
-        arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t i) {
-          valid_func(util::string_view(data, byte_width));
-          data += byte_width;
-        },
-        [&]() {
-          data += byte_width;
-          null_func();
-        });
-  }
-};
-
-template <typename T, typename ValidFunc, typename NullFunc>
-typename ::arrow::internal::call_traits::enable_if_return<ValidFunc, Status>::type
-VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
-  return internal::ArraySpanInlineVisitor<T>::VisitStatus(
-      arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
-}
-
-template <typename T, typename ValidFunc, typename NullFunc>
-typename ::arrow::internal::call_traits::enable_if_return<ValidFunc, void>::type
-VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
-  return internal::ArraySpanInlineVisitor<T>::VisitVoid(
-      arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
-}
-
 // A VisitArraySpanInline variant that calls its visitor function with logical
 // values, such as Decimal128 rather than util::string_view.
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename arrow::internal::call_traits::enable_if_return<VisitFunc, void>::type
+static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, void>::type
 VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
                        NullFunc&& null_func) {
   VisitArraySpanInline<T>(
@@ -600,7 +416,7 @@ VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
 }
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
+static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
 VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
                        NullFunc&& null_func) {
   return VisitArraySpanInline<T>(
@@ -632,20 +448,6 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
                         arr1.offset, arr0.length, std::move(visit_valid),
                         std::move(visit_null));
 }
-// Like ArrayDataVisitor (see visit_data_inline.h), but for ArraySpans
-
-template <typename T>
-struct ArraySpanVisitor {
-  using InlineVisitorType = ArraySpanInlineVisitor<T>;
-  using c_type = typename InlineVisitorType::c_type;
-
-  template <typename Visitor>
-  static Status Visit(const ArraySpan& arr, Visitor* visitor) {
-    return InlineVisitorType::VisitStatus(
-        arr, [visitor](c_type v) { return visitor->VisitValue(v); },
-        [visitor]() { return visitor->VisitNull(); });
-  }
-};
 
 // ----------------------------------------------------------------------
 // Reusable type resolvers
@@ -660,7 +462,7 @@ Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>&
 Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 Status ExecFailOld(KernelContext* ctx, const ExecBatch& batch, Datum* out);
 
-ScalarKernel::ExecFunc MakeFlippedBinaryExec(ScalarKernel::ExecFunc exec);
+ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -686,12 +488,12 @@ const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes();
 
 // ----------------------------------------------------------------------
 // "Applicators" take an operator definition (which may be scalar-valued or
-// array-valued) and creates an ScalarKernel::ExecFunc which can be used to add an
+// array-valued) and creates an ArrayKernelExec which can be used to add an
 // ArrayKernel to a Function.
 
 namespace applicator {
 
-// Generate an ScalarKernel::ExecFunc given a functor that handles all of its own
+// Generate an ArrayKernelExec given a functor that handles all of its own
 // iteration, etc.
 //
 // Operator must implement
@@ -708,7 +510,7 @@ static Status SimpleUnary(KernelContext* ctx, const ExecSpan& batch, ExecResult*
   return Status::OK();
 }
 
-// Generate an ScalarKernel::ExecFunc given a functor that handles all of its own
+// Generate an ArrayKernelExec given a functor that handles all of its own
 // iteration, etc.
 //
 // Operator must implement
@@ -1232,7 +1034,7 @@ struct GetTypeId {
 
 // GD for numeric types (integer and floating point)
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateNumeric(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1264,7 +1066,7 @@ ScalarKernel::ExecFunc GenerateNumeric(detail::GetTypeId get_id) {
 // API I duplicated this generator dispatcher to be able to create old
 // kernel types
 template <template <typename...> class Generator, typename Type0, typename... Args>
-KernelBatchExec GenerateNumericOld(detail::GetTypeId get_id) {
+ArrayKernelExecOld GenerateNumericOld(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1296,7 +1098,7 @@ KernelBatchExec GenerateNumericOld(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateFloatingPoint(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::FLOAT:
       return Generator<Type0, FloatType, Args...>::Exec;
@@ -1312,7 +1114,7 @@ ScalarKernel::ExecFunc GenerateFloatingPoint(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateInteger(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateInteger(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1337,7 +1139,7 @@ ScalarKernel::ExecFunc GenerateInteger(detail::GetTypeId get_id) {
 }
 
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GeneratePhysicalInteger(detail::GetTypeId get_id) {
+ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1368,7 +1170,7 @@ ScalarKernel::ExecFunc GeneratePhysicalInteger(detail::GetTypeId get_id) {
 }
 
 template <template <typename...> class KernelGenerator, typename Op, typename... Args>
-ScalarKernel::ExecFunc ArithmeticExecFromOp(detail::GetTypeId get_id) {
+ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
@@ -1401,7 +1203,7 @@ ScalarKernel::ExecFunc ArithmeticExecFromOp(detail::GetTypeId get_id) {
 // ARROW-16756: temporarily duplicated until we get all the kernels
 // migrated to the new API
 template <template <typename...> class KernelGenerator, typename Op, typename... Args>
-KernelBatchExec ArithmeticExecFromOpOld(detail::GetTypeId get_id) {
+ArrayKernelExecOld ArithmeticExecFromOpOld(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
@@ -1432,7 +1234,7 @@ KernelBatchExec ArithmeticExecFromOpOld(detail::GetTypeId get_id) {
 }
 
 template <template <typename... Args> class Generator, typename... Args>
-ScalarKernel::ExecFunc GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Int8Type, Args...>::Exec;
@@ -1468,7 +1270,7 @@ ScalarKernel::ExecFunc GeneratePhysicalNumeric(detail::GetTypeId get_id) {
 
 // Generate a kernel given a templated functor for decimal types
 template <template <typename... Args> class Generator, typename... Args>
-ScalarKernel::ExecFunc GenerateDecimalToDecimal(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::DECIMAL128:
       return Generator<Decimal128Type, Args...>::Exec;
@@ -1484,7 +1286,7 @@ ScalarKernel::ExecFunc GenerateDecimalToDecimal(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateSignedInteger(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1508,7 +1310,7 @@ ScalarKernel::ExecFunc GenerateSignedInteger(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename... Args>
-ScalarKernel::ExecFunc GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::NA:
       return Generator<NullType, Args...>::Exec;
@@ -1546,7 +1348,7 @@ ScalarKernel::ExecFunc GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
 
 // XXX: Duplicated temporarily
 template <template <typename...> class Generator, typename... Args>
-KernelBatchExec GenerateTypeAgnosticPrimitiveOld(detail::GetTypeId get_id) {
+ArrayKernelExecOld GenerateTypeAgnosticPrimitiveOld(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::NA:
       return Generator<NullType, Args...>::Exec;
@@ -1584,7 +1386,7 @@ KernelBatchExec GenerateTypeAgnosticPrimitiveOld(detail::GetTypeId get_id) {
 
 // similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
 template <template <typename...> class Generator, typename... Args>
-ScalarKernel::ExecFunc GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1600,7 +1402,7 @@ ScalarKernel::ExecFunc GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_i
 
 // XXX: Duplicated temporarily
 template <template <typename...> class Generator, typename... Args>
-KernelBatchExec GenerateTypeAgnosticVarBinaryBaseOld(detail::GetTypeId get_id) {
+ArrayKernelExecOld GenerateTypeAgnosticVarBinaryBaseOld(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1616,7 +1418,7 @@ KernelBatchExec GenerateTypeAgnosticVarBinaryBaseOld(detail::GetTypeId get_id) {
 
 // Generate a kernel given a templated functor for binary and string types
 template <template <typename...> class Generator, typename... Args>
-ScalarKernel::ExecFunc GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
       return Generator<BinaryType, Args...>::Exec;
@@ -1639,7 +1441,7 @@ ScalarKernel::ExecFunc GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateVarBinaryBase(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1655,7 +1457,7 @@ ScalarKernel::ExecFunc GenerateVarBinaryBase(detail::GetTypeId get_id) {
 
 // TODO: Duplicated in ARROW-16756
 template <template <typename...> class Generator, typename Type0, typename... Args>
-KernelBatchExec GenerateVarBinaryBaseOld(detail::GetTypeId get_id) {
+ArrayKernelExecOld GenerateVarBinaryBaseOld(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1671,7 +1473,7 @@ KernelBatchExec GenerateVarBinaryBaseOld(detail::GetTypeId get_id) {
 
 // See BaseBinary documentation
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateVarBinary(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
       return Generator<Type0, BinaryType, Args...>::Exec;
@@ -1691,7 +1493,7 @@ ScalarKernel::ExecFunc GenerateVarBinary(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateTemporal(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::DATE32:
       return Generator<Type0, Date32Type, Args...>::Exec;
@@ -1715,7 +1517,7 @@ ScalarKernel::ExecFunc GenerateTemporal(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ScalarKernel::ExecFunc GenerateDecimal(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::DECIMAL128:
       return Generator<Type0, Decimal128Type, Args...>::Exec;
@@ -1729,7 +1531,7 @@ ScalarKernel::ExecFunc GenerateDecimal(detail::GetTypeId get_id) {
 
 // Temporarily duplicated for ARROW-16756
 template <template <typename...> class Generator, typename Type0, typename... Args>
-KernelBatchExec GenerateDecimalOld(detail::GetTypeId get_id) {
+ArrayKernelExecOld GenerateDecimalOld(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::DECIMAL128:
       return Generator<Type0, Decimal128Type, Args...>::Exec;

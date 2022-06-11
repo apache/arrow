@@ -141,7 +141,7 @@ struct CountDistinctImpl : public ScalarAggregator {
         int y;
         return memo_table_->GetOrInsert(arg, &y);
       };
-      RETURN_NOT_OK(VisitArrayDataInline<Type>(arr, visit_value, visit_null));
+      RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
       this->non_nulls += memo_table_->size();
       this->has_nulls = arr.GetNullCount() > 0;
     } else {
@@ -297,7 +297,7 @@ struct ProductImpl : public ScalarAggregator {
       }
 
       internal::VisitArrayValuesInline<ArrowType>(
-          ArraySpan(*data),
+          *data,
           [&](typename TypeTraits<ArrowType>::CType value) {
             this->product =
                 MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
@@ -630,7 +630,7 @@ struct IndexImpl : public ScalarAggregator {
     int64_t i = 0;
 
     ARROW_UNUSED(internal::VisitArrayValuesInline<ArgType>(
-        ArraySpan(*input),
+        *input,
         [&](ArgValue v) -> Status {
           if (v == desired) {
             index = i;

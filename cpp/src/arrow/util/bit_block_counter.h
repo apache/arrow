@@ -453,19 +453,6 @@ static Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t leng
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static Status VisitBitBlocks(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
-                             int64_t length, VisitNotNull&& visit_not_null,
-                             VisitNull&& visit_null) {
-  const uint8_t* bitmap = NULLPTR;
-  if (bitmap_buf != NULLPTR) {
-    bitmap = bitmap_buf->data();
-  }
-  return VisitBitBlocks(bitmap, offset, length,
-                        std::forward<VisitNotNull>(visit_not_null),
-                        std::forward<VisitNull>(visit_null));
-}
-
-template <typename VisitNotNull, typename VisitNull>
 static void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
                                VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
   internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
@@ -490,18 +477,6 @@ static void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t le
       }
     }
   }
-}
-
-template <typename VisitNotNull, typename VisitNull>
-static void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
-                               int64_t length, VisitNotNull&& visit_not_null,
-                               VisitNull&& visit_null) {
-  const uint8_t* bitmap = NULLPTR;
-  if (bitmap_buf != NULLPTR) {
-    bitmap = bitmap_buf->data();
-  }
-  VisitBitBlocksVoid(bitmap, offset, length, std::forward<VisitNotNull>(visit_not_null),
-                     std::forward<VisitNull>(visit_null));
 }
 
 template <typename VisitNotNull, typename VisitNull>
@@ -549,21 +524,6 @@ static Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static Status VisitTwoBitBlocks(const std::shared_ptr<Buffer>& left_bitmap_buf,
-                                int64_t left_offset,
-                                const std::shared_ptr<Buffer>& right_bitmap_buf,
-                                int64_t right_offset, int64_t length,
-                                VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
-  const uint8_t* left_bitmap =
-      left_bitmap_buf == NULLPTR ? nullptr : left_bitmap_buf->data();
-  const uint8_t* right_bitmap =
-      right_bitmap_buf == NULLPTR ? nullptr : right_bitmap_buf->data();
-  return VisitTwoBitBlocks(left_bitmap, left_offset, right_bitmap, right_offset, length,
-                           std::forward<VisitNotNull>(visit_not_null),
-                           std::forward<VisitNull>(visit_null));
-}
-
-template <typename VisitNotNull, typename VisitNull>
 static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offset,
                                   const uint8_t* right_bitmap, int64_t right_offset,
                                   int64_t length, VisitNotNull&& visit_not_null,
@@ -604,21 +564,6 @@ static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offse
       }
     }
   }
-}
-
-template <typename VisitNotNull, typename VisitNull>
-static void VisitTwoBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf,
-                                  int64_t left_offset,
-                                  const std::shared_ptr<Buffer>& right_bitmap_buf,
-                                  int64_t right_offset, int64_t length,
-                                  VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
-  const uint8_t* left_bitmap =
-      left_bitmap_buf == NULLPTR ? nullptr : left_bitmap_buf->data();
-  const uint8_t* right_bitmap =
-      right_bitmap_buf == NULLPTR ? nullptr : right_bitmap_buf->data();
-  return VisitTwoBitBlocksVoid(
-      left_bitmap_buf, left_offset, right_bitmap_buf, right_offset, length,
-      std::forward<VisitNotNull>(visit_not_null), std::forward<VisitNull>(visit_null));
 }
 
 }  // namespace internal

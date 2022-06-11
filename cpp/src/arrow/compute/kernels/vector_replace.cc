@@ -290,7 +290,7 @@ struct ReplaceWithMask<Type, enable_if_base_binary<Type>> {
     ArrayData adjusted_mask = mask;
     adjusted_mask.offset += mask_offset;
     adjusted_mask.length = std::min(adjusted_mask.length - mask_offset, array.length);
-    RETURN_NOT_OK(VisitArrayDataInline<BooleanType>(
+    RETURN_NOT_OK(VisitArraySpanInline<BooleanType>(
         adjusted_mask,
         [&](bool replace) {
           if (replace && replacements.is_scalar()) {
@@ -832,7 +832,7 @@ struct FillNullBackwardFunctor {
 template <template <class> class Functor>
 void RegisterVectorFunction(FunctionRegistry* registry,
                             std::shared_ptr<VectorFunction> func) {
-  auto add_kernel = [&](detail::GetTypeId get_id, KernelBatchExec exec) {
+  auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExecOld exec) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     if (is_fixed_width(get_id.id)) {

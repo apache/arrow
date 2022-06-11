@@ -198,14 +198,14 @@ Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   if (batch[0].is_scalar()) {
     const auto& ext_scalar = checked_cast<const ExtensionScalar&>(*batch[0].scalar);
     if (ext_scalar.is_valid) {
-      RETURN_NOT_OK(Cast(ext_scalar.value, out->type()->GetSharedPtr(), options,
-                         ctx->exec_context())
-                        .Value(&result));
+      RETURN_NOT_OK(
+          Cast(ext_scalar.value, out->type()->Copy(), options, ctx->exec_context())
+              .Value(&result));
     } else {
       const auto& storage_type =
           checked_cast<const ExtensionType&>(*ext_scalar.type).storage_type();
-      RETURN_NOT_OK(Cast(MakeNullScalar(storage_type), out->type()->GetSharedPtr(),
-                         options, ctx->exec_context())
+      RETURN_NOT_OK(Cast(MakeNullScalar(storage_type), out->type()->Copy(), options,
+                         ctx->exec_context())
                         .Value(&result));
     }
     out->value = std::move(result.scalar());
@@ -213,9 +213,9 @@ Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
     DCHECK(batch[0].is_array());
     ExtensionArray extension(batch[0].array.ToArrayData());
     std::shared_ptr<Array> result;
-    RETURN_NOT_OK(Cast(*extension.storage(), out->type()->GetSharedPtr(), options,
-                       ctx->exec_context())
-                      .Value(&result));
+    RETURN_NOT_OK(
+        Cast(*extension.storage(), out->type()->Copy(), options, ctx->exec_context())
+            .Value(&result));
     out->value = std::move(result->data());
   }
   return Status::OK();
@@ -225,8 +225,7 @@ Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   // TODO(wesm): handle this case more gracefully
   if (!batch[0].is_scalar()) {
     std::shared_ptr<Array> nulls;
-    RETURN_NOT_OK(
-        MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length).Value(&nulls));
+    RETURN_NOT_OK(MakeArrayOfNull(out->type()->Copy(), batch.length).Value(&nulls));
     out->value = nulls->data();
   }
   return Status::OK();

@@ -2262,23 +2262,23 @@ struct FWBinaryAppender {
   std::vector<util::string_view> data;
 };
 
-TEST_F(TestFWBinaryArray, ArrayDataVisitor) {
+TEST_F(TestFWBinaryArray, ArraySpanVisitor) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def"])");
   FWBinaryAppender appender;
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"abc", "(null)", "def"}));
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
-TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
+TEST_F(TestFWBinaryArray, ArraySpanVisitorSliced) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def", "ghi"])")->Slice(1, 2);
   FWBinaryAppender appender;
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "def"}));
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning

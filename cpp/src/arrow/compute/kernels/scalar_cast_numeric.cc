@@ -263,7 +263,6 @@ Status CastIntegerToFloating(KernelContext* ctx, const ExecSpan& batch, ExecResu
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
   Type::type out_type = out->type()->id();
   if (!options.allow_float_truncate) {
-    /// XXX: refactor to not use Datum
     RETURN_NOT_OK(CheckForIntegerToFloatingTruncation(batch[0], out_type));
   }
   CastNumberToNumberUnsafe(batch[0].type()->id(), out_type, batch[0], out);

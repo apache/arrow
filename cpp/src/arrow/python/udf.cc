@@ -60,7 +60,7 @@ struct PythonUdf {
     RETURN_NOT_OK(CheckPyError());
     for (int arg_id = 0; arg_id < num_args; arg_id++) {
       if (batch[arg_id].is_scalar()) {
-        std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->GetSharedPtr();
+        std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->Copy();
         PyObject* data = wrap_scalar(c_data);
         PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
       } else {

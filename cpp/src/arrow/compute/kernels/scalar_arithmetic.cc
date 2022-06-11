@@ -1005,7 +1005,7 @@ struct Trunc {
 // Generate a kernel given a bitwise arithmetic functor. Assumes the
 // functor treats all integer types of equal width identically
 template <template <typename... Args> class KernelGenerator, typename Op>
-ScalarKernel::ExecFunc TypeAgnosticBitWiseExecFromOp(detail::GetTypeId get_id) {
+ArrayKernelExec TypeAgnosticBitWiseExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
     case Type::UINT8:
@@ -1026,7 +1026,7 @@ ScalarKernel::ExecFunc TypeAgnosticBitWiseExecFromOp(detail::GetTypeId get_id) {
 }
 
 template <template <typename... Args> class KernelGenerator, typename Op>
-ScalarKernel::ExecFunc ShiftExecFromOp(detail::GetTypeId get_id) {
+ArrayKernelExec ShiftExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
@@ -1051,7 +1051,7 @@ ScalarKernel::ExecFunc ShiftExecFromOp(detail::GetTypeId get_id) {
 }
 
 template <template <typename... Args> class KernelGenerator, typename Op>
-ScalarKernel::ExecFunc GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::FLOAT:
       return KernelGenerator<FloatType, FloatType, Op>::Exec;
@@ -1163,7 +1163,7 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
 
 // Generate a kernel given an arithmetic functor
 template <template <typename...> class KernelGenerator, typename OutType, typename Op>
-ScalarKernel::ExecFunc GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<OutType, Int8Type, Op>::Exec;

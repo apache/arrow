@@ -473,7 +473,7 @@ struct KleeneAndNotOp {
   }
 };
 
-void MakeFunction(const std::string& name, int arity, ScalarKernel::ExecFunc exec,
+void MakeFunction(const std::string& name, int arity, ArrayKernelExec exec,
                   FunctionDoc doc, FunctionRegistry* registry,
                   NullHandling::type null_handling = NullHandling::INTERSECTION) {
   auto func = std::make_shared<ScalarFunction>(name, Arity(arity), std::move(doc));

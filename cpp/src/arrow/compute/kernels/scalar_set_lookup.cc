@@ -89,7 +89,7 @@ struct SetLookupState : public KernelState {
       return Status::OK();
     };
 
-    return VisitArrayDataInline<Type>(data, visit_valid, visit_null);
+    return VisitArraySpanInline<Type>(data, visit_valid, visit_null);
   }
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;

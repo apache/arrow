@@ -159,9 +159,9 @@ struct FixedSizeBinaryTransformExecWithState
   }
 };
 
-template <typename T>
+template <typename offset_type>
 static int64_t GetVarBinaryValuesLength(const ArraySpan& span) {
-  const T* offsets = span.GetValues<T>(1);
+  const offset_type* offsets = span.GetValues<offset_type>(1);
   return span.length > 0 ? offsets[span.length] - offsets[0] : 0;
 }
 
@@ -568,8 +568,8 @@ Status StringDataTransform(KernelContext* ctx, const ExecSpan& batch,
     // Isn't an null output scalar already created? Anyway this code
     // will be deleted soon per ARROW-16577
     const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar);
-    auto result = checked_pointer_cast<BaseBinaryScalar>(
-        MakeNullScalar(out->type()->GetSharedPtr()));
+    auto result =
+        checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()->Copy()));
     if (input.is_valid) {
       result->is_valid = true;
       int64_t data_nbytes = input.value->size();
@@ -2872,17 +2872,15 @@ struct BinaryJoin {
                                 const ArraySpan& right, ExecResult* out) {
     const auto& list_scalar = checked_cast<const BaseListScalar&>(left);
     if (!list_scalar.is_valid) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto nulls,
-          MakeArrayOfNull(right.type->GetSharedPtr(), right.length, ctx->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(auto nulls, MakeArrayOfNull(right.type->Copy(), right.length,
+                                                        ctx->memory_pool()));
       out->value = std::move(nulls->data());
       return Status::OK();
     }
     const auto& strings = checked_cast<const ArrayType&>(*list_scalar.value);
     if (strings.null_count() != 0) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto nulls,
-          MakeArrayOfNull(right.type->GetSharedPtr(), right.length, ctx->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(auto nulls, MakeArrayOfNull(right.type->Copy(), right.length,
+                                                        ctx->memory_pool()));
       out->value = std::move(nulls->data());
       return Status::OK();
     }
@@ -3187,7 +3185,7 @@ struct BinaryJoinElementWise {
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
     out->value = std::move(string_array->data());
-    out->array_data()->type = batch[0].type()->GetSharedPtr();
+    out->array_data()->type = batch[0].type()->Copy();
     DCHECK_EQ(batch.length, out->array_data()->length);
     DCHECK_EQ(final_size,
               checked_cast<const ArrayType&>(*string_array).total_values_length());

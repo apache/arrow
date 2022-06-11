@@ -859,7 +859,7 @@ TEST(TestChunkedStringBuilder, BasicOperation) {
 }
 
 // ----------------------------------------------------------------------
-// ArrayDataVisitor<binary-like> tests
+// ArraySpanVisitor<binary-like> tests
 
 struct BinaryAppender {
   Status VisitNull() {
@@ -885,7 +885,7 @@ class TestBaseBinaryDataVisitor : public ::testing::Test {
   void TestBasics() {
     auto array = ArrayFromJSON(type_, R"(["foo", null, "bar"])");
     BinaryAppender appender;
-    ArrayDataVisitor<TypeClass> visitor;
+    ArraySpanVisitor<TypeClass> visitor;
     ASSERT_OK(visitor.Visit(*array->data(), &appender));
     ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"foo", "(null)", "bar"}));
     ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
@@ -894,7 +894,7 @@ class TestBaseBinaryDataVisitor : public ::testing::Test {
   void TestSliced() {
     auto array = ArrayFromJSON(type_, R"(["ab", null, "cd", "ef"])")->Slice(1, 2);
     BinaryAppender appender;
-    ArrayDataVisitor<TypeClass> visitor;
+    ArraySpanVisitor<TypeClass> visitor;
     ASSERT_OK(visitor.Visit(*array->data(), &appender));
     ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "cd"}));
     ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
