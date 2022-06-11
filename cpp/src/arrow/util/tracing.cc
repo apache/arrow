@@ -15,26 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/util/tracing.h"
 
-#include <memory>
-
-#include "arrow/util/visibility.h"
+#include "arrow/util/config.h"
+#include "arrow/util/make_unique.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
+
+using internal::make_unique;
 namespace util {
 namespace tracing {
 
-class ARROW_EXPORT SpanDetails {
- public:
-  virtual ~SpanDetails() {}
-};
+#ifdef ARROW_WITH_OPENTELEMETRY
 
-class ARROW_EXPORT Span {
- public:
-  Span() noexcept;
-  std::unique_ptr<SpanDetails> details;
-};
+Span::Span() noexcept { details = make_unique<::arrow::internal::tracing::SpanImpl>(); }
+
+#else
+
+Span::Span() noexcept { /* details is left a nullptr */
+}
+
+#endif
 
 }  // namespace tracing
 }  // namespace util

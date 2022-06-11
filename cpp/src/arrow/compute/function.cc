@@ -214,7 +214,7 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     return Execute(args, options, &default_ctx);
   }
 
-  arrow::internal::tracing::OTSpan span;
+  util::tracing::Span span;
   
   START_COMPUTE_SPAN(span, name(),
                      {{"function.name", name()},

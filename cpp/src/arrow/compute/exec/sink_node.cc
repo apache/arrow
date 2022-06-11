@@ -187,7 +187,7 @@ class SinkNode : public ExecNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    arrow::internal::tracing::OTSpan span;
+    util::tracing::Span span;
     START_COMPUTE_SPAN_WITH_PARENT(
         span, span_, "InputReceived",
         {{"node.label", label()}, {"batch.length", batch.length}});
@@ -334,7 +334,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    arrow::internal::tracing::OTSpan span;
+    util::tracing::Span span;
     START_COMPUTE_SPAN_WITH_PARENT(
         span, span_, "InputReceived",
         {{"node.label", label()}, {"batch.length", batch.length}});
@@ -516,7 +516,7 @@ struct OrderBySinkNode final : public SinkNode {
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    arrow::internal::tracing::OTSpan span;
+    util::tracing::Span span;
     START_COMPUTE_SPAN_WITH_PARENT(
         span, span_, "InputReceived",
         {{"node.label", label()}, {"batch.length", batch.length}});
@@ -555,7 +555,7 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   void Finish() override {
-    arrow::internal::tracing::OTSpan span;
+    util::tracing::Span span;
     START_COMPUTE_SPAN_WITH_PARENT(span, span_, "Finish", {{"node.label", label()}});
     Status st = DoFinish();
     if (ErrorIfNotOk(st)) {

@@ -46,9 +46,7 @@ namespace {
 struct ExecPlanImpl : public ExecPlan {
   explicit ExecPlanImpl(ExecContext* exec_context,
                         std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
-      : ExecPlan(exec_context), metadata_(std::move(metadata)) {
-        span_ = arrow::internal::tracing::OTSpan();
-      }
+      : ExecPlan(exec_context), metadata_(std::move(metadata)) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
@@ -87,9 +85,11 @@ struct ExecPlanImpl : public ExecPlan {
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
       auto pairs = metadata().get()->sorted_pairs();
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span = 
+        ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
       std::for_each(std::begin(pairs), std::end(pairs),
-                    [this](std::pair<std::string, std::string> const& pair) {
-                      CAST_SPAN(span_).Get()->SetAttribute(pair.first, pair.second);
+                    [span](std::pair<std::string, std::string> const& pair) {
+                      span->SetAttribute(pair.first, pair.second);
                     });
     }
 #endif

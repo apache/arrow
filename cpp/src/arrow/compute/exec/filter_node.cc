@@ -69,7 +69,7 @@ class FilterNode : public MapNode {
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
                           SimplifyWithGuarantee(filter_, target.guarantee));
 
-    arrow::internal::tracing::OTSpan span;
+    util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Filter",
                        {{"filter.expression", ToStringExtra()},
                         {"filter.expression.simplified", simplified_filter.ToString()},
@@ -102,7 +102,7 @@ class FilterNode : public MapNode {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
-      arrow::internal::tracing::OTSpan span;
+      util::tracing::Span span;
       START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
                                      {{"filter", ToStringExtra()},
                                       {"node.label", label()},

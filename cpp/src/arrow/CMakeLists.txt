@@ -222,6 +222,7 @@ set(ARROW_SRCS
     util/tdigest.cc
     util/thread_pool.cc
     util/time.cc
+    util/tracing.cc
     util/trie.cc
     util/unreachable.cc
     util/uri.cc

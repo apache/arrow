@@ -527,7 +527,7 @@ class HashJoinNode : public ExecNode {
     int side = (input == inputs_[0]) ? 0 : 1;
 
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}, {"side", side}});
-    arrow::internal::tracing::OTSpan span;
+    util::tracing::Span span;
     START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
                                    {{"batch.length", batch.length}});
 
