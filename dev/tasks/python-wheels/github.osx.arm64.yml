@@ -42,14 +42,17 @@ jobs:
   build:
     name: Build wheel for OS X
     runs-on: ["self-hosted", "macOS", "arm64"]
-    # Note the GHA runner on our self-hosted ARM64 machines is currently
-    # a x86 binary, so need to prefix with "arch -arm64" when commands
-    # need to run in ARM64 mode.
     steps:
       - name: Cleanup
         run: rm -rf arrow vcpkg build crossbow-env build-*-env test-*-env
 
       {{ macros.github_checkout_arrow()|indent }}
+
+      - name: Debug runner environment
+        run: |
+          arch
+          $PYTHON -c "import platform; print(platform.machine())"
+          arch -arm64 $PYTHON -c "import platform; print(platform.machine())"
 
       - name: Add Brew's Bison to PATH
         run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
@@ -85,10 +88,10 @@ jobs:
           ARROW_SIMD_LEVEL: "DEFAULT"
           VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
         run: |
-          arch -arm64 $PYTHON -m venv build-arm64-env
+          $PYTHON -m venv build-arm64-env
           source build-arm64-env/bin/activate
           pip install --upgrade pip wheel
-          arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
+          arch -arm64 arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
 
       {% if arch == "universal2" %}
       - name: Install AMD64 Packages
@@ -109,10 +112,10 @@ jobs:
           ARROW_SIMD_LEVEL: "NONE"
           VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
         run: |
-          arch -x86_64 $PYTHON -m venv build-amd64-env
+          $PYTHON -m venv build-amd64-env
           source build-amd64-env/bin/activate
           pip install --upgrade pip wheel
-          arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
+          arch -x86_64 arrow/ci/scripts/python_wheel_macos_build.sh x86_64 $(pwd)/arrow $(pwd)/build
 
       - name: Fuse AMD64 and ARM64 wheels
         run: |
@@ -134,12 +137,12 @@ jobs:
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"
         run: |
-          arch -arm64 $PYTHON -m venv test-arm64-env
+          $PYTHON -m venv test-arm64-env
           source test-arm64-env/bin/activate
           pip install --upgrade pip wheel
-          pip install -r arrow/python/requirements-wheel-test.txt
-          PYTHON=python arrow/ci/scripts/install_gcs_testbench.sh default
-          arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
+          arch -arm64 pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python arch -arm64 arrow/ci/scripts/install_gcs_testbench.sh default
+          arch -arm64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {% if arch == "universal2" %}
       - name: Test Wheel on AMD64
@@ -147,27 +150,27 @@ jobs:
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"
         run: |
-          arch -x86_64 $PYTHON -m venv test-amd64-env
+          $PYTHON -m venv test-amd64-env
           source test-amd64-env/bin/activate
           pip install --upgrade pip wheel
-          pip install -r arrow/python/requirements-wheel-test.txt
-          PYTHON=python arrow/ci/scripts/install_gcs_testbench.sh default
-          arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
+          arch -x86_64 pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python arch -x86_64 arrow/ci/scripts/install_gcs_testbench.sh default
+          arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
       {% endif %}
 
       - name: Upload artifacts
         shell: bash
         run: |
-          arch -x86_64 $PYTHON -m venv crossbow-env
+          $PYTHON -m venv crossbow-env
           source crossbow-env/bin/activate
-          pip install -e arrow/dev/archery[crossbow-upload]
-          archery crossbow \
-            --queue-path $(pwd) \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }} \
-            "arrow/python/repaired_wheels/*.whl"
+          arch -x86_64 pip install -e arrow/dev/archery[crossbow-upload]
+          arch -x86_64 archery crossbow \
+          --queue-path $(pwd) \
+          --queue-remote {{ queue_remote_url }} \
+          upload-artifacts \
+          --sha {{ task.branch }} \
+          --tag {{ task.tag }} \
+          "arrow/python/repaired_wheels/*.whl"
         env:
           CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
 
