@@ -1598,8 +1598,7 @@ def get_generated_json_files(tempdir=None):
         .skip_category('C#')
         .skip_category('JS'),   # TODO(ARROW-7900)
 
-        generate_decimal128_case()
-        .skip_category('Rust'),
+        generate_decimal128_case(),
 
         generate_decimal256_case()
         .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
@@ -1615,22 +1614,19 @@ def get_generated_json_files(tempdir=None):
 
         generate_interval_case()
         .skip_category('C#')
-        .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
-        .skip_category('Rust'),
+        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_month_day_nano_interval_case()
         .skip_category('C#')
         .skip_category('JS'),
 
         generate_map_case()
-        .skip_category('C#')
-        .skip_category('Rust'),
+        .skip_category('C#'),
 
         generate_non_canonical_map_case()
         .skip_category('C#')
         .skip_category('Java')   # TODO(ARROW-8715)
-        .skip_category('JS')     # TODO(ARROW-8716)
-        .skip_category('Rust'),
+        .skip_category('JS'),     # TODO(ARROW-8716)
 
         generate_nested_case()
         .skip_category('C#'),
@@ -1641,14 +1637,12 @@ def get_generated_json_files(tempdir=None):
         generate_nested_large_offsets_case()
         .skip_category('C#')
         .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
         generate_unions_case()
         .skip_category('C#')
         .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
         generate_custom_metadata_case()
         .skip_category('C#')
@@ -1670,13 +1664,11 @@ def get_generated_json_files(tempdir=None):
         generate_nested_dictionary_case()
         .skip_category('C#')
         .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
         generate_extension_case()
         .skip_category('C#')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
     ]
 
     generated_paths = []
