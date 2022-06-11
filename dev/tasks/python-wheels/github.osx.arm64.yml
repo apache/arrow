@@ -48,12 +48,6 @@ jobs:
 
       {{ macros.github_checkout_arrow()|indent }}
 
-      - name: Debug runner environment
-        run: |
-          arch
-          $PYTHON -c "import platform; print(platform.machine())"
-          arch -arm64 $PYTHON -c "import platform; print(platform.machine())"
-
       - name: Add Brew's Bison to PATH
         run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
