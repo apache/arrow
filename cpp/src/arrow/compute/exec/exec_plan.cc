@@ -85,8 +85,8 @@ struct ExecPlanImpl : public ExecPlan {
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
       auto pairs = metadata().get()->sorted_pairs();
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span = 
-        ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span =
+          ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
       std::for_each(std::begin(pairs), std::end(pairs),
                     [span](std::pair<std::string, std::string> const& pair) {
                       span->SetAttribute(pair.first, pair.second);
