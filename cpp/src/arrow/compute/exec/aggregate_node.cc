@@ -49,8 +49,7 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs);
+    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs);
 
 Result<FieldVector> ResolveKernels(
     const std::vector<Aggregate>& aggregates,
@@ -62,9 +61,10 @@ Result<FieldVector> ResolveKernels(
 
 namespace {
 
-void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
-                        const std::vector<internal::Aggregate>& aggs,
-                        const std::vector<int>& target_field_ids, int indent = 0) {
+void AggregatesToString(
+    std::stringstream* ss, const Schema& input_schema, const std::vector<Aggregate>& aggs,
+    const std::vector<int>& target_field_ids,
+    int indent = 0) {
   *ss << "aggregates=[" << std::endl;
   for (size_t i = 0; i < aggs.size(); i++) {
     for (int j = 0; j < indent; ++j) *ss << "  ";
@@ -83,8 +83,7 @@ class ScalarAggregateNode : public ExecNode {
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
-                      std::vector<int> target_field_ids,
-                      std::vector<Aggregate> aggs,
+                      std::vector<int> target_field_ids, std::vector<Aggregate> aggs,
                       std::vector<const ScalarAggregateKernel*> kernels,
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(plan, std::move(inputs), {"target"},
