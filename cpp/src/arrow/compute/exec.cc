@@ -230,7 +230,9 @@ Status CheckAllValues(const std::vector<Datum>& values) {
 }
 
 ExecBatchIterator::ExecBatchIterator(const ExecBatch& batch, int64_t max_chunksize)
-    : batch_(batch), position_(0), length_(batch.length),
+    : batch_(batch),
+      position_(0),
+      length_(batch.length),
       max_chunksize_(std::min(batch.length, max_chunksize)) {
   chunk_indexes_.resize(batch.num_values(), 0);
   chunk_positions_.resize(batch.num_values(), 0);
@@ -245,8 +247,7 @@ Result<std::unique_ptr<ExecBatchIterator>> ExecBatchIterator::Make(
       return Status::Invalid("Value lengths differed from ExecBatch length");
     }
   }
-  return std::unique_ptr<ExecBatchIterator>(
-      new ExecBatchIterator(batch, max_chunksize));
+  return std::unique_ptr<ExecBatchIterator>(new ExecBatchIterator(batch, max_chunksize));
 }
 
 bool ExecBatchIterator::Next(ExecBatch* batch) {
@@ -304,8 +305,8 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
 // ----------------------------------------------------------------------
 // ExecSpanIterator; to eventually replace ExecBatchIterator
 
-Status ExecSpanIterator::Init(const ExecBatch& batch,
-                              ValueDescr::Shape output_shape, int64_t max_chunksize) {
+Status ExecSpanIterator::Init(const ExecBatch& batch, ValueDescr::Shape output_shape,
+                              int64_t max_chunksize) {
   if (batch.num_values() > 0) {
     // Validate arguments
     ARROW_ASSIGN_OR_RAISE(int64_t inferred_length, InferBatchLength(batch.values));
@@ -729,8 +730,8 @@ class KernelExecutorImpl : public KernelExecutor {
 class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
  public:
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
-    RETURN_NOT_OK(
-        span_iterator_.Init(batch, output_descr_.shape, exec_context()->exec_chunksize()));
+    RETURN_NOT_OK(span_iterator_.Init(batch, output_descr_.shape,
+                                      exec_context()->exec_chunksize()));
 
     // TODO(wesm): remove if with ARROW-16757
     if (output_descr_.shape != ValueDescr::SCALAR) {
@@ -1047,8 +1048,8 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
   }
 
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
-    ARROW_ASSIGN_OR_RAISE(
-        batch_iterator_, ExecBatchIterator::Make(batch, exec_context()->exec_chunksize()));
+    ARROW_ASSIGN_OR_RAISE(batch_iterator_, ExecBatchIterator::Make(
+                                               batch, exec_context()->exec_chunksize()));
 
     ExecBatch iter_batch;
     while (batch_iterator_->Next(&iter_batch)) {
@@ -1279,6 +1280,22 @@ Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            ExecContext* ctx) {
   return CallFunction(func_name, args, /*options=*/nullptr, ctx);
+}
+
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
+                           const FunctionOptions* options, ExecContext* ctx) {
+  if (ctx == nullptr) {
+    ExecContext default_ctx;
+    return CallFunction(func_name, batch, options, &default_ctx);
+  }
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
+                        ctx->func_registry()->GetFunction(func_name));
+  return func->Execute(batch, options, ctx);
+}
+
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
+                           ExecContext* ctx) {
+  return CallFunction(func_name, batch, /*options=*/nullptr, ctx);
 }
 
 }  // namespace compute

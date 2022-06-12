@@ -459,6 +459,21 @@ ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            ExecContext* ctx = NULLPTR);
 
+/// \brief One-shot invoker for all types of functions.
+///
+/// Does kernel dispatch, argument checking, iteration of ChunkedArray inputs,
+/// and wrapping of outputs.
+ARROW_EXPORT
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
+                           const FunctionOptions* options, ExecContext* ctx = NULLPTR);
+
+/// \brief Variant of CallFunction which uses a function's default options.
+///
+/// NB: Some functions require FunctionOptions be provided.
+ARROW_EXPORT
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
+                           ExecContext* ctx = NULLPTR);
+
 /// @}
 
 }  // namespace compute

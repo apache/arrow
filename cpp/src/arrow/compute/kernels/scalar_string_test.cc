@@ -676,7 +676,8 @@ TYPED_TEST(TestBaseBinaryKernels, BinaryJoinElementWise) {
                      ty, R"([null, null, null, null])", &options_replace);
 
   // Error cases
-  ASSERT_RAISES(Invalid, CallFunction("binary_join_element_wise", {}, &options));
+  ASSERT_RAISES(Invalid,
+                CallFunction("binary_join_element_wise", ExecBatch({}, 0), &options));
 }
 
 class TestFixedSizeBinaryKernels : public ::testing::Test {

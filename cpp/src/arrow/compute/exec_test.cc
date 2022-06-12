@@ -718,7 +718,8 @@ TEST_F(TestExecBatchIterator, Basics) {
 
   // Simple case with a single chunk
   ExecBatch input({Datum(GetInt32Array(length)), Datum(GetFloat64Array(length)),
-        Datum(std::make_shared<Int32Scalar>(3))}, length);
+                   Datum(std::make_shared<Int32Scalar>(3))},
+                  length);
   SetupIterator(input);
 
   ExecBatch batch;
@@ -756,10 +757,10 @@ TEST_F(TestExecBatchIterator, InputValidation) {
 }
 
 TEST_F(TestExecBatchIterator, ChunkedArrays) {
-  ExecBatch input({Datum(GetInt32Chunked({0, 20, 10})),
-        Datum(GetInt32Chunked({15, 15})), Datum(GetInt32Array(30)),
-        Datum(std::make_shared<Int32Scalar>(5)),
-        Datum(MakeNullScalar(boolean()))}, 30);
+  ExecBatch input({Datum(GetInt32Chunked({0, 20, 10})), Datum(GetInt32Chunked({15, 15})),
+                   Datum(GetInt32Array(30)), Datum(std::make_shared<Int32Scalar>(5)),
+                   Datum(MakeNullScalar(boolean()))},
+                  30);
 
   CheckIteration(input, /*chunksize=*/10, {10, 5, 5, 10});
   CheckIteration(input, /*chunksize=*/20, {15, 5, 10});
@@ -888,10 +889,10 @@ TEST_F(TestExecSpanIterator, InputValidation) {
 }
 
 TEST_F(TestExecSpanIterator, ChunkedArrays) {
-  ExecBatch batch({Datum(GetInt32Chunked({0, 20, 10})),
-        Datum(GetInt32Chunked({15, 15})), Datum(GetInt32Array(30)),
-        Datum(std::make_shared<Int32Scalar>(5)),
-        Datum(MakeNullScalar(boolean()))}, 30);
+  ExecBatch batch({Datum(GetInt32Chunked({0, 20, 10})), Datum(GetInt32Chunked({15, 15})),
+                   Datum(GetInt32Array(30)), Datum(std::make_shared<Int32Scalar>(5)),
+                   Datum(MakeNullScalar(boolean()))},
+                  30);
 
   CheckIteration(batch, /*chunksize=*/10, {10, 5, 5, 10});
   CheckIteration(batch, /*chunksize=*/20, {15, 5, 10});

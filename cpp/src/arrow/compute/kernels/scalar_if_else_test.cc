@@ -2322,7 +2322,7 @@ TEST(TestCaseWhen, DispatchBest) {
       "case_when", {struct_({field("", boolean())}), decimal128(38, 0), decimal128(1, 1)},
       {struct_({field("", boolean())}), decimal256(39, 1), decimal256(39, 1)});
 
-  ASSERT_RAISES(Invalid, CallFunction("case_when", {}));
+  ASSERT_RAISES(Invalid, CallFunction("case_when", ExecBatch({}, 0)));
   // Too many/too few conditions
   ASSERT_RAISES(
       Invalid, CallFunction("case_when", {MakeStruct({ArrayFromJSON(boolean(), "[]")})}));
@@ -3410,7 +3410,7 @@ TEST(TestChooseKernel, DispatchBest) {
 }
 
 TEST(TestChooseKernel, Errors) {
-  ASSERT_RAISES(Invalid, CallFunction("choose", {}));
+  ASSERT_RAISES(Invalid, CallFunction("choose", ExecBatch({}, 0)));
   ASSERT_RAISES(Invalid, CallFunction("choose", {ArrayFromJSON(int64(), "[]")}));
   ASSERT_RAISES(Invalid, CallFunction("choose", {ArrayFromJSON(utf8(), "[\"a\"]"),
                                                  ArrayFromJSON(int64(), "[0]")}));

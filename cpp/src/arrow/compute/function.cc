@@ -205,13 +205,24 @@ Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) co
 
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
+  return ExecuteImpl(args, /*passed_length=*/-1, options, ctx);
+}
+
+Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
+                                ExecContext* ctx) const {
+  return ExecuteImpl(batch.values, batch.length, options, ctx);
+}
+
+Result<Datum> Function::ExecuteImpl(const std::vector<Datum>& args, int64_t passed_length,
+                                    const FunctionOptions* options,
+                                    ExecContext* ctx) const {
   if (options == nullptr) {
     RETURN_NOT_OK(CheckOptions(*this, options));
     options = default_options();
   }
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return Execute(args, options, &default_ctx);
+    return ExecuteImpl(args, passed_length, options, &default_ctx);
   }
 
   util::tracing::Span span;
@@ -257,7 +268,17 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   // it).
   ExecBatch input(std::move(args_with_casts), 0);
   if (kind() == Function::SCALAR) {
-    ARROW_ASSIGN_OR_RAISE(input.length, detail::InferBatchLength(input.values));
+    ARROW_ASSIGN_OR_RAISE(int64_t inferred_length,
+                          detail::InferBatchLength(input.values));
+    if (passed_length == -1) {
+      input.length = inferred_length;
+    } else {
+      // ARROW-16819: will clean up more later
+      if (input.num_values() > 0 && passed_length != inferred_length) {
+        return Status::Invalid("Passed batch length did not equal actual array lengths");
+      }
+      input.length = passed_length;
+    }
   }
   RETURN_NOT_OK(executor->Execute(input, &listener));
   const auto out = executor->WrapResults(input.values, listener.values());
