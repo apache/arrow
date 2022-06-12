@@ -35,21 +35,22 @@ jobs:
       REPO: ghcr.io/ursacomputing/arrow
       # prefer the docker cli over docker-compose
       ARCHERY_USE_DOCKER_CLI: 1
-      ARCHERY_USE_DOCKER_BUILDX: 1
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
 
-      - name: Setup buildx
-        uses: docker/setup-buildx-action@v1
-
       - name: Build wheel
         shell: cmd
         run: |
           cd arrow
-          archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          archery docker pull python-wheel-windows-vs2017
+          if errorlevel 0 (
+            archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          ) else (
+            archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          )
 
       - name: Test wheel
         shell: cmd
