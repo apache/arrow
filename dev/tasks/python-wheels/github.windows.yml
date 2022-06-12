@@ -51,6 +51,7 @@ jobs:
           @rem It always build an image from scratch.
           @rem We can remove this workaround once we find a way to use
           @rem pulled caches when build an image.
+          echo on
           archery docker pull python-wheel-windows-vs2017
           if errorlevel 1 (
             archery docker build --no-pull python-wheel-windows-vs2017 || exit /B 1
