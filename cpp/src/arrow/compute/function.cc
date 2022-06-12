@@ -228,17 +228,6 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     inputs[i] = args[i].descr();
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchBest(&inputs));
-  ARROW_ASSIGN_OR_RAISE(auto implicitly_cast_args, Cast(args, inputs, ctx));
-
-  std::unique_ptr<KernelState> state;
-
-  KernelContext kernel_ctx{ctx};
-  if (kernel->init) {
-    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
-    kernel_ctx.SetState(state.get());
-  }
-
   std::unique_ptr<detail::KernelExecutor> executor;
   if (kind() == Function::SCALAR) {
     executor = detail::KernelExecutor::MakeScalar();
@@ -249,11 +238,29 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   } else {
     return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchBest(&inputs));
+  ARROW_ASSIGN_OR_RAISE(std::vector<Datum> args_with_casts, Cast(args, inputs, ctx));
+
+  std::unique_ptr<KernelState> state;
+  KernelContext kernel_ctx{ctx};
+  if (kernel->init) {
+    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
+    kernel_ctx.SetState(state.get());
+  }
+
   RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
 
   detail::DatumAccumulator listener;
-  RETURN_NOT_OK(executor->Execute(implicitly_cast_args, &listener));
-  const auto out = executor->WrapResults(implicitly_cast_args, listener.values());
+
+  // Set length to 0 unless it's a scalar function (vector functions don't use
+  // it).
+  ExecBatch input(std::move(args_with_casts), 0);
+  if (kind() == Function::SCALAR) {
+    ARROW_ASSIGN_OR_RAISE(input.length, detail::InferBatchLength(input.values));
+  }
+  RETURN_NOT_OK(executor->Execute(input, &listener));
+  const auto out = executor->WrapResults(input.values, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, name_.c_str()));
 #endif

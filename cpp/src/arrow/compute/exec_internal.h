@@ -46,11 +46,11 @@ class ARROW_EXPORT ExecBatchIterator {
  public:
   /// \brief Construct iterator and do basic argument validation
   ///
-  /// \param[in] args the Datum argument, must be all array-like or scalar
+  /// \param[in] batch the ExecBatch to iterate over
   /// \param[in] max_chunksize the maximum length of each ExecBatch. Depending
   /// on the chunk layout of ChunkedArray.
   static Result<std::unique_ptr<ExecBatchIterator>> Make(
-      const std::vector<Datum>& args, int64_t max_chunksize = kDefaultMaxChunksize);
+      const ExecBatch& batch, int64_t max_chunksize = kDefaultMaxChunksize);
 
   /// \brief Compute the next batch. Always returns at least one batch. Return
   /// false if the iterator is exhausted
@@ -63,10 +63,9 @@ class ARROW_EXPORT ExecBatchIterator {
   int64_t max_chunksize() const { return max_chunksize_; }
 
  private:
-  ExecBatchIterator(const std::vector<Datum>& args, int64_t length,
-                    int64_t max_chunksize);
+  ExecBatchIterator(const ExecBatch& batch, int64_t max_chunksize);
 
-  const std::vector<Datum>& args_;
+  const ExecBatch& batch_;
   std::vector<int> chunk_indexes_;
   std::vector<int64_t> chunk_positions_;
   int64_t position_;
@@ -83,10 +82,11 @@ class ARROW_EXPORT ExecSpanIterator {
 
   /// \brief Initialize itertor iterator and do basic argument validation
   ///
-  /// \param[in] args the Datum argument, must be all array-like or scalar
+  /// \param[in] batch the input ExecBatch
   /// \param[in] max_chunksize the maximum length of each ExecSpan. Depending
   /// on the chunk layout of ChunkedArray.
-  Status Init(const std::vector<Datum>& args,
+  Status Init(const ExecBatch& batch,
+              ValueDescr::Shape output_shape = ValueDescr::ARRAY,
               int64_t max_chunksize = kDefaultMaxChunksize);
 
   /// \brief Compute the next span by updating the state of the
@@ -165,9 +165,10 @@ class ARROW_EXPORT KernelExecutor {
   /// for all scanned batches in a dataset filter.
   virtual Status Init(KernelContext*, KernelInitArgs) = 0;
 
-  /// XXX: Better configurability for listener
-  /// Not thread-safe
-  virtual Status Execute(const std::vector<Datum>& args, ExecListener* listener) = 0;
+  // TODO(wesm): per ARROW-16819, adding ExecBatch variant so that a batch
+  // length can be passed in for scalar functions; will have to return and
+  // clean a bunch of things up
+  virtual Status Execute(const ExecBatch& batch, ExecListener* listener) = 0;
 
   virtual Datum WrapResults(const std::vector<Datum>& args,
                             const std::vector<Datum>& outputs) = 0;
@@ -179,6 +180,8 @@ class ARROW_EXPORT KernelExecutor {
   static std::unique_ptr<KernelExecutor> MakeVector();
   static std::unique_ptr<KernelExecutor> MakeScalarAggregate();
 };
+
+Result<int64_t> InferBatchLength(const std::vector<Datum>& values);
 
 /// \brief Populate validity bitmap with the intersection of the nullity of the
 /// arguments. If a preallocated bitmap is not provided, then one will be
