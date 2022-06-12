@@ -471,7 +471,6 @@ cdef class FunctionRegistry(_Weakrefable):
             self.registry = GetFunctionRegistry()
         else:
             self.registry = pyarrow_unwrap_function_registry(registry)
-        print(f"self: {self} , self.registry: {self.registry != NULL}")
 
     def list_functions(self):
         """
@@ -508,7 +507,6 @@ def make_function_registry():
     up_registry = MakeFunctionRegistry()
     c_registry = up_registry.get()
     up_registry.release()
-    print(f"up_registry: {c_registry != NULL}")
     return FunctionRegistry(pyarrow_wrap_function_registry(c_registry))
 
 
@@ -2566,9 +2564,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     if func_registry is None:
         c_func_registry = NULL
     else:
-        print(f"func_registry: {func_registry}")
         c_func_registry = (<FunctionRegistry>func_registry).registry
-        print(f"c_func_registry: {c_func_registry != NULL}")
 
     check_status(RegisterScalarFunction(c_function,
                                         <function[CallbackUdf]> &_scalar_udf_callback,

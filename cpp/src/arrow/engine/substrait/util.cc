@@ -68,7 +68,7 @@ class SubstraitExecutor {
                              compute::ExecContext exec_context)
       : plan_(std::move(plan)), exec_context_(exec_context) {}
 
-  ~SubstraitExecutor() { ARROW_CHECK_OK(this->Close()); }
+  ~SubstraitExecutor() { this->Close(); }
 
   Result<std::shared_ptr<RecordBatchReader>> Execute() {
     for (const compute::Declaration& decl : declarations_) {
@@ -120,6 +120,7 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
   SubstraitExecutor executor(std::move(plan), exec_context);
   RETURN_NOT_OK(executor.Init(substrait_buffer, extid_registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
+  RETURN_NOT_OK(executor.Close());
   return sink_reader;
 }
 

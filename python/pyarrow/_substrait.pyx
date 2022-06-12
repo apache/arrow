@@ -159,12 +159,9 @@ def _run_query(plan, extid_registry, func_registry, output_type):
 
     c_buf_plan = pyarrow_unwrap_buffer(plan)
     c_extid_registry = pyarrow_unwrap_extension_id_registry(extid_registry)
-    print("substrait _1")
     c_func_registry = pyarrow_unwrap_function_registry(func_registry)
     if c_func_registry == NULL:
         c_func_registry = (<FunctionRegistry>func_registry).registry
-    print(f"c_func_registry: {c_func_registry != NULL}")
-    print("substrait _2")
     with nogil:
         c_res_decls = DeserializePlans(
             deref(c_buf_plan), c_extid_registry.get())
@@ -196,12 +193,9 @@ def run_query(plan, extid_registry, func_registry):
 
     c_buf_plan = pyarrow_unwrap_buffer(plan)
     c_extid_registry = pyarrow_unwrap_extension_id_registry(extid_registry)
-    print("substrait 1")
     c_func_registry = pyarrow_unwrap_function_registry(func_registry)
     if c_func_registry == NULL:
         c_func_registry = (<FunctionRegistry>func_registry).registry
-    print(f"c_func_registry: {c_func_registry != NULL}")
-    print("substrait 2")
     with nogil:
         c_res_reader = ExecuteSerializedPlan(
             deref(c_buf_plan), c_extid_registry.get(), c_func_registry

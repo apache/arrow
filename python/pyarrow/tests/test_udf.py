@@ -20,6 +20,7 @@ import os
 import json
 import pytest
 
+import numpy as np
 import pyarrow as pa
 from pyarrow import compute as pc
 from pyarrow.lib import frombytes, tobytes, DoubleArray
@@ -698,7 +699,7 @@ def _test_query_path(path):
     return _test_query_string(querystr)
 
 
-def test_modelstate_udf_add():
+def _simple_udf_add_query_string(input_path):
     code = (
         "gAWVGgMAAAAAAACMF2Nsb3VkcGlja2xlLmNsb3VkcGlja2xllIwNX2J1aWx0aW5fdHlwZZSTlIwKTGFt" +
         "YmRhVHlwZZSFlFKUKGgCjAhDb2RlVHlwZZSFlFKUKEsBSwBLAEsCSwRLQ0MYZAFkAmwAbQF9AQEAfAGg" +
@@ -758,63 +759,15 @@ def test_modelstate_udf_add():
                       "read": {
                         "baseSchema": {
                           "names": [
-                            "time",
-                            "id",
-                            "return_prev_1d_lag",
-                            "return_next_1d_lead",
-                            "variance",
-                            "volume",
-                            "market_cap",
-                            "factor_id",
-                            "price"
+                            "v",
                           ],
                           "struct": {
                             "types": [
                               {
-                                "timestamp": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "i32": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
                                 "fp64": {
                                   "nullability": "NULLABILITY_NULLABLE"
                                 }
                               },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "i32": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              }
                             ],
                             "nullability": "NULLABILITY_REQUIRED"
                           }
@@ -822,7 +775,7 @@ def test_modelstate_udf_add():
                         "localFiles": {
                           "items": [
                             {
-                              "uriFile": "file:///mnt/user1/tscontract/github/rtpsw/bamboo-streaming/data/modelstate2.feather"
+                              "uriFile": "file://" + input_path
                             }
                           ]
                         }
@@ -830,103 +783,13 @@ def test_modelstate_udf_add():
                     },
                     "expressions": [
                       {
-                        "selection": {
-                          "directReference": {
-                            "structField": {}
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 1
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 2
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 3
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 4
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 5
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 6
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 7
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 8
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
                         "scalarFunction": {
                           "functionReference": 1,
                           "args": [
                             {
                               "selection": {
                                 "directReference": {
-                                  "structField": {
-                                    "field": 5
-                                  }
+                                  "structField": {}
                                 },
                                 "rootReference": {}
                               }
@@ -943,33 +806,17 @@ def test_modelstate_udf_add():
                   }
                 },
                 "names": [
-                  "time",
-                  "id",
-                  "return_prev_1d_lag",
-                  "return_next_1d_lead",
-                  "variance",
-                  "volume",
-                  "market_cap",
-                  "factor_id",
-                  "price",
-                  "twice_volume"
+                  "twice_v"
                 ]
               }
             }
           ]
         }
     )
-    import timeit
-    n = 5
-    secs = timeit.timeit(
-        lambda: _test_query_string(querystr),
-        number=n
-    )
-    with open("test_modelstate_udf_add.timeit", "w") as f:
-        f.write(f"seconds: {secs/n}\n")
+    return querystr
 
 
-def test_modelstate_reg_add():
+def _simple_reg_add_query_string(input_path):
     querystr = json.dumps(
         {
           "extensionUris": [
@@ -996,63 +843,15 @@ def test_modelstate_reg_add():
                       "read": {
                         "baseSchema": {
                           "names": [
-                            "time",
-                            "id",
-                            "return_prev_1d_lag",
-                            "return_next_1d_lead",
-                            "variance",
-                            "volume",
-                            "market_cap",
-                            "factor_id",
-                            "price"
+                            "v",
                           ],
                           "struct": {
                             "types": [
                               {
-                                "timestamp": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "i32": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
                                 "fp64": {
                                   "nullability": "NULLABILITY_NULLABLE"
                                 }
                               },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "i32": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              },
-                              {
-                                "fp64": {
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                }
-                              }
                             ],
                             "nullability": "NULLABILITY_REQUIRED"
                           }
@@ -1060,7 +859,7 @@ def test_modelstate_reg_add():
                         "localFiles": {
                           "items": [
                             {
-                              "uriFile": "file:///mnt/user1/tscontract/github/rtpsw/bamboo-streaming/data/modelstate2.feather"
+                              "uriFile": "file://" + input_path
                             }
                           ]
                         }
@@ -1068,103 +867,13 @@ def test_modelstate_reg_add():
                     },
                     "expressions": [
                       {
-                        "selection": {
-                          "directReference": {
-                            "structField": {}
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 1
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 2
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 3
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 4
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 5
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 6
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 7
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
-                        "selection": {
-                          "directReference": {
-                            "structField": {
-                              "field": 8
-                            }
-                          },
-                          "rootReference": {}
-                        }
-                      },
-                      {
                         "scalarFunction": {
                           "functionReference": 1,
                           "args": [
                             {
                               "selection": {
                                 "directReference": {
-                                  "structField": {
-                                    "field": 5
-                                  }
+                                  "structField": {}
                                 },
                                 "rootReference": {}
                               }
@@ -1186,27 +895,51 @@ def test_modelstate_reg_add():
                   }
                 },
                 "names": [
-                  "time",
-                  "id",
-                  "return_prev_1d_lag",
-                  "return_next_1d_lead",
-                  "variance",
-                  "volume",
-                  "market_cap",
-                  "factor_id",
-                  "price",
-                  "twice_volume"
+                  "twice_v"
                 ]
               }
             }
           ]
         }
     )
+    return querystr
+
+
+def _make_ipc_data(data_path, batch_size, num_batches):
+    sink = open(data_path, "wb")
+    schema = pa.schema([("v", pa.float64())])
+    writer = pa.ipc.new_file(sink, schema)
+    for i in range(num_batches):
+        batch = pa.record_batch([np.random.randn(batch_size)], schema=schema)
+        writer.write_batch(batch)
+    writer.close()
+    sink.close()
+
+
+def _timeit_query(querystr, n):
     import timeit
-    n = 5
-    secs = timeit.timeit(
+    total_secs = timeit.timeit(
         lambda: _test_query_string(querystr),
         number=n
     )
-    with open("test_modelstate_reg_add.timeit", "w") as f:
-        f.write(f"seconds: {secs/n}\n")
+    return total_secs / n
+
+
+def _simple_query(tmpdir, name):
+    data_path = os.path.realpath(os.path.join(tmpdir, f"{name}.feather"))
+    output_path = f"{name}.timeit"
+    querystr = _simple_udf_add_query_string(data_path)
+    batch_size = 1024
+    n = 5
+    with open(output_path, "w") as f:
+        for num_batches in [1, 10, 100, 1000, 10000]:
+            _make_ipc_data(data_path, batch_size, num_batches)
+            secs = _timeit_query(querystr, n)
+            f.write(f"batches={num_batches} size={batch_size} average-of-{n}:seconds={secs/n}\n")
+
+
+def test_simple_udf_add(tmpdir):
+    _simple_query(tmpdir, "test_simple_udf_add")
+
+def test_simple_reg_add(tmpdir):
+    _simple_query(tmpdir, "test_simple_reg_add")
