@@ -212,7 +212,7 @@ struct ARROW_EXPORT ExecBatch {
   /// If the array values are of length 0 then the length is 0 regardless of
   /// whether any values are Scalar. In general ExecBatch objects are produced
   /// by ExecBatchIterator which by design does not yield length-0 batches.
-  int64_t length;
+  int64_t length = 0;
 
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///

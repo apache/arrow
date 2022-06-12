@@ -604,6 +604,8 @@ def random(n, *, initializer='system', options=None, memory_pool=None):
 
     Parameters
     ----------
+    n : int
+        Number of values to generate, must be greater than or equal to 0
     initializer : int or str
         How to initialize the underlying random generator.
         If an integer is given, it is used as a seed.
