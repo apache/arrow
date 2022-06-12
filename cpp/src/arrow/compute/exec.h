@@ -436,7 +436,7 @@ struct ARROW_EXPORT ExecSpan {
     return result;
   }
 
-  int64_t length;
+  int64_t length = 0;
   std::vector<ExecValue> values;
 };
 

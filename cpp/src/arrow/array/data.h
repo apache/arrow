@@ -260,7 +260,7 @@ struct ARROW_EXPORT BufferSpan {
 /// copyable and does not contain any shared_ptr objects. Do not use in public
 /// APIs aside from compute kernels for now
 struct ARROW_EXPORT ArraySpan {
-  const DataType* type;
+  const DataType* type = NULLPTR;
   int64_t length = 0;
   mutable int64_t null_count = kUnknownNullCount;
   int64_t offset = 0;
