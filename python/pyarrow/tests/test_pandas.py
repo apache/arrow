@@ -226,7 +226,7 @@ class TestConvertMetadata:
         with pytest.warns(None) as record:
             _check_pandas_roundtrip(df, preserve_index=True)
 
-        assert len(record) == 0
+        assert len(record) == 0, [r.message for r in record]
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
@@ -277,7 +277,7 @@ class TestConvertMetadata:
         with pytest.warns(None) as record:
             _check_pandas_roundtrip(df, preserve_index=True)
 
-        assert len(record) == 0
+        assert len(record) == 0, [r.message for r in record]
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
