@@ -205,24 +205,25 @@ Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) co
 
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
-  return ExecuteImpl(args, /*passed_length=*/-1, options, ctx);
+  return ExecuteInternal(args, /*passed_length=*/-1, options, ctx);
 }
 
 Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
                                 ExecContext* ctx) const {
-  return ExecuteImpl(batch.values, batch.length, options, ctx);
+  return ExecuteInternal(batch.values, batch.length, options, ctx);
 }
 
-Result<Datum> Function::ExecuteImpl(const std::vector<Datum>& args, int64_t passed_length,
-                                    const FunctionOptions* options,
-                                    ExecContext* ctx) const {
+Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
+                                        int64_t passed_length,
+                                        const FunctionOptions* options,
+                                        ExecContext* ctx) const {
   if (options == nullptr) {
     RETURN_NOT_OK(CheckOptions(*this, options));
     options = default_options();
   }
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return ExecuteImpl(args, passed_length, options, &default_ctx);
+    return ExecuteInternal(args, passed_length, options, &default_ctx);
   }
 
   util::tracing::Span span;
@@ -414,6 +415,12 @@ Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
     options = default_options();
   }
   return ExecuteImpl(args, options, ctx);
+}
+
+Result<Datum> MetaFunction::Execute(const ExecBatch& batch,
+                                    const FunctionOptions* options,
+                                    ExecContext* ctx) const {
+  return Execute(batch.values, options, ctx);
 }
 
 }  // namespace compute

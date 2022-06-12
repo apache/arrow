@@ -255,8 +255,8 @@ class ARROW_EXPORT Function {
         doc_(std::move(doc)),
         default_options_(default_options) {}
 
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args, int64_t passed_length,
-                            const FunctionOptions* options, ExecContext* ctx) const;
+  Result<Datum> ExecuteInternal(const std::vector<Datum>& args, int64_t passed_length,
+                                const FunctionOptions* options, ExecContext* ctx) const;
 
   Status CheckArity(const std::vector<InputType>&) const;
   Status CheckArity(const std::vector<ValueDescr>&) const;
@@ -393,6 +393,9 @@ class ARROW_EXPORT MetaFunction : public Function {
   int num_kernels() const override { return 0; }
 
   Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
+                        ExecContext* ctx) const override;
+
+  Result<Datum> Execute(const ExecBatch& batch, const FunctionOptions* options,
                         ExecContext* ctx) const override;
 
  protected:

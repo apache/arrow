@@ -663,13 +663,14 @@ TEST_F(TestPropagateNullsSpans, NullOutputTypeNoop) {
 
 class TestExecBatchIterator : public TestComputeInternals {
  public:
-  void SetupIterator(const ExecBatch& input,
+  void SetupIterator(std::vector<Datum> args,
                      int64_t max_chunksize = kDefaultMaxChunksize) {
-    ASSERT_OK_AND_ASSIGN(iterator_, ExecBatchIterator::Make(input, max_chunksize));
+    ASSERT_OK_AND_ASSIGN(iterator_,
+                         ExecBatchIterator::Make(std::move(args), max_chunksize));
   }
-  void CheckIteration(const ExecBatch& input, int chunksize,
+  void CheckIteration(const std::vector<Datum>& args, int chunksize,
                       const std::vector<int>& ex_batch_sizes) {
-    SetupIterator(input, chunksize);
+    SetupIterator(args, chunksize);
     ExecBatch batch;
     int64_t position = 0;
     for (size_t i = 0; i < ex_batch_sizes.size(); ++i) {
@@ -677,17 +678,17 @@ class TestExecBatchIterator : public TestComputeInternals {
       ASSERT_TRUE(iterator_->Next(&batch));
       ASSERT_EQ(ex_batch_sizes[i], batch.length);
 
-      for (size_t j = 0; j < input.values.size(); ++j) {
-        switch (input[j].kind()) {
+      for (size_t j = 0; j < args.size(); ++j) {
+        switch (args[j].kind()) {
           case Datum::SCALAR:
-            ASSERT_TRUE(input[j].scalar()->Equals(batch[j].scalar()));
+            ASSERT_TRUE(args[j].scalar()->Equals(batch[j].scalar()));
             break;
           case Datum::ARRAY:
-            AssertArraysEqual(*input[j].make_array()->Slice(position, batch.length),
+            AssertArraysEqual(*args[j].make_array()->Slice(position, batch.length),
                               *batch[j].make_array());
             break;
           case Datum::CHUNKED_ARRAY: {
-            const ChunkedArray& carr = *input[j].chunked_array();
+            const ChunkedArray& carr = *args[j].chunked_array();
             if (batch.length == 0) {
               ASSERT_EQ(0, carr.length());
             } else {
@@ -717,10 +718,9 @@ TEST_F(TestExecBatchIterator, Basics) {
   const int64_t length = 100;
 
   // Simple case with a single chunk
-  ExecBatch input({Datum(GetInt32Array(length)), Datum(GetFloat64Array(length)),
-                   Datum(std::make_shared<Int32Scalar>(3))},
-                  length);
-  SetupIterator(input);
+  std::vector<Datum> args = {Datum(GetInt32Array(length)), Datum(GetFloat64Array(length)),
+                             Datum(std::make_shared<Int32Scalar>(3))};
+  SetupIterator(args);
 
   ExecBatch batch;
   ASSERT_TRUE(iterator_->Next(&batch));
@@ -733,62 +733,60 @@ TEST_F(TestExecBatchIterator, Basics) {
   ASSERT_EQ(ValueDescr::Array(float64()), descrs[1]);
   ASSERT_EQ(ValueDescr::Scalar(int32()), descrs[2]);
 
-  AssertArraysEqual(*input[0].make_array(), *batch[0].make_array());
-  AssertArraysEqual(*input[1].make_array(), *batch[1].make_array());
-  ASSERT_TRUE(input[2].scalar()->Equals(batch[2].scalar()));
+  AssertArraysEqual(*args[0].make_array(), *batch[0].make_array());
+  AssertArraysEqual(*args[1].make_array(), *batch[1].make_array());
+  ASSERT_TRUE(args[2].scalar()->Equals(batch[2].scalar()));
 
   ASSERT_EQ(length, iterator_->position());
   ASSERT_FALSE(iterator_->Next(&batch));
 
   // Split into chunks of size 16
-  CheckIteration(input, /*chunksize=*/16, {16, 16, 16, 16, 16, 16, 4});
+  CheckIteration(args, /*chunksize=*/16, {16, 16, 16, 16, 16, 16, 4});
 }
 
 TEST_F(TestExecBatchIterator, InputValidation) {
-  ExecBatch batch({Datum(GetInt32Array(10)), Datum(GetInt32Array(9))}, 10);
-  ASSERT_RAISES(Invalid, ExecBatchIterator::Make(batch));
+  std::vector<Datum> args = {Datum(GetInt32Array(10)), Datum(GetInt32Array(9))};
+  ASSERT_RAISES(Invalid, ExecBatchIterator::Make(args));
 
-  batch.values = {Datum(GetInt32Array(9)), Datum(GetInt32Array(10))};
-  ASSERT_RAISES(Invalid, ExecBatchIterator::Make(batch));
+  args = {Datum(GetInt32Array(9)), Datum(GetInt32Array(10))};
+  ASSERT_RAISES(Invalid, ExecBatchIterator::Make(args));
 
-  batch.values = {Datum(GetInt32Array(10))};
-  ASSERT_OK_AND_ASSIGN(auto iterator, ExecBatchIterator::Make(batch));
+  args = {Datum(GetInt32Array(10))};
+  ASSERT_OK_AND_ASSIGN(auto iterator, ExecBatchIterator::Make(args));
   ASSERT_EQ(10, iterator->max_chunksize());
 }
 
 TEST_F(TestExecBatchIterator, ChunkedArrays) {
-  ExecBatch input({Datum(GetInt32Chunked({0, 20, 10})), Datum(GetInt32Chunked({15, 15})),
-                   Datum(GetInt32Array(30)), Datum(std::make_shared<Int32Scalar>(5)),
-                   Datum(MakeNullScalar(boolean()))},
-                  30);
+  std::vector<Datum> args = {Datum(GetInt32Chunked({0, 20, 10})),
+                             Datum(GetInt32Chunked({15, 15})), Datum(GetInt32Array(30)),
+                             Datum(std::make_shared<Int32Scalar>(5)),
+                             Datum(MakeNullScalar(boolean()))};
 
-  CheckIteration(input, /*chunksize=*/10, {10, 5, 5, 10});
-  CheckIteration(input, /*chunksize=*/20, {15, 5, 10});
-  CheckIteration(input, /*chunksize=*/30, {15, 5, 10});
+  CheckIteration(args, /*chunksize=*/10, {10, 5, 5, 10});
+  CheckIteration(args, /*chunksize=*/20, {15, 5, 10});
+  CheckIteration(args, /*chunksize=*/30, {15, 5, 10});
 }
 
 TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
   auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
 
-  auto CheckArgs = [&](const ExecBatch& input) {
-    auto iterator = ExecBatchIterator::Make(input).ValueOrDie();
+  auto CheckArgs = [&](const std::vector<Datum>& args) {
+    auto iterator = ExecBatchIterator::Make(args).ValueOrDie();
     ExecBatch batch;
     ASSERT_FALSE(iterator->Next(&batch));
   };
 
-  ExecBatch input({}, 0);
-
   // Zero-length ChunkedArray with zero chunks
-  input.values = {Datum(carr)};
-  CheckArgs(input);
+  std::vector<Datum> args = {Datum(carr)};
+  CheckArgs(args);
 
   // Zero-length array
-  input.values = {Datum(GetInt32Array(0))};
-  CheckArgs(input);
+  args = {Datum(GetInt32Array(0))};
+  CheckArgs(args);
 
   // ChunkedArray with single empty chunk
-  input.values = {Datum(GetInt32Chunked({0}))};
-  CheckArgs(input);
+  args = {Datum(GetInt32Chunked({0}))};
+  CheckArgs(args);
 }
 
 // ----------------------------------------------------------------------
