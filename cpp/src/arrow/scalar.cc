@@ -932,6 +932,64 @@ Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+Status CastImpl(const ListScalar& from, ListScalar* to) {
+  to->value = from.value;
+  return Status::OK();
+}
+
+Status CastImpl(const ListScalar& from, LargeListScalar* to) {
+  to->value = from.value;
+  return Status::OK();
+}
+
+Status CastImpl(const ListScalar& from, FixedSizeListScalar* to) {
+  to->value = from.value;
+  auto to_type = fixed_size_list(from.type, from.value->length());
+  to->type = to_type;
+  return Status::OK();
+}
+
+Status CastImpl(const LargeListScalar& from, ListScalar* to) {
+  if (from.value->length() > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid("scalar ", *from.type, " of size ", from.value->length(),
+                           " too large to cast to ", *to->type);
+  }
+  to->value = from.value;
+  return Status::OK();
+}
+
+Status CastImpl(const LargeListScalar& from, LargeListScalar* to) {
+  to->value = from.value;
+  return Status::OK();
+}
+
+Status CastImpl(const LargeListScalar& from, FixedSizeListScalar* to) {
+  to->value = from.value;
+  auto to_type = fixed_size_list(from.type, from.value->length());
+  to->type = to_type;
+  return Status::OK();
+}
+
+Status CastImpl(const FixedSizeListScalar& from, ListScalar* to) {
+  if (from.value->length() > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid("scalar ", *from.type, " of size ", from.value->length(),
+                           " too large to cast to ", *to->type);
+  }
+  to->value = from.value;
+  return Status::OK();
+}
+
+Status CastImpl(const FixedSizeListScalar& from, FixedSizeListScalar* to) {
+  to->value = from.value;
+  auto to_type = fixed_size_list(from.type, from.value->length());
+  return Status::OK();
+}
+
+Status CastImpl(const FixedSizeListScalar& from, LargeListScalar* to) {
+  to->value = from.value;
+  return Status::OK();
+}
+
 Status CastImpl(const StructScalar& from, StringScalar* to) {
   std::stringstream ss;
   ss << '{';
