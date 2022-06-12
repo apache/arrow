@@ -964,9 +964,9 @@ services:
       dockerfile: ci/docker/python-wheel-windows-vs2017.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
-      # cache_from:
-      #   - mcr.microsoft.com/windows/servercore:ltsc2019
-      #   - ${REPO}:wheel-windows-vs2017
+      cache_from:
+        - abrarov/msvc-2017:2.11.0
+        - ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
     volumes:
       - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind

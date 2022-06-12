@@ -45,12 +45,12 @@ jobs:
         shell: cmd
         run: |
           cd arrow
-          archery docker pull python-wheel-windows-vs2017
-          if errorlevel 0 (
-            archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
-          ) else (
-            archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
-          )
+          archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          @rem if errorlevel 0 (
+          @rem   archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          @rem ) else (
+          @rem   archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          @rem )
 
       - name: Test wheel
         shell: cmd
