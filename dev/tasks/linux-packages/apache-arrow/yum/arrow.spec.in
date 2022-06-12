@@ -45,12 +45,12 @@
 %if %{rhel} >= 9
 %define arrow_cmake_builddir %{__cmake_builddir}
 %define arrow_cmake %cmake
-%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} %{?_smp_mflags} -v
+%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} %{?_smp_mflags}
 %define arrow_cmake_install %cmake_install
 %else
 %define arrow_cmake_builddir build
 %define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
-%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} %{?_smp_mflags} -v
+%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} %{?_smp_mflags}
 %define arrow_cmake_install DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install
 %endif
 
