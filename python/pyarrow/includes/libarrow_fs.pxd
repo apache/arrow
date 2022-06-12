@@ -200,6 +200,40 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
 
+    cdef cppclass CGcsCredentials "arrow::fs::GcsCredentials":
+        c_bool anonymous()
+        CTimePoint expiration()
+        c_string access_token()
+        c_string target_service_account()
+
+    cdef cppclass CGcsOptions "arrow::fs::GcsOptions":
+        CGcsCredentials credentials
+        c_string endpoint_override
+        c_string scheme
+        c_string default_bucket_location
+        c_optional[double] retry_limit_seconds
+        shared_ptr[const CKeyValueMetadata] default_metadata
+        c_bool Equals(const CS3Options& other)
+
+        @staticmethod
+        CGcsOptions Defaults()
+
+        @staticmethod
+        CGcsOptions Anonymous()
+
+        @staticmethod
+        CGcsOptions FromAccessToken(const c_string& access_token,
+                                    CTimePoint expiration)
+
+        @staticmethod
+        CGcsOptions FromImpersonatedServiceAccount(const CGcsCredentials& base_credentials,
+                                                   c_string& target_service_account)
+
+    cdef cppclass CGcsFileSystem "arrow::fs::GcsFileSystem":
+        @staticmethod
+        CResult[shared_ptr[CGcsFileSystem]] Make(const CGcsOptions& options)
+        CGcsOptions options()
+
     cdef cppclass CHdfsOptions "arrow::fs::HdfsOptions":
         HdfsConnectionConfig connection_config
         int32_t buffer_size

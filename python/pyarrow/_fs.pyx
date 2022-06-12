@@ -367,6 +367,9 @@ cdef class FileSystem(_Weakrefable):
         elif typ == 's3':
             from pyarrow._s3fs import S3FileSystem
             self = S3FileSystem.__new__(S3FileSystem)
+        elif typ == 'gcs':
+            from pyarrow._gcsfs import GcsFileSystem
+            self = GcsFileSystem.__new__(GcsFileSystem)
         elif typ == 'hdfs':
             from pyarrow._hdfs import HadoopFileSystem
             self = HadoopFileSystem.__new__(HadoopFileSystem)

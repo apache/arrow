@@ -50,6 +50,7 @@ namespace bp = boost::process;
 namespace gc = google::cloud;
 namespace gcs = google::cloud::storage;
 
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
@@ -99,6 +100,8 @@ class GcsTestbench : public ::testing::Environment {
     error_ = std::move(error);
   }
 
+  bool running() { return server_process_.running(); }
+
   ~GcsTestbench() override {
     // Brutal shutdown, kill the full process group because the GCS testbench may launch
     // additional children.
@@ -130,6 +133,7 @@ class GcsIntegrationTest : public ::testing::Test {
   void SetUp() override {
     ASSERT_THAT(Testbench(), NotNull());
     ASSERT_THAT(Testbench()->error(), IsEmpty());
+    ASSERT_TRUE(Testbench()->running());
 
     // Initialize a PRNG with a small amount of entropy.
     generator_ = std::mt19937_64(std::random_device()());
@@ -140,7 +144,11 @@ class GcsIntegrationTest : public ::testing::Test {
     auto client = gcs::Client(
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + Testbench()->port())
-            .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials()));
+            .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
+            .set<gcs::TransferStallTimeoutOption>(std::chrono::seconds(5))
+            .set<gcs::RetryPolicyOption>(
+                gcs::LimitedTimeRetryPolicy(std::chrono::seconds(45)).clone()));
+
     google::cloud::StatusOr<gcs::BucketMetadata> bucket = client.CreateBucketForProject(
         PreexistingBucketName(), "ignored-by-testbench", gcs::BucketMetadata{});
     ASSERT_TRUE(bucket.ok()) << "Failed to create bucket <" << PreexistingBucketName()
@@ -167,6 +175,7 @@ class GcsIntegrationTest : public ::testing::Test {
   GcsOptions TestGcsOptions() {
     auto options = GcsOptions::Anonymous();
     options.endpoint_override = "127.0.0.1:" + Testbench()->port();
+    options.retry_limit_seconds = 60;
     return options;
   }
 
@@ -291,15 +300,15 @@ TEST(GcsFileSystem, OptionsCompare) {
 
 TEST(GcsFileSystem, OptionsAnonymous) {
   GcsOptions a = GcsOptions::Anonymous();
-  EXPECT_THAT(a.credentials, NotNull());
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_TRUE(a.credentials.anonymous());
   EXPECT_EQ(a.scheme, "http");
 }
 
 TEST(GcsFileSystem, OptionsFromUri) {
   std::string path;
-  GcsOptions options;
 
-  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs://", &path));
+  ASSERT_OK_AND_ASSIGN(GcsOptions options, GcsOptions::FromUri("gs://", &path));
   EXPECT_EQ(options.default_bucket_location, "");
   EXPECT_EQ(options.scheme, "https");
   EXPECT_EQ(options.endpoint_override, "");
@@ -327,35 +336,48 @@ TEST(GcsFileSystem, OptionsFromUri) {
   ASSERT_OK_AND_ASSIGN(
       options,
       GcsOptions::FromUri("gs://mybucket/foo/bar/"
-                          "?endpoint_override=localhost&scheme=http&location=us-west2",
+                          "?endpoint_override=localhost&scheme=http&location=us-west2"
+                          "&retry_limit_seconds=40.5",
                           &path));
   EXPECT_EQ(options.default_bucket_location, "us-west2");
   EXPECT_EQ(options.scheme, "http");
   EXPECT_EQ(options.endpoint_override, "localhost");
   EXPECT_EQ(path, "mybucket/foo/bar");
+  ASSERT_TRUE(options.retry_limit_seconds.has_value());
+  EXPECT_EQ(*options.retry_limit_seconds, 40.5);
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs:///foo/bar/", &path));
 
   // Invalid option
   ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs://mybucket/?xxx=zzz", &path));
+
+  // Invalid retry limit
+  ASSERT_RAISES(Invalid,
+                GcsOptions::FromUri("gs://foo/bar/?retry_limit_seconds=0", &path));
+  ASSERT_RAISES(Invalid,
+                GcsOptions::FromUri("gs://foo/bar/?retry_limit_seconds=-1", &path));
 }
 
 TEST(GcsFileSystem, OptionsAccessToken) {
-  auto a = GcsOptions::FromAccessToken(
-      "invalid-access-token-test-only",
-      std::chrono::system_clock::now() + std::chrono::minutes(5));
-  EXPECT_THAT(a.credentials, NotNull());
+  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
+  auto a = GcsOptions::FromAccessToken(/*access_token=*/"accesst", expiration);
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.access_token(), Eq("accesst"));
+  EXPECT_THAT(a.credentials.expiration(), Eq(expiration));
   EXPECT_EQ(a.scheme, "https");
 }
 
 TEST(GcsFileSystem, OptionsImpersonateServiceAccount) {
-  auto base = GcsOptions::FromAccessToken(
-      "invalid-access-token-test-only",
-      std::chrono::system_clock::now() + std::chrono::minutes(5));
-  auto a = GcsOptions::FromImpersonatedServiceAccount(
-      *base.credentials, "invalid-sa-test-only@my-project.iam.gserviceaccount.com");
-  EXPECT_THAT(a.credentials, NotNull());
+  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
+  auto base = GcsOptions::FromAccessToken(/*access_token=*/"at", expiration);
+  std::string account = "invalid-sa-test-only@my-project.iam.gserviceaccount.com";
+  auto a = GcsOptions::FromImpersonatedServiceAccount(base.credentials, account);
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.access_token(), Eq("at"));
+  EXPECT_THAT(a.credentials.expiration(), Eq(expiration));
+  EXPECT_THAT(a.credentials.target_service_account(), Eq(account));
+
   EXPECT_EQ(a.scheme, "https");
 }
 
@@ -378,7 +400,8 @@ TEST(GcsFileSystem, OptionsServiceAccountCredentials) {
   })""";
 
   auto a = GcsOptions::FromServiceAccountCredentials(kJsonKeyfileContents);
-  EXPECT_THAT(a.credentials, NotNull());
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.json_credentials(), kJsonKeyfileContents);
   EXPECT_EQ(a.scheme, "https");
 }
 
@@ -568,7 +591,50 @@ TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
   ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
 }
 
-TEST_F(GcsIntegrationTest, GetFileInfoObject) {
+TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
+  // Adds detailed tests to handle cases of different edge cases
+  // with directory naming conventions (e.g. with and without slashes).
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
+  ASSERT_OK_AND_ASSIGN(
+      auto output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName, /*metadata=*/{}));
+  const auto data = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  // 0 is immediately after "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues.
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(PreexistingBucketPath() +
+                                                        "test-object-dir/some_other_dir0",
+                                                    /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(
+      output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName + "0", /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName, FileType::File);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName + "/",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir/",
+                 FileType::Directory);
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-di",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_di",
+                 FileType::NotFound);
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoObjectNoExplicitObject) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   auto object =
       GcsClient().GetObjectMetadata(PreexistingBucketName(), PreexistingObjectName());
@@ -633,7 +699,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorLimitedRecursion) {
     SCOPED_TRACE("Testing with max_recursion=" + std::to_string(max_recursion));
     const auto max_depth =
         internal::Depth(internal::EnsureTrailingSlash(hierarchy.base_dir)) +
-        max_recursion;
+        max_recursion + 1;  // Add 1 because files in a directory should be included
     std::vector<arrow::fs::FileInfo> expected;
     std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
                  std::back_inserter(expected), [&](const arrow::fs::FileInfo& info) {
@@ -725,6 +791,13 @@ TEST_F(GcsIntegrationTest, CreateDirRecursiveBucketAndFolder) {
 TEST_F(GcsIntegrationTest, CreateDirUri) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(Invalid, fs->CreateDir("gs://" + RandomBucketName(), true));
+}
+
+TEST_F(GcsIntegrationTest, DeleteBucketDirSuccess) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  ASSERT_OK(fs->CreateDir("pyarrow-filesystem/", /*recursive=*/true));
+  ASSERT_RAISES(Invalid, fs->CreateDir("/", false));
+  ASSERT_OK(fs->DeleteDir("pyarrow-filesystem/"));
 }
 
 TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
@@ -1255,6 +1328,16 @@ TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
   ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
   ASSERT_RAISES(Invalid, stream->Seek(2));
+}
+
+TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
+  // Smoke test for FileSystemFromUri
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(std::string("gs://anonymous@") +
+                                                  PreexistingBucketPath()));
+  EXPECT_EQ(fs->type_name(), "gcs");
+  ASSERT_OK_AND_ASSIGN(auto fs2, FileSystemFromUri(std::string("gcs://anonymous@") +
+                                                   PreexistingBucketPath()));
+  EXPECT_EQ(fs2->type_name(), "gcs");
 }
 
 }  // namespace

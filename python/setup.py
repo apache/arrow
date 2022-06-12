@@ -113,6 +113,8 @@ class build_ext(_build_ext):
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-parquet-encryption', None,
                       'build the Parquet encryption extension'),
+                     ('with-gcs', None,
+                      'build the Google Cloud Storage (GCS) extension'),
                      ('with-s3', None, 'build the Amazon S3 extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -155,6 +157,8 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
+        self.with_gcs = strtobool(
+            os.environ.get('PYARROW_WITH_GCS', '0'))
         self.with_s3 = strtobool(
             os.environ.get('PYARROW_WITH_S3', '0'))
         self.with_hdfs = strtobool(
@@ -216,6 +220,7 @@ class build_ext(_build_ext):
         '_parquet_encryption',
         '_orc',
         '_plasma',
+        '_gcsfs',
         '_s3fs',
         '_substrait',
         '_hdfs',
@@ -281,6 +286,7 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_parquet_encryption,
                               'PYARROW_BUILD_PARQUET_ENCRYPTION')
             append_cmake_bool(self.with_plasma, 'PYARROW_BUILD_PLASMA')
+            append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
             append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
             append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
             append_cmake_bool(self.with_tensorflow, 'PYARROW_USE_TENSORFLOW')
@@ -446,6 +452,8 @@ class build_ext(_build_ext):
         if name == '_flight' and not self.with_flight:
             return True
         if name == '_substrait' and not self.with_substrait:
+            return True
+        if name == '_gcsfs' and not self.with_gcs:
             return True
         if name == '_s3fs' and not self.with_s3:
             return True
