@@ -157,7 +157,12 @@ def new_stream(sink, schema, *, use_legacy_format=None, options=None):
 new_stream.__doc__ = """\
 Create an Arrow columnar IPC stream writer instance
 
-{}""".format(_ipc_writer_class_doc)
+{}
+
+Returns
+-------
+writer : RecordBatchStreamWriter
+""".format(_ipc_writer_class_doc)
 
 
 def open_stream(source, *, options=None, memory_pool=None):
@@ -190,7 +195,12 @@ def new_file(sink, schema, *, use_legacy_format=None, options=None):
 new_file.__doc__ = """\
 Create an Arrow columnar IPC file writer instance
 
-{}""".format(_ipc_writer_class_doc)
+{}
+
+Returns
+-------
+writer : RecordBatchFileWriter
+""".format(_ipc_writer_class_doc)
 
 
 def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
