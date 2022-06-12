@@ -45,12 +45,19 @@ jobs:
         shell: cmd
         run: |
           cd arrow
-          archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
-          @rem if errorlevel 0 (
-          @rem   archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
-          @rem ) else (
-          @rem   archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
-          @rem )
+          @rem We want to use only "archery docker run
+          @rem -e SETUPTOOLS_SCM_PRETEND_VERSION=...
+          @rem python-wheel-windows-vs2017" but it doesn't use pulled caches.
+          @rem It always build an image from scratch.
+          @rem We can remove this
+          @rem 'if pull; then; "run --no-build"; else; "run"; fi'
+          @rem workaround once we find a way to use pulled caches.
+          archery docker pull python-wheel-windows-vs2017
+          if errorlevel 0 (
+            archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          ) else (
+            archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          )
 
       - name: Test wheel
         shell: cmd
