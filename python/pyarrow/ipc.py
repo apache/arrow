@@ -164,6 +164,7 @@ Returns
 writer : RecordBatchStreamWriter
 """.format(_ipc_writer_class_doc)
 
+
 def open_stream(source, *, options=None, memory_pool=None):
     """
     Create reader for Arrow streaming format.
