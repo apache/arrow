@@ -314,7 +314,7 @@ cdef class Function(_Weakrefable):
         return self.base_func.num_kernels()
 
     def call(self, args, FunctionOptions options=None,
-             MemoryPool memory_pool=None):
+             MemoryPool memory_pool=None, length=None):
         """
         Call the function on the given arguments.
 
@@ -328,23 +328,34 @@ cdef class Function(_Weakrefable):
             the right concrete options type.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+        length : int, optional
+            Batch size for execution, for nullary (no argument) functions. If
+            not passed, will be inferred from passed data.
         """
         cdef:
             const CFunctionOptions* c_options = NULL
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
             CExecContext c_exec_ctx = CExecContext(pool)
-            vector[CDatum] c_args
+            CExecBatch c_batch
             CDatum result
 
-        _pack_compute_args(args, &c_args)
+        _pack_compute_args(args, &c_batch.values)
 
         if options is not None:
             c_options = options.get_options()
 
-        with nogil:
-            result = GetResultValue(
-                self.base_func.Execute(c_args, c_options, &c_exec_ctx)
-            )
+        if length is not None:
+            c_batch.length = length
+            with nogil:
+                result = GetResultValue(
+                    self.base_func.Execute(c_batch, c_options, &c_exec_ctx)
+                )
+        else:
+            with nogil:
+                result = GetResultValue(
+                    self.base_func.Execute(c_batch.values, c_options,
+                                           &c_exec_ctx)
+                )
 
         return wrap_datum(result)
 
@@ -524,7 +535,7 @@ def list_functions():
     return _global_func_registry.list_functions()
 
 
-def call_function(name, args, options=None, memory_pool=None):
+def call_function(name, args, options=None, memory_pool=None, length=None):
     """
     Call a named function.
 
@@ -541,9 +552,13 @@ def call_function(name, args, options=None, memory_pool=None):
         options provided to the function.
     memory_pool : MemoryPool, optional
         memory pool to use for allocations during function execution.
+    length : int, optional
+        Batch size for execution, for nullary (no argument) functions. If not
+        passed, inferred from data.
     """
     func = _global_func_registry.get_function(name)
-    return func.call(args, options=options, memory_pool=memory_pool)
+    return func.call(args, options=options, memory_pool=memory_pool,
+                     length=length)
 
 
 cdef class FunctionOptions(_Weakrefable):

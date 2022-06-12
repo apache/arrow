@@ -149,7 +149,7 @@ def test_option_class_equality():
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.CumulativeSumOptions(start=0, skip_nulls=False),
         pc.QuantileOptions(),
-        pc.RandomOptions(10),
+        pc.RandomOptions(),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -729,31 +729,6 @@ def test_generated_docstrings():
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
-    # Nullary with options
-    assert pc.random.__doc__ == textwrap.dedent("""\
-        Generate numbers in the range [0, 1).
-
-        Generated values are uniformly-distributed, double-precision """ +
-                                                """in range [0, 1).
-        Length of generated data, algorithm and seed can be changed """ +
-                                                """via RandomOptions.
-
-        Parameters
-        ----------
-        length : int
-            Number of random values to generate.
-        initializer : int or str
-            How to initialize the underlying random generator.
-            If an integer is given, it is used as a seed.
-            If "system" is given, the random generator is initialized with
-            a system-specific source of (hopefully true) randomness.
-            Other values are invalid.
-        options : pyarrow.compute.RandomOptions, optional
-            Alternative way of passing options.
-        memory_pool : pyarrow.MemoryPool, optional
-            If not passed, will allocate memory from the default memory pool.
-        """)
-    # With custom examples
     assert pc.filter.__doc__ == textwrap.dedent("""\
         Filter with a boolean selection filter.
 
@@ -822,7 +797,7 @@ def test_generated_signatures():
     assert str(sig) == "(indices, /, *values, memory_pool=None)"
     # Nullary with options
     sig = inspect.signature(pc.random)
-    assert str(sig) == ("(length, *, initializer='system', "
+    assert str(sig) == ("(n, *, initializer='system', "
                         "options=None, memory_pool=None)")
 
 

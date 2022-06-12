@@ -1280,7 +1280,7 @@ Result<int64_t> InferBatchLength(const std::vector<Datum>& values) {
         length = arg_length;
       } else {
         if (length != arg_length) {
-          return Status::Invalid("Array lengths were not all the same");
+          return Status::Invalid("Array arguments must all be the same length");
         }
       }
       are_all_scalar = false;
@@ -1290,7 +1290,7 @@ Result<int64_t> InferBatchLength(const std::vector<Datum>& values) {
         length = arg_length;
       } else {
         if (length != arg_length) {
-          return Status::Invalid("Array lengths were not all the same");
+          return Status::Invalid("Array arguments must all be the same length");
         }
       }
       are_all_scalar = false;
