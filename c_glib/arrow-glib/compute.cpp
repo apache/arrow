@@ -1268,7 +1268,7 @@ garrow_aggregate_node_options_new(GList *aggregations,
     if (function_options) {
       arrow_aggregates.push_back({
         aggregation_priv->function,
-        std::move(function_options->Copy()),
+        function_options->Copy(),
       });
     } else {
       arrow_aggregates.push_back({aggregation_priv->function, nullptr});
