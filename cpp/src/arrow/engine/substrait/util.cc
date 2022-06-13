@@ -68,7 +68,7 @@ class SubstraitExecutor {
                              compute::ExecContext exec_context)
       : plan_(std::move(plan)), exec_context_(exec_context) {}
 
-  ~SubstraitExecutor() { this->Close(); }
+  ~SubstraitExecutor() { ARROW_UNUSED(this->Close()); }
 
   Result<std::shared_ptr<RecordBatchReader>> Execute() {
     for (const compute::Declaration& decl : declarations_) {
