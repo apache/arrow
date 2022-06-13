@@ -190,8 +190,8 @@ cd cpp
 %if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
-  -Djemalloc_SOURCE=SYSTEM \
 %endif
+  -Djemalloc_SOURCE=SYSTEM \
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
