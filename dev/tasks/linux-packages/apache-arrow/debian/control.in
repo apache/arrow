@@ -134,6 +134,7 @@ Depends:
   libbz2-dev,
 @USE_SYSTEM_C_ARES@  libc-ares-dev,
 @USE_SYSTEM_GRPC@  libgrpc++-dev,
+  libjemalloc-dev,
   liblz4-dev,
   libre2-dev,
   libsnappy-dev,
