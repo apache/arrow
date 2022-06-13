@@ -87,7 +87,7 @@ using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOpti
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
-    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set = NULLPTR);
+    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
