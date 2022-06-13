@@ -134,9 +134,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .docker
-          key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-${{ github.run_id }}
+          key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
           restore-keys: |
-            ${{ matrix.config.image }}-r-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-
+            ${{ matrix.config.image }}-r-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ${{ matrix.config.image }}-r-
 
       - name: Setup Python
@@ -204,9 +204,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-${{ github.run_id }}
+          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
           restore-keys: |
-            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-
+            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       # We use the makepkg-mingw setup that is included in rtools40 even when
       # we use the rtools35 compilers, so we always install R 4.0/Rtools40
@@ -315,9 +315,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-${{ github.run_id }}
+          key: r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-${{ github.run_id }}
           restore-keys: |
-            r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**hashFiles('r/src/**/*.cpp','r/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h))') }}-
+            r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**/*.h))') }}-
             r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}
       - uses: r-lib/actions/setup-r@v2
         with:
