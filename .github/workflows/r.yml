@@ -74,9 +74,9 @@ jobs:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
           # this is fine as there are no differences in the build
-          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-${{ github.run_id }}
+          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
           restore-keys: |
-            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-
+            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Check pkgdown reference sections
         run: ci/scripts/r_pkgdown_check.sh
