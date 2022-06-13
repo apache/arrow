@@ -46,11 +46,6 @@ fi
 
 export MINGW_ARCH
 
-if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
-    echo -e "===\n=== ccache statistics before build\n==="
-    ccache -s
-fi
-
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
