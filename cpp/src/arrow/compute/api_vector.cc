@@ -313,10 +313,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order, ExecContext* ctx) {
-  SortOptions options({SortKey("not-used", order)});
-  ARROW_ASSIGN_OR_RAISE(
-      Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
-  return result.make_array();
+  return SortIndices(chunked_array, ArraySortOptions(order.order), ctx);
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,
