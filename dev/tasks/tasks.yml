@@ -206,6 +206,7 @@ tasks:
       flags: >-
         -e ARROW_CONAN_PARQUET=True
         -e ARROW_CONAN_WITH_LZ4=True
+        -e ARROW_CONAN_WITH_JEMALLOC=True
       image: conan
 
   ########################### Python Minimal ############################

@@ -325,10 +325,10 @@ set(ARROW_TESTING_SRCS
 # (see https://gitlab.kitware.com/cmake/cmake/issues/19677)
 
 set(_allocator_dependencies "") # Empty list
-if(ARROW_JEMALLOC)
+if(jemalloc_VENDORED)
   list(APPEND _allocator_dependencies jemalloc_ep)
 endif()
-if(ARROW_MIMALLOC)
+if(mimalloc_VENDORED)
   list(APPEND _allocator_dependencies mimalloc_ep)
 endif()
 

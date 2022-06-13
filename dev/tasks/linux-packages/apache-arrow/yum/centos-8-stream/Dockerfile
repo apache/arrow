@@ -40,6 +40,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    jemalloc-devel \
     json-devel \
     libarchive \
     libzstd-devel \

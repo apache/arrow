@@ -18,6 +18,7 @@ Build-Depends:
   libgoogle-glog-dev,
 @USE_SYSTEM_GRPC@  libgrpc++-dev,
   libgtest-dev,
+  libjemalloc-dev,
   liblz4-dev,
 @USE_SYSTEM_GRPC@  libprotoc-dev,
 @USE_SYSTEM_GRPC@  libprotobuf-dev,

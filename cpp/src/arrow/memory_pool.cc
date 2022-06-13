@@ -35,6 +35,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/debug.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/io_util.h"
@@ -49,19 +50,22 @@
 #endif
 
 #ifdef ARROW_JEMALLOC
+#ifdef ARROW_JEMALLOC_VENDORED
 // Needed to support jemalloc 3 and 4
 #define JEMALLOC_MANGLE
 // Explicitly link to our version of jemalloc
 #include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
+#else
+#include <jemalloc/jemalloc.h>
+#endif
 #endif
 
 #ifdef ARROW_MIMALLOC
 #include <mimalloc.h>
 #endif
 
-#ifdef ARROW_JEMALLOC
-
-// Compile-time configuration for jemalloc options.
+#ifdef ARROW_JEMALLOC_VENDORED
+// Compile-time configuration for vendored jemalloc options.
 // Note the prefix ("je_arrow_") must match the symbol prefix given when
 // building jemalloc.
 // See discussion in https://github.com/jemalloc/jemalloc/issues/1621
@@ -101,7 +105,7 @@ const char* je_arrow_malloc_conf =
 #endif
      JEMALLOC_DEBUG_OPTIONS);  // NOLINT: whitespace/parens
 
-#endif  // ARROW_JEMALLOC
+#endif  // ARROW_JEMALLOC_VENDORED
 
 namespace arrow {
 
