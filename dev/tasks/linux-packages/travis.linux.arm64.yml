@@ -114,7 +114,7 @@ script:
       done
   - popd
   - |
-      travis_wait 30 \
+      travis_wait 55 \
         rake \
           --trace \
           {{ task_namespace }}:build \
