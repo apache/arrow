@@ -114,12 +114,13 @@ script:
       done
   - popd
   - |
-      rake \
-        --trace \
-        {{ task_namespace }}:build \
-        BUILD_DIR=build \
-        DEB_BUILD_OPTIONS=parallel=2 \
-        RPM_BUILD_NCPUS=2
+      travis_wait 30 \
+        rake \
+          --trace \
+          {{ task_namespace }}:build \
+          BUILD_DIR=build \
+          DEB_BUILD_OPTIONS=parallel=2 \
+          RPM_BUILD_NCPUS=2
   - sudo rm -rf */*/build
   - popd
   # Push Docker image
