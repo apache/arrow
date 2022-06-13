@@ -72,7 +72,9 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .docker
-          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
+          # As this key is identical on both matrix builds only one will be able to successfully cache,
+          # this is fine as there are no differences in the build
+          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }} 
           restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Check pkgdown reference sections
         run: ci/scripts/r_pkgdown_check.sh
@@ -197,8 +199,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
+          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       # We use the makepkg-mingw setup that is included in rtools40 even when
       # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@v2
@@ -306,8 +308,13 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
+          key: r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**') }}
+          restore-keys: r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-
+      - name: Ccache Statistics
+        shell: bash
+        run: |
+          echo -e "=== ccache statistics before build ==="
+          ccache -s
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
@@ -383,6 +390,11 @@ jobs:
             check_dir = 'check',
             timeout = 3600
           )
+      - name: Ccache Statistics
+        shell: bash
+        run: |
+          echo -e "=== ccache statistics after build ==="
+          ccache -s
       - name: Run lintr
         if: ${{ matrix.config.rversion == '4.2' }}
         env:
