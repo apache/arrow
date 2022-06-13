@@ -27,6 +27,8 @@
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/filesystem/api.h"
+#include "arrow/ipc/api.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
@@ -36,51 +38,79 @@ namespace arrow {
 namespace compute {
 
 static constexpr int64_t kTotalBatchSize = 1e2;
-static const char* time_col = "time";
-static const char* key_col = "key";
+static const char* time_col = "time_ns";
+static const char* key_col = "id";
+
+// Wrapper to enable the use of RecordBatchFileReaders as RecordBatchReaders
+class RecordBatchFileReaderWrapper : public arrow::ipc::RecordBatchReader {
+  std::shared_ptr<arrow::ipc::RecordBatchFileReader> _reader;
+  int _next;
+
+ public:
+  virtual ~RecordBatchFileReaderWrapper() {}
+  explicit RecordBatchFileReaderWrapper(
+      std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader)
+      : _reader(reader), _next(0) {}
+
+  virtual arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch) {
+    // cerr << "ReadNext _next=" << _next << "\n";
+    if (_next < _reader->num_record_batches()) {
+      ARROW_ASSIGN_OR_RAISE(*batch, _reader->ReadRecordBatch(_next++));
+      // cerr << "\t --> " << (*batch)->num_rows() << "\n";
+    } else {
+      batch->reset();
+      // cerr << "\t --> EOF\n";
+    }
+
+    return arrow::Status::OK();
+  }
+
+  virtual std::shared_ptr<arrow::Schema> schema() const { return _reader->schema(); }
+};
+
+static arrow::compute::ExecNode* make_arrow_ipc_reader_node(
+    std::shared_ptr<arrow::compute::ExecPlan>& plan,
+    std::shared_ptr<arrow::fs::FileSystem>& fs, const std::string& filename) {
+  // TODO: error checking
+  std::shared_ptr<arrow::io::RandomAccessFile> input = *fs->OpenInputFile(filename);
+  std::shared_ptr<arrow::ipc::RecordBatchFileReader> in_reader =
+      *arrow::ipc::RecordBatchFileReader::Open(input);
+  std::shared_ptr<RecordBatchFileReaderWrapper> reader(
+      new RecordBatchFileReaderWrapper(in_reader));
+
+  auto schema = reader->schema();
+  auto batch_gen = *arrow::compute::MakeReaderGenerator(
+      std::move(reader), arrow::internal::GetCpuThreadPool());
+
+  // cerr << "create source("<<filename<<")\n";
+  return *arrow::compute::MakeExecNode(
+      "source",    // registered type
+      plan.get(),  // execution plan
+      {},          // inputs
+      arrow::compute::SourceNodeOptions(std::make_shared<arrow::Schema>(*schema),
+                                        batch_gen));  // options
+}
 
 static void AsOfJoinOverhead(benchmark::State& state, Expression expr,
                              int64_t tolerance) {
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
   const int64_t num_batches = kTotalBatchSize / batch_size;
+  const std::string data_directory = "../../../bamboo-streaming/";
 
-  arrow::compute::BatchesWithSchema left_table =
-      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
-                                field("l_v0", float64())}),
-                        num_batches, batch_size);
-  arrow::compute::BatchesWithSchema right_table0 =
-      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
-                                field("r0_v0", float64())}),
-                        num_batches, batch_size);
-  arrow::compute::BatchesWithSchema right_table1 =
-      MakeRandomBatches(schema({field(time_col, int64()), field(key_col, int32()),
-                                field("r1_v0", float32())}),
-                        num_batches, batch_size);
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
 
   for (auto _ : state) {
     state.PauseTiming();
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
                          ExecPlan::Make(&ctx));
-    AsofJoinNodeOptions join_options(time_col, key_col, tolerance);
-    Declaration join{"asofjoin", join_options};
-    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * left_table_source,
-                         MakeExecNode("source", plan.get(), {},
-                                      SourceNodeOptions{left_table.schema,
-                                                        left_table.gen(/*parallel=*/true,
-                                                                       /*slow=*/false)}));
-    ASSERT_OK_AND_ASSIGN(
-        arrow::compute::ExecNode * right_table0_source,
-        MakeExecNode(
-            "source", plan.get(), {},
-            SourceNodeOptions{right_table0.schema, right_table0.gen(/*parallel=*/true,
-                                                                    /*slow=*/false)}));
-    ASSERT_OK_AND_ASSIGN(
-        arrow::compute::ExecNode * right_table1_source,
-        MakeExecNode(
-            "source", plan.get(), {},
-            SourceNodeOptions{right_table1.schema, right_table1.gen(/*parallel=*/true,
-                                                                    /*slow=*/false)}));
+    std::shared_ptr<arrow::fs::FileSystem> fs =
+        std::make_shared<arrow::fs::LocalFileSystem>();
+    arrow::compute::ExecNode* left_table_source =
+        make_arrow_ipc_reader_node(plan, fs, data_directory + "left_table.feather");
+    arrow::compute::ExecNode* right_table0_source =
+        make_arrow_ipc_reader_node(plan, fs, data_directory + "right_table.feather");
+    arrow::compute::ExecNode* right_table1_source =
+        make_arrow_ipc_reader_node(plan, fs, data_directory + "right_table2.feather");
     ASSERT_OK_AND_ASSIGN(
         arrow::compute::ExecNode * asof_join_node,
         MakeExecNode("asofjoin", plan.get(),
@@ -251,7 +281,7 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
       ->Range(10, kTotalBatchSize)
       ->UseRealTime();
 }
-
+/*
 BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, complex_expression, complex_expression, 1000)
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, simple_expression, simple_expression, 1000)
@@ -262,7 +292,7 @@ BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, zero_copy_expression, zero_copy_expr
 BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, ref_only_expression, ref_only_expression,
                   1000)
     ->Apply(SetArgs);
-/*
+*/
 BENCHMARK_CAPTURE(AsOfJoinOverhead, complex_expression, complex_expression, 1000)
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(AsOfJoinOverhead, simple_expression, simple_expression, 1000)
@@ -271,6 +301,6 @@ BENCHMARK_CAPTURE(AsOfJoinOverhead, zero_copy_expression, zero_copy_expression, 
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(AsOfJoinOverhead, ref_only_expression, ref_only_expression, 1000)
     ->Apply(SetArgs);
-*/
+
 }  // namespace compute
 }  // namespace arrow
