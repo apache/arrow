@@ -215,6 +215,7 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   }
 
   util::tracing::Span span;
+
   START_COMPUTE_SPAN(span, name(),
                      {{"function.name", name()},
                       {"function.options", options ? options->ToString() : "<NULLPTR>"},

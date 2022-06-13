@@ -28,6 +28,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
