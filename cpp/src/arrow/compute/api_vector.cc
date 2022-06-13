@@ -298,6 +298,15 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            const ArraySortOptions& array_options,
                                            ExecContext* ctx) {
   SortOptions options({SortKey("", array_options.order)}, array_options.null_placement);
+
+  uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
+  uint64_t* out_end = out_begin + out_arr->length;
+  std::iota(out_begin, out_end, 0);
+
+      return SortChunkedArray(ctx->exec_context(), out_begin, out_end,
+                              *batch[0].chunked_array(), options.order,
+                              options.null_placement);
+
   ARROW_ASSIGN_OR_RAISE(
       Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
   return result.make_array();

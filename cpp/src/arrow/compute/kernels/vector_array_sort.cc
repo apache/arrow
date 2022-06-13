@@ -54,7 +54,7 @@ template <typename OutType, typename InType>
 struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     using GetView = GetViewType<InType>;
 
     if (ctx->state() == nullptr) {
@@ -62,14 +62,14 @@ struct PartitionNthToIndices {
     }
     const auto& options = PartitionNthToIndicesState::Get(ctx);
 
-    ArrayType arr(batch[0].array());
+    ArrayType arr(batch[0].array.ToArrayData());
 
     const int64_t pivot = options.pivot;
     if (pivot > arr.length()) {
       return Status::IndexError("NthToIndices index out of bound");
     }
-    ArrayData* out_arr = out->mutable_array();
-    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    ArraySpan* out_arr = out->array_span();
+    uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
     std::iota(out_begin, out_end, 0);
     if (pivot == arr.length()) {
@@ -92,12 +92,12 @@ struct PartitionNthToIndices {
 
 template <typename OutType>
 struct PartitionNthToIndices<OutType, NullType> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (ctx->state() == nullptr) {
       return Status::Invalid("NthToIndices requires PartitionNthOptions");
     }
-    ArrayData* out_arr = out->mutable_array();
-    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    ArraySpan* out_arr = out->array_span();
+    uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
     uint64_t* out_end = out_begin + batch.length;
     std::iota(out_begin, out_end, 0);
     return Status::OK();
@@ -144,7 +144,6 @@ class ArrayCompareSorter {
   using GetView = GetViewType<ArrowType>;
 
  public:
-  // `offset` is used when this is called on a chunk of a chunked array
   NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
                                  const Array& array, int64_t offset,
                                  const ArraySortOptions& options) {
@@ -208,7 +207,6 @@ class ArrayCountSorter {
   c_type min_{0};
   uint32_t value_range_{0};
 
-  // `offset` is used when this is called on a chunk of a chunked array
   template <typename CounterType>
   NullPartitionResult SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
                                    const ArrayType& values, int64_t offset,
@@ -275,7 +273,6 @@ class ArrayCountSorter<BooleanType> {
  public:
   ArrayCountSorter() = default;
 
-  // `offset` is used when this is called on a chunk of a chunked array
   NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
                                  const Array& array, int64_t offset,
                                  const ArraySortOptions& options) {
@@ -321,7 +318,6 @@ class ArrayCountOrCompareSorter {
   using c_type = typename ArrowType::c_type;
 
  public:
-  // `offset` is used when this is called on a chunk of a chunked array
   NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
                                  const Array& array, int64_t offset,
                                  const ArraySortOptions& options) {
@@ -439,21 +435,12 @@ template <typename OutType, typename InType>
 struct ArraySortIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = ArraySortIndicesState::Get(ctx);
-
-    ArrayData* out_arr = out->mutable_array();
-    DCHECK_EQ(out_arr->length, batch.length);
-    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+    ArraySpan* out_arr = out->array_span();
+    uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
     uint64_t* out_end = out_begin + out_arr->length;
     std::iota(out_begin, out_end, 0);
-
-    if (batch[0].kind() == Datum::CHUNKED_ARRAY) {
-      return SortChunkedArray(ctx->exec_context(), out_begin, out_end,
-                              *batch[0].chunked_array(), options.order,
-                              options.null_placement);
-    }
-    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
 
     ArrayType arr(batch[0].array());
     ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*GetPhysicalType(arr.type())));

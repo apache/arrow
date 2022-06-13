@@ -548,10 +548,6 @@ struct Kernel {
 using ArrayKernelExec =
     std::function<Status(KernelContext*, const ExecSpan&, ExecResult*)>;
 
-/// \brief Kernel execution API being phased out per ARROW-16756
-using ArrayKernelExecOld =
-    std::function<Status(KernelContext*, const ExecBatch&, Datum*)>;
-
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
 /// and memory pre-allocation preferences.
@@ -600,13 +596,13 @@ struct VectorKernel : public Kernel {
   VectorKernel() = default;
 
   VectorKernel(std::vector<InputType> in_types, OutputType out_type,
-               ArrayKernelExecOld exec, KernelInit init = NULLPTR,
+               ArrayKernelExec exec, KernelInit init = NULLPTR,
                FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
         exec(std::move(exec)),
         finalize(std::move(finalize)) {}
 
-  VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExecOld exec,
+  VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
                KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(sig), std::move(init)),
         exec(std::move(exec)),
@@ -614,7 +610,7 @@ struct VectorKernel : public Kernel {
 
   /// \brief Perform a single invocation of this kernel. Any required state is
   /// managed through the KernelContext.
-  ArrayKernelExecOld exec;
+  ArrayKernelExec exec;
 
   /// \brief For VectorKernel, convert intermediate results into finalized
   /// results. Mutates input argument. Some kernels may accumulate state

@@ -159,7 +159,7 @@ struct CumulativeGeneric {
     return st;
   }
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
 
     auto start = UnboxScalar<OutType>::Unbox(*(options.start));
