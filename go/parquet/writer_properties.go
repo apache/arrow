@@ -109,7 +109,7 @@ func WithDictionaryDefault(dict bool) WriterProperty {
 // WithDictionaryFor allows enabling or disabling dictionary encoding for a given column path string
 func WithDictionaryFor(path string, dict bool) WriterProperty {
 	return func(cfg *writerPropConfig) {
-		cfg.dictEnabled[path] = true
+		cfg.dictEnabled[path] = dict
 	}
 }
 
