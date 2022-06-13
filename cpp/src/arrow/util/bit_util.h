@@ -67,7 +67,13 @@ static constexpr uint8_t kBytePopcount[] = {
     5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6,
     4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
 
-static inline uint64_t PopCount(uint64_t bitmap) { return ARROW_POPCOUNT64(bitmap); }
+static inline uint64_t PopCount(uint64_t bitmap) {
+#if defined(_MSC_VER) && !defined(_M_AMD64) && !defined(_M_X64) 
+  return ARROW_POPCOUNT32((bitmap >> 32) & UINT32_MAX) + ARROW_POPCOUNT32(bitmap & UINT32_MAX);
+#else
+  return ARROW_POPCOUNT64(bitmap);
+#endif
+}
 static inline uint32_t PopCount(uint32_t bitmap) { return ARROW_POPCOUNT32(bitmap); }
 
 //
@@ -199,7 +205,7 @@ static inline int CountLeadingZeros(uint64_t value) {
 #if defined(__clang__) || defined(__GNUC__)
   if (value == 0) return 64;
   return static_cast<int>(__builtin_clzll(value));
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) && (defined(_M_AMD64) || defined(_M_X64))
   unsigned long index;                     // NOLINT
   if (_BitScanReverse64(&index, value)) {  // NOLINT
     return 63 - static_cast<int>(index);
@@ -245,7 +251,7 @@ static inline int CountTrailingZeros(uint64_t value) {
 #if defined(__clang__) || defined(__GNUC__)
   if (value == 0) return 64;
   return static_cast<int>(__builtin_ctzll(value));
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) && (defined(_M_AMD64) || defined(_M_X64))
   unsigned long index;  // NOLINT
   if (_BitScanForward64(&index, value)) {
     return static_cast<int>(index);
@@ -255,7 +261,7 @@ static inline int CountTrailingZeros(uint64_t value) {
 #else
   int bitpos = 0;
   if (value) {
-    while (value & 1 == 0) {
+    while ((value & 1) == 0) {
       value >>= 1;
       ++bitpos;
     }

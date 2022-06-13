@@ -197,12 +197,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - windows-2019
         include:
           - os: windows-2019
-            name: Windows 2019
+            name: Windows 2019 x64
             generator: Visual Studio 16 2019
+            platform: x64
+          - os: windows-2019
+            name: Windows 2019 Win32
+            generator: Visual Studio 16 2019
+            platform: Win32
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -227,7 +230,7 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
+      CMAKE_ARGS: '-A ${{ matrix.platform }} -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
       CMAKE_GENERATOR: ${{ matrix.generator }}
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
