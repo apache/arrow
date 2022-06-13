@@ -397,7 +397,21 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(TimestampType type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrowBuffer.Builder<long> valueBuilder = new ArrowBuffer.Builder<long>(JsonFieldData.Count);
+                var json = JsonFieldData.Data.GetRawText();
+                string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
+
+                foreach (string value in values)
+                {
+                    valueBuilder.Append(long.Parse(value));
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build();
+
+                Array = new TimestampArray(
+                    type, valueBuffer, validityBuffer,
+                    JsonFieldData.Count, nullCount, 0);
             }
 
             public void Visit(StringType type)
