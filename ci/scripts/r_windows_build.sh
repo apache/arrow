@@ -114,8 +114,3 @@ zip -r ${DST_DIR}.zip $DST_DIR
 # Copy that to a file name/path that does not vary by version number so we
 # can easily find it in the R package tests on CI
 cp ${DST_DIR}.zip ../libarrow.zip
-
-if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
-    echo -e "===\n=== ccache statistics after build\n==="
-    ccache -s
-fi
