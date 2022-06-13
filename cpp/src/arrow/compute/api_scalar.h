@@ -478,20 +478,14 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
  public:
   enum Initializer { SystemRandom, Seed };
 
-  static RandomOptions FromSystemRandom(int64_t length) {
-    return RandomOptions{length, SystemRandom, 0};
-  }
-  static RandomOptions FromSeed(int64_t length, uint64_t seed) {
-    return RandomOptions{length, Seed, seed};
-  }
+  static RandomOptions FromSystemRandom() { return RandomOptions{SystemRandom, 0}; }
+  static RandomOptions FromSeed(uint64_t seed) { return RandomOptions{Seed, seed}; }
 
-  RandomOptions(int64_t length, Initializer initializer, uint64_t seed);
+  RandomOptions(Initializer initializer, uint64_t seed);
   RandomOptions();
   static constexpr char const kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
 
-  /// The length of the array returned. Negative is invalid.
-  int64_t length;
   /// The type of initialization for random number generation - system or provided seed.
   Initializer initializer;
   /// The seed value used to initialize the random number generation.

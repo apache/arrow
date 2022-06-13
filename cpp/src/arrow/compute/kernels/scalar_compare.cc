@@ -163,7 +163,7 @@ struct CompareTimestamps
     : public applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op> {
   using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
     const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
     if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
@@ -330,15 +330,15 @@ template <typename OutType, typename Op>
 struct ScalarMinMax {
   using OutValue = typename GetOutputType<OutType>::T;
 
-  static void ExecScalar(const ExecBatch& batch,
+  static void ExecScalar(const ExecSpan& batch,
                          const ElementWiseAggregateOptions& options, Scalar* out) {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
-    for (const auto& arg : batch.values) {
+    for (const ExecValue& arg : batch.values) {
       // Ignore non-scalar arguments so we can use it in the mixed-scalar-and-array case
       if (!arg.is_scalar()) continue;
-      const auto& scalar = *arg.scalar();
+      const Scalar& scalar = *arg.scalar;
       if (!scalar.is_valid) {
         if (options.skip_nulls) continue;
         out->is_valid = false;
@@ -358,30 +358,30 @@ struct ScalarMinMax {
     }
   }
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     const auto descrs = batch.GetDescriptors();
-    const size_t scalar_count =
-        static_cast<size_t>(std::count_if(batch.values.begin(), batch.values.end(),
-                                          [](const Datum& d) { return d.is_scalar(); }));
+    const size_t scalar_count = static_cast<size_t>(
+        std::count_if(batch.values.begin(), batch.values.end(),
+                      [](const ExecValue& v) { return v.is_scalar(); }));
     if (scalar_count == batch.values.size()) {
       ExecScalar(batch, options, out->scalar().get());
       return Status::OK();
     }
 
-    ArrayData* output = out->mutable_array();
+    ArrayData* output = out->array_data().get();
 
     // At least one array, two or more arguments
-    ArrayDataVector arrays;
-    for (const auto& arg : batch.values) {
-      if (!arg.is_array()) continue;
-      arrays.push_back(arg.array());
+    std::vector<const ArraySpan*> arrays;
+    for (const auto& value : batch.values) {
+      if (!value.is_array()) continue;
+      arrays.push_back(&value.array);
     }
 
     bool initialize_output = true;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
-                            MakeScalar(out->type(), 0));
+                            MakeScalar(out->type()->Copy(), 0));
       ExecScalar(batch, options, temp_scalar.get());
       if (temp_scalar->is_valid) {
         const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
@@ -392,7 +392,7 @@ struct ScalarMinMax {
         // Abort early
         ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
                                                               ctx->memory_pool()));
-        *output = *array->data();
+        out->value = std::move(array->data());
         return Status::OK();
       }
     }
@@ -406,47 +406,45 @@ struct ScalarMinMax {
     if (options.skip_nulls && initialize_output) {
       // OR together the validity buffers of all arrays
       if (std::all_of(arrays.begin(), arrays.end(),
-                      [](const std::shared_ptr<ArrayData>& arr) {
-                        return arr->MayHaveNulls();
-                      })) {
-        for (const auto& arr : arrays) {
+                      [](const ArraySpan* arr) { return arr->MayHaveNulls(); })) {
+        for (const ArraySpan* arr : arrays) {
           if (!arr->MayHaveNulls()) continue;
           if (!output->buffers[0]) {
             ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-            ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
-
-                                          batch.length,
+            ::arrow::internal::CopyBitmap(arr->buffers[0].data, arr->offset, batch.length,
                                           output->buffers[0]->mutable_data(),
                                           /*dest_offset=*/0);
           } else {
-            ::arrow::internal::BitmapOr(
-                output->buffers[0]->data(), /*left_offset=*/0, arr->buffers[0]->data(),
-                arr->offset, batch.length,
-                /*out_offset=*/0, output->buffers[0]->mutable_data());
+            ::arrow::internal::BitmapOr(output->buffers[0]->data(), /*left_offset=*/0,
+                                        arr->buffers[0].data, arr->offset, batch.length,
+                                        /*out_offset=*/0,
+                                        output->buffers[0]->mutable_data());
           }
         }
       }
     } else if (!options.skip_nulls) {
       // AND together the validity buffers of all arrays
-      for (const auto& arr : arrays) {
+      for (const ArraySpan* arr : arrays) {
         if (!arr->MayHaveNulls()) continue;
         if (!output->buffers[0]) {
           ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-          ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
-                                        batch.length, output->buffers[0]->mutable_data(),
+          ::arrow::internal::CopyBitmap(arr->buffers[0].data, arr->offset, batch.length,
+                                        output->buffers[0]->mutable_data(),
                                         /*dest_offset=*/0);
         } else {
           ::arrow::internal::BitmapAnd(output->buffers[0]->data(), /*left_offset=*/0,
-                                       arr->buffers[0]->data(), arr->offset, batch.length,
+                                       arr->buffers[0].data, arr->offset, batch.length,
                                        /*out_offset=*/0,
                                        output->buffers[0]->mutable_data());
         }
       }
     }
 
-    for (const auto& array : arrays) {
-      OutputArrayWriter<OutType> writer(out->mutable_array());
-      ArrayIterator<OutType> out_it(*output);
+    for (const ArraySpan* array : arrays) {
+      // TODO(wesm): this got to be a mess in ARROW-16576, clean up
+      ArraySpan out_span(*output);
+      OutputArrayWriter<OutType> writer(&out_span);
+      ArrayIterator<OutType> out_it(out_span);
       int64_t index = 0;
       VisitArrayValuesInline<OutType>(
           *array,
@@ -475,25 +473,25 @@ struct ScalarMinMax {
 template <typename Op>
 Status ExecBinaryMinMaxScalar(KernelContext* ctx,
                               const ElementWiseAggregateOptions& options,
-                              const ExecBatch& batch, Datum* out) {
+                              const ExecSpan& batch, ExecResult* out) {
   if (batch.values.empty()) {
     return Status::OK();
   }
   auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
   if (!options.skip_nulls) {
     // any nulls in the input will produce a null output
-    for (const auto& value : batch.values) {
-      if (!value.scalar()->is_valid) {
+    for (const ExecValue& value : batch.values) {
+      if (!value.scalar->is_valid) {
         output->is_valid = false;
         return Status::OK();
       }
     }
   }
-  const auto& first_scalar = *batch.values.front().scalar();
+  const auto& first_scalar = *batch.values.front().scalar;
   string_view result = checked_cast<const BaseBinaryScalar&>(first_scalar).view();
   bool valid = first_scalar.is_valid;
-  for (size_t i = 1; i < batch.values.size(); i++) {
-    const auto& scalar = *batch[i].scalar();
+  for (int i = 1; i < batch.num_values(); i++) {
+    const Scalar& scalar = *batch[i].scalar;
     if (!scalar.is_valid) {
       DCHECK(options.skip_nulls);
       continue;
@@ -519,10 +517,9 @@ struct BinaryScalarMinMax {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   using offset_type = typename Type::offset_type;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    if (std::all_of(batch.values.begin(), batch.values.end(),
-                    [](const Datum& d) { return d.is_scalar(); })) {
+    if (batch.is_all_scalar()) {
       return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
     }
     return ExecContainingArrays(ctx, options, batch, out);
@@ -530,7 +527,7 @@ struct BinaryScalarMinMax {
 
   static Status ExecContainingArrays(KernelContext* ctx,
                                      const ElementWiseAggregateOptions& options,
-                                     const ExecBatch& batch, Datum* out) {
+                                     const ExecSpan& batch, ExecResult* out) {
     // Presize data to avoid reallocations, using an estimation of final size.
     int64_t estimated_final_size = EstimateOutputSize(batch);
     BuilderType builder(ctx->memory_pool());
@@ -543,9 +540,9 @@ struct BinaryScalarMinMax {
         result = !result ? value : Op::Call(*result, value);
       };
 
-      for (size_t col = 0; col < batch.values.size(); col++) {
+      for (int col = 0; col < batch.num_values(); col++) {
         if (batch[col].is_scalar()) {
-          const auto& scalar = *batch[col].scalar();
+          const Scalar& scalar = *batch[col].scalar;
           if (scalar.is_valid) {
             visit_value(UnboxScalar<Type>::Unbox(scalar));
           } else if (!options.skip_nulls) {
@@ -553,9 +550,9 @@ struct BinaryScalarMinMax {
             break;
           }
         } else {
-          const auto& array = *batch[col].array();
+          const ArraySpan& array = batch[col].array;
           if (!array.MayHaveNulls() ||
-              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0].data, array.offset + row)) {
             const auto offsets = array.GetValues<offset_type>(1);
             const auto data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
@@ -577,25 +574,23 @@ struct BinaryScalarMinMax {
 
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
-    *out = *string_array->data();
-    out->mutable_array()->type = batch[0].type();
-    DCHECK_EQ(batch.length, out->array()->length);
+    out->value = std::move(string_array->data());
+    out->array_data()->type = batch[0].type()->Copy();
+    DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }
 
   // Compute an estimation for the length of the output batch.
-  static int64_t EstimateOutputSize(const ExecBatch& batch) {
+  static int64_t EstimateOutputSize(const ExecSpan& batch) {
     int64_t estimated_final_size = 0;
-    for (size_t col = 0; col < batch.values.size(); col++) {
-      const auto& datum = batch[col];
-      if (datum.is_scalar()) {
-        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*datum.scalar());
+    for (const ExecValue& value : batch.values) {
+      if (value.is_scalar()) {
+        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*value.scalar);
         if (scalar.is_valid) {
           estimated_final_size = std::max(estimated_final_size, scalar.value->size());
         }
       } else {
-        DCHECK(datum.is_array());
-        const ArrayData& array = *datum.array();
+        const ArraySpan& array = value.array;
         const auto offsets = array.GetValues<offset_type>(1);
         int64_t estimated_current_size = offsets[array.length] - offsets[0];
         estimated_final_size = std::max(estimated_final_size, estimated_current_size);
@@ -607,10 +602,9 @@ struct BinaryScalarMinMax {
 
 template <typename Op>
 struct FixedSizeBinaryScalarMinMax {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    if (std::all_of(batch.values.begin(), batch.values.end(),
-                    [](const Datum& d) { return d.is_scalar(); })) {
+    if (batch.is_all_scalar()) {
       return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
     }
     return ExecContainingArrays(ctx, options, batch, out);
@@ -618,26 +612,26 @@ struct FixedSizeBinaryScalarMinMax {
 
   static Status ExecContainingArrays(KernelContext* ctx,
                                      const ElementWiseAggregateOptions& options,
-                                     const ExecBatch& batch, Datum* out) {
-    const auto batch_type = batch[0].type();
-    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
+                                     const ExecSpan& batch, ExecResult* out) {
+    const DataType* batch_type = batch[0].type();
+    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type);
     int32_t byte_width = binary_type->byte_width();
     // Presize data to avoid reallocations.
     int64_t estimated_final_size = batch.length * byte_width;
-    FixedSizeBinaryBuilder builder(batch_type);
+    FixedSizeBinaryBuilder builder(batch_type->Copy());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
-    std::vector<string_view> valid_cols(batch.values.size());
+    std::vector<string_view> valid_cols(batch.num_values());
     for (int64_t row = 0; row < batch.length; row++) {
       string_view result;
       auto visit_value = [&](string_view value) {
         result = result.empty() ? value : Op::Call(result, value);
       };
 
-      for (size_t col = 0; col < batch.values.size(); col++) {
+      for (int col = 0; col < batch.num_values(); col++) {
         if (batch[col].is_scalar()) {
-          const auto& scalar = *batch[col].scalar();
+          const Scalar& scalar = *batch[col].scalar;
           if (scalar.is_valid) {
             visit_value(UnboxScalar<FixedSizeBinaryType>::Unbox(scalar));
           } else if (!options.skip_nulls) {
@@ -645,9 +639,9 @@ struct FixedSizeBinaryScalarMinMax {
             break;
           }
         } else {
-          const auto& array = *batch[col].array();
+          const ArraySpan& array = batch[col].array;
           if (!array.MayHaveNulls() ||
-              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0].data, array.offset + row)) {
             const auto data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
             visit_value(string_view(
                 reinterpret_cast<const char*>(data) + row * byte_width, byte_width));
@@ -667,9 +661,9 @@ struct FixedSizeBinaryScalarMinMax {
 
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
-    *out = *string_array->data();
-    out->mutable_array()->type = batch[0].type();
-    DCHECK_EQ(batch.length, out->array()->length);
+    out->value = std::move(string_array->data());
+    out->array_data()->type = batch[0].type()->Copy();
+    DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }
 };

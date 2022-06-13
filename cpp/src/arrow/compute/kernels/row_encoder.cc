@@ -75,7 +75,7 @@ void BooleanKeyEncoder::AddLengthNull(int32_t* length) {
 Status BooleanKeyEncoder::Encode(const Datum& data, int64_t batch_length,
                                  uint8_t** encoded_bytes) {
   if (data.is_array()) {
-    VisitArrayDataInline<BooleanType>(
+    VisitArraySpanInline<BooleanType>(
         *data.array(),
         [&](bool value) {
           auto& encoded_ptr = *encoded_bytes++;
@@ -144,7 +144,7 @@ Status FixedWidthKeyEncoder::Encode(const Datum& data, int64_t batch_length,
     ArrayData viewed(fixed_size_binary(byte_width_), arr.length, arr.buffers,
                      arr.null_count, arr.offset);
 
-    VisitArrayDataInline<FixedSizeBinaryType>(
+    VisitArraySpanInline<FixedSizeBinaryType>(
         viewed,
         [&](util::string_view bytes) {
           auto& encoded_ptr = *encoded_bytes++;

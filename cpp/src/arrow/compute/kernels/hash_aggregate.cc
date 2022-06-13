@@ -2166,10 +2166,10 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
 
     if (batch[0].is_array()) {
       const auto& input = *batch[0].array();
+      const uint8_t* bitmap = input.buffers[1]->data();
       if (input.MayHaveNulls()) {
-        const uint8_t* bitmap = input.buffers[1]->data();
         arrow::internal::VisitBitBlocksVoid(
-            input.buffers[0], input.offset, input.length,
+            input.buffers[0]->data(), input.offset, input.length,
             [&](int64_t position) {
               counts[*g]++;
               Impl::UpdateGroupWith(reduced, *g, bit_util::GetBit(bitmap, position));
@@ -2178,7 +2178,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             [&] { bit_util::SetBitTo(no_nulls, *g++, false); });
       } else {
         arrow::internal::VisitBitBlocksVoid(
-            input.buffers[1], input.offset, input.length,
+            bitmap, input.offset, input.length,
             [&](int64_t) {
               Impl::UpdateGroupWith(reduced, *g, true);
               counts[*g++]++;
@@ -3268,10 +3268,10 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   std::unique_ptr<ExecBatchIterator> argument_batch_iterator;
 
   if (!arguments.empty()) {
+    ARROW_ASSIGN_OR_RAISE(ExecBatch args_batch, ExecBatch::Make(arguments));
+
     // Construct and initialize HashAggregateKernels
-    ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
-                          ExecBatch::Make(arguments).Map(
-                              [](ExecBatch batch) { return batch.GetDescriptors(); }));
+    auto argument_descrs = args_batch.GetDescriptors();
 
     ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_descrs));
 
@@ -3284,14 +3284,14 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     ARROW_ASSIGN_OR_RAISE(
         out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_descrs));
 
-    ARROW_ASSIGN_OR_RAISE(argument_batch_iterator,
-                          ExecBatchIterator::Make(arguments, ctx->exec_chunksize()));
+    ARROW_ASSIGN_OR_RAISE(
+        argument_batch_iterator,
+        ExecBatchIterator::Make(args_batch.values, ctx->exec_chunksize()));
   }
 
   // Construct Groupers
-  ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
-    return batch.GetDescriptors();
-  }));
+  ARROW_ASSIGN_OR_RAISE(ExecBatch keys_batch, ExecBatch::Make(keys));
+  auto key_descrs = keys_batch.GetDescriptors();
 
   std::vector<std::unique_ptr<Grouper>> groupers(task_group->parallelism());
   for (auto& grouper : groupers) {
@@ -3306,8 +3306,9 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     out_fields.push_back(field("key_" + std::to_string(i++), std::move(key_descr.type)));
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto key_batch_iterator,
-                        ExecBatchIterator::Make(keys, ctx->exec_chunksize()));
+  ARROW_ASSIGN_OR_RAISE(
+      auto key_batch_iterator,
+      ExecBatchIterator::Make(keys_batch.values, ctx->exec_chunksize()));
 
   // start "streaming" execution
   ExecBatch key_batch, argument_batch;

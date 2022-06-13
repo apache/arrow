@@ -581,9 +581,14 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   auto call = CallNotNull(expr);
 
   std::vector<Datum> arguments(call->arguments.size());
+
+  bool all_scalar = true;
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(
         arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
+    if (arguments[i].is_array()) {
+      all_scalar = false;
+    }
   }
 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
@@ -597,7 +602,8 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, descrs, options}));
 
   compute::detail::DatumAccumulator listener;
-  RETURN_NOT_OK(executor->Execute(arguments, &listener));
+  RETURN_NOT_OK(executor->Execute(
+      ExecBatch(std::move(arguments), all_scalar ? 1 : input.length), &listener));
   const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
@@ -664,7 +670,7 @@ Result<Expression> FoldConstants(Expression expr) {
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression& argument) { return argument.literal(); })) {
           // all arguments are literal; we can evaluate this subexpression *now*
-          static const ExecBatch ignored_input = ExecBatch{};
+          static const ExecBatch ignored_input = ExecBatch({}, 1);
           ARROW_ASSIGN_OR_RAISE(Datum constant,
                                 ExecuteScalarExpression(expr, ignored_input));
 

@@ -1063,7 +1063,7 @@ TEST_F(TestCountDistinctKernel, Random) {
   };
   auto rand = random::RandomArrayGenerator(0x1205643);
   auto arr = rand.Numeric<UInt32Type>(1024, 0, 100, 0.0)->data();
-  auto r = VisitArrayDataInline<UInt32Type>(*arr, visit_value, visit_null);
+  auto r = VisitArraySpanInline<UInt32Type>(*arr, visit_value, visit_null);
   auto input = builder.Finish().ValueOrDie();
   Check(input, memo.size(), false);
 }

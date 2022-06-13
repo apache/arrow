@@ -112,8 +112,10 @@ inline void VisitRawValuesInline(const ArrayType& values,
                                  VisitorNotNull&& visitor_not_null,
                                  VisitorNull&& visitor_null) {
   const auto data = values.raw_values();
+  auto validity_buf = values.data()->buffers[0];
+  const uint8_t* bitmap = validity_buf == nullptr ? nullptr : validity_buf->data();
   VisitBitBlocksVoid(
-      values.null_bitmap(), values.offset(), values.length(),
+      bitmap, values.offset(), values.length(),
       [&](int64_t i) { visitor_not_null(data[i]); }, [&]() { visitor_null(); });
 }
 
@@ -123,14 +125,15 @@ inline void VisitRawValuesInline(const BooleanArray& values,
                                  VisitorNull&& visitor_null) {
   if (values.null_count() != 0) {
     const uint8_t* data = values.data()->GetValues<uint8_t>(1, 0);
+    const uint8_t* bitmap = values.data()->buffers[0]->data();
     VisitBitBlocksVoid(
-        values.null_bitmap(), values.offset(), values.length(),
+        bitmap, values.offset(), values.length(),
         [&](int64_t i) { visitor_not_null(bit_util::GetBit(data, values.offset() + i)); },
         [&]() { visitor_null(); });
   } else {
     // Can avoid GetBit() overhead in the no-nulls case
     VisitBitBlocksVoid(
-        values.data()->buffers[1], values.offset(), values.length(),
+        values.data()->buffers[1]->data(), values.offset(), values.length(),
         [&](int64_t i) { visitor_not_null(true); }, [&]() { visitor_not_null(false); });
   }
 }
@@ -474,30 +477,30 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
 
   // duration type
   base.signature = KernelSignature::Make({InputType::Array(Type::DURATION)}, uint64());
-  base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*int64());
+  base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*int64());
   DCHECK_OK(func->AddKernel(base));
 
   for (const auto& ty : NumericTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : TemporalTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty->id())}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     base.signature = KernelSignature::Make({InputType::Array(id)}, uint64());
-    base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
+    base.exec = GenerateDecimalOld<ExecTemplate, UInt64Type>(id);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateVarBinaryBaseOld<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   base.signature =

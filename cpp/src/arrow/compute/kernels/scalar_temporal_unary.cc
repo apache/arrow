@@ -105,7 +105,7 @@ struct TemporalComponentExtractDayOfWeek
     : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
   using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
     RETURN_NOT_OK(ValidateDayOfWeekOptions(options));
     return Base::ExecWithOptions(ctx, &options, batch, out);
@@ -118,9 +118,9 @@ struct AssumeTimezoneExtractor
     : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
   using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const AssumeTimezoneOptions& options = AssumeTimezoneState::Get(ctx);
-    const auto& timezone = GetInputTimezone(batch.values[0]);
+    const auto& timezone = GetInputTimezone(*batch[0].type());
     if (!timezone.empty()) {
       return Status::Invalid("Timestamps already have a timezone: '", timezone,
                              "'. Cannot localize to '", options.timezone, "'.");
@@ -140,8 +140,8 @@ struct DaylightSavingsExtractor
     : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
   using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& timezone = GetInputTimezone(batch.values[0]);
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto& timezone = GetInputTimezone(*batch[0].type());
     if (timezone.empty()) {
       return Status::Invalid("Timestamps have no timezone. Cannot determine DST.");
     }
@@ -160,7 +160,7 @@ struct TemporalComponentExtractWeek
     : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
   using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const WeekOptions& options = WeekState::Get(ctx);
     return Base::ExecWithOptions(ctx, &options, batch, out);
   }
@@ -172,7 +172,7 @@ struct TemporalComponentExtractRound
     : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
   using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const RoundTemporalOptions& options = RoundTemporalState::Get(ctx);
     return Base::ExecWithOptions(ctx, &options, batch, out);
   }
@@ -279,7 +279,7 @@ template <typename Duration>
 struct YearMonthDayWrapper<Duration, TimestampType> {
   static Result<std::array<int64_t, 3>> Get(const Scalar& in) {
     const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    const auto& timezone = GetInputTimezone(in);
+    const auto& timezone = GetInputTimezone(*in.type);
     if (timezone.empty()) {
       return GetYearMonthDay<Duration>(in_val, NonZonedLocalizer{});
     } else {
@@ -292,7 +292,7 @@ struct YearMonthDayWrapper<Duration, TimestampType> {
 template <typename Duration, typename InType, typename BuilderType>
 struct YearMonthDayVisitValueFunction {
   static Result<std::function<Status(typename InType::c_type arg)>> Get(
-      const std::vector<BuilderType*>& field_builders, const ArrayData&,
+      const std::vector<BuilderType*>& field_builders, const ArraySpan&,
       StructBuilder* struct_builder) {
     return [=](typename InType::c_type arg) {
       const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
@@ -307,9 +307,9 @@ struct YearMonthDayVisitValueFunction {
 template <typename Duration, typename BuilderType>
 struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
   static Result<std::function<Status(typename TimestampType::c_type arg)>> Get(
-      const std::vector<BuilderType*>& field_builders, const ArrayData& in,
+      const std::vector<BuilderType*>& field_builders, const ArraySpan& in,
       StructBuilder* struct_builder) {
-    const auto& timezone = GetInputTimezone(in);
+    const auto& timezone = GetInputTimezone(*in.type);
     if (timezone.empty()) {
       return [=](TimestampType::c_type arg) {
         const auto ymd = GetYearMonthDay<Duration>(arg, NonZonedLocalizer{});
@@ -332,22 +332,23 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
 
 template <typename Duration, typename InType>
 struct YearMonthDay {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
+    Scalar* out_scalar = out->scalar().get();
     if (in.is_valid) {
       ARROW_ASSIGN_OR_RAISE(auto year_month_day,
                             (YearMonthDayWrapper<Duration, InType>::Get(in)));
       ScalarVector values = {std::make_shared<Int64Scalar>(year_month_day[0]),
                              std::make_shared<Int64Scalar>(year_month_day[1]),
                              std::make_shared<Int64Scalar>(year_month_day[2])};
-      *checked_cast<StructScalar*>(out) =
+      *checked_cast<StructScalar*>(out_scalar) =
           StructScalar(std::move(values), YearMonthDayType());
     } else {
-      out->is_valid = false;
+      out_scalar->is_valid = false;
     }
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
 
     std::unique_ptr<ArrayBuilder> array_builder;
@@ -368,10 +369,10 @@ struct YearMonthDay {
         visit_value, (YearMonthDayVisitValueFunction<Duration, InType, BuilderType>::Get(
                          field_builders, in, struct_builder)));
     RETURN_NOT_OK(
-        VisitArrayDataInline<typename InType::PhysicalType>(in, visit_value, visit_null));
+        VisitArraySpanInline<typename InType::PhysicalType>(in, visit_value, visit_null));
     std::shared_ptr<Array> out_array;
     RETURN_NOT_OK(struct_builder->Finish(&out_array));
-    *out = *std::move(out_array->data());
+    out->value = std::move(out_array->data());
     return Status::OK();
   }
 };
@@ -1177,21 +1178,23 @@ struct Strftime {
     return Strftime{options, tz, std::move(locale)};
   }
 
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
     TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
 
+    Scalar* output = out->scalar().get();
     if (in.is_valid) {
       const int64_t in_val = internal::UnboxScalar<const InType>::Unbox(in);
       ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(in_val));
-      checked_cast<StringScalar*>(out)->value = Buffer::FromString(std::move(formatted));
+      checked_cast<StringScalar*>(output)->value =
+          Buffer::FromString(std::move(formatted));
     } else {
-      out->is_valid = false;
+      output->is_valid = false;
     }
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
     TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
 
@@ -1210,12 +1213,11 @@ struct Strftime {
       ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(arg));
       return string_builder.Append(std::move(formatted));
     };
-    RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
+    RETURN_NOT_OK(VisitArraySpanInline<InType>(in, visit_value, visit_null));
 
     std::shared_ptr<Array> out_array;
     RETURN_NOT_OK(string_builder.Finish(&out_array));
-    *out = *std::move(out_array->data());
-
+    out->value = std::move(out_array->data());
     return Status::OK();
   }
 };
@@ -1259,44 +1261,47 @@ struct Strptime {
                     options.error_is_null};
   }
 
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
 
+    Scalar* output = out->scalar().get();
     if (in.is_valid) {
       auto s = internal::UnboxScalar<InType>::Unbox(in);
       int64_t result;
       if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
-        *checked_cast<TimestampScalar*>(out) =
+        *checked_cast<TimestampScalar*>(output) =
             TimestampScalar(result, timestamp(self.unit, self.zone));
       } else {
         if (self.error_is_null) {
-          out->is_valid = false;
+          output->is_valid = false;
         } else {
           return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
                                  TimestampType(self.unit).ToString());
         }
       }
     } else {
-      out->is_valid = false;
+      output->is_valid = false;
     }
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-    int64_t* out_data = out->GetMutableValues<int64_t>(1);
+
+    ArraySpan* out_span = out->array_span();
+    int64_t* out_data = out_span->GetValues<int64_t>(1);
 
     if (self.error_is_null) {
-      if (out->buffers[0] == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(in.length));
-        bit_util::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
-      }
+      // Set all values to non-null, and only clear bits when there is a
+      // parsing error
+      bit_util::SetBitmap(out_span->buffers[0].data, out_span->offset, out_span->length);
 
       int64_t null_count = 0;
-      arrow::internal::BitmapWriter out_writer(out->GetMutableValues<uint8_t>(0, 0),
-                                               out->offset, out->length);
+      arrow::internal::BitmapWriter out_writer(out_span->buffers[0].data,
+                                               out_span->offset, out_span->length);
       auto visit_null = [&]() {
         *out_data++ = 0;
+        out_writer.Clear();
         out_writer.Next();
         null_count++;
       };
@@ -1311,10 +1316,18 @@ struct Strptime {
         }
         out_writer.Next();
       };
-      VisitArrayDataInline<InType>(in, visit_value, visit_null);
+      VisitArraySpanInline<InType>(in, visit_value, visit_null);
       out_writer.Finish();
-      out->null_count = null_count;
+      out_span->null_count = null_count;
     } else {
+      if (in.buffers[0].data != nullptr) {
+        ::arrow::internal::CopyBitmap(in.buffers[0].data, in.offset, in.length,
+                                      out_span->buffers[0].data, out_span->offset);
+      } else {
+        // Input is all non-null
+        bit_util::SetBitmap(out_span->buffers[0].data, out_span->offset,
+                            out_span->length);
+      }
       auto visit_null = [&]() {
         *out_data++ = 0;
         return Status::OK();
@@ -1329,7 +1342,7 @@ struct Strptime {
                                  TimestampType(self.unit).ToString());
         }
       };
-      RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
+      RETURN_NOT_OK(VisitArraySpanInline<InType>(in, visit_value, visit_null));
     }
     return Status::OK();
   }
@@ -1450,7 +1463,7 @@ template <typename Duration>
 struct ISOCalendarWrapper<Duration, TimestampType> {
   static Result<std::array<int64_t, 3>> Get(const Scalar& in) {
     const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    const auto& timezone = GetInputTimezone(in);
+    const auto& timezone = GetInputTimezone(*in.type);
     if (timezone.empty()) {
       return GetIsoCalendar<Duration>(in_val, NonZonedLocalizer{});
     } else {
@@ -1463,7 +1476,7 @@ struct ISOCalendarWrapper<Duration, TimestampType> {
 template <typename Duration, typename InType, typename BuilderType>
 struct ISOCalendarVisitValueFunction {
   static Result<std::function<Status(typename InType::c_type arg)>> Get(
-      const std::vector<BuilderType*>& field_builders, const ArrayData&,
+      const std::vector<BuilderType*>& field_builders, const ArraySpan&,
       StructBuilder* struct_builder) {
     return [=](typename InType::c_type arg) {
       const auto iso_calendar = GetIsoCalendar<Duration>(arg, NonZonedLocalizer{});
@@ -1478,9 +1491,9 @@ struct ISOCalendarVisitValueFunction {
 template <typename Duration, typename BuilderType>
 struct ISOCalendarVisitValueFunction<Duration, TimestampType, BuilderType> {
   static Result<std::function<Status(typename TimestampType::c_type arg)>> Get(
-      const std::vector<BuilderType*>& field_builders, const ArrayData& in,
+      const std::vector<BuilderType*>& field_builders, const ArraySpan& in,
       StructBuilder* struct_builder) {
-    const auto& timezone = GetInputTimezone(in);
+    const auto& timezone = GetInputTimezone(*in.type);
     if (timezone.empty()) {
       return [=](TimestampType::c_type arg) {
         const auto iso_calendar = GetIsoCalendar<Duration>(arg, NonZonedLocalizer{});
@@ -1503,22 +1516,23 @@ struct ISOCalendarVisitValueFunction<Duration, TimestampType, BuilderType> {
 
 template <typename Duration, typename InType>
 struct ISOCalendar {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
+    Scalar* output = out->scalar().get();
     if (in.is_valid) {
       ARROW_ASSIGN_OR_RAISE(auto iso_calendar,
                             (ISOCalendarWrapper<Duration, InType>::Get(in)));
       ScalarVector values = {std::make_shared<Int64Scalar>(iso_calendar[0]),
                              std::make_shared<Int64Scalar>(iso_calendar[1]),
                              std::make_shared<Int64Scalar>(iso_calendar[2])};
-      *checked_cast<StructScalar*>(out) =
+      *checked_cast<StructScalar*>(output) =
           StructScalar(std::move(values), IsoCalendarType());
     } else {
-      out->is_valid = false;
+      output->is_valid = false;
     }
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
 
     std::unique_ptr<ArrayBuilder> array_builder;
@@ -1539,10 +1553,10 @@ struct ISOCalendar {
         visit_value, (ISOCalendarVisitValueFunction<Duration, InType, BuilderType>::Get(
                          field_builders, in, struct_builder)));
     RETURN_NOT_OK(
-        VisitArrayDataInline<typename InType::PhysicalType>(in, visit_value, visit_null));
+        VisitArraySpanInline<typename InType::PhysicalType>(in, visit_value, visit_null));
     std::shared_ptr<Array> out_array;
     RETURN_NOT_OK(struct_builder->Finish(&out_array));
-    *out = *std::move(out_array->data());
+    out->value = std::move(out_array->data());
     return Status::OK();
   }
 };
@@ -1575,7 +1589,8 @@ struct UnaryTemporalFactory {
   template <typename Duration, typename InType>
   void AddKernel(InputType in_type) {
     auto exec = ExecTemplate<Op, Duration, InType, OutType>::Exec;
-    DCHECK_OK(func->AddKernel({std::move(in_type)}, out_type, std::move(exec), init));
+    ScalarKernel kernel({std::move(in_type)}, out_type, std::move(exec), init);
+    DCHECK_OK(func->AddKernel(kernel));
   }
 };
 
@@ -1584,16 +1599,19 @@ struct SimpleUnaryTemporalFactory {
   OutputType out_type;
   KernelInit init;
   std::shared_ptr<ScalarFunction> func;
+  NullHandling::type null_handling;
 
   template <typename... WithTypes>
   static std::shared_ptr<ScalarFunction> Make(
       std::string name, OutputType out_type, FunctionDoc doc,
-      const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR) {
+      const FunctionOptions* default_options = NULLPTR, KernelInit init = NULLPTR,
+      NullHandling::type null_handling = NullHandling::INTERSECTION) {
     DCHECK_NE(sizeof...(WithTypes), 0);
     SimpleUnaryTemporalFactory self{
         out_type, init,
         std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc),
-                                         default_options)};
+                                         default_options),
+        null_handling};
     AddTemporalKernels(&self, WithTypes{}...);
     return self.func;
   }
@@ -1601,8 +1619,9 @@ struct SimpleUnaryTemporalFactory {
   template <typename Duration, typename InType>
   void AddKernel(InputType in_type) {
     auto exec = SimpleUnary<Op<Duration, InType>>;
-    DCHECK_OK(func->AddKernel({std::move(in_type)}, out_type, std::move(exec), init));
-    ScalarKernel kernel({std::move(in_type)}, out_type, exec, init);
+    ScalarKernel kernel({std::move(in_type)}, out_type, std::move(exec), init);
+    kernel.null_handling = this->null_handling;
+    DCHECK_OK(func->AddKernel(kernel));
   }
 };
 
@@ -1992,7 +2011,7 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
 
   auto strptime = SimpleUnaryTemporalFactory<Strptime>::Make<WithStringTypes>(
       "strptime", OutputType::Resolver(ResolveStrptimeOutput), strptime_doc, nullptr,
-      StrptimeState::Init);
+      StrptimeState::Init, NullHandling::COMPUTED_PREALLOCATE);
   DCHECK_OK(registry->AddFunction(std::move(strptime)));
 
   auto assume_timezone =

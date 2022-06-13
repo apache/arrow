@@ -119,7 +119,7 @@ class ARROW_EXPORT TypeErasedIntBuilder : public ArrayBuilder {
   Status AppendScalars(const ScalarVector& scalars) override {
     return builder_->AppendScalars(scalars);
   }
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     return builder_->AppendArraySlice(array, offset, length);
   }

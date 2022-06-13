@@ -215,7 +215,7 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
-    kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
+    kernel.exec = ArithmeticExecFromOpOld<CumulativeGeneric, Op, OptionsType>(ty);
     kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }

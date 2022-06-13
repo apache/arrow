@@ -235,6 +235,9 @@ class ARROW_EXPORT Function {
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const;
 
+  virtual Result<Datum> Execute(const ExecBatch& batch, const FunctionOptions* options,
+                                ExecContext* ctx) const;
+
   /// \brief Returns the default options for this function.
   ///
   /// Whatever option semantics a Function has, implementations must guarantee
@@ -251,6 +254,9 @@ class ARROW_EXPORT Function {
         arity_(arity),
         doc_(std::move(doc)),
         default_options_(default_options) {}
+
+  Result<Datum> ExecuteInternal(const std::vector<Datum>& args, int64_t passed_length,
+                                const FunctionOptions* options, ExecContext* ctx) const;
 
   Status CheckArity(const std::vector<InputType>&) const;
   Status CheckArity(const std::vector<ValueDescr>&) const;
@@ -338,7 +344,7 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   /// state initialization, no data preallocation, and no preallocation of the
   /// validity bitmap.
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                   ArrayKernelExec exec, KernelInit init = NULLPTR);
+                   ArrayKernelExecOld exec, KernelInit init = NULLPTR);
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -387,6 +393,9 @@ class ARROW_EXPORT MetaFunction : public Function {
   int num_kernels() const override { return 0; }
 
   Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
+                        ExecContext* ctx) const override;
+
+  Result<Datum> Execute(const ExecBatch& batch, const FunctionOptions* options,
                         ExecContext* ctx) const override;
 
  protected:

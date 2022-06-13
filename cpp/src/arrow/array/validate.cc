@@ -52,7 +52,7 @@ struct UTF8DataValidator {
     util::InitializeUTF8();
 
     int64_t i = 0;
-    return VisitArrayDataInline<StringType>(
+    return VisitArraySpanInline<StringType>(
         data,
         [&](util::string_view v) {
           if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(v))) {
@@ -83,7 +83,7 @@ struct BoundsChecker {
     using c_type = typename IntegerType::c_type;
 
     int64_t i = 0;
-    return VisitArrayDataInline<IntegerType>(
+    return VisitArraySpanInline<IntegerType>(
         data,
         [&](c_type value) {
           const auto v = static_cast<int64_t>(value);
@@ -173,7 +173,7 @@ struct ValidateArrayImpl {
 
     if (full_validation) {
       using c_type = typename Date64Type::c_type;
-      return VisitArrayDataInline<Date64Type>(
+      return VisitArraySpanInline<Date64Type>(
           data,
           [&](c_type date) {
             constexpr c_type kFullDayMillis = 1000 * 60 * 60 * 24;
@@ -193,7 +193,7 @@ struct ValidateArrayImpl {
 
     if (full_validation) {
       using c_type = typename Time32Type::c_type;
-      return VisitArrayDataInline<Time32Type>(
+      return VisitArraySpanInline<Time32Type>(
           data,
           [&](c_type time) {
             constexpr c_type kFullDaySeconds = 60 * 60 * 24;
@@ -221,7 +221,7 @@ struct ValidateArrayImpl {
 
     if (full_validation) {
       using c_type = typename Time64Type::c_type;
-      return VisitArrayDataInline<Time64Type>(
+      return VisitArraySpanInline<Time64Type>(
           data,
           [&](c_type time) {
             constexpr c_type kFullDayMicro = 1000000LL * 60 * 60 * 24;
@@ -673,7 +673,7 @@ struct ValidateArrayImpl {
     using CType = typename TypeTraits<DecimalType>::CType;
     if (full_validation) {
       const int32_t precision = type.precision();
-      return VisitArrayDataInline<DecimalType>(
+      return VisitArraySpanInline<DecimalType>(
           data,
           [&](util::string_view bytes) {
             DCHECK_EQ(bytes.size(), DecimalType::kByteWidth);

@@ -25,9 +25,12 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -126,6 +129,141 @@ int64_t ArrayData::GetNullCount() const {
     this->null_count.store(precomputed);
   }
   return precomputed;
+}
+
+// ----------------------------------------------------------------------
+// Methods for ArraySpan
+
+void ArraySpan::SetMembers(const ArrayData& data) {
+  this->type = data.type.get();
+  this->length = data.length;
+  this->null_count = data.null_count.load();
+  this->offset = data.offset;
+
+  for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
+    const std::shared_ptr<Buffer>& buffer = data.buffers[i];
+    // It is the invoker-of-kernels's responsibility to ensure that
+    // const buffers are not written to accidentally.
+    if (buffer) {
+      SetBuffer(i, buffer);
+    } else {
+      ClearBuffer(i);
+    }
+  }
+
+  // Makes sure any other buffers are seen as null / non-existent
+  for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
+    ClearBuffer(i);
+  }
+
+  if (this->type->id() == Type::DICTIONARY) {
+    this->child_data.resize(1);
+    this->child_data[0].SetMembers(*data.dictionary);
+  } else {
+    this->child_data.resize(data.child_data.size());
+    for (size_t child_index = 0; child_index < data.child_data.size(); ++child_index) {
+      this->child_data[child_index].SetMembers(*data.child_data[child_index]);
+    }
+  }
+}
+
+void ArraySpan::FillFromScalar(const Scalar& value) {
+  static const uint8_t kValidByte = 0x01;
+  static const uint8_t kNullByte = 0x00;
+
+  this->type = value.type.get();
+  this->length = 1;
+
+  // Populate null count and validity bitmap
+  this->null_count = value.is_valid ? 0 : 1;
+  this->buffers[0].data = const_cast<uint8_t*>(value.is_valid ? &kValidByte : &kNullByte);
+  this->buffers[0].size = 1;
+
+  if (is_primitive(value.type->id())) {
+    const auto& scalar =
+        internal::checked_cast<const internal::PrimitiveScalarBase&>(value);
+    const uint8_t* scalar_data = reinterpret_cast<const uint8_t*>(scalar.view().data());
+    this->buffers[1].data = const_cast<uint8_t*>(scalar_data);
+    this->buffers[1].size = scalar.type->byte_width();
+  } else {
+    // TODO(wesm): implement for other types
+    DCHECK(false) << "need to implement for other types";
+  }
+}
+
+int64_t ArraySpan::GetNullCount() const {
+  int64_t precomputed = this->null_count;
+  if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
+    if (this->buffers[0].data != nullptr) {
+      precomputed =
+          this->length - CountSetBits(this->buffers[0].data, this->offset, this->length);
+    } else {
+      precomputed = 0;
+    }
+    this->null_count = precomputed;
+  }
+  return precomputed;
+}
+
+int GetNumBuffers(const DataType& type) {
+  switch (type.id()) {
+    case Type::NA:
+      return 0;
+    case Type::STRUCT:
+    case Type::FIXED_SIZE_LIST:
+      return 1;
+    case Type::BINARY:
+    case Type::LARGE_BINARY:
+    case Type::STRING:
+    case Type::LARGE_STRING:
+    case Type::DENSE_UNION:
+      return 3;
+    case Type::EXTENSION:
+      // The number of buffers depends on the storage type
+      return GetNumBuffers(
+          *internal::checked_cast<const ExtensionType&>(type).storage_type());
+    default:
+      // Everything else has 2 buffers
+      return 2;
+  }
+}
+
+int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
+
+std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
+  auto result = std::make_shared<ArrayData>(this->type->Copy(), this->length,
+                                            kUnknownNullCount, this->offset);
+
+  for (int i = 0; i < this->num_buffers(); ++i) {
+    if (this->buffers[i].owner) {
+      result->buffers.emplace_back(this->GetBuffer(i));
+    } else {
+      result->buffers.push_back(nullptr);
+    }
+  }
+
+  if (this->type->id() == Type::NA) {
+    result->null_count = this->length;
+  } else if (this->buffers[0].data == nullptr) {
+    // No validity bitmap, so the null count is 0
+    result->null_count = 0;
+  }
+
+  // TODO(wesm): what about extension arrays?
+
+  if (this->type->id() == Type::DICTIONARY) {
+    result->dictionary = this->dictionary().ToArrayData();
+  } else {
+    // Emit children, too
+    for (size_t i = 0; i < this->child_data.size(); ++i) {
+      result->child_data.push_back(this->child_data[i].ToArrayData());
+    }
+  }
+  return result;
+}
+
+std::shared_ptr<Array> ArraySpan::ToArray() const {
+  return MakeArray(this->ToArrayData());
 }
 
 // ----------------------------------------------------------------------

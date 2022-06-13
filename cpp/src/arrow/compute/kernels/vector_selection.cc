@@ -1,3 +1,4 @@
+
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -2326,7 +2327,7 @@ Status TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 struct SelectionKernelDescr {
   InputType input;
-  ArrayKernelExec exec;
+  ArrayKernelExecOld exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
@@ -2382,7 +2383,7 @@ struct NonZeroVisitor {
     const T zero{};
     uint64_t index = 0;
 
-    for (const auto& current_array : arrays) {
+    for (const std::shared_ptr<ArrayData>& current_array : arrays) {
       VisitArrayValuesInline<Type>(
           *current_array,
           [&](T v) {

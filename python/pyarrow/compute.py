@@ -595,6 +595,32 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
+def random(n, *, initializer='system', options=None, memory_pool=None):
+    """
+    Generate numbers in the range [0, 1).
+
+    Generated values are uniformly-distributed, double-precision
+    in range [0, 1). Algorithm and seed can be changed via RandomOptions.
+
+    Parameters
+    ----------
+    n : int
+        Number of values to generate, must be greater than or equal to 0
+    initializer : int or str
+        How to initialize the underlying random generator.
+        If an integer is given, it is used as a seed.
+        If "system" is given, the random generator is initialized with
+        a system-specific source of (hopefully true) randomness.
+        Other values are invalid.
+    options : pyarrow.compute.RandomOptions, optional
+        Alternative way of passing options.
+    memory_pool : pyarrow.MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
+    """
+    options = RandomOptions(initializer=initializer)
+    return call_function("random", [], options, memory_pool, length=n)
+
+
 def field(*name_or_index):
     """Reference a column of the dataset.
 

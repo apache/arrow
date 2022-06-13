@@ -65,10 +65,10 @@ using internal::applicator::ScalarBinaryNotNullStatefulEqualTypes;
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 using WeekState = OptionsWrapper<WeekOptions>;
 
-Status CheckTimezones(const ExecBatch& batch) {
-  const auto& timezone = GetInputTimezone(batch.values[0]);
+Status CheckTimezones(const ExecSpan& batch) {
+  const auto& timezone = GetInputTimezone(*batch[0].type());
   for (int i = 1; i < batch.num_values(); i++) {
-    const auto& other_timezone = GetInputTimezone(batch.values[i]);
+    const auto& other_timezone = GetInputTimezone(*batch[i].type());
     if (other_timezone != timezone) {
       return Status::TypeError("Got differing time zone '", other_timezone,
                                "' for argument ", i + 1, "; expected '", timezone, "'");
@@ -83,11 +83,11 @@ struct TemporalBinary {
   template <typename OptionsType, typename T = InType>
   static enable_if_timestamp<T, Status> ExecWithOptions(KernelContext* ctx,
                                                         const OptionsType* options,
-                                                        const ExecBatch& batch,
-                                                        Datum* out) {
+                                                        const ExecSpan& batch,
+                                                        ExecResult* out) {
     RETURN_NOT_OK(CheckTimezones(batch));
 
-    const auto& timezone = GetInputTimezone(batch.values[0]);
+    const auto& timezone = GetInputTimezone(*batch[0].type());
     if (timezone.empty()) {
       using ExecTemplate = Op<Duration, NonZonedLocalizer>;
       auto op = ExecTemplate(options, NonZonedLocalizer());
@@ -106,8 +106,8 @@ struct TemporalBinary {
 
   template <typename OptionsType, typename T = InType>
   static enable_if_t<!is_timestamp_type<T>::value, Status> ExecWithOptions(
-      KernelContext* ctx, const OptionsType* options, const ExecBatch& batch,
-      Datum* out) {
+      KernelContext* ctx, const OptionsType* options, const ExecSpan& batch,
+      ExecResult* out) {
     using ExecTemplate = Op<Duration, NonZonedLocalizer>;
     auto op = ExecTemplate(options, NonZonedLocalizer());
     applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{
@@ -115,7 +115,7 @@ struct TemporalBinary {
     return kernel.Exec(ctx, batch, out);
   }
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const FunctionOptions* options = nullptr;
     return ExecWithOptions(ctx, options, batch, out);
   }
@@ -126,7 +126,7 @@ template <template <typename...> class Op, typename Duration, typename InType,
 struct TemporalDayOfWeekBinary : public TemporalBinary<Op, Duration, InType, OutType> {
   using Base = TemporalBinary<Op, Duration, InType, OutType>;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
     RETURN_NOT_OK(ValidateDayOfWeekOptions(options));
     return Base::ExecWithOptions(ctx, &options, batch, out);

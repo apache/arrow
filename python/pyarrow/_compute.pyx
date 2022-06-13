@@ -314,7 +314,7 @@ cdef class Function(_Weakrefable):
         return self.base_func.num_kernels()
 
     def call(self, args, FunctionOptions options=None,
-             MemoryPool memory_pool=None):
+             MemoryPool memory_pool=None, length=None):
         """
         Call the function on the given arguments.
 
@@ -328,23 +328,34 @@ cdef class Function(_Weakrefable):
             the right concrete options type.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+        length : int, optional
+            Batch size for execution, for nullary (no argument) functions. If
+            not passed, will be inferred from passed data.
         """
         cdef:
             const CFunctionOptions* c_options = NULL
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
             CExecContext c_exec_ctx = CExecContext(pool)
-            vector[CDatum] c_args
+            CExecBatch c_batch
             CDatum result
 
-        _pack_compute_args(args, &c_args)
+        _pack_compute_args(args, &c_batch.values)
 
         if options is not None:
             c_options = options.get_options()
 
-        with nogil:
-            result = GetResultValue(
-                self.base_func.Execute(c_args, c_options, &c_exec_ctx)
-            )
+        if length is not None:
+            c_batch.length = length
+            with nogil:
+                result = GetResultValue(
+                    self.base_func.Execute(c_batch, c_options, &c_exec_ctx)
+                )
+        else:
+            with nogil:
+                result = GetResultValue(
+                    self.base_func.Execute(c_batch.values, c_options,
+                                           &c_exec_ctx)
+                )
 
         return wrap_datum(result)
 
@@ -524,7 +535,7 @@ def list_functions():
     return _global_func_registry.list_functions()
 
 
-def call_function(name, args, options=None, memory_pool=None):
+def call_function(name, args, options=None, memory_pool=None, length=None):
     """
     Call a named function.
 
@@ -541,9 +552,13 @@ def call_function(name, args, options=None, memory_pool=None):
         options provided to the function.
     memory_pool : MemoryPool, optional
         memory pool to use for allocations during function execution.
+    length : int, optional
+        Batch size for execution, for nullary (no argument) functions. If not
+        passed, inferred from data.
     """
     func = _global_func_registry.get_function(name)
-    return func.call(args, options=options, memory_pool=memory_pool)
+    return func.call(args, options=options, memory_pool=memory_pool,
+                     length=length)
 
 
 cdef class FunctionOptions(_Weakrefable):
@@ -2007,10 +2022,10 @@ class Utf8NormalizeOptions(_Utf8NormalizeOptions):
 
 
 cdef class _RandomOptions(FunctionOptions):
-    def _set_options(self, length, initializer):
+    def _set_options(self, initializer):
         if initializer == 'system':
             self.wrapped.reset(new CRandomOptions(
-                CRandomOptions.FromSystemRandom(length)))
+                CRandomOptions.FromSystemRandom()))
             return
 
         if not isinstance(initializer, int):
@@ -2024,7 +2039,7 @@ cdef class _RandomOptions(FunctionOptions):
         if initializer < 0:
             initializer += 2**64
         self.wrapped.reset(new CRandomOptions(
-            CRandomOptions.FromSeed(length, initializer)))
+            CRandomOptions.FromSeed(initializer)))
 
 
 class RandomOptions(_RandomOptions):
@@ -2033,8 +2048,6 @@ class RandomOptions(_RandomOptions):
 
     Parameters
     ----------
-    length : int
-        Number of random values to generate.
     initializer : int or str
         How to initialize the underlying random generator.
         If an integer is given, it is used as a seed.
@@ -2043,8 +2056,8 @@ class RandomOptions(_RandomOptions):
         Other values are invalid.
     """
 
-    def __init__(self, length, *, initializer='system'):
-        self._set_options(length, initializer)
+    def __init__(self, *, initializer='system'):
+        self._set_options(initializer)
 
 
 def _group_by(args, keys, aggregations):
@@ -2384,8 +2397,8 @@ cdef class ScalarUdfContext:
 cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
     Helper function to generate the FunctionDoc
-    This function accepts a dictionary and expects the 
-    summary(str), description(str) and arg_names(List[str]) keys. 
+    This function accepts a dictionary and expects the
+    summary(str), description(str) and arg_names(List[str]) keys.
     """
     cdef:
         CFunctionDoc f_doc
@@ -2429,11 +2442,11 @@ def _get_scalar_udf_context(memory_pool, batch_length):
 def register_scalar_function(func, function_name, function_doc, in_types,
                              out_type):
     """
-    Register a user-defined scalar function. 
+    Register a user-defined scalar function.
 
     A scalar function is a function that executes elementwise
     operations on arrays or scalars, i.e. a scalar function must
-    be computed row-by-row with no state where each output row 
+    be computed row-by-row with no state where each output row
     is computed only from its corresponding input row.
     In other words, all argument arrays have the same length,
     and the output array is of the same length as the arguments.
@@ -2455,7 +2468,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         varargs. The last in_type will be the type of all varargs
         arguments.
     function_name : str
-        Name of the function. This name must be globally unique. 
+        Name of the function. This name must be globally unique.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
@@ -2473,20 +2486,20 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     --------
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
-    >>> 
+    >>>
     >>> func_doc = {}
     >>> func_doc["summary"] = "simple udf"
     >>> func_doc["description"] = "add a constant to a scalar"
-    >>> 
+    >>>
     >>> def add_constant(ctx, array):
     ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
-    >>> 
+    >>>
     >>> func_name = "py_add_func"
     >>> in_types = {"array": pa.int64()}
     >>> out_type = pa.int64()
     >>> pc.register_scalar_function(add_constant, func_name, func_doc,
     ...                   in_types, out_type)
-    >>> 
+    >>>
     >>> func = pc.get_function(func_name)
     >>> func.name
     'py_add_func'

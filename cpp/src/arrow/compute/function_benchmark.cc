@@ -85,13 +85,15 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
                         .ValueOrDie();
   kernel_context.SetState(cast_state.get());
 
+  ExecSpan input;
+  input.length = 1;
   for (auto _ : state) {
-    Datum timestamp_scalar = MakeNullScalar(double_type);
-    for (Datum int_scalar : int_scalars) {
-      ABORT_NOT_OK(
-          exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar));
+    ExecResult result;
+    result.value = MakeNullScalar(double_type);
+    for (const std::shared_ptr<Scalar>& int_scalar : int_scalars) {
+      input.values = {ExecValue(int_scalar.get())};
+      ABORT_NOT_OK(exec(&kernel_context, input, &result));
     }
-    benchmark::DoNotOptimize(timestamp_scalar);
   }
 
   state.SetItemsProcessed(state.iterations() * kScalarCount);
@@ -162,11 +164,15 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
 
+  ExecSpan input;
+  input.length = 1;
   for (auto _ : state) {
     int64_t total = 0;
-    for (const auto& scalar : scalars) {
-      Datum result{MakeNullScalar(int64())};
-      ABORT_NOT_OK(exec(&kernel_context, ExecBatch{{scalar}, /*length=*/1}, &result));
+    for (const std::shared_ptr<Scalar>& scalar : scalars) {
+      ExecResult result;
+      result.value = MakeNullScalar(int64());
+      input.values = {scalar.get()};
+      ABORT_NOT_OK(exec(&kernel_context, input, &result));
       total += result.scalar()->is_valid;
     }
     benchmark::DoNotOptimize(total);

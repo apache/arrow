@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -210,7 +212,7 @@ struct ARROW_EXPORT ExecBatch {
   /// If the array values are of length 0 then the length is 0 regardless of
   /// whether any values are Scalar. In general ExecBatch objects are produced
   /// by ExecBatchIterator which by design does not yield length-0 batches.
-  int64_t length;
+  int64_t length = 0;
 
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///
@@ -252,6 +254,192 @@ struct ARROW_EXPORT ExecBatch {
 inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
+struct ExecValue {
+  enum Kind { ARRAY, SCALAR };
+  Kind kind = ARRAY;
+  ArraySpan array;
+  const Scalar* scalar;
+
+  ExecValue(Scalar* scalar)  // NOLINT implicit conversion
+      : kind(SCALAR), scalar(scalar) {}
+
+  ExecValue(ArraySpan array)  // NOLINT implicit conversion
+      : kind(ARRAY), array(std::move(array)) {}
+
+  ExecValue(const ArrayData& array)  // NOLINT implicit conversion
+      : kind(ARRAY) {
+    this->array.SetMembers(array);
+  }
+
+  ExecValue() = default;
+  ExecValue(const ExecValue& other) = default;
+  ExecValue& operator=(const ExecValue& other) = default;
+  ExecValue(ExecValue&& other) = default;
+  ExecValue& operator=(ExecValue&& other) = default;
+
+  int64_t length() const { return this->is_array() ? this->array.length : 1; }
+
+  bool is_array() const { return this->kind == ARRAY; }
+  bool is_scalar() const { return this->kind == SCALAR; }
+
+  void SetArray(const ArrayData& array) {
+    this->kind = ARRAY;
+    this->array.SetMembers(array);
+  }
+
+  void SetScalar(const Scalar* scalar) {
+    this->kind = SCALAR;
+    this->scalar = scalar;
+  }
+
+  template <typename ExactType>
+  const ExactType& scalar_as() const {
+    return ::arrow::internal::checked_cast<const ExactType&>(*this->scalar);
+  }
+
+  /// XXX: here only temporarily until type resolution can be cleaned
+  /// up to not use ValueDescr
+  ValueDescr descr() const {
+    ValueDescr::Shape shape = this->is_array() ? ValueDescr::ARRAY : ValueDescr::SCALAR;
+    return ValueDescr(const_cast<DataType*>(this->type())->shared_from_this(), shape);
+  }
+
+  /// XXX: here temporarily for compatibility with datum, see
+  /// e.g. MakeStructExec in scalar_nested.cc
+  int64_t null_count() const {
+    if (this->is_array()) {
+      return this->array.GetNullCount();
+    } else {
+      return this->scalar->is_valid ? 0 : 1;
+    }
+  }
+
+  const DataType* type() const {
+    if (this->kind == ARRAY) {
+      return array.type;
+    } else {
+      return scalar->type.get();
+    }
+  }
+};
+
+struct ARROW_EXPORT ExecResult {
+  // The default value of the variant is ArraySpan
+  // TODO(wesm): remove Scalar output modality in ARROW-16577
+  util::Variant<ArraySpan, std::shared_ptr<ArrayData>, std::shared_ptr<Scalar>> value;
+
+  int64_t length() const {
+    if (this->is_array_span()) {
+      return this->array_span()->length;
+    } else if (this->is_array_data()) {
+      return this->array_data()->length;
+    } else {
+      // Should not reach here
+      return 1;
+    }
+  }
+
+  const DataType* type() const {
+    switch (this->value.index()) {
+      case 0:
+        return this->array_span()->type;
+      case 1:
+        return this->array_data()->type.get();
+      default:
+        // scalar
+        return this->scalar()->type.get();
+    }
+  }
+
+  ArraySpan* array_span() const {
+    return const_cast<ArraySpan*>(&util::get<ArraySpan>(this->value));
+  }
+  bool is_array_span() const { return this->value.index() == 0; }
+
+  const std::shared_ptr<ArrayData>& array_data() const {
+    return util::get<std::shared_ptr<ArrayData>>(this->value);
+  }
+
+  bool is_array_data() const { return this->value.index() == 1; }
+
+  const std::shared_ptr<Scalar>& scalar() const {
+    return util::get<std::shared_ptr<Scalar>>(this->value);
+  }
+
+  bool is_scalar() const { return this->value.index() == 2; }
+};
+
+/// \brief A "lightweight" column batch object which contains no
+/// std::shared_ptr objects and does not have any memory ownership
+/// semantics. Can represent a view onto an "owning" ExecBatch.
+struct ARROW_EXPORT ExecSpan {
+  ExecSpan() = default;
+  ExecSpan(const ExecSpan& other) = default;
+  ExecSpan& operator=(const ExecSpan& other) = default;
+  ExecSpan(ExecSpan&& other) = default;
+  ExecSpan& operator=(ExecSpan&& other) = default;
+
+  explicit ExecSpan(std::vector<ExecValue> values, int64_t length)
+      : length(length), values(std::move(values)) {}
+
+  explicit ExecSpan(const ExecBatch& batch) {
+    this->length = batch.length;
+    this->values.resize(batch.values.size());
+    for (size_t i = 0; i < batch.values.size(); ++i) {
+      const Datum& in_value = batch[i];
+      ExecValue* out_value = &this->values[i];
+      if (in_value.is_array()) {
+        out_value->SetArray(*in_value.array());
+      } else {
+        out_value->SetScalar(in_value.scalar().get());
+      }
+    }
+  }
+
+  bool is_all_scalar() const {
+    return std::all_of(this->values.begin(), this->values.end(),
+                       [](const ExecValue& v) { return v.is_scalar(); });
+  }
+
+  /// \brief Return the value at the i-th index
+  template <typename index_type>
+  inline const ExecValue& operator[](index_type i) const {
+    return values[i];
+  }
+
+  void AddOffset(int64_t offset) {
+    for (ExecValue& value : values) {
+      if (value.kind == ExecValue::ARRAY) {
+        value.array.AddOffset(offset);
+      }
+    }
+  }
+
+  void SetOffset(int64_t offset) {
+    for (ExecValue& value : values) {
+      if (value.kind == ExecValue::ARRAY) {
+        value.array.SetOffset(offset);
+      }
+    }
+  }
+
+  /// \brief A convenience for the number of values / arguments.
+  int num_values() const { return static_cast<int>(values.size()); }
+
+  // XXX: eliminate the need for ValueDescr; copied temporarily from
+  // ExecBatch
+  std::vector<ValueDescr> GetDescriptors() const {
+    std::vector<ValueDescr> result;
+    for (const auto& value : this->values) {
+      result.emplace_back(value.descr());
+    }
+    return result;
+  }
+
+  int64_t length = 0;
+  std::vector<ExecValue> values;
+};
+
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///
 /// @{
@@ -269,6 +457,21 @@ Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum
 /// NB: Some functions require FunctionOptions be provided.
 ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
+                           ExecContext* ctx = NULLPTR);
+
+/// \brief One-shot invoker for all types of functions.
+///
+/// Does kernel dispatch, argument checking, iteration of ChunkedArray inputs,
+/// and wrapping of outputs.
+ARROW_EXPORT
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
+                           const FunctionOptions* options, ExecContext* ctx = NULLPTR);
+
+/// \brief Variant of CallFunction which uses a function's default options.
+///
+/// NB: Some functions require FunctionOptions be provided.
+ARROW_EXPORT
+Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
                            ExecContext* ctx = NULLPTR);
 
 /// @}

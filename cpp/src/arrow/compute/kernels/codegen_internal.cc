@@ -29,15 +29,19 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-Status ExecFail(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return Status::NotImplemented("This kernel is malformed");
+}
+
+Status ExecFailOld(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   return Status::NotImplemented("This kernel is malformed");
 }
 
 ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec) {
-  return [exec](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    ExecBatch flipped_batch = batch;
-    std::swap(flipped_batch.values[0], flipped_batch.values[1]);
-    return exec(ctx, flipped_batch, out);
+  return [exec](KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
+    ExecSpan flipped_span = span;
+    std::swap(flipped_span.values[0], flipped_span.values[1]);
+    return exec(ctx, flipped_span, out);
   };
 }
 

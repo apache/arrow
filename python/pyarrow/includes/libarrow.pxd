@@ -1890,6 +1890,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CResult[CDatum] Execute(const vector[CDatum]& args,
                                 const CFunctionOptions* options,
                                 CExecContext* ctx) const
+        CResult[CDatum] Execute(const CExecBatch& args,
+                                const CFunctionOptions* options,
+                                CExecContext* ctx) const
 
     cdef cppclass CScalarFunction" arrow::compute::ScalarFunction"(CFunction):
         vector[const CScalarKernel*] kernels() const
@@ -2336,10 +2339,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRandomOptions(CRandomOptions)
 
         @staticmethod
-        CRandomOptions FromSystemRandom(int64_t length)
+        CRandomOptions FromSystemRandom()
 
         @staticmethod
-        CRandomOptions FromSeed(int64_t length, uint64_t seed)
+        CRandomOptions FromSeed(uint64_t seed)
 
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
@@ -2536,7 +2539,8 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         const shared_ptr[CSchema]& output_schema() const
 
     cdef cppclass CExecBatch "arrow::compute::ExecBatch":
-        pass
+        vector[CDatum] values
+        int64_t length
 
     shared_ptr[CRecordBatchReader] MakeGeneratorReader(
         shared_ptr[CSchema] schema,

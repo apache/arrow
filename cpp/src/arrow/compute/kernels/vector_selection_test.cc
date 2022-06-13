@@ -914,7 +914,7 @@ TEST_F(TestFilterKernelWithTable, FilterTable) {
 }
 
 TEST(TestFilterMetaFunction, ArityChecking) {
-  ASSERT_RAISES(Invalid, CallFunction("filter", {}));
+  ASSERT_RAISES(Invalid, CallFunction("filter", ExecBatch({}, 0)));
 }
 
 // ----------------------------------------------------------------------
@@ -1729,7 +1729,7 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
 }
 
 TEST(TestTakeMetaFunction, ArityChecking) {
-  ASSERT_RAISES(Invalid, CallFunction("take", {}));
+  ASSERT_RAISES(Invalid, CallFunction("take", ExecBatch({}, 0)));
 }
 
 // ----------------------------------------------------------------------

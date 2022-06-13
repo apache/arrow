@@ -389,7 +389,7 @@ Result<ValueDescr> ModeType(KernelContext*, const std::vector<ValueDescr>& descr
 }
 
 VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type,
-                           ArrayKernelExec exec) {
+                           ArrayKernelExecOld exec) {
   VectorKernel kernel;
   kernel.init = ModeState::Init;
   kernel.can_execute_chunkwise = false;
@@ -433,8 +433,9 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
   DCHECK_OK(func->AddKernel(
       NewModeKernel(boolean(), ModeExecutor<StructType, BooleanType>::Exec)));
   for (const auto& type : NumericTypes()) {
+    // TODO(wesm):
     DCHECK_OK(func->AddKernel(
-        NewModeKernel(type, GenerateNumeric<ModeExecutor, StructType>(*type))));
+        NewModeKernel(type, GenerateNumericOld<ModeExecutor, StructType>(*type))));
   }
   // Type parameters are ignored
   DCHECK_OK(func->AddKernel(
