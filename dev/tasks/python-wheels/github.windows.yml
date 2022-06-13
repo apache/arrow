@@ -52,7 +52,7 @@ jobs:
           @rem We can remove this workaround once we find a way to use
           @rem pulled caches when build an image.
           echo on
-          archery docker pull python-wheel-windows-vs2017
+          archery docker pull --no-ignore-pull-failures python-wheel-windows-vs2017
           if errorlevel 1 (
             archery docker build --no-pull python-wheel-windows-vs2017 || exit /B 1
           )
