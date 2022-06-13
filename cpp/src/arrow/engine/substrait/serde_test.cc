@@ -701,7 +701,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
       auto sink_decls,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 
   EXPECT_OK_AND_ASSIGN(auto decoded_null_type, ext_set.DecodeType(42));
   EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
@@ -737,7 +737,7 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
       Invalid,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 }
 
 Result<std::string> GetSubstraitJSON() {
@@ -903,7 +903,7 @@ TEST(Substrait, JoinPlanBasic) {
       auto sink_decls,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 
   auto join_decl = sink_decls[0].inputs[0];
 
@@ -1035,7 +1035,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
       Invalid,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 }
 
 TEST(Substrait, JoinPlanInvalidExpression) {
@@ -1102,7 +1102,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
       Invalid,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 }
 
 TEST(Substrait, JoinPlanInvalidKeys) {
@@ -1170,7 +1170,7 @@ TEST(Substrait, JoinPlanInvalidKeys) {
       Invalid,
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+          NULLPTR, &ext_set));
 }
 
 }  // namespace engine

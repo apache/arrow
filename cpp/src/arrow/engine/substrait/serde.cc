@@ -58,12 +58,53 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
   return FromProto(rel, ext_set);
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlans(
-    const Buffer& buf, const ConsumerFactory& consumer_factory,
+using DeclarationFactory = std::function<compute::Declaration(
+    compute::Declaration, std::vector<std::string> names)>;
+
+static DeclarationFactory MakeConsumingSinkDeclarationFactory(
+    const ConsumerFactory& consumer_factory) {
+  return [&consumer_factory](compute::Declaration input, std::vector<std::string> names) {
+    std::shared_ptr<compute::ExecNodeOptions> options =
+        std::make_shared<compute::ConsumingSinkNodeOptions>(
+            compute::ConsumingSinkNodeOptions{consumer_factory(), std::move(names)});
+    return compute::Declaration::Sequence(
+        {std::move(input), {"consuming_sink", options}});
+  };
+}
+
+static compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
+                                                      std::vector<std::string> names) {
+  int names_size = names.size();
+  if (names.size() == 0) {
+    return input;
+  }
+  std::vector<compute::Expression> expressions;
+  for (int i = 0; i < names_size; i++) {
+    expressions.push_back(compute::field_ref(FieldRef(i)));
+  }
+  return compute::Declaration::Sequence(
+      {std::move(input),
+       {"project",
+        compute::ProjectNodeOptions{std::move(expressions), std::move(names)}}});
+}
+
+static DeclarationFactory MakeWriteDeclarationFactory(
+    const WriteOptionsFactory& write_options_factory) {
+  return [&write_options_factory](compute::Declaration input,
+                                  std::vector<std::string> names) {
+    compute::Declaration projected = ProjectByNamesDeclaration(input, names);
+    std::shared_ptr<compute::ExecNodeOptions> options = write_options_factory();
+    return compute::Declaration::Sequence({std::move(projected), {"write", options}});
+  };
+}
+
+static Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, const std::string& factory_name,
+    DeclarationFactory declaration_factory, const ExtensionIdRegistry* registry,
     ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan));
+  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry));
 
   std::vector<compute::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
@@ -76,12 +117,8 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
       names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
     }
 
-    // pipe each relation into a consuming_sink node
-    auto sink_decl = compute::Declaration::Sequence({
-        std::move(decl),
-        {"consuming_sink",
-         compute::ConsumingSinkNodeOptions{consumer_factory(), std::move(names)}},
-    });
+    // pipe each relation
+    auto sink_decl = declaration_factory(std::move(decl), std::move(names));
     sink_decls.push_back(std::move(sink_decl));
   }
 
@@ -91,11 +128,28 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
   return sink_decls;
 }
 
+Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, const ConsumerFactory& consumer_factory,
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+  return DeserializePlans(buf, "consuming_sink",
+                          MakeConsumingSinkDeclarationFactory(consumer_factory), registry,
+                          ext_set_out);
+}
+
+Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, const WriteOptionsFactory& write_options_factory,
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+  return DeserializePlans(buf, "write",
+                          MakeWriteDeclarationFactory(write_options_factory), registry,
+                          ext_set_out);
+}
+
 Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
                                           const ConsumerFactory& consumer_factory,
+                                          const ExtensionIdRegistry* registry,
                                           ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto declarations,
-                        DeserializePlans(buf, consumer_factory, ext_set_out));
+                        DeserializePlans(buf, consumer_factory, registry, ext_set_out));
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
