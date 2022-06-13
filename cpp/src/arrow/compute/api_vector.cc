@@ -318,9 +318,13 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,
                                            ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result,
-                        CallFunction("sort_indices", {datum}, &options, ctx));
-  return result.make_array();
+  if (datum.is_chunked_array()) {
+    return SortIndices(*datum.chunked_array(), options, ctx);
+  } else if (datum.is_array()) {
+    return SortIndices(*datum.array(), options, ctx);
+  } else {
+    return Status::Invalid("Can only sort array-like data");
+  }
 }
 
 Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {

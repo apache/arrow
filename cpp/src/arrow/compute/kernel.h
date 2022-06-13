@@ -593,6 +593,10 @@ struct VectorKernel : public Kernel {
   /// \brief See VectorKernel::finalize member for usage
   using FinalizeFunc = std::function<Status(KernelContext*, std::vector<Datum>*)>;
 
+  /// \brief Function for executing a stateful VectorKernel against a
+  /// ChunkedArray input. Does not need to be defined for all VectorKernels
+  typedef Status (*ChunkedExecFunc)(KernelContext*, const ExecBatch&, Datum* out)>;
+
   VectorKernel() = default;
 
   VectorKernel(std::vector<InputType> in_types, OutputType out_type,
@@ -611,6 +615,9 @@ struct VectorKernel : public Kernel {
   /// \brief Perform a single invocation of this kernel. Any required state is
   /// managed through the KernelContext.
   ArrayKernelExec exec;
+
+  /// \brief Execute the kernel on a ChunkedArray. Does not need to be defined
+  ChunkedExecFunc exec_chunked = NULLPTR;
 
   /// \brief For VectorKernel, convert intermediate results into finalized
   /// results. Mutates input argument. Some kernels may accumulate state

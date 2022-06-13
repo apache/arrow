@@ -33,10 +33,6 @@ Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return Status::NotImplemented("This kernel is malformed");
 }
 
-Status ExecFailOld(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  return Status::NotImplemented("This kernel is malformed");
-}
-
 ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec) {
   return [exec](KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
     ExecSpan flipped_span = span;

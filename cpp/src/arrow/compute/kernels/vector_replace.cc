@@ -333,7 +333,7 @@ struct ReplaceWithMask<Type, enable_if_base_binary<Type>> {
 
 template <typename Type>
 struct ReplaceWithMaskFunctor {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const Datum& replacements = batch[2];
 
     // Needed for FixedSizeBinary/parameterized types
@@ -650,7 +650,7 @@ struct FillNullExecutor<Type, enable_if_null<Type>> {
 
 template <typename Type>
 struct FillNullForwardFunctor {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     switch (batch[0].kind()) {
       case Datum::ARRAY: {
         auto array_input = *batch[0].array();
@@ -669,7 +669,7 @@ struct FillNullForwardFunctor {
   }
 
   static Status FillNullForwardArray(KernelContext* ctx, const ArrayData& array,
-                                     Datum* out, const ArrayData& last_valid_value_chunk,
+                                     ExecResult* out, const ArrayData& last_valid_value_chunk,
                                      int64_t* last_valid_value_offset) {
     ArrayData* output = out->array().get();
     output->length = array.length;
@@ -694,7 +694,7 @@ struct FillNullForwardFunctor {
 
   static Status FillNullForwardChunkedArray(KernelContext* ctx,
                                             const std::shared_ptr<ChunkedArray>& values,
-                                            Datum* out) {
+                                            ExecResult* out) {
     if (values->null_count() == 0) {
       *out = Datum(values);
       return Status::OK();
@@ -738,35 +738,19 @@ struct FillNullForwardFunctor {
 
 template <typename Type>
 struct FillNullBackwardFunctor {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    switch (batch[0].kind()) {
-      case Datum::ARRAY: {
-        auto array_input = *batch[0].array();
-        int64_t last_valid_value_offset = -1;
-        return FillNullBackwardArray(ctx, array_input, out, array_input,
-                                     &last_valid_value_offset);
-      }
-      case Datum::CHUNKED_ARRAY: {
-        return FillNullBackwardChunkedArray(ctx, batch[0].chunked_array(), out);
-      }
-      default:
-        break;
-    }
-    return Status::NotImplemented("Unsupported type for fill_null_backward operation: ",
-                                  batch[0].ToString());
-  }
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    DCHECK(batch[0].is_array());
 
-  static Status FillNullBackwardArray(KernelContext* ctx, const ArrayData& array,
-                                      Datum* out, const ArrayData& last_valid_value_chunk,
-                                      int64_t* last_valid_value_offset) {
-    ArrayData* output = out->array().get();
+    const ArraySpan& arr = batch[0].array;
+    ArrayData* output = out->array_data().get();
     output->length = array.length;
-    int8_t direction = -1;
 
+    int8_t direction = -1;
+    int64_t last_valid_value_offset = -1;
     if (array.MayHaveNulls()) {
       ARROW_ASSIGN_OR_RAISE(
           auto reversed_bitmap,
-          arrow::internal::ReverseBitmap(ctx->memory_pool(), array.buffers[0]->data(),
+          arrow::internal::ReverseBitmap(ctx->memory_pool(), arr.buffers[0].data,
                                          array.offset, array.length));
       return FillNullExecutor<Type>::ExecFillNull(
           ctx, array, reversed_bitmap->data(), output, direction, last_valid_value_chunk,
@@ -780,9 +764,9 @@ struct FillNullBackwardFunctor {
     return Status::OK();
   }
 
-  static Status FillNullBackwardChunkedArray(KernelContext* ctx,
-                                             const std::shared_ptr<ChunkedArray>& values,
-                                             Datum* out) {
+  static Status ExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    DCHECK_EQ(Datum::CHUNKED_ARRAY, batch[0].kind());
+    const ChunkedArray* arr = *batch[0].chunked_array();
     if (values->null_count() == 0) {
       *out = Datum(values);
       return Status::OK();
@@ -832,7 +816,7 @@ struct FillNullBackwardFunctor {
 template <template <class> class Functor>
 void RegisterVectorFunction(FunctionRegistry* registry,
                             std::shared_ptr<VectorFunction> func) {
-  auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExecOld exec) {
+  auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExec exec) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     if (is_fixed_width(get_id.id)) {
@@ -849,7 +833,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   };
   auto add_primitive_kernel = [&](detail::GetTypeId get_id) {
-    add_kernel(get_id, GenerateTypeAgnosticPrimitiveOld<Functor>(get_id));
+    add_kernel(get_id, GenerateTypeAgnosticPrimitive<Functor>(get_id));
   };
   for (const auto& ty : NumericTypes()) {
     add_primitive_kernel(ty);
@@ -866,7 +850,7 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   add_kernel(Type::DECIMAL128, Functor<FixedSizeBinaryType>::Exec);
   add_kernel(Type::DECIMAL256, Functor<FixedSizeBinaryType>::Exec);
   for (const auto& ty : BaseBinaryTypes()) {
-    add_kernel(ty->id(), GenerateTypeAgnosticVarBinaryBaseOld<Functor>(*ty));
+    add_kernel(ty->id(), GenerateTypeAgnosticVarBinaryBase<Functor>(*ty));
   }
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));

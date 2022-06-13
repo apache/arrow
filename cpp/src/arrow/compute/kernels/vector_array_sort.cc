@@ -107,33 +107,32 @@ struct PartitionNthToIndices<OutType, NullType> {
 // ----------------------------------------------------------------------
 // Array sorting implementations
 
-template <typename ArrayType, typename VisitorNotNull, typename VisitorNull>
-inline void VisitRawValuesInline(const ArrayType& values,
+template <typename c_type, typename VisitorNotNull, typename VisitorNull>
+inline void VisitRawValuesInline(const ArraySpan& values,
                                  VisitorNotNull&& visitor_not_null,
                                  VisitorNull&& visitor_null) {
-  const auto data = values.raw_values();
-  auto validity_buf = values.data()->buffers[0];
-  const uint8_t* bitmap = validity_buf == nullptr ? nullptr : validity_buf->data();
+  const c_type* data = values.GetValues<c_type>(1);
+  const uint8_t* bitmap = values.buffers[0].data;
   VisitBitBlocksVoid(
-      bitmap, values.offset(), values.length(),
+      bitmap, values.offset, values.length,
       [&](int64_t i) { visitor_not_null(data[i]); }, [&]() { visitor_null(); });
 }
 
 template <typename VisitorNotNull, typename VisitorNull>
-inline void VisitRawValuesInline(const BooleanArray& values,
+inline void VisitRawValuesInline(const ArraySpan& values,
                                  VisitorNotNull&& visitor_not_null,
                                  VisitorNull&& visitor_null) {
   if (values.null_count() != 0) {
-    const uint8_t* data = values.data()->GetValues<uint8_t>(1, 0);
-    const uint8_t* bitmap = values.data()->buffers[0]->data();
+    const uint8_t* data = values.GetValues<uint8_t>(1, 0);
+    const uint8_t* bitmap = values.buffers[0].data;
     VisitBitBlocksVoid(
-        bitmap, values.offset(), values.length(),
+        bitmap, values.offset, values.length,
         [&](int64_t i) { visitor_not_null(bit_util::GetBit(data, values.offset() + i)); },
         [&]() { visitor_null(); });
   } else {
     // Can avoid GetBit() overhead in the no-nulls case
     VisitBitBlocksVoid(
-        values.data()->buffers[1]->data(), values.offset(), values.length(),
+        values.buffers[1].data, values.offset, values.length,
         [&](int64_t i) { visitor_not_null(true); }, [&]() { visitor_not_null(false); });
   }
 }
@@ -252,17 +251,17 @@ class ArrayCountSorter {
   }
 
   template <typename CounterType>
-  void CountValues(const ArrayType& values, CounterType* counts) const {
-    VisitRawValuesInline(
+  void CountValues(const ArraySpan& values, CounterType* counts) const {
+    VisitRawValuesInline<c_type>(
         values, [&](c_type v) { ++counts[v - min_]; }, []() {});
   }
 
   template <typename CounterType>
-  void EmitIndices(const NullPartitionResult& p, const ArrayType& values, int64_t offset,
+  void EmitIndices(const NullPartitionResult& p, const ArraySpan& values, int64_t offset,
                    CounterType* counts) const {
     int64_t index = offset;
     CounterType count_nulls = 0;
-    VisitRawValuesInline(
+    VisitRawValuesInline<c_type>(
         values, [&](c_type v) { p.non_nulls_begin[counts[v - min_]++] = index++; },
         [&]() { p.nulls_begin[count_nulls++] = index++; });
   }
@@ -442,7 +441,7 @@ struct ArraySortIndices {
     uint64_t* out_end = out_begin + out_arr->length;
     std::iota(out_begin, out_end, 0);
 
-    ArrayType arr(batch[0].array());
+    ArrayType arr(batch[0].array.ToArrayData());
     ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*GetPhysicalType(arr.type())));
 
     sorter(out_begin, out_end, arr, 0, options);
@@ -464,30 +463,30 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
 
   // duration type
   base.signature = KernelSignature::Make({InputType::Array(Type::DURATION)}, uint64());
-  base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*int64());
+  base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*int64());
   DCHECK_OK(func->AddKernel(base));
 
   for (const auto& ty : NumericTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : TemporalTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty->id())}, uint64());
-    base.exec = GenerateNumericOld<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     base.signature = KernelSignature::Make({InputType::Array(id)}, uint64());
-    base.exec = GenerateDecimalOld<ExecTemplate, UInt64Type>(id);
+    base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
-    base.exec = GenerateVarBinaryBaseOld<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   base.signature =

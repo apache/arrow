@@ -77,31 +77,11 @@ struct CumulativeGeneric {
   ArgValue accumulator;
   bool skip_nulls;
   bool encountered_null = false;
-  Datum values;
+  ExecValue values;
   NumericBuilder<OutType>* builder;
 
   Status Cumulate(std::shared_ptr<ArrayData>* out_arr) {
     switch (values.kind()) {
-      case Datum::SCALAR: {
-        auto in_scalar = values.scalar();
-        if (!skip_nulls && !in_scalar->is_valid) {
-          RETURN_NOT_OK(builder->AppendNull());
-          break;
-        }
-
-        if (skip_nulls && !in_scalar->is_valid) {
-          RETURN_NOT_OK(builder->Append(accumulator));
-          break;
-        }
-
-        Status st;
-        auto in_value = UnboxScalar<OutType>::Unbox(*(in_scalar));
-        auto result = Op::template Call<OutValue, ArgValue, ArgValue>(ctx, accumulator,
-                                                                      in_value, &st);
-        RETURN_NOT_OK(st);
-        RETURN_NOT_OK(builder->Append(result));
-        break;
-      }
       case Datum::ARRAY: {
         auto arr_input = values.array();
         RETURN_NOT_OK(builder->Reserve(arr_input->length));
@@ -214,8 +194,8 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
-    kernel.signature = KernelSignature::Make({InputType(ty)}, OutputType(ty));
-    kernel.exec = ArithmeticExecFromOpOld<CumulativeGeneric, Op, OptionsType>(ty);
+    kernel.signature = KernelSignature::Make({InputType::Array(ty)}, OutputType(ty));
+    kernel.exec = ArithmeticExecFromOp<CumulativeGeneric, Op, OptionsType>(ty);
     kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }

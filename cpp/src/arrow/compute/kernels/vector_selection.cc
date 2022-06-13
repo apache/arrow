@@ -2327,7 +2327,7 @@ Status TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 struct SelectionKernelDescr {
   InputType input;
-  ArrayKernelExecOld exec;
+  ArrayKernelExec exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
