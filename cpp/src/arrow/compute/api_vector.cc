@@ -17,6 +17,7 @@
 
 #include "arrow/compute/api_vector.h"
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -26,6 +27,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -295,21 +297,18 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
-                                           const ArraySortOptions& array_options,
+                                           const ArraySortOptions& options,
                                            ExecContext* ctx) {
-  SortOptions options({SortKey("", array_options.order)}, array_options.null_placement);
-
-  uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
+  KernelContext kernel_ctx(ctx);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out,
+                        kernel_ctx.Allocate(chunked_array.length() *
+                                            sizeof(uint64_t)));
+  uint64_t* out_begin = reinterpret_cast<uint64_t*>(out->mutable_data());
   uint64_t* out_end = out_begin + out_arr->length;
   std::iota(out_begin, out_end, 0);
-
-      return SortChunkedArray(ctx->exec_context(), out_begin, out_end,
-                              *batch[0].chunked_array(), options.order,
-                              options.null_placement);
-
-  ARROW_ASSIGN_OR_RAISE(
-      Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
-  return result.make_array();
+  RETURN_NOT_OK(SortChunkedArray(ctx, out_begin, out_end, chunked_array, options.order,
+                                 options.null_placement));
+  return std::make_shared<UInt64Array>(chunked_array.length(), out);
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,

@@ -42,7 +42,7 @@ constexpr uint64_t kCountEOF = ~0ULL;
 
 template <typename InType, typename CType = typename TypeTraits<InType>::CType>
 Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
-                                                  Datum* out) {
+                                                  ExecResult* out) {
   DCHECK_EQ(Type::STRUCT, out->type()->id());
   const auto& out_type = checked_cast<const StructType&>(*out->type());
   DCHECK_EQ(2, out_type.num_fields());
@@ -64,14 +64,14 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
     count_buffer = count_data->template GetMutableValues<int64_t>(1);
   }
 
-  *out = Datum(ArrayData::Make(out->type(), n, {nullptr}, {mode_data, count_data}, 0));
+  out->value = ArrayData::Make(out->type(), n, {nullptr}, {mode_data, count_data}, 0);
   return std::make_pair(mode_buffer, count_buffer);
 }
 
 // find top-n value:count pairs with minimal heap
 // suboptimal for tiny or large n, possibly okay as we're not in hot path
 template <typename InType, typename Generator>
-Status Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
+Status Finalize(KernelContext* ctx, ExecResult* out, Generator&& gen) {
   using CType = typename TypeTraits<InType>::CType;
 
   using ValueCountPair = std::pair<CType, uint64_t>;
@@ -127,17 +127,17 @@ struct CountModer {
     this->counts.resize(value_range, 0);
   }
 
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // count values in all chunks, ignore nulls
-    const Datum& datum = batch[0];
+    const ExecValue& value = batch[0];
 
     const ModeOptions& options = ModeState::Get(ctx);
-    if ((!options.skip_nulls && datum.null_count() > 0) ||
-        (datum.length() - datum.null_count() < options.min_count)) {
+    if ((!options.skip_nulls && value.null_count() > 0) ||
+        (value.length() - value.null_count() < options.min_count)) {
       return PrepareOutput<T>(/*n=*/0, ctx, out).status();
     }
 
-    CountValues<CType>(this->counts.data(), datum, this->min);
+    CountValues<CType>(this->counts.data(), value, this->min);
 
     // generator to emit next value:count pair
     int index = 0;
@@ -160,18 +160,18 @@ struct CountModer {
 // booleans can be handled more straightforward
 template <>
 struct CountModer<BooleanType> {
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const Datum& datum = batch[0];
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ExecValue& value = batch[0];
 
     const ModeOptions& options = ModeState::Get(ctx);
-    if ((!options.skip_nulls && datum.null_count() > 0) ||
-        (datum.length() - datum.null_count() < options.min_count)) {
+    if ((!options.skip_nulls && value.null_count() > 0) ||
+        (value.length() - value.null_count() < options.min_count)) {
       return PrepareOutput<BooleanType>(/*n=*/0, ctx, out).status();
     }
 
     int64_t counts[2]{};
 
-    for (const auto& array : datum.chunks()) {
+    for (const auto& array : value.chunks()) {
       if (array->length() > array->null_count()) {
         const int64_t true_count =
             arrow::internal::checked_pointer_cast<BooleanArray>(array)->true_count();
@@ -222,7 +222,7 @@ struct SortModer {
     return static_cast<CType>(0);
   }
 
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const Datum& datum = batch[0];
     const int64_t in_length = datum.length() - datum.null_count();
 
@@ -283,7 +283,7 @@ template <typename T>
 struct CountOrSortModer {
   using CType = typename T::c_type;
 
-  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // cross point to benefit from counting approach
     // about 2x improvement for int32/64 from micro-benchmarking
     static constexpr int kMinArraySize = 8192;
@@ -340,7 +340,7 @@ struct Moder<InType, enable_if_decimal<InType>> {
 };
 
 template <typename T>
-Status ScalarMode(KernelContext* ctx, const Scalar& scalar, Datum* out) {
+Status ScalarMode(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
   using CType = typename TypeTraits<T>::CType;
 
   const ModeOptions& options = ModeState::Get(ctx);
@@ -366,7 +366,7 @@ Status ScalarMode(KernelContext* ctx, const Scalar& scalar, Datum* out) {
 
 template <typename _, typename InType>
 struct ModeExecutor {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (ctx->state() == nullptr) {
       return Status::Invalid("Mode requires ModeOptions");
     }
