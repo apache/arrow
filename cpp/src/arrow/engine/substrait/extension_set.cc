@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/engine/substrait/expression_internal.h"
@@ -638,7 +639,7 @@ ArrowToSubstrait arrow_abs_to_substrait = [] (const arrow::compute::Expression::
   return arrow_convert_arguments(call, substrait_call, ext_set_);
 };
 
-// Boolean Functions mapping
+// Boolean Functions mappings
 SubstraitToArrow substrait_not_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
   return arrow::compute::call("invert", substrait_convert_arguments(call));
 };
@@ -668,7 +669,6 @@ ArrowToSubstrait arrow_or_kleene_to_substrait = [] (const arrow::compute::Expres
   substrait_call.set_function_reference(function_reference);
   return arrow_convert_arguments(call, substrait_call, ext_set_);
 };
-
 
 ArrowToSubstrait arrow_and_kleene_to_substrait = [] (const arrow::compute::Expression::Call& call, ExtensionSet* ext_set_) -> Result<substrait::Expression::ScalarFunction> {
   substrait::Expression::ScalarFunction substrait_call;
@@ -967,6 +967,15 @@ ArrowToSubstrait arrow_datetime_subtract_intervals_to_substrait = [] (const arro
   ARROW_ASSIGN_OR_RAISE(auto function_reference, ext_set_->EncodeFunction("subtract_intervals"));
   substrait_call.set_function_reference(function_reference);
   return arrow_convert_arguments(call, substrait_call, ext_set_);
+};
+
+// Aggregate functions mapping
+SubstraitToArrow substrait_aggregate_sum_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  return arrow::compute::call("sum", {substrait_convert_arguments(call)[1]}, compute::ScalarAggregateOptions());
+};
+
+SubstraitToArrow substrait_aggregate_avg_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
+  return arrow::compute::call("avg", {substrait_convert_arguments(call)[1]}, compute::ScalarAggregateOptions());
 };
 
 }  // namespace engine
