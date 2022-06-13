@@ -74,12 +74,12 @@ static DeclarationFactory MakeConsumingSinkDeclarationFactory(
 
 static compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
                                                       std::vector<std::string> names) {
-  size_t names_size = names.size();
-  if (names.size() == 0) {
+  int names_size = static_cast<int>(names.size());
+  if (names_size == 0) {
     return input;
   }
   std::vector<compute::Expression> expressions;
-  for (size_t i = 0; i < names_size; i++) {
+  for (int i = 0; i < names_size; i++) {
     expressions.push_back(compute::field_ref(FieldRef(i)));
   }
   return compute::Declaration::Sequence(
