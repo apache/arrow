@@ -190,7 +190,7 @@ class ARROW_EXPORT RowTableImpl {
   }
   uint8_t* mutable_data(int i) {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
-    return mutable_buffers_[i];
+    return buffers_[i];
   }
   const uint32_t* offsets() const { return reinterpret_cast<const uint32_t*>(data(1)); }
   uint32_t* mutable_offsets() { return reinterpret_cast<uint32_t*>(mutable_data(1)); }
@@ -210,12 +210,13 @@ class ARROW_EXPORT RowTableImpl {
 
   // Helper functions to determine the number of bytes needed for each
   // buffer given a number of rows.
-  int64_t size_null_masks(int64_t num_rows);
-  int64_t size_offsets(int64_t num_rows);
-  int64_t size_rows_fixed_length(int64_t num_rows);
-  int64_t size_rows_varying_length(int64_t num_bytes);
+  int64_t size_null_masks(int64_t num_rows) const;
+  int64_t size_offsets(int64_t num_rows) const;
+  int64_t size_rows_fixed_length(int64_t num_rows) const;
+  int64_t size_rows_varying_length(int64_t num_bytes) const;
+
   // Called after resize to fix pointers
-  void update_buffer_pointers();
+  void UpdateBufferPointers();
 
   // The arrays in `buffers_` need to be padded so that
   // vectorized operations can operate in blocks without
@@ -232,8 +233,7 @@ class ARROW_EXPORT RowTableImpl {
   // Stores the fixed-length parts of the rows
   std::unique_ptr<ResizableBuffer> rows_;
   static constexpr int kMaxBuffers = 3;
-  const uint8_t* buffers_[kMaxBuffers];
-  uint8_t* mutable_buffers_[kMaxBuffers];
+  uint8_t* buffers_[kMaxBuffers];
   // The number of rows in the table
   int64_t num_rows_;
   // The number of rows that can be stored in the table without resizing

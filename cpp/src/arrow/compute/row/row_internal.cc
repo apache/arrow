@@ -203,7 +203,7 @@ Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata& metadata) {
     bytes_capacity_ = size_rows_fixed_length(kInitialRowsCapacity) - kPaddingForVectors;
   }
 
-  update_buffer_pointers();
+  UpdateBufferPointers();
 
   rows_capacity_ = kInitialRowsCapacity;
 
@@ -224,30 +224,30 @@ void RowTableImpl::Clean() {
   }
 }
 
-int64_t RowTableImpl::size_null_masks(int64_t num_rows) {
+int64_t RowTableImpl::size_null_masks(int64_t num_rows) const {
   return num_rows * metadata_.null_masks_bytes_per_row + kPaddingForVectors;
 }
 
-int64_t RowTableImpl::size_offsets(int64_t num_rows) {
+int64_t RowTableImpl::size_offsets(int64_t num_rows) const {
   return (num_rows + 1) * sizeof(uint32_t) + kPaddingForVectors;
 }
 
-int64_t RowTableImpl::size_rows_fixed_length(int64_t num_rows) {
+int64_t RowTableImpl::size_rows_fixed_length(int64_t num_rows) const {
   return num_rows * metadata_.fixed_length + kPaddingForVectors;
 }
 
-int64_t RowTableImpl::size_rows_varying_length(int64_t num_bytes) {
+int64_t RowTableImpl::size_rows_varying_length(int64_t num_bytes) const {
   return num_bytes + kPaddingForVectors;
 }
 
-void RowTableImpl::update_buffer_pointers() {
-  buffers_[0] = mutable_buffers_[0] = null_masks_->mutable_data();
+void RowTableImpl::UpdateBufferPointers() {
+  buffers_[0] = null_masks_->mutable_data();
   if (metadata_.is_fixed_length) {
-    buffers_[1] = mutable_buffers_[1] = rows_->mutable_data();
-    buffers_[2] = mutable_buffers_[2] = nullptr;
+    buffers_[1] = rows_->mutable_data();
+    buffers_[2] = nullptr;
   } else {
-    buffers_[1] = mutable_buffers_[1] = offsets_->mutable_data();
-    buffers_[2] = mutable_buffers_[2] = rows_->mutable_data();
+    buffers_[1] = offsets_->mutable_data();
+    buffers_[2] = rows_->mutable_data();
   }
 }
 
@@ -279,7 +279,7 @@ Status RowTableImpl::ResizeFixedLengthBuffers(int64_t num_extra_rows) {
     bytes_capacity_ = size_rows_fixed_length(rows_capacity_new) - kPaddingForVectors;
   }
 
-  update_buffer_pointers();
+  UpdateBufferPointers();
 
   rows_capacity_ = rows_capacity_new;
 
@@ -302,7 +302,7 @@ Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) 
          size_rows_varying_length(bytes_capacity_new) -
              size_rows_varying_length(bytes_capacity_));
 
-  update_buffer_pointers();
+  UpdateBufferPointers();
 
   bytes_capacity_ = bytes_capacity_new;
 

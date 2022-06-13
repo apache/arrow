@@ -2692,28 +2692,6 @@ struct GroupedListFactory {
 };
 }  // namespace
 
-
-Result<std::vector<const HashAggregateKernel*>> GetKernels(
-    ExecContext* ctx, const std::vector<Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs) {
-  if (aggregates.size() != in_descrs.size()) {
-    return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
-                           in_descrs.size(), " arguments were provided.");
-  }
-
-  std::vector<const HashAggregateKernel*> kernels(in_descrs.size());
-
-  for (size_t i = 0; i < aggregates.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto function,
-                          ctx->func_registry()->GetFunction(aggregates[i].function));
-    ARROW_ASSIGN_OR_RAISE(
-        const Kernel* kernel,
-        function->DispatchExact({in_descrs[i], ValueDescr::Array(uint32())}));
-    kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
-  }
-  return kernels;
-}
-
 namespace {
 const FunctionDoc hash_count_doc{
     "Count the number of null / non-null values in each group",
