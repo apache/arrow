@@ -712,6 +712,57 @@ GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new(void);
 
 
+/**
+ * GArrowQuantileInterpolation:
+ * @GARROW_QUANTILE_INTERPOLATION_LINEAR: Linear.
+ * @GARROW_QUANTILE_INTERPOLATION_LOWER: Lower.
+ * @GARROW_QUANTILE_INTERPOLATION_HIGHER: Higher.
+ * @GARROW_QUANTILE_INTERPOLATION_NEAREST: Nearest.
+ * @GARROW_QUANTILE_INTERPOLATION_MIDPOINT: Midpoint.
+ *
+ * They correspond to the values of
+ * `arrow::compute::QuantileOptions::Interpolation`.
+ *
+ * Since: 9.0.0
+ */
+typedef enum {
+  GARROW_QUANTILE_INTERPOLATION_LINEAR,
+  GARROW_QUANTILE_INTERPOLATION_LOWER,
+  GARROW_QUANTILE_INTERPOLATION_HIGHER,
+  GARROW_QUANTILE_INTERPOLATION_NEAREST,
+  GARROW_QUANTILE_INTERPOLATION_MIDPOINT,
+} GArrowQuantileInterpolation;
+
+#define GARROW_TYPE_QUANTILE_OPTIONS            \
+  (garrow_quantile_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowQuantileOptions,
+                         garrow_quantile_options,
+                         GARROW,
+                         QUANTILE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowQuantileOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_9_0
+GArrowQuantileOptions *
+garrow_quantile_options_new(void);
+GARROW_AVAILABLE_IN_9_0
+const gdouble *
+garrow_quantile_options_get_qs(GArrowQuantileOptions *options,
+                               gsize *n);
+GARROW_AVAILABLE_IN_9_0
+void
+garrow_quantile_options_set_q(GArrowQuantileOptions *options,
+                              gdouble quantile);
+GARROW_AVAILABLE_IN_9_0
+void
+garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
+                               const gdouble *qs,
+                               gsize n);
+
+
 GArrowArray *garrow_array_cast(GArrowArray *array,
                                GArrowDataType *target_data_type,
                                GArrowCastOptions *options,

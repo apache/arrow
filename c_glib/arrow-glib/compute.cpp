@@ -3696,6 +3696,226 @@ garrow_utf8_normalize_options_new(void)
 }
 
 
+enum {
+  PROP_QUANTILE_OPTIONS_INTERPOLATION = 1,
+  PROP_QUANTILE_OPTIONS_SKIP_NULLS,
+  PROP_QUANTILE_OPTIONS_MIN_COUNT,
+};
+
+G_DEFINE_TYPE(GArrowQuantileOptions,
+              garrow_quantile_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_QUANTILE_OPTIONS_GET_PRIVATE(object)      \
+  static_cast<GArrowQuantileOptionsPrivate *>(           \
+    garrow_quantile_options_get_instance_private(        \
+      GARROW_QUANTILE_OPTIONS(object)))
+
+static void
+garrow_quantile_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_quantile_options_get_raw(
+      GARROW_QUANTILE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_QUANTILE_OPTIONS_INTERPOLATION:
+    options->interpolation =
+      static_cast<arrow::compute::QuantileOptions::Interpolation>(
+        g_value_get_enum(value));
+    break;
+  case PROP_QUANTILE_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  case PROP_QUANTILE_OPTIONS_MIN_COUNT:
+    options->min_count = g_value_get_uint(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_quantile_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options = garrow_quantile_options_get_raw(
+    GARROW_QUANTILE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_QUANTILE_OPTIONS_INTERPOLATION:
+    g_value_set_enum(
+      value,
+      static_cast<GArrowQuantileInterpolation>(options->interpolation));
+    break;
+  case PROP_QUANTILE_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  case PROP_QUANTILE_OPTIONS_MIN_COUNT:
+    g_value_set_uint(value, options->min_count);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_quantile_options_init(GArrowQuantileOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::QuantileOptions());
+}
+
+static void
+garrow_quantile_options_class_init(GArrowQuantileOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_quantile_options_set_property;
+  gobject_class->get_property = garrow_quantile_options_get_property;
+
+
+  auto options = arrow::compute::QuantileOptions::Defaults();
+
+  GParamSpec *spec;
+  /**
+   * GArrowQuantileOptions:interpolation:
+   *
+   * Interpolation method to use when quantile lies between two data
+   * points.
+   *
+   * Since: 9.0.0
+   */
+  spec = g_param_spec_enum("interpolation",
+                           "Interpolation",
+                           "Interpolation method to use when "
+                           "quantile lies between two data points.",
+                           GARROW_TYPE_QUANTILE_INTERPOLATION,
+                           static_cast<GArrowQuantileInterpolation>(
+                             options.interpolation),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_QUANTILE_OPTIONS_INTERPOLATION,
+                                  spec);
+
+  /**
+   * GArrowQuantileOptions:skip-nulls:
+   *
+   * If true (the default), null values are ignored. Otherwise, if any
+   * value is null, emit null.
+   *
+   * Since: 9.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip nulls",
+                              "If true (the default), "
+                              "null values are ignored. "
+                              "Otherwise, if any value is null, "
+                              "emit null.",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_QUANTILE_OPTIONS_SKIP_NULLS,
+                                  spec);
+
+  /**
+   * GArrowQuantileOptions:min-count:
+   *
+   * If less than this many non-null values are observed, emit null.
+   *
+   * Since: 9.0.0
+   */
+  spec = g_param_spec_uint("min-count",
+                           "Min count",
+                           "If less than this many non-null values are "
+                           "observed, emit null.",
+                           0,
+                           G_MAXUINT32,
+                           options.min_count,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_QUANTILE_OPTIONS_MIN_COUNT,
+                                  spec);
+}
+
+/**
+ * garrow_quantile_options_new:
+ *
+ * Returns: A newly created #GArrowQuantileOptions.
+ *
+ * Since: 9.0.0
+ */
+GArrowQuantileOptions *
+garrow_quantile_options_new(void)
+{
+  return GARROW_QUANTILE_OPTIONS(
+    g_object_new(GARROW_TYPE_QUANTILE_OPTIONS, NULL));
+}
+
+/**
+ * garrow_quantile_options_get_qs:
+ * @options: A #GArrowQuantileOptions.
+ * @n: (out): The number of `q`s.
+ *
+ * Returns: (array length=n) (transfer none): The `q`s to be used.
+ *
+ * Since: 9.0.0
+ */
+const gdouble *
+garrow_quantile_options_get_qs(GArrowQuantileOptions *options, gsize *n)
+{
+  auto priv = garrow_quantile_options_get_raw(options);
+  if (n) {
+    *n = priv->q.size();
+  }
+  return priv->q.data();
+}
+
+/**
+ * garrow_quantile_options_set_q:
+ * @options: A #GArrowQuantileOptions.
+ * @q: A `q` to be used.
+ *
+ * Since: 9.0.0
+ */
+void
+garrow_quantile_options_set_q(GArrowQuantileOptions *options,
+                              gdouble q)
+{
+  auto priv = garrow_quantile_options_get_raw(options);
+  priv->q.clear();
+  priv->q.push_back(q);
+}
+
+/**
+ * garrow_quantile_options_set_qs:
+ * @options: A #GArrowQuantileOptions.
+ * @qs: (array length=n): `q`s to be used.
+ * @n: The number of @qs.
+ *
+ * Since: 9.0.0
+ */
+void
+garrow_quantile_options_set_qs(GArrowQuantileOptions *options,
+                               const gdouble *qs,
+                               gsize n)
+{
+  auto priv = garrow_quantile_options_get_raw(options);
+  priv->q.clear();
+  for (gsize i = 0; i < n; i++) {
+    priv->q.push_back(qs[i]);
+  }
+}
+
+
 /**
  * garrow_array_cast:
  * @array: A #GArrowArray.
@@ -4964,6 +5184,11 @@ garrow_function_options_new_raw(
     auto options = garrow_utf8_normalize_options_new_raw(
       arrow_utf8_normalize_options);
     return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "QuantileOptions") {
+    const auto arrow_quantile_options =
+      static_cast<const arrow::compute::QuantileOptions *>(arrow_options);
+    auto options = garrow_quantile_options_new_raw(arrow_quantile_options);
+    return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
                                 NULL);
@@ -5326,5 +5551,30 @@ arrow::compute::Utf8NormalizeOptions *
 garrow_utf8_normalize_options_get_raw(GArrowUTF8NormalizeOptions *options)
 {
   return static_cast<arrow::compute::Utf8NormalizeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowQuantileOptions *
+garrow_quantile_options_new_raw(
+  const arrow::compute::QuantileOptions *arrow_options)
+{
+  auto options =
+    GARROW_QUANTILE_OPTIONS(
+      g_object_new(GARROW_TYPE_QUANTILE_OPTIONS,
+                   "interpolation", arrow_options->interpolation,
+                   "skip-nulls", arrow_options->skip_nulls,
+                   "min-count", arrow_options->min_count,
+                   NULL));
+  garrow_quantile_options_set_qs(options,
+                                 arrow_options->q.data(),
+                                 arrow_options->q.size());
+  return options;
+}
+
+arrow::compute::QuantileOptions *
+garrow_quantile_options_get_raw(GArrowQuantileOptions *options)
+{
+  return static_cast<arrow::compute::QuantileOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
