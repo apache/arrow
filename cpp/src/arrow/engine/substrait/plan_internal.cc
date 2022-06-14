@@ -123,7 +123,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
         if (exclude_functions) {
-          break; 
+          break;
         }
         const auto& fn = ext.extension_function();
         util::string_view uri = uris[fn.extension_uri_reference()];

@@ -96,7 +96,7 @@ Result<FieldRef> FromProto(const substrait::Expression& expr, const std::string&
     }
     default: {
       return Status::NotImplemented(std::string(
-          "substrait::AsOfMergeRel with non-selection for ") + what);
+          "substrait::Expression with non-selection for ") + what);
     }
   }
   return FieldRef(FieldPath({index}));
@@ -379,9 +379,7 @@ Result<compute::Declaration> FromProtoInternal(
 
       return compute::Declaration::Sequence({
           std::move(input),
-          {"project",
-           compute::ProjectNodeOptions{std::move(expressions)}
-          },
+          {"project", compute::ProjectNodeOptions{std::move(expressions)}},
       });
     }
 
@@ -526,9 +524,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
   }
   return compute::Declaration::Sequence({
       std::move(input),
-      {"project",
-       compute::ProjectNodeOptions{std::move(expressions), std::move(names)}
-      },
+      {"project", compute::ProjectNodeOptions{std::move(expressions), std::move(names)}},
   });
 }
 
