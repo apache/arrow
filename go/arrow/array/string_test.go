@@ -206,3 +206,37 @@ func TestStringReset(t *testing.T) {
 
 	assert.Equal(t, "string1", string2.Value(0))
 }
+
+func TestStringInvalidOffsets(t *testing.T) {
+	const expectedPanic = "arrow/array: string offsets out of bounds of data buffer"
+
+	makeBuffers := func(offsets []int32, data string) []*memory.Buffer {
+		offsetBuf := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(offsets))
+		return []*memory.Buffer{nil, offsetBuf, memory.NewBufferBytes([]byte(data))}
+	}
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers([]int32{}, "")
+		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 0, buffers, nil, 0, 0))
+	}, "empty array has no offsets")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers([]int32{0, 5}, "")
+		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 0))
+	}, "last offset is allowed to overflow length")
+
+	assert.PanicsWithValue(t, expectedPanic, func() {
+		buffers := makeBuffers([]int32{1, 5}, "")
+		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 0))
+	}, "second-last offset is overflowing")
+
+	assert.PanicsWithValue(t, expectedPanic, func() {
+		buffers := makeBuffers([]int32{0, 3, 10, 15}, "oooabcdef")
+		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 2))
+	}, "data has offset and value offset is overflowing")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers([]int32{0, 3, 4, 8}, "oooabcdef")
+		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 2))
+	}, "data has offset and value offsets are valid")
+}
