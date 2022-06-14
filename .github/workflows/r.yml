@@ -309,6 +309,8 @@ jobs:
         env:
           GITHUB_PAT: "${{ github.token }}"
         with:
+          # For some arcane reason caching does not work on the windows runners in a matrix build.
+          cache: false
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
