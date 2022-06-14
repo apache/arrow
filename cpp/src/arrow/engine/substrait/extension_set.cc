@@ -209,260 +209,6 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
   return &it->second;
 }
 
-namespace {
-
-struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
-  virtual ~ExtensionIdRegistryImpl() {}
-
-  std::vector<util::string_view> Uris() const override {
-    return {uris_.begin(), uris_.end()};
-  }
-
-  util::optional<TypeRecord> GetType(const DataType& type) const override {
-    if (auto index = GetIndex(type_to_index_, &type)) {
-      return TypeRecord{type_ids_[*index], types_[*index]};
-    }
-    return {};
-  }
-
-  util::optional<TypeRecord> GetType(Id id) const override {
-    if (auto index = GetIndex(id_to_index_, id)) {
-      return TypeRecord{type_ids_[*index], types_[*index]};
-    }
-    return {};
-  }
-
-  Status CanRegisterType(Id id, const std::shared_ptr<DataType>& type) const override {
-    if (id_to_index_.find(id) != id_to_index_.end()) {
-      return Status::Invalid("Type id was already registered");
-    }
-    if (type_to_index_.find(&*type) != type_to_index_.end()) {
-      return Status::Invalid("Type was already registered");
-    }
-    return Status::OK();
-  }
-
-  Status RegisterType(Id id, std::shared_ptr<DataType> type) override {
-    DCHECK_EQ(type_ids_.size(), types_.size());
-
-    Id copied_id{*uris_.emplace(id.uri.to_string()).first,
-                 *names_.emplace(id.name.to_string()).first};
-
-    auto index = static_cast<int>(type_ids_.size());
-
-    auto it_success = id_to_index_.emplace(copied_id, index);
-
-    if (!it_success.second) {
-      return Status::Invalid("Type id was already registered");
-    }
-
-    if (!type_to_index_.emplace(type.get(), index).second) {
-      id_to_index_.erase(it_success.first);
-      return Status::Invalid("Type was already registered");
-    }
-
-    type_ids_.push_back(copied_id);
-    types_.push_back(std::move(type));
-    return Status::OK();
-  }
-
-  util::optional<FunctionRecord> GetFunction(
-      util::string_view arrow_function_name) const override {
-    if (auto index = GetIndex(function_name_to_index_, arrow_function_name)) {
-      return FunctionRecord{function_ids_[*index], *function_name_ptrs_[*index]};
-    }
-    return {};
-  }
-
-  util::optional<FunctionRecord> GetFunction(Id id) const override {
-    if (auto index = GetIndex(function_id_to_index_, id)) {
-      return FunctionRecord{function_ids_[*index], *function_name_ptrs_[*index]};
-    }
-    return {};
-  }
-
-  Status CanRegisterFunction(Id id,
-                             const std::string& arrow_function_name) const override {
-    if (function_id_to_index_.find(id) != function_id_to_index_.end()) {
-      return Status::Invalid("Function id was already registered");
-    }
-    if (function_name_to_index_.find(arrow_function_name) !=
-        function_name_to_index_.end()) {
-      return Status::Invalid("Function name was already registered");
-    }
-    return Status::OK();
-  }
-
-  Status RegisterFunction(Id id, std::string arrow_function_name) override {
-    DCHECK_EQ(function_ids_.size(), function_name_ptrs_.size());
-
-    Id copied_id{*uris_.emplace(id.uri.to_string()).first,
-                 *names_.emplace(id.name.to_string()).first};
-
-    const std::string& copied_function_name{
-        *function_names_.emplace(std::move(arrow_function_name)).first};
-
-    auto index = static_cast<int>(function_ids_.size());
-
-    auto it_success = function_id_to_index_.emplace(copied_id, index);
-
-    if (!it_success.second) {
-      return Status::Invalid("Function id was already registered");
-    }
-
-    if (!function_name_to_index_.emplace(copied_function_name, index).second) {
-      function_id_to_index_.erase(it_success.first);
-      return Status::Invalid("Function name was already registered");
-    }
-
-    function_name_ptrs_.push_back(&copied_function_name);
-    function_ids_.push_back(copied_id);
-    return Status::OK();
-  }
-
-  // owning storage of uris, names, (arrow::)function_names, types
-  //    note that storing strings like this is safe since references into an
-  //    unordered_set are not invalidated on insertion
-  std::unordered_set<std::string> uris_, names_, function_names_;
-  DataTypeVector types_;
-
-  // non-owning lookup helpers
-  std::vector<Id> type_ids_, function_ids_;
-  std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_;
-  std::unordered_map<const DataType*, int, TypePtrHashEq, TypePtrHashEq> type_to_index_;
-
-  std::vector<const std::string*> function_name_ptrs_;
-  std::unordered_map<Id, int, IdHashEq, IdHashEq> function_id_to_index_;
-  std::unordered_map<util::string_view, int, ::arrow::internal::StringViewHash>
-      function_name_to_index_;
-};
-
-struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
-  explicit NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent)
-      : parent_(parent) {}
-
-  virtual ~NestedExtensionIdRegistryImpl() {}
-
-  std::vector<util::string_view> Uris() const override {
-    std::vector<util::string_view> uris = parent_->Uris();
-    std::unordered_set<util::string_view> uri_set;
-    uri_set.insert(uris.begin(), uris.end());
-    uri_set.insert(uris_.begin(), uris_.end());
-    return std::vector<util::string_view>(uris);
-  }
-
-  util::optional<TypeRecord> GetType(const DataType& type) const override {
-    auto type_opt = ExtensionIdRegistryImpl::GetType(type);
-    if (type_opt) {
-      return type_opt;
-    }
-    return parent_->GetType(type);
-  }
-
-  util::optional<TypeRecord> GetType(Id id) const override {
-    auto type_opt = ExtensionIdRegistryImpl::GetType(id);
-    if (type_opt) {
-      return type_opt;
-    }
-    return parent_->GetType(id);
-  }
-
-  Status CanRegisterType(Id id, const std::shared_ptr<DataType>& type) const override {
-    return parent_->CanRegisterType(id, type) &
-           ExtensionIdRegistryImpl::CanRegisterType(id, type);
-  }
-
-  Status RegisterType(Id id, std::shared_ptr<DataType> type) override {
-    return parent_->CanRegisterType(id, type) &
-           ExtensionIdRegistryImpl::RegisterType(id, type);
-  }
-
-  util::optional<FunctionRecord> GetFunction(
-      util::string_view arrow_function_name) const override {
-    auto func_opt = ExtensionIdRegistryImpl::GetFunction(arrow_function_name);
-    if (func_opt) {
-      return func_opt;
-    }
-    return parent_->GetFunction(arrow_function_name);
-  }
-
-  util::optional<FunctionRecord> GetFunction(Id id) const override {
-    auto func_opt = ExtensionIdRegistryImpl::GetFunction(id);
-    if (func_opt) {
-      return func_opt;
-    }
-    return parent_->GetFunction(id);
-  }
-
-  Status CanRegisterFunction(Id id,
-                             const std::string& arrow_function_name) const override {
-    return parent_->CanRegisterFunction(id, arrow_function_name) &
-           ExtensionIdRegistryImpl::CanRegisterFunction(id, arrow_function_name);
-  }
-
-  Status RegisterFunction(Id id, std::string arrow_function_name) override {
-    return parent_->CanRegisterFunction(id, arrow_function_name) &
-           ExtensionIdRegistryImpl::RegisterFunction(id, arrow_function_name);
-  }
-
-  const ExtensionIdRegistry* parent_;
-};
-
-struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
-  DefaultExtensionIdRegistry() {
-    struct TypeName {
-      std::shared_ptr<DataType> type;
-      util::string_view name;
-    };
-
-    // The type (variation) mappings listed below need to be kept in sync
-    // with the YAML at substrait/format/extension_types.yaml manually;
-    // see ARROW-15535.
-    for (TypeName e : {
-             TypeName{uint8(), "u8"},
-             TypeName{uint16(), "u16"},
-             TypeName{uint32(), "u32"},
-             TypeName{uint64(), "u64"},
-             TypeName{float16(), "fp16"},
-         }) {
-      DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
-    }
-
-    for (TypeName e : {
-             TypeName{null(), "null"},
-             TypeName{month_interval(), "interval_month"},
-             TypeName{day_time_interval(), "interval_day_milli"},
-             TypeName{month_day_nano_interval(), "interval_month_day_nano"},
-         }) {
-      DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
-    }
-
-    // TODO: this is just a placeholder right now. We'll need a YAML file for
-    // all functions (and prototypes) that Arrow provides that are relevant
-    // for Substrait, and include mappings for all of them here. See
-    // ARROW-15535.
-    for (util::string_view name : {
-             "add",
-             "equal",
-             "is_not_distinct_from",
-         }) {
-      DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
-    }
-  }
-};
-
-}  // namespace
-
-ExtensionIdRegistry* default_extension_id_registry() {
-  static DefaultExtensionIdRegistry impl_;
-  return &impl_;
-}
-
-std::shared_ptr<ExtensionIdRegistry> nested_extension_id_registry(
-    const ExtensionIdRegistry* parent) {
-  return std::make_shared<NestedExtensionIdRegistryImpl>(parent);
-}
-
 Status FunctionMapping::AddArrowToSubstrait(std::string arrow_function_name, ArrowToSubstrait conversion_func){
   if (arrow_to_substrait.find(arrow_function_name) != arrow_to_substrait.end()){
     arrow_to_substrait[arrow_function_name] =  conversion_func;
@@ -977,6 +723,293 @@ SubstraitToArrow substrait_aggregate_sum_to_arrow = [] (const substrait::Express
 SubstraitToArrow substrait_aggregate_avg_to_arrow = [] (const substrait::Expression::ScalarFunction& call) -> Result<arrow::compute::Expression>  {
   return arrow::compute::call("avg", {substrait_convert_arguments(call)[1]}, compute::ScalarAggregateOptions());
 };
+
+namespace {
+
+struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
+  virtual ~ExtensionIdRegistryImpl() {}
+
+  std::vector<util::string_view> Uris() const override {
+    return {uris_.begin(), uris_.end()};
+  }
+
+  util::optional<TypeRecord> GetType(const DataType& type) const override {
+    if (auto index = GetIndex(type_to_index_, &type)) {
+      return TypeRecord{type_ids_[*index], types_[*index]};
+    }
+    return {};
+  }
+
+  util::optional<TypeRecord> GetType(Id id) const override {
+    if (auto index = GetIndex(id_to_index_, id)) {
+      return TypeRecord{type_ids_[*index], types_[*index]};
+    }
+    return {};
+  }
+
+  Status CanRegisterType(Id id, const std::shared_ptr<DataType>& type) const override {
+    if (id_to_index_.find(id) != id_to_index_.end()) {
+      return Status::Invalid("Type id was already registered");
+    }
+    if (type_to_index_.find(&*type) != type_to_index_.end()) {
+      return Status::Invalid("Type was already registered");
+    }
+    return Status::OK();
+  }
+
+  Status RegisterType(Id id, std::shared_ptr<DataType> type) override {
+    DCHECK_EQ(type_ids_.size(), types_.size());
+
+    Id copied_id{*uris_.emplace(id.uri.to_string()).first,
+                 *names_.emplace(id.name.to_string()).first};
+
+    auto index = static_cast<int>(type_ids_.size());
+
+    auto it_success = id_to_index_.emplace(copied_id, index);
+
+    if (!it_success.second) {
+      return Status::Invalid("Type id was already registered");
+    }
+
+    if (!type_to_index_.emplace(type.get(), index).second) {
+      id_to_index_.erase(it_success.first);
+      return Status::Invalid("Type was already registered");
+    }
+
+    type_ids_.push_back(copied_id);
+    types_.push_back(std::move(type));
+    return Status::OK();
+  }
+
+  util::optional<FunctionRecord> GetFunction(
+      util::string_view arrow_function_name) const override {
+    if (auto index = GetIndex(function_name_to_index_, arrow_function_name)) {
+      return FunctionRecord{function_ids_[*index], *function_name_ptrs_[*index]};
+    }
+    return {};
+  }
+
+  util::optional<FunctionRecord> GetFunction(Id id) const override {
+    if (auto index = GetIndex(function_id_to_index_, id)) {
+      return FunctionRecord{function_ids_[*index], *function_name_ptrs_[*index]};
+    }
+    return {};
+  }
+
+  Status CanRegisterFunction(Id id,
+                             const std::string& arrow_function_name) const override {
+    if (function_id_to_index_.find(id) != function_id_to_index_.end()) {
+      return Status::Invalid("Function id was already registered");
+    }
+    if (function_name_to_index_.find(arrow_function_name) !=
+        function_name_to_index_.end()) {
+      return Status::Invalid("Function name was already registered");
+    }
+    return Status::OK();
+  }
+
+  Status RegisterFunctionMapping(Id id, SubstraitToArrow conversion_func) override {
+    DCHECK_OK(functions_map.AddSubstraitToArrow(id.name.to_string(), conversion_func));  
+    return RegisterFunction(id, id.name.to_string());
+  }
+
+  Status RegisterFunction(Id id, std::string arrow_function_name) override {
+    DCHECK_EQ(function_ids_.size(), function_name_ptrs_.size());
+
+    Id copied_id{*uris_.emplace(id.uri.to_string()).first,
+                 *names_.emplace(id.name.to_string()).first};
+
+    const std::string& copied_function_name{
+        *function_names_.emplace(std::move(arrow_function_name)).first};
+
+    auto index = static_cast<int>(function_ids_.size());
+
+    auto it_success = function_id_to_index_.emplace(copied_id, index);
+
+    if (!it_success.second) {
+      return Status::Invalid("Function id was already registered");
+    }
+
+    if (!function_name_to_index_.emplace(copied_function_name, index).second) {
+      function_id_to_index_.erase(it_success.first);
+      return Status::Invalid("Function name was already registered");
+    }
+
+    function_name_ptrs_.push_back(&copied_function_name);
+    function_ids_.push_back(copied_id);
+    return Status::OK();
+  }
+
+  // owning storage of uris, names, (arrow::)function_names, types
+  //    note that storing strings like this is safe since references into an
+  //    unordered_set are not invalidated on insertion
+  std::unordered_set<std::string> uris_, names_, function_names_;
+  DataTypeVector types_;
+
+  // non-owning lookup helpers
+  std::vector<Id> type_ids_, function_ids_;
+  std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_;
+  std::unordered_map<const DataType*, int, TypePtrHashEq, TypePtrHashEq> type_to_index_;
+
+  std::vector<const std::string*> function_name_ptrs_;
+  std::unordered_map<Id, int, IdHashEq, IdHashEq> function_id_to_index_;
+  std::unordered_map<util::string_view, int, ::arrow::internal::StringViewHash>
+      function_name_to_index_;
+};
+
+struct NestedExtensionIdRegistryImpl : ExtensionIdRegistryImpl {
+  explicit NestedExtensionIdRegistryImpl(const ExtensionIdRegistry* parent)
+      : parent_(parent) {}
+
+  virtual ~NestedExtensionIdRegistryImpl() {}
+
+  std::vector<util::string_view> Uris() const override {
+    std::vector<util::string_view> uris = parent_->Uris();
+    std::unordered_set<util::string_view> uri_set;
+    uri_set.insert(uris.begin(), uris.end());
+    uri_set.insert(uris_.begin(), uris_.end());
+    return std::vector<util::string_view>(uris);
+  }
+
+  util::optional<TypeRecord> GetType(const DataType& type) const override {
+    auto type_opt = ExtensionIdRegistryImpl::GetType(type);
+    if (type_opt) {
+      return type_opt;
+    }
+    return parent_->GetType(type);
+  }
+
+  util::optional<TypeRecord> GetType(Id id) const override {
+    auto type_opt = ExtensionIdRegistryImpl::GetType(id);
+    if (type_opt) {
+      return type_opt;
+    }
+    return parent_->GetType(id);
+  }
+
+  Status CanRegisterType(Id id, const std::shared_ptr<DataType>& type) const override {
+    return parent_->CanRegisterType(id, type) &
+           ExtensionIdRegistryImpl::CanRegisterType(id, type);
+  }
+
+  Status RegisterType(Id id, std::shared_ptr<DataType> type) override {
+    return parent_->CanRegisterType(id, type) &
+           ExtensionIdRegistryImpl::RegisterType(id, type);
+  }
+
+  util::optional<FunctionRecord> GetFunction(
+      util::string_view arrow_function_name) const override {
+    auto func_opt = ExtensionIdRegistryImpl::GetFunction(arrow_function_name);
+    if (func_opt) {
+      return func_opt;
+    }
+    return parent_->GetFunction(arrow_function_name);
+  }
+
+  util::optional<FunctionRecord> GetFunction(Id id) const override {
+    auto func_opt = ExtensionIdRegistryImpl::GetFunction(id);
+    if (func_opt) {
+      return func_opt;
+    }
+    return parent_->GetFunction(id);
+  }
+
+  Status CanRegisterFunction(Id id,
+                             const std::string& arrow_function_name) const override {
+    return parent_->CanRegisterFunction(id, arrow_function_name) &
+           ExtensionIdRegistryImpl::CanRegisterFunction(id, arrow_function_name);
+  }
+
+  Status RegisterFunction(Id id, std::string arrow_function_name) override {
+    return parent_->CanRegisterFunction(id, arrow_function_name) &
+           ExtensionIdRegistryImpl::RegisterFunction(id, arrow_function_name);
+  }
+
+  const ExtensionIdRegistry* parent_;
+};
+
+struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
+  DefaultExtensionIdRegistry() {
+    struct TypeName {
+      std::shared_ptr<DataType> type;
+      util::string_view name;
+    };
+
+    // The type (variation) mappings listed below need to be kept in sync
+    // with the YAML at substrait/format/extension_types.yaml manually;
+    // see ARROW-15535.
+    for (TypeName e : {
+             TypeName{uint8(), "u8"},
+             TypeName{uint16(), "u16"},
+             TypeName{uint32(), "u32"},
+             TypeName{uint64(), "u64"},
+             TypeName{float16(), "fp16"},
+         }) {
+      DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
+    }
+
+    for (TypeName e : {
+             TypeName{null(), "null"},
+             TypeName{month_interval(), "interval_month"},
+             TypeName{day_time_interval(), "interval_day_milli"},
+             TypeName{month_day_nano_interval(), "interval_month_day_nano"},
+         }) {
+      DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
+    }
+
+    // registering arithmetic function mappings
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "add"}, substrait_add_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "subtract"}, substrait_subtract_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "multiply"}, substrait_multiply_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "divide"}, substrait_divide_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "modulus"}, substrait_modulus_to_arrow));
+
+    // registering boolean function mappings
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "not"}, substrait_not_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "and"}, substrait_and_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "or"}, substrait_or_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "xor"}, substrait_xor_to_arrow));
+
+    // registering comparison function mappings
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "lt"}, substrait_lt_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "gt"}, substrait_gt_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "lte"}, substrait_lte_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "gte"}, substrait_gte_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "equal"}, substrait_equal_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "not_equal"}, substrait_not_equal_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "is_null"}, substrait_is_null_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "is_not_null"}, substrait_is_not_null_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "is_not_distinct_from"}, substrait_is_not_distinct_from_to_arrow));
+
+    // registering string function mappings
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "like"}, substrait_like_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "substring"}, substrait_substring_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "concat"}, substrait_concat_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "substring"}, substrait_substring_to_arrow));
+
+    // registering cast function mapping
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "cast"}, substrait_cast_to_arrow));
+
+    // registering datetime function mappings
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "extract"}, substrait_extract_to_arrow));
+
+    // registering aggregate function mappings
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "sum"}, substrait_aggregate_sum_to_arrow));
+    DCHECK_OK(RegisterFunctionMapping({kArrowExtTypesUri, "avg"}, substrait_aggregate_avg_to_arrow));
+  }
+};
+
+}  // namespace
+
+ExtensionIdRegistry* default_extension_id_registry() {
+  static DefaultExtensionIdRegistry impl_;
+  return &impl_;
+}
+
+std::shared_ptr<ExtensionIdRegistry> nested_extension_id_registry(
+    const ExtensionIdRegistry* parent) {
+  return std::make_shared<NestedExtensionIdRegistryImpl>(parent);
+}
 
 }  // namespace engine
 }  // namespace arrow

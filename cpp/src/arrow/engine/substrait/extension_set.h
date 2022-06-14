@@ -44,11 +44,11 @@ class FunctionMapping {
   std::unordered_map<std::string, SubstraitToArrow> substrait_to_arrow;
   std::unordered_map<std::string, ArrowToSubstrait> arrow_to_substrait;
 
+  public: 
   // Registration API
   Status AddArrowToSubstrait(std::string arrow_function_name, ArrowToSubstrait conversion_func);
   Status AddSubstraitToArrow(std::string substrait_function_name, SubstraitToArrow conversion_func);
 
-  public: 
   Result<SubstraitToArrow> GetArrowFromSubstrait(std::string name) const;
   Result<ArrowToSubstrait> GetSubstraitFromArrow(std::string name) const;
 };
@@ -117,6 +117,7 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
       util::string_view arrow_function_name) const = 0;
   virtual Status CanRegisterFunction(Id,
                                      const std::string& arrow_function_name) const = 0;
+  virtual Status RegisterFunctionMapping(Id id, SubstraitToArrow conversion_func) = 0;
   virtual Status RegisterFunction(Id, std::string arrow_function_name) = 0;
 };
 
