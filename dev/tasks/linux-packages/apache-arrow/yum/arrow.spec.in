@@ -45,17 +45,18 @@
 %if %{rhel} >= 9
 %define arrow_cmake_builddir %{__cmake_builddir}
 %define arrow_cmake %cmake
-%define arrow_cmake_build %cmake_build
+%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
 %define arrow_cmake_install %cmake_install
 %else
 %define arrow_cmake_builddir build
 %define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
-%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} -v
-%define arrow_cmake_install DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install
+%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
+%define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
 %endif
 
 %define use_boost (!%{is_amazon_linux})
-%define use_flight (%{rhel} >= 8)
+# TODO: Enable this on aarch64 too. This causes timeout on Travis CI.
+%define use_flight (%{rhel} >= 8 && "%{_arch}" != "aarch64")
 %define use_gandiva (%{rhel} >= 8 && "%{_arch}" != "aarch64")
 %define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
@@ -189,7 +190,7 @@ cd cpp
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %endif
-  -GNinja
+  -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
 
