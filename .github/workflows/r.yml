@@ -63,9 +63,6 @@ jobs:
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
-      BUILDKIT_INLINE_CACHE: 1
-      COMPOSE_DOCKER_CLI_BUILD: 1
-      DOCKER_BUILDKIT: 1
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
