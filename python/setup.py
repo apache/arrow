@@ -271,6 +271,24 @@ class build_ext(_build_ext):
             self.spawn(['make', 'install'])
             print("-- Finished make build and install for C pyarrow")
 
+            if self.inplace:
+                # a bit hacky
+                build_lib = saved_cwd
+
+            # Move the libraries to the place expected by the Python build
+            try:
+                os.makedirs(pjoin(build_lib, 'pyarrow'))
+            except OSError:
+                pass
+            
+            print(f"moving {build_temp} to {build_lib}")
+            #shutil.move(build_temp, pjoin(build_lib, "pyarrow"))
+            # a bit hacky
+            shutil.move(pjoin(build_temp, "libarrow_python.so"), pjoin(build_lib, "pyarrow"))
+            shutil.move(pjoin(build_temp, "libarrow_python.so.900"), pjoin(build_lib, "pyarrow"))
+            shutil.move(pjoin(build_temp, "libarrow_python.so.900.0.0"), pjoin(build_lib, "pyarrow"))
+            shutil.move(pjoin(build_include, "arrow", "python"), pjoin(build_lib, "pyarrow", "include", "arrow"))
+
     def _run_cmake(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug'):
@@ -291,6 +309,10 @@ class build_ext(_build_ext):
 
         if not os.path.isdir(build_temp):
             self.mkpath(build_temp)
+
+        if self.inplace:
+            # a bit hacky
+            build_lib = saved_cwd
 
         # Change to the build directory
         with changed_dir(build_temp):
@@ -313,7 +335,7 @@ class build_ext(_build_ext):
             cmake_options = [
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
                 '-DPython3_EXECUTABLE=%s' % sys.executable,
-                '-DCPYARROW_HOME=' + str(build_dist),
+                '-DCPYARROW_HOME=' + str(pjoin(build_lib, "pyarrow")),
                 static_lib_option,
             ]
 
