@@ -227,7 +227,7 @@ class InputState {
   }
 
   // Advance the data to be immediately past the specified timestamp, update
-  // latest_time and latest_ref_row to the value that immediately pass the
+  // latest_time and latest_ref_row to the value that immediately follows the
   // specified timestamp.
   // Returns true if updates were made, false if not.
   bool AdvanceAndMemoize(int64_t ts) {
@@ -643,7 +643,7 @@ class AsofJoinNode : public ExecNode {
         const auto field = input_schema->field(i);
         if (field->name() == *options.on_key.name()) {
           if (supported_on_types_.find(field->type()) == supported_on_types_.end()) {
-            return Status::Invalid("Unsupported type for on key: ", field->type());
+            return Status::Invalid("Unsupported type for on key: ", field->name());
           }
           // Only add on field from the left table
           if (j == 0) {
@@ -651,7 +651,7 @@ class AsofJoinNode : public ExecNode {
           }
         } else if (field->name() == *options.by_key.name()) {
           if (supported_by_types_.find(field->type()) == supported_by_types_.end()) {
-            return Status::Invalid("Unsupported type for by key: ", field->type());
+            return Status::Invalid("Unsupported type for by key: ", field->name());
           }
           // Only add by field from the left table
           if (j == 0) {
@@ -659,7 +659,7 @@ class AsofJoinNode : public ExecNode {
           }
         } else {
           if (supported_data_types_.find(field->type()) == supported_data_types_.end()) {
-            return Status::Invalid("Unsupported data type:", field->type());
+            return Status::Invalid("Unsupported data type:", field->name());
           }
 
           fields.push_back(field);
@@ -749,9 +749,9 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  static const std::set<std::shared_ptr<DataType>> supported_on_types_;
-  static const std::set<std::shared_ptr<DataType>> supported_by_types_;
-  static const std::set<std::shared_ptr<DataType>> supported_data_types_;
+  static const std::set<std::shared_ptr<DataType>> kSupportedOnTypes;
+  static const std::set<std::shared_ptr<DataType>> kSupportedByTypes;
+  static const std::set<std::shared_ptr<DataType>> kSupportedDataTypes;
 
   arrow::Future<> finished_;
   // InputStates
