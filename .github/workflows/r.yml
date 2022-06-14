@@ -294,6 +294,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
+          # Adding the unique github.run_id forces the cache to be updated (which does not happen on primary key hit)
           key: r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-${{ github.run_id }}
           restore-keys: |
             r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**/*.h))') }}-
@@ -305,6 +306,8 @@ jobs:
           use-public-rspm: true
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
+        env:
+          GITHUB_PAT: "${{ github.token }}"
         with:
           working-directory: 'r'
           extra-packages: |
