@@ -247,8 +247,6 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
-  define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
-
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
