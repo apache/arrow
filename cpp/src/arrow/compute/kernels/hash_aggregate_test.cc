@@ -33,6 +33,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/aggregate.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
@@ -41,6 +42,7 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/row/grouper.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
@@ -73,14 +75,13 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
                            const std::vector<internal::Aggregate>& aggregates) {
   ARROW_ASSIGN_OR_RAISE(auto key_batch, ExecBatch::Make(std::move(keys)));
 
-  ARROW_ASSIGN_OR_RAISE(auto grouper,
-                        internal::Grouper::Make(key_batch.GetDescriptors()));
+  ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_batch.GetDescriptors()));
 
   ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
   ARROW_ASSIGN_OR_RAISE(
-      auto groupings, internal::Grouper::MakeGroupings(*id_batch.array_as<UInt32Array>(),
-                                                       grouper->num_groups()));
+      auto groupings,
+      Grouper::MakeGroupings(*id_batch.array_as<UInt32Array>(), grouper->num_groups()));
 
   ArrayVector out_columns;
   std::vector<std::string> out_names;
@@ -93,7 +94,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 
     ARROW_ASSIGN_OR_RAISE(
         auto grouped_argument,
-        internal::Grouper::ApplyGroupings(*groupings, *arguments[i].make_array()));
+        Grouper::ApplyGroupings(*groupings, *arguments[i].make_array()));
 
     ScalarVector aggregated_scalars;
 
@@ -261,21 +262,21 @@ Result<Datum> GroupByTest(
 }  // namespace
 
 TEST(Grouper, SupportedKeys) {
-  ASSERT_OK(internal::Grouper::Make({boolean()}));
+  ASSERT_OK(Grouper::Make({boolean()}));
 
-  ASSERT_OK(internal::Grouper::Make({int8(), uint16(), int32(), uint64()}));
+  ASSERT_OK(Grouper::Make({int8(), uint16(), int32(), uint64()}));
 
-  ASSERT_OK(internal::Grouper::Make({dictionary(int64(), utf8())}));
+  ASSERT_OK(Grouper::Make({dictionary(int64(), utf8())}));
 
-  ASSERT_OK(internal::Grouper::Make({float16(), float32(), float64()}));
+  ASSERT_OK(Grouper::Make({float16(), float32(), float64()}));
 
-  ASSERT_OK(internal::Grouper::Make({utf8(), binary(), large_utf8(), large_binary()}));
+  ASSERT_OK(Grouper::Make({utf8(), binary(), large_utf8(), large_binary()}));
 
-  ASSERT_OK(internal::Grouper::Make({fixed_size_binary(16), fixed_size_binary(32)}));
+  ASSERT_OK(Grouper::Make({fixed_size_binary(16), fixed_size_binary(32)}));
 
-  ASSERT_OK(internal::Grouper::Make({decimal128(32, 10), decimal256(76, 20)}));
+  ASSERT_OK(Grouper::Make({decimal128(32, 10), decimal256(76, 20)}));
 
-  ASSERT_OK(internal::Grouper::Make({date32(), date64()}));
+  ASSERT_OK(Grouper::Make({date32(), date64()}));
 
   for (auto unit : {
            TimeUnit::SECOND,
@@ -283,29 +284,28 @@ TEST(Grouper, SupportedKeys) {
            TimeUnit::MICRO,
            TimeUnit::NANO,
        }) {
-    ASSERT_OK(internal::Grouper::Make({timestamp(unit), duration(unit)}));
+    ASSERT_OK(Grouper::Make({timestamp(unit), duration(unit)}));
   }
 
-  ASSERT_OK(internal::Grouper::Make(
-      {day_time_interval(), month_interval(), month_day_nano_interval()}));
+  ASSERT_OK(
+      Grouper::Make({day_time_interval(), month_interval(), month_day_nano_interval()}));
 
-  ASSERT_OK(internal::Grouper::Make({null()}));
+  ASSERT_OK(Grouper::Make({null()}));
 
-  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({field("", int64())})}));
+  ASSERT_RAISES(NotImplemented, Grouper::Make({struct_({field("", int64())})}));
 
-  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({})}));
+  ASSERT_RAISES(NotImplemented, Grouper::Make({struct_({})}));
 
-  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({list(int32())}));
+  ASSERT_RAISES(NotImplemented, Grouper::Make({list(int32())}));
 
-  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({fixed_size_list(int32(), 5)}));
+  ASSERT_RAISES(NotImplemented, Grouper::Make({fixed_size_list(int32(), 5)}));
 
-  ASSERT_RAISES(NotImplemented,
-                internal::Grouper::Make({dense_union({field("", int32())})}));
+  ASSERT_RAISES(NotImplemented, Grouper::Make({dense_union({field("", int32())})}));
 }
 
 struct TestGrouper {
   explicit TestGrouper(std::vector<ValueDescr> descrs) : descrs_(std::move(descrs)) {
-    grouper_ = internal::Grouper::Make(descrs_).ValueOrDie();
+    grouper_ = Grouper::Make(descrs_).ValueOrDie();
 
     FieldVector fields;
     for (const auto& descr : descrs_) {
@@ -423,7 +423,7 @@ struct TestGrouper {
 
   std::vector<ValueDescr> descrs_;
   std::shared_ptr<Schema> key_schema_;
-  std::unique_ptr<internal::Grouper> grouper_;
+  std::unique_ptr<Grouper> grouper_;
   ExecBatch uniques_ = ExecBatch({}, -1);
 };
 
@@ -666,12 +666,11 @@ TEST(Grouper, MakeGroupings) {
     auto expected = ArrayFromJSON(list(int32()), expected_json);
 
     auto num_groups = static_cast<uint32_t>(expected->length());
-    ASSERT_OK_AND_ASSIGN(auto actual, internal::Grouper::MakeGroupings(*ids, num_groups));
+    ASSERT_OK_AND_ASSIGN(auto actual, Grouper::MakeGroupings(*ids, num_groups));
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 
     // validate ApplyGroupings
-    ASSERT_OK_AND_ASSIGN(auto grouped_ids,
-                         internal::Grouper::ApplyGroupings(*actual, *ids));
+    ASSERT_OK_AND_ASSIGN(auto grouped_ids, Grouper::ApplyGroupings(*actual, *ids));
 
     for (uint32_t group = 0; group < num_groups; ++group) {
       auto ids_slice = checked_pointer_cast<UInt32Array>(grouped_ids->value_slice(group));
@@ -693,7 +692,7 @@ TEST(Grouper, MakeGroupings) {
 
   auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), "[0, null, 1]"));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("MakeGroupings with null ids"),
-                                  internal::Grouper::MakeGroupings(*ids, 5));
+                                  Grouper::MakeGroupings(*ids, 5));
 }
 
 TEST(Grouper, ScalarValues) {

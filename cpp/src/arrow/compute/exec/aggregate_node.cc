@@ -21,11 +21,13 @@
 #include <unordered_map>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/aggregate.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/row/grouper.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
@@ -38,25 +40,6 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace compute {
-
-namespace internal {
-
-Result<std::vector<const HashAggregateKernel*>> GetKernels(
-    ExecContext* ctx, const std::vector<internal::Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs);
-
-Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
-    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<internal::Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs);
-
-Result<FieldVector> ResolveKernels(
-    const std::vector<internal::Aggregate>& aggregates,
-    const std::vector<const HashAggregateKernel*>& kernels,
-    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<ValueDescr>& descrs);
-
-}  // namespace internal
 
 namespace {
 
@@ -647,7 +630,7 @@ class GroupByNode : public ExecNode {
 
  private:
   struct ThreadLocalState {
-    std::unique_ptr<internal::Grouper> grouper;
+    std::unique_ptr<Grouper> grouper;
     std::vector<std::unique_ptr<KernelState>> agg_states;
   };
 
@@ -670,7 +653,7 @@ class GroupByNode : public ExecNode {
     }
 
     // Construct grouper
-    ARROW_ASSIGN_OR_RAISE(state->grouper, internal::Grouper::Make(key_descrs, ctx_));
+    ARROW_ASSIGN_OR_RAISE(state->grouper, Grouper::Make(key_descrs, ctx_));
 
     // Build vector of aggregate source field data types
     std::vector<ValueDescr> agg_src_descrs(agg_kernels_.size());

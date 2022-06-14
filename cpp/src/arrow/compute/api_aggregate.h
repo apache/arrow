@@ -395,84 +395,6 @@ Result<Datum> Index(const Datum& value, const IndexOptions& options,
 
 namespace internal {
 
-/// Internal use only: streaming group identifier.
-/// Consumes batches of keys and yields batches of the group ids.
-class ARROW_EXPORT Grouper {
- public:
-  virtual ~Grouper() = default;
-
-  /// Construct a Grouper which receives the specified key types
-  static Result<std::unique_ptr<Grouper>> Make(const std::vector<ValueDescr>& descrs,
-                                               ExecContext* ctx = default_exec_context());
-
-  /// Consume a batch of keys, producing the corresponding group ids as an integer array.
-  /// Currently only uint32 indices will be produced, eventually the bit width will only
-  /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecBatch& batch) = 0;
-
-  /// Get current unique keys. May be called multiple times.
-  virtual Result<ExecBatch> GetUniques() = 0;
-
-  /// Get the current number of groups.
-  virtual uint32_t num_groups() const = 0;
-
-  /// \brief Assemble lists of indices of identical elements.
-  ///
-  /// \param[in] ids An unsigned, all-valid integral array which will be
-  ///                used as grouping criteria.
-  /// \param[in] num_groups An upper bound for the elements of ids
-  /// \return A num_groups-long ListArray where the slot at i contains a
-  ///         list of indices where i appears in ids.
-  ///
-  ///   MakeGroupings([
-  ///       2,
-  ///       2,
-  ///       5,
-  ///       5,
-  ///       2,
-  ///       3
-  ///   ], 8) == [
-  ///       [],
-  ///       [],
-  ///       [0, 1, 4],
-  ///       [5],
-  ///       [],
-  ///       [2, 3],
-  ///       [],
-  ///       []
-  ///   ]
-  static Result<std::shared_ptr<ListArray>> MakeGroupings(
-      const UInt32Array& ids, uint32_t num_groups,
-      ExecContext* ctx = default_exec_context());
-
-  /// \brief Produce a ListArray whose slots are selections of `array` which correspond to
-  /// the provided groupings.
-  ///
-  /// For example,
-  ///   ApplyGroupings([
-  ///       [],
-  ///       [],
-  ///       [0, 1, 4],
-  ///       [5],
-  ///       [],
-  ///       [2, 3],
-  ///       [],
-  ///       []
-  ///   ], [2, 2, 5, 5, 2, 3]) == [
-  ///       [],
-  ///       [],
-  ///       [2, 2, 2],
-  ///       [3],
-  ///       [],
-  ///       [5, 5],
-  ///       [],
-  ///       []
-  ///   ]
-  static Result<std::shared_ptr<ListArray>> ApplyGroupings(
-      const ListArray& groupings, const Array& array,
-      ExecContext* ctx = default_exec_context());
-};
-
 /// \brief Configure a grouped aggregation
 struct ARROW_EXPORT Aggregate {
   /// the name of the aggregation function
@@ -481,13 +403,6 @@ struct ARROW_EXPORT Aggregate {
   /// options for the aggregation function
   const FunctionOptions* options;
 };
-
-/// Internal use only: helper function for testing HashAggregateKernels.
-/// This will be replaced by streaming execution operators.
-ARROW_EXPORT
-Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                      const std::vector<Aggregate>& aggregates, bool use_threads = false,
-                      ExecContext* ctx = default_exec_context());
 
 }  // namespace internal
 }  // namespace compute
