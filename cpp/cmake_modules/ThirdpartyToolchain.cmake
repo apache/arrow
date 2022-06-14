@@ -2204,16 +2204,20 @@ if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQ
 else()
   set(ARROW_USE_XSIMD FALSE)
 endif()
-if(ARROW_USE_XSIMD)
-  set(xsimd_SOURCE "BUNDLED")
-  resolve_dependency(xsimd)
 
-  add_library(xsimd INTERFACE IMPORTED)
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                           "${XSIMD_INCLUDE_DIR}")
+if(ARROW_USE_XSIMD)
+  resolve_dependency(xsimd REQUIRED_VERSION "8.1.0")
+
+  if(xsimd_SOURCE STREQUAL "BUNDLED")
+    add_library(xsimd INTERFACE IMPORTED)
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                             "${XSIMD_INCLUDE_DIR}")
+    else()
+      target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+    endif()
   else()
-    target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
   endif()
 endif()
 
@@ -4437,6 +4441,14 @@ macro(build_awssdk)
       -DENABLE_UNITY_BUILD=ON
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
+  if(NOT MSVC)
+    list(APPEND
+         AWSSDK_COMMON_CMAKE_ARGS
+         # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1582
+         "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+         "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+    )
+  endif()
 
   # provide hint for AWS SDK to link with the already located openssl
   get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)

@@ -75,7 +75,8 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet
+            --x-feature=parquet \
+            --x-feature=s3
 
       - name: Build ARM64 Wheel
         env:
@@ -99,7 +100,8 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet
+            --x-feature=parquet \
+            --x-feature=s3
 
       - name: Build AMD64 Wheel
         env:

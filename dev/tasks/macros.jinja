@@ -38,7 +38,7 @@ on:
 
 {%- macro github_login_dockerhub() -%}
   - name: Login to Dockerhub
-    uses: docker/login-action@v1
+    uses: docker/login-action@v2
     with:
       username: {{ '${{ secrets.DOCKERHUB_USER }}' }}
       password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
@@ -46,8 +46,11 @@ on:
 
 {%- macro github_login_ghcr() -%}
   - name: Login to GitHub Container Registry
-    shell: bash
-    run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
+    uses: docker/login-action@v2
+    with:
+      registry: ghcr.io
+      username: {{ '${{ github.actor }}' }}
+      password: {{ '${{ secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
 {%- macro github_install_archery() -%}

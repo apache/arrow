@@ -74,6 +74,11 @@ jobs:
 
       - name: Install Packages
         run: |
+          if [ "${ARROW_S3}" == "ON" ]; then
+            x_feature_s3="--x-feature=s3"
+          else
+            x_feature_s3=
+          fi
           vcpkg install \
             --clean-after-build \
             --x-install-root=${VCPKG_ROOT}/installed \
@@ -81,7 +86,8 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet
+            --x-feature=parquet \
+            ${x_feature_s3}
 
       - name: Install Python {{ python_version }}
         shell: bash

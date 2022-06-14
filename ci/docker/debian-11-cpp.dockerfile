@@ -103,4 +103,5 @@ ENV ARROW_BUILD_TESTS=ON \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED
+    Protobuf_SOURCE=BUNDLED \
+    xsimd_SOURCE=BUNDLED
