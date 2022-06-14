@@ -115,8 +115,6 @@ class ARROW_EXPORT FunctionRegistry {
   std::unique_ptr<FunctionRegistryImpl> impl_;
 
   explicit FunctionRegistry(FunctionRegistryImpl* impl);
-
-  class NestedFunctionRegistryImpl;
 };
 
 /// \brief Return the process-global function registry.
