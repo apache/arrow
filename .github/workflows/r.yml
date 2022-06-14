@@ -317,56 +317,14 @@ jobs:
         with:
           r-version: ${{ matrix.config.rversion }}
           rtools-version: ${{ matrix.config.rtools }}
+          use-public-rspm: true
           Ncpus: 2
-      - name: Make R tests verbose
-        # If you get a segfault/mysterious test Execution halted,
-        # make this `true` to see where it dies.
-        if: false
-        shell: cmd
-        run: |
-          cd r/tests
-          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
-          rm -f testthat.R.bak
-      - name: Install cpp11 (on R 3.6)
-      # Since we force installation of binary packages below, dependency versions
-      # are frozen for old versions of R. We need newer cpp11 than is available as
-      # "binary" (though it doesn't matter because the cpp11 R package is just a
-      # vehicle for the header-only C++ code.
-        if: ${{ matrix.config.rtools == 35 }}
-        shell: Rscript {0}
-        run: install.packages("cpp11", type = "source")
-      - name: Prune dependencies (on R 3.6)
-        if: ${{ matrix.config.rtools == 35 }}
-        shell: Rscript {0}
-        run: |
-            # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
-            setwd("r")
-            # create a backup to use later
-            file.copy("DESCRIPTION", "DESCRIPTION.bak")
-            d <- read.dcf("DESCRIPTION")
-            to_prune <- c("duckdb", "DBI", "dbplyr", "decor", "knitr", "rmarkdown", "pkgload", "reticulate")
-            pattern <- paste0("\\n?", to_prune, "( \\([^,]*\\))?,?", collapse = "|")
-            d[,"Suggests"] <- gsub(pattern, "", d[,"Suggests"])
-            write.dcf(d, "DESCRIPTION")
-      - name: R package cache
-        uses: actions/cache@v2
+      - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          # The path is part of the key for restoring the cache, so we need to use a backslash because we are on 
-          # windows and it wont match otherwise.
-          path: "${{ env.R_LIBS_USER }}"
-          key: r-${{ matrix.config.rtools }}-${{ matrix.config.rversion }}-R-LIBS-${{ hashFiles('r/DESCRIPTION') }}
-          restore-keys: r-${{ matrix.config.rtools }}-${{ matrix.config.rversion }}-R-LIBS-
-      - name: Install R package dependencies
-        shell: Rscript {0}
-        run: |
-          # options(pkgType="win.binary") # processx doesn't have a binary for UCRT yet
-          install.packages(c("remotes", "rcmdcheck"))
-          remotes::install_deps("r", dependencies = TRUE)
-      - name: Restore DESCRIPTION for 3.6
-        if: ${{ matrix.config.rtools == 35 }}
-        run: |
-          rm r/DESCRIPTION
-          mv r/DESCRIPTION.bak r/DESCRIPTION
+          working-directory: 'r'
+          extra-packages: |
+            any::rcmdcheck
+            github::r-lib/cpp11@*release
       - name: Check
         shell: Rscript {0}
         run: |
@@ -397,7 +355,7 @@ jobs:
         shell: Rscript {0}
         working-directory: r
         run: |
-          remotes::install_github("jonkeane/lintr@arrow-branch")
+          pak::pak("github::jonkeane/lintr@arrow-branch")
           lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
