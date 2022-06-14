@@ -48,7 +48,7 @@
 //  * conversion for Arrow types that have corresponding C types (bool, integer,
 //    float).
 
-rapidjson::Value kNullJsonSingleton = rapidjson::Value();
+const rapidjson::Value kNullJsonSingleton = rapidjson::Value();
 
 /// \brief Builder that holds state for a single conversion.
 ///
@@ -67,7 +67,7 @@ class RowBatchBuilder {
   }
 
   /// \brief Set which field to convert.
-  void SetField(std::shared_ptr<arrow::Field> field) { field_ = std::move(field); }
+  void SetField(const arrow::Field* field) { field_ = field; }
 
   /// \brief Retrieve converted rows from builder.
   std::vector<rapidjson::Document> Rows() && { return std::move(rows_); }
@@ -82,6 +82,7 @@ class RowBatchBuilder {
   template <typename ArrayType, typename DataClass = typename ArrayType::TypeClass>
   arrow::enable_if_primitive_ctype<DataClass, arrow::Status> Visit(
       const ArrayType& array) {
+    assert((int64_t)rows_.size() == array.length());
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
         rapidjson::Value str_key(field_->name().c_str(), rows_[i].GetAllocator());
@@ -92,11 +93,11 @@ class RowBatchBuilder {
   }
 
   arrow::Status Visit(const arrow::StringArray& array) {
+    assert((int64_t)rows_.size() == array.length());
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
         rapidjson::Value str_key(field_->name().c_str(), rows_[i].GetAllocator());
-        // StringArray.Value returns a string view
-        auto value_view = array.Value(i);
+        arrow::util::string_view value_view = array.Value(i);
         rapidjson::Value value;
         value.SetString(value_view.data(),
                         static_cast<rapidjson::SizeType>(value_view.size()),
@@ -110,10 +111,12 @@ class RowBatchBuilder {
   arrow::Status Visit(const arrow::StructArray& array) {
     const arrow::StructType* type = array.struct_type();
 
+    assert((int64_t)rows_.size() == array.length());
+
     RowBatchBuilder child_builder(rows_.size());
     for (int i = 0; i < type->num_fields(); ++i) {
-      std::shared_ptr<arrow::Field> child_field = type->field(i);
-      child_builder.SetField(std::move(child_field));
+      const arrow::Field* child_field = type->field(i).get();
+      child_builder.SetField(child_field);
       ARROW_RETURN_NOT_OK(arrow::VisitArrayInline(*array.field(i).get(), &child_builder));
     }
     std::vector<rapidjson::Document> rows = std::move(child_builder).Rows();
@@ -131,10 +134,11 @@ class RowBatchBuilder {
   }
 
   arrow::Status Visit(const arrow::ListArray& array) {
+    assert((int64_t)rows_.size() == array.length());
     // First create rows from values
     std::shared_ptr<arrow::Array> values = array.values();
     RowBatchBuilder child_builder(values->length());
-    std::shared_ptr<arrow::Field> value_field = array.list_type()->value_field();
+    const arrow::Field* value_field = array.list_type()->value_field().get();
     std::string value_field_name = value_field->name();
     child_builder.SetField(value_field);
     ARROW_RETURN_NOT_OK(arrow::VisitArrayInline(*values.get(), &child_builder));
@@ -143,6 +147,8 @@ class RowBatchBuilder {
 
     int64_t values_i = 0;
     for (int64_t i = 0; i < array.length(); ++i) {
+      if (array.IsNull(i)) continue;
+
       rapidjson::Document::AllocatorType& allocator = rows_[i].GetAllocator();
       auto array_len = array.value_length(i);
 
@@ -166,7 +172,7 @@ class RowBatchBuilder {
   }
 
  private:
-  std::shared_ptr<arrow::Field> field_;
+  const arrow::Field* field_;
   std::vector<rapidjson::Document> rows_;
 };  // RowBatchBuilder
 
@@ -177,7 +183,7 @@ class ArrowToDocumentConverter : public arrow::ToRowConverter<rapidjson::Documen
     RowBatchBuilder builder{batch->num_rows()};
 
     for (int i = 0; i < batch->num_columns(); ++i) {
-      builder.SetField(std::move(batch->schema()->field(i)));
+      builder.SetField(batch->schema()->field(i).get());
       ARROW_RETURN_NOT_OK(arrow::VisitArrayInline(*batch->column(i).get(), &builder));
     }
 
@@ -319,7 +325,7 @@ class JsonValueConverter {
   // Default implementation
   arrow::Status Visit(const arrow::DataType& type) {
     return arrow::Status::NotImplemented(
-        "Can not convert to json document for array of type ", type.ToString());
+        "Can not convert json value to Arrow array of type ", type.ToString());
   }
 
   arrow::Status Visit(const arrow::Int64Type& type) {
@@ -494,11 +500,7 @@ class DocumentToArrowConverter : public arrow::FromRowConverter<rapidjson::Docum
   arrow::MemoryPool* pool_;
 };  // DocumentToArrowConverter
 
-int main(int argc, char** argv) {
-  // Get sizes
-  int32_t num_rows = argc > 1 ? std::atoi(argv[1]) : 100;
-  int32_t batch_size = argc > 2 ? std::atoi(argv[2]) : 100;
-
+arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
   //(Doc section: Convert to Arrow)
   // Write JSON records
   std::vector<std::string> json_records = {
@@ -513,15 +515,10 @@ int main(int argc, char** argv) {
     document.Parse(json_records[i % json_records.size()].c_str());
     records.push_back(std::move(document));
   }
-  // for (const std::string& json : json_records) {
-  //   rapidjson::Document document;
-  //   document.Parse(json.c_str());
-  //   records.push_back(std::move(document));
-  // }
+
   for (const rapidjson::Document& doc : records) {
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-    // At batch_size >= 495, we segfault here:
     doc.Accept(writer);
     std::cout << sb.GetString() << std::endl;
   }
@@ -538,16 +535,12 @@ int main(int argc, char** argv) {
   DocumentToArrowConverter to_arrow_converter(arrow::default_memory_pool());
 
   // Convert records into a table
-  arrow::Result<std::shared_ptr<arrow::Table>> table_result =
-      to_arrow_converter.ConvertToTable(records, schema);
-  std::shared_ptr<arrow::Table> table = std::move(table_result).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table,
+                        to_arrow_converter.ConvertToTable(records, schema));
 
   // Print table
   std::cout << table->ToString() << std::endl;
-  auto res = table->ValidateFull();
-  if (!res.ok()) {
-    std::cout << res.detail() << std::endl;
-  }
+  ARROW_RETURN_NOT_OK(table->ValidateFull());
   //(Doc section: Convert to Arrow)
 
   //(Doc section: Convert to Rows)
@@ -560,7 +553,7 @@ int main(int argc, char** argv) {
 
   // Print each row
   for (arrow::Result<rapidjson::Document> doc_result : document_iter) {
-    rapidjson::Document doc = std::move(doc_result).ValueOrDie();
+    ARROW_ASSIGN_OR_RAISE(rapidjson::Document doc, std::move(doc_result));
 
     assert(doc.HasMember("pk"));
     assert(doc["pk"].IsInt64());
@@ -587,4 +580,19 @@ int main(int argc, char** argv) {
     std::cout << sb.GetString() << std::endl;
   }
   //(Doc section: Convert to Rows)
+
+  return arrow::Status::OK();
+}
+
+int main(int argc, char** argv) {
+  int32_t num_rows = argc > 1 ? std::atoi(argv[1]) : 100;
+  int32_t batch_size = argc > 2 ? std::atoi(argv[2]) : 100;
+
+  arrow::Status status = DoRowConversion(num_rows, batch_size);
+
+  if (!status.ok()) {
+    std::cerr << "Error occurred: " << status.message() << std::endl;
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
 }
