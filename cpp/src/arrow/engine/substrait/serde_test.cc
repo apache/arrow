@@ -781,8 +781,8 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           ext_id_reg, &ext_set_invalid));
-  substrait::RegisterFunction(*ext_id_reg, substrait::default_extension_types_uri(),
-                              "new_func", "multiply");
+  ASSERT_OK(substrait::RegisterFunction(
+      *ext_id_reg, substrait::default_extension_types_uri(), "new_func", "multiply"));
   // valid after registration
   ExtensionSet ext_set_valid(ext_id_reg);
   ASSERT_OK_AND_ASSIGN(

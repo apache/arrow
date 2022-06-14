@@ -72,8 +72,10 @@ static DeclarationFactory MakeConsumingSinkDeclarationFactory(
   };
 }
 
-static compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
-                                                      std::vector<std::string> names) {
+namespace {
+
+compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
+                                               std::vector<std::string> names) {
   int names_size = static_cast<int>(names.size());
   if (names_size == 0) {
     return input;
@@ -87,6 +89,8 @@ static compute::Declaration ProjectByNamesDeclaration(compute::Declaration input
        {"project",
         compute::ProjectNodeOptions{std::move(expressions), std::move(names)}}});
 }
+
+}  // namespace
 
 static DeclarationFactory MakeWriteDeclarationFactory(
     const WriteOptionsFactory& write_options_factory) {
