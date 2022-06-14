@@ -2271,11 +2271,20 @@ macro(build_lz4)
         set(LZ4_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreaded")
       endif()
     endif()
+
+    # The LZ4 Visual Studio solution doesn't have RelWithDebInfo,
+    # use Release instead.
+    if(${UPPERCASE_BUILD_TYPE} STREQUAL "RELWITHDEBINFO")
+      set(LZ4_BUILD_TYPE "Release")
+    else()
+      set(LZ4_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+    endif()
+
     set(LZ4_STATIC_LIB
-        "${LZ4_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
+        "${LZ4_BUILD_DIR}/build/VS2010/bin/x64_${LZ4_BUILD_TYPE}/liblz4_static.lib")
     set(LZ4_BUILD_COMMAND
-        BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64
-        /p:PlatformToolset=v140 ${LZ4_RUNTIME_LIBRARY_LINKAGE} /t:Build
+        BUILD_COMMAND msbuild.exe /m /p:Configuration=${LZ4_BUILD_TYPE} /p:Platform=x64
+        /p:PlatformToolset=v${MSVC_TOOLSET_VERSION} ${LZ4_RUNTIME_LIBRARY_LINKAGE} /t:Build
         ${LZ4_BUILD_DIR}/build/VS2010/lz4.sln)
   else()
     set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
