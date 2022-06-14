@@ -1719,7 +1719,8 @@ def test_cast():
 
     arr = pa.array([2 ** 63 - 1], type='int64')
     options = pc.CastOptions(pa.int32())
-    allow_overflow_options = pc.CastOptions(pa.int32(), allow_int_overflow=True)
+    allow_overflow_options = pc.CastOptions(
+        pa.int32(), allow_int_overflow=True)
 
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32')
