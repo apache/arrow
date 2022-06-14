@@ -114,9 +114,18 @@ func (a *String) setData(data *Data) {
 		a.offsets = arrow.Int32Traits.CastFromBytes(offsets.Bytes())
 	}
 
+	if a.array.data.length < 1 {
+		return
+	}
+
 	expNumOffsets := a.array.data.offset + a.array.data.length + 1
-	if a.array.data.length > 0 &&
-		(len(a.offsets) < expNumOffsets || int(a.offsets[expNumOffsets-2]) > len(a.values)) {
+	if len(a.offsets) < expNumOffsets {
+		// panic("arrow/array: string offsets missing")
+		panic("arrow/array: string offsets out of bounds of data buffer")
+	}
+
+	lastValValid := a.IsValid(a.Len() - 1)
+	if lastValValid && int(a.offsets[expNumOffsets-2]) > len(a.values) {
 		panic("arrow/array: string offsets out of bounds of data buffer")
 	}
 }

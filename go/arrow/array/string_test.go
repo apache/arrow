@@ -241,7 +241,7 @@ func TestStringInvalidOffsets(t *testing.T) {
 	}, "empty array, offsets ignored")
 
 	assert.NotPanics(t, func() {
-		buffers := makeBuffers(nil, []int32{0, 5}, "")
+		buffers := makeBuffers(nil, []int32{0, 5}, "a")
 		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 0))
 	}, "last offset is allowed to overflow length")
 
@@ -251,22 +251,24 @@ func TestStringInvalidOffsets(t *testing.T) {
 	}, "data has offset and value offsets are valid")
 
 	assert.NotPanics(t, func() {
-		buffers := makeBuffers(nil, []int32{0, 3, 4, 9}, "oooabcdef")
-		arr := array.NewStringData(array.NewData(arrow.BinaryTypes.String, 3, buffers, nil, 0, 0))
-		if assert.Equal(t, 3, arr.Len()) && assert.Zero(t, arr.NullN()) {
-			assert.Equal(t, "ooo", arr.Value(0))
-			assert.Equal(t, "a", arr.Value(1))
-			assert.Equal(t, "bcdef", arr.Value(2))
+		buffers := makeBuffers(nil, []int32{0, 3, 6, 9, 9}, "012345678")
+		arr := array.NewStringData(array.NewData(arrow.BinaryTypes.String, 4, buffers, nil, 0, 0))
+		if assert.Equal(t, 4, arr.Len()) && assert.Zero(t, arr.NullN()) {
+			assert.Equal(t, "012", arr.Value(0))
+			assert.Equal(t, "345", arr.Value(1))
+			assert.Equal(t, "678", arr.Value(2))
+			assert.Equal(t, "", arr.Value(3), "trailing empty string value will have offset past end")
 		}
 	}, "simple valid case")
 
 	assert.NotPanics(t, func() {
-		buffers := makeBuffers([]bool{true, false, true}, []int32{0, 3, 4, 9}, "oooabcdef")
-		arr := array.NewStringData(array.NewData(arrow.BinaryTypes.String, 3, buffers, nil, 1, 0))
-		if assert.Equal(t, 3, arr.Len()) && assert.Equal(t, 1, arr.NullN()) {
+		buffers := makeBuffers([]bool{true, false, true, false}, []int32{0, 3, 4, 9, 9}, "oooabcdef")
+		arr := array.NewStringData(array.NewData(arrow.BinaryTypes.String, 4, buffers, nil, 2, 0))
+		if assert.Equal(t, 4, arr.Len()) && assert.Equal(t, 2, arr.NullN()) {
 			assert.Equal(t, "ooo", arr.Value(0))
 			assert.True(t, arr.IsNull(1))
 			assert.Equal(t, "bcdef", arr.Value(2))
+			assert.True(t, arr.IsNull(3))
 		}
 	}, "simple valid case with nulls")
 
