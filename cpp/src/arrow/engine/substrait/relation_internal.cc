@@ -106,12 +106,14 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
           path = item.uri_path_glob();
         }
 
+        ::arrow::internal::Uri uri;
+        RETURN_NOT_OK(uri.Parse(path));
         if (item.format() ==
             substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET) {
           format = std::make_shared<dataset::ParquetFileFormat>();
-        } else if (util::string_view{path}.ends_with(".arrow")) {
+        } else if (uri.extension() == ".arrow") {
           format = std::make_shared<dataset::IpcFileFormat>();
-        } else if (util::string_view{path}.ends_with(".feather")) {
+        } else if (uri.extension() == ".feather") {
           format = std::make_shared<dataset::IpcFileFormat>();
         } else {
           return Status::NotImplemented(
@@ -119,10 +121,20 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
               "other than FILE_FORMAT_PARQUET");
         }
 
-        if (!util::string_view{path}.starts_with("file:///")) {
+        if (uri.scheme() != "file") {
           return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
                                         ") with other than local filesystem "
                                         "(file:///)");
+        }
+
+        if (uri.port() != -1) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
+                                        ") should not have a port number in path");
+        }
+
+        if (!uri.query_string().empty()) {
+          return Status::NotImplemented("substrait::ReadRel::LocalFiles item (", path,
+                                        ") should not have a query string in path");
         }
 
         if (item.partition_index() != 0) {

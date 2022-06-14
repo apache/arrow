@@ -208,6 +208,8 @@ std::string Uri::path() const {
   return std::move(ss).str();
 }
 
+std::string Uri::extension() const { return impl_->path_segments_.back().to_string(); }
+
 std::string Uri::query_string() const { return TextRangeToString(impl_->uri_.query); }
 
 Result<std::vector<std::pair<std::string, std::string>>> Uri::query_items() const {

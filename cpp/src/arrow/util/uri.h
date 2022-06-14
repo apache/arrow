@@ -68,6 +68,8 @@ class ARROW_EXPORT Uri {
   /// The URI path component.
   std::string path() const;
 
+  std::string extension() const;
+
   /// The URI query string
   std::string query_string() const;
 
