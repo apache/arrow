@@ -782,8 +782,107 @@ cdef class LocalFileSystem(FileSystem):
     use_mmap : bool, default False
         Whether open_input_stream and open_input_file should return
         a mmap'ed file or a regular file.
-    """
 
+    Examples
+    --------
+    Create a FileSystem object with LocalFileSystem constructor:
+
+    >>> from pyarrow import fs
+    >>> local = fs.LocalFileSystem()
+    >>> local
+    <pyarrow._fs.LocalFileSystem object at ...>
+
+    and write data on to the file:
+
+    >>> with local.open_output_stream('/tmp/local_fs.dat') as stream:
+    ...     stream.write(b'data')
+    ...
+    4
+    >>> with local.open_input_stream('/tmp/local_fs.dat') as stream:
+    ...     print(stream.readall())
+    ...
+    b'data'
+
+    Create a FileSystem object inferred from a URI of the saved file:
+
+    >>> local_new, path = fs.LocalFileSystem().from_uri('/tmp/local_fs.dat')
+    >>> local_new
+    <pyarrow._fs.LocalFileSystem object at ...
+    >>> path
+    '/tmp/local_fs.dat'
+
+    Check if FileSystems `local` and `local_new` are equal:
+
+    >>> local.equals(local_new)
+    True
+
+    Compare two different FileSystems:
+
+    >>> local2 = fs.LocalFileSystem(use_mmap=True)
+    >>> local.equals(local2)
+    False
+
+    Copy a file and print out the data:
+
+    >>> local.copy_file('/tmp/local_fs.dat', '/tmp/local_fs-copy.dat')
+    >>> with local.open_input_stream('/tmp/local_fs-copy.dat') as stream:
+    ...     print(stream.readall())
+    ...
+    b'data'
+
+    Open an output stream for appending, add text and print the new data:
+
+    >>> with local.open_append_stream('/tmp/local_fs-copy.dat') as f:
+    ...     f.write(b'\nnewly added')
+    ...
+    12
+    >>> with local.open_input_stream('/tmp/local_fs-copy.dat') as f:
+    ...     print(f.readall())
+    ...
+    b'data\nnewly added'
+
+    Create a directory, copy a file into it and then delete the whole directory:
+
+    >>> local.create_dir('/tmp/new_folder')
+    >>> local.copy_file('/tmp/local_fs.dat', '/tmp/new_folder/local_fs.dat')
+    >>> local.get_file_info('/tmp/new_folder')
+    <FileInfo for '/tmp/new_folder': type=FileType.Directory>
+    >>> local.delete_dir('/tmp/new_folder')
+    >>> local.get_file_info('/tmp/new_folder')
+    <FileInfo for '/tmp/new_folder': type=FileType.NotFound>
+
+    Create a directory, copy a file into it and then delete
+    the content of the directory:
+
+    >>> local.create_dir('/tmp/new_folder')
+    >>> local.copy_file('/tmp/local_fs.dat', '/tmp/new_folder/local_fs.dat')
+    >>> local.get_file_info('/tmp/new_folder/local_fs.dat')
+    <FileInfo for '/tmp/new_folder/local_fs.dat': type=FileType.File, size=4>
+    >>> local.delete_dir_contents('/tmp/new_folder')
+    >>> local.get_file_info('/tmp/new_folder')
+    <FileInfo for '/tmp/new_folder': type=FileType.Directory>
+    >>> local.get_file_info('/tmp/new_folder/local_fs.dat')
+    <FileInfo for '/tmp/new_folder/local_fs.dat': type=FileType.NotFound>
+
+    Create a directory, copy a file into it and then delete
+    the file from the directory:
+
+    >>> local.create_dir('/tmp/new_folder')
+    >>> local.copy_file('/tmp/local_fs.dat', '/tmp/new_folder/local_fs.dat')
+    >>> local.delete_file('/tmp/new_folder/local_fs.dat')
+    >>> local.get_file_info('/tmp/new_folder/local_fs.dat')
+    <FileInfo for '/tmp/new_folder/local_fs.dat': type=FileType.NotFound>
+    >>> local.get_file_info('/tmp/new_folder')
+    <FileInfo for '/tmp/new_folder': type=FileType.Directory>
+
+    Move the file:
+
+    >>> local.move('/tmp/local_fs-copy.dat', '/tmp/new_folder/local_fs-copy.dat')
+    >>> local.get_file_info('/tmp/new_folder/local_fs-copy.dat')
+    <FileInfo for '/tmp/new_folder/local_fs-copy.dat': type=FileType.File, size=16>
+    >>> local.get_file_info('/tmp/local_fs-copy.dat')
+    <FileInfo for '/tmp/local_fs-copy.dat': type=FileType.NotFound>
+    """
     def __init__(self, *, use_mmap=False):
         cdef:
             CLocalFileSystemOptions opts
