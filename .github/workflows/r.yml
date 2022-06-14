@@ -257,28 +257,16 @@ jobs:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 35 }}
+        if: ${{ matrix.config.rtools != 42 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools35-mingw32.zip
+          name: libarrow-rtools${{ matrix.config.rtools }}-mingw32.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 35 }}
+        if: ${{ matrix.config.rtools !=42 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools35-mingw64.zip
-          path: r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools == 40 }}
-        uses: actions/download-artifact@v2
-        with:
-          name: libarrow-rtools40-mingw32.zip
-          path: r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools == 40 }}
-        uses: actions/download-artifact@v2
-        with:
-          name: libarrow-rtools40-mingw64.zip
+          name: libarrow-rtools${{ matrix.config.rtools }}-mingw64.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools == 42 }}
