@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#define RAPIDJSON_HAS_STDSTRING 1
+
 #include <arrow/api.h>
 #include <arrow/result.h>
 #include <arrow/table_builder.h>
@@ -85,7 +87,7 @@ class RowBatchBuilder {
     assert((int64_t)rows_.size() == array.length());
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
-        rapidjson::Value str_key(field_->name().c_str(), rows_[i].GetAllocator());
+        rapidjson::Value str_key(field_->name(), rows_[i].GetAllocator());
         rows_[i].AddMember(str_key, array.Value(i), rows_[i].GetAllocator());
       }
     }
@@ -96,7 +98,7 @@ class RowBatchBuilder {
     assert((int64_t)rows_.size() == array.length());
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
-        rapidjson::Value str_key(field_->name().c_str(), rows_[i].GetAllocator());
+        rapidjson::Value str_key(field_->name(), rows_[i].GetAllocator());
         arrow::util::string_view value_view = array.Value(i);
         rapidjson::Value value;
         value.SetString(value_view.data(),
@@ -123,7 +125,7 @@ class RowBatchBuilder {
 
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
-        rapidjson::Value str_key(field_->name().c_str(), rows_[i].GetAllocator());
+        rapidjson::Value str_key(field_->name(), rows_[i].GetAllocator());
         // Must copy value to new allocator
         rapidjson::Value row_val;
         row_val.CopyFrom(rows[i], rows_[i].GetAllocator());
@@ -159,12 +161,12 @@ class RowBatchBuilder {
       for (int64_t j = 0; j < array_len; ++j) {
         rapidjson::Value row_val;
         // Must copy value to new allocator
-        row_val.CopyFrom(rows[values_i][value_field_name.c_str()], allocator);
+        row_val.CopyFrom(rows[values_i][value_field_name], allocator);
         value.PushBack(row_val, allocator);
         ++values_i;
       }
 
-      rapidjson::Value str_key(field_->name().c_str(), allocator);
+      rapidjson::Value str_key(field_->name(), allocator);
       rows_[i].AddMember(str_key, value, allocator);
     }
 
@@ -272,8 +274,8 @@ class DocValuesIterator {
       } else if (value->IsArray()) {
         // Empty array means we need to backtrack and go to next array or row
         value = NextArrayOrRow(value, &path_i, &arr_i);
-      } else if (value->HasMember(path[path_i].c_str())) {
-        value = &(*value)[path[path_i].c_str()];
+      } else if (value->HasMember(path[path_i])) {
+        value = &(*value)[path[path_i]];
         ++path_i;
       } else {
         return &kNullJsonSingleton;
@@ -512,7 +514,7 @@ arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
   records.reserve(num_rows);
   for (int32_t i = 0; i < num_rows; ++i) {
     rapidjson::Document document;
-    document.Parse(json_records[i % json_records.size()].c_str());
+    document.Parse(json_records[i % json_records.size()]);
     records.push_back(std::move(document));
   }
 
