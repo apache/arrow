@@ -336,6 +336,9 @@ class ARROW_MUST_USE_TYPE ARROW_EXPORT Status : public util::EqualityComparable<
     return FromArgs(code(), std::forward<Args>(args)...).WithDetail(detail());
   }
 
+  void Warn() const;
+  void Warn(const std::string& message) const;
+
   [[noreturn]] void Abort() const;
   [[noreturn]] void Abort(const std::string& message) const;
 
