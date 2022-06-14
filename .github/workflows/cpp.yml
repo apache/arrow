@@ -157,7 +157,7 @@ jobs:
           brew update --preinstall
           brew install --overwrite git
           brew bundle --file=cpp/Brewfile
-          /ci/scripts/install_minio.sh latest /usr/local
+          ci/scripts/install_minio.sh latest /usr/local
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: ci/scripts/install_gcs_testbench.sh default
