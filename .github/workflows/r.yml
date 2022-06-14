@@ -44,6 +44,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  ARCHERY_USE_DOCKER_CLI: "True"
   DOCKER_VOLUME_PREFIX: ".docker/"
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
