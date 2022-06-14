@@ -1605,8 +1605,7 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS')
         .skip_category('Rust'),
 
-        generate_datetime_case()
-        .skip_category('C#'),
+        generate_datetime_case(),
 
         generate_duration_case()
         .skip_category('C#')
