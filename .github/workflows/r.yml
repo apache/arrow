@@ -280,25 +280,6 @@ jobs:
           cd r/windows
           ls *.zip | xargs -n 1 unzip -uo
           rm -rf *.zip
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
-      # We must enable actions/cache before r-lib/actions/setup-r to ensure
-      # using system tar instead of tar provided by Rtools.
-      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
-      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
-      # when tar is GNU tar.
-      - name: Cache ccache
-        uses: actions/cache@v2
-        with:
-          path: ccache
-          # Adding the unique github.run_id forces the cache to be updated (which does not happen on primary key hit)
-          key: r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**/*.h)') }}-${{ github.run_id }}
-          restore-keys: |
-            r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}-${{ hashFiles('r/src/**/*.cpp','r/src/**/*.h))') }}-
-            r-${{ matrix.config.rtools }}-ccache-r${{ matrix.config.rversion }}
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
@@ -355,8 +336,3 @@ jobs:
         shell: bash
         run: find r/check -name 'testthat.Rout*' -exec cat '{}' \; || true
         if: always()
-      # We can remove this when we drop support for Rtools 3.5.
-      - name: Ensure using system tar in actions/cache
-        run: |
-          Write-Output "${Env:windir}\System32" | `
-            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
