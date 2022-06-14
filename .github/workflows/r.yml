@@ -359,8 +359,8 @@ jobs:
         with:
           path: |
             ${{ env.R_LIBS_USER }}/*
-          key: r-${{ matrix.config.rtools }}-${{ matrix.rversion }}-R-LIBS-${{ hashFiles('r/DESCRIPTION') }}
-          restore-keys: r-${{ matrix.config.rtools }}-${{ matrix.rversion }}-R-LIBS-
+          key: r-${{ matrix.config.rtools }}-${{ matrix.config.rversion }}-R-LIBS-${{ hashFiles('r/DESCRIPTION') }}
+          restore-keys: r-${{ matrix.config.rtools }}-${{ matrix.config.rversion }}-R-LIBS-
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
