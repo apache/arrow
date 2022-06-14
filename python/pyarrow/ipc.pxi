@@ -399,23 +399,22 @@ cdef class MessageReader(_Weakrefable):
                         "instead.".format(self.__class__.__name__))
 
     @staticmethod
-    def open_stream(source, use_memory_map=False):
+    def open_stream(source):
         """
-        Open stream from source.
+        Open stream from source, if you want to use memory map use
+        MemoryMappedFile as source.
 
         Parameters
         ----------
         source
             A readable source, like an InputStream
-        use_memory_map : boolean, default False
-            Use memory mapping when opening file on disk
         """
         cdef:
             MessageReader result = MessageReader.__new__(MessageReader)
             shared_ptr[CInputStream] in_stream
             unique_ptr[CMessageReader] reader
 
-        _get_input_stream(source, &in_stream, use_memory_map)
+        _get_input_stream(source, &in_stream)
         with nogil:
             reader = CMessageReader.Open(in_stream)
             result.reader.reset(reader.release())
@@ -564,14 +563,14 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
                                  self.options))
 
 
-cdef _get_input_stream(object source, shared_ptr[CInputStream]* out, use_memory_map=False):
+cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
     try:
         source = as_buffer(source)
     except TypeError:
         # Non-buffer-like
         pass
 
-    get_input_stream(source, use_memory_map, out)
+    get_input_stream(source, True, out)
 
 
 class _ReadPandasMixin:
