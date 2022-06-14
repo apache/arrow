@@ -1703,7 +1703,7 @@ def test_logical():
 
 def test_cast():
     arr = pa.array([1, 2, 3, 4], type='int64')
-    options = pc.CastOptions()
+    options = pc.CastOptions('int8')
 
     with pytest.raises(ValueError):
         pc.cast(arr, target_type=None)
@@ -1718,11 +1718,12 @@ def test_cast():
         [1, 2, 3, 4], type='int8')
 
     arr = pa.array([2 ** 63 - 1], type='int64')
-    allow_overflow_options = pc.CastOptions(pa.int32(), allow_int_overflow=True)
+    options = pc.CastOptions('int32')
+    allow_overflow_options = pc.CastOptions('int32', allow_int_overflow=True)
 
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32')
-    
+
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32', options)
 
