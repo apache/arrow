@@ -349,8 +349,9 @@ jobs:
       - name: R package cache
         uses: actions/cache@v2
         with:
-          path: |
-            ${{ env.R_LIBS_USER }}/*
+          # The path is part of the key for restoring the cache, so we need to use a backslash because we are on 
+          # windows and it wont match otherwise.
+          path: "${{ env.R_LIBS_USER }}\\*"
           key: r-${{ matrix.config.rtools }}-${{ matrix.config.rversion }}-R-LIBS-${{ hashFiles('r/DESCRIPTION') }}
           restore-keys: r-${{ matrix.config.rtools }}-${{ matrix.config.rversion }}-R-LIBS-
       - name: Install R package dependencies
