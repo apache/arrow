@@ -312,7 +312,7 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-            github::r-lib/cpp11@*release
+            github::r-lib/cpp11@v0.4.2
       - name: Check
         shell: Rscript {0}
         run: |
