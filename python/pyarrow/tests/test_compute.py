@@ -1718,11 +1718,18 @@ def test_cast():
         [1, 2, 3, 4], type='int8')
 
     arr = pa.array([2 ** 63 - 1], type='int64')
+    allow_overflow_options = pc.CastOptions(pa.int32(), allow_int_overflow=True)
 
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32')
+    
+    with pytest.raises(pa.ArrowInvalid):
+        pc.cast(arr, 'int32', options)
 
     assert pc.cast(arr, 'int32', safe=False) == pa.array([-1], type='int32')
+
+    assert pc.cast(arr, 'int32', options=allow_overflow_options) == pa.array(
+        [-1], type='int32')
 
     arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
