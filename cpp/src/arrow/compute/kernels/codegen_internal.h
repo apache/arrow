@@ -1243,8 +1243,10 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
 // bits).
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
+template <template <typename...> class Generator,
+          typename KernelType = ArrayKernelExec,
+          typename... Args>
+KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::NA:
       return Generator<NullType, Args...>::Exec;

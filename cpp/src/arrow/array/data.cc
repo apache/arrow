@@ -232,7 +232,7 @@ int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
 
 std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
   auto result = std::make_shared<ArrayData>(this->type->Copy(), this->length,
-                                            kUnknownNullCount, this->offset);
+                                            this->null_count, this->offset);
 
   for (int i = 0; i < this->num_buffers(); ++i) {
     if (this->buffers[i].owner) {

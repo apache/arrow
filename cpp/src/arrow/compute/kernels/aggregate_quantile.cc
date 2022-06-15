@@ -129,7 +129,7 @@ struct SortQuantiler {
     // calculate quantiles
     if (out_length > 0) {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
-                            ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
+                            ctx->Allocate(out_length * out_type->byte_width()));
 
       // find quantiles in descending order
       std::vector<int64_t> q_indices(out_length);
@@ -271,7 +271,7 @@ struct CountQuantiler {
     // calculate quantiles
     if (out_length > 0) {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
-                            ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
+                            ctx->Allocate(out_length * out_type->byte_width()));
 
       // find quantiles in ascending order
       std::vector<int64_t> q_indices(out_length);
@@ -425,7 +425,7 @@ Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
   auto out_type = IsDataPoint(options) ? scalar.type : float64();
   ARROW_ASSIGN_OR_RAISE(
       output->buffers[1],
-      ctx->Allocate(output->length * bit_util::BytesForBits(GetBitWidth(*out_type))));
+      ctx->Allocate(output->length * out_type->byte_width()));
 
   if (!scalar.is_valid || options.min_count > 1) {
     output->null_count = output->length;

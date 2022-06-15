@@ -595,7 +595,7 @@ struct VectorKernel : public Kernel {
 
   /// \brief Function for executing a stateful VectorKernel against a
   /// ChunkedArray input. Does not need to be defined for all VectorKernels
-  typedef Status (*ChunkedExecFunc)(KernelContext*, const ExecBatch&, Datum* out)>;
+  typedef Status (*ChunkedExec)(KernelContext*, const ExecBatch&, Datum* out)>;
 
   VectorKernel() = default;
 
@@ -617,7 +617,7 @@ struct VectorKernel : public Kernel {
   ArrayKernelExec exec;
 
   /// \brief Execute the kernel on a ChunkedArray. Does not need to be defined
-  ChunkedExecFunc exec_chunked = NULLPTR;
+  ChunkedExec exec_chunked = NULLPTR;
 
   /// \brief For VectorKernel, convert intermediate results into finalized
   /// results. Mutates input argument. Some kernels may accumulate state

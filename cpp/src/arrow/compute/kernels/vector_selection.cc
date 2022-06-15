@@ -61,13 +61,13 @@ using internal::OptionalBitIndexer;
 namespace compute {
 namespace internal {
 
-int64_t GetFilterOutputSize(const ArrayData& filter,
+int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
 
   if (filter.MayHaveNulls()) {
-    const uint8_t* filter_is_valid = filter.buffers[0]->data();
-    BinaryBitBlockCounter bit_counter(filter.buffers[1]->data(), filter.offset,
+    const uint8_t* filter_is_valid = filter.buffers[0].data;
+    BinaryBitBlockCounter bit_counter(filter.buffers[1].data, filter.offset,
                                       filter_is_valid, filter.offset, filter.length);
     int64_t position = 0;
     if (null_selection == FilterOptions::EMIT_NULL) {
@@ -85,7 +85,7 @@ int64_t GetFilterOutputSize(const ArrayData& filter,
     }
   } else {
     // The filter has no nulls, so we can use CountSetBits
-    output_size = CountSetBits(filter.buffers[1]->data(), filter.offset, filter.length);
+    output_size = CountSetBits(filter.buffers[1].data(), filter.offset, filter.length);
   }
   return output_size;
 }

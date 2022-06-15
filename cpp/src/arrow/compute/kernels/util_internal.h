@@ -42,31 +42,6 @@ constexpr Unsigned to_unsigned(T signed_) {
   return static_cast<Unsigned>(signed_);
 }
 
-// An internal data structure for unpacking a primitive argument to pass to a
-// kernel implementation
-struct PrimitiveArg {
-  const uint8_t* is_valid;
-  // If the bit_width is a multiple of 8 (i.e. not boolean), then "data" should
-  // be shifted by offset * (bit_width / 8). For bit-packed data, the offset
-  // must be used when indexing.
-  const uint8_t* data;
-  int bit_width;
-  int64_t length;
-  int64_t offset;
-  // This may be kUnknownNullCount if the null_count has not yet been computed,
-  // so use null_count != 0 to determine "may have nulls".
-  int64_t null_count;
-};
-
-// Get validity bitmap data or return nullptr if there is no validity buffer
-const uint8_t* GetValidityBitmap(const ArrayData& data);
-
-int GetBitWidth(const DataType& type);
-
-// Reduce code size by dealing with the unboxing of the kernel inputs once
-// rather than duplicating compiled code to do all these in each kernel.
-PrimitiveArg GetPrimitiveArg(const ArrayData& arr);
-
 // Augment a unary ArrayKernelExec which supports only array-like inputs
 // with support for scalar inputs. Scalars will be transformed to 1-long arrays
 // with the scalar's value (or null if the scalar is null) as its only
@@ -161,6 +136,16 @@ int64_t CopyNonNullValues(const Datum& datum, T* out) {
     n += CopyNonNullValues(*array->data(), out + n);
   }
   return n;
+}
+
+ExecValue GetExecValue(const Datum& value) {
+  ExecValue result;
+  if (value.is_array()) {
+    result.SetArray(value.array());
+  } else {
+    result.SetScalar(value.scalar().get());
+  }
+  return result;
 }
 
 }  // namespace internal
