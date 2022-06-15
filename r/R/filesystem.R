@@ -150,6 +150,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `scheme`: S3 connection transport (default "https")
 #' - `background_writes`: logical, whether `OutputStream` writes will be issued
 #'    in the background, without blocking (default `TRUE`)
+#' - `allow_bucket_creation`: logical, if TRUE, the filesystem will create
+#'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
+#' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
+#'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
 #'
 #' @section Methods:
 #'
@@ -188,6 +192,15 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
 #' - `$base_path`: for `SubTreeFileSystem`, the path in `$base_fs` which is considered
 #'    root in this `SubTreeFileSystem`.
+#'
+#' @section Notes:
+#'
+#' On S3FileSystem, `$CreateDir()` on a top-level directory creates a new bucket.
+#' When S3FileSystem creates new buckets (assuming allow_bucket_creation is TRUE),
+#' it does not pass any non-default settings. In AWS S3, the bucket and all
+#' objects will be not publicly visible, and will have no bucket policies
+#' and no resource tags. To have more control over how buckets are created,
+#' use a different API to create them.
 #'
 #' @usage NULL
 #' @format NULL
@@ -338,7 +351,7 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
     invalid_args <- intersect(
       c(
         "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency"
+        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion"
       ),
       names(args)
     )
@@ -383,7 +396,9 @@ default_s3_options <- list(
   endpoint_override = "",
   scheme = "",
   proxy_options = "",
-  background_writes = TRUE
+  background_writes = TRUE,
+  allow_bucket_creation = FALSE,
+  allow_bucket_deletion = FALSE
 )
 
 #' Connect to an AWS S3 bucket

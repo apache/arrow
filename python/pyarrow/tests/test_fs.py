@@ -240,7 +240,9 @@ def s3fs(request, s3_server):
         access_key=access_key,
         secret_key=secret_key,
         endpoint_override='{}:{}'.format(host, port),
-        scheme='http'
+        scheme='http',
+        allow_bucket_creation=True,
+        allow_bucket_deletion=True
     )
     fs.create_dir(bucket)
 
@@ -475,6 +477,12 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
         scheme='http'
     )
     fs.create_dir('existing-bucket/test')
+
+    with pytest.raises(pa.ArrowIOError, match="Bucket 'new-bucket' not found"):
+        fs.create_dir('new-bucket')
+
+    with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
+        fs.delete_dir('existing-bucket')
 
 
 def test_file_info_constructor():
@@ -1109,6 +1117,10 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1381,8 +1393,9 @@ def test_filesystem_from_uri_s3(s3_server):
 
     host, port, access_key, secret_key = s3_server['connection']
 
-    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}" \
-        .format(access_key, secret_key, host, port)
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}"\
+          "&allow_bucket_creation=True" \
+          .format(access_key, secret_key, host, port)
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)
