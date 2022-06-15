@@ -284,11 +284,12 @@ class build_ext(_build_ext):
             print(f"moving {build_temp} to {build_lib}")
             #shutil.move(build_temp, pjoin(build_lib, "pyarrow"))
             # a bit hacky
-            for libname in ["libarrow_python.so", "libarrow_python.so.900", "libarrow_python.so.900.0.0"]:
-                libname_path = pjoin(build_lib, "pyarrow", libname)
-                if os.path.exists(libname_path):
-                    os.remove(libname_path)
-                shutil.move(pjoin(build_temp, libname), pjoin(build_lib, "pyarrow"))
+            for libname in os.listdir(build_temp):
+                if "libarrow_python" in libname:
+                    libname_path = pjoin(build_lib, "pyarrow", libname)
+                    if os.path.exists(libname_path):
+                        os.remove(libname_path)
+                    shutil.move(pjoin(build_temp, libname), pjoin(build_lib, "pyarrow"))
             if not os.path.isdir(pjoin(build_include, "arrow")):
                 self.mkpath(pjoin(build_include, "arrow"))
             shutil.move(pjoin(build_include, "arrow", "python"), pjoin(build_lib, "pyarrow", "include", "arrow", "python"))

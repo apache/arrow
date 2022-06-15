@@ -223,6 +223,9 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   # fail with weird errors due to multiple copies of global static state (The
   # other solution is to link gRPC shared everywhere instead of statically only
   # in Flight)
+
+  
+
   add_arrow_lib(arrow_python_flight
                 CMAKE_PACKAGE_NAME
                 ArrowPythonFlight
