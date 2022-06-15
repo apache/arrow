@@ -759,10 +759,6 @@ if(ARROW_FLIGHT)
   add_subdirectory(flight)
 endif()
 
-if(ARROW_HIVESERVER2)
-  add_subdirectory(dbi/hiveserver2)
-endif()
-
 if(ARROW_IPC)
   add_subdirectory(ipc)
 endif()
