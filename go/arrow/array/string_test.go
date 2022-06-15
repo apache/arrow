@@ -267,7 +267,7 @@ func TestStringInvalidOffsets(t *testing.T) {
 		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 0))
 	}, "last offset is overflowing")
 
-	assert.PanicsWithValue(t, "arrow/array: string offsets missing", func() {
+	assert.PanicsWithError(t, "arrow/array: string offset buffer must have at least 2 values", func() {
 		buffers := makeBuffers(nil, []int32{0}, "abc")
 		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 0))
 	}, "last offset is missing")

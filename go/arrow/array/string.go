@@ -120,7 +120,7 @@ func (a *String) setData(data *Data) {
 
 	expNumOffsets := a.array.data.offset + a.array.data.length + 1
 	if len(a.offsets) < expNumOffsets {
-		panic("arrow/array: string offsets missing")
+		panic(fmt.Errorf("arrow/array: string offset buffer must have at least %d values", expNumOffsets))
 	}
 
 	if int(a.offsets[expNumOffsets-1]) > len(a.values) {
