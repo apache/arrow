@@ -58,13 +58,13 @@
     ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));        \
   } while (false)
 
-/// \brief Log a warning if `expr` returns a non-successful Status
-#define ARROW_WARN_NOT_OK(expr)          \
-  do {                                   \
-    ::arrow::Status _s = (expr);         \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-        _s.Warn();                       \
-    }                                    \
+/// \brief Given `expr` and `warn_msg`; log `warn_msg` if `expr` is a non-ok status
+#define ARROW_WARN_NOT_OK(expr, warn_msg) \
+  do {                                    \
+    ::arrow::Status _s = (expr);          \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {  \
+        _s.Warn(warn_msg);                \
+    }                                     \
   } while (false)
 
 #define RETURN_NOT_OK_ELSE(s, else_)                            \

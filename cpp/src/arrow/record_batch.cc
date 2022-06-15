@@ -391,10 +391,9 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
 }
 
 RecordBatchReader::~RecordBatchReader() {
-  auto st = this->Close();
-  if (!st.ok()) {
-    st.Warn("Implicitly called RecordBatchReader::Close failed");
-  }
+  ARROW_WARN_NOT_OK(
+       this->Close()
+      ,"Implicitly called RecordBatchReader::Close failed");
 }
 
 }  // namespace arrow
