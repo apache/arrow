@@ -718,6 +718,17 @@ class ClientBuilder {
     if (!options_.region.empty()) {
       client_config_.region = ToAwsString(options_.region);
     }
+    if (options_.request_timeout_ms != -1) {
+      client_config_.requestTimeoutMs = options_.request_timeout_ms;
+    }
+    if (options_.connect_timeout_ms != -1) {
+      client_config_.connectTimeoutMs = options_.connect_timeout_ms;
+    }
+    if (!options_.region.empty()) {
+      client_config_.region = ToAwsString(options_.region);
+    }
+
+
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
       client_config_.scheme = Aws::Http::Scheme::HTTP;

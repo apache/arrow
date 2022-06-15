@@ -102,6 +102,8 @@ struct ARROW_EXPORT S3Options {
   /// the region (environment variables, configuration profile, EC2 metadata
   /// server).
   std::string region;
+  long request_timeout_ms = -1;
+  long connect_timeout_ms = -1;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?

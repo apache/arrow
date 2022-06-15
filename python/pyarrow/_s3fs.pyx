@@ -183,7 +183,7 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, region=None, scheme=None,
+                 bint anonymous=False, region=None, request_timeout_ms = None, connect_timeout_ms = None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  default_metadata=None, role_arn=None, session_name=None,
                  external_id=None, load_frequency=900, proxy_options=None,
@@ -254,6 +254,10 @@ cdef class S3FileSystem(FileSystem):
 
         if region is not None:
             options.region = tobytes(region)
+        if request_timeout_ms is not None:
+            options.request_timeout_ms = request_timeout_ms
+        if connect_timeout_ms is not None:
+            options.connect_timeout_ms = connect_timeout_ms  
         if scheme is not None:
             options.scheme = tobytes(scheme)
         if endpoint_override is not None:
@@ -324,6 +328,8 @@ cdef class S3FileSystem(FileSystem):
                            CS3CredentialsKind_Anonymous),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
+                connect_timeout_ms = opts.connect_timeout_ms,
+                request_timeout_ms = opts.request_timeout_ms,
                 endpoint_override=frombytes(opts.endpoint_override),
                 role_arn=frombytes(opts.role_arn),
                 session_name=frombytes(opts.session_name),
