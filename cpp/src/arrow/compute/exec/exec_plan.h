@@ -67,6 +67,9 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// The final outputs
   const NodeVector& sinks() const;
 
+  /// Nodes in the Plan
+  const NodeVector& nodes() const;
+
   Status Validate();
 
   /// \brief Start producing on all nodes
