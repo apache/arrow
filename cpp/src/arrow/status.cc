@@ -134,9 +134,8 @@ void Status::Abort(const std::string& message) const {
 void Status::Warn() const { Warn(std::string()); }
 
 void Status::Warn(const std::string& message) const {
-  ARROW_LOG(WARNING) << "-- Arrow Warning --"
-                     << message    << "\n"
-                     << ToString() << "\n";
+  ARROW_LOG(WARNING) << "-- Arrow Warning --\n"
+                     << message << "\n" << ToString();
 }
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
