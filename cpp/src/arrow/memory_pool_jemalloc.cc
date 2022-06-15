@@ -151,4 +151,6 @@ Status jemalloc_set_decay_ms(int ms) {
   return Status::OK();
 }
 
+#undef RETURN_IF_JEMALLOC_ERROR
+
 }  // namespace arrow
