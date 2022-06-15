@@ -58,6 +58,15 @@
     ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));        \
   } while (false)
 
+/// \brief Log a warning if `expr` returns a non-successful Status
+#define ARROW_WARN_NOT_OK(expr)          \
+  do {                                   \
+    ::arrow::Status _s = (expr);         \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
+        _s.Warn();                       \
+    }                                    \
+  } while (false)
+
 #define RETURN_NOT_OK_ELSE(s, else_)                            \
   do {                                                          \
     ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
