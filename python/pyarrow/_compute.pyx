@@ -2069,10 +2069,20 @@ cdef class _RankOptions(FunctionOptions):
         "dense": CRankOptionsTiebreaker_Dense,
     }
 
-    def _set_options(self, order, null_placement, tiebreaker):
+    def _set_options(self, sort_keys, null_placement, tiebreaker):
+        cdef vector[CSortKey] c_sort_keys
+        if isinstance(sort_keys, str):
+            c_sort_keys.push_back(
+                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
+            )
+        else:
+            for name, order in sort_keys:
+                c_sort_keys.push_back(
+                    CSortKey(tobytes(name), unwrap_sort_order(order))
+                )
         try:
             self.wrapped.reset(
-                new CRankOptions(unwrap_sort_order(order),
+                new CRankOptions(c_sort_keys,
                                  unwrap_null_placement(null_placement),
                                  self._tiebreaker_map[tiebreaker])
             )
@@ -2086,9 +2096,11 @@ class RankOptions(_RankOptions):
 
     Parameters
     ----------
-    order : str, default "ascending"
-        Which order to sort values in.
-        Accepted values are "ascending", "descending".
+    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        Also accepted "ascending"/"descending" string.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted.
         Accepted values are "at_start", "at_end".
@@ -2105,8 +2117,8 @@ class RankOptions(_RankOptions):
                    number of distinct values in the input.
     """
 
-    def __init__(self, *, order="ascending", null_placement="at_end", tiebreaker="first"):
-        self._set_options(order, null_placement, tiebreaker)
+    def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
+        self._set_options(sort_keys, null_placement, tiebreaker)
 
 
 def _group_by(args, keys, aggregations):

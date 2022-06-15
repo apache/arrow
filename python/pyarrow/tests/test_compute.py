@@ -150,7 +150,7 @@ def test_option_class_equality():
         pc.CumulativeSumOptions(start=0, skip_nulls=False),
         pc.QuantileOptions(),
         pc.RandomOptions(),
-        pc.RankOptions(order="ascending",
+        pc.RankOptions(sort_keys="ascending",
                        null_placement="at_start", tiebreaker="max"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
@@ -2729,7 +2729,7 @@ def test_random():
 )
 def test_rank_options_tiebreaker(tiebreaker, expected_values):
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
-    rank_options = pc.RankOptions(order="ascending",
+    rank_options = pc.RankOptions(sort_keys="ascending",
                                   null_placement="at_end",
                                   tiebreaker=tiebreaker)
     result = pc.rank(arr, options=rank_options)
@@ -2749,17 +2749,23 @@ def test_rank_options():
     result = pc.rank(arr, options=pc.RankOptions())
     assert result.equals(expected)
 
-    result = pc.rank(arr, options=pc.RankOptions(null_placement="at_start"))
+    # Ensure sort_keys tuple usage
+    result = pc.rank(arr, options=pc.RankOptions(
+        sort_keys=[("b", "ascending")])
+    )
+    assert result.equals(expected)
+
+    result = pc.rank(arr, null_placement="at_start")
     expected_at_start = pa.array([5, 3, 6, 1, 7, 2, 4], type=pa.uint64())
     assert result.equals(expected_at_start)
 
-    result = pc.rank(arr, options=pc.RankOptions(order="descending"))
+    result = pc.rank(arr, sort_keys="descending")
     expected_descending = pa.array([3, 4, 1, 6, 2, 7, 5], type=pa.uint64())
     assert result.equals(expected_descending)
 
     with pytest.raises(ValueError,
                        match=r'"NonExisting" is not a valid tiebreaker'):
-        pc.RankOptions(order="descending",
+        pc.RankOptions(sort_keys="descending",
                        null_placement="at_end",
                        tiebreaker="NonExisting")
 
