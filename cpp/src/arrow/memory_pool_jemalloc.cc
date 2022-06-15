@@ -81,8 +81,6 @@ namespace memory_pool {
 
 namespace internal {
 
-#ifdef ARROW_JEMALLOC
-
 Status JemallocAllocator::AllocateAligned(int64_t size, uint8_t** out) {
   if (size == 0) {
     *out = kZeroSizeArea;
@@ -129,8 +127,6 @@ void JemallocAllocator::ReleaseUnused() {
   mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
 }
 
-#endif  // defined(ARROW_JEMALLOC)
-
 }  // namespace internal
 
 }  // namespace memory_pool
@@ -143,7 +139,6 @@ void JemallocAllocator::ReleaseUnused() {
   } while (0)
 
 Status jemalloc_set_decay_ms(int ms) {
-#ifdef ARROW_JEMALLOC
   ssize_t decay_time_ms = static_cast<ssize_t>(ms);
 
   int err = mallctl("arenas.dirty_decay_ms", nullptr, nullptr, &decay_time_ms,
@@ -154,9 +149,6 @@ Status jemalloc_set_decay_ms(int ms) {
   RETURN_IF_JEMALLOC_ERROR(err);
 
   return Status::OK();
-#else
-  return Status::Invalid("jemalloc support is not built");
-#endif
 }
 
 }  // namespace arrow

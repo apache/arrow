@@ -660,6 +660,12 @@ MemoryPool* default_memory_pool() {
   }
 }
 
+#ifndef ARROW_JEMALLOC
+Status jemalloc_set_decay_ms(int ms) {
+  return Status::Invalid("jemalloc support is not built");
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////
 // LoggingMemoryPool implementation
 
