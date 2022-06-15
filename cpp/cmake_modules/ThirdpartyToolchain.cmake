@@ -4718,8 +4718,15 @@ endmacro()
 if(ARROW_WITH_UCX)
   resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
   add_library(ucx::ucx INTERFACE IMPORTED)
-  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
-  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(ucx::ucx PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                              "${UCX_INCLUDE_DIRS}")
+    set_property(TARGET ucx::ucx PROPERTY INTERFACE_LINK_LIBRARIES ucx::ucp ucx::uct
+                                          ucx::ucs)
+  else()
+    target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
+    target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
+  endif()
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
