@@ -239,6 +239,10 @@ set(ARROW_SRCS
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
 
+if(ARROW_JEMALLOC)
+  list(APPEND ARROW_SRCS memory_pool_jemalloc.cc)
+endif()
+
 append_avx2_src(util/bpacking_avx2.cc)
 append_avx512_src(util/bpacking_avx512.cc)
 
