@@ -125,7 +125,7 @@ func (a *String) setData(data *Data) {
 	}
 
 	lastValValid := a.IsValid(a.Len() - 1)
-	if lastValValid && int(a.offsets[expNumOffsets-2]) > len(a.values) {
+	if lastValValid && int(a.offsets[expNumOffsets-1]) > len(a.values) {
 		panic("arrow/array: string offsets out of bounds of data buffer")
 	}
 }
