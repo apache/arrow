@@ -410,7 +410,7 @@ cdef class NativeFile(_Weakrefable):
 
         Returns
         -------
-        stream : bytes
+        stream : NativeFile
         """
         cdef:
             shared_ptr[CInputStream] data
