@@ -46,12 +46,12 @@ class TestAzureFileSystem : public ::testing::Test {
   void SetUp() override {
     time_ = TimePoint(TimePoint::duration(42));
     MakeFileSystem();
-    fs_->CreateDir("container");
-    fs_->CreateDir("empty-container");
-    fs_->CreateDir("container2/newdir");
-    fs_->CreateDir("container/emptydir");
-    fs_->CreateDir("container/somedir");
-    fs_->CreateDir("container/somedir/subdir");
+    ASSERT_OK(fs_->CreateDir("container"));
+    ASSERT_OK(fs_->CreateDir("empty-container"));
+    ASSERT_OK(fs_->CreateDir("container2/newdir"));
+    ASSERT_OK(fs_->CreateDir("container/emptydir"));
+    ASSERT_OK(fs_->CreateDir("container/somedir"));
+    ASSERT_OK(fs_->CreateDir("container/somedir/subdir"));
     CreateFile(fs_.get(), "container/somedir/subdir/subfile", "sub data");
     CreateFile(fs_.get(), "container/somefile", "some data");
   }
@@ -103,7 +103,7 @@ TEST_F(TestAzureFileSystem, CreateDir) {
   AssertFileInfo(fs_.get(), "container/somedir/subdir", FileType::Directory);
 
   auto res = fs_->OpenOutputStream("container/somedir/base.txt");
-  res->get()->Write("Changed the data");
+  ASSERT_OK(res->get()->Write("Changed the data"));
 
   // C/D/F
   AssertFileInfo(fs_.get(), "container/somedir/base.txt", FileType::File);
@@ -301,7 +301,7 @@ TEST_F(TestAzureFileSystem, GetFileInfoSelector) {
 
 TEST_F(TestAzureFileSystem, Move) {
   ASSERT_RAISES(IOError, fs_->Move("container", "container/nshhd"));
-  fs_->CreateDir("container/newdir/newsub/newsubsub", true);
+  ASSERT_OK(fs_->CreateDir("container/newdir/newsub/newsubsub", true));
   ASSERT_RAISES(IOError,
                 fs_->Move("container/somedir/subdir", "container/newdir/newsub"));
   ASSERT_OK(fs_->Move("container/newdir/newsub", "container/emptydir"));
@@ -352,7 +352,7 @@ TEST_F(TestAzureFileSystem, CopyFile) {
   ASSERT_RAISES(IOError,
                 fs_->CopyFile("container/somedir/subdir/subfile", "container27/hshj"));
   ASSERT_OK(fs_->CopyFile("container/somedir/subdir/subfile", "container/somefile"));
-  fs_->DeleteFile("container/somefile3");
+  ASSERT_OK(fs_->DeleteFile("container/somefile3"));
   ASSERT_OK(fs_->CopyFile("container/somedir/subdir/subfile", "container/somefile3"));
 }
 
@@ -512,7 +512,7 @@ TEST_F(TestAzureFileSystem, DeleteDirContents) {
   // root
   ASSERT_RAISES(IOError, fs_->DeleteDirContents(""));
 
-  fs_->CreateDir("container2/newdir/subdir", true);
+  ASSERT_OK(fs_->CreateDir("container2/newdir/subdir", true));
 
   // C/D
   ASSERT_OK(fs_->DeleteDirContents("container2/newdir"));
