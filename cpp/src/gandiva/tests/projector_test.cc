@@ -28,7 +28,6 @@
 #include "arrow/memory_pool.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
-#include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -2790,45 +2789,4 @@ TEST_F(TestProjector, TestCastBinaryBinary) {
 
   EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
 }
-TEST_F(TestProjector, TestTrunc) {
-  // schema for input fields
-  auto field0 = field("f0", arrow::date64());
-  auto field1 = field("f1", arrow::utf8());
-  auto schema = arrow::schema({field0, field1});
-
-  // output fields
-  auto output_trunc = field("result", arrow::utf8());
-
-  // Build expression
-  auto trunc_expr =
-      TreeExprBuilder::MakeExpression("trunc", {field0, field1}, output_trunc);
-
-  std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {trunc_expr}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok());
-
-  // Create a row-batch with some sample data
-  int num_records = 2;
-  auto array0 =
-      MakeArrowArrayDate64({1561856401000, 1561856401000},
-                           {true, true});
-  auto array1 =
-      MakeArrowArrayUtf8({"MONTH", "YEAR"},
-                         {true, true});
-  // expected output
-  auto exp_output = MakeArrowArrayUtf8({"2019-06-01", "2019-01-01"},
-                                       {true, true});
-
-  // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
-
-  // Evaluate expression
-  arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
-
-  // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
-}
-
 }  // namespace gandiva
