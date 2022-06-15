@@ -20,8 +20,8 @@
 
 // We can't put the jemalloc memory pool implementation into
 // memory_pool.c because jemalloc.h may redefine malloc() and its
-// family by macros. It malloc() and its family are redefined by
-// jemalloc, our system memory pool also uses jemalloc's malloc() and
+// family by macros. If malloc() and its family are redefined by
+// jemalloc, our system memory pool will also use jemalloc's malloc() and
 // its family.
 
 #ifdef ARROW_JEMALLOC_VENDORED
