@@ -290,7 +290,8 @@ jobs:
         env:
           GITHUB_PAT: "${{ github.token }}"
         with:
-          # For some arcane reason caching does not work on the windows runners in a matrix build.
+          # For some arcane reason caching does not work on the windows runners
+          # most likely due to https://github.com/actions/cache/issues/815
           cache: false
           working-directory: 'r'
           extra-packages: |
