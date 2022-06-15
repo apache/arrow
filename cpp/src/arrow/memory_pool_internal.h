@@ -26,15 +26,15 @@ namespace memory_pool {
 
 namespace internal {
 
-constexpr size_t kAlignment = 64;
+static constexpr size_t kAlignment = 64;
 
-constexpr int64_t kDebugXorSuffix = -0x181fe80e0b464188LL;
+static constexpr int64_t kDebugXorSuffix = -0x181fe80e0b464188LL;
 
 // A static piece of memory for 0-size allocations, so as to return
 // an aligned non-null pointer.  Note the correct value for DebugAllocator
 // checks is hardcoded.
 extern int64_t zero_size_area[1];
-uint8_t* const kZeroSizeArea = reinterpret_cast<uint8_t*>(&zero_size_area);
+static uint8_t* const kZeroSizeArea = reinterpret_cast<uint8_t*>(&zero_size_area);
 
 #ifdef ARROW_JEMALLOC
 
