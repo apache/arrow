@@ -191,6 +191,12 @@ func (r *Reader) getInitialDicts() bool {
 }
 
 func (r *Reader) next() bool {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			r.err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+		}
+	}()
+
 	if !r.readInitialDicts && !r.getInitialDicts() {
 		return false
 	}
