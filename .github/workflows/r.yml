@@ -284,6 +284,7 @@ jobs:
         with:
           r-version: ${{ matrix.config.rversion }}
           rtools-version: ${{ matrix.config.rtools }}
+          # RSPM keeps install times short for 3.6
           use-public-rspm: true
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
@@ -296,7 +297,6 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-            github::r-lib/cpp11@v0.4.2
       - name: Check
         shell: Rscript {0}
         run: |
@@ -327,7 +327,7 @@ jobs:
         shell: Rscript {0}
         working-directory: r
         run: |
-          pak::pak("github::jonkeane/lintr@arrow-branch")
+          pak::pak("lintr")
           lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
