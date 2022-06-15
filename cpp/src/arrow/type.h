@@ -178,7 +178,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   /// \brief Returns the type's fixed byte width, if any. Returns -1
   /// for non-fixed-width types, and should only be used for
   /// subclasses of FixedWidthType
-  virtual int32_t byte_width() const {
+  int32_t byte_width() const {
     int32_t num_bits = this->bit_width();
     return num_bits > 0 ? num_bits / 8 : -1;
   }
@@ -718,7 +718,6 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
         {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
   }
 
-  int32_t byte_width() const override { return byte_width_; }
   int bit_width() const override;
 
   // Validating constructor
@@ -2059,9 +2058,6 @@ std::string ToTypeName(Type::type id);
 
 ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
-
-ARROW_EXPORT
-int GetByteWidth(const DataType& type);
 
 }  // namespace internal
 

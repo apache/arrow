@@ -595,13 +595,12 @@ struct VectorKernel : public Kernel {
 
   /// \brief Function for executing a stateful VectorKernel against a
   /// ChunkedArray input. Does not need to be defined for all VectorKernels
-  typedef Status (*ChunkedExec)(KernelContext*, const ExecBatch&, Datum* out)>;
+  typedef Status (*ChunkedExec)(KernelContext*, const ExecBatch&, Datum* out);
 
   VectorKernel() = default;
 
-  VectorKernel(std::vector<InputType> in_types, OutputType out_type,
-               ArrayKernelExec exec, KernelInit init = NULLPTR,
-               FinalizeFunc finalize = NULLPTR)
+  VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
+               KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
         exec(std::move(exec)),
         finalize(std::move(finalize)) {}

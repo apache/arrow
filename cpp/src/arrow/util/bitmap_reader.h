@@ -260,8 +260,8 @@ struct OptionalBitIndexer {
   const uint8_t* bitmap;
   const int64_t offset;
 
-  explicit OptionalBitIndexer(const std::shared_ptr<Buffer>& buffer, int64_t offset = 0)
-      : bitmap(buffer == NULLPTR ? NULLPTR : buffer->data()), offset(offset) {}
+  explicit OptionalBitIndexer(const uint8_t* buffer = NULLPTR, int64_t offset = 0)
+      : bitmap(buffer), offset(offset) {}
 
   bool operator[](int64_t i) const {
     return bitmap == NULLPTR || bit_util::GetBit(bitmap, offset + i);

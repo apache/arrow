@@ -1447,6 +1447,8 @@ Status ExecRound(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       state.options.ToString());
 }
 
+#undef ROUND_CASE
+
 // Like MakeUnaryArithmeticFunction, but for unary rounding functions that control
 // kernel dispatch based on RoundMode, only on non-null output.
 template <template <typename, RoundMode, typename...> class Op, typename OptionsType>

@@ -1022,10 +1022,10 @@ bool IntegerTensorEquals(const Tensor& left, const Tensor& right) {
     if (!(left_row_major_p && right_row_major_p) &&
         !(left_column_major_p && right_column_major_p)) {
       const auto& type = checked_cast<const FixedWidthType&>(*left.type());
-      are_equal = StridedIntegerTensorContentEquals(0, 0, 0, internal::GetByteWidth(type),
-                                                    left, right);
+      are_equal =
+          StridedIntegerTensorContentEquals(0, 0, 0, type.byte_width(), left, right);
     } else {
-      const int byte_width = internal::GetByteWidth(*left.type());
+      const int byte_width = left.type()->byte_width();
       DCHECK_GT(byte_width, 0);
 
       const uint8_t* left_data = left.data()->data();
@@ -1195,7 +1195,7 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
       return false;
     }
 
-    const int byte_width = internal::GetByteWidth(*left.type());
+    const int byte_width = left.type()->byte_width();
     DCHECK_GT(byte_width, 0);
 
     const uint8_t* left_data = left.data()->data();

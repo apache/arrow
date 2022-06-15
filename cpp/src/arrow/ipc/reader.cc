@@ -71,7 +71,6 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::GetByteWidth;
 
 namespace ipc {
 
@@ -2095,7 +2094,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
 
   std::shared_ptr<DataType> indices_type;
   RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(sparse_index, &indices_type));
-  const int64_t indices_elsize = GetByteWidth(*indices_type);
+  const int64_t indices_elsize = indices_type->byte_width();
 
   auto* indices_buffer = sparse_index->indicesBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indices_data,
@@ -2131,7 +2130,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   std::shared_ptr<DataType> indptr_type, indices_type;
   RETURN_NOT_OK(
       internal::GetSparseCSXIndexMetadata(sparse_index, &indptr_type, &indices_type));
-  const int indptr_byte_width = GetByteWidth(*indptr_type);
+  const int indptr_byte_width = indptr_type->byte_width();
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
   ARROW_ASSIGN_OR_RAISE(auto indptr_data,
@@ -2142,7 +2141,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
                         file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
 
   std::vector<int64_t> indices_shape({non_zero_length});
-  const auto indices_minimum_bytes = indices_shape[0] * GetByteWidth(*indices_type);
+  const auto indices_minimum_bytes = indices_shape[0] * indices_type->byte_width();
   if (indices_minimum_bytes > indices_buffer->length()) {
     return Status::Invalid("shape is inconsistent to the size of indices buffer");
   }

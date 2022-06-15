@@ -1136,8 +1136,9 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
   }
 }
 
-template <template <typename...> class KernelGenerator, typename Op, typename... Args>
-ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
+template <template <typename...> class KernelGenerator, typename Op, typename KernelType,
+          typename... Args>
+KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
@@ -1243,8 +1244,7 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
 // bits).
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator,
-          typename KernelType = ArrayKernelExec,
+template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
           typename... Args>
 KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   switch (get_id.id) {

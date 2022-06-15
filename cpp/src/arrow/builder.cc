@@ -170,7 +170,7 @@ struct DictionaryBuilderCase {
       out->reset(new internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>(
           index_type, value_type, pool));
     } else {
-      auto start_int_size = internal::GetByteWidth(*index_type);
+      auto start_int_size = index_type->byte_width();
       out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool));
     }
     return Status::OK();

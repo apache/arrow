@@ -54,7 +54,6 @@ using internal::CheckIndexBounds;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::GetArrayView;
-using internal::GetByteWidth;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
@@ -85,7 +84,7 @@ int64_t GetFilterOutputSize(const ArraySpan& filter,
     }
   } else {
     // The filter has no nulls, so we can use CountSetBits
-    output_size = CountSetBits(filter.buffers[1].data(), filter.offset, filter.length);
+    output_size = CountSetBits(filter.buffers[1].data, filter.offset, filter.length);
   }
   return output_size;
 }
@@ -94,16 +93,16 @@ namespace {
 
 template <typename IndexType>
 Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
-    const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
+    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
   using T = typename IndexType::c_type;
 
-  const uint8_t* filter_data = filter.buffers[1]->data();
+  const uint8_t* filter_data = filter.buffers[1].data;
   const bool have_filter_nulls = filter.MayHaveNulls();
   const uint8_t* filter_is_valid =
-      have_filter_nulls ? filter.buffers[0]->data() : nullptr;
+      filter.buffers[0].data
 
-  if (have_filter_nulls && null_selection == FilterOptions::EMIT_NULL) {
+      if (have_filter_nulls && null_selection == FilterOptions::EMIT_NULL) {
     // Most complex case: the filter may have nulls and we don't drop them.
     // The logic is ternary:
     // - filter is null: emit null
@@ -224,7 +223,7 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
 }  // namespace
 
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
-    const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
+    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
   DCHECK_EQ(filter.type->id(), Type::BOOL);
   if (filter.length <= std::numeric_limits<uint16_t>::max()) {
@@ -275,14 +274,14 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
 /// This function assumes that the indices have been boundschecked.
 template <typename IndexCType, typename ValueCType>
 struct PrimitiveTakeImpl {
-  static void Exec(const PrimitiveArg& values, const PrimitiveArg& indices,
+  static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
-    auto values_data = reinterpret_cast<const ValueCType*>(values.data);
-    auto values_is_valid = values.is_valid;
+    const ValueCType* values_data = values.GetValues<ValueCType>(1);
+    const uint8_t* values_is_valid = values.buffers[0].data;
     auto values_offset = values.offset;
 
-    auto indices_data = reinterpret_cast<const IndexCType*>(indices.data);
-    auto indices_is_valid = indices.is_valid;
+    const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
+    const uint8_t* indices_is_valid = indices.buffers[0].data;
     auto indices_offset = indices.offset;
 
     auto out = out_arr->GetMutableValues<ValueCType>(1);
@@ -373,14 +372,14 @@ struct PrimitiveTakeImpl {
 
 template <typename IndexCType>
 struct BooleanTakeImpl {
-  static void Exec(const PrimitiveArg& values, const PrimitiveArg& indices,
+  static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
-    const uint8_t* values_data = values.data;
-    auto values_is_valid = values.is_valid;
+    const uint8_t* values_data = values.buffers[1].data;
+    const uint8_t* values_is_valid = values.buffers[0].data;
     auto values_offset = values.offset;
 
-    auto indices_data = reinterpret_cast<const IndexCType*>(indices.data);
-    auto indices_is_valid = indices.is_valid;
+    const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
+    const uint8_t* indices_is_valid = indices.buffers[0].data;
     auto indices_offset = indices.offset;
 
     auto out = out_arr->buffers[1]->mutable_data();
@@ -471,21 +470,21 @@ struct BooleanTakeImpl {
 };
 
 template <template <typename...> class TakeImpl, typename... Args>
-void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
+void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
                        ArrayData* out) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
   // having to generate double the amount of binary code to handle each integer
   // width.
-  switch (indices.bit_width) {
-    case 8:
+  switch (indices.type->byte_width()) {
+    case 1:
       return TakeImpl<uint8_t, Args...>::Exec(values, indices, out);
-    case 16:
+    case 2:
       return TakeImpl<uint16_t, Args...>::Exec(values, indices, out);
-    case 32:
+    case 4:
       return TakeImpl<uint32_t, Args...>::Exec(values, indices, out);
-    case 64:
+    case 8:
       return TakeImpl<uint64_t, Args...>::Exec(values, indices, out);
     default:
       DCHECK(false) << "Invalid indices byte width";
@@ -493,23 +492,25 @@ void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
   }
 }
 
-Status PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status PrimitiveTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& indices = batch[1].array;
+
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length));
   }
 
-  PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
-  PrimitiveArg indices = GetPrimitiveArg(*batch[1].array());
+  ArrayData* out_arr = out->array_data().get();
 
-  ArrayData* out_arr = out->mutable_array();
+  const int bit_width = values.type->bit_width();
 
   // TODO: When neither values nor indices contain nulls, we can skip
   // allocating the validity bitmap altogether and save time and space. A
   // streamlined PrimitiveTakeImpl would need to be written that skips all
   // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocateData(ctx, indices.length, values.bit_width,
+  RETURN_NOT_OK(PreallocateData(ctx, indices.length, bit_width,
                                 /*allocate_validity=*/true, out_arr));
-  switch (values.bit_width) {
+  switch (bit_width) {
     case 1:
       TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
       break;
@@ -575,16 +576,16 @@ class PrimitiveFilterImpl {
   using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
                                       uint8_t, typename ArrowType::c_type>::type;
 
-  PrimitiveFilterImpl(const PrimitiveArg& values, const PrimitiveArg& filter,
+  PrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
                       FilterOptions::NullSelectionBehavior null_selection,
                       ArrayData* out_arr)
-      : values_is_valid_(values.is_valid),
-        values_data_(reinterpret_cast<const T*>(values.data)),
+      : values_is_valid_(values.buffers[0].data),
+        values_data_(values.GetValues<T>(1)),
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_length_(values.length),
-        filter_is_valid_(filter.is_valid),
-        filter_data_(filter.data),
+        filter_is_valid_(filter.buffers[0].data),
+        filter_data_(filter.buffers[1].data),
         filter_null_count_(filter.null_count),
         filter_offset_(filter.offset),
         null_selection_(null_selection) {
@@ -786,15 +787,15 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
   bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
-Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
-  PrimitiveArg filter = GetPrimitiveArg(*batch[1].array());
+Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& filter = batch[1].array;
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
-  int64_t output_length = GetFilterOutputSize(*batch[1].array(), null_selection);
+  int64_t output_length = GetFilterOutputSize(filter, null_selection);
 
-  ArrayData* out_arr = out->mutable_array();
+  ArrayData* out_arr = out->array_data().get();
 
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
@@ -811,10 +812,11 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
+  const int bit_width = values.type->bit_width();
   RETURN_NOT_OK(
-      PreallocateData(ctx, output_length, values.bit_width, allocate_validity, out_arr));
+      PreallocateData(ctx, output_length, bit_width, allocate_validity, out_arr));
 
-  switch (values.bit_width) {
+  switch (bit_width) {
     case 1:
       PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
       break;
@@ -841,9 +843,8 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // Optimized filter for base binary types (32-bit and 64-bit)
 
 #define BINARY_FILTER_SETUP_COMMON()                                                    \
-  auto raw_offsets =                                                                    \
-      reinterpret_cast<const offset_type*>(values.buffers[1]->data()) + values.offset;  \
-  const uint8_t* raw_data = values.buffers[2]->data();                                  \
+  const auto raw_offsets = values.GetValues<offset_type>(1);                            \
+  const uint8_t* raw_data = values.buffers[2].data;                                     \
                                                                                         \
   TypedBufferBuilder<offset_type> offset_builder(ctx->memory_pool());                   \
   TypedBufferBuilder<uint8_t> data_builder(ctx->memory_pool());                         \
@@ -877,12 +878,12 @@ Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // Optimized binary filter for the case where neither values nor filter have
 // nulls
 template <typename Type>
-Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArrayData& values,
-                               const ArrayData& filter, int64_t output_length,
+Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArraySpan& values,
+                               const ArraySpan& filter, int64_t output_length,
                                FilterOptions::NullSelectionBehavior null_selection,
                                ArrayData* out) {
   using offset_type = typename Type::offset_type;
-  const auto filter_data = filter.buffers[1]->data();
+  const auto filter_data = filter.buffers[1].data;
 
   BINARY_FILTER_SETUP_COMMON();
 
@@ -909,17 +910,17 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArrayData& values,
 }
 
 template <typename Type>
-Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
-                        const ArrayData& filter, int64_t output_length,
+Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
+                        const ArraySpan& filter, int64_t output_length,
                         FilterOptions::NullSelectionBehavior null_selection,
                         ArrayData* out) {
   using offset_type = typename Type::offset_type;
 
-  const auto filter_data = filter.buffers[1]->data();
-  const uint8_t* filter_is_valid = GetValidityBitmap(filter);
+  const auto filter_data = filter.buffers[1].data;
+  const uint8_t* filter_is_valid = filter.buffers[0].data;
   const int64_t filter_offset = filter.offset;
 
-  const uint8_t* values_is_valid = GetValidityBitmap(values);
+  const uint8_t* values_is_valid = values.buffers[0].data;
   const int64_t values_offset = values.offset;
 
   uint8_t* out_is_valid = out->buffers[0]->mutable_data();
@@ -1082,14 +1083,15 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
 #undef APPEND_RAW_DATA
 #undef APPEND_SINGLE_VALUE
 
-Status BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status BinaryFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
-  const ArrayData& values = *batch[0].array();
-  const ArrayData& filter = *batch[1].array();
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& filter = batch[1].array;
   int64_t output_length = GetFilterOutputSize(filter, null_selection);
-  ArrayData* out_arr = out->mutable_array();
+
+  ArrayData* out_arr = out->array_data().get();
 
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
@@ -1132,19 +1134,19 @@ Status BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // ----------------------------------------------------------------------
 // Null take and filter
 
-Status NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status NullTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(batch[1].array, batch[0].length()));
   }
   // batch.length doesn't take into account the take indices
-  auto new_length = batch[1].array()->length;
+  auto new_length = batch[1].array.length;
   out->value = std::make_shared<NullArray>(new_length)->data();
   return Status::OK();
 }
 
-Status NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  int64_t output_length = GetFilterOutputSize(
-      *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
+Status NullFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  int64_t output_length =
+      GetFilterOutputSize(batch[1].array, FilterState::Get(ctx).null_selection_behavior);
   out->value = std::make_shared<NullArray>(output_length)->data();
   return Status::OK();
 }
@@ -1152,21 +1154,21 @@ Status NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // ----------------------------------------------------------------------
 // Dictionary take and filter
 
-Status DictionaryTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  DictionaryArray values(batch[0].array());
+Status DictionaryTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  DictionaryArray values(batch[0].array.ToArrayData());
   Datum result;
-  RETURN_NOT_OK(
-      Take(Datum(values.indices()), batch[1], TakeState::Get(ctx), ctx->exec_context())
-          .Value(&result));
+  RETURN_NOT_OK(Take(Datum(values.indices()), batch[1].array.ToArrayData(),
+                     TakeState::Get(ctx), ctx->exec_context())
+                    .Value(&result));
   DictionaryArray taken_values(values.type(), result.make_array(), values.dictionary());
   out->value = taken_values.data();
   return Status::OK();
 }
 
-Status DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  DictionaryArray dict_values(batch[0].array());
+Status DictionaryFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  DictionaryArray dict_values(batch[0].array.ToArrayData());
   Datum result;
-  RETURN_NOT_OK(Filter(Datum(dict_values.indices()), batch[1].array(),
+  RETURN_NOT_OK(Filter(Datum(dict_values.indices()), batch[1].array.ToArrayData(),
                        FilterState::Get(ctx), ctx->exec_context())
                     .Value(&result));
   DictionaryArray filtered_values(dict_values.type(), result.make_array(),
@@ -1178,21 +1180,21 @@ Status DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) 
 // ----------------------------------------------------------------------
 // Extension take and filter
 
-Status ExtensionTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ExtensionArray values(batch[0].array());
+Status ExtensionTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  ExtensionArray values(batch[0].array.ToArrayData());
   Datum result;
-  RETURN_NOT_OK(
-      Take(Datum(values.storage()), batch[1], TakeState::Get(ctx), ctx->exec_context())
-          .Value(&result));
+  RETURN_NOT_OK(Take(Datum(values.storage()), batch[1].array.ToArrayData(),
+                     TakeState::Get(ctx), ctx->exec_context())
+                    .Value(&result));
   ExtensionArray taken_values(values.type(), result.make_array());
   out->value = taken_values.data();
   return Status::OK();
 }
 
-Status ExtensionFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ExtensionArray ext_values(batch[0].array());
+Status ExtensionFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  ExtensionArray ext_values(batch[0].array.ToArrayData());
   Datum result;
-  RETURN_NOT_OK(Filter(Datum(ext_values.storage()), batch[1].array(),
+  RETURN_NOT_OK(Filter(Datum(ext_values.storage()), batch[1].array.ToArrayData(),
                        FilterState::Get(ctx), ctx->exec_context())
                     .Value(&result));
   ExtensionArray filtered_values(ext_values.type(), result.make_array());
@@ -1238,24 +1240,25 @@ struct Selection {
   };
 
   KernelContext* ctx;
-  std::shared_ptr<ArrayData> values;
-  std::shared_ptr<ArrayData> selection;
+  const ArraySpan& values;
+  const ArraySpan& selection;
   int64_t output_length;
   ArrayData* out;
   TypedBufferBuilder<bool> validity_builder;
 
-  Selection(KernelContext* ctx, const ExecBatch& batch, int64_t output_length, Datum* out)
+  Selection(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
+            ExecResult* out)
       : ctx(ctx),
-        values(batch[0].array()),
-        selection(batch[1].array()),
+        values(batch[0].array),
+        selection(batch[1].array),
         output_length(output_length),
-        out(out->mutable_array()),
+        out(out->array_data().get()),
         validity_builder(ctx->memory_pool()) {}
 
   virtual ~Selection() = default;
 
   Status FinishCommon() {
-    out->buffers.resize(values->buffers.size());
+    out->buffers.resize(values.num_buffers());
     out->length = validity_builder.length();
     out->null_count = validity_builder.false_count();
     return validity_builder.Finish(&out->buffers[0]);
@@ -1263,15 +1266,15 @@ struct Selection {
 
   template <typename IndexCType, typename ValidVisitor, typename NullVisitor>
   Status VisitTake(ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
-    const auto indices_values = selection->GetValues<IndexCType>(1);
-    const uint8_t* is_valid = GetValidityBitmap(*selection);
-    OptionalBitIndexer indices_is_valid(selection->buffers[0], selection->offset);
-    OptionalBitIndexer values_is_valid(values->buffers[0], values->offset);
+    const auto indices_values = selection.GetValues<IndexCType>(1);
+    const uint8_t* is_valid = selection.buffers[0].data;
+    OptionalBitIndexer indices_is_valid(is_valid, selection.offset);
+    OptionalBitIndexer values_is_valid(values.buffers[0].data, values.offset);
 
-    const bool values_have_nulls = values->MayHaveNulls();
-    OptionalBitBlockCounter bit_counter(is_valid, selection->offset, selection->length);
+    const bool values_have_nulls = values.MayHaveNulls();
+    OptionalBitBlockCounter bit_counter(is_valid, selection.offset, selection.length);
     int64_t position = 0;
-    while (position < selection->length) {
+    while (position < selection.length) {
       BitBlockCount block = bit_counter.NextBlock();
       const bool indices_have_nulls = block.popcount < block.length;
       if (!indices_have_nulls && !values_have_nulls) {
@@ -1313,22 +1316,22 @@ struct Selection {
   Status VisitFilter(ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
     auto null_selection = FilterState::Get(ctx).null_selection_behavior;
 
-    const auto filter_data = selection->buffers[1]->data();
+    const uint8_t* filter_data = selection.buffers[1].data;
 
-    const uint8_t* filter_is_valid = GetValidityBitmap(*selection);
-    const int64_t filter_offset = selection->offset;
-    OptionalBitIndexer values_is_valid(values->buffers[0], values->offset);
+    const uint8_t* filter_is_valid = selection.buffers[0].data;
+    const int64_t filter_offset = selection.offset;
+    OptionalBitIndexer values_is_valid(values.buffers[0].data, values.offset);
 
     // We use 3 block counters for fast scanning of the filter
     //
     // * values_valid_counter: for values null/not-null
     // * filter_valid_counter: for filter null/not-null
     // * filter_counter: for filter true/false
-    OptionalBitBlockCounter values_valid_counter(GetValidityBitmap(*values),
-                                                 values->offset, values->length);
+    OptionalBitBlockCounter values_valid_counter(values.buffers[0].data, values.offset,
+                                                 values.length);
     OptionalBitBlockCounter filter_valid_counter(filter_is_valid, filter_offset,
-                                                 selection->length);
-    BitBlockCounter filter_counter(filter_data, filter_offset, selection->length);
+                                                 selection.length);
+    BitBlockCounter filter_counter(filter_data, filter_offset, selection.length);
     int64_t in_position = 0;
 
     auto AppendNotNull = [&](int64_t index) -> Status {
@@ -1349,7 +1352,7 @@ struct Selection {
       }
     };
 
-    while (in_position < selection->length) {
+    while (in_position < selection.length) {
       BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
       BitBlockCount values_valid_block = values_valid_counter.NextWord();
       BitBlockCount filter_block = filter_counter.NextWord();
@@ -1436,7 +1439,7 @@ struct Selection {
   Status ExecTake() {
     RETURN_NOT_OK(this->validity_builder.Reserve(output_length));
     RETURN_NOT_OK(Init());
-    int index_width = GetByteWidth(*this->selection->type);
+    int index_width = this->selection->type->byte_width();
 
     // CTRP dispatch here
     switch (index_width) {
@@ -1517,9 +1520,9 @@ struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
     ValuesArrayType typed_values(this->values_as_binary);
 
     // Presize the data builder with a rough estimate of the required data size
-    if (values->length > 0) {
+    if (values.length > 0) {
       const double mean_value_length =
-          (typed_values.total_values_length() / static_cast<double>(values->length));
+          (typed_values.total_values_length() / static_cast<double>(values.length));
 
       // TODO: See if possible to reduce output_length for take/filter cases
       // where there are nulls in the selection array
@@ -1685,7 +1688,7 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
       : Base(ctx, batch, output_length, out),
         value_offset_buffer_builder_(ctx->memory_pool()),
         child_id_buffer_builder_(ctx->memory_pool()),
-        type_codes_(checked_cast<const UnionType&>(*this->values->type).type_codes()),
+        type_codes_(checked_cast<const UnionType&>(*this->values.type).type_codes()),
         child_indices_builders_(type_codes_.size()) {
     for (auto& child_indices_builder : child_indices_builders_) {
       child_indices_builder = Int32Builder(ctx->memory_pool());
@@ -1820,8 +1823,8 @@ struct StructImpl : public Selection<StructImpl, StructType> {
     StructArray typed_values(values);
 
     // Select from children without boundschecking
-    out->child_data.resize(values->type->num_fields());
-    for (int field_index = 0; field_index < values->type->num_fields(); ++field_index) {
+    out->child_data.resize(values.type->num_fields());
+    for (int field_index = 0; field_index < values.type->num_fields(); ++field_index) {
       ARROW_ASSIGN_OR_RAISE(Datum taken_field,
                             Take(Datum(typed_values.field(field_index)), Datum(selection),
                                  TakeOptions::NoBoundsCheck(), ctx->exec_context()));
@@ -2308,18 +2311,18 @@ class DropNullMetaFunction : public MetaFunction {
 // ----------------------------------------------------------------------
 
 template <typename Impl>
-Status FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status FilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // TODO: where are the values and filter length equality checked?
-  int64_t output_length = GetFilterOutputSize(
-      *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
+  int64_t output_length =
+      GetFilterOutputSize(batch[1].array, FilterState::Get(ctx).null_selection_behavior);
   Impl kernel(ctx, batch, output_length, out);
   return kernel.ExecFilter();
 }
 
 template <typename Impl>
-Status TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status TakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(batch[1].array, batch[0].length()));
   }
   Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
   return kernel.ExecTake();

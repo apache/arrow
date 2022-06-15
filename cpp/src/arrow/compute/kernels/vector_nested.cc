@@ -31,7 +31,7 @@ template <typename Type>
 Status ListFlatten(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   typename TypeTraits<Type>::ArrayType list_array(batch[0].array());
   ARROW_ASSIGN_OR_RAISE(auto result, list_array.Flatten(ctx->memory_pool()));
-  out->value = result->data();
+  out->value = std::move(result->data());
   return Status::OK();
 }
 

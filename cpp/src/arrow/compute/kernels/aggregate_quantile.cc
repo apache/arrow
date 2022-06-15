@@ -423,9 +423,8 @@ Status ScalarQuantile(KernelContext* ctx, const QuantileOptions& options,
   ArrayData* output = out->mutable_array();
   output->length = options.q.size();
   auto out_type = IsDataPoint(options) ? scalar.type : float64();
-  ARROW_ASSIGN_OR_RAISE(
-      output->buffers[1],
-      ctx->Allocate(output->length * out_type->byte_width()));
+  ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                        ctx->Allocate(output->length * out_type->byte_width()));
 
   if (!scalar.is_valid || options.min_count > 1) {
     output->null_count = output->length;

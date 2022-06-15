@@ -43,7 +43,8 @@ struct KeyEncoder {
 
   virtual void AddLengthNull(int32_t* length) = 0;
 
-  virtual Status Encode(const ExecValue&, int64_t batch_length, uint8_t** encoded_bytes) = 0;
+  virtual Status Encode(const ExecValue&, int64_t batch_length,
+                        uint8_t** encoded_bytes) = 0;
 
   virtual void EncodeNull(uint8_t** encoded_bytes) = 0;
 

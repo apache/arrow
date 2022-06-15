@@ -114,8 +114,8 @@ inline void VisitRawValuesInline(const ArraySpan& values,
   const c_type* data = values.GetValues<c_type>(1);
   const uint8_t* bitmap = values.buffers[0].data;
   VisitBitBlocksVoid(
-      bitmap, values.offset, values.length,
-      [&](int64_t i) { visitor_not_null(data[i]); }, [&]() { visitor_null(); });
+      bitmap, values.offset, values.length, [&](int64_t i) { visitor_not_null(data[i]); },
+      [&]() { visitor_null(); });
 }
 
 template <typename VisitorNotNull, typename VisitorNull>

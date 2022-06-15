@@ -51,7 +51,6 @@ namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 using internal::checked_cast;
-using internal::GetByteWidth;
 
 namespace ipc {
 namespace internal {
@@ -1055,8 +1054,8 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
   auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
                                                 indices_value_type.is_signed());
 
-  const int64_t indptr_elem_size = GetByteWidth(indptr_value_type);
-  const int64_t indices_elem_size = GetByteWidth(indices_value_type);
+  const int64_t indptr_elem_size = indptr_value_type.byte_width();
+  const int64_t indices_elem_size = indices_value_type.byte_width();
 
   int64_t offset = 0;
   std::vector<flatbuf::Buffer> indptr, indices;
@@ -1224,7 +1223,7 @@ Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
   using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
 
   FBB fbb;
-  const int elem_size = GetByteWidth(*tensor.type());
+  const int elem_size = tensor.type()->byte_width();
 
   flatbuf::Type fb_type_type;
   Offset fb_type;

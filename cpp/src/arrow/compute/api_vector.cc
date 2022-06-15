@@ -301,8 +301,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            ExecContext* ctx) {
   KernelContext kernel_ctx(ctx);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out,
-                        kernel_ctx.Allocate(chunked_array.length() *
-                                            sizeof(uint64_t)));
+                        kernel_ctx.Allocate(chunked_array.length() * sizeof(uint64_t)));
   uint64_t* out_begin = reinterpret_cast<uint64_t*>(out->mutable_data());
   uint64_t* out_end = out_begin + out_arr->length;
   std::iota(out_begin, out_end, 0);
