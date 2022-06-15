@@ -687,11 +687,13 @@ class MockAzureFileSystem::Impl {
     }
     for (const auto& childFile : childrenFiles) {
       ARROW_ASSIGN_OR_RAISE(auto filePath, AzurePath::FromString(childFile));
-      DeleteFile(filePath.container, filePath.path_to_file_parts, filePath.full_path);
+      RETURN_NOT_OK(DeleteFile(filePath.container, filePath.path_to_file_parts,
+                               filePath.full_path));
     }
     for (const auto& childDir : childrenDirs) {
       ARROW_ASSIGN_OR_RAISE(auto dirPath, AzurePath::FromString(childDir));
-      DeleteDir(dirPath.container, dirPath.path_to_file_parts, dirPath.full_path);
+      RETURN_NOT_OK(
+          DeleteDir(dirPath.container, dirPath.path_to_file_parts, dirPath.full_path));
     }
     return Status::OK();
   }
