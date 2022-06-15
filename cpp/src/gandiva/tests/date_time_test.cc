@@ -834,7 +834,7 @@ TEST_F(TestProjector, TestTrunc) {
   auto field0 = field("f0", arrow::date64());
   auto field1 = field("f1", arrow::utf8());
 
-  auto field2 = field("f2", timestamp(arrow::TimeUnit::MILLI));
+  auto field2 = field("f2", arrow::timestamp(arrow::TimeUnit::MILLI));
   auto field3 = field("f3", arrow::utf8());
 
   auto field4 = field("f4", arrow::utf8());
