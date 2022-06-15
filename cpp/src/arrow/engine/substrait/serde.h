@@ -56,6 +56,7 @@ ARROW_ENGINE_EXPORT Result<compute::ExecPlan> DeserializePlan(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     ExtensionSet* ext_set_out = NULLPTR);
 
+/// TODO: add docstring
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializePlan(
     const compute::ExecPlan& exec_plan, ExtensionSet* ext_set);
 
@@ -124,6 +125,11 @@ Result<compute::Expression> DeserializeExpression(const Buffer& buf,
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& expr,
                                                     ExtensionSet* ext_set);
+
+/// TODO: add docstring
+
+Result<std::shared_ptr<Buffer>> SerializeRelation(const compute::Declaration& declaration,
+                                                  ExtensionSet* ext_set);
 
 /// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
 ///

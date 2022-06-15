@@ -321,10 +321,65 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       rel.DebugString());
 }
 
+namespace {
+
+enum ArrowRelationType : u_int8_t {
+  SCAN,
+  SINK,
+};
+
+const std::map<std::string, ArrowRelationType> enum_map{
+    {"scan", ArrowRelationType::SCAN},
+    {"sink", ArrowRelationType::SINK},
+};
+
+struct ExtractRelation {
+  explicit ExtractRelation(substrait::Rel* rel, ExtensionSet* ext_set)
+      : rel_(rel), ext_set_(ext_set) {}
+
+  Status AddRelation(const compute::Declaration& declaration) {
+    const std::string& rel_name = declaration.factory_name;
+    switch (enum_map.find(rel_name)->second) {
+      case ArrowRelationType::SCAN:
+        std::cout << "Scan Relation" << std::endl;
+        return AddReadRelation(declaration);
+      case ArrowRelationType::SINK:
+        // Do nothing, Substrait doesn't have a concept called Sink
+        return Status::OK();
+      default:
+        return Status::Invalid("Unsupported factory name :", rel_name);
+    }
+  }
+
+  Status AddReadRelation(const compute::Declaration& declaration) {
+    auto read_rel = internal::make_unique<substrait::ReadRel>();
+    const auto& scan_node_options =
+        arrow::internal::checked_cast<const dataset::ScanNodeOptions&>(
+            *declaration.options);
+    auto dataset = scan_node_options.dataset;
+    ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set_));
+    read_rel->set_allocated_base_schema(named_struct.release());
+    // read_rel->set_allocated_local_files();
+    rel_->set_allocated_read(read_rel.release());
+    return Status::OK();
+  }
+
+  Status operator()(const compute::Declaration& declaration) {
+    return AddRelation(declaration);
+  }
+
+  substrait::Rel* rel_;
+  ExtensionSet* ext_set_;
+};
+
+}  // namespace
+
 Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declaration,
                                                 ExtensionSet* ext_set) {
+  std::cout << ">>>>> ToProto[Rel] >>>> " << std::endl;
   auto out = internal::make_unique<substrait::Rel>();
-  return nullptr;
+  RETURN_NOT_OK(ExtractRelation(out.get(), ext_set)(declaration));
+  return std::move(out);
 }
 
 }  // namespace engine

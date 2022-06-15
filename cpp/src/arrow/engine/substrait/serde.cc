@@ -52,6 +52,13 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
   return message;
 }
 
+Result<std::shared_ptr<Buffer>> SerializeRelation(const compute::Declaration& declaration,
+                                                  ExtensionSet* ext_set) {
+  ARROW_ASSIGN_OR_RAISE(auto relation, ToProto(declaration, ext_set));
+  std::string serialized = relation->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
+}
+
 Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
                                                  const ExtensionSet& ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto rel, ParseFromBuffer<substrait::Rel>(buf));

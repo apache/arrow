@@ -1171,34 +1171,42 @@ TEST(Substrait, JoinPlanInvalidKeys) {
       DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
+}
+
 TEST(Substrait, SerializePlan) {
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-  auto dummy_schema = schema({field("a", int32()),
-  field("b", int32())
-  });
+  auto dummy_schema = schema({field("a", int32()), field("b", int32())});
   ASSERT_OK_AND_ASSIGN(auto tb, Table::MakeEmpty(dummy_schema));
   auto ds = std::make_shared<dataset::InMemoryDataset>(tb);
 
   auto options = std::make_shared<dataset::ScanOptions>();
   options->projection = compute::project({}, {});  // create empty projection
 
-  // construct the scan node
-  compute::ExecNode* scan;
   auto scan_node_options = dataset::ScanNodeOptions{ds, options};
-
-  ASSERT_OK_AND_ASSIGN(scan,
-                        compute::MakeExecNode("scan", plan.get(), {}, scan_node_options));
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-  ASSERT_OK(compute::MakeExecNode("sink", plan.get(), {scan}, compute::SinkNodeOptions{&sink_gen}));
+  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
+
+  auto scan_declaration = compute::Declaration({"scan", scan_node_options});
+  auto sink_declaration = compute::Declaration({"sink", sink_node_options});
+
+  auto declarations =
+      compute::Declaration::Sequence({scan_declaration, sink_declaration});
+
+  ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
+
+  ASSERT_OK(decl->Validate());
 
   std::cout << "Plan " << std::endl;
   std::cout << plan->ToString() << std::endl;
-  ASSERT_OK_AND_ASSIGN(auto serialized, SerializePlan(*plan, &ext_set));
-  
-
+  // ASSERT_OK_AND_ASSIGN(auto serialized, SerializePlan(*plan, &ext_set));
+  std::cout << "Serialize Scan Relation" << std::endl;
+  ASSERT_OK_AND_ASSIGN(auto serialized_rel,
+                       SerializeRelation(scan_declaration, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto deserialized_rel,
+                       DeserializeRelation(*serialized_rel, ext_set));
 }
 
 }  // namespace engine
