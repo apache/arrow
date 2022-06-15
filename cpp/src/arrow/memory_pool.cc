@@ -303,12 +303,13 @@ class SystemAllocator {
 #ifdef _WIN32
     // Special code path for Windows
     *out = reinterpret_cast<uint8_t*>(
-        _aligned_malloc(static_cast<size_t>(size), kAlignment));
+        _aligned_malloc(static_cast<size_t>(size), memory_pool::internal::kAlignment));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
 #elif defined(sun) || defined(__sun)
-    *out = reinterpret_cast<uint8_t*>(memalign(kAlignment, static_cast<size_t>(size)));
+    *out = reinterpret_cast<uint8_t*>(
+        memalign(memory_pool::internal::kAlignment, static_cast<size_t>(size)));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
