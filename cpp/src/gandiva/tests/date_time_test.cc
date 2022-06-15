@@ -720,5 +720,4 @@ TEST_F(TestProjector, TestToTimestampFromInt) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output1, outputs.at(2));
   EXPECT_ARROW_ARRAY_EQUALS(exp_output1, outputs.at(3));
 }
-
 }  // namespace gandiva
