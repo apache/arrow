@@ -135,7 +135,9 @@ void Status::Warn() const { Warn(std::string()); }
 
 void Status::Warn(const std::string& message) const {
   ARROW_LOG(WARNING) << "-- Arrow Warning --";
-  if (!message.empty()) { ARROW_LOG(WARNING) << message; }
+  if (!message.empty()) {
+    ARROW_LOG(WARNING) << message;
+  }
 
   ARROW_LOG(WARNING) << ToString() << "\n";
 }
