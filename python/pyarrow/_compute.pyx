@@ -2100,7 +2100,8 @@ class RankOptions(_RankOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
-        Also accepted "ascending"/"descending" string.
+        Alternatively, one can simply pass "ascending" or "descending" as a string
+        if the input is array-like.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted.
         Accepted values are "at_start", "at_end".
