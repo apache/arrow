@@ -25,8 +25,10 @@
 
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
@@ -1177,13 +1179,27 @@ TEST(Substrait, SerializePlan) {
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
   auto dummy_schema = schema({field("a", int32()), field("b", int32())});
-  ASSERT_OK_AND_ASSIGN(auto tb, Table::MakeEmpty(dummy_schema));
-  auto ds = std::make_shared<dataset::InMemoryDataset>(tb);
+
+  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  std::vector<fs::FileInfo> files;
+  const std::string f_path = "/tmp/data1.parquet";
+  // const std::string s_path = "file:///tmp/data2.parquet";
+  ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+  // ASSERT_OK_AND_ASSIGN(auto s_file, filesystem->GetFileInfo(s_path));
+  files.push_back(std::move(f_file));
+  // files.push_back(std::move(s_file));
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            std::move(filesystem), std::move(files),
+                                            std::move(format), {}));
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(std::move(dummy_schema)));
 
   auto options = std::make_shared<dataset::ScanOptions>();
   options->projection = compute::project({}, {});  // create empty projection
 
-  auto scan_node_options = dataset::ScanNodeOptions{ds, options};
+  auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
