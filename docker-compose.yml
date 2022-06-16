@@ -59,7 +59,7 @@ x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
   CCACHE_COMPRESSLEVEL: 6
-  CCACHE_MAXSIZE: 500M
+  CCACHE_MAXSIZE: 1G
   CCACHE_DIR: /ccache
 
 # CPU/memory limit presets to pass to Docker.
