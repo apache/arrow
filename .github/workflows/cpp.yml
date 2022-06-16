@@ -299,7 +299,7 @@ jobs:
       CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
-      CMAKE_UNITY_BUILD: ON
+      CMAKE_UNITY_BUILD: OFF
     steps:
       - name: Disable Crash Dialogs
         run: |
