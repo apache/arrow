@@ -17,6 +17,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <string>
 
 #include "benchmark/benchmark.h"
 
@@ -37,9 +38,26 @@
 namespace arrow {
 namespace compute {
 
-static constexpr int64_t kTotalBatchSize = 1e2;
-static const char* time_col = "time_ns";
+static const char* time_col = "time";
 static const char* key_col = "id";
+
+static std::vector<std::string> generateRightHandTables(std:: string freq, bool is_wide, bool is_multi_table, bool low_ids){
+    auto const generate_file_name = [](std::string freq, std::string is_wide, std::string num_ids, std::string num){
+        return freq + "_" + is_wide + "_" + num_ids + num + ".feather";
+    };
+
+    std::string wide_string = is_wide ? "wide" : "narrow";
+    std::string ids = low_ids ? "100_ids" : "5k_ids"; 
+    std::vector<std::string> right_hand_tables;
+    if (is_multi_table) {
+        for (int j = 1; j <= 4; j ++) {
+            right_hand_tables.push_back(generate_file_name(freq, wide_string, ids, std::to_string(j)));
+        }
+    } else {
+        right_hand_tables = {generate_file_name(freq, wide_string, ids, "1")};
+    }
+    return right_hand_tables;
+};
 
 // Wrapper to enable the use of RecordBatchFileReaders as RecordBatchReaders
 class RecordBatchFileReaderWrapper : public arrow::ipc::RecordBatchReader {
@@ -53,13 +71,13 @@ class RecordBatchFileReaderWrapper : public arrow::ipc::RecordBatchReader {
       : _reader(reader), _next(0) {}
 
   virtual arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch) {
-    // cerr << "ReadNext _next=" << _next << "\n";
+    // cout << "ReadNext _next=" << _next << "\n";
     if (_next < _reader->num_record_batches()) {
       ARROW_ASSIGN_OR_RAISE(*batch, _reader->ReadRecordBatch(_next++));
-      // cerr << "\t --> " << (*batch)->num_rows() << "\n";
+      // cout << "\t --> " << (*batch)->num_rows() << "\n";
     } else {
       batch->reset();
-      // cerr << "\t --> EOF\n";
+      // cout << "\t --> EOF\n";
     }
 
     return arrow::Status::OK();
@@ -68,7 +86,7 @@ class RecordBatchFileReaderWrapper : public arrow::ipc::RecordBatchReader {
   virtual std::shared_ptr<arrow::Schema> schema() const { return _reader->schema(); }
 };
 
-static arrow::compute::ExecNode* make_arrow_ipc_reader_node(
+static std::tuple<arrow::compute::ExecNode*, int64_t, int, size_t> make_arrow_ipc_reader_node(
     std::shared_ptr<arrow::compute::ExecPlan>& plan,
     std::shared_ptr<arrow::fs::FileSystem>& fs, const std::string& filename) {
   // TODO: error checking
@@ -79,55 +97,123 @@ static arrow::compute::ExecNode* make_arrow_ipc_reader_node(
       new RecordBatchFileReaderWrapper(in_reader));
 
   auto schema = reader->schema();
+  // we assume there is a time field represented in uint64, a key field of int32, and the remaining fields
+  // are float64.
+  size_t row_size = sizeof(_Float64) * (schema->num_fields() - 2) + sizeof(uint64_t) + sizeof(int32_t);
   auto batch_gen = *arrow::compute::MakeReaderGenerator(
       std::move(reader), arrow::internal::GetCpuThreadPool());
-
-  // cerr << "create source("<<filename<<")\n";
-  return *arrow::compute::MakeExecNode(
+  int64_t rows = in_reader->CountRows().ValueOrDie();
+  // cout << "create source("<<filename<<")\n";
+  return {*arrow::compute::MakeExecNode(
       "source",    // registered type
       plan.get(),  // execution plan
       {},          // inputs
-      arrow::compute::SourceNodeOptions(std::make_shared<arrow::Schema>(*schema),
-                                        batch_gen));  // options
+      arrow::compute::SourceNodeOptions(std::make_shared<arrow::Schema>(*schema), // options, )
+                                        batch_gen)), rows, in_reader->num_record_batches(), row_size * rows};  
 }
 
-static void AsOfJoinOverhead(benchmark::State& state, Expression expr,
-                             int64_t tolerance) {
-  const int32_t batch_size = static_cast<int32_t>(state.range(0));
-  const int64_t num_batches = kTotalBatchSize / batch_size;
+static void AsOfJoinOverhead(benchmark::State& state, std::string left_table, std::vector<std::string> right_tables) {
+  int64_t tolerance = 0;
   const std::string data_directory = "../../../bamboo-streaming/";
 
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-
+  int64_t rows;
+  size_t bytes;
   for (auto _ : state) {
     state.PauseTiming();
+
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
                          ExecPlan::Make(&ctx));
     std::shared_ptr<arrow::fs::FileSystem> fs =
         std::make_shared<arrow::fs::LocalFileSystem>();
-    arrow::compute::ExecNode* left_table_source =
-        make_arrow_ipc_reader_node(plan, fs, data_directory + "left_table.feather");
-    arrow::compute::ExecNode* right_table0_source =
-        make_arrow_ipc_reader_node(plan, fs, data_directory + "right_table.feather");
-    arrow::compute::ExecNode* right_table1_source =
-        make_arrow_ipc_reader_node(plan, fs, data_directory + "right_table2.feather");
+    auto [left_table_source, left_table_rows, left_table_batches, left_table_bytes] =
+        make_arrow_ipc_reader_node(plan, fs, data_directory + left_table);
+    
+    std::vector<ExecNode*> inputs = {left_table_source};
+    int right_hand_rows = 0;
+    size_t right_hand_bytes = 0;
+    for (std::string right_table : right_tables) {
+        auto [right_table_source, right_table_rows, right_table_batches, right_table_bytes] =
+            make_arrow_ipc_reader_node(plan, fs, data_directory + right_table);
+        inputs.push_back(right_table_source);
+        right_hand_rows += right_table_rows;
+        right_hand_bytes += right_table_bytes;
+    }
+
+    rows = left_table_rows + right_hand_rows;
+    bytes = left_table_bytes + right_hand_bytes;
+
     ASSERT_OK_AND_ASSIGN(
         arrow::compute::ExecNode * asof_join_node,
         MakeExecNode("asofjoin", plan.get(),
-                     {left_table_source, right_table0_source, right_table1_source},
-                     AsofJoinNodeOptions{time_col, key_col, tolerance}));
+                     inputs,
+                     AsofJoinNodeOptions(time_col, key_col, tolerance)));
+
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     MakeExecNode("sink", plan.get(), {asof_join_node}, SinkNodeOptions{&sink_gen});
     state.ResumeTiming();
     ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
   }
 
-  state.counters["rows_per_second"] = benchmark::Counter(
-      static_cast<double>(state.iterations() * num_batches * batch_size),
+  state.counters["total_rows_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * rows),
       benchmark::Counter::kIsRate);
 
-  state.counters["batches_per_second"] = benchmark::Counter(
-      static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
+  state.counters["total_bytes_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * bytes * rows),
+      benchmark::Counter::kIsRate);
+}
+
+static void HashJoinOverhead(benchmark::State& state, std::string left_table, std::vector<std::string> right_tables) {
+  int64_t tolerance = 0;
+  const std::string data_directory = "../../../bamboo-streaming/";
+
+  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+  int64_t rows;
+  size_t bytes;
+  for (auto _ : state) {
+    state.PauseTiming();
+
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
+                         ExecPlan::Make(&ctx));
+    std::shared_ptr<arrow::fs::FileSystem> fs =
+        std::make_shared<arrow::fs::LocalFileSystem>();
+    auto [left_table_source, left_table_rows, left_table_batches, left_table_bytes] =
+        make_arrow_ipc_reader_node(plan, fs, data_directory + left_table);
+    
+    std::vector<ExecNode*> inputs = {left_table_source};
+    int right_hand_rows = 0;
+    size_t right_hand_bytes = 0;
+    for (std::string right_table : right_tables) {
+        auto [right_table_source, right_table_rows, right_table_batches, right_table_bytes] =
+            make_arrow_ipc_reader_node(plan, fs, data_directory + right_table);
+        inputs.push_back(right_table_source);
+        right_hand_rows += right_table_rows;
+        right_hand_bytes += right_table_bytes;
+    }
+
+    rows = left_table_rows + right_hand_rows;
+    bytes = left_table_bytes + right_hand_bytes;
+
+    ASSERT_OK_AND_ASSIGN(
+        arrow::compute::ExecNode * asof_join_node,
+        MakeExecNode("hashjoin", plan.get(),
+                     inputs,
+                     HashJoinNodeOptions({time_col, key_col}, {time_col, key_col})));
+
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    MakeExecNode("sink", plan.get(), {asof_join_node}, SinkNodeOptions{&sink_gen});
+    state.ResumeTiming();
+    ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
+  }
+
+  state.counters["total_rows_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * rows),
+      benchmark::Counter::kIsRate);
+
+  state.counters["total_bytes_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * bytes * rows),
+      benchmark::Counter::kIsRate);
 }
 
 static void AsOfJoinOverheadIsolated(benchmark::State& state, Expression expr,
@@ -268,19 +354,12 @@ static void AsOfJoinOverheadIsolated(benchmark::State& state, Expression expr,
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
-arrow::compute::Expression complex_expression =
-    and_(less(field_ref("i64"), literal(20)), greater(field_ref("i64"), literal(0)));
-arrow::compute::Expression simple_expression = call("negate", {field_ref("i64")});
-arrow::compute::Expression zero_copy_expression = call(
-    "cast", {field_ref("i64")}, compute::CastOptions::Safe(timestamp(TimeUnit::NANO)));
-arrow::compute::Expression ref_only_expression = field_ref("i64");
-
+// this generates the set of right hand tables to test on.
 void SetArgs(benchmark::internal::Benchmark* bench) {
-  bench->ArgNames({"batch_size"})
-      ->RangeMultiplier(10)
-      ->Range(10, kTotalBatchSize)
-      ->UseRealTime();
-}
+    bench
+      ->UseRealTime(); 
+};
+
 /*
 BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, complex_expression, complex_expression, 1000)
     ->Apply(SetArgs);
@@ -293,14 +372,34 @@ BENCHMARK_CAPTURE(AsOfJoinOverheadIsolated, ref_only_expression, ref_only_expres
                   1000)
     ->Apply(SetArgs);
 */
-BENCHMARK_CAPTURE(AsOfJoinOverhead, complex_expression, complex_expression, 1000)
-    ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverhead, simple_expression, simple_expression, 1000)
-    ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverhead, zero_copy_expression, zero_copy_expression, 1000)
-    ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverhead, ref_only_expression, ref_only_expression, 1000)
-    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_mid_freq_wide_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", true, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_low_freq_wide_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", true, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_mid_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", false, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_low_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", false, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_high_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("high_freq", false, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_mid_freq_wide_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", true, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_low_freq_wide_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", true, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_mid_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", false, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_low_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", false, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_high_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("high_freq", false, false, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_mid_freq_wide_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", true, true, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_low_freq_wide_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", true, true, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_mid_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", false, true, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_low_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", false, true, false))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_high_freq_narrow_5k_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("high_freq", false, true, false))->Apply(SetArgs);
 
+
+
+
+/*
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_mid_freq_wide_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", true, true, true))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_low_freq_wide_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", true, true, true))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_mid_freq_narrow_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", false, true, true))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_multi_table_join_low_freq_narrow_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", false, true, true))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_mid_freq_wide_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", true, false, true))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_low_freq_wide_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", true, false, true))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_mid_freq_narrow_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("mid_freq", false, false, true))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, mid_freq_narrow_5k_ids_single_table_join_low_freq_narrow_100_ids, "mid_freq_narrow_5k_ids0.feather", generateRightHandTables("low_freq", false, false, true))->Apply(SetArgs);
+*/
 }  // namespace compute
 }  // namespace arrow

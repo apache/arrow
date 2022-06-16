@@ -725,17 +725,17 @@ class AsofJoinNode : public ExecNode {
     std::cerr << "InputFinished END\n";
   }
   Status StartProducing() override {
-    std::cout << "StartProducing"
+    std::cerr << "StartProducing"
               << "\n";
     finished_ = arrow::Future<>::Make();
     return Status::OK();
   }
   void PauseProducing(ExecNode* output, int32_t counter) override {
-    std::cout << "PauseProducing"
+    std::cerr << "PauseProducing"
               << "\n";
   }
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-    std::cout << "ResumeProducing"
+    std::cerr << "ResumeProducing"
               << "\n";
   }
   void StopProducing(ExecNode* output) override {
