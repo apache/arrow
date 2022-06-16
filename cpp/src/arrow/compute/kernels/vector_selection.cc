@@ -296,7 +296,6 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
 Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_width,
                           bool allocate_validity, ArrayData* out) {
   // Preallocate memory
-  out->length = physical_length;  // TODO: this should change?
   out->buffers.resize(1);
   out->child_data.resize(1);
 
@@ -846,20 +845,20 @@ class PrimitiveRLEFilterImpl {
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_physical_length_(values.length),
-        input_logical_length_(values.length),
+        input_logical_length_(values_run_length_[values.length - 1]),
         filter_is_valid_(filter.is_valid),
         filter_data_(filter.data),
         filter_run_length_(filter.run_length),
         filter_null_count_(filter.null_count),
         filter_offset_(filter.offset),
         filter_physical_length_(filter.length),
-        null_selection_(null_selection) {
+        null_selection_(null_selection),
+        out_logical_length_(out_arr->length) {
     if (out_arr->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
       out_is_valid_ = out_arr->child_data[0]->buffers[0]->mutable_data();
     }
     out_offset_ = out_arr->offset;
-    out_length_ = out_arr->length;
     out_position_ = 0;
     out_run_length_ = out_arr->GetMutableValues<int64_t>(0, 0);
     out_data_ = reinterpret_cast<T*>(out_arr->child_data[0]->buffers[1]->mutable_data());
@@ -911,6 +910,7 @@ class PrimitiveRLEFilterImpl {
             }
           });
     }
+    out_logical_length_ = out_run_length_[out_position_ - 1];
   }
 
   // Write the next out_position given the selected in_position for the input
@@ -949,7 +949,7 @@ class PrimitiveRLEFilterImpl {
   int64_t* out_run_length_;
   T* out_data_;
   int64_t out_offset_;
-  int64_t out_length_;
+  int64_t& out_logical_length_;
   int64_t out_position_;
 };
 
