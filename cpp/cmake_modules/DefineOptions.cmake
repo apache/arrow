@@ -344,6 +344,10 @@ if(ARROW_DEFINE_OPTIONS)
   define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
+  define_option(ARROW_JEMALLOC_USE_SHARED
+                "Rely on jemalloc shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 

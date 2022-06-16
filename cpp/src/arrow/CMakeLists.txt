@@ -239,6 +239,10 @@ set(ARROW_SRCS
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
 
+if(ARROW_JEMALLOC)
+  list(APPEND ARROW_SRCS memory_pool_jemalloc.cc)
+endif()
+
 append_avx2_src(util/bpacking_avx2.cc)
 append_avx512_src(util/bpacking_avx512.cc)
 
@@ -325,10 +329,10 @@ set(ARROW_TESTING_SRCS
 # (see https://gitlab.kitware.com/cmake/cmake/issues/19677)
 
 set(_allocator_dependencies "") # Empty list
-if(ARROW_JEMALLOC)
+if(jemalloc_VENDORED)
   list(APPEND _allocator_dependencies jemalloc_ep)
 endif()
-if(ARROW_MIMALLOC)
+if(mimalloc_VENDORED)
   list(APPEND _allocator_dependencies mimalloc_ep)
 endif()
 

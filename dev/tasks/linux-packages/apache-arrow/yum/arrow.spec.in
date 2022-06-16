@@ -103,6 +103,7 @@ BuildRequires:	git
 %if %{use_glog}
 BuildRequires:	glog-devel
 %endif
+BuildRequires:	jemalloc-devel
 %if %{use_gcs}
 BuildRequires:	json-devel
 %endif
@@ -177,6 +178,7 @@ cd cpp
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
+  -DARROW_USE_CCACHE=OFF \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
@@ -184,12 +186,12 @@ cd cpp
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
-  -DARROW_USE_CCACHE=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
 %if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %endif
+  -Djemalloc_SOURCE=SYSTEM \
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
@@ -229,6 +231,7 @@ Requires:	gflags
 %if %{use_glog}
 Requires:	glog
 %endif
+Requires:	jemalloc
 %if %{have_zstd}
 Requires:	libzstd
 %endif
@@ -260,6 +263,7 @@ Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
 %endif
+Requires:	jemalloc-devel
 %if %{use_gcs}
 Requires:	json-devel
 %endif
@@ -304,6 +308,7 @@ Libraries and header files for Apache Arrow C++.
 %if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
+%{_libdir}/cmake/arrow/Findjemalloc.cmake
 %{_libdir}/cmake/arrow/Findlz4Alt.cmake
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake

@@ -361,6 +361,7 @@ class ArrowConan(ConanFile):
         self._cmake.definitions["ARROW_CSV"] = self.options.with_csv
         self._cmake.definitions["ARROW_CUDA"] = self.options.with_cuda
         self._cmake.definitions["ARROW_JEMALLOC"] = self._with_jemalloc()
+        self._cmake.definitions["jemalloc_SOURCE"] = "SYSTEM"
         self._cmake.definitions["ARROW_JSON"] = self.options.with_json
 
         self._cmake.definitions["BOOST_SOURCE"] = "SYSTEM"

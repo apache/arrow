@@ -43,6 +43,8 @@
 #cmakedefine ARROW_FILESYSTEM
 #cmakedefine ARROW_FLIGHT
 #cmakedefine ARROW_IPC
+#cmakedefine ARROW_JEMALLOC
+#cmakedefine ARROW_JEMALLOC_VENDORED
 #cmakedefine ARROW_JSON
 
 #cmakedefine ARROW_GCS

@@ -61,6 +61,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     google_cloud_cpp_storage
     gRPC
     GTest
+    jemalloc
     LLVM
     lz4
     nlohmann_json
@@ -100,6 +101,11 @@ endif()
 # upstream uses "lz4" not "Lz4" as package name.
 if("${lz4_SOURCE}" STREQUAL "" AND NOT "${Lz4_SOURCE}" STREQUAL "")
   set(lz4_SOURCE ${Lz4_SOURCE})
+endif()
+
+# For backward compatibility. We use bundled jemalloc by default.
+if("${jemalloc_SOURCE}" STREQUAL "")
+  set(jemalloc_SOURCE "BUNDLED")
 endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
@@ -162,6 +168,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
     build_gtest()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "jemalloc")
+    build_jemalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
@@ -1755,13 +1763,12 @@ endif()
 # ----------------------------------------------------------------------
 # jemalloc - Unix-only high-performance allocator
 
-if(ARROW_JEMALLOC)
-  message(STATUS "Building (vendored) jemalloc from source")
-  # We only use a vendored jemalloc as we want to control its version.
-  # Also our build of jemalloc is specially prefixed so that it will not
+macro(build_jemalloc)
+  # Our build of jemalloc is specially prefixed so that it will not
   # conflict with the default allocator as well as other jemalloc
   # installations.
-  # find_package(jemalloc)
+
+  message(STATUS "Building jemalloc from source")
 
   set(ARROW_JEMALLOC_USE_SHARED OFF)
   set(JEMALLOC_PREFIX
@@ -1816,15 +1823,23 @@ if(ARROW_JEMALLOC)
   set(JEMALLOC_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
-  add_library(jemalloc::jemalloc STATIC IMPORTED)
-  set_target_properties(jemalloc::jemalloc
+  add_library(jemalloc STATIC IMPORTED)
+  set_target_properties(jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
                                    IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${JEMALLOC_INCLUDE_DIR}")
-  add_dependencies(jemalloc::jemalloc jemalloc_ep)
+  add_dependencies(jemalloc jemalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc)
+
+  set(jemalloc_VENDORED TRUE)
+  # For config.h.cmake
+  set(ARROW_JEMALLOC_VENDORED ${jemalloc_VENDORED})
+endmacro()
+
+if(ARROW_JEMALLOC)
+  resolve_dependency(jemalloc)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1882,6 +1897,8 @@ if(ARROW_MIMALLOC)
   add_dependencies(toolchain mimalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
+
+  set(mimalloc_VENDORED TRUE)
 endif()
 
 # ----------------------------------------------------------------------
