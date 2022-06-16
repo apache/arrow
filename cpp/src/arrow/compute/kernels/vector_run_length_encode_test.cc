@@ -87,7 +87,7 @@ TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
 TEST_F(TestRunLengthEncode, FilterArray) {
   auto filter = ArrayFromJSON(
       boolean(), "[true, false, false, true, true, true, true, true, null, null]");
-  auto values = ArrayFromJSON(int32(), "[1, 1, 1, 1, 2, 2, 3, 3, 3, null]");
+  auto values = ArrayFromJSON(uint32(), "[1, 1, 1, 1, 2, 2, 3, 3, 3, null]");
   ASSERT_OK_AND_ASSIGN(Datum encoded_filter, RunLengthEncode(filter));
   ASSERT_OK_AND_ASSIGN(Datum encoded_values, RunLengthEncode(values));
 
