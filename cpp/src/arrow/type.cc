@@ -2266,6 +2266,10 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
+std::shared_ptr<DataType> run_length_encoded(std::shared_ptr<DataType> encoded_type) {
+  return std::make_shared<RunLengthEncodedType>(std::move(encoded_type));
+}
+
 std::shared_ptr<DataType> sparse_union(FieldVector child_fields,
                                        std::vector<int8_t> type_codes) {
   if (type_codes.empty()) {

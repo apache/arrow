@@ -549,6 +549,10 @@ std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
+/// \brief Create a RunLengthEncoded instance
+std::shared_ptr<DataType> ARROW_EXPORT
+run_length_encoded(std::shared_ptr<DataType> encoded_type);
+
 /// \brief Create a SparseUnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT sparse_union(FieldVector child_fields,
                                                     std::vector<int8_t> type_codes = {});
