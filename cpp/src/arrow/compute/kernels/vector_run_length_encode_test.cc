@@ -28,14 +28,7 @@ namespace arrow {
 namespace compute {
 
 TEST_F(TestRunLengthEncode, EncodeInt32Array) {
-  NumericBuilder<Int32Type> builder(default_memory_pool());
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.Append(2));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK_AND_ASSIGN(auto input, builder.Finish());
+  auto input = ArrayFromJSON(int32(), "[1, 1, 2, -5, -5, -5]");
 
   std::array<uint64_t, 3> expected_run_lengths{2, 3, 6};
   std::array<int32_t, 3> expected_values{1, 2, -5};
@@ -63,13 +56,7 @@ TEST_F(TestRunLengthEncode, EncodeInt32Array) {
 }
 
 TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
-  NumericBuilder<Int32Type> builder(default_memory_pool());
-  ASSERT_OK(builder.AppendNull());
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.AppendNulls(2));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK_AND_ASSIGN(auto input, builder.Finish());
+  auto input = ArrayFromJSON(int32(), "[null, 1, 1, null, null, -5]");
 
   std::array<uint64_t, 4> expected_run_lengths{1, 3, 5, 6};
   uint8_t expected_null_bitmap{0b1010};
@@ -98,80 +85,21 @@ TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
 }
 
 TEST_F(TestRunLengthEncode, FilterArray) {
-
-  BooleanBuilder boolean_builder;
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(false));
-  ASSERT_OK(boolean_builder.Append(false));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.AppendNull());
-  ASSERT_OK(boolean_builder.AppendNull());
-
-  ASSERT_OK_AND_ASSIGN(auto filter, boolean_builder.Finish());
+  auto filter = ArrayFromJSON(
+      boolean(), "[true, false, false, true, true, true, true, true, null, null]");
+  auto values = ArrayFromJSON(int32(), "[1, 1, 1, 1, 2, 2, 3, 3, 3, null]");
   ASSERT_OK_AND_ASSIGN(Datum encoded_filter, RunLengthEncode(filter));
-
-  UInt32Builder int_builder;
-  ASSERT_OK(int_builder.Append(1));
-  ASSERT_OK(int_builder.Append(1));
-  ASSERT_OK(int_builder.Append(1));
-  ASSERT_OK(int_builder.Append(1));
-  ASSERT_OK(int_builder.Append(2));
-  ASSERT_OK(int_builder.Append(2));
-  ASSERT_OK(int_builder.Append(3));
-  ASSERT_OK(int_builder.Append(3));
-  ASSERT_OK(int_builder.Append(3));
-  ASSERT_OK(int_builder.AppendNull());
-
-  ASSERT_OK_AND_ASSIGN(auto values, int_builder.Finish());
   ASSERT_OK_AND_ASSIGN(Datum encoded_values, RunLengthEncode(values));
 
-  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(values), Datum(filter)}, NULLPTR, NULLPTR));
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(values), Datum(filter)},
+                                                 NULLPTR, NULLPTR));
   auto array = result.make_array();
-  //ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
 
-  ASSERT_OK_AND_ASSIGN(auto encoded_result, CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR, NULLPTR));
+  ASSERT_OK_AND_ASSIGN(
+      auto encoded_result,
+      CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR,
+                   NULLPTR));
   auto encoded_array = result.make_array();
- // ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
-
-
-/*  BooleanBuilder boolean_builder;
-  ASSERT_OK(boolean_builder.Append(false));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(false));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(false));
-  ASSERT_OK(boolean_builder.Append(true));
-  ASSERT_OK(boolean_builder.Append(false));
-  ASSERT_OK(boolean_builder.Append(true));
-
-  ASSERT_OK_AND_ASSIGN(auto filter, boolean_builder.Finish());
-  ASSERT_OK_AND_ASSIGN(Datum encoded_filter, RunLengthEncode(filter));
-
-  BooleanBuilder boolean_builder2;
-  ASSERT_OK(boolean_builder2.Append(false));
-  ASSERT_OK(boolean_builder2.Append(false));
-  ASSERT_OK(boolean_builder2.Append(true));
-  ASSERT_OK(boolean_builder2.Append(true));
-  ASSERT_OK(boolean_builder2.Append(false));
-  ASSERT_OK(boolean_builder2.Append(false));
-  ASSERT_OK(boolean_builder2.Append(true));
-  ASSERT_OK(boolean_builder2.Append(true));
-
-  ASSERT_OK_AND_ASSIGN(auto values, boolean_builder2.Finish());
-  ASSERT_OK_AND_ASSIGN(Datum encoded_values, RunLengthEncode(filter));
-
-  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(values), Datum(filter)}, NULLPTR, NULLPTR));
-  auto array = result.make_array();
-  ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
-
-  ASSERT_OK_AND_ASSIGN(auto encoded_result, CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR, NULLPTR));
-  auto encoded_array = result.make_array();
- // ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
-*/
 }
 
 }  // namespace compute
