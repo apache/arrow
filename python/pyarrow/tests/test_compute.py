@@ -150,6 +150,8 @@ def test_option_class_equality():
         pc.CumulativeSumOptions(start=0, skip_nulls=False),
         pc.QuantileOptions(),
         pc.RandomOptions(),
+        pc.RankOptions(sort_keys="ascending",
+                       null_placement="at_start", tiebreaker="max"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -2716,6 +2718,56 @@ def test_random():
                        match=r"initializer should be 'system', an integer, "
                              r"or a hashable object; got \[\]"):
         pc.random(100, initializer=[])
+
+
+@pytest.mark.parametrize(
+    "tiebreaker,expected_values",
+    [("min", [3, 1, 4, 6, 4, 6, 1]),
+     ("max", [3, 2, 5, 7, 5, 7, 2]),
+     ("first", [3, 1, 4, 6, 5, 7, 2]),
+     ("dense", [2, 1, 3, 4, 3, 4, 1])]
+)
+def test_rank_options_tiebreaker(tiebreaker, expected_values):
+    arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
+    rank_options = pc.RankOptions(sort_keys="ascending",
+                                  null_placement="at_end",
+                                  tiebreaker=tiebreaker)
+    result = pc.rank(arr, options=rank_options)
+    expected = pa.array(expected_values, type=pa.uint64())
+    assert result.equals(expected)
+
+
+def test_rank_options():
+    arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
+    expected = pa.array([3, 1, 4, 6, 5, 7, 2], type=pa.uint64())
+
+    # Ensure rank can be called without specifying options
+    result = pc.rank(arr)
+    assert result.equals(expected)
+
+    # Ensure default RankOptions
+    result = pc.rank(arr, options=pc.RankOptions())
+    assert result.equals(expected)
+
+    # Ensure sort_keys tuple usage
+    result = pc.rank(arr, options=pc.RankOptions(
+        sort_keys=[("b", "ascending")])
+    )
+    assert result.equals(expected)
+
+    result = pc.rank(arr, null_placement="at_start")
+    expected_at_start = pa.array([5, 3, 6, 1, 7, 2, 4], type=pa.uint64())
+    assert result.equals(expected_at_start)
+
+    result = pc.rank(arr, sort_keys="descending")
+    expected_descending = pa.array([3, 4, 1, 6, 2, 7, 5], type=pa.uint64())
+    assert result.equals(expected_descending)
+
+    with pytest.raises(ValueError,
+                       match=r'"NonExisting" is not a valid tiebreaker'):
+        pc.RankOptions(sort_keys="descending",
+                       null_placement="at_end",
+                       tiebreaker="NonExisting")
 
 
 def test_expression_serialization():

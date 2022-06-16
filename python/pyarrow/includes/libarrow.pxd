@@ -2344,6 +2344,21 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         @staticmethod
         CRandomOptions FromSeed(uint64_t seed)
 
+    cdef enum CRankOptionsTiebreaker \
+            "arrow::compute::RankOptions::Tiebreaker":
+        CRankOptionsTiebreaker_Min "arrow::compute::RankOptions::Min"
+        CRankOptionsTiebreaker_Max "arrow::compute::RankOptions::Max"
+        CRankOptionsTiebreaker_First "arrow::compute::RankOptions::First"
+        CRankOptionsTiebreaker_Dense "arrow::compute::RankOptions::Dense"
+
+    cdef cppclass CRankOptions \
+            "arrow::compute::RankOptions"(CFunctionOptions):
+        CRankOptions(vector[CSortKey] sort_keys, CNullPlacement,
+                     CRankOptionsTiebreaker tiebreaker)
+        vector[CSortKey] sort_keys
+        CNullPlacement null_placement
+        CRankOptionsTiebreaker tiebreaker
+
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"

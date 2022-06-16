@@ -50,6 +50,7 @@ from pyarrow._compute import (  # noqa
     PartitionNthOptions,
     QuantileOptions,
     RandomOptions,
+    RankOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
     RoundOptions,
