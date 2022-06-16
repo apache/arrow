@@ -61,8 +61,7 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
       // use known default options for the named function if possible
       auto maybe_function = ctx->func_registry()->GetFunction(aggregates[i].function);
       if (maybe_function.ok()) {
-        auto default_opts = maybe_function.ValueOrDie()->default_options();
-        // only update the options if the default options are set
+        FunctionOptions* default_opts = maybe_function.ValueOrDie()->default_options();
         if (default_opts != nullptr) {
           options = default_opts->Copy();
         }
