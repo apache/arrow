@@ -73,12 +73,11 @@ generated properly.
 Before creating a Release Candidate
 ===================================
 
-Ensure local tags and branches are removed, gpg-agent is set and JIRA tickets are correctly assigned.
+Ensure local tags are removed, gpg-agent is set and JIRA tickets are correctly assigned.
 
 .. code-block::
 
-    # Delete the local tag and release branch for RC1 or later
-    git branch -d release-<version>
+    # Delete the local tag for RC1 or later
     git tag -d apache-arrow-<version>
     
     # Setup gpg agent for signing artifacts
@@ -133,23 +132,23 @@ Create or update the corresponding maintenance branch
             # Push the updated maintenance branch to the remote repository
             git push -u apache maint-X.Y.Z
 
-Create the Release Candidate and release branch from the updated maintenance branch
------------------------------------------------------------------------------------
+Create the Release Candidate branch from the updated maintenance branch
+-----------------------------------------------------------------------
 
 .. code-block::
 
-    # Create the release branch from the updated maintenance branch.
-    git checkout -b release-X.Y.Z maint-X.Y.Z
+    # Start from the updated maintenance branch.
+    git checkout maint-X.Y.Z
     
-    # Create branch for the Release Candidate and place the necessary commits then create git tag
+    # The following script will create a branch for the Release Candidate,
+    # place the necessary commits updating the version number and then create a git tag
     # on OSX use gnu-sed with homebrew: brew install gnu-sed (and export to $PATH)
     #
     # <rc-number> starts at 0 and increments every time the Release Candidate is burned
     # so for the first RC this would be: dev/release/01-prepare.sh 4.0.0 5.0.0 0
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
     
-    # Push the release branch and release tag (for RC1 or later the --force flag is required)
-    git push -u apache release-<version>
+    # Push the release tag (for RC1 or later the --force flag is required)
     git push -u apache apache-arrow-<version>
 
 Build source and binaries and submit them
@@ -192,18 +191,18 @@ Verify the Release
     #
     # 1. Push the Release Candidate's branch to the fork
     git push --set-upstream origin release-<version>-rc<rc-number>
-    # 2. Open a pull request from the Release Candidate's branch to the release branch
-    #    https://github.com/apache/arrow/compare/release-<version>...<fork-github-username>:release-<version>-rc<rc-number>
+    # 2. Open a pull request from the Release Candidate's branch to the maintenance branch
+    #    https://github.com/apache/arrow/compare/maint-<version>...<fork-github-username>:release-<version>-rc<rc-number>
     # 3. Create a comment for the pull request to trigger the automatized crossbow verification tasks
     #    @github-actions crossbow submit --group verify-rc-source --group verify-rc-binaries --group verify-rc-wheels --param release=<version> --param rc=<rc-number>
     #
     # See https://github.com/apache/arrow/pull/10126 as an example.
     
-    # Once the automatic verification has passed merge the Release Candidate's branch to the release branch
-    # may need the --force flag to push the release-<version> branch to the apache remote for RC1 or later
-    git checkout release-<version>
+    # Once the automatic verification has passed merge the Release Candidate's branch to the maintenance branch
+    # may need the --force flag to push the maint-<version> branch to the apache remote for RC1 or later
+    git checkout maint-<version>
     git merge release-<version>-rc<rc-number>
-    git push apache release-<version>
+    git push apache maint-<version>
     
     # Start the vote thread on dev@arrow.apache.org
     # To regenerate the email template use
