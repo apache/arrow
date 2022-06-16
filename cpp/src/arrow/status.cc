@@ -131,9 +131,7 @@ void Status::Abort(const std::string& message) const {
   std::abort();
 }
 
-void Status::Warn() const {
-  ARROW_LOG(WARNING) << ToString();
-}
+void Status::Warn() const { ARROW_LOG(WARNING) << ToString(); }
 
 void Status::Warn(const std::string& message) const {
   ARROW_LOG(WARNING) << message << ": " << ToString();

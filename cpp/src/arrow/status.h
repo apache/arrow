@@ -63,7 +63,7 @@
   do {                                    \
     ::arrow::Status _s = (expr);          \
     if (ARROW_PREDICT_FALSE(!_s.ok())) {  \
-        _s.Warn(warn_msg);                \
+      _s.Warn(warn_msg);                  \
     }                                     \
   } while (false)
 
