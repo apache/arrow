@@ -240,10 +240,15 @@ class build_ext(_build_ext):
         source_cpyarrow = pjoin(source, "pyarrow/src_arrow")
 
         # The directory for the module being built
+        build_cmd = self.get_finalized_command('build')
         saved_cwd = os.getcwd()
         build_temp = pjoin(saved_cwd, 'build/dist/temp')
-        build_lib = pjoin(saved_cwd, 'build/dist/lib')
         build_include = pjoin(saved_cwd, 'build/dist/include')
+        build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
+
+        if self.inplace:
+            # a bit hacky
+            build_lib = saved_cwd
 
         if not os.path.isdir(build_temp):
             self.mkpath(build_temp)
@@ -270,10 +275,6 @@ class build_ext(_build_ext):
             self.spawn(['make', '-j4'])
             self.spawn(['make', 'install'])
             print("-- Finished make build and install for C pyarrow")
-
-            if self.inplace:
-                # a bit hacky
-                build_lib = saved_cwd
 
             # Move the libraries to the place expected by the Python build
             try:
