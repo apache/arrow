@@ -360,6 +360,15 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
+  {
+    const auto& ty = boolean();
+    auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
+    auto sig = KernelSignature::Make({InputType(ty, ValueDescr::ARRAY)},
+                                     OutputType(ResolveEncodeOutput));
+    VectorKernel kernel(sig, exec);
+    DCHECK_OK(function->AddKernel(std::move(kernel)));
+  }
+
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }

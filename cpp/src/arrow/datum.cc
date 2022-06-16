@@ -100,7 +100,14 @@ const std::shared_ptr<Schema>& Datum::schema() const {
 int64_t Datum::length() const {
   switch (this->kind()) {
     case Datum::ARRAY:
-      return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
+    // HACK
+  {
+      auto &data = *util::get<std::shared_ptr<ArrayData>>(this->value);
+      if (data.type->id() == Type::RUN_LENGTH_ENCODED) {
+        return data.GetValues<int64_t>(0)[data.length-1];
+      } else {
+        return data.length;
+      }}
     case Datum::CHUNKED_ARRAY:
       return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
     case Datum::RECORD_BATCH:

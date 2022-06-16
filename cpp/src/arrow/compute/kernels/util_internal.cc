@@ -44,16 +44,19 @@ int GetBitWidth(const DataType& type) {
 
 PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
   PrimitiveArg arg;
-  arg.is_valid = GetValidityBitmap(arr);
-  arg.data = arr.buffers[1]->data();
-  arg.bit_width = GetBitWidth(*arr.type);
-  arg.offset = arr.offset;
-  arg.length = arr.length;
+  const bool is_rle = arr.type->id() == Type::RUN_LENGTH_ENCODED;
+  const ArrayData& values = is_rle ? *arr.child_data[0] : arr;
+  arg.is_valid = GetValidityBitmap(values);
+  arg.data = values.buffers[1]->data();
+  arg.bit_width = GetBitWidth(*values.type);
+  arg.offset = values.offset;
+  arg.length = values.length;
   if (arg.bit_width > 1) {
-    arg.data += arr.offset * arg.bit_width / 8;
+    arg.data += values.offset * arg.bit_width / 8;
   }
   // This may be kUnknownNullCount
   arg.null_count = (arg.is_valid != nullptr) ? arr.null_count.load() : 0;
+  arg.run_length = is_rle ? values.GetValues<int64_t>(0) : NULLPTR;
   return arg;
 }
 

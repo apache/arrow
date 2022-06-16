@@ -96,5 +96,82 @@ TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
   ASSERT_TRUE(decoded->Equals(input));
 }
 
+TEST_F(TestRunLengthEncode, FilterArray) {
+
+  BooleanBuilder boolean_builder;
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(false));
+  ASSERT_OK(boolean_builder.Append(false));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.AppendNull());
+  ASSERT_OK(boolean_builder.AppendNull());
+
+  ASSERT_OK_AND_ASSIGN(auto filter, boolean_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(Datum encoded_filter, RunLengthEncode(filter));
+
+  UInt32Builder int_builder;
+  ASSERT_OK(int_builder.Append(1));
+  ASSERT_OK(int_builder.Append(1));
+  ASSERT_OK(int_builder.Append(1));
+  ASSERT_OK(int_builder.Append(1));
+  ASSERT_OK(int_builder.Append(2));
+  ASSERT_OK(int_builder.Append(2));
+  ASSERT_OK(int_builder.Append(3));
+  ASSERT_OK(int_builder.Append(3));
+  ASSERT_OK(int_builder.Append(3));
+  ASSERT_OK(int_builder.AppendNull());
+
+  ASSERT_OK_AND_ASSIGN(auto values, int_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(Datum encoded_values, RunLengthEncode(values));
+
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(values), Datum(filter)}, NULLPTR, NULLPTR));
+  auto array = result.make_array();
+  //ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
+
+  ASSERT_OK_AND_ASSIGN(auto encoded_result, CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR, NULLPTR));
+  auto encoded_array = result.make_array();
+ // ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
+
+
+/*  BooleanBuilder boolean_builder;
+  ASSERT_OK(boolean_builder.Append(false));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(false));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(false));
+  ASSERT_OK(boolean_builder.Append(true));
+  ASSERT_OK(boolean_builder.Append(false));
+  ASSERT_OK(boolean_builder.Append(true));
+
+  ASSERT_OK_AND_ASSIGN(auto filter, boolean_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(Datum encoded_filter, RunLengthEncode(filter));
+
+  BooleanBuilder boolean_builder2;
+  ASSERT_OK(boolean_builder2.Append(false));
+  ASSERT_OK(boolean_builder2.Append(false));
+  ASSERT_OK(boolean_builder2.Append(true));
+  ASSERT_OK(boolean_builder2.Append(true));
+  ASSERT_OK(boolean_builder2.Append(false));
+  ASSERT_OK(boolean_builder2.Append(false));
+  ASSERT_OK(boolean_builder2.Append(true));
+  ASSERT_OK(boolean_builder2.Append(true));
+
+  ASSERT_OK_AND_ASSIGN(auto values, boolean_builder2.Finish());
+  ASSERT_OK_AND_ASSIGN(Datum encoded_values, RunLengthEncode(filter));
+
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(values), Datum(filter)}, NULLPTR, NULLPTR));
+  auto array = result.make_array();
+  ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
+
+  ASSERT_OK_AND_ASSIGN(auto encoded_result, CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR, NULLPTR));
+  auto encoded_array = result.make_array();
+ // ASSERT_EQ(*array->data()->buffers[1]->data(), 10);
+*/
+}
+
 }  // namespace compute
 }  // namespace arrow

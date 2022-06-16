@@ -50,6 +50,7 @@ struct PrimitiveArg {
   // be shifted by offset * (bit_width / 8). For bit-packed data, the offset
   // must be used when indexing.
   const uint8_t* data;
+  const int64_t* run_length;
   int bit_width;
   int64_t length;
   int64_t offset;
