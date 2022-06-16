@@ -28,14 +28,7 @@ namespace arrow {
 namespace compute {
 
 TEST_F(TestRunLengthEncode, EncodeInt32Array) {
-  NumericBuilder<Int32Type> builder(default_memory_pool());
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.Append(2));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK_AND_ASSIGN(auto input, builder.Finish());
+  auto input = ArrayFromJSON(int32(), "[1, 1, 2, -5, -5, -5]");
 
   std::array<uint64_t, 3> expected_run_lengths{2, 3, 6};
   std::array<int32_t, 3> expected_values{1, 2, -5};
@@ -63,13 +56,7 @@ TEST_F(TestRunLengthEncode, EncodeInt32Array) {
 }
 
 TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
-  NumericBuilder<Int32Type> builder(default_memory_pool());
-  ASSERT_OK(builder.AppendNull());
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.Append(1));
-  ASSERT_OK(builder.AppendNulls(2));
-  ASSERT_OK(builder.Append(-5));
-  ASSERT_OK_AND_ASSIGN(auto input, builder.Finish());
+  auto input = ArrayFromJSON(int32(), "[null, 1, 1, null, null, -5]");
 
   std::array<uint64_t, 4> expected_run_lengths{1, 3, 5, 6};
   uint8_t expected_null_bitmap{0b1010};
