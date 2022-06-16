@@ -27,12 +27,14 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace engine {
 
 namespace internal {
+using ::arrow::internal::checked_cast;
 using ::arrow::internal::make_unique;
 }  // namespace internal
 
@@ -323,14 +325,12 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 
 namespace {
 
-enum ArrowRelationType : u_int8_t {
+enum ArrowRelationType : uint8_t {
   SCAN,
-  SINK,
 };
 
 const std::map<std::string, ArrowRelationType> enum_map{
     {"scan", ArrowRelationType::SCAN},
-    {"sink", ArrowRelationType::SINK},
 };
 
 struct ExtractRelation {
@@ -343,9 +343,6 @@ struct ExtractRelation {
       case ArrowRelationType::SCAN:
         std::cout << "Scan Relation" << std::endl;
         return AddReadRelation(declaration);
-      case ArrowRelationType::SINK:
-        // Do nothing, Substrait doesn't have a concept called Sink
-        return Status::OK();
       default:
         return Status::Invalid("Unsupported factory name :", rel_name);
     }
@@ -354,23 +351,34 @@ struct ExtractRelation {
   Status AddReadRelation(const compute::Declaration& declaration) {
     auto read_rel = internal::make_unique<substrait::ReadRel>();
     const auto& scan_node_options =
-        arrow::internal::checked_cast<const dataset::ScanNodeOptions&>(
-            *declaration.options);
-    // TODO: do necessary validations or throw Invalids
+        internal::checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
+    const auto& fds = internal::checked_cast<const dataset::FileSystemDataset&>(
+        *scan_node_options.dataset);
 
     // set schema
-    auto dataset = scan_node_options.dataset;
-    ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set_));
+    ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*fds.schema(), ext_set_));
     read_rel->set_allocated_base_schema(named_struct.release());
 
     // set local files
     auto read_rel_lfs = internal::make_unique<substrait::ReadRel_LocalFiles>();
-    auto read_rel_lfs_lfs =
-        internal::make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
-    std::string path = "file:///some_path/data.arrow";
-    read_rel_lfs_lfs->set_uri_path(path);
-    read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_lfs.release());
+    for (const auto& file : fds.files()) {
+      auto read_rel_lfs_ffs =
+          internal::make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
+      read_rel_lfs_ffs->set_uri_path("file://" + file);
+
+      // set file format
+      auto format_type_name = fds.format()->type_name();
+      if (format_type_name == "parquet" || format_type_name == "arrow" ||
+          format_type_name == "feather") {
+        read_rel_lfs_ffs->set_format(
+            substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET);
+      } else {
+        return Status::Invalid("Unsupported file type : ", format_type_name);
+      }
+      read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
+    }
     *read_rel->mutable_local_files() = *read_rel_lfs.get();
+
     rel_->set_allocated_read(read_rel.release());
     return Status::OK();
   }
