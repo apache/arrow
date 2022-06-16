@@ -233,7 +233,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
 };
 
 struct NullKeyEncoder : KeyEncoder {
-  void AddLength(const Datum&, int64_t batch_length, int32_t* lengths) override {}
+  void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override {}
 
   void AddLengthNull(int32_t* length) override {}
 

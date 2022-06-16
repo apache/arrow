@@ -25,6 +25,7 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/util/align_util.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"

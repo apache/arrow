@@ -366,7 +366,7 @@ Status ScalarFunction::AddKernel(ScalarKernel kernel) {
 }
 
 Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                                 ArrayKernelExecOld exec, KernelInit init) {
+                                 ArrayKernelExec exec, KernelInit init) {
   RETURN_NOT_OK(CheckArity(in_types));
 
   if (arity_.is_varargs && in_types.size() != 1) {

@@ -91,7 +91,7 @@ struct MultiplyTraits<Type, enable_if_decimal<Type>> {
 };
 
 struct ScalarAggregator : public KernelState {
-  virtual Status Consume(KernelContext* ctx, const ExecSpan& batch) = 0;
+  virtual Status Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
   virtual Status MergeFrom(KernelContext* ctx, KernelState&& src) = 0;
   virtual Status Finalize(KernelContext* ctx, Datum* out) = 0;
 };

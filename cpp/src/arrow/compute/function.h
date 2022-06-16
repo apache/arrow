@@ -344,7 +344,7 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   /// state initialization, no data preallocation, and no preallocation of the
   /// validity bitmap.
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                   ArrayKernelExecOld exec, KernelInit init = NULLPTR);
+                   ArrayKernelExec exec, KernelInit init = NULLPTR);
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.

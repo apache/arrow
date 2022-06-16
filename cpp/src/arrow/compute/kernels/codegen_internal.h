@@ -457,13 +457,6 @@ Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descr
 Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
 
 // ----------------------------------------------------------------------
-// Generate an array kernel given template classes
-
-Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
-
-ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
-
-// ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
 // functions
 
@@ -1031,6 +1024,25 @@ struct GetTypeId {
 
 }  // namespace detail
 
+template <typename KernelType>
+struct FailFunctor {};
+
+template <>
+struct FailFunctor<ArrayKernelExec> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return Status::NotImplemented("This kernel is malformed");
+  }
+};
+
+template <>
+struct FailFunctor<VectorKernel::ChunkedExec> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::NotImplemented("This kernel is malformed");
+  }
+};
+
+Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
+
 // GD for numeric types (integer and floating point)
 template <template <typename...> class Generator, typename Type0, typename... Args>
 ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
@@ -1164,7 +1176,7 @@ KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
@@ -1278,13 +1290,14 @@ KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
       return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
 // similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
+          typename... Args>
+KernelType GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1294,7 +1307,7 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
       return Generator<LargeBinaryType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 

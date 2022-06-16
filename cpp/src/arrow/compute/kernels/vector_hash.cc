@@ -444,9 +444,10 @@ class DictionaryHashKernel : public HashKernel {
   Status Reset() override { return indices_kernel_->Reset(); }
 
   Status Append(const ArraySpan& arr) override {
+    auto arr_dict = arr.dictionary().ToArray();
     if (!dictionary_) {
-      dictionary_ = arr.dictionary;
-    } else if (!MakeArray(dictionary_)->Equals(*arr.dictionary().ToArray())) {
+      dictionary_ = arr_dict;
+    } else if (!dictionary_->Equals(*arr_dict)) {
       // NOTE: This approach computes a new dictionary unification per chunk.
       // This is in effect O(n*k) where n is the total chunked array length and
       // k is the number of chunks (therefore O(n**2) if chunks have a fixed size).
@@ -454,21 +455,21 @@ class DictionaryHashKernel : public HashKernel {
       // A better approach may be to run the kernel over each individual chunk,
       // and then hash-aggregate all results (for example sum-group-by for
       // the "value_counts" kernel).
-      auto out_dict_type = dictionary_->type;
+      auto out_dict_type = dictionary_->type();
       std::shared_ptr<Buffer> transpose_map;
       std::shared_ptr<Array> out_dict;
       ARROW_ASSIGN_OR_RAISE(auto unifier, DictionaryUnifier::Make(out_dict_type));
 
-      ARROW_CHECK_OK(unifier->Unify(*MakeArray(dictionary_)));
-      ARROW_CHECK_OK(unifier->Unify(*MakeArray(arr.dictionary), &transpose_map));
+      ARROW_CHECK_OK(unifier->Unify(*dictionary_));
+      ARROW_CHECK_OK(unifier->Unify(*arr_dict, &transpose_map));
       ARROW_CHECK_OK(unifier->GetResult(&out_dict_type, &out_dict));
 
-      this->dictionary_ = out_dict->data();
+      dictionary_ = out_dict;
       auto transpose = reinterpret_cast<const int32_t*>(transpose_map->data());
-      auto in_dict_array = MakeArray(std::make_shared<ArrayData>(arr));
+      auto in_dict_array = arr.ToArray();
       ARROW_ASSIGN_OR_RAISE(
           auto tmp, arrow::internal::checked_cast<const DictionaryArray&>(*in_dict_array)
-                        .Transpose(arr.type, out_dict, transpose));
+                        .Transpose(arr.type->Copy(), out_dict, transpose));
       return indices_kernel_->Append(*tmp->data());
     }
 
@@ -491,11 +492,11 @@ class DictionaryHashKernel : public HashKernel {
     return dictionary_value_type_;
   }
 
-  std::shared_ptr<ArrayData> dictionary() const { return dictionary_; }
+  std::shared_ptr<Array> dictionary() const { return dictionary_; }
 
  private:
   std::unique_ptr<HashKernel> indices_kernel_;
-  std::shared_ptr<ArrayData> dictionary_;
+  std::shared_ptr<Array> dictionary_;
   std::shared_ptr<DataType> dictionary_value_type_;
 };
 
@@ -656,11 +657,12 @@ std::shared_ptr<ArrayData> BoxValueCounts(const std::shared_ptr<ArrayData>& uniq
 Status ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  Datum value_counts;
 
   RETURN_NOT_OK(hash_impl->GetDictionary(&uniques));
-  RETURN_NOT_OK(hash_impl->FlushFinal(&value_counts));
-  *out = {Datum(BoxValueCounts(uniques, value_counts.array()))};
+
+  ExecResult result;
+  RETURN_NOT_OK(hash_impl->FlushFinal(&result));
+  *out = {Datum(BoxValueCounts(uniques, result.array_data()))};
   return Status::OK();
 }
 
@@ -670,7 +672,7 @@ Status ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
 Result<std::shared_ptr<ArrayData>> EnsureHashDictionary(KernelContext* ctx,
                                                         DictionaryHashKernel* hash) {
   if (hash->dictionary()) {
-    return hash->dictionary();
+    return hash->dictionary()->data();
   }
   ARROW_ASSIGN_OR_RAISE(auto null, MakeArrayOfNull(hash->dictionary_value_type(),
                                                    /*length=*/0, ctx->memory_pool()));
@@ -688,11 +690,11 @@ Status UniqueFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
 Status ValueCountsFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash = checked_cast<DictionaryHashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  Datum value_counts;
+  ExecResult result;
   RETURN_NOT_OK(hash->GetDictionary(&uniques));
-  RETURN_NOT_OK(hash->FlushFinal(&value_counts));
+  RETURN_NOT_OK(hash->FlushFinal(&result));
   ARROW_ASSIGN_OR_RAISE(uniques->dictionary, EnsureHashDictionary(ctx, hash));
-  *out = {Datum(BoxValueCounts(uniques, value_counts.array()))};
+  *out = {Datum(BoxValueCounts(uniques, result.array_data()))};
   return Status::OK();
 }
 

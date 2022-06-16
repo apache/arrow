@@ -22,6 +22,10 @@
 #include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
+
+using internal::CountAndSetBits;
+using internal::CountSetBits;
+
 namespace compute {
 namespace internal {
 
@@ -117,14 +121,14 @@ struct ReplaceMaskImpl {};
 template <typename Type>
 struct ReplaceMaskImpl<
     Type, enable_if_t<!(is_base_binary_type<Type>::value || is_null_type<Type>::value)>> {
-  static Result<int64_t> ExecScalar(KernelContext* ctx, const ArraySpan& array,
-                                    const BooleanScalar& mask, ExecValue replacements,
-                                    int64_t replacements_offset, ExecResult* out) {
+  static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
+                                        const BooleanScalar& mask, ExecValue replacements,
+                                        int64_t replacements_offset, ExecResult* out) {
     // Implement replace_with kernel with scalar mask for fixed-width types
     std::shared_ptr<Scalar> null_scalar;
     if (!mask.is_valid) {
       // Output = null
-      null_scalar = MakeNullScalar(out->type->Copy());
+      null_scalar = MakeNullScalar(out->type()->Copy());
       replacements.SetScalar(null_scalar.get());
     }
     ArrayData* out_arr = out->array_data().get();
@@ -146,15 +150,15 @@ struct ReplaceMaskImpl<
       const Scalar& source = *replacements.scalar;
       CopyDataUtils<Type>::CopyData(*array.type, source, replacements_offset, out_values,
                                     out_offset, array.length);
-      bit_util::SetBitsTo(out_bitmap, out_offset, array.length, in_data.is_valid);
+      bit_util::SetBitsTo(out_bitmap, out_offset, array.length, source.is_valid);
     }
     return replacements_offset + array.length;
   }
 
-  static Result<int64_t> ExecArray(KernelContext* ctx, const ArraySpan& array,
-                                   const ArraySpan& mask, int64_t mask_offset,
-                                   ExecValue replacements, int64_t replacements_offset,
-                                   ExecResult* out) {
+  static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
+                                       const ArraySpan& mask, int64_t mask_offset,
+                                       ExecValue replacements,
+                                       int64_t replacements_offset, ExecResult* out) {
     ArrayData* out_arr = out->array_data().get();
     const int64_t out_offset = out_arr->offset;
     uint8_t* out_bitmap = nullptr;
@@ -163,7 +167,7 @@ struct ReplaceMaskImpl<
         replacements.is_array() ? replacements.array.MayHaveNulls() : true;
     if (array.MayHaveNulls() || mask.MayHaveNulls() || replacements_bitmap) {
       out_bitmap = out_arr->buffers[0]->mutable_data();
-      out->null_count = kUnknownNullCount;
+      out_arr->null_count = kUnknownNullCount;
       if (array.MayHaveNulls()) {
         // Copy array's bitmap
         arrow::internal::CopyBitmap(array.buffers[0].data, array.offset, array.length,
@@ -175,7 +179,7 @@ struct ReplaceMaskImpl<
     } else {
       bit_util::SetBitsTo(out_arr->buffers[0]->mutable_data(), out_offset, array.length,
                           true);
-      out->null_count = 0;
+      out_arr->null_count = 0;
     }
 
     int64_t new_replacements_offset = replacements_offset;
@@ -204,16 +208,16 @@ struct ReplaceMaskImpl<
 
 template <typename Type>
 struct ReplaceMaskImpl<Type, enable_if_null<Type>> {
-  static Result<int64_t> ExecScalar(KernelContext* ctx, const ArraySpan& array,
-                                    const BooleanScalar& mask, ExecValue replacements,
-                                    int64_t replacements_offset, ExecResult* out) {
+  static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
+                                        const BooleanScalar& mask, ExecValue replacements,
+                                        int64_t replacements_offset, ExecResult* out) {
     out->value = array;
     return Status::OK();
   }
-  static Result<int64_t> ExecArray(KernelContext* ctx, const ArraySpan& array,
-                                   const ArraySpan& mask, int64_t mask_offset,
-                                   const Datum& replacements, int64_t replacements_offset,
-                                   ExecResult* out) {
+  static Result<int64_t> ExecArrayMask(KernelContext* ctx, const ArraySpan& array,
+                                       const ArraySpan& mask, int64_t mask_offset,
+                                       ExecValue replacements,
+                                       int64_t replacements_offset, ExecResult* out) {
     out->value = array;
     return Status::OK();
   }
@@ -231,7 +235,7 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
       // Output = null
       ARROW_ASSIGN_OR_RAISE(
           auto replacement_array,
-          MakeArrayOfNull(array.type, array.length, ctx->memory_pool()));
+          MakeArrayOfNull(array.type->Copy(), array.length, ctx->memory_pool()));
       out->value = std::move(replacement_array->data());
       return replacements_offset;
     } else if (mask.value) {
@@ -243,10 +247,13 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
         out->value = std::move(replacement_array->data());
       } else {
         // Set to be a slice of replacements
-        out->value = replacements.array.ToArrayData();
-        out->array_data()->offset += replacements_offset;
-        out->length = array.length;
-        out->null_count = kUnknownNullCount;
+        std::shared_ptr<ArrayData> result = replacements.array.ToArrayData();
+        result->offset += replacements_offset;
+        result->length = array.length;
+
+        // TODO(wesm): why is the replacements null count not sufficient?
+        result->null_count = kUnknownNullCount;
+        out->value = result;
       }
       return replacements_offset + array.length;
     } else {
@@ -259,10 +266,10 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
                                        const ArraySpan& mask, int64_t mask_offset,
                                        ExecValue replacements,
                                        int64_t replacements_offset, ExecResult* out) {
-    BuilderType builder(array.type, ctx->memory_pool());
+    BuilderType builder(array.type->Copy(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(array.length));
-    RETURN_NOT_OK(builder.ReserveData(array.buffers[2]->size()));
-    int64_t replacements_offset = 0;
+    RETURN_NOT_OK(builder.ReserveData(array.buffers[2].size));
+    int64_t source_offset = 0;
 
     ArraySpan adjusted_mask = mask;
     adjusted_mask.offset += mask_offset;
@@ -278,13 +285,12 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
               RETURN_NOT_OK(builder.AppendNull());
             }
           } else {
-            const ArraySpan& replacements = replace ? replacements.array : array;
-            const int64_t offset = replace ? replacements_offset++ : replacements_offset;
-            if (!replacements.MayHaveNulls() ||
-                bit_util::GetBit(replacements.buffers[0].data,
-                                 replacements.offset + offset)) {
-              const uint8_t* data = replacements.buffers[2].data;
-              const offset_type* offsets = replacements.GetValues<offset_type>(1);
+            const ArraySpan& source = replace ? replacements.array : array;
+            const int64_t offset = replace ? replacements_offset++ : source_offset;
+            if (!source.MayHaveNulls() ||
+                bit_util::GetBit(source.buffers[0].data, source.offset + offset)) {
+              const uint8_t* data = source.buffers[2].data;
+              const offset_type* offsets = source.GetValues<offset_type>(1);
               const offset_type offset0 = offsets[offset];
               const offset_type offset1 = offsets[offset + 1];
               RETURN_NOT_OK(builder.Append(data + offset0, offset1 - offset0));
@@ -292,25 +298,26 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
               RETURN_NOT_OK(builder.AppendNull());
             }
           }
-          replacements_offset++;
+          source_offset++;
           return Status::OK();
         },
         [&]() {
           RETURN_NOT_OK(builder.AppendNull());
-          replacements_offset++;
+          source_offset++;
           return Status::OK();
         }));
-    std::shared_ptr<Array> temp_output;
-    RETURN_NOT_OK(builder.Finish(&temp_output));
-    *out = std::move(temp_output->data());
+    std::shared_ptr<ArrayData> temp_output;
+    RETURN_NOT_OK(builder.FinishInternal(&temp_output));
     // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
-    out->type = array.type;
+    temp_output->type = array.type->Copy();
+    out->value = std::move(temp_output);
     return replacements_offset;
   }
 };
 
 Status CheckReplaceMaskInputs(const DataType& value_type, int64_t arr_length,
-                              const ExecValue& mask, const DataType& replacements_type,
+                              const ExecValue& mask_box,
+                              const DataType& replacements_type,
                               int64_t replacements_length, bool replacements_is_array) {
   // Needed for FixedSizeBinary/parameterized types
   if (!value_type.Equals(replacements_type, /*check_metadata=*/false)) {
@@ -320,18 +327,16 @@ Status CheckReplaceMaskInputs(const DataType& value_type, int64_t arr_length,
   }
 
   int64_t mask_count = 0;
-  if (mask.is_scalar()) {
-    const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
-    mask_count = (mask_scalar.is_valid && mask_scalar.value) ? arr_length : 0;
+  if (mask_box.is_scalar()) {
+    const auto& mask = mask_box.scalar_as<BooleanScalar>();
+    mask_count = (mask.is_valid && mask.value) ? arr_length : 0;
   } else {
-    const ArraySpan& mask = mask.array;
+    const ArraySpan& mask = mask_box.array;
     if (mask.buffers[0].data != nullptr) {
-      mask_count =
-          internal::CountAndSetBits(mask.buffers[0].data, mask.offset,
-                                    mask.buffers[1].data, mask.offset, mask.length);
+      mask_count = CountAndSetBits(mask.buffers[0].data, mask.offset,
+                                   mask.buffers[1].data, mask.offset, mask.length);
     } else {
-      mask_count =
-          internal::CountAndSetBits(mask.buffers[1].data, mask.offset, mask.length);
+      mask_count = CountSetBits(mask.buffers[1].data, mask.offset, mask.length);
     }
     if (mask.length != arr_length) {
       return Status::Invalid("Mask must be of same length as array (expected ",
@@ -345,6 +350,7 @@ Status CheckReplaceMaskInputs(const DataType& value_type, int64_t arr_length,
                              " items)");
     }
   }
+  return Status::OK();
 }
 
 template <typename Type>
@@ -353,7 +359,7 @@ struct ReplaceMask {
     const ArraySpan& arr = batch[0].array;
     const ExecValue& mask = batch[1];
     const ExecValue& replacements = batch[2];
-    RETURN_NOT_OK(CheckReplaceMaskInputs(*arr.type(), arr.length(), mask,
+    RETURN_NOT_OK(CheckReplaceMaskInputs(*arr.type, arr.length, mask,
                                          *replacements.type(), replacements.is_array(),
                                          replacements.length()));
     if (mask.is_scalar()) {
@@ -364,9 +370,9 @@ struct ReplaceMask {
     } else {
       // The extra mask offset is for dealing with chunked inputs, so zero when
       // there is only a single chunk to process
-      return ReplaceMaskImpl<Type>::ExecArray(ctx, arr, mask.array,
-                                              /*mask_offset=*/0, replacements,
-                                              /*replacements_offset=*/0, out)
+      return ReplaceMaskImpl<Type>::ExecArrayMask(ctx, arr, mask.array,
+                                                  /*mask_offset=*/0, replacements,
+                                                  /*replacements_offset=*/0, out)
           .status();
     }
   }
@@ -421,18 +427,19 @@ struct ReplaceMaskChunked {
                               ctx->Allocate(slot_width * chunk->length()));
       }
 
+      ExecResult chunk_result;
+      chunk_result.value = chunk_out;
       if (batch[1].is_scalar()) {
         ARROW_ASSIGN_OR_RAISE(
             replacements_offset,
-            ReplaceMask<Type>::ExecScalarMask(
+            ReplaceMaskImpl<Type>::ExecScalarMask(
                 ctx, *chunk->data(), batch[1].scalar_as<BooleanScalar>(),
-                replacements_val, replacements_offset, chunk_out.get()));
+                replacements_val, replacements_offset, &chunk_result));
       } else {
-        ARROW_ASSIGN_OR_RAISE(
-            replacements_offset,
-            ReplaceMask<Type>::ExecArrayMask(ctx, *chunk->data(), batch[1].array,
-                                             mask_offset, replacements_val,
-                                             replacements_offset, chunk_out.get()));
+        ARROW_ASSIGN_OR_RAISE(replacements_offset,
+                              ReplaceMaskImpl<Type>::ExecArrayMask(
+                                  ctx, *chunk->data(), *batch[1].array(), mask_offset,
+                                  replacements_val, replacements_offset, &chunk_result));
       }
       output_chunks.push_back(MakeArray(std::move(chunk_out)));
       mask_offset += chunk->length();
@@ -508,9 +515,6 @@ void FillNullInDirectionImpl(const ArraySpan& current_chunk, const uint8_t* null
     bitmap_offset += block.length;
   }
   out_arr->null_count = kUnknownNullCount;
-
-  // TODO(wesm): why is this forcing the computation of null count here?
-  out->GetNullCount();
 }
 
 template <typename Type, typename Enable = void>
@@ -642,8 +646,8 @@ struct FillNullForward {
     return ExecChunk(ctx, array_input, out, array_input, &last_valid_offset);
   }
 
-  static Status ExecChunk(KernelContext* ctx, const ArrayData& array, ExecResult* out,
-                          const ArrayData& last_valid_value_chunk,
+  static Status ExecChunk(KernelContext* ctx, const ArraySpan& array, ExecResult* out,
+                          const ArraySpan& last_valid_value_chunk,
                           int64_t* last_valid_value_offset) {
     ArrayData* output = out->array_data().get();
     output->length = array.length;
@@ -651,16 +655,16 @@ struct FillNullForward {
     if (array.MayHaveNulls()) {
       ARROW_ASSIGN_OR_RAISE(
           auto null_bitmap,
-          arrow::internal::CopyBitmap(ctx->memory_pool(), array.buffers[0]->data(),
+          arrow::internal::CopyBitmap(ctx->memory_pool(), array.buffers[0].data,
                                       array.offset, array.length));
-      return FillNullImpl<Type>::Exec(ctx, array, null_bitmap->data(), output, direction,
+      return FillNullImpl<Type>::Exec(ctx, array, null_bitmap->data(), out, direction,
                                       last_valid_value_chunk, last_valid_value_offset);
     } else {
-      // TODO(wesm): zero copy optimization
+      // TODO(wesm): zero copy optimization is a bit ugly...
       if (array.length > 0) {
         *last_valid_value_offset = array.length - 1;
       }
-      *output = array;
+      out->value = array.ToArrayData();
     }
     return Status::OK();
   }
@@ -688,23 +692,27 @@ struct FillNullForwardChunked {
     if (values.length() > 0) {
       ArrayData* array_with_current = values.chunk(/*first_chunk=*/0)->data().get();
       int64_t last_valid_value_offset = -1;
-      for (const auto& chunk : values.chunks()) {
+      for (const std::shared_ptr<Array>& chunk : values.chunks()) {
         if (is_fixed_width(out->type()->id())) {
-          ArrayData* output = out->array_data().get();
+          ArrayData* output = out->mutable_array();
           ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(chunk->length()));
-          ARROW_ASSIGN_OR_RAISE(output->buffers[1],
-                                ctx->Allocate(out->type->byte_width() * chunk->length));
+          ARROW_ASSIGN_OR_RAISE(
+              output->buffers[1],
+              ctx->Allocate(out->type()->byte_width() * chunk->length()));
         }
-        RETURN_NOT_OK(FillNullForward<Type>::ExecChunk(
-            ctx, *chunk->data(), out, *array_with_current, &last_valid_value_offset));
+        ExecResult chunk_result;
+        chunk_result.value = out->array();
+        RETURN_NOT_OK(FillNullForward<Type>::ExecChunk(ctx, *chunk->data(), &chunk_result,
+                                                       *array_with_current,
+                                                       &last_valid_value_offset));
         if (chunk->null_count() != chunk->length()) {
           array_with_current = chunk->data().get();
         }
-        new_chunks.push_back(MakeArray(out->make_array()->data()->Copy()));
+        new_chunks.push_back(MakeArray(out->array()->Copy()));
       }
     }
 
-    auto output = std::make_shared<ChunkedArray>(std::move(new_chunks), values->type());
+    auto output = std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
     *out = Datum(output);
     return Status::OK();
   }
@@ -712,15 +720,14 @@ struct FillNullForwardChunked {
 
 template <typename Type>
 struct FillNullBackward {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, ExecResult* out) {
-    const ArraySpan& array_input = batch[0].array;
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     int64_t last_offset = -1;  // unused
-    return ExecOne(ctx, array_input, out, array_input, &last_offset);
+    return ExecChunk(ctx, batch[0].array, out, batch[0].array, &last_offset);
   }
 
-  static Status ExecOne(KernelContext* ctx, const ArraySpan& array, ExecResult* out,
-                        const ArraySpan& last_valid_value_chunk,
-                        int64_t* last_valid_value_offset) {
+  static Status ExecChunk(KernelContext* ctx, const ArraySpan& array, ExecResult* out,
+                          const ArraySpan& last_valid_value_chunk,
+                          int64_t* last_valid_value_offset) {
     ArrayData* out_arr = out->array_data().get();
     out_arr->length = array.length;
     int8_t direction = -1;
@@ -730,9 +737,8 @@ struct FillNullBackward {
           auto reversed_bitmap,
           arrow::internal::ReverseBitmap(ctx->memory_pool(), array.buffers[0].data,
                                          array.offset, array.length));
-      return FillNullImpl<Type>::Exec(ctx, array, reversed_bitmap->data(), output,
-                                      direction, last_valid_value_chunk,
-                                      last_valid_value_offset);
+      return FillNullImpl<Type>::Exec(ctx, array, reversed_bitmap->data(), out, direction,
+                                      last_valid_value_chunk, last_valid_value_offset);
     } else {
       // Zero copy optimization
       if (array.length > 0) {
@@ -750,53 +756,56 @@ struct FillNullBackward {
 
 template <typename Type>
 struct FillNullBackwardChunked {
-  static Status ExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     DCHECK_EQ(Datum::CHUNKED_ARRAY, batch[0].kind());
-    const ChunkedArray* arr = *batch[0].chunked_array();
-    if (values->null_count() == 0) {
+    const ChunkedArray& values = *batch[0].chunked_array();
+    if (values.null_count() == 0) {
       *out = Datum(values);
       return Status::OK();
     }
-    if (values->null_count() == values->length()) {
+    if (values.null_count() == values.length()) {
       *out = Datum(values);
       return Status::OK();
     }
     std::vector<std::shared_ptr<Array>> new_chunks;
 
-    if (values->length() > 0) {
-      auto chunks_length = static_cast<int>(values->chunks().size());
+    if (values.length() > 0) {
+      auto chunks_length = static_cast<int>(values.chunks().size());
       ArrayData* array_with_current =
-          values->chunk(/*first_chunk=*/chunks_length - 1)->data().get();
+          values.chunk(/*first_chunk=*/chunks_length - 1)->data().get();
       int64_t last_valid_value_offset = -1;
-      auto chunks = values->chunks();
+      auto chunks = values.chunks();
       for (int i = chunks_length - 1; i >= 0; --i) {
         const auto& chunk = chunks[i];
         if (is_fixed_width(out->type()->id())) {
-          auto* output = out->mutable_array();
-          auto data_bytes = output->type()->byte_width() * chunk->length();
+          ArrayData* output = out->mutable_array();
+          auto data_bytes = output->type->byte_width() * chunk->length();
           ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(chunk->length()));
           ARROW_ASSIGN_OR_RAISE(output->buffers[1], ctx->Allocate(data_bytes));
         }
-        RETURN_NOT_OK(FillNullBackward<Type>::ExecOne(
-            ctx, *chunk->data(), out, *array_with_current, &last_valid_value_offset));
+        ExecResult chunk_result;
+        chunk_result.value = out->array();
+        RETURN_NOT_OK(FillNullBackward<Type>::ExecChunk(
+            ctx, *chunk->data(), &chunk_result, *array_with_current,
+            &last_valid_value_offset));
         if (chunk->null_count() != chunk->length()) {
           array_with_current = chunk->data().get();
         }
-        new_chunks.push_back(MakeArray(out->make_array()->data()->Copy()));
+        new_chunks.push_back(MakeArray(out->array()->Copy()));
       }
     }
 
     std::reverse(new_chunks.begin(), new_chunks.end());
-    *out = std::make_shared<ChunkedArray>(std::move(new_chunks), values->type());
+    *out = std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
     return Status::OK();
   }
-}
+};
 
 }  // namespace
 
-void AddKernel(Type::type type_id, ArrayKernelExec exec,
-               VectorKernel::ChunkedExecFunc exec_chunked, FunctionRegistry* registry,
-               VectorFunction* func) {
+void AddKernel(Type::type type_id, std::shared_ptr<KernelSignature> signature,
+               ArrayKernelExec exec, VectorKernel::ChunkedExec exec_chunked,
+               FunctionRegistry* registry, VectorFunction* func) {
   VectorKernel kernel;
   kernel.can_execute_chunkwise = false;
   if (is_fixed_width(type_id)) {
@@ -806,7 +815,7 @@ void AddKernel(Type::type type_id, ArrayKernelExec exec,
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
   }
   kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
-  kernel.signature = Functor<FixedSizeBinaryType>::GetSignature(type_id);
+  kernel.signature = std::move(signature);
   kernel.exec = std::move(exec);
   kernel.exec_chunked = exec_chunked;
   kernel.can_execute_chunkwise = false;
@@ -819,8 +828,10 @@ void RegisterVectorFunction(FunctionRegistry* registry,
                             std::shared_ptr<VectorFunction> func) {
   auto add_primitive_kernel = [&](detail::GetTypeId get_id) {
     AddKernel(
-        get_id.id, GenerateTypeAgnosticPrimitive<Functor, ArrayKernelExec>(get_id),
-        GenerateTypeAgnosticPrimitive<ChunkedFunctor, VectorKernel::ChunkedExec>(get_id));
+        get_id.id, Functor<FixedSizeBinaryType>::GetSignature(get_id),
+        GenerateTypeAgnosticPrimitive<Functor, ArrayKernelExec>(get_id),
+        GenerateTypeAgnosticPrimitive<ChunkedFunctor, VectorKernel::ChunkedExec>(get_id),
+        registry, func.get());
   };
   for (const auto& ty : NumericTypes()) {
     add_primitive_kernel(ty);
@@ -833,17 +844,24 @@ void RegisterVectorFunction(FunctionRegistry* registry,
   }
   add_primitive_kernel(null());
   add_primitive_kernel(boolean());
-  AddKernel(Type::FIXED_SIZE_BINARY, Functor<FixedSizeBinaryType>::Exec,
-            ChunkedFunctor<FixedSizeBinaryType>::Exec);
-  AddKernel(Type::DECIMAL128, Functor<FixedSizeBinaryType>::Exec,
-            ChunkedFunctor<FixedSizeBinaryType>::Exec);
-  AddKernel(Type::DECIMAL256, Functor<FixedSizeBinaryType>::Exec,
-            ChunkedFunctor<FixedSizeBinaryType>::Exec);
+  AddKernel(Type::FIXED_SIZE_BINARY,
+            Functor<FixedSizeBinaryType>::GetSignature(Type::FIXED_SIZE_BINARY),
+            Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
+            registry, func.get());
+  AddKernel(Type::DECIMAL128,
+            Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL128),
+            Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
+            registry, func.get());
+  AddKernel(Type::DECIMAL256,
+            Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL256),
+            Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
+            registry, func.get());
   for (const auto& ty : BaseBinaryTypes()) {
-    add_kernel(
-        ty->id(), GenerateTypeAgnosticVarBinaryBase<Functor, ArrayKernelExec>(*ty),
-        GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor, VectorKernel::ChunkedExec>(
-            *ty));
+    AddKernel(
+        ty->id(), Functor<FixedSizeBinaryType>::GetSignature(ty->id()),
+        GenerateTypeAgnosticVarBinaryBase<Functor, ArrayKernelExec>(*ty),
+        GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor, VectorKernel::ChunkedExec>(*ty),
+        registry, func.get());
   }
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));

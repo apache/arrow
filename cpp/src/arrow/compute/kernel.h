@@ -580,6 +580,9 @@ struct ScalarKernel : public Kernel {
   // bitmaps is a reasonable default
   NullHandling::type null_handling = NullHandling::INTERSECTION;
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
+
+  // Additional kernel-specific data
+  std::unique_ptr<KernelState> data;
 };
 
 // ----------------------------------------------------------------------

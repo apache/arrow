@@ -122,12 +122,12 @@ template <typename VisitorNotNull, typename VisitorNull>
 inline void VisitRawValuesInline(const ArraySpan& values,
                                  VisitorNotNull&& visitor_not_null,
                                  VisitorNull&& visitor_null) {
-  if (values.null_count() != 0) {
+  if (values.null_count != 0) {
     const uint8_t* data = values.GetValues<uint8_t>(1, 0);
     const uint8_t* bitmap = values.buffers[0].data;
     VisitBitBlocksVoid(
         bitmap, values.offset, values.length,
-        [&](int64_t i) { visitor_not_null(bit_util::GetBit(data, values.offset() + i)); },
+        [&](int64_t i) { visitor_not_null(bit_util::GetBit(data, values.offset + i)); },
         [&]() { visitor_null(); });
   } else {
     // Can avoid GetBit() overhead in the no-nulls case
@@ -251,18 +251,19 @@ class ArrayCountSorter {
   }
 
   template <typename CounterType>
-  void CountValues(const ArraySpan& values, CounterType* counts) const {
+  void CountValues(const ArrayType& values, CounterType* counts) const {
     VisitRawValuesInline<c_type>(
-        values, [&](c_type v) { ++counts[v - min_]; }, []() {});
+        *values.data(), [&](c_type v) { ++counts[v - min_]; }, []() {});
   }
 
   template <typename CounterType>
-  void EmitIndices(const NullPartitionResult& p, const ArraySpan& values, int64_t offset,
+  void EmitIndices(const NullPartitionResult& p, const ArrayType& values, int64_t offset,
                    CounterType* counts) const {
     int64_t index = offset;
     CounterType count_nulls = 0;
     VisitRawValuesInline<c_type>(
-        values, [&](c_type v) { p.non_nulls_begin[counts[v - min_]++] = index++; },
+        *values.data(),
+        [&](c_type v) { p.non_nulls_begin[counts[v - min_]++] = index++; },
         [&]() { p.nulls_begin[count_nulls++] = index++; });
   }
 };
@@ -302,7 +303,7 @@ class ArrayCountSorter<BooleanType> {
 
     int64_t index = offset;
     VisitRawValuesInline(
-        values, [&](bool v) { p.non_nulls_begin[counts[v]++] = index++; },
+        *values.data(), [&](bool v) { p.non_nulls_begin[counts[v]++] = index++; },
         [&]() { p.nulls_begin[counts[2]++] = index++; });
     return p;
   }

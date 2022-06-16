@@ -310,6 +310,19 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   return func;
 }
 
+struct FlippedData : public KernelState {
+  ArrayKernelExec unflipped_exec;
+};
+
+Status FlippedBinaryExec(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
+  const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
+  const auto kernel_data = static_cast<const FlippedData*>(kernel.data.get());
+
+  ExecSpan flipped_span = span;
+  std::swap(flipped_span.values[0], flipped_span.values[1]);
+  return kernel_data->unflipped_exec(ctx, flipped_span, out);
+}
+
 std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
                                                     const ScalarFunction& func,
                                                     FunctionDoc doc) {
@@ -317,7 +330,8 @@ std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
       std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
-    flipped_kernel.exec = MakeFlippedBinaryExec(kernel->exec);
+    flipped_kernel.data = std::unique_ptr<KernelState>(new FlippedData{kernel->exec});
+    flipped_kernel.exec = FlippedBinaryExec;
     DCHECK_OK(flipped_func->AddKernel(std::move(flipped_kernel)));
   }
   return flipped_func;

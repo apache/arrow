@@ -30,7 +30,9 @@
 namespace arrow {
 namespace compute {
 namespace internal {
+
 namespace {
+
 template <typename OptionsType>
 struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
   using State = CumulativeOptionsWrapper<OptionsType>;
@@ -90,9 +92,9 @@ struct Accumulator {
           [&](ArgValue v) {
             current_value = Op::template Call<OutValue, ArgValue, ArgValue>(
                 ctx, v, current_value, &st);
-            builder->UnsafeAppend(current_value);
+            builder.UnsafeAppend(current_value);
           },
-          [&]() { builder->UnsafeAppendNull(); });
+          [&]() { builder.UnsafeAppendNull(); });
     } else {
       int64_t nulls_start_idx = 0;
       VisitArrayValuesInline<ArgType>(
@@ -101,13 +103,13 @@ struct Accumulator {
             if (!encountered_null) {
               current_value = Op::template Call<OutValue, ArgValue, ArgValue>(
                   ctx, v, current_value, &st);
-              builder->UnsafeAppend(current_value);
+              builder.UnsafeAppend(current_value);
               ++nulls_start_idx;
             }
           },
           [&]() { encountered_null = true; });
 
-      RETURN_NOT_OK(builder->AppendNulls(input.length - nulls_start_idx));
+      RETURN_NOT_OK(builder.AppendNulls(input.length - nulls_start_idx));
     }
 
     return st;
@@ -122,12 +124,12 @@ struct CumulativeKernel {
     accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start));
     accumulator.skip_nulls = options.skip_nulls;
 
-    RETURN_NOT_OK(accumulator.builder.Reserve(arr_input->length));
-    RETURN_NOT_OK(accumulator.Accumulate(batch[0].array);
+    RETURN_NOT_OK(accumulator.builder.Reserve(batch.length));
+    RETURN_NOT_OK(accumulator.Accumulate(batch[0].array));
 
-    std::shared_ptr<Array> result;
-    RETURN_NOT_OK(builder->FinishInternal(&result));
-    out->value = std::move(result->data());
+    std::shared_ptr<ArrayData> result;
+    RETURN_NOT_OK(accumulator.builder.FinishInternal(&result));
+    out->value = std::move(result);
     return Status::OK();
   }
 };
@@ -143,12 +145,12 @@ struct CumulativeKernelChunked {
     const ChunkedArray& chunked_input = *batch[0].chunked_array();
     RETURN_NOT_OK(accumulator.builder.Reserve(chunked_input.length()));
     std::vector<std::shared_ptr<Array>> out_chunks;
-    for (const auto& chunk : chunked_input->chunks()) {
+    for (const auto& chunk : chunked_input.chunks()) {
       RETURN_NOT_OK(accumulator.Accumulate(*chunk->data()));
     }
-    std::shared_ptr<Array> result;
-    RETURN_NOT_OK(builder->FinishInternal(&result));
-    out->value = std::move(result->data());
+    std::shared_ptr<ArrayData> result;
+    RETURN_NOT_OK(accumulator.builder.FinishInternal(&result));
+    out->value = std::move(result);
     return Status::OK();
   }
 };
@@ -189,9 +191,9 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
     kernel.signature = KernelSignature::Make({InputType::Array(ty)}, OutputType(ty));
     kernel.exec =
-        ArithmeticExecFromOp<CumulativeGeneric, Op, ArrayKernelExec, OptionsType>(ty);
+        ArithmeticExecFromOp<CumulativeKernel, Op, ArrayKernelExec, OptionsType>(ty);
     kernel.exec_chunked =
-        ArithmeticExecFromOp<CumulativeGenericChunked, Op, VectorKernel::ChunkedExec,
+        ArithmeticExecFromOp<CumulativeKernelChunked, Op, VectorKernel::ChunkedExec,
                              OptionsType>(ty);
     kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
     DCHECK_OK(func->AddKernel(std::move(kernel)));

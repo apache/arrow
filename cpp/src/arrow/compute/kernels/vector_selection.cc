@@ -2370,7 +2370,7 @@ const FunctionDoc indices_nonzero_doc(
 
 struct NonZeroVisitor {
   UInt64Builder* builder;
-  const ArrayDataVector& arrays;
+  const std::vector<ArraySpan>& arrays;
 
   NonZeroVisitor(UInt64Builder* builder, const ArrayDataVector& arrays)
       : builder(builder), arrays(arrays) {}
@@ -2386,9 +2386,9 @@ struct NonZeroVisitor {
     const T zero{};
     uint64_t index = 0;
 
-    for (const std::shared_ptr<ArrayData>& current_array : arrays) {
+    for (const ArraySpan& current_array : arrays) {
       VisitArrayValuesInline<Type>(
-          *current_array,
+          current_array,
           [&](T v) {
             if (v != zero) {
               this->builder->UnsafeAppend(index++);
@@ -2398,36 +2398,36 @@ struct NonZeroVisitor {
           },
           [&]() { ++index; });
     }
-
     return Status::OK();
   }
 };
 
-Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status DoNonZero(const std::vector<ArraySpan>& arrays, int64_t total_length,
+                 std::shared_ptr<ArrayData>* out) {
   UInt64Builder builder;
-  ArrayDataVector arrays;
-  Datum input = batch[0];
-
-  if (input.kind() == Datum::ARRAY) {
-    std::shared_ptr<ArrayData> array = input.array();
-    RETURN_NOT_OK(builder.Reserve(array->length));
-    arrays.push_back(std::move(array));
-  } else if (input.kind() == Datum::CHUNKED_ARRAY) {
-    std::shared_ptr<ChunkedArray> chunkedarr = input.chunked_array();
-    RETURN_NOT_OK(builder.Reserve(chunkedarr->length()));
-    for (int chunkidx = 0; chunkidx < chunkedarr->num_chunks(); ++chunkidx) {
-      arrays.push_back(std::move(chunkedarr->chunk(chunkidx)->data()));
-    }
-  } else {
-    return Status::NotImplemented(input.ToString());
-  }
+  RETURN_NOT_OK(builder.Reserve(total_length));
 
   NonZeroVisitor visitor(&builder, arrays);
-  RETURN_NOT_OK(VisitTypeInline(*(arrays[0]->type), &visitor));
+  RETURN_NOT_OK(VisitTypeInline(*arrays[0].type, &visitor));
+  return builder.FinishInternal(out);
+}
 
-  std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(builder.FinishInternal(&out_data));
-  out->value = std::move(out_data);
+Status IndicesNonZeroExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(DoNonZero({batch[0].array}, batch.length, &result));
+  out->value = std::move(result->data());
+  return Status::OK();
+}
+
+Status IndicesNonZeroExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const ChunkedArray& arr = *batch[0].chunked_array();
+  std::vector<ArraySpan> arrays(arr.num_chunks());
+  for (int i = 0; i < arr.num_chunks(); ++i) {
+    arrays.push_back(ArraySpan(*arr->chunk(i)->data()));
+  }
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(DoNonZero(arrays, arr.length(), &result));
+  out->value = std::move(result->data());
   return Status::OK();
 }
 
@@ -2440,6 +2440,7 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   kernel.output_chunked = false;
   kernel.exec = IndicesNonZeroExec;
+  kernel.exec_chunked = IndicesNonZeroExecChunked;
   kernel.can_execute_chunkwise = false;
 
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {

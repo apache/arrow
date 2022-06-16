@@ -40,7 +40,7 @@ struct CopyDataUtils<BooleanType> {
     arrow::internal::CopyBitmap(in, in_offset, length, out, out_offset);
   }
 
-  static void CopyData(const DataType&, const ArrayData& in, const int64_t in_offset,
+  static void CopyData(const DataType&, const ArraySpan& in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
     const auto in_arr = in.GetValues<uint8_t>(1, /*absolute_offset=*/0);
     CopyData(*in.type, in_arr, in_offset, out, out_offset, length);
@@ -51,7 +51,7 @@ template <>
 struct CopyDataUtils<FixedSizeBinaryType> {
   static void CopyData(const DataType& ty, const Scalar& in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
+    const int32_t width = ty.byte_width();
     uint8_t* begin = out + (width * out_offset);
     const auto& scalar = checked_cast<const arrow::internal::PrimitiveScalarBase&>(in);
     // Null scalar may have null value buffer
@@ -69,14 +69,14 @@ struct CopyDataUtils<FixedSizeBinaryType> {
 
   static void CopyData(const DataType& ty, const uint8_t* in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
+    const int32_t width = ty.byte_width();
     uint8_t* begin = out + (width * out_offset);
     std::memcpy(begin, in + in_offset * width, length * width);
   }
 
-  static void CopyData(const DataType& ty, const ArrayData& in, const int64_t in_offset,
+  static void CopyData(const DataType& ty, const ArraySpan& in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
+    const int32_t width = ty.byte_width();
     const auto in_arr = in.GetValues<uint8_t>(1, in.offset * width);
     CopyData(ty, in_arr, in_offset, out, out_offset, length);
   }
@@ -100,7 +100,7 @@ struct CopyDataUtils<
                 length * sizeof(CType));
   }
 
-  static void CopyData(const DataType&, const ArrayData& in, const int64_t in_offset,
+  static void CopyData(const DataType&, const ArraySpan& in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
     const auto in_arr = in.GetValues<uint8_t>(1, in.offset * sizeof(CType));
     CopyData(*in.type, in_arr, in_offset, out, out_offset, length);

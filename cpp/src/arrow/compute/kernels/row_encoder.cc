@@ -305,7 +305,7 @@ void RowEncoder::Clear() {
   bytes_.clear();
 }
 
-Status RowEncoder::EncodeAndAppend(const ExecBatch& batch) {
+Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
   if (offsets_.empty()) {
     offsets_.resize(1);
     offsets_[0] = 0;

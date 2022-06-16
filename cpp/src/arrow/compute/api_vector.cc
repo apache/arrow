@@ -297,33 +297,24 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& values, SortOrder order,
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
-                                           const ArraySortOptions& options,
+                                           const ArraySortOptions& array_options,
                                            ExecContext* ctx) {
-  KernelContext kernel_ctx(ctx);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out,
-                        kernel_ctx.Allocate(chunked_array.length() * sizeof(uint64_t)));
-  uint64_t* out_begin = reinterpret_cast<uint64_t*>(out->mutable_data());
-  uint64_t* out_end = out_begin + out_arr->length;
-  std::iota(out_begin, out_end, 0);
-  RETURN_NOT_OK(SortChunkedArray(ctx, out_begin, out_end, chunked_array, options.order,
-                                 options.null_placement));
-  return std::make_shared<UInt64Array>(chunked_array.length(), out);
+  SortOptions options({SortKey("", array_options.order)}, array_options.null_placement);
+  ARROW_ASSIGN_OR_RAISE(
+      Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
+  return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order, ExecContext* ctx) {
-  return SortIndices(chunked_array, ArraySortOptions(order.order), ctx);
+  return SortIndices(chunked_array, ArraySortOptions(order), ctx);
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,
                                            ExecContext* ctx) {
-  if (datum.is_chunked_array()) {
-    return SortIndices(*datum.chunked_array(), options, ctx);
-  } else if (datum.is_array()) {
-    return SortIndices(*datum.array(), options, ctx);
-  } else {
-    return Status::Invalid("Can only sort array-like data");
-  }
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction("sort_indices", {datum}, &options, ctx));
+  return result.make_array();
 }
 
 Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {

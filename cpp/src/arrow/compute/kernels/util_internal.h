@@ -90,11 +90,11 @@ std::pair<T, T> GetMinMax(const Datum& datum) {
 // Count value occurrences of an array, ignore nulls.
 // 'counts' must be zeroed and with enough size.
 template <typename T>
-ARROW_NOINLINE int64_t CountValues(uint64_t* counts, const ArrayData& data, T min) {
+ARROW_NOINLINE int64_t CountValues(uint64_t* counts, const ArraySpan& data, T min) {
   const int64_t n = data.length - data.GetNullCount();
   if (n > 0) {
     const T* values = data.GetValues<T>(1);
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+    arrow::internal::VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
                                          [&](int64_t pos, int64_t len) {
                                            for (int64_t i = 0; i < len; ++i) {
                                              ++counts[values[pos + i] - min];
@@ -141,7 +141,7 @@ int64_t CopyNonNullValues(const Datum& datum, T* out) {
 ExecValue GetExecValue(const Datum& value) {
   ExecValue result;
   if (value.is_array()) {
-    result.SetArray(value.array());
+    result.SetArray(*value.array());
   } else {
     result.SetScalar(value.scalar().get());
   }

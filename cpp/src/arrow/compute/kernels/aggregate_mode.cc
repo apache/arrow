@@ -64,7 +64,8 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
     count_buffer = count_data->template GetMutableValues<int64_t>(1);
   }
 
-  out->value = ArrayData::Make(out->type(), n, {nullptr}, {mode_data, count_data}, 0);
+  out->value =
+      ArrayData::Make(out->type()->Copy(), n, {nullptr}, {mode_data, count_data}, 0);
   return std::make_pair(mode_buffer, count_buffer);
 }
 
