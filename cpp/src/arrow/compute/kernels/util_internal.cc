@@ -56,7 +56,7 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
   }
   // This may be kUnknownNullCount
   arg.null_count = (arg.is_valid != nullptr) ? arr.null_count.load() : 0;
-  arg.run_length = is_rle ? values.GetValues<int64_t>(0) : NULLPTR;
+  arg.run_length = is_rle ? arr.GetValues<int64_t>(0) : NULLPTR;
   return arg;
 }
 
