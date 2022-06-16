@@ -771,12 +771,12 @@ Run-Length-encoded Layout
 -------------------------
 
 Run-Length is a data representation that represents data as sequences of the
-same a, called runs. Each run is represented as a value, and an integer
+same value, called runs. Each run is represented as a value, and an integer
 describing how often this value is repeated.
 
 Any array can be run-length-encoded. A run-length encoded array has a single
-buffer holding as many 32-bit integers, as there are runs. The actual values
-are hold in a child array, which is just a regular array.
+buffer holding as many signed 32-bit integers, as there are runs. The actual
+values are hold in a child array, which is just a regular array.
 
 The values in the parent array buffer represent the length of each run. They do
 not hold the length of the respective run directly, but the accumulated length
