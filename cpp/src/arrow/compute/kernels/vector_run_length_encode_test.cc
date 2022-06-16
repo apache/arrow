@@ -50,7 +50,7 @@ TEST_F(TestRunLengthEncode, EncodeInt32Array) {
   ASSERT_EQ(encoded->child_data[0]->GetMutableValues<uint8_t>(0), nullptr);
   ASSERT_EQ(encoded->buffers[0]->size(), 3 * sizeof(uint64_t));
   ASSERT_EQ(encoded->child_data[0]->buffers[1]->size(), 3 * sizeof(int32_t));
-  ASSERT_EQ(encoded->length, 3);
+  ASSERT_EQ(encoded->length, 6);
   ASSERT_EQ(*encoded->type, RunLengthEncodedType(int32()));
   ASSERT_EQ(encoded->null_count, 0);
   ASSERT_EQ(encoded->child_data[0]->null_count, 0);
@@ -85,10 +85,11 @@ TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
             expected_null_bitmap);
   ASSERT_EQ(encoded->buffers[0]->size(), 4 * sizeof(uint64_t));
   ASSERT_EQ(encoded->child_data[0]->buffers[1]->size(), 4 * sizeof(int32_t));
-  ASSERT_EQ(encoded->length, 4);
+  ASSERT_EQ(encoded->length, 6);
   ASSERT_EQ(*encoded->type, RunLengthEncodedType(int32()));
   ASSERT_EQ(encoded->null_count, 3);
   ASSERT_EQ(encoded->child_data[0]->null_count, 2);
+  ASSERT_EQ(encoded->child_data[0]->length, 4);
 
   ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded));
   auto decoded = decoded_datum.make_array();
