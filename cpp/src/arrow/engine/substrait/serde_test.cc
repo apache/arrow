@@ -1175,15 +1175,22 @@ TEST(Substrait, JoinPlanInvalidKeys) {
           &ext_set));
 }
 
-TEST(Substrait, SerializePlan) {
+TEST(Substrait, SerializeRelation) {
   ExtensionSet ext_set;
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-  auto dummy_schema = schema({field("a", int32()), field("b", int32())});
+
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto file_name =
+      arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
+
+  compute::ExecContext exec_context;
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
+  auto dummy_schema = schema({field("foo", binary())});
 
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
   std::vector<fs::FileInfo> files;
-  const std::string f_path = "/tmp/data1.parquet";
+  const std::string f_path = file_name->ToString();//"/tmp/data1.parquet";
   // const std::string s_path = "file:///tmp/data2.parquet";
   ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
   // ASSERT_OK_AND_ASSIGN(auto s_file, filesystem->GetFileInfo(s_path));
@@ -1202,7 +1209,7 @@ TEST(Substrait, SerializePlan) {
   auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-
+  
   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
 
   auto scan_declaration = compute::Declaration({"scan", scan_node_options});
@@ -1215,9 +1222,24 @@ TEST(Substrait, SerializePlan) {
 
   ASSERT_OK(decl->Validate());
 
-  std::cout << "Plan " << std::endl;
-  std::cout << plan->ToString() << std::endl;
-  // ASSERT_OK_AND_ASSIGN(auto serialized, SerializePlan(*plan, &ext_set));
+  // std::shared_ptr<arrow::RecordBatchReader> sink_reader =
+  //     compute::MakeGeneratorReader(dummy_schema, std::move(sink_gen), exec_context.memory_pool());
+
+  // ASSERT_OK(plan->Validate());
+  // ASSERT_OK(plan->StartProducing());
+
+  // std::cout << "Plan " << std::endl;
+  // std::cout << plan->ToString() << std::endl;
+
+  // collect sink_reader into a Table
+  std::shared_ptr<arrow::Table> response_table;
+
+  ASSERT_OK_AND_ASSIGN(response_table,
+                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
+
+  std::cout << "Results : " << response_table->ToString() << std::endl;
+
+  
   std::cout << "Serialize Scan Relation" << std::endl;
   ASSERT_OK_AND_ASSIGN(auto serialized_rel,
                        SerializeRelation(scan_declaration, &ext_set));
@@ -1231,8 +1253,13 @@ TEST(Substrait, SerializePlan) {
 
   ASSERT_OK(t_decl->Validate());
 
-  std::cout << "Des Plan " << std::endl;
-  std::cout << t_plan->ToString() << std::endl;
+  // std::cout << "Des Plan " << std::endl;
+  // std::cout << t_plan->ToString() << std::endl;
+
+  
+  //ASSERT_OK(t_plan->Validate());
+  //ASSERT_OK(t_plan->StartProducing());
+
 }
 
 }  // namespace engine
