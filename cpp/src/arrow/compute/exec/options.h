@@ -392,9 +392,11 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
 
 /// \brief Make a node which implements asof join operation
 ///
-/// This node takes one left table and (n-1) right tables, and asof joins them
-/// together. Batches produced by each inputs must be ordered by the "on" key.
-/// The batch size that this node produces is decided by the left table.
+/// Note, this API is experimental and will change in the future
+///
+/// This node takes one left table and any number of right tables, and asof joins them
+/// together. Batches produced by each input must be ordered by the "on" key.
+/// This node will output one row for each row in the left table.
 class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
  public:
   AsofJoinNodeOptions(FieldRef on_key, FieldRef by_key, int64_t tolerance)
@@ -405,9 +407,9 @@ class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
   // left_on - tolerance <= right_on <= left_on.
   // Currently, "on" key must be an int64 field
   FieldRef on_key;
-  // "by" key for the join. All tables must have the "by" key. Equity prediciate
-  // are used on the "by" key.
-  // Currently, "by" key must be an int32 field
+  // "by" key for the join. All tables must have the "by" key.  Exact equality
+  // is used for the "by" key.
+  // Currently, the "by" key must be an int32 field
   FieldRef by_key;
   // tolerance for inexact "on" key matching
   int64_t tolerance;

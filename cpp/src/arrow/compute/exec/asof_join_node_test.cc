@@ -132,9 +132,8 @@ void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
   BatchesWithSchema l_batches = GenerateBatchesFromString(l_schema, {R"([])"});
   BatchesWithSchema r_batches = GenerateBatchesFromString(r_schema, {R"([])"});
 
-  auto exec_ctx =
-      arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+  ExecContext exec_ctx;
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
 
   AsofJoinNodeOptions join_options("time", "key", 0);
   Declaration join{"asofjoin", join_options};
