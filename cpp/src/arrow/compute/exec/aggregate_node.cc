@@ -111,8 +111,7 @@ class ScalarAggregateNode : public ExecNode {
       kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
 
       if (aggregates[i].options == nullptr) {
-        auto opts = function->default_options()->Copy();
-        aggregates[i].options = std::move(opts);
+        aggregates[i].options = function->default_options()->Copy();
       }
 
       KernelContext kernel_ctx{exec_ctx};
