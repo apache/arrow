@@ -356,10 +356,21 @@ struct ExtractRelation {
     const auto& scan_node_options =
         arrow::internal::checked_cast<const dataset::ScanNodeOptions&>(
             *declaration.options);
+    // TODO: do necessary validations or throw Invalids
+
+    // set schema
     auto dataset = scan_node_options.dataset;
     ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set_));
     read_rel->set_allocated_base_schema(named_struct.release());
-    // read_rel->set_allocated_local_files();
+
+    // set local files
+    auto read_rel_lfs = internal::make_unique<substrait::ReadRel_LocalFiles>();
+    auto read_rel_lfs_lfs =
+        internal::make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
+    std::string path = "file:///some_path/data.arrow";
+    read_rel_lfs_lfs->set_uri_path(path);
+    read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_lfs.release());
+    *read_rel->mutable_local_files() = *read_rel_lfs.get();
     rel_->set_allocated_read(read_rel.release());
     return Status::OK();
   }
@@ -368,6 +379,7 @@ struct ExtractRelation {
     return AddRelation(declaration);
   }
 
+ private:
   substrait::Rel* rel_;
   ExtensionSet* ext_set_;
 };

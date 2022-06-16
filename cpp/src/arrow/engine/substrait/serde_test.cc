@@ -1205,8 +1205,18 @@ TEST(Substrait, SerializePlan) {
   std::cout << "Serialize Scan Relation" << std::endl;
   ASSERT_OK_AND_ASSIGN(auto serialized_rel,
                        SerializeRelation(scan_declaration, &ext_set));
-  ASSERT_OK_AND_ASSIGN(auto deserialized_rel,
+  ASSERT_OK_AND_ASSIGN(auto deserialized_decl,
                        DeserializeRelation(*serialized_rel, ext_set));
+
+  auto t_decls = compute::Declaration::Sequence({deserialized_decl, sink_declaration});
+
+  ASSERT_OK_AND_ASSIGN(auto t_plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto t_decl, t_decls.AddToPlan(t_plan.get()));
+
+  ASSERT_OK(t_decl->Validate());
+
+  std::cout << "Des Plan " << std::endl;
+  std::cout << t_plan->ToString() << std::endl;
 }
 
 }  // namespace engine
