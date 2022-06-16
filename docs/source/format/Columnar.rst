@@ -775,20 +775,25 @@ same a, called runs. Each run is represented as a value, and an integer
 describing how often this value is repeated.
 
 Any array can be run-length-encoded. A run-length encoded array has a single
-buffer holding as many 32-bit integers, as there are runs. The actual values are
-hold in a child array, which is just a regular array
+buffer holding as many 32-bit integers, as there are runs. The actual values
+are hold in a child array, which is just a regular array.
 
-The dictionary is stored as an optional
-property of an array. When a field is dictionary encoded, the values are
-represented by an array of non-negative integers representing the index of the
-value in the dictionary. The memory layout for a dictionary-encoded array is
-the same as that of a primitive integer layout. The dictionary is handled as a
-separate columnar array with its own respective layout.
+The values in the parent array buffer represent the length of each run. They do
+not hold the length of the respective run directly, but the accumulated length
+of all runs from the first to the current one. This allows relatively efficient
+random access from a logical index using binary search. The length of an
+individual run can be determined by subtracting two adjacent values.
+
+A run has to have a length of at least 1. This means the values in the
+accumulated run lengths buffer are all positive and in strictly ascending
+order.
+
+An accumulated run length cannot be null, therefore the parent array has no
+validity buffer.
 
 As an example, you could have the following data: ::
 
     type: Float32
-
     [1.0, 1.0, 1.0, 1.0, null, null, 2.0]
 
 In Run-length-encoded form, this could appear as:
@@ -818,31 +823,6 @@ In Run-length-encoded form, this could appear as:
           |-------------|-------------|-------------|-----------------------|
           | 1.0         | unspecified | 2.0         | unspecified (padding) |
 
-
-Note that a dictionary is permitted to contain duplicate values or
-nulls:
-
-::
-
-    data VarBinary (dictionary-encoded)
-       index_type: Int32
-       values: [0, 1, 3, 1, 4, 2]
-
-    dictionary
-       type: VarBinary
-       values: ['foo', 'bar', 'baz', 'foo', null]
-
-The null count of such arrays is dictated only by the validity bitmap
-of its indices, irrespective of any null values in the dictionary.
-
-Since unsigned integers can be more difficult to work with in some cases
-(e.g. in the JVM), we recommend preferring signed integers over unsigned
-integers for representing dictionary indices. Additionally, we recommend
-avoiding using 64-bit unsigned integer indices unless they are required by an
-application.
-
-We discuss dictionary encoding as it relates to serialization further
-below.
 
 Buffer Listing for Each Layout
 ------------------------------
@@ -1036,7 +1016,7 @@ The ``Buffer`` Flatbuffers value describes the location and size of a
 piece of memory. Generally these are interpreted relative to the
 **encapsulated message format** defined below.
 
-The ``size`` field of ``Buffer`` is not required to account for padding
+The ``size`` field of ``Buffer`` is not required to account for paddingeng-career-mgmt
 bytes. Since this metadata can be used to communicate in-memory pointer
 addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
