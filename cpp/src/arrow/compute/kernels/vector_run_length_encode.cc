@@ -67,7 +67,7 @@ struct RunLengthEncodeGenerator {
                           AllocateBuffer(num_values_output * sizeof(int64_t), pool));
 
     auto output_type = std::make_shared<RunLengthEncodedType>(input_data->type);
-    auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
+    auto output_array_data = ArrayData::Make(std::move(output_type), input_data->length);
     auto child_array_data = ArrayData::Make(input_data->type, num_values_output);
     output_array_data->buffers.push_back(std::move(run_lengths_buffer));
     child_array_data->buffers.push_back(std::move(validity_buffer));
@@ -263,7 +263,7 @@ struct RunLengthDecodeGenerator {
     bool has_validity_buffer = input_validity != NULLPTR;
 
     int64_t num_values_input = input_data->child_data[0]->length;
-    int64_t num_values_output = input_accumulated_run_length[num_values_input - 1];
+    int64_t num_values_output = input_data->length;
 
     auto pool = ctx->memory_pool();
 
