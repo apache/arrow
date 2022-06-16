@@ -151,14 +151,16 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Install Dependencies
-        shell: bash
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
           brew install --overwrite git
           brew bundle --file=cpp/Brewfile
+      - name: Install MinIO
+        run: |
+          $(brew --prefix bash)/bin/bash \
+            ci/scripts/install_minio.sh latest /usr/local
       - name: Install Google Cloud Storage Testbench
-        shell: bash
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Setup ccache
         run: |
@@ -174,7 +176,6 @@ jobs:
           key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-macos-
       - name: Build
-        shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
