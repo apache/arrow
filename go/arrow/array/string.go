@@ -113,6 +113,19 @@ func (a *String) setData(data *Data) {
 	if offsets := data.buffers[1]; offsets != nil {
 		a.offsets = arrow.Int32Traits.CastFromBytes(offsets.Bytes())
 	}
+
+	if a.array.data.length < 1 {
+		return
+	}
+
+	expNumOffsets := a.array.data.offset + a.array.data.length + 1
+	if len(a.offsets) < expNumOffsets {
+		panic(fmt.Errorf("arrow/array: string offset buffer must have at least %d values", expNumOffsets))
+	}
+
+	if int(a.offsets[expNumOffsets-1]) > len(a.values) {
+		panic("arrow/array: string offsets out of bounds of data buffer")
+	}
 }
 
 func (a *String) getOneForMarshal(i int) interface{} {

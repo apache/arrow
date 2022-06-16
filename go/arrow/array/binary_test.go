@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
 	"github.com/apache/arrow/go/v9/arrow/memory"
 )
 
@@ -427,4 +428,74 @@ func TestBinaryStringer(t *testing.T) {
 	if got != want {
 		t.Fatalf("invalid stringer:\ngot= %s\nwant=%s\n", got, want)
 	}
+}
+
+func TestBinaryInvalidOffsets(t *testing.T) {
+	const expectedPanic = "arrow/array: binary offsets out of bounds of data buffer"
+
+	makeBuffers := func(valids []bool, offsets []int32, data string) []*memory.Buffer {
+		offsetBuf := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(offsets))
+		var nullBufBytes []byte
+		var nullBuf *memory.Buffer
+		if valids != nil {
+			nullBufBytes = make([]byte, bitutil.BytesForBits(int64(len(valids))))
+			for i, v := range valids {
+				bitutil.SetBitTo(nullBufBytes, i, v)
+			}
+			nullBuf = memory.NewBufferBytes(nullBufBytes)
+		}
+		return []*memory.Buffer{nullBuf, offsetBuf, memory.NewBufferBytes([]byte(data))}
+	}
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{}, "")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 0, buffers, nil, 0, 0))
+	}, "empty array with no offsets")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{0, 5}, "")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 0, buffers, nil, 0, 0))
+	}, "empty array, offsets ignored")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{0, 3, 4, 9}, "oooabcdef")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 2))
+	}, "data has offset and value offsets are valid")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers(nil, []int32{0, 3, 6, 9, 9}, "012345678")
+		arr := NewBinaryData(NewData(arrow.BinaryTypes.Binary, 4, buffers, nil, 0, 0))
+		if assert.Equal(t, 4, arr.Len()) && assert.Zero(t, arr.NullN()) {
+			assert.EqualValues(t, "012", arr.Value(0))
+			assert.EqualValues(t, "345", arr.Value(1))
+			assert.EqualValues(t, "678", arr.Value(2))
+			assert.EqualValues(t, "", arr.Value(3), "trailing empty binary value will have offset past end")
+		}
+	}, "simple valid case")
+
+	assert.NotPanics(t, func() {
+		buffers := makeBuffers([]bool{true, false, true, false}, []int32{0, 3, 4, 9, 9}, "oooabcdef")
+		arr := NewBinaryData(NewData(arrow.BinaryTypes.Binary, 4, buffers, nil, 2, 0))
+		if assert.Equal(t, 4, arr.Len()) && assert.Equal(t, 2, arr.NullN()) {
+			assert.EqualValues(t, "ooo", arr.Value(0))
+			assert.True(t, arr.IsNull(1))
+			assert.EqualValues(t, "bcdef", arr.Value(2))
+			assert.True(t, arr.IsNull(3))
+		}
+	}, "simple valid case with nulls")
+
+	assert.PanicsWithValue(t, expectedPanic, func() {
+		buffers := makeBuffers(nil, []int32{0, 5}, "abc")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 0))
+	}, "last offset is overflowing")
+
+	assert.PanicsWithError(t, "arrow/array: binary offset buffer must have at least 2 values", func() {
+		buffers := makeBuffers(nil, []int32{0}, "abc")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 0))
+	}, "last offset is missing")
+
+	assert.PanicsWithValue(t, expectedPanic, func() {
+		buffers := makeBuffers(nil, []int32{0, 3, 10, 15}, "oooabcdef")
+		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 2))
+	}, "data has offset and value offset is overflowing")
 }
