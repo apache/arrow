@@ -102,8 +102,7 @@ int64_t GetFilterOutputSizeRLE(const ArrayData& values, const ArrayData& filter,
 
   if (null_selection == FilterOptions::EMIT_NULL) {
     rle_util::VisitMergedRuns(
-        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0),
-        /*values.length*/ values.GetValues<int64_t>(0)[values.length - 1],
+        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
         [&](int64_t, int64_t, int64_t filter_index) {
           if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index) ||
               bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
@@ -112,8 +111,7 @@ int64_t GetFilterOutputSizeRLE(const ArrayData& values, const ArrayData& filter,
         });
   } else {
     rle_util::VisitMergedRuns(
-        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0),
-        /*values.length*/ values.GetValues<int64_t>(0)[values.length - 1],
+        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
         [&](int64_t, int64_t, int64_t filter_index) {
           if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index) &&
               bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
@@ -848,7 +846,7 @@ class PrimitiveRLEFilterImpl {
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_physical_length_(values.length),
-        input_logical_length_(values_run_length_[values.length - 1]),
+        input_logical_length_(values.length),
         filter_is_valid_(filter.is_valid),
         filter_data_(filter.data),
         filter_run_length_(filter.run_length),
@@ -918,6 +916,7 @@ class PrimitiveRLEFilterImpl {
   // Write the next out_position given the selected in_position for the input
   // data and advance out_position
   void WriteValue(int64_t in_position, int64_t run_length) {
+    out_run_length_[out_position_] = run_length;
     out_data_[out_position_++] = values_data_[in_position];
   }
 
