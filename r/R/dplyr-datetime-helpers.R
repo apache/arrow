@@ -16,7 +16,7 @@
 # under the License.
 
 check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
-  if (tolower(Sys.info()[["sysname"]]) == "windows" & locale != "C") {
+  if (tolower(Sys.info()[["sysname"]]) == "windows" && locale != "C") {
     # MingW C++ std::locale only supports "C" and "POSIX"
     stop(paste0(
       "On Windows, time locales other than 'C' are not supported in Arrow. ",
