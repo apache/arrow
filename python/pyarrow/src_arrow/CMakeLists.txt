@@ -36,8 +36,10 @@ get_filename_component(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR} DIRECTORY)
 set(ARROW_SOURCE_DIR "${ARROW_SOURCE_DIR}/cpp")
 set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules")
 
+set(ARROW_PYTHON_VERSION "9.0.0-SNAPSHOT")
+string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_PYTHON_BASE_VERSION "${ARROW_PYTHON_VERSION}")
 # Need to set to ARRROW_VERSION before finding Arrow package!
-project(arrow_python VERSION 9.0.0)
+project(arrow_python VERSION "${ARROW_PYTHON_BASE_VERSION}")
 
 if(NOT DEFINED CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
