@@ -42,9 +42,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/rle_util.h"
-#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
@@ -61,7 +61,6 @@ using internal::OptionalBitIndexer;
 
 namespace compute {
 namespace internal {
-
 
 int64_t GetFilterOutputSize(const ArrayData& filter,
                             FilterOptions::NullSelectionBehavior null_selection) {
@@ -92,30 +91,35 @@ int64_t GetFilterOutputSize(const ArrayData& filter,
   return output_size;
 }
 
-int64_t GetFilterOutputSizeRLE(const ArrayData& values,
-                               const ArrayData& filter,
+int64_t GetFilterOutputSizeRLE(const ArrayData& values, const ArrayData& filter,
                                FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
 
-  const ArrayData &filter_data = *filter.child_data[0];
+  const ArrayData& filter_data = *filter.child_data[0];
   const int64_t filter_offset = filter_data.offset;
   const uint8_t* filter_is_valid = filter_data.buffers[0]->data();
   const uint8_t* filter_selection = filter_data.buffers[1]->data();
 
   if (null_selection == FilterOptions::EMIT_NULL) {
-    rle_util::VisitMergedRuns(values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), /*values.length*/ values.GetValues<int64_t>(0)[values.length-1], [&](int64_t, int64_t, int64_t filter_index){
-      if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index)
-          || bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
-        output_size++;
-      }
-    });
+    rle_util::VisitMergedRuns(
+        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0),
+        /*values.length*/ values.GetValues<int64_t>(0)[values.length - 1],
+        [&](int64_t, int64_t, int64_t filter_index) {
+          if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index) ||
+              bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+            output_size++;
+          }
+        });
   } else {
-    rle_util::VisitMergedRuns(values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), /*values.length*/ values.GetValues<int64_t>(0)[values.length-1], [&](int64_t, int64_t, int64_t filter_index){
-      if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index)
-          && bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
-        output_size++;
-      }
-    });
+    rle_util::VisitMergedRuns(
+        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0),
+        /*values.length*/ values.GetValues<int64_t>(0)[values.length - 1],
+        [&](int64_t, int64_t, int64_t filter_index) {
+          if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index) &&
+              bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+            output_size++;
+          }
+        });
   }
   return output_size;
 }
@@ -292,17 +296,19 @@ Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
 }
 
 Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_width,
-                       bool allocate_validity, ArrayData* out) {
+                          bool allocate_validity, ArrayData* out) {
   // Preallocate memory
-  out->length = physical_length; // TODO: this should change?
+  out->length = physical_length;  // TODO: this should change?
   out->buffers.resize(1);
   out->child_data.resize(1);
 
-  auto child = std::make_shared<ArrayData>(checked_cast<RunLengthEncodedType&>(*out->type).encoded_type(), physical_length);
+  auto child = std::make_shared<ArrayData>(
+      checked_cast<RunLengthEncodedType&>(*out->type).encoded_type(), physical_length);
   child->buffers.resize(2);
-  //child.length = physical_length;
+  // child.length = physical_length;
 
-  ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->Allocate(physical_length * sizeof(int64_t)));
+  ARROW_ASSIGN_OR_RAISE(out->buffers[0],
+                        ctx->Allocate(physical_length * sizeof(int64_t)));
 
   if (allocate_validity) {
     ARROW_ASSIGN_OR_RAISE(child->buffers[0], ctx->AllocateBitmap(physical_length));
@@ -310,7 +316,8 @@ Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_w
   if (bit_width == 1) {
     ARROW_ASSIGN_OR_RAISE(child->buffers[1], ctx->AllocateBitmap(physical_length));
   } else {
-    ARROW_ASSIGN_OR_RAISE(child->buffers[1], ctx->Allocate(physical_length * bit_width / 8));
+    ARROW_ASSIGN_OR_RAISE(child->buffers[1],
+                          ctx->Allocate(physical_length * bit_width / 8));
   }
   out->child_data[0] = std::move(child);
   return Status::OK();
@@ -833,15 +840,15 @@ class PrimitiveRLEFilterImpl {
                                       uint8_t, typename ArrowType::c_type>::type;
 
   PrimitiveRLEFilterImpl(const PrimitiveArg& values, const PrimitiveArg& filter,
-                      FilterOptions::NullSelectionBehavior null_selection,
-                      ArrayData* out_arr)
+                         FilterOptions::NullSelectionBehavior null_selection,
+                         ArrayData* out_arr)
       : values_is_valid_(values.is_valid),
         values_run_length_(values.run_length),
         values_data_(reinterpret_cast<const T*>(values.data)),
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_physical_length_(values.length),
-        input_logical_length_(values_run_length_[values.length-1]),
+        input_logical_length_(values_run_length_[values.length - 1]),
         filter_is_valid_(filter.is_valid),
         filter_data_(filter.data),
         filter_run_length_(filter.run_length),
@@ -868,7 +875,6 @@ class PrimitiveRLEFilterImpl {
   }*/
 
   void Exec() {
-
     /*auto WriteNotNull = [&](int64_t value_index, int64_t run_length) {
       bit_util::SetBit(out_is_valid_, out_offset_ + out_position_);
       // Increments out_position_
@@ -876,29 +882,36 @@ class PrimitiveRLEFilterImpl {
     };*/
 
     auto WriteMaybeNull = [&](int64_t value_index, int64_t run_length) {
-      bit_util::SetBitTo(out_is_valid_, out_offset_ + out_position_,
-                         bit_util::GetBit(values_is_valid_, values_offset_ + value_index));
+      bit_util::SetBitTo(
+          out_is_valid_, out_offset_ + out_position_,
+          bit_util::GetBit(values_is_valid_, values_offset_ + value_index));
       // Increments out_position_
       WriteValue(value_index, run_length);
     };
 
     if (null_selection_ == FilterOptions::DROP) {
-      rle_util::VisitMergedRuns(values_run_length_, filter_run_length_, input_logical_length_, [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-        if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
-            bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
-          WriteMaybeNull(value_index, run_length);
-        }
-      });
-    } else { // null_selection == FilterOptions::EMIT_NULL
-      rle_util::VisitMergedRuns(values_run_length_, filter_run_length_, input_logical_length_, [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-        const bool is_valid = bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
-        if (is_valid && bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
-          WriteMaybeNull(value_index, run_length);
-        }
-        if (!is_valid) {
-          WriteNull();
-        }
-      });
+      rle_util::VisitMergedRuns(
+          values_run_length_, filter_run_length_, input_logical_length_,
+          [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+            if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
+                bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+              WriteMaybeNull(value_index, run_length);
+            }
+          });
+    } else {  // null_selection == FilterOptions::EMIT_NULL
+      rle_util::VisitMergedRuns(
+          values_run_length_, filter_run_length_, input_logical_length_,
+          [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+            const bool is_valid =
+                bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
+            if (is_valid &&
+                bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+              WriteMaybeNull(value_index, run_length);
+            }
+            if (!is_valid) {
+              WriteNull();
+            }
+          });
     }
   }
 
@@ -2028,7 +2041,8 @@ Status RLEFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
-  int64_t output_length = GetFilterOutputSizeRLE(*batch[0].array(), *batch[1].array(), null_selection);
+  int64_t output_length =
+      GetFilterOutputSizeRLE(*batch[0].array(), *batch[1].array(), null_selection);
 
   ArrayData* out_arr = out->mutable_array();
 
@@ -2047,13 +2061,14 @@ Status RLEFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  RETURN_NOT_OK(
-      PreallocateDataRLE(ctx, output_length, values.bit_width, allocate_validity, out_arr));
+  RETURN_NOT_OK(PreallocateDataRLE(ctx, output_length, values.bit_width,
+                                   allocate_validity, out_arr));
 
   switch (values.bit_width) {
     case 1:
-    DCHECK(false) << "TODO";
-      //PrimitiveRLEFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
+      DCHECK(false) << "TODO";
+      // PrimitiveRLEFilterImpl<BooleanType>(values, filter, null_selection,
+      // out_arr).Exec();
       break;
     case 8:
       PrimitiveRLEFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
@@ -2191,11 +2206,12 @@ class FilterMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-
-    auto &filter_type = *args[1].type();
+    auto& filter_type = *args[1].type();
     const bool filter_is_plain = args[1].type()->id() == Type::BOOL;
-    const bool filter_is_rle = args[1].type()->id() == Type::RUN_LENGTH_ENCODED
-        && checked_cast<arrow::RunLengthEncodedType&>(filter_type).encoded_type()->id() == Type::BOOL;
+    const bool filter_is_rle =
+        args[1].type()->id() == Type::RUN_LENGTH_ENCODED &&
+        checked_cast<arrow::RunLengthEncodedType&>(filter_type).encoded_type()->id() ==
+            Type::BOOL;
     if (!filter_is_plain && !filter_is_rle) {
       return Status::NotImplemented("Filter argument must be boolean type");
     }
@@ -2576,8 +2592,10 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
     DCHECK_OK(func->AddKernel(base_kernel));
   }
 
-  base_kernel.signature = KernelSignature::Make(
-      {InputType::Array(run_length_encoded(uint32())), InputType::Array(run_length_encoded(boolean()))}, OutputType(FirstType));
+  base_kernel.signature =
+      KernelSignature::Make({InputType::Array(run_length_encoded(uint32())),
+                             InputType::Array(run_length_encoded(boolean()))},
+                            OutputType(FirstType));
   base_kernel.exec = RLEFilter;
   DCHECK_OK(func->AddKernel(base_kernel));
 

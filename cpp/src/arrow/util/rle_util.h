@@ -17,16 +17,17 @@
 
 #pragma once
 
-#include <cstdint>
 #include <algorithm>
+#include <cstdint>
 
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace rle_util {
 
-template<typename CallbackType>
-void VisitMergedRuns(const int64_t* a, const int64_t* b, int64_t logical_length, CallbackType callback) {
+template <typename CallbackType>
+void VisitMergedRuns(const int64_t* a, const int64_t* b, int64_t logical_length,
+                     CallbackType callback) {
   int64_t a_run_index = 0;
   int64_t b_run_index = 0;
   int64_t logical_position = 0;

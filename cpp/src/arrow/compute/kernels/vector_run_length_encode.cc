@@ -369,7 +369,6 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
 
-
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
 
