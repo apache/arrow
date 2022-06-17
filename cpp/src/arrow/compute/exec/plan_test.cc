@@ -391,8 +391,7 @@ TEST(ExecPlan, ToString) {
                           }}},
               {"aggregate",
                AggregateNodeOptions{
-                   /*aggregates=*/{{"hash_sum", nullptr},
-                                   {"hash_count", std::move(options)}},
+                   /*aggregates=*/{{"hash_sum", nullptr}, {"hash_count", options}},
                    /*targets=*/{"multiply(i32, 2)", "multiply(i32, 2)"},
                    /*names=*/{"sum(multiply(i32, 2))", "count(multiply(i32, 2))"},
                    /*keys=*/{"bool"}}},

@@ -55,17 +55,13 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    auto options = aggregates[i].options;
+    const FunctionOptions* options = aggregates[i].options.get();
 
     if (options == nullptr) {
       // use known default options for the named function if possible
       auto maybe_function = ctx->func_registry()->GetFunction(aggregates[i].function);
       if (maybe_function.ok()) {
-        const FunctionOptions* default_opts =
-            maybe_function.ValueOrDie()->default_options();
-        if (default_opts != nullptr) {
-          options = default_opts->Copy();
-        }
+        options = maybe_function.ValueOrDie()->default_options();
       }
     }
 
@@ -77,7 +73,7 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
                                                          in_descrs[i],
                                                          ValueDescr::Array(uint32()),
                                                      },
-                                                     options.get()}));
+                                                     options}));
   }
 
   return std::move(states);
