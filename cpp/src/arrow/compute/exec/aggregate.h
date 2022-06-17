@@ -46,8 +46,7 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs);
+    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs);
 
 Result<FieldVector> ResolveKernels(
     const std::vector<Aggregate>& aggregates,

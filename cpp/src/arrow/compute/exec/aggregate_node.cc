@@ -41,24 +41,6 @@ using internal::checked_cast;
 
 namespace compute {
 
-namespace internal {
-
-Result<std::vector<const HashAggregateKernel*>> GetKernels(
-    ExecContext* ctx, const std::vector<Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs);
-
-Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
-    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs);
-
-Result<FieldVector> ResolveKernels(
-    const std::vector<Aggregate>& aggregates,
-    const std::vector<const HashAggregateKernel*>& kernels,
-    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<ValueDescr>& descrs);
-
-}  // namespace internal
-
 namespace {
 
 void AggregatesToString(

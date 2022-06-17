@@ -56,21 +56,6 @@ class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
-/// \brief Configure a grouped aggregation
-struct ARROW_EXPORT Aggregate {
-  /// the name of the aggregation function
-  std::string function;
-
-  /// options for the aggregation function
-  const FunctionOptions* options;
-
-  // fields to which aggregations will be applied
-  FieldRef target;
-
-  // output field name for aggregations
-  std::string name;
-};
-
 /// \brief Control count aggregate kernel behavior.
 ///
 /// By default, only non-null values are counted.
@@ -407,6 +392,21 @@ Result<Datum> TDigest(const Datum& value,
 ARROW_EXPORT
 Result<Datum> Index(const Datum& value, const IndexOptions& options,
                     ExecContext* ctx = NULLPTR);
+
+/// \brief Configure a grouped aggregation
+struct ARROW_EXPORT Aggregate {
+  /// the name of the aggregation function
+  std::string function;
+
+  /// options for the aggregation function
+  const FunctionOptions* options;
+
+  // fields to which aggregations will be applied
+  FieldRef target;
+
+  // output field name for aggregations
+  std::string name;
+};
 
 }  // namespace compute
 }  // namespace arrow
