@@ -52,7 +52,8 @@ struct ARROW_EXPORT KernelState {
 /// \brief Context/state for the execution of a particular kernel.
 class ARROW_EXPORT KernelContext {
  public:
-  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
+  explicit KernelContext(ExecContext* exec_ctx, const Kernel* kernel)
+      : exec_ctx_(exec_ctx), kernel_(kernel) {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
   /// not initialized.
@@ -78,9 +79,12 @@ class ARROW_EXPORT KernelContext {
   /// MemoryPool contained in the ExecContext used to create the KernelContext.
   MemoryPool* memory_pool() { return exec_ctx_->memory_pool(); }
 
+  const Kernel* kernel() const { return kernel_; }
+
  private:
   ExecContext* exec_ctx_;
   KernelState* state_ = NULLPTR;
+  const Kernel* kernel_ = NULLPTR;
 };
 
 /// \brief An type-checking interface to permit customizable validation rules
@@ -582,7 +586,7 @@ struct ScalarKernel : public Kernel {
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
 
   // Additional kernel-specific data
-  std::unique_ptr<KernelState> data;
+  std::shared_ptr<KernelState> data;
 };
 
 // ----------------------------------------------------------------------

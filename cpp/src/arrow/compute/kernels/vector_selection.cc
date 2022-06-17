@@ -53,7 +53,6 @@ using internal::BitBlockCounter;
 using internal::CheckIndexBounds;
 using internal::CopyBitmap;
 using internal::CountSetBits;
-using internal::GetArrayView;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
@@ -99,10 +98,9 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
 
   const uint8_t* filter_data = filter.buffers[1].data;
   const bool have_filter_nulls = filter.MayHaveNulls();
-  const uint8_t* filter_is_valid =
-      filter.buffers[0].data
+  const uint8_t* filter_is_valid = filter.buffers[0].data;
 
-      if (have_filter_nulls && null_selection == FilterOptions::EMIT_NULL) {
+  if (have_filter_nulls && null_selection == FilterOptions::EMIT_NULL) {
     // Most complex case: the filter may have nulls and we don't drop them.
     // The logic is ternary:
     // - filter is null: emit null
@@ -1246,7 +1244,7 @@ struct Selection {
   ArrayData* out;
   TypedBufferBuilder<bool> validity_builder;
 
-  Selection(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
+  Selection(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
             ExecResult* out)
       : ctx(ctx),
         values(batch[0].array),
@@ -1439,7 +1437,7 @@ struct Selection {
   Status ExecTake() {
     RETURN_NOT_OK(this->validity_builder.Reserve(output_length));
     RETURN_NOT_OK(Init());
-    int index_width = this->selection->type->byte_width();
+    int index_width = this->selection.type->byte_width();
 
     // CTRP dispatch here
     switch (index_width) {
@@ -1503,26 +1501,27 @@ struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
   using Base = Selection<VarBinaryImpl<Type>, Type>;
   LIFT_BASE_MEMBERS();
 
-  std::shared_ptr<ArrayData> values_as_binary;
   TypedBufferBuilder<offset_type> offset_builder;
   TypedBufferBuilder<uint8_t> data_builder;
 
   static constexpr int64_t kOffsetLimit = std::numeric_limits<offset_type>::max() - 1;
 
-  VarBinaryImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
-                Datum* out)
+  VarBinaryImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+                ExecResult* out)
       : Base(ctx, batch, output_length, out),
         offset_builder(ctx->memory_pool()),
         data_builder(ctx->memory_pool()) {}
 
   template <typename Adapter>
   Status GenerateOutput() {
-    ValuesArrayType typed_values(this->values_as_binary);
+    const auto raw_offsets = this->values.template GetValues<offset_type>(1);
+    const uint8_t* raw_data = this->values.buffers[2].data;
 
     // Presize the data builder with a rough estimate of the required data size
-    if (values.length > 0) {
+    if (this->values.length > 0) {
+      int64_t data_length = raw_offsets[this->values.length] - raw_offsets[0];
       const double mean_value_length =
-          (typed_values.total_values_length() / static_cast<double>(values.length));
+          data_length / static_cast<double>(this->values.length);
 
       // TODO: See if possible to reduce output_length for take/filter cases
       // where there are nulls in the selection array
@@ -1530,9 +1529,6 @@ struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
           data_builder.Reserve(static_cast<int64_t>(mean_value_length * output_length)));
     }
     int64_t space_available = data_builder.capacity();
-
-    const offset_type* raw_offsets = typed_values.raw_value_offsets();
-    const uint8_t* raw_data = typed_values.raw_data();
 
     offset_type offset = 0;
     Adapter adapter(this);
@@ -1566,11 +1562,7 @@ struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
     return Status::OK();
   }
 
-  Status Init() override {
-    ARROW_ASSIGN_OR_RAISE(this->values_as_binary,
-                          GetArrayView(this->values, TypeTraits<Type>::type_singleton()));
-    return offset_builder.Reserve(output_length + 1);
-  }
+  Status Init() override { return offset_builder.Reserve(output_length + 1); }
 
   Status Finish() override {
     RETURN_NOT_OK(offset_builder.Finish(&out->buffers[1]));
@@ -1584,12 +1576,13 @@ struct FSBImpl : public Selection<FSBImpl, FixedSizeBinaryType> {
 
   TypedBufferBuilder<uint8_t> data_builder;
 
-  FSBImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length, Datum* out)
+  FSBImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+          ExecResult* out)
       : Base(ctx, batch, output_length, out), data_builder(ctx->memory_pool()) {}
 
   template <typename Adapter>
   Status GenerateOutput() {
-    FixedSizeBinaryArray typed_values(this->values);
+    FixedSizeBinaryArray typed_values(this->values.ToArrayData());
     int32_t value_size = typed_values.byte_width();
 
     RETURN_NOT_OK(data_builder.Reserve(value_size * output_length));
@@ -1620,14 +1613,15 @@ struct ListImpl : public Selection<ListImpl<Type>, Type> {
   TypedBufferBuilder<offset_type> offset_builder;
   typename TypeTraits<Type>::OffsetBuilderType child_index_builder;
 
-  ListImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length, Datum* out)
+  ListImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+           ExecResult* out)
       : Base(ctx, batch, output_length, out),
         offset_builder(ctx->memory_pool()),
         child_index_builder(ctx->memory_pool()) {}
 
   template <typename Adapter>
   Status GenerateOutput() {
-    ValuesArrayType typed_values(this->values);
+    ValuesArrayType typed_values(this->values.ToArrayData());
 
     // TODO presize child_index_builder with a similar heuristic as VarBinaryImpl
 
@@ -1662,7 +1656,7 @@ struct ListImpl : public Selection<ListImpl<Type>, Type> {
     std::shared_ptr<Array> child_indices;
     RETURN_NOT_OK(child_index_builder.Finish(&child_indices));
 
-    ValuesArrayType typed_values(this->values);
+    ValuesArrayType typed_values(this->values.ToArrayData());
 
     // No need to boundscheck the child values indices
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> taken_child,
@@ -1683,8 +1677,8 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
   std::vector<int8_t> type_codes_;
   std::vector<Int32Builder> child_indices_builders_;
 
-  DenseUnionImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
-                 Datum* out)
+  DenseUnionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+                 ExecResult* out)
       : Base(ctx, batch, output_length, out),
         value_offset_buffer_builder_(ctx->memory_pool()),
         child_id_buffer_builder_(ctx->memory_pool()),
@@ -1697,7 +1691,7 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
 
   template <typename Adapter>
   Status GenerateOutput() {
-    DenseUnionArray typed_values(this->values);
+    DenseUnionArray typed_values(this->values.ToArrayData());
     Adapter adapter(this);
     RETURN_NOT_OK(adapter.Generate(
         [&](int64_t index) {
@@ -1732,7 +1726,7 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
     ARROW_ASSIGN_OR_RAISE(auto child_ids_buffer, child_id_buffer_builder_.Finish());
     ARROW_ASSIGN_OR_RAISE(auto value_offsets_buffer,
                           value_offset_buffer_builder_.Finish());
-    DenseUnionArray typed_values(this->values);
+    DenseUnionArray typed_values(this->values.ToArrayData());
     auto num_fields = typed_values.num_fields();
     auto num_rows = child_ids_buffer->size();
     BufferVector buffers{nullptr, std::move(child_ids_buffer),
@@ -1755,12 +1749,13 @@ struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
   using Base = Selection<FSLImpl, FixedSizeListType>;
   LIFT_BASE_MEMBERS();
 
-  FSLImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length, Datum* out)
+  FSLImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+          ExecResult* out)
       : Base(ctx, batch, output_length, out), child_index_builder(ctx->memory_pool()) {}
 
   template <typename Adapter>
   Status GenerateOutput() {
-    ValuesArrayType typed_values(this->values);
+    ValuesArrayType typed_values(this->values.ToArrayData());
     const int32_t list_size = typed_values.list_type()->list_size();
     const int64_t base_offset = typed_values.offset();
 
@@ -1784,7 +1779,7 @@ struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
     std::shared_ptr<Array> child_indices;
     RETURN_NOT_OK(child_index_builder.Finish(&child_indices));
 
-    ValuesArrayType typed_values(this->values);
+    ValuesArrayType typed_values(this->values.ToArrayData());
 
     // No need to boundscheck the child values indices
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> taken_child,
@@ -1812,7 +1807,7 @@ struct StructImpl : public Selection<StructImpl, StructType> {
 
   template <typename Adapter>
   Status GenerateOutput() {
-    StructArray typed_values(values);
+    StructArray typed_values(this->values.ToArrayData());
     Adapter adapter(this);
     // There's nothing to do for Struct except to generate the validity bitmap
     return adapter.Generate([&](int64_t index) { return Status::OK(); },
@@ -1820,13 +1815,15 @@ struct StructImpl : public Selection<StructImpl, StructType> {
   }
 
   Status Finish() override {
-    StructArray typed_values(values);
+    StructArray typed_values(this->values.ToArrayData());
 
     // Select from children without boundschecking
-    out->child_data.resize(values.type->num_fields());
-    for (int field_index = 0; field_index < values.type->num_fields(); ++field_index) {
+    out->child_data.resize(this->values.type->num_fields());
+    for (int field_index = 0; field_index < this->values.type->num_fields();
+         ++field_index) {
       ARROW_ASSIGN_OR_RAISE(Datum taken_field,
-                            Take(Datum(typed_values.field(field_index)), Datum(selection),
+                            Take(Datum(typed_values.field(field_index)),
+                                 Datum(this->selection.ToArrayData()),
                                  TakeOptions::NoBoundsCheck(), ctx->exec_context()));
       out->child_data[field_index] = taken_field.array();
     }
@@ -1834,18 +1831,18 @@ struct StructImpl : public Selection<StructImpl, StructType> {
   }
 };
 
-Status StructFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status StructFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // Transform filter to selection indices and then use Take.
   std::shared_ptr<ArrayData> indices;
-  RETURN_NOT_OK(GetTakeIndices(*batch[1].array(),
+  RETURN_NOT_OK(GetTakeIndices(batch[1].array,
                                FilterState::Get(ctx).null_selection_behavior,
                                ctx->memory_pool())
                     .Value(&indices));
 
   Datum result;
-  RETURN_NOT_OK(
-      Take(batch[0], Datum(indices), TakeOptions::NoBoundsCheck(), ctx->exec_context())
-          .Value(&result));
+  RETURN_NOT_OK(Take(batch[0].array.ToArrayData(), Datum(indices),
+                     TakeOptions::NoBoundsCheck(), ctx->exec_context())
+                    .Value(&result));
   out->value = result.array();
   return Status::OK();
 }
@@ -2372,7 +2369,7 @@ struct NonZeroVisitor {
   UInt64Builder* builder;
   const std::vector<ArraySpan>& arrays;
 
-  NonZeroVisitor(UInt64Builder* builder, const ArrayDataVector& arrays)
+  NonZeroVisitor(UInt64Builder* builder, const std::vector<ArraySpan>& arrays)
       : builder(builder), arrays(arrays) {}
 
   Status Visit(const DataType& type) { return Status::NotImplemented(type.ToString()); }
@@ -2413,9 +2410,9 @@ Status DoNonZero(const std::vector<ArraySpan>& arrays, int64_t total_length,
 }
 
 Status IndicesNonZeroExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  std::shared_ptr<Array> result;
+  std::shared_ptr<ArrayData> result;
   RETURN_NOT_OK(DoNonZero({batch[0].array}, batch.length, &result));
-  out->value = std::move(result->data());
+  out->value = std::move(result);
   return Status::OK();
 }
 
@@ -2423,11 +2420,11 @@ Status IndicesNonZeroExecChunked(KernelContext* ctx, const ExecBatch& batch, Dat
   const ChunkedArray& arr = *batch[0].chunked_array();
   std::vector<ArraySpan> arrays(arr.num_chunks());
   for (int i = 0; i < arr.num_chunks(); ++i) {
-    arrays.push_back(ArraySpan(*arr->chunk(i)->data()));
+    arrays.push_back(ArraySpan(*arr.chunk(i)->data()));
   }
-  std::shared_ptr<Array> result;
+  std::shared_ptr<ArrayData> result;
   RETURN_NOT_OK(DoNonZero(arrays, arr.length(), &result));
-  out->value = std::move(result->data());
+  out->value = std::move(result);
   return Status::OK();
 }
 

@@ -101,7 +101,7 @@ struct GrouperImpl : Grouper {
   Result<Datum> Consume(const ExecBatch& batch) override {
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
-      encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
+      encoders_[i]->AddLength(*batch[i].array(), batch.length, offsets_batch.data());
     }
 
     int32_t total_length = 0;
@@ -119,7 +119,8 @@ struct GrouperImpl : Grouper {
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {
-      RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
+      RETURN_NOT_OK(
+          encoders_[i]->Encode(*batch[i].array(), batch.length, key_buf_ptrs.data()));
     }
 
     TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());

@@ -330,7 +330,7 @@ std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
       std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
-    flipped_kernel.data = std::unique_ptr<KernelState>(new FlippedData{kernel->exec});
+    flipped_kernel.data = std::make_shared<FlippedData>(kernel->exec);
     flipped_kernel.exec = FlippedBinaryExec;
     DCHECK_OK(flipped_func->AddKernel(std::move(flipped_kernel)));
   }
@@ -722,7 +722,8 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc d
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryScalarMinMax, Op>(ty);
+    auto exec =
+        GenerateTypeAgnosticVarBinaryBase<BinaryScalarMinMax, ArrayKernelExec, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;

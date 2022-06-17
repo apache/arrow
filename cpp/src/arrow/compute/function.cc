@@ -252,11 +252,11 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
     return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchBest(&inputs));
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
   ARROW_ASSIGN_OR_RAISE(std::vector<Datum> args_with_casts, Cast(args, inputs, ctx));
 
   std::unique_ptr<KernelState> state;
-  KernelContext kernel_ctx{ctx};
+  KernelContext kernel_ctx{ctx, kernel};
   if (kernel->init) {
     ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
     kernel_ctx.SetState(state.get());

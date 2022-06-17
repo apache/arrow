@@ -152,8 +152,8 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   }
 
   Type::type type_id = this->type->id();
-  if (data.buffers[0] = nullptr && type_id != Type::NA && type_id != Type::SPARSE_UNION &&
-                        type_id != Type::DENSE_UNION) {
+  if (data.buffers[0] == nullptr && type_id != Type::NA &&
+      type_id != Type::SPARSE_UNION && type_id != Type::DENSE_UNION) {
     // This should already be zero but we make for sure
     this->null_count = 0;
   }

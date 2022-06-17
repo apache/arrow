@@ -1044,8 +1044,9 @@ struct FailFunctor<VectorKernel::ChunkedExec> {
 Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 // GD for numeric types (integer and floating point)
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename Type0,
+          typename KernelType = ArrayKernelExec, typename... Args>
+KernelType GenerateNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1069,7 +1070,7 @@ ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
@@ -1148,8 +1149,8 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
   }
 }
 
-template <template <typename...> class KernelGenerator, typename Op, typename KernelType,
-          typename... Args>
+template <template <typename...> class KernelGenerator, typename Op,
+          typename KernelType = ArrayKernelExec, typename... Args>
 KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:

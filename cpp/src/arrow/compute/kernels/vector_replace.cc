@@ -22,10 +22,6 @@
 #include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
-
-using internal::CountAndSetBits;
-using internal::CountSetBits;
-
 namespace compute {
 namespace internal {
 
@@ -332,12 +328,7 @@ Status CheckReplaceMaskInputs(const DataType& value_type, int64_t arr_length,
     mask_count = (mask.is_valid && mask.value) ? arr_length : 0;
   } else {
     const ArraySpan& mask = mask_box.array;
-    if (mask.buffers[0].data != nullptr) {
-      mask_count = CountAndSetBits(mask.buffers[0].data, mask.offset,
-                                   mask.buffers[1].data, mask.offset, mask.length);
-    } else {
-      mask_count = CountSetBits(mask.buffers[1].data, mask.offset, mask.length);
-    }
+    mask_count = GetTrueCount(mask);
     if (mask.length != arr_length) {
       return Status::Invalid("Mask must be of same length as array (expected ",
                              arr_length, " items but got ", mask.length, " items)");

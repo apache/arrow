@@ -212,7 +212,7 @@ Status DictionaryKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
                                     uint8_t** encoded_bytes) {
   std::shared_ptr<Array> dict;
   if (data.is_array()) {
-    dict = data.dictionary().ToArray();
+    dict = data.array.dictionary().ToArray();
   } else {
     dict = data.scalar_as<DictionaryScalar>().value.dictionary;
   }
@@ -228,9 +228,11 @@ Status DictionaryKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
   }
   if (data.is_array()) {
     return FixedWidthKeyEncoder::Encode(data, batch_length, encoded_bytes);
+  } else {
+    const std::shared_ptr<Scalar>& index = data.scalar_as<DictionaryScalar>().value.index;
+    return FixedWidthKeyEncoder::Encode(ExecValue(index.get()), batch_length,
+                                        encoded_bytes);
   }
-  return FixedWidthKeyEncoder::Encode(data.scalar_as<DictionaryScalar>().value.index,
-                                      batch_length, encoded_bytes);
 }
 
 Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encoded_bytes,
