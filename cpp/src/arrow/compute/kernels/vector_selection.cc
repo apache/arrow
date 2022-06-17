@@ -2423,7 +2423,7 @@ Status IndicesNonZeroExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
 
 Status IndicesNonZeroExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const ChunkedArray& arr = *batch[0].chunked_array();
-  std::vector<ArraySpan> arrays(arr.num_chunks());
+  std::vector<ArraySpan> arrays;
   for (int i = 0; i < arr.num_chunks(); ++i) {
     arrays.push_back(ArraySpan(*arr.chunk(i)->data()));
   }

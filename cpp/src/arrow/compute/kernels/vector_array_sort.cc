@@ -68,8 +68,8 @@ struct PartitionNthToIndices {
     if (pivot > arr.length()) {
       return Status::IndexError("NthToIndices index out of bound");
     }
-    ArraySpan* out_arr = out->array_span();
-    uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
+    ArrayData* out_arr = out->array_data().get();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
     std::iota(out_begin, out_end, 0);
     if (pivot == arr.length()) {
@@ -96,8 +96,8 @@ struct PartitionNthToIndices<OutType, NullType> {
     if (ctx->state() == nullptr) {
       return Status::Invalid("NthToIndices requires PartitionNthOptions");
     }
-    ArraySpan* out_arr = out->array_span();
-    uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
+    ArrayData* out_arr = out->array_data().get();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + batch.length;
     std::iota(out_begin, out_end, 0);
     return Status::OK();
@@ -437,8 +437,8 @@ struct ArraySortIndices {
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = ArraySortIndicesState::Get(ctx);
-    ArraySpan* out_arr = out->array_span();
-    uint64_t* out_begin = out_arr->GetValues<uint64_t>(1);
+    ArrayData* out_arr = out->array_data().get();
+    uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + out_arr->length;
     std::iota(out_begin, out_end, 0);
 
@@ -449,6 +449,18 @@ struct ArraySortIndices {
     return Status::OK();
   }
 };
+
+Status ArraySortIndicesChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const auto& options = ArraySortIndicesState::Get(ctx);
+  ArrayData* out_arr = out->mutable_array();
+  DCHECK_EQ(out_arr->length, batch.length);
+  uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
+  uint64_t* out_end = out_begin + out_arr->length;
+  std::iota(out_begin, out_end, 0);
+  return SortChunkedArray(ctx->exec_context(), out_begin, out_end,
+                          *batch[0].chunked_array(), options.order,
+                          options.null_placement);
+}
 
 template <template <typename...> class ExecTemplate>
 void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
@@ -548,6 +560,7 @@ void RegisterVectorArraySort(FunctionRegistry* registry) {
       "array_sort_indices", Arity::Unary(), array_sort_indices_doc,
       GetDefaultArraySortOptions());
   base.init = ArraySortIndicesState::Init;
+  base.exec_chunked = ArraySortIndicesChunked;
   AddArraySortingKernels<ArraySortIndices>(base, array_sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(array_sort_indices)));
 
