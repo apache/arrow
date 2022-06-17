@@ -219,6 +219,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_ilike_utf8_utf8",
                      NativeFunction::kNeedsFunctionHolder),
 
+      NativeFunction("regexp_matches", {"regexp_like"}, DataTypeVector{utf8(), utf8()},
+                     boolean(), kResultNullIfNull, "gdv_fn_regexp_matches_utf8_utf8",
+                     NativeFunction::kNeedsFunctionHolder),
+
       NativeFunction("ltrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "ltrim_utf8_utf8", NativeFunction::kNeedsContext),
 

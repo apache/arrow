@@ -30,7 +30,15 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
   for (size_t idx = 0; idx < sql_pattern.size(); ++idx) {
     auto cur = sql_pattern.at(idx);
 
+//    if (idx == 0 && cur != '%') {
+//      pcre_pattern += '^';
+//    } else if (idx == 0 && cur == '%') {
+//      continue;
+//    }
+
     // Escape any char that is special for pcre regex
+//    if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end()  &&
+//        cur != escape_char) {
     if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end()) {
       pcre_pattern += "\\";
     }
@@ -51,11 +59,19 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
       }
     } else if (cur == '_') {
       pcre_pattern += '.';
-    } else if (cur == '%') {
+    }
+//    else if (cur == '%' && idx == sql_pattern.size() - 1) {
+//      continue;
+//    }
+    else if (cur == '%') {
       pcre_pattern += ".*";
     } else {
       pcre_pattern += cur;
     }
+
+//    if (idx == sql_pattern.size() - 1 && cur != '%') {
+//      pcre_pattern += '$';
+//    }
   }
   return Status::OK();
 }

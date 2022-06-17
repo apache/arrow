@@ -56,6 +56,13 @@ bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
   return (*holder)(std::string(data, data_len));
 }
 
+bool gdv_fn_regexp_matches_utf8_utf8(int64_t ptr, const char* data, int data_len,
+                                     const char* pattern, int pattern_len) {
+  gandiva::RegexpMatchesHolder* holder =
+      reinterpret_cast<gandiva::RegexpMatchesHolder*>(ptr);
+  return (*holder)(std::string(data, data_len));
+}
+
 const char* gdv_fn_regexp_replace_utf8_utf8(
     int64_t ptr, int64_t holder_ptr, const char* data, int32_t data_len,
     const char* /*pattern*/, int32_t /*pattern_len*/, const char* replace_string,
@@ -796,6 +803,17 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_ilike_utf8_utf8",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_ilike_utf8_utf8));
+
+  // gdv_fn_regexp_matches_utf8_utf8
+  args = {types->i64_type(),     // int64_t ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type(),     // int data_len
+          types->i8_ptr_type(),  // const char* pattern
+          types->i32_type()};    // int pattern_len
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_regexp_matches_utf8_utf8", types->i1_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_regexp_matches_utf8_utf8));
 
   // gdv_fn_regexp_replace_utf8_utf8
   args = {types->i64_type(),       // int64_t ptr

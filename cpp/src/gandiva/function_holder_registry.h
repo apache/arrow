@@ -69,6 +69,8 @@ class FunctionHolderRegistry {
                                  {"to_date", LAMBDA_MAKER(ToDateHolder)},
                                  {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
+                                 {"regexp_matches", LAMBDA_MAKER(RegexpMatchesHolder)},
+                                 {"regexp_like", LAMBDA_MAKER(RegexpMatchesHolder)},
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
                                  {"regexp_extract", LAMBDA_MAKER(ExtractHolder)},
                                  {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
