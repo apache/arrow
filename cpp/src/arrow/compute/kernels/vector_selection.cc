@@ -886,13 +886,15 @@ class PrimitiveRLEFilterImpl {
       WriteValue(value_index, run_length);
     };
 
+    int64_t accumulated_run_length = 0;
     if (null_selection_ == FilterOptions::DROP) {
       rle_util::VisitMergedRuns(
           values_run_length_, filter_run_length_, input_logical_length_,
           [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
             if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
                 bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
-              WriteMaybeNull(value_index, run_length);
+              accumulated_run_length += run_length;
+              WriteMaybeNull(value_index, accumulated_run_length);
             }
           });
     } else {  // null_selection == FilterOptions::EMIT_NULL
@@ -903,14 +905,16 @@ class PrimitiveRLEFilterImpl {
                 bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
             if (is_valid &&
                 bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
-              WriteMaybeNull(value_index, run_length);
+              accumulated_run_length += run_length;
+              WriteMaybeNull(value_index, accumulated_run_length);
             }
             if (!is_valid) {
-              WriteNull();
+              accumulated_run_length += run_length;
+              WriteNull(accumulated_run_length);
             }
           });
     }
-    out_logical_length_ = out_run_length_[out_position_ - 1];
+    out_logical_length_ = accumulated_run_length;
   }
 
   // Write the next out_position given the selected in_position for the input
@@ -925,8 +929,9 @@ class PrimitiveRLEFilterImpl {
     out_position_ += length;
   }
 
-  void WriteNull() {
+  void WriteNull(int64_t run_length) {
     // Zero the memory
+    out_run_length_[out_position_] = run_length;
     out_data_[out_position_++] = T{};
   }
 
