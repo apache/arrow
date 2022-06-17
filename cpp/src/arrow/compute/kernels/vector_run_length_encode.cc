@@ -194,7 +194,7 @@ struct RunLengthEncodeGenerator<BooleanType> {
     child_array_data->null_count = output_null_count;
 
     auto output_validity = child_array_data->GetMutableValues<uint8_t>(0);
-    auto output_values = child_array_data->GetMutableValues<CType>(1);
+    auto output_values = child_array_data->GetMutableValues<uint8_t>(1);
     auto output_run_lengths = output_array_data->GetMutableValues<int64_t>(0);
     output_array_data->child_data.push_back(std::move(child_array_data));
 
@@ -218,7 +218,7 @@ struct RunLengthEncodeGenerator<BooleanType> {
         if (has_validity_buffer) {
           bit_util::SetBitTo(output_validity, output_position, element.valid);
         }
-        output_values[output_position] = element.value;
+        bit_util::SetBitTo(output_values, output_position, element.value);
         // run lengths buffer holds accumulated run length values
         output_run_lengths[output_position - 1] = input_position;
         output_position++;
