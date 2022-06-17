@@ -34,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -387,6 +388,34 @@ class TestRecordBatchReader : public ::testing::Test {
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   std::shared_ptr<RecordBatchReader> reader_;
 };
+
+// A minimal class to test Status::Warn()
+class UncloseableReader : public RecordBatchReader {
+ public:
+  UncloseableReader(RecordBatchVector batches, std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)), it_(MakeVectorIterator(std::move(batches))) {}
+
+  ~UncloseableReader() { ARROW_WARN_NOT_OK(Close(), "Expect: uncloseable reader"); }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    return it_.Next().Value(batch);
+  }
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+  Status Close() override { return Status::Invalid("uncloseable reader"); }
+
+ protected:
+  std::shared_ptr<Schema> schema_;
+  RecordBatchIterator it_;
+};
+
+TEST_F(TestRecordBatchReader, CloseAndWarn) {
+  auto uncloseable_reader_ =
+      std::make_shared<UncloseableReader>(batches_, reader_->schema());
+
+  ASSERT_EQ(Status::Invalid("uncloseable reader"), uncloseable_reader_->Close());
+}
 
 TEST_F(TestRecordBatchReader, RangeForLoop) {
   int64_t i = 0;
