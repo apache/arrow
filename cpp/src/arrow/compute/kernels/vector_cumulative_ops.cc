@@ -125,7 +125,14 @@ struct CumulativeKernel {
     accumulator.skip_nulls = options.skip_nulls;
 
     RETURN_NOT_OK(accumulator.builder.Reserve(batch.length));
-    RETURN_NOT_OK(accumulator.Accumulate(batch[0].array));
+
+    if (batch[0].is_array()) {
+      RETURN_NOT_OK(accumulator.Accumulate(batch[0].array));
+    } else {
+      // TODO(wesm): address up-promotion at a higher level per ARROW-16756
+      ArraySpan span(*batch[0].scalar);
+      RETURN_NOT_OK(accumulator.Accumulate(span));
+    }
 
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(accumulator.builder.FinishInternal(&result));
@@ -189,7 +196,8 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
-    kernel.signature = KernelSignature::Make({InputType::Array(ty)}, OutputType(ty));
+    kernel.signature = KernelSignature::Make({InputType(ty)},
+                                             OutputType(ValueDescr(ty, ValueDescr::ARRAY)));
     kernel.exec =
         ArithmeticExecFromOp<CumulativeKernel, Op, ArrayKernelExec, OptionsType>(ty);
     kernel.exec_chunked =

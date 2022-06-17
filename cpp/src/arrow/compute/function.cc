@@ -266,20 +266,27 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
 
   detail::DatumAccumulator listener;
 
-  // Set length to 0 unless it's a scalar function (vector functions don't use
-  // it).
-  ExecBatch input(std::move(args_with_casts), 0);
-  if (kind() == Function::SCALAR) {
-    ARROW_ASSIGN_OR_RAISE(int64_t inferred_length,
-                          detail::InferBatchLength(input.values));
-    if (passed_length == -1) {
-      input.length = inferred_length;
-    } else {
-      // ARROW-16819: will clean up more later
-      if (input.num_values() > 0 && passed_length != inferred_length) {
-        return Status::Invalid("Passed batch length did not equal actual array lengths");
-      }
+  ExecBatch input(std::move(args_with_casts), /*length=*/0);
+  if (input.num_values() == 0) {
+    if (passed_length != -1) {
       input.length = passed_length;
+    }
+  } else {
+    bool all_same_length = false;
+    int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
+    input.length = inferred_length;
+    if (kind() == Function::SCALAR) {
+      DCHECK(passed_length == -1 || passed_length == inferred_length);
+    } else if (kind() == Function::VECTOR) {
+      auto vkernel = static_cast<const VectorKernel*>(kernel);
+      DCHECK(all_same_length || !vkernel->can_execute_chunkwise) <<
+        "Vector kernels can only execute chunkwise if all arguments are the same length";
+      if (!all_same_length) {
+        // Do not make an assertion about batch length that is
+        // possibly untrue; ExecBatch only serves as a container to
+        // pass the arguments to the kernel now
+        input.length = 0;
+      }
     }
   }
   RETURN_NOT_OK(executor->Execute(input, &listener));

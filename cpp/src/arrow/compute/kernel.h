@@ -52,7 +52,9 @@ struct ARROW_EXPORT KernelState {
 /// \brief Context/state for the execution of a particular kernel.
 class ARROW_EXPORT KernelContext {
  public:
-  explicit KernelContext(ExecContext* exec_ctx, const Kernel* kernel)
+  // Can pass optional backreference; not used consistently for the
+  // moment but will be made so in the future
+  explicit KernelContext(ExecContext* exec_ctx, const Kernel* kernel = NULLPTR)
       : exec_ctx_(exec_ctx), kernel_(kernel) {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
@@ -68,6 +70,10 @@ class ARROW_EXPORT KernelContext {
   /// kernel execution. Ownership and memory lifetime of the KernelState must
   /// be minded separately.
   void SetState(KernelState* state) { state_ = state; }
+
+  // Set kernel that is being invoked since some kernel
+  // implementations will examine the kernel state.
+  void SetKernel(const Kernel* kernel) { kernel_ = kernel; }
 
   KernelState* state() { return state_; }
 
@@ -646,7 +652,7 @@ struct VectorKernel : public Kernel {
   /// functionality.
   bool can_write_into_slices = true;
 
-  /// Some vector kernels can do chunkwise execution using ExecBatchIterator,
+  /// Some vector kernels can do chunkwise execution using ExecSpanIterator,
   /// in some cases accumulating some state. Other kernels (like Take) need to
   /// be passed whole arrays and don't work on ChunkedArray inputs
   bool can_execute_chunkwise = true;

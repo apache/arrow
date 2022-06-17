@@ -94,6 +94,25 @@ ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec, bool use_ar
   };
 }
 
+ExecValue GetExecValue(const Datum& value) {
+  ExecValue result;
+  if (value.is_array()) {
+    result.SetArray(*value.array());
+  } else {
+    result.SetScalar(value.scalar().get());
+  }
+  return result;
+}
+
+int64_t GetTrueCount(const ArraySpan& mask) {
+  if (mask.buffers[0].data != nullptr) {
+    return CountAndSetBits(mask.buffers[0].data, mask.offset,
+                           mask.buffers[1].data, mask.offset, mask.length);
+  } else {
+    return CountSetBits(mask.buffers[1].data, mask.offset, mask.length);
+  }
+}
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

@@ -332,9 +332,14 @@ Status ExecSpanIterator::Init(const ExecBatch& batch, ValueDescr::Shape output_s
                               int64_t max_chunksize) {
   if (batch.num_values() > 0) {
     // Validate arguments
-    ARROW_ASSIGN_OR_RAISE(int64_t inferred_length, InferBatchLength(batch.values));
+    bool all_args_same_length = false;
+    int64_t inferred_length = InferBatchLength(batch.values, &all_args_same_length);
     if (inferred_length != batch.length) {
       return Status::Invalid("Value lengths differed from ExecBatch length");
+    }
+    if (!all_args_same_length) {
+      return Status::Invalid("ExecSpanIterator cannot be used with arguments of "
+                             "different lengths");
     }
   }
   args_ = &batch.values;
@@ -1284,7 +1289,7 @@ std::unique_ptr<KernelExecutor> KernelExecutor::MakeScalarAggregate() {
   return ::arrow::internal::make_unique<detail::ScalarAggExecutor>();
 }
 
-Result<int64_t> InferBatchLength(const std::vector<Datum>& values) {
+int64_t InferBatchLength(const std::vector<Datum>& values, bool* all_same) {
   int64_t length = -1;
   bool are_all_scalar = true;
   for (const Datum& arg : values) {
@@ -1294,7 +1299,8 @@ Result<int64_t> InferBatchLength(const std::vector<Datum>& values) {
         length = arg_length;
       } else {
         if (length != arg_length) {
-          return Status::Invalid("Array arguments must all be the same length");
+          *all_same = false;
+          return length;
         }
       }
       are_all_scalar = false;
@@ -1304,7 +1310,8 @@ Result<int64_t> InferBatchLength(const std::vector<Datum>& values) {
         length = arg_length;
       } else {
         if (length != arg_length) {
-          return Status::Invalid("Array arguments must all be the same length");
+          *all_same = false;
+          return length;
         }
       }
       are_all_scalar = false;
@@ -1316,6 +1323,7 @@ Result<int64_t> InferBatchLength(const std::vector<Datum>& values) {
   } else if (length < 0) {
     length = 0;
   }
+  *all_same = true;
   return length;
 }
 

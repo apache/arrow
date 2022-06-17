@@ -312,11 +312,13 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
 
 struct FlippedData : public KernelState {
   ArrayKernelExec unflipped_exec;
+  FlippedData(ArrayKernelExec unflipped_exec) : unflipped_exec(unflipped_exec) {}
 };
 
 Status FlippedBinaryExec(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
   const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
-  const auto kernel_data = static_cast<const FlippedData*>(kernel.data.get());
+  DCHECK(kernel);
+  const auto kernel_data = static_cast<const FlippedData*>(kernel->data.get());
 
   ExecSpan flipped_span = span;
   std::swap(flipped_span.values[0], flipped_span.values[1]);
