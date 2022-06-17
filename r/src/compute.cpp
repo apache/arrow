@@ -16,7 +16,9 @@
 // under the License.
 
 #include "./arrow_types.h"
+#include "./safe-call-into-r.h"
 
+#include <arrow/array/util.h>
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
@@ -584,13 +586,47 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
   arrow::Status operator()(arrow::compute::KernelContext* context,
                            const arrow::compute::ExecSpan& span,
                            arrow::compute::ExecResult* result) {
-    return arrow::Status::NotImplemented("did we get this far?");
+    std::vector<std::shared_ptr<arrow::Array>> array_args;
+    for (int64_t i = 0; i < span.num_values(); i++) {
+      const arrow::compute::ExecValue& v = span[i];
+      if (v.is_array()) {
+        array_args.push_back(v.array.ToArray());
+      } else if (v.is_scalar()) {
+        auto array = ValueOrStop(arrow::MakeArrayFromScalar(*v.scalar, span.length));
+        array_args.push_back(array);
+      }
+    }
+
+    auto batch = arrow::RecordBatch::Make(input_types_, span.length, array_args);
+
+    auto fun_result = SafeCallIntoR<std::shared_ptr<arrow::Array>>([&]() {
+      cpp11::sexp batch_sexp = cpp11::to_r6<arrow::RecordBatch>(batch);
+      cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
+
+      cpp11::writable::list udf_context = {batch_length_sexp};
+      udf_context.names() = {"batch_length"};
+
+      cpp11::sexp fun_result_sexp = fun_(udf_context, batch_sexp);
+      if (!Rf_inherits(fun_result_sexp, "Array")) {
+        cpp11::stop("arrow_scalar_function must return an Array");
+      }
+
+      return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(fun_result_sexp);
+    });
+
+    if (!fun_result.ok()) {
+      return fun_result.status();
+    }
+
+    result->value.emplace<std::shared_ptr<arrow::ArrayData>>(
+        fun_result.ValueUnsafe()->data());
+    return arrow::Status::OK();
   }
 
  private:
   std::shared_ptr<arrow::Schema> input_types_;
   std::shared_ptr<arrow::DataType> output_type_;
-  cpp11::sexp fun_;
+  cpp11::function fun_;
 };
 
 // [[arrow::export]]

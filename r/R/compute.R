@@ -307,21 +307,15 @@ cast_options <- function(safe = TRUE, ...) {
   modifyList(opts, list(...))
 }
 
-register_scalar_function <- function(name, scalar_function) {
+register_scalar_function <- function(name, scalar_function, registry_name = name) {
   assert_that(
     is.string(name),
+    is.string(registry_name),
     inherits(scalar_function, "arrow_scalar_function")
   )
 
-  # use something obfuscated for the arrow name to avoid
-  # collisions with functions registered in the same .so (e.g., Python)
-  compute_registry_name <- paste0(
-    "r_scalar_", name, "_",
-    rlang::hash(scalar_function)
-  )
-
   # register with Arrow C++
-  RegisterScalarUDF(compute_registry_name, scalar_function)
+  RegisterScalarUDF(registry_name, scalar_function)
 
   # register with dplyr bindings
   register_binding(
