@@ -578,7 +578,7 @@ class PrimitiveFilterImpl {
                       FilterOptions::NullSelectionBehavior null_selection,
                       ArrayData* out_arr)
       : values_is_valid_(values.buffers[0].data),
-        values_data_(values.GetValues<T>(1)),
+        values_data_(reinterpret_cast<const T*>(values.buffers[1].data)),
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_length_(values.length),
@@ -587,6 +587,11 @@ class PrimitiveFilterImpl {
         filter_null_count_(filter.null_count),
         filter_offset_(filter.offset),
         null_selection_(null_selection) {
+    if (values.type->id() != Type::BOOL) {
+      // No offset applied for boolean because it's a bitmap
+      values_data_ += values.offset;
+    }
+
     if (out_arr->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
