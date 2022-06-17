@@ -215,7 +215,6 @@ int64_t ArraySpan::GetNullCount() const {
 int GetNumBuffers(const DataType& type) {
   switch (type.id()) {
     case Type::NA:
-      return 0;
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
       return 1;

@@ -121,32 +121,38 @@ struct ReplaceMaskImpl<
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
     // Implement replace_with kernel with scalar mask for fixed-width types
+    ExecValue source = array;
+    int64_t source_offset = 0;
     std::shared_ptr<Scalar> null_scalar;
     if (!mask.is_valid) {
       // Output = null
       null_scalar = MakeNullScalar(out->type()->Copy());
-      replacements.SetScalar(null_scalar.get());
+      source.SetScalar(null_scalar.get());
+    } else if (mask.value) {
+      // Output = replacement
+      source = replacements;
+      source_offset = replacements_offset;
     }
     ArrayData* out_arr = out->array_data().get();
     uint8_t* out_bitmap = out_arr->buffers[0]->mutable_data();
     uint8_t* out_values = out_arr->buffers[1]->mutable_data();
     const int64_t out_offset = out_arr->offset;
-    if (replacements.is_array()) {
-      const ArraySpan& source = replacements.array;
-      CopyDataUtils<Type>::CopyData(*array.type, source, replacements_offset, out_values,
+    if (source.is_array()) {
+      const ArraySpan& in_data = source.array;
+      CopyDataUtils<Type>::CopyData(*array.type, in_data, source_offset, out_values,
                                     out_offset, array.length);
-      if (source.MayHaveNulls()) {
-        arrow::internal::CopyBitmap(source.buffers[0].data,
-                                    source.offset + replacements_offset, array.length,
+      if (in_data.MayHaveNulls()) {
+        arrow::internal::CopyBitmap(in_data.buffers[0].data,
+                                    in_data.offset + source_offset, array.length,
                                     out_bitmap, out_offset);
       } else {
         bit_util::SetBitsTo(out_bitmap, out_offset, array.length, true);
       }
     } else {
-      const Scalar& source = *replacements.scalar;
-      CopyDataUtils<Type>::CopyData(*array.type, source, replacements_offset, out_values,
+      const Scalar& in_data = *source.scalar;
+      CopyDataUtils<Type>::CopyData(*array.type, in_data, source_offset, out_values,
                                     out_offset, array.length);
-      bit_util::SetBitsTo(out_bitmap, out_offset, array.length, source.is_valid);
+      bit_util::SetBitsTo(out_bitmap, out_offset, array.length, in_data.is_valid);
     }
     return replacements_offset + array.length;
   }
@@ -156,6 +162,7 @@ struct ReplaceMaskImpl<
                                        ExecValue replacements,
                                        int64_t replacements_offset, ExecResult* out) {
     ArrayData* out_arr = out->array_data().get();
+    out_arr->length = array.length;
     const int64_t out_offset = out_arr->offset;
     uint8_t* out_bitmap = nullptr;
     uint8_t* out_values = out_arr->buffers[1]->mutable_data();
@@ -351,8 +358,8 @@ struct ReplaceMask {
     const ExecValue& mask = batch[1];
     const ExecValue& replacements = batch[2];
     RETURN_NOT_OK(CheckReplaceMaskInputs(*arr.type, arr.length, mask,
-                                         *replacements.type(), replacements.is_array(),
-                                         replacements.length()));
+                                         *replacements.type(), replacements.length(),
+                                         replacements.is_array()));
     if (mask.is_scalar()) {
       return ReplaceMaskImpl<Type>::ExecScalarMask(
                  ctx, arr, mask.scalar_as<BooleanScalar>(), replacements,
@@ -378,7 +385,6 @@ struct ReplaceMask {
 template <typename Type>
 struct ReplaceMaskChunked {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const ChunkedArray& arr = *batch[0].chunked_array();
     const Datum& mask = batch[1];
     const Datum& replacements = batch[2];
 
@@ -393,9 +399,11 @@ struct ReplaceMaskChunked {
                              replacements.ToString());
     }
 
-    RETURN_NOT_OK(CheckReplaceMaskInputs(
-        *arr.type(), arr.length(), GetExecValue(mask), *replacements.type(),
-        replacements.is_arraylike(), replacements.length()));
+    const ChunkedArray& arr = *batch[0].chunked_array();
+
+    RETURN_NOT_OK(CheckReplaceMaskInputs(*arr.type(), arr.length(), GetExecValue(mask),
+                                         *replacements.type(), replacements.length(),
+                                         replacements.is_arraylike()));
 
     ExecValue replacements_val = GetExecValue(replacements);
 
@@ -408,18 +416,17 @@ struct ReplaceMaskChunked {
     for (const std::shared_ptr<Array>& chunk : arr.chunks()) {
       if (chunk->length() == 0) continue;
       // Allocate a new array
-      auto chunk_out = std::make_shared<ArrayData>(chunk->type(), chunk->length());
+      ExecResult chunk_result;
       if (is_fixed_width(out->type()->id())) {
+        auto chunk_out = std::make_shared<ArrayData>(chunk->type(), chunk->length());
         chunk_out->buffers.resize(2);
         ARROW_ASSIGN_OR_RAISE(chunk_out->buffers[0],
                               ctx->AllocateBitmap(chunk->length()));
         const int64_t slot_width = out->type()->byte_width();
         ARROW_ASSIGN_OR_RAISE(chunk_out->buffers[1],
                               ctx->Allocate(slot_width * chunk->length()));
+        chunk_result.value = chunk_out;
       }
-
-      ExecResult chunk_result;
-      chunk_result.value = chunk_out;
       if (batch[1].is_scalar()) {
         ARROW_ASSIGN_OR_RAISE(
             replacements_offset,
@@ -432,7 +439,7 @@ struct ReplaceMaskChunked {
                                   ctx, *chunk->data(), *batch[1].array(), mask_offset,
                                   replacements_val, replacements_offset, &chunk_result));
       }
-      output_chunks.push_back(MakeArray(std::move(chunk_out)));
+      output_chunks.push_back(MakeArray(chunk_result.array_data()));
       mask_offset += chunk->length();
     }
 
@@ -624,7 +631,7 @@ struct FillNullImpl<Type, enable_if_null<Type>> {
                      const uint8_t* reversed_bitmap, ExecResult* out, int8_t direction,
                      const ArraySpan& last_valid_value_chunk,
                      int64_t* last_valid_value_offset) {
-    out->value = array;
+    out->value = array.ToArrayData();
     return Status::OK();
   }
 };
@@ -699,7 +706,7 @@ struct FillNullForwardChunked {
         if (chunk->null_count() != chunk->length()) {
           array_with_current = chunk->data().get();
         }
-        new_chunks.push_back(MakeArray(out->array()->Copy()));
+        new_chunks.push_back(MakeArray(chunk_result.array_data()->Copy()));
       }
     }
 
@@ -782,7 +789,7 @@ struct FillNullBackwardChunked {
         if (chunk->null_count() != chunk->length()) {
           array_with_current = chunk->data().get();
         }
-        new_chunks.push_back(MakeArray(out->array()->Copy()));
+        new_chunks.push_back(MakeArray(chunk_result.array_data()->Copy()));
       }
     }
 

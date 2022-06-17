@@ -279,13 +279,10 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
       DCHECK(passed_length == -1 || passed_length == inferred_length);
     } else if (kind() == Function::VECTOR) {
       auto vkernel = static_cast<const VectorKernel*>(kernel);
-      DCHECK(all_same_length || !vkernel->can_execute_chunkwise) <<
-        "Vector kernels can only execute chunkwise if all arguments are the same length";
-      if (!all_same_length) {
-        // Do not make an assertion about batch length that is
-        // possibly untrue; ExecBatch only serves as a container to
-        // pass the arguments to the kernel now
-        input.length = 0;
+      if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
+        return Status::Invalid(
+            "Vector kernels can only execute chunkwise if all "
+            "arguments are the same length");
       }
     }
   }
