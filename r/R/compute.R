@@ -306,3 +306,43 @@ cast_options <- function(safe = TRUE, ...) {
   )
   modifyList(opts, list(...))
 }
+
+arrow_scalar_function <- function(in_type, out_type, fun) {
+  if (is.list(in_type)) {
+    in_type <- lapply(in_type, as_in_types)
+  } else {
+    in_type <- list(as_in_types(in_type))
+  }
+
+  if (is.list(out_type)) {
+    out_type <- lapply(out_type, as_data_type)
+  } else if (is.function(out_type)) {
+    out_type <- lapply(in_type, out_type)
+  } else {
+    out_type <- list(as_data_type(out_type))
+  }
+
+  out_type <- rep_len(out_type, length(in_type))
+
+  fun <- rlang::as_function(fun)
+  if (length(formals(fun)) != 2) {
+    abort("`fun` must accept exactly two arguments (`kernel_context`, `batch`)")
+  }
+
+  structure(
+    fun,
+    in_type = in_type,
+    out_type = out_type,
+    class = "arrow_scalar_function"
+  )
+}
+
+as_in_types <- function(x) {
+  if (inherits(x, "Field")) {
+    schema(x)
+  } else if (inherits(x, "DataType")) {
+    schema(".x" = x)
+  } else {
+    as_schema(x)
+  }
+}

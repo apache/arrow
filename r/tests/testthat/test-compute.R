@@ -19,3 +19,40 @@ test_that("list_compute_functions() works", {
   expect_type(list_compute_functions(), "character")
   expect_true(all(!grepl("^hash_", list_compute_functions())))
 })
+
+
+test_that("arrow_scalar_function() works", {
+  # check in/out type as schema/data type
+  fun <- arrow_scalar_function(schema(.y = int32()), int64(), function(x, y) y[[1]])
+  expect_equal(attr(fun, "in_type")[[1]], schema(.y = int32()))
+  expect_equal(attr(fun, "out_type")[[1]], int64())
+
+  # check in/out type as data type/data type
+  fun <- arrow_scalar_function(int32(), int64(), function(x, y) y[[1]])
+  expect_equal(attr(fun, "in_type")[[1]], schema(.x = int32()))
+  expect_equal(attr(fun, "out_type")[[1]], int64())
+
+  # check in/out type as field/data type
+  fun <- arrow_scalar_function(
+    field("a_name", int32()),
+    int64(),
+    function(x, y) y[[1]]
+  )
+  expect_equal(attr(fun, "in_type")[[1]], schema(a_name = int32()))
+  expect_equal(attr(fun, "out_type")[[1]], int64())
+
+  # check in/out type as lists
+  fun <- arrow_scalar_function(
+    list(int32(), int64()),
+    list(int64(), int32()),
+    function(x, y) y[[1]]
+  )
+
+  expect_equal(attr(fun, "in_type")[[1]], schema(.x = int32()))
+  expect_equal(attr(fun, "in_type")[[2]], schema(.x = int64()))
+  expect_equal(attr(fun, "out_type")[[1]], int64())
+  expect_equal(attr(fun, "out_type")[[1]], int64())
+
+  expect_snapshot_error(arrow_scalar_function(int32(), int32(), identity))
+  expect_snapshot_error(arrow_scalar_function(int32(), int32(), NULL))
+})
