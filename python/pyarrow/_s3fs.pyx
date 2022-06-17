@@ -183,7 +183,7 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, region=None, request_timeout_ms = None, connect_timeout_ms = None, scheme=None,
+                 bint anonymous=False, region=None, request_timeout_ms=None, connect_timeout_ms=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  default_metadata=None, role_arn=None, session_name=None,
                  external_id=None, load_frequency=900, proxy_options=None,
