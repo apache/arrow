@@ -80,17 +80,17 @@ struct CastList {
 
       DCHECK(!out_scalar->is_valid);
       if (in_scalar.is_valid) {
+        if (is_downcast) {
+          if (in_scalar.value->length() > std::numeric_limits<dest_offset_type>::max()) {
+            return Status::Invalid("Scalar of type ", in_scalar.type->ToString(),
+                                   " too large to convert to ", out_scalar->type->ToString());
+          }
+        }
+
         ARROW_ASSIGN_OR_RAISE(out_scalar->value, Cast(*in_scalar.value, child_type,
                                                       options, ctx->exec_context()));
 
         out_scalar->is_valid = true;
-
-        if (is_fixed_size_list_type<DestType>::value) {
-          auto fsl_scalar = checked_cast<FixedSizeListScalar*>(out_scalar);
-          const auto& list_type = checked_cast<const BaseListType&>(*fsl_scalar->type);
-          fsl_scalar->type = std::make_shared<FixedSizeListType>(
-              list_type.value_type(), fsl_scalar->value->length());
-        }
       }
       return Status::OK();
     }
