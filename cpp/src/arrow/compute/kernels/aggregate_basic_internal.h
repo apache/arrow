@@ -187,7 +187,7 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
       remainder.Abs();
       if (remainder * 2 >= this->count) {
         auto flag = this->sum >= 0;
-        quotient = quotient + (1 & flag) - (1 & (!flag))
+        quotient = quotient + (1 & flag) - (1 & (!flag));
       }
       out->value = std::make_shared<OutputType>(quotient, this->out_type);
     }
