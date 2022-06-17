@@ -56,3 +56,11 @@ test_that("arrow_scalar_function() works", {
   expect_snapshot_error(arrow_scalar_function(int32(), int32(), identity))
   expect_snapshot_error(arrow_scalar_function(int32(), int32(), NULL))
 })
+
+test_that("register_scalar_function() creates a dplyr binding", {
+  fun <- arrow_scalar_function(int32(), int64(), function(x, y) y[[1]])
+  register_scalar_function("my_test_scalar_function", fun)
+  expect_true("my_test_scalar_function" %in% names(arrow:::.cache$functions))
+
+
+})
