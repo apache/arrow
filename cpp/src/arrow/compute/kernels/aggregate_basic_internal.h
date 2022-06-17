@@ -186,11 +186,8 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
       // Round the decimal result based on the remainder
       remainder.Abs();
       if (remainder * 2 >= this->count) {
-        if (this->sum >= 0) {
-          quotient += 1;
-        } else {
-          quotient -= 1;
-        }
+        auto flag = this->sum >= 0;
+        quotient = quotient + (1 & flag) - (1 & (!flag))
       }
       out->value = std::make_shared<OutputType>(quotient, this->out_type);
     }
