@@ -321,7 +321,7 @@ register_scalar_function <- function(name, scalar_function) {
   )
 
   # register with Arrow C++
-  # (not yet)
+  RegisterScalarUDF(compute_registry_name, scalar_function)
 
   # register with dplyr bindings
   register_binding(

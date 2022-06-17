@@ -1099,6 +1099,16 @@ BEGIN_CPP11
 	return cpp11::as_sexp(compute__GetFunctionNames());
 END_CPP11
 }
+// compute.cpp
+void RegisterScalarUDF(std::string name, cpp11::sexp fun);
+extern "C" SEXP _arrow_RegisterScalarUDF(SEXP name_sexp, SEXP fun_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type name(name_sexp);
+	arrow::r::Input<cpp11::sexp>::type fun(fun_sexp);
+	RegisterScalarUDF(name, fun);
+	return R_NilValue;
+END_CPP11
+}
 // config.cpp
 std::vector<std::string> build_info();
 extern "C" SEXP _arrow_build_info(){
@@ -5258,6 +5268,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
+		{ "_arrow_RegisterScalarUDF", (DL_FUNC) &_arrow_RegisterScalarUDF, 2}, 
 		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
 		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
 		{ "_arrow_set_timezone_database", (DL_FUNC) &_arrow_set_timezone_database, 1}, 
