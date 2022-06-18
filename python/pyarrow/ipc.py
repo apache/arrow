@@ -75,9 +75,9 @@ use_legacy_format : bool, default None
 
 
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
-    __doc__ = """Writer for the Arrow streaming binary format
+    __doc__ = f"""Writer for the Arrow streaming binary format
 
-{}""".format(_ipc_writer_class_doc)
+{_ipc_writer_class_doc}"""
 
     def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
         options = _get_legacy_format_default(use_legacy_format, options)
@@ -111,9 +111,9 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
-    __doc__ = """Writer to create the Arrow binary file format
+    __doc__ = f"""Writer to create the Arrow binary file format
 
-{}""".format(_ipc_writer_class_doc)
+{_ipc_writer_class_doc}"""
 
     def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
         options = _get_legacy_format_default(use_legacy_format, options)
@@ -126,8 +126,7 @@ def _get_legacy_format_default(use_legacy_format, options):
             "Can provide at most one of options and use_legacy_format")
     elif options:
         if not isinstance(options, IpcWriteOptions):
-            raise TypeError("expected IpcWriteOptions, got {}"
-                            .format(type(options)))
+            raise TypeError(f"expected IpcWriteOptions, got {options}")
         return options
 
     metadata_version = MetadataVersion.V5
@@ -142,9 +141,7 @@ def _get_legacy_format_default(use_legacy_format, options):
 
 def _ensure_default_ipc_read_options(options):
     if options and not isinstance(options, IpcReadOptions):
-        raise TypeError(
-            "expected IpcReadOptions, got {}".format(type(options))
-        )
+        raise TypeError(f"expected IpcReadOptions, got {options}")
     return options or IpcReadOptions()
 
 
@@ -154,15 +151,15 @@ def new_stream(sink, schema, *, use_legacy_format=None, options=None):
                                    options=options)
 
 
-new_stream.__doc__ = """\
+new_stream.__doc__ = f"""\
 Create an Arrow columnar IPC stream writer instance
 
-{}
+{_ipc_writer_class_doc}
 
 Returns
 -------
 writer : RecordBatchStreamWriter
-""".format(_ipc_writer_class_doc)
+"""
 
 
 def open_stream(source, *, options=None, memory_pool=None):
@@ -195,12 +192,12 @@ def new_file(sink, schema, *, use_legacy_format=None, options=None):
 new_file.__doc__ = """\
 Create an Arrow columnar IPC file writer instance
 
-{}
+{_ipc_writer_class_doc}
 
 Returns
 -------
 writer : RecordBatchFileWriter
-""".format(_ipc_writer_class_doc)
+"""
 
 
 def open_file(source, footer_offset=None, *, options=None, memory_pool=None):

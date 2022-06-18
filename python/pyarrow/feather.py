@@ -75,10 +75,8 @@ class FeatherDataset:
 
     def validate_schemas(self, piece, table):
         if not self.schema.equals(table.schema):
-            raise ValueError('Schema in {!s} was different. \n'
-                             '{!s}\n\nvs\n\n{!s}'
-                             .format(piece, self.schema,
-                                     table.schema))
+            raise ValueError(f'Schema in {!piece} was different. \n'
+                             f'{!self.schema}\n\nvs\n\n{!table.schema}')
 
     def read_pandas(self, columns=None, use_threads=True):
         """
@@ -106,14 +104,14 @@ def check_chunked_overflow(name, col):
         return
 
     if col.type in (ext.binary(), ext.string()):
-        raise ValueError("Column '{}' exceeds 2GB maximum capacity of "
+        raise ValueError(f"Column '{name}' exceeds 2GB maximum capacity of "
                          "a Feather binary column. This restriction may be "
-                         "lifted in the future".format(name))
+                         "lifted in the future")
     else:
         # TODO(wesm): Not sure when else this might be reached
-        raise ValueError("Column '{}' of type {} was chunked on conversion "
-                         "to Arrow and cannot be currently written to "
-                         "Feather format".format(name, str(col.type)))
+        raise ValueError(f"Column '{name}' of type {str(col.type))} was "
+                         "chunked on conversion to Arrow and cannot be "
+                         "currently written to Feather format")
 
 
 _FEATHER_SUPPORTED_CODECS = {'lz4', 'zstd', 'uncompressed'}
@@ -187,9 +185,8 @@ def write_feather(df, dest, compression=None, compression_level=None,
             compression = 'lz4'
         elif (compression is not None and
               compression not in _FEATHER_SUPPORTED_CODECS):
-            raise ValueError('compression="{}" not supported, must be '
-                             'one of {}'.format(compression,
-                                                _FEATHER_SUPPORTED_CODECS))
+            raise ValueError(f'compression="{compression}" not supported, must be '
+                             f'one of {_FEATHER_SUPPORTED_CODECS}')
 
     try:
         _feather.write_feather(table, dest, compression=compression,
@@ -265,8 +262,7 @@ def read_table(source, columns=None, memory_map=True, use_threads=True):
     else:
         column_type_names = [t.__name__ for t in column_types]
         raise TypeError("Columns must be indices or names. "
-                        "Got columns {} of types {}"
-                        .format(columns, column_type_names))
+                        f"Got columns {columns} of types {column_type_names}")
 
     # Feather v1 already respects the column selection
     if reader.version < 3:
