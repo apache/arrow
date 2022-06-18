@@ -116,7 +116,7 @@ test_that("call_function validation", {
       Array$create(c(TRUE, FALSE, TRUE)),
       options = list(keep_na = TRUE)
     ),
-    "Array arguments must all be the same length"
+    "arguments must all be the same length"
   )
   expect_error(
     call_function("filter",
