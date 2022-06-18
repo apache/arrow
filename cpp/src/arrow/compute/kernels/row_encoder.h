@@ -39,7 +39,8 @@ struct KeyEncoder {
 
   virtual ~KeyEncoder() = default;
 
-  virtual void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) = 0;
+  virtual void AddLength(const ExecValue& value, int64_t batch_length,
+                         int32_t* lengths) = 0;
 
   virtual void AddLengthNull(int32_t* length) = 0;
 

@@ -42,9 +42,9 @@ constexpr uint64_t kCountEOF = ~0ULL;
 
 template <typename InType, typename CType = typename TypeTraits<InType>::CType>
 Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
-                                                  ExecResult* out) {
-  DCHECK_EQ(Type::STRUCT, out->type()->id());
-  const auto& out_type = checked_cast<const StructType&>(*out->type());
+                                                  const DataType& type, ExecResult* out) {
+  DCHECK_EQ(Type::STRUCT, type.id());
+  const auto& out_type = checked_cast<const StructType&>(type);
   DCHECK_EQ(2, out_type.num_fields());
   const auto& mode_type = out_type.field(0)->type();
   const auto& count_type = int64();
@@ -64,15 +64,15 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
     count_buffer = count_data->template GetMutableValues<int64_t>(1);
   }
 
-  out->value =
-      ArrayData::Make(out->type()->Copy(), n, {nullptr}, {mode_data, count_data}, 0);
+  out->value = ArrayData::Make(type.Copy(), n, {nullptr}, {mode_data, count_data}, 0);
   return std::make_pair(mode_buffer, count_buffer);
 }
 
 // find top-n value:count pairs with minimal heap
 // suboptimal for tiny or large n, possibly okay as we're not in hot path
 template <typename InType, typename Generator>
-Status Finalize(KernelContext* ctx, ExecResult* out, Generator&& gen) {
+Status Finalize(KernelContext* ctx, const DataType& type, ExecResult* out,
+                Generator&& gen) {
   using CType = typename TypeTraits<InType>::CType;
 
   using ValueCountPair = std::pair<CType, uint64_t>;
@@ -102,7 +102,7 @@ Status Finalize(KernelContext* ctx, ExecResult* out, Generator&& gen) {
   CType* mode_buffer;
   int64_t* count_buffer;
   ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
-                        PrepareOutput<InType>(n, ctx, out));
+                        PrepareOutput<InType>(n, ctx, type, out));
 
   for (int64_t i = n - 1; i >= 0; --i) {
     std::tie(mode_buffer[i], count_buffer[i]) = min_heap.top();
@@ -128,7 +128,7 @@ struct CountModer {
     this->counts.resize(value_range, 0);
   }
 
-  Status GetResult(KernelContext* ctx, ExecResult* out) {
+  Status GetResult(KernelContext* ctx, const DataType& type, ExecResult* out) {
     // generator to emit next value:count pair
     int index = 0;
     auto gen = [&]() {
@@ -143,7 +143,7 @@ struct CountModer {
       return std::pair<CType, uint64_t>(0, kCountEOF);
     };
 
-    return Finalize<T>(ctx, out, std::move(gen));
+    return Finalize<T>(ctx, type, out, std::move(gen));
   }
 
   Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -151,12 +151,12 @@ struct CountModer {
     const ArraySpan& values = batch[0].array;
     const ModeOptions& options = ModeState::Get(ctx);
     if ((!options.skip_nulls && values.GetNullCount() > 0) ||
-        (values.length - values.null_count < options.min_count)) {
-      return PrepareOutput<T>(/*n=*/0, ctx, out).status();
+        (values.length - values.GetNullCount() < options.min_count)) {
+      return PrepareOutput<T>(/*n=*/0, ctx, *out->type(), out).status();
     }
 
     CountValues<CType>(values, this->min, this->counts.data());
-    return GetResult(ctx, out);
+    return GetResult(ctx, *out->type(), out);
   }
 
   Status ExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -166,10 +166,10 @@ struct CountModer {
     ExecResult result;
     if ((!options.skip_nulls && values.null_count() > 0) ||
         (values.length() - values.null_count() < options.min_count)) {
-      RETURN_NOT_OK(PrepareOutput<T>(/*n=*/0, ctx, &result));
+      RETURN_NOT_OK(PrepareOutput<T>(/*n=*/0, ctx, *out->type(), &result));
     } else {
       CountValues<CType>(values, this->min, this->counts.data());
-      RETURN_NOT_OK(GetResult(ctx, &result));
+      RETURN_NOT_OK(GetResult(ctx, *out->type(), &result));
     }
     *out = result.array_data();
     return Status::OK();
@@ -195,14 +195,15 @@ struct CountModer<BooleanType> {
     }
   }
 
-  Status WrapResult(KernelContext* ctx, const ModeOptions& options, ExecResult* out) {
+  Status WrapResult(KernelContext* ctx, const ModeOptions& options, const DataType& type,
+                    ExecResult* out) {
     const int64_t distinct_values = (this->counts[0] != 0) + (this->counts[1] != 0);
     const int64_t n = std::min(options.n, distinct_values);
 
     bool* mode_buffer;
     int64_t* count_buffer;
     ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
-                          PrepareOutput<BooleanType>(n, ctx, out));
+                          PrepareOutput<BooleanType>(n, ctx, type, out));
 
     if (n >= 1) {
       const bool index = counts[1] > counts[0];
@@ -222,10 +223,10 @@ struct CountModer<BooleanType> {
     const ModeOptions& options = ModeState::Get(ctx);
     if ((!options.skip_nulls && values.GetNullCount() > 0) ||
         (values.length - values.null_count < options.min_count)) {
-      return PrepareOutput<BooleanType>(/*n=*/0, ctx, out).status();
+      return PrepareOutput<BooleanType>(/*n=*/0, ctx, *out->type(), out).status();
     }
     UpdateCounts(values);
-    return WrapResult(ctx, options, out);
+    return WrapResult(ctx, options, *out->type(), out);
   }
 
   Status ExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -234,10 +235,10 @@ struct CountModer<BooleanType> {
     ExecResult result;
     if ((!options.skip_nulls && values.null_count() > 0) ||
         (values.length() - values.null_count() < options.min_count)) {
-      RETURN_NOT_OK(PrepareOutput<BooleanType>(/*n=*/0, ctx, &result));
+      RETURN_NOT_OK(PrepareOutput<BooleanType>(/*n=*/0, ctx, *out->type(), &result));
     } else {
       UpdateCounts(values);
-      RETURN_NOT_OK(WrapResult(ctx, options, &result));
+      RETURN_NOT_OK(WrapResult(ctx, options, *out->type(), &result));
     }
     *out = result.array_data();
     return Status::OK();
@@ -265,10 +266,11 @@ struct SortModer {
 
   template <typename Container>
   Status ComputeMode(KernelContext* ctx, const Container& arr, int64_t length,
-                     int64_t null_count, ExecResult* out) {
+                     int64_t null_count, const DataType& type, ExecResult* out) {
     const ModeOptions& options = ModeState::Get(ctx);
-    if ((!options.skip_nulls && null_count > 0) || (length < options.min_count)) {
-      return PrepareOutput<T>(/*n=*/0, ctx, out).status();
+    const int64_t in_length = length - null_count;
+    if ((!options.skip_nulls && null_count > 0) || (in_length < options.min_count)) {
+      return PrepareOutput<T>(/*n=*/0, ctx, type, out).status();
     }
 
     // copy all chunks to a buffer, ignore nulls and nans
@@ -312,19 +314,20 @@ struct SortModer {
       return std::make_pair(value, count);
     };
 
-    return Finalize<T>(ctx, out, std::move(gen));
+    return Finalize<T>(ctx, type, out, std::move(gen));
   }
 
   Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& values = batch[0].array;
-    return ComputeMode(ctx, values, values.length, values.GetNullCount(), out);
+    return ComputeMode(ctx, values, values.length, values.GetNullCount(), *out->type(),
+                       out);
   }
 
   Status ExecChunked(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ChunkedArray& values = *batch[0].chunked_array();
     ExecResult result;
-    RETURN_NOT_OK(
-        ComputeMode(ctx, values, values.length(), values.null_count(), &result));
+    RETURN_NOT_OK(ComputeMode(ctx, values, values.length(), values.null_count(),
+                              *out->type(), &result));
     *out = result.array_data();
     return Status::OK();
   }
@@ -414,12 +417,12 @@ Status ScalarMode(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
   const ModeOptions& options = ModeState::Get(ctx);
   if ((!options.skip_nulls && !scalar.is_valid) ||
       (static_cast<uint32_t>(scalar.is_valid) < options.min_count)) {
-    return PrepareOutput<T>(/*n=*/0, ctx, out).status();
+    return PrepareOutput<T>(/*n=*/0, ctx, *out->type(), out).status();
   }
 
   if (scalar.is_valid) {
     bool called = false;
-    return Finalize<T>(ctx, out, [&]() {
+    return Finalize<T>(ctx, *out->type(), out, [&]() {
       if (!called) {
         called = true;
         return std::pair<CType, uint64_t>(UnboxScalar<T>::Unbox(scalar), 1);
@@ -427,7 +430,7 @@ Status ScalarMode(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
       return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
     });
   }
-  return Finalize<T>(ctx, out, []() {
+  return Finalize<T>(ctx, *out->type(), out, []() {
     return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
   });
 }
