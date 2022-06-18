@@ -2067,7 +2067,6 @@ def _group_by(args, keys, aggregations):
         vector[CAggregate] c_aggregations
         CDatum result
         CAggregate c_aggr
-        shared_ptr[CFunctionOptions] null_opts
 
     _pack_compute_args(args, &c_args)
     _pack_compute_args(keys, &c_keys)
