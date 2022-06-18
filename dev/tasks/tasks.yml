@@ -1563,13 +1563,6 @@ tasks:
       fetch_depth: 0
 {% endfor %}
 
-  # Remove the "skipped-" prefix in ARROW-8475
-  skipped-test-conda-cpp-hiveserver2:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      image: conda-cpp-hiveserver2
-
 {% for kind in ["static", "static-system-dependency"] %}
   example-cpp-minimal-build-{{ kind }}:
     ci: github

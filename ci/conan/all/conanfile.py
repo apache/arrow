@@ -60,7 +60,6 @@ class ArrowConan(ConanFile):
         "with_gflags": ["auto", True, False],
         "with_glog": ["auto", True, False],
         "with_grpc": ["auto", True, False],
-        "with_hiveserver2": [True, False],
         "with_jemalloc": ["auto", True, False],
         "with_json": [True, False],
         "with_llvm": ["auto", True, False],
@@ -103,7 +102,6 @@ class ArrowConan(ConanFile):
         "with_jemalloc": "auto",
         "with_glog": "auto",
         "with_grpc": "auto",
-        "with_hiveserver2": False,
         "with_json": False,
         "with_llvm": "auto",
         "with_openssl": "auto",
@@ -164,8 +162,6 @@ class ArrowConan(ConanFile):
             raise ConanInvalidConfiguration("with_openssl options is required (or choose auto)")
         if self.options.with_cuda:
             raise ConanInvalidConfiguration("CCI has no cuda recipe (yet)")
-        if self.options.with_hiveserver2:
-            raise ConanInvalidConfiguration("CCI has no hiveserver2 recipe (yet)")
         if self.options.with_orc:
             raise ConanInvalidConfiguration("CCI has no orc recipe (yet)")
         if self.options.with_s3 and not self.options["aws-sdk-cpp"].config:
@@ -237,7 +233,7 @@ class ArrowConan(ConanFile):
 
     def _with_thrift(self, required=False):
         # No self.options.with_thift exists
-        return bool(required or self.options.with_hiveserver2 or self.options.parquet)
+        return bool(required or self.options.parquet)
 
     def _with_utf8proc(self, required=False):
         if required or self.options.with_utf8proc == "auto":
@@ -356,7 +352,6 @@ class ArrowConan(ConanFile):
         self._cmake.definitions["ARROW_BUILD_STATIC"] = not self.options.shared
         self._cmake.definitions["ARROW_NO_DEPRECATED_API"] = not self.options.deprecated
         self._cmake.definitions["ARROW_FLIGHT"] = self.options.with_flight_rpc
-        self._cmake.definitions["ARROW_HIVESERVER2"] = self.options.with_hiveserver2
         self._cmake.definitions["ARROW_COMPUTE"] = self._compute()
         self._cmake.definitions["ARROW_CSV"] = self.options.with_csv
         self._cmake.definitions["ARROW_CUDA"] = self.options.with_cuda
@@ -561,8 +556,6 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow"].requires.append("libbacktrace::libbacktrace")
         if self.options.with_cuda:
             self.cpp_info.components["libarrow"].requires.append("cuda::cuda")
-        if self.options.with_hiveserver2:
-            self.cpp_info.components["libarrow"].requires.append("hiveserver2::hiveserver2")
         if self.options.with_json:
             self.cpp_info.components["libarrow"].requires.append("rapidjson::rapidjson")
         if self.options.with_s3:

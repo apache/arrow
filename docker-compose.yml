@@ -100,7 +100,6 @@ x-hierarchy:
   - conda:
     - conda-cpp:
       - conda-integration
-      - conda-cpp-hiveserver2
       - conda-cpp-valgrind
       - conda-python:
         - conda-python-pandas:
@@ -1677,7 +1676,7 @@ services:
       POSTGRES_PASSWORD: postgres
 
   impala:
-    # required for the hiveserver and hdfs tests
+    # required for the hdfs tests
     image: ibisproject/impala:latest
     hostname: impala
     links:
@@ -1699,28 +1698,6 @@ services:
       - 25000:25000
       - 25010:25010
       - 25020:25020
-
-  conda-cpp-hiveserver2:
-    # Usage:
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-cpp-hiveserver2
-    #   docker-compose run conda-cpp-hiveserver2
-    image: ${REPO}:${ARCH}-conda-cpp
-    links:
-      - impala:impala
-    environment:
-      <<: *ccache
-      ARROW_FLIGHT: "OFF"
-      ARROW_FLIGHT_SQL: "OFF"
-      ARROW_GANDIVA: "OFF"
-      ARROW_PLASMA: "OFF"
-      ARROW_HIVESERVER2: "ON"
-      ARROW_HIVESERVER2_TEST_HOST: impala
-    shm_size: *shm-size
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build"]
 
   conda-python-hdfs:
     # Usage:
