@@ -69,6 +69,14 @@ namespace ds = ::arrow::dataset;
 namespace compute = ::arrow::compute;
 namespace fs = ::arrow::fs;
 
+#if defined(ARROW_R_WITH_GCS)
+namespace arrow {
+namespace fs {
+class GcsFileSystem;
+}  // namespace fs
+}  // namespace arrow
+#endif
+
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 arrow::MemoryPool* gc_memory_pool();
 arrow::compute::ExecContext* gc_context();

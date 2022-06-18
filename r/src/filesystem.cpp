@@ -34,11 +34,11 @@ const char* r6_class_name<fs::FileSystem>::get(
   } else if (type_name == "s3") {
     return "S3FileSystem";
   } else if (type_name == "gcs") {
-    return "GcsFileSystem"
+    return "GcsFileSystem";
   } else if (type_name == "abfs") {
-    return "AzureBlobFileSystem"
+    return "AzureBlobFileSystem";
   } else if (type_name == "hdfs") {
-    return "HadoopFileSystem"
+    return "HadoopFileSystem";
   } else if (type_name == "subtree") {
     return "SubTreeFileSystem";
   } else {
@@ -358,11 +358,11 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
   if (anonymous) {
     gcs_opts = fs::GcsOptions::Anonymous();
   } else if (!Rf_isNull(options["access_token"])) {
-    // Convert POSIXct timestamp ms to nanoseconds
-    std::chrono::nanoseconds ns_count(static_cast<int64_t>(options["expiration"]) *
-                                      1000000);
+    // Convert POSIXct timestamp seconds to nanoseconds
+    std::chrono::nanoseconds ns_count(
+        static_cast<int64_t>(cpp11::as_cpp<double>(options["expiration"])) * 1000000000);
     auto expiration_timepoint =
-        TimePoint(std::chrono::duration_cast<TimePoint::duration>(ns_count));
+        fs::TimePoint(std::chrono::duration_cast<fs::TimePoint::duration>(ns_count));
     gcs_opts = fs::GcsOptions::FromAccessToken(
         cpp11::as_cpp<std::string>(options["access_token"]), expiration_timepoint);
     // TODO: implement FromImpersonatedServiceAccount
@@ -373,7 +373,7 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
     //   // TODO: construct GcsCredentials
     //   gcs_opts = fs::GcsOptions::FromImpersonatedServiceAccount(base_credentials,
     //                                                             target_service_account);
-  } else if (!Rf_isNull(options["json_credentials"]) {
+  } else if (!Rf_isNull(options["json_credentials"])) {
     gcs_opts = fs::GcsOptions::FromServiceAccountCredentials(
         cpp11::as_cpp<std::string>(options["json_credentials"]));
   } else {
@@ -382,16 +382,16 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
 
   // Handle other attributes
   if (!Rf_isNull(options["endpoint_override"])) {
-    options.endpoint_override = cpp11::as_cpp<std::string>(options["endpoint_override"]);
+    gcs_opts.endpoint_override = cpp11::as_cpp<std::string>(options["endpoint_override"]);
   }
 
   if (!Rf_isNull(options["scheme"])) {
-    options.scheme = cpp11::as_cpp<std::string>(options["scheme"]);
+    gcs_opts.scheme = cpp11::as_cpp<std::string>(options["scheme"]);
   }
 
   // /// \brief Location to use for creating buckets.
   if (!Rf_isNull(options["default_bucket_location"])) {
-    options.default_bucket_location =
+    gcs_opts.default_bucket_location =
         cpp11::as_cpp<std::string>(options["default_bucket_location"]);
   }
   // /// \brief If set used to control total time allowed for retrying underlying
@@ -399,18 +399,19 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
   // ///
   // /// The default policy is to retry for up to 15 minutes.
   if (!Rf_isNull(options["retry_limit_seconds"])) {
-    options.retry_limit_seconds = cpp11::as_cpp<double>(options["retry_limit_seconds"]);
+    gcs_opts.retry_limit_seconds = cpp11::as_cpp<double>(options["retry_limit_seconds"]);
   }
 
   // /// \brief Default metadata for OpenOutputStream.
   // ///
   // /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   if (!Rf_isNull(options["default_metadata"])) {
-    options.default_metadata = strings_to_kvm(options["default_metadata"]);
+    gcs_opts.default_metadata = strings_to_kvm(options["default_metadata"]);
   }
 
   auto io_context = arrow::io::IOContext(gc_memory_pool());
-  return ValueOrStop(fs::GcsFileSystem::Make(gcs_opts, io_context));
+  // TODO: S3FileSystem::Make returns a Result and uses ValueOrStop but this doesn't?
+  return fs::GcsFileSystem::Make(gcs_opts, io_context);
 }
 
 #endif

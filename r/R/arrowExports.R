@@ -1288,6 +1288,10 @@ fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
+fs___GcsFileSystem__Make <- function(anonymous, options) {
+  .Call(`_arrow_fs___GcsFileSystem__Make`, anonymous, options)
+}
+
 io___Readable__Read <- function(x, nbytes) {
   .Call(`_arrow_io___Readable__Read`, x, nbytes)
 }
@@ -2007,3 +2011,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+
