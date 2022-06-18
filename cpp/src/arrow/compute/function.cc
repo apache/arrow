@@ -280,9 +280,7 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
     } else if (kind() == Function::VECTOR) {
       auto vkernel = static_cast<const VectorKernel*>(kernel);
       if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
-        return Status::Invalid(
-            "Vector kernels can only execute chunkwise if all "
-            "arguments are the same length");
+        return Status::Invalid("Vector kernel arguments must all be the same length");
       }
     }
   }

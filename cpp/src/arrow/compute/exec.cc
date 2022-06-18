@@ -338,9 +338,7 @@ Status ExecSpanIterator::Init(const ExecBatch& batch, ValueDescr::Shape output_s
       return Status::Invalid("Value lengths differed from ExecBatch length");
     }
     if (!all_args_same_length) {
-      return Status::Invalid(
-          "ExecSpanIterator cannot be used with arguments of "
-          "different lengths");
+      return Status::Invalid("Array arguments must all be the same length");
     }
   }
   args_ = &batch.values;
