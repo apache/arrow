@@ -1177,31 +1177,27 @@ TEST(Substrait, JoinPlanInvalidKeys) {
 
 TEST(Substrait, SerializeRelation) {
   ExtensionSet ext_set;
+  compute::ExecContext exec_context;
 
   ASSERT_OK_AND_ASSIGN(std::string dir_string,
-                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
   auto file_name =
       arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
 
-  compute::ExecContext exec_context;
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
   auto dummy_schema = schema({field("foo", binary())});
-
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
+
   std::vector<fs::FileInfo> files;
-  const std::string f_path = file_name->ToString();//"/tmp/data1.parquet";
-  // const std::string s_path = "file:///tmp/data2.parquet";
+  const std::string f_path = file_name->ToString();
   ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
-  // ASSERT_OK_AND_ASSIGN(auto s_file, filesystem->GetFileInfo(s_path));
   files.push_back(std::move(f_file));
-  // files.push_back(std::move(s_file));
 
   ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
                                             std::move(filesystem), std::move(files),
                                             std::move(format), {}));
 
-  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(std::move(dummy_schema)));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
 
   auto options = std::make_shared<dataset::ScanOptions>();
   options->projection = compute::project({}, {});  // create empty projection
@@ -1209,7 +1205,7 @@ TEST(Substrait, SerializeRelation) {
   auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-  
+
   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
 
   auto scan_declaration = compute::Declaration({"scan", scan_node_options});
@@ -1218,48 +1214,53 @@ TEST(Substrait, SerializeRelation) {
   auto declarations =
       compute::Declaration::Sequence({scan_declaration, sink_declaration});
 
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
   ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
 
   ASSERT_OK(decl->Validate());
 
-  // std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-  //     compute::MakeGeneratorReader(dummy_schema, std::move(sink_gen), exec_context.memory_pool());
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      dummy_schema, std::move(sink_gen), exec_context.memory_pool());
 
-  // ASSERT_OK(plan->Validate());
-  // ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
 
-  // std::cout << "Plan " << std::endl;
-  // std::cout << plan->ToString() << std::endl;
-
-  // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
 
   ASSERT_OK_AND_ASSIGN(response_table,
-                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
+                       arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
-  std::cout << "Results : " << response_table->ToString() << std::endl;
-
-  
-  std::cout << "Serialize Scan Relation" << std::endl;
   ASSERT_OK_AND_ASSIGN(auto serialized_rel,
                        SerializeRelation(scan_declaration, &ext_set));
   ASSERT_OK_AND_ASSIGN(auto deserialized_decl,
                        DeserializeRelation(*serialized_rel, ext_set));
 
-  auto t_decls = compute::Declaration::Sequence({deserialized_decl, sink_declaration});
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> des_sink_gen;
+  auto des_sink_node_options = compute::SinkNodeOptions{&des_sink_gen};
+
+  auto des_sink_declaration = compute::Declaration({"sink", des_sink_node_options});
+
+  auto t_decls =
+      compute::Declaration::Sequence({deserialized_decl, des_sink_declaration});
 
   ASSERT_OK_AND_ASSIGN(auto t_plan, compute::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto t_decl, t_decls.AddToPlan(t_plan.get()));
 
   ASSERT_OK(t_decl->Validate());
 
-  // std::cout << "Des Plan " << std::endl;
-  // std::cout << t_plan->ToString() << std::endl;
+  std::shared_ptr<arrow::RecordBatchReader> des_sink_reader =
+      compute::MakeGeneratorReader(dummy_schema, std::move(des_sink_gen),
+                                   exec_context.memory_pool());
 
-  
-  //ASSERT_OK(t_plan->Validate());
-  //ASSERT_OK(t_plan->StartProducing());
+  ASSERT_OK(t_plan->Validate());
+  ASSERT_OK(t_plan->StartProducing());
 
+  std::shared_ptr<arrow::Table> des_response_table;
+
+  ASSERT_OK_AND_ASSIGN(des_response_table,
+                       arrow::Table::FromRecordBatchReader(des_sink_reader.get()));
+
+  ASSERT_TRUE(response_table->Equals(*des_response_table, true));
 }
 
 }  // namespace engine
