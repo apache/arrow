@@ -61,7 +61,9 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
 using DeclarationFactory = std::function<compute::Declaration(
     compute::Declaration, std::vector<std::string> names)>;
 
-static DeclarationFactory MakeConsumingSinkDeclarationFactory(
+namespace {
+
+DeclarationFactory MakeConsumingSinkDeclarationFactory(
     const ConsumerFactory& consumer_factory) {
   return [&consumer_factory](compute::Declaration input, std::vector<std::string> names) {
     std::shared_ptr<compute::ExecNodeOptions> options =
@@ -71,8 +73,6 @@ static DeclarationFactory MakeConsumingSinkDeclarationFactory(
         {std::move(input), {"consuming_sink", options}});
   };
 }
-
-namespace {
 
 compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
                                                std::vector<std::string> names) {
@@ -90,9 +90,7 @@ compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
         compute::ProjectNodeOptions{std::move(expressions), std::move(names)}}});
 }
 
-}  // namespace
-
-static DeclarationFactory MakeWriteDeclarationFactory(
+DeclarationFactory MakeWriteDeclarationFactory(
     const WriteOptionsFactory& write_options_factory) {
   return [&write_options_factory](compute::Declaration input,
                                   std::vector<std::string> names) {
@@ -102,10 +100,9 @@ static DeclarationFactory MakeWriteDeclarationFactory(
   };
 }
 
-static Result<std::vector<compute::Declaration>> DeserializePlans(
-    const Buffer& buf, const std::string& factory_name,
-    DeclarationFactory declaration_factory, const ExtensionIdRegistry* registry,
-    ExtensionSet* ext_set_out) {
+Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buf, DeclarationFactory declaration_factory,
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry));
@@ -132,28 +129,26 @@ static Result<std::vector<compute::Declaration>> DeserializePlans(
   return sink_decls;
 }
 
+}  // namespace
+
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
-  return DeserializePlans(buf, "consuming_sink",
-                          MakeConsumingSinkDeclarationFactory(consumer_factory), registry,
-                          ext_set_out);
+  return DeserializePlans(buf, MakeConsumingSinkDeclarationFactory(consumer_factory),
+                          registry, ext_set_out);
 }
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
-  return DeserializePlans(buf, "write",
-                          MakeWriteDeclarationFactory(write_options_factory), registry,
-                          ext_set_out);
+  return DeserializePlans(buf, MakeWriteDeclarationFactory(write_options_factory),
+                          registry, ext_set_out);
 }
 
-Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
-                                          const ConsumerFactory& consumer_factory,
-                                          const ExtensionIdRegistry* registry,
-                                          ExtensionSet* ext_set_out) {
-  ARROW_ASSIGN_OR_RAISE(auto declarations,
-                        DeserializePlans(buf, consumer_factory, registry, ext_set_out));
+namespace {
+
+Result<compute::ExecPlan> MakeSingleDeclarationPlan(
+    std::vector<compute::Declaration> declarations) {
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
@@ -161,6 +156,25 @@ Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
     std::ignore = declarations[0].AddToPlan(plan.get());
     return *std::move(plan);
   }
+}
+
+}  // namespace
+
+Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
+                                          const ConsumerFactory& consumer_factory,
+                                          const ExtensionIdRegistry* registry,
+                                          ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto declarations,
+                        DeserializePlans(buf, consumer_factory, registry, ext_set_out));
+  return MakeSingleDeclarationPlan(declarations);
+}
+
+Result<compute::ExecPlan> DeserializePlan(
+    const Buffer& buf, const WriteOptionsFactory& write_options_factory,
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto declarations, DeserializePlans(buf, write_options_factory,
+                                                            registry, ext_set_out));
+  return MakeSingleDeclarationPlan(declarations);
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,

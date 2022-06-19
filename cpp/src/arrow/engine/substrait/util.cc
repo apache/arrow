@@ -129,9 +129,7 @@ Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_j
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buffer, const ExtensionIdRegistry* registry) {
-  return engine::DeserializePlans(
-      buffer, []() { return std::make_shared<compute::NullSinkNodeConsumer>(); },
-      registry);
+  return engine::DeserializePlans(buffer, compute::NullSinkNodeConsumer::Make, registry);
 }
 
 std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
@@ -141,11 +139,7 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
 Status RegisterFunction(ExtensionIdRegistry& registry, const std::string& id_uri,
                         const std::string& id_name,
                         const std::string& arrow_function_name) {
-  const std::string& id_uri_sym = registry.AddExternalSymbol(id_uri);
-  const std::string& id_name_sym = registry.AddExternalSymbol(id_name);
-  const std::string& arrow_function_name_sym =
-      registry.AddExternalSymbol(arrow_function_name);
-  return registry.RegisterFunction({id_uri_sym, id_name_sym}, arrow_function_name_sym);
+  return registry.RegisterFunction(id_uri, id_name, arrow_function_name);
 }
 
 const std::string& default_extension_types_uri() {

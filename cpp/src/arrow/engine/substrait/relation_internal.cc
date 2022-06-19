@@ -119,7 +119,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         } else {
           return Status::NotImplemented(
               "substrait::ReadRel::LocalFiles::FileOrFiles::format "
-              "other than FILE_FORMAT_PARQUET with an unrecognized file extension");
+              "other than FILE_FORMAT_PARQUET");
         }
 
         if (!util::string_view{path}.starts_with("file:///")) {

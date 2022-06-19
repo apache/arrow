@@ -95,18 +95,11 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
       util::string_view arrow_function_name) const = 0;
   virtual Status CanRegisterFunction(Id,
                                      const std::string& arrow_function_name) const = 0;
+  // registers a function without taking ownership of uri and name within Id
   virtual Status RegisterFunction(Id, std::string arrow_function_name) = 0;
-
-  /// \brief Add a symbol external to the plan yet used in an Id.
-  ///
-  /// This ensures the symbol, which is only viewed but not held by the Id, lives while
-  /// the extension set does. Symbols appearing in the Substrait plan are already held.
-  const std::string& AddExternalSymbol(const std::string& symbol) {
-    return *external_symbols.insert(symbol).first;
-  }
-
- private:
-  std::set<std::string> external_symbols;
+  // registers a function while taking ownership of uri and name
+  virtual Status RegisterFunction(std::string uri, std::string name,
+                                  std::string arrow_function_name) = 0;
 };
 
 constexpr util::string_view kArrowExtTypesUri =

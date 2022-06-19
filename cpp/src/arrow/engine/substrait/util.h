@@ -42,6 +42,10 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
 /// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
 /// including a no-op consumer of the sink output
 ///
+/// A typical use is for deserializing a Substrait plan that is self-contained, i.e.,
+/// contains side-effecting operations such as writing to filesystems, so that no
+/// further consuming of its output is needed.
+///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
 /// message
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
