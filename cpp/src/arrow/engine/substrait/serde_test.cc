@@ -1176,6 +1176,9 @@ TEST(Substrait, JoinPlanInvalidKeys) {
 }
 
 TEST(Substrait, SerializeRelation) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
   ExtensionSet ext_set;
   compute::ExecContext exec_context;
 
@@ -1204,7 +1207,7 @@ TEST(Substrait, SerializeRelation) {
 
   auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
 
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch> > sink_gen;
 
   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
 
@@ -1235,7 +1238,7 @@ TEST(Substrait, SerializeRelation) {
   ASSERT_OK_AND_ASSIGN(auto deserialized_decl,
                        DeserializeRelation(*serialized_rel, ext_set));
 
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> des_sink_gen;
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch> > des_sink_gen;
   auto des_sink_node_options = compute::SinkNodeOptions{&des_sink_gen};
 
   auto des_sink_declaration = compute::Declaration({"sink", des_sink_node_options});
@@ -1261,6 +1264,7 @@ TEST(Substrait, SerializeRelation) {
                        arrow::Table::FromRecordBatchReader(des_sink_reader.get()));
 
   ASSERT_TRUE(response_table->Equals(*des_response_table, true));
+#endif
 }
 
 }  // namespace engine
