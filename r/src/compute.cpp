@@ -586,19 +586,6 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
   arrow::Status operator()(arrow::compute::KernelContext* context,
                            const arrow::compute::ExecSpan& span,
                            arrow::compute::ExecResult* result) {
-    std::vector<std::shared_ptr<arrow::Array>> array_args;
-    for (int64_t i = 0; i < span.num_values(); i++) {
-      const arrow::compute::ExecValue& v = span[i];
-      if (v.is_array()) {
-        array_args.push_back(v.array.ToArray());
-      } else if (v.is_scalar()) {
-        auto array = ValueOrStop(arrow::MakeArrayFromScalar(*v.scalar, span.length));
-        array_args.push_back(array);
-      }
-    }
-
-    auto batch = arrow::RecordBatch::Make(input_types_, span.length, array_args);
-
     auto fun_result = SafeCallIntoR<std::shared_ptr<arrow::Array>>([&]() {
       cpp11::writable::list args_sexp;
       args_sexp.reserve(span.num_values());
