@@ -122,10 +122,15 @@ ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& expr,
                                                     ExtensionSet* ext_set);
 
-/// TODO: add docstring
-
-Result<std::shared_ptr<Buffer>> SerializeRelation(const compute::Declaration& declaration,
-                                                  ExtensionSet* ext_set);
+/// \brief Serializes an Arrow compute Declaration to a Substrait Relation message
+///
+/// \param[in] declaration the Arrow compute declaration to serialize
+/// \param[in,out] ext_set the extension mapping to use; may be updated to add
+/// mappings for the components in the used declaration
+/// \return a buffer containing the protobuf serialization of the corresponding Substrait
+/// Relation message
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
+    const compute::Declaration& declaration, ExtensionSet* ext_set);
 
 /// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
 ///
