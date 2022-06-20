@@ -56,10 +56,6 @@ ARROW_ENGINE_EXPORT Result<compute::ExecPlan> DeserializePlan(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     ExtensionSet* ext_set_out = NULLPTR);
 
-/// TODO: add docstring
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializePlan(
-    const compute::ExecPlan& exec_plan, ExtensionSet* ext_set);
-
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Type
