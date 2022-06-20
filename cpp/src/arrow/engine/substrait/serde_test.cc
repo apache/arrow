@@ -1180,13 +1180,18 @@ TEST(Substrait, SerializeRelation) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ExtensionSet ext_set;
-  auto dummy_schema = schema({field("f1", int32()), field("f2", int32())});
+  auto dummy_schema = schema({field("foo", binary())});
   // creating a dummy dataset using a dummy table
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
 
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto file_name =
+      arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
+
   std::vector<fs::FileInfo> files;
-  const std::vector<std::string> f_paths = {"/tmp/data1.parquet", "/tmp/data2.parquet"};
+  const std::vector<std::string> f_paths = {file_name->ToString()};
 
   for (const auto& f_path : f_paths) {
     ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
