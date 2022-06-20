@@ -212,6 +212,7 @@ def read_feather(source, columns=None, use_threads=True, memory_map=False):
     Parameters
     ----------
     source : str file path, or file-like object
+        You can use MemoryMappedFile as source, for explicitly use memory map.
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
@@ -220,7 +221,7 @@ def read_feather(source, columns=None, use_threads=True, memory_map=False):
         restriction is used in the conversion to Pandas as well as in the
         reading from Feather format.
     memory_map : boolean, default False
-        Use memory mapping when opening file on disk
+        Use memory mapping when opening file on disk, when source is a str.
 
     Returns
     -------
@@ -239,11 +240,12 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
     Parameters
     ----------
     source : str file path, or file-like object
+        You can use MemoryMappedFile as source, for explicitly use memory map.
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
     memory_map : boolean, default False
-        Use memory mapping when opening file on disk
+        Use memory mapping when opening file on disk, when source is a str
     use_threads : bool, default True
         Whether to parallelize reading using multiple threads.
 

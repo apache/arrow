@@ -425,7 +425,7 @@ def serialize_to(object value, sink, SerializationContext context=None):
     serialized.write_to(sink)
 
 
-def read_serialized(source, base=None, use_memory_map=False):
+def read_serialized(source, base=None):
     """
     DEPRECATED: Read serialized Python sequence from file-like object.
 
@@ -442,20 +442,18 @@ def read_serialized(source, base=None, use_memory_map=False):
     base : object
         This object will be the base object of all the numpy arrays
         contained in the sequence.
-    use_memory_map : boolean, default False
-        Use memory mapping when opening file on disk
 
     Returns
     -------
     serialized : the serialized data
     """
     _deprecate_serialization("read_serialized")
-    return _read_serialized(source, base=base, use_memory_map=use_memory_map)
+    return _read_serialized(source, base=base)
 
 
-def _read_serialized(source, base=None, use_memory_map=False):
+def _read_serialized(source, base=None):
     cdef shared_ptr[CRandomAccessFile] stream
-    get_reader(source, use_memory_map, &stream)
+    get_reader(source, False, &stream)
 
     cdef SerializedPyObject serialized = SerializedPyObject()
     serialized.base = base
@@ -465,7 +463,7 @@ def _read_serialized(source, base=None, use_memory_map=False):
     return serialized
 
 
-def deserialize_from(source, object base, SerializationContext context=None, use_memory_map=False):
+def deserialize_from(source, object base, SerializationContext context=None):
     """
     DEPRECATED: Deserialize a Python sequence from a file.
 
@@ -487,8 +485,6 @@ def deserialize_from(source, object base, SerializationContext context=None, use
         contained in the sequence.
     context : SerializationContext
         Custom serialization and deserialization context.
-    use_memory_map : boolean, default False
-        Use memory mapping when opening file on disk
 
     Returns
     -------
@@ -496,8 +492,7 @@ def deserialize_from(source, object base, SerializationContext context=None, use
         Python object for the deserialized sequence.
     """
     _deprecate_serialization("deserialize_from")
-    serialized = _read_serialized(
-        source, base=base, use_memory_map=use_memory_map)
+    serialized = _read_serialized(source, base=base)
     return serialized.deserialize(context)
 
 
@@ -555,8 +550,7 @@ def deserialize(obj, SerializationContext context=None):
     return _deserialize(obj, context=context)
 
 
-def _deserialize(obj, SerializationContext context=None, use_memory_map=False):
+def _deserialize(obj, SerializationContext context=None):
     source = BufferReader(obj)
-    serialized = _read_serialized(
-        source, base=obj, use_memory_map=use_memory_map)
+    serialized = _read_serialized(source, base=obj)
     return serialized.deserialize(context)

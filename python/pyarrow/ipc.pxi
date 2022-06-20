@@ -793,10 +793,10 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
         pass
 
     def _open(self, source, IpcReadOptions options=IpcReadOptions(),
-              MemoryPool memory_pool=None, use_memory_map=False):
+              MemoryPool memory_pool=None):
         self.options = options.c_options
         self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
-        _get_input_stream(source, &self.in_stream, use_memory_map)
+        _get_input_stream(source, &self.in_stream)
         with nogil:
             self.reader = GetResultValue(CRecordBatchStreamReader.Open(
                 self.in_stream, self.options))
@@ -840,7 +840,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 
     def _open(self, source, footer_offset=None,
               IpcReadOptions options=IpcReadOptions(),
-              MemoryPool memory_pool=None, use_memory_map=False):
+              MemoryPool memory_pool=None):
         self.options = options.c_options
         self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
         try:
@@ -848,7 +848,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         except TypeError:
             pass
 
-        get_reader(source, use_memory_map, &self.file)
+        get_reader(source, False, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -1066,7 +1066,7 @@ def read_message(source):
     return result
 
 
-def read_schema(obj, DictionaryMemo dictionary_memo=None, use_memory_map=False):
+def read_schema(obj, DictionaryMemo dictionary_memo=None):
     """
     Read Schema from message or buffer
 
@@ -1076,8 +1076,6 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None, use_memory_map=False):
     dictionary_memo : DictionaryMemo, optional
         Needed to be able to reconstruct dictionary-encoded fields
         with read_record_batch
-    use_memory_map : boolean, default False
-        Use memory mapping when opening file on disk
 
     Returns
     -------
@@ -1092,7 +1090,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None, use_memory_map=False):
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
-    get_reader(obj, use_memory_map, &cpp_file)
+    get_reader(obj, False, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo
