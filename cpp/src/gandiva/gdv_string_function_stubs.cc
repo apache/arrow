@@ -39,28 +39,25 @@ extern "C" {
 
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len) {
-  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
+  gandiva::RegexpMatchesHolder* holder =
+      reinterpret_cast<gandiva::RegexpMatchesHolder*>(ptr);
   return (*holder)(std::string(data, data_len));
 }
 
 bool gdv_fn_like_utf8_utf8_utf8(int64_t ptr, const char* data, int data_len,
                                 const char* pattern, int pattern_len,
                                 const char* escape_char, int escape_char_len) {
-  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
-  return (*holder)(std::string(data, data_len));
+  return gdv_fn_like_utf8_utf8(ptr, data, data_len, pattern, pattern_len);
 }
 
 bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
                             const char* pattern, int pattern_len) {
-  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
-  return (*holder)(std::string(data, data_len));
+  return gdv_fn_like_utf8_utf8(ptr, data, data_len, pattern, pattern_len);
 }
 
 bool gdv_fn_regexp_matches_utf8_utf8(int64_t ptr, const char* data, int data_len,
                                      const char* pattern, int pattern_len) {
-  gandiva::RegexpMatchesHolder* holder =
-      reinterpret_cast<gandiva::RegexpMatchesHolder*>(ptr);
-  return (*holder)(std::string(data, data_len));
+  return gdv_fn_like_utf8_utf8(ptr, data, data_len, pattern, pattern_len);
 }
 
 const char* gdv_fn_regexp_replace_utf8_utf8(

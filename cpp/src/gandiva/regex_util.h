@@ -29,7 +29,7 @@ namespace gandiva {
 /// \brief Utility class for converting sql patterns to pcre patterns.
 class GANDIVA_EXPORT RegexUtil {
  public:
-  // Convert an sql pattern to a pcre pattern
+  // Convert an sql pattern to a pcre pattern for use with PartialMatch
   static Status SqlLikePatternToPcre(const std::string& like_pattern, char escape_char,
                                      std::string& pcre_pattern);
 

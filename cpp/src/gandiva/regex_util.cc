@@ -30,16 +30,15 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
   for (size_t idx = 0; idx < sql_pattern.size(); ++idx) {
     auto cur = sql_pattern.at(idx);
 
-//    if (idx == 0 && cur != '%') {
-//      pcre_pattern += '^';
-//    } else if (idx == 0 && cur == '%') {
-//      continue;
-//    }
+    if (idx == 0 && cur != '%') {
+      pcre_pattern += '^';
+    } else if (idx == 0 && cur == '%') {
+      continue;
+    }
 
     // Escape any char that is special for pcre regex
-//    if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end()  &&
-//        cur != escape_char) {
-    if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end()) {
+    if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end() &&
+        cur != escape_char) {
       pcre_pattern += "\\";
     }
 
@@ -51,7 +50,11 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
           Status::Invalid("Unexpected escape char at the end of pattern ", sql_pattern));
 
       cur = sql_pattern.at(idx);
-      if (cur == '_' || cur == '%' || cur == escape_char) {
+
+      if (cur == '\\' && escape_char == '\\') {
+        // Backslash still needs to be escaped in pcre
+        pcre_pattern += "\\\\";
+      } else if (cur == '_' || cur == '%' || cur == escape_char) {
         pcre_pattern += cur;
       } else {
         return Status::Invalid("Invalid escape sequence in pattern ", sql_pattern,
@@ -59,19 +62,17 @@ Status RegexUtil::SqlLikePatternToPcre(const std::string& sql_pattern, char esca
       }
     } else if (cur == '_') {
       pcre_pattern += '.';
-    }
-//    else if (cur == '%' && idx == sql_pattern.size() - 1) {
-//      continue;
-//    }
-    else if (cur == '%') {
+    } else if (cur == '%' && idx == sql_pattern.size() - 1) {
+      continue;
+    } else if (cur == '%') {
       pcre_pattern += ".*";
     } else {
       pcre_pattern += cur;
     }
 
-//    if (idx == sql_pattern.size() - 1 && cur != '%') {
-//      pcre_pattern += '$';
-//    }
+    if (idx == sql_pattern.size() - 1 && cur != '%') {
+      pcre_pattern += '$';
+    }
   }
   return Status::OK();
 }
