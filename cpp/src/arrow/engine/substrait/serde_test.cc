@@ -1200,7 +1200,7 @@ TEST(Substrait, SerializeRelation) {
   ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
 
   auto options = std::make_shared<dataset::ScanOptions>();
-  options->projection = compute::project({}, {});  // create empty projection
+  options->projection = compute::project({}, {});
 
   auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
 
