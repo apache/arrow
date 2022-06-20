@@ -62,7 +62,7 @@ test_that("register_scalar_function() creates a dplyr binding", {
     int32(),
     int64(),
     function(x, y) {
-      y[[1]]$cast(int64())
+      as_arrow_array(y[[1]])$cast(int64())
     }
   )
 
@@ -74,6 +74,12 @@ test_that("register_scalar_function() creates a dplyr binding", {
     call_function("my_test_scalar_function", Array$create(1L, int32())),
     Array$create(1L, int64())
   )
+
+  # segfaults
+  # expect_equal(
+  #   call_function("my_test_scalar_function", Scalar$create(1L, int32())),
+  #   Array$create(1L, int64())
+  # )
 
   # fails because there's no event loop registered
   # record_batch(a = 1L) |> dplyr::mutate(b = my_test_scalar_function(a)) |> dplyr::collect()

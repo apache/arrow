@@ -600,13 +600,26 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
     auto batch = arrow::RecordBatch::Make(input_types_, span.length, array_args);
 
     auto fun_result = SafeCallIntoR<std::shared_ptr<arrow::Array>>([&]() {
-      cpp11::sexp batch_sexp = cpp11::to_r6<arrow::RecordBatch>(batch);
+      cpp11::writable::list args_sexp;
+      args_sexp.reserve(span.num_values());
+
+      for (int64_t i = 0; i < span.num_values(); i++) {
+        const arrow::compute::ExecValue& v = span[i];
+        if (v.is_array()) {
+          std::shared_ptr<arrow::Array> array = v.array.ToArray();
+          args_sexp.push_back(cpp11::to_r6<arrow::Array>(array));
+        } else if (v.is_scalar()) {
+          std::shared_ptr<const arrow::Scalar> scalar = v.scalar->shared_from_this();
+          args_sexp.push_back(cpp11::to_r6<const arrow::Scalar>(scalar));
+        }
+      }
+
       cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
 
       cpp11::writable::list udf_context = {batch_length_sexp};
       udf_context.names() = {"batch_length"};
 
-      cpp11::sexp fun_result_sexp = fun_(udf_context, batch_sexp);
+      cpp11::sexp fun_result_sexp = fun_(udf_context, args_sexp);
       if (!Rf_inherits(fun_result_sexp, "Array")) {
         cpp11::stop("arrow_scalar_function must return an Array");
       }
