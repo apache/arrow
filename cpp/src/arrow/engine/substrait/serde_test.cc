@@ -1180,6 +1180,77 @@ TEST(Substrait, SerializeRelation) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ExtensionSet ext_set;
+  auto dummy_schema = schema({field("f1", int32()), field("f2", int32())});
+  // creating a dummy dataset using a dummy table
+  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {"/tmp/data1.parquet", "/tmp/data2.parquet"};
+
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            std::move(filesystem), std::move(files),
+                                            std::move(format), {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto options = std::make_shared<dataset::ScanOptions>();
+  options->projection = compute::project({}, {});
+  auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
+
+  auto scan_declaration = compute::Declaration({"scan", scan_node_options});
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_rel,
+                       SerializeRelation(scan_declaration, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto deserialized_decl,
+                       DeserializeRelation(*serialized_rel, ext_set));
+
+  auto dataset_comparator = [](std::shared_ptr<dataset::Dataset> ds_lhs,
+                               std::shared_ptr<dataset::Dataset> ds_rhs) -> bool {
+    const auto& fds_lhs = checked_cast<const dataset::FileSystemDataset&>(*ds_lhs);
+    const auto& fds_rhs = checked_cast<const dataset::FileSystemDataset&>(*ds_lhs);
+    const auto& files_lhs = fds_lhs.files();
+    const auto& files_rhs = fds_rhs.files();
+
+    bool cmp_fsize = files_lhs.size() == files_rhs.size();
+    uint64_t fidx = 0;
+    for (const auto& l_file : files_lhs) {
+      if (l_file != files_rhs[fidx]) {
+        return false;
+      }
+      fidx++;
+    }
+    bool cmp_file_format = fds_lhs.format()->Equals(*fds_lhs.format());
+    bool cmp_file_system = fds_lhs.filesystem()->Equals(fds_rhs.filesystem());
+    return cmp_fsize && cmp_file_format && cmp_file_system;
+  };
+
+  auto scan_option_comparator = [dataset_comparator](
+                                    const dataset::ScanNodeOptions& lhs,
+                                    const dataset::ScanNodeOptions& rhs) -> bool {
+    bool cmp_rso = lhs.require_sequenced_output == rhs.require_sequenced_output;
+    bool cmp_ds = dataset_comparator(lhs.dataset, rhs.dataset);
+    return cmp_rso && cmp_ds;
+  };
+
+  EXPECT_EQ(deserialized_decl.factory_name, scan_declaration.factory_name);
+  const auto& lhs =
+      checked_cast<const dataset::ScanNodeOptions&>(*deserialized_decl.options);
+  const auto& rhs =
+      checked_cast<const dataset::ScanNodeOptions&>(*scan_declaration.options);
+  ASSERT_TRUE(scan_option_comparator(lhs, rhs));
+#endif
+}
+
+TEST(Substrait, SerializeRelationEndToEnd) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ExtensionSet ext_set;
   compute::ExecContext exec_context;
 
   ASSERT_OK_AND_ASSIGN(std::string dir_string,
