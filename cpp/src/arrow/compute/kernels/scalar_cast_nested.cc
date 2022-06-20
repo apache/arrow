@@ -83,7 +83,8 @@ struct CastList {
         if (is_downcast) {
           if (in_scalar.value->length() > std::numeric_limits<dest_offset_type>::max()) {
             return Status::Invalid("Scalar of type ", in_scalar.type->ToString(),
-                                   " too large to convert to ", out_scalar->type->ToString());
+                                   " too large to convert to ",
+                                   out_scalar->type->ToString());
           }
         }
 
