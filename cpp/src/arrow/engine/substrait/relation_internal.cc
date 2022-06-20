@@ -324,13 +324,19 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
 }
 
 namespace {
-
+// TODO: add other types
 enum ArrowRelationType : uint8_t {
   SCAN,
+  FILTER,
+  PROJECT,
+  JOIN,
+  AGGREGATE,
 };
 
 const std::map<std::string, ArrowRelationType> enum_map{
-    {"scan", ArrowRelationType::SCAN},
+    {"scan", ArrowRelationType::SCAN},           {"filter", ArrowRelationType::FILTER},
+    {"project", ArrowRelationType::PROJECT},     {"join", ArrowRelationType::JOIN},
+    {"aggregate", ArrowRelationType::AGGREGATE},
 };
 
 struct ExtractRelation {
@@ -342,6 +348,14 @@ struct ExtractRelation {
     switch (enum_map.find(rel_name)->second) {
       case ArrowRelationType::SCAN:
         return AddReadRelation(declaration);
+      case ArrowRelationType::FILTER:
+        return Status::NotImplemented("Filter operator not supported.");
+      case ArrowRelationType::PROJECT:
+        return Status::NotImplemented("Project operator not supported.");
+      case ArrowRelationType::JOIN:
+        return Status::NotImplemented("Join operator not supported.");
+      case ArrowRelationType::AGGREGATE:
+        return Status::NotImplemented("Aggregate operator not supported.");
       default:
         return Status::Invalid("Unsupported factory name :", rel_name);
     }
@@ -351,6 +365,7 @@ struct ExtractRelation {
     auto read_rel = internal::make_unique<substrait::ReadRel>();
     const auto& scan_node_options =
         internal::checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
+
     const auto& fds = internal::checked_cast<const dataset::FileSystemDataset&>(
         *scan_node_options.dataset);
 
