@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <iterator>
 #include <limits>
 #include <numeric>
@@ -175,47 +176,80 @@ class ArrayCompareSorter {
 
 template <>
 class ArrayCompareSorter<DictionaryType> {
+  struct DictionaryInternal {
+    NullPartitionResult p;
+    const std::shared_ptr<Array>& values;
+    const std::shared_ptr<Array>& indices;
+    const UInt64Array& indices_values;
+    const ArraySortOptions& options;
+    int64_t offset;
+
+    Status Visit(const DataType& index_type) {
+      return Status::TypeError("Dictionary sorting not supported for index type ",
+                               index_type.ToString());
+    }
+
+    template <typename IndexType>
+    enable_if_t<is_integer_type<IndexType>::value, Status> Visit(
+        const IndexType& index_type) {
+      return SortInternal<IndexType>();
+    }
+
+    template <typename IndexType>
+    Status SortInternal() {
+      using ArrayType = typename TypeTraits<IndexType>::ArrayType;
+      using GetView = GetViewType<IndexType>;
+      const auto& indices_array = checked_cast<const ArrayType&>(*indices);
+
+      std::vector<uint64_t> sort_order(indices_values.length());
+      uint64_t cur = 0;
+      auto cur_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(cur));
+      auto cur_val = values->GetScalar(cur_idx);
+      for (int i = 0; i < indices_values.length(); i++) {
+        auto tmp_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(i));
+        auto tmp_val = values->GetScalar(tmp_idx);
+        if (cur_val != tmp_val) {
+          cur = i;
+          cur_val = tmp_val;
+        }
+        sort_order[tmp_idx] = cur;
+      }
+
+      std::stable_sort(
+          this->p.non_nulls_begin, this->p.non_nulls_end,
+          [&](uint64_t left, uint64_t right) {
+            const auto lhs = GetView::LogicalValue(indices_array.GetView(left - offset));
+            const auto rhs = GetView::LogicalValue(indices_array.GetView(right - offset));
+            return sort_order[lhs] < sort_order[rhs];
+          });
+
+      return Status::OK();
+    }
+
+    Result<NullPartitionResult> Make(const std::shared_ptr<DataType>& index_type) {
+      RETURN_NOT_OK(VisitTypeInline(*index_type, this));
+      return std::move(p);
+    }
+  };
+
  public:
   NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
                                  const Array& array, int64_t offset,
                                  const ArraySortOptions& options) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
-
-    const auto& indices = dict_array.indices();
     const auto& values = dict_array.dictionary();
+    const auto& indices = dict_array.indices();
+    const auto& index_type = dict_array.dict_type()->index_type();
 
-    const auto p = PartitionNulls<DictionaryArray, StablePartitioner>(
+    NullPartitionResult p = PartitionNulls<DictionaryArray, StablePartitioner>(
         indices_begin, indices_end, dict_array, offset, options.null_placement);
-
     auto indices_array =
         CallFunction("array_sort_indices", {values}, &options).ValueOrDie().make_array();
+
     const auto& indices_values = checked_cast<const UInt64Array&>(*indices_array);
+    DictionaryInternal visitor = {p, values, indices, indices_values, options, offset};
 
-    std::vector<uint64_t> sort_order(indices_values.length());
-    uint64_t cur = 0;
-    auto cur_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(cur));
-    auto cur_val = values->GetScalar(cur_idx);
-    for (int i = 0; i < indices_values.length(); i++) {
-      auto tmp_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(i));
-      auto tmp_val = values->GetScalar(tmp_idx);
-      if (cur_val != tmp_val) {
-        cur = i;
-        cur_val = tmp_val;
-      }
-      sort_order[tmp_idx] = cur;
-    }
-
-    std::stable_sort(
-        p.non_nulls_begin, p.non_nulls_end,
-        [&indices, &sort_order, &offset](uint64_t left, uint64_t right) {
-          const auto lhs =
-              std::stoull(indices->GetScalar(left - offset).ValueOrDie()->ToString());
-          const auto rhs =
-              std::stoull(indices->GetScalar(right - offset).ValueOrDie()->ToString());
-          return sort_order[lhs] < sort_order[rhs];
-        });
-
-    return p;
+    return visitor.Make(index_type).ValueOrDie();
   }
 };
 
