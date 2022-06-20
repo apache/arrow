@@ -2211,7 +2211,6 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 })
 
 test_that("build_formats", {
-  # TODO finish adding tests for build_formats
   expect_equal(
     build_formats(c("ym", "myd", "%Y-%d-%m")),
     c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d",
@@ -2219,7 +2218,43 @@ test_that("build_formats", {
       "%Y-%d-%b", "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d",
       "%Y-%b-%d")
   )
-  expect_error(build_formats("abd"))
+
+  # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
+  # or "ydm" and the formats are built accordingly
+  ymd_formats <- c(
+    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d"
+  )
+  expect_equal(
+    build_formats("yq"),
+    ymd_formats
+  )
+
+  expect_equal(
+    build_formats("ym"),
+    ymd_formats
+  )
+
+  expect_equal(
+    build_formats("qy"),
+    ymd_formats
+  )
+
+  # build formats will output unique formats
+  expect_equal(
+    build_formats(c("yq", "ym", "qy")),
+    ymd_formats
+  )
+
+  expect_equal(
+    build_formats("my"),
+    c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d")
+  )
+
+  # ab not supported yet
+  expect_error(
+    build_formats("abd"),
+    '"abd" `orders` not supported in Arrow'
+  )
 #   a
 #   Abbreviated weekday name in the current locale. (Also matches full name)
 #
