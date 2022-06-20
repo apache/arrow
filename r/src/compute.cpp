@@ -618,8 +618,7 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
       return fun_result.status();
     }
 
-    result->value.emplace<std::shared_ptr<arrow::ArrayData>>(
-        fun_result.ValueUnsafe()->data());
+    result->value =  std::move(fun_result->data());
     return arrow::Status::OK();
   }
 
