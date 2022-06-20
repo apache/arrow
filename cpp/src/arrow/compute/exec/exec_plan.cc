@@ -283,10 +283,6 @@ const ExecPlan::NodeVector& ExecPlan::sources() const {
 
 const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
 
-const ExecPlan::NodeVector& ExecPlan::nodes() const {
-  return ToDerived(this)->sorted_nodes_;
-}
-
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
 Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
