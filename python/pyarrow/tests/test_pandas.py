@@ -149,6 +149,12 @@ class TestConvertMetadata:
         table = pa.Table.from_pandas(df)
         assert table.field(0).name == '0'
 
+    def test_non_string_columns_with_index(self):
+        df = pd.DataFrame({0: [1, 2, 3], 1: [4, 5, 6]})
+        df = df.set_index(0)
+        table = pa.Table.from_pandas(df)
+        assert table.field(0).name == '1'
+
     def test_from_pandas_with_columns(self):
         df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]},
                           columns=[1, 0])
