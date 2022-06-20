@@ -618,7 +618,7 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
       return fun_result.status();
     }
 
-    result->value =  std::move(ValueOrStop(fun_result)->data());
+    result->value = std::move(ValueOrStop(fun_result)->data());
     return arrow::Status::OK();
   }
 
@@ -660,5 +660,5 @@ void RegisterScalarUDF(std::string name, cpp11::sexp fun) {
   }
 
   auto registry = arrow::compute::GetFunctionRegistry();
-  StopIfNotOk(registry->AddFunction(std::move(func)));
+  StopIfNotOk(registry->AddFunction(std::move(func), true));
 }
