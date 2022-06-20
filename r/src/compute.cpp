@@ -618,7 +618,7 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
       return fun_result.status();
     }
 
-    result->value =  std::move(fun_result->data());
+    result->value =  std::move(ValueOrStop(fun_result)->data());
     return arrow::Status::OK();
   }
 
