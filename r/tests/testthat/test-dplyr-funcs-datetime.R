@@ -1788,6 +1788,8 @@ test_that("ym, my & yq parsers", {
   test_df <- tibble::tibble(
     ym_string = c("2022-05", "2022/02", "22.03", "1979//12", "88.09", NA),
     my_string = c("05-2022", "02/2022", "03.22", "12//1979", "09.88", NA),
+    Ym_string = c("2022-05", "2022/02", "2022.03", "1979//12", "1988.09", NA),
+    mY_string = c("05-2022", "02/2022", "03.2022", "12//1979", "09.1988", NA),
     yq_string = c("2007.3", "1970.2", "2020.1", "2009.4", "1975.1", NA),
     yq_numeric = c(2007.3, 1970.2, 2020.1, 2009.4, 1975.1, NA),
     yq_space = c("2007 3", "1970 2", "2020 1", "2009 4", "1975 1", NA),
@@ -1804,8 +1806,12 @@ test_that("ym, my & yq parsers", {
       mutate(
         ym_date = ym(ym_string),
         ym_datetime = ym(ym_string, tz = "Pacific/Marquesas"),
+        Ym_date = ym(Ym_string),
+        Ym_datetime = ym(Ym_string, tz = "Pacific/Marquesas"),
         my_date = my(my_string),
         my_datetime = my(my_string, tz = "Pacific/Marquesas"),
+        mY_date = my(mY_string),
+        mY_datetime = my(mY_string, tz = "Pacific/Marquesas"),
         yq_date_from_string = yq(yq_string),
         yq_datetime_from_string = yq(yq_string, tz = "Pacific/Marquesas"),
         yq_date_from_numeric = yq(yq_numeric),
@@ -1814,12 +1820,23 @@ test_that("ym, my & yq parsers", {
         yq_datetime_from_string_with_space = yq(yq_space, tz = "Pacific/Marquesas"),
         ym_date2 = parse_date_time(ym_string, orders = c("ym", "ymd")),
         my_date2 = parse_date_time(my_string, orders = c("my", "myd")),
+        Ym_date2 = parse_date_time(Ym_string, orders = c("Ym", "ymd")),
+        mY_date2 = parse_date_time(mY_string, orders = c("mY", "myd")),
         yq_date_from_string2 = parse_date_time(yq_string, orders = "yq"),
         yq_date_from_numeric2 = parse_date_time(yq_numeric, orders = "yq"),
         yq_date_from_string_with_space2 = parse_date_time(yq_space, orders = "yq"),
+        # testing with Yq
+        yq_date_from_string3 = parse_date_time(yq_string, orders = "Yq"),
+        yq_date_from_numeric3 = parse_date_time(yq_numeric, orders = "Yq"),
+        yq_date_from_string_with_space3 = parse_date_time(yq_space, orders = "Yq"),
+        # testing with qy
         qy_date_from_string = parse_date_time(qy_string, orders = "qy"),
         qy_date_from_numeric = parse_date_time(qy_numeric, orders = "qy"),
-        qy_date_from_string_with_space = parse_date_time(qy_space, orders = "qy")
+        qy_date_from_string_with_space = parse_date_time(qy_space, orders = "qy"),
+        # testing with qY
+        qy_date_from_string2 = parse_date_time(qy_string, orders = "qY"),
+        qy_date_from_numeric2 = parse_date_time(qy_numeric, orders = "qY"),
+        qy_date_from_string_with_space2 = parse_date_time(qy_space, orders = "qY")
       ) %>%
       collect(),
     test_df

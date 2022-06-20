@@ -285,7 +285,7 @@ process_data_for_parsing <- function(x,
   # for `ym` and `my` orders we add a day ("01")
   # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16627
   augmented_x_ym <- NULL
-  if (any(orders %in% c("ym", "my"))) {
+  if (any(orders %in% c("ym", "my", "Ym", "mY"))) {
     # add day as "-01" if there is a "-" separator and as "01" if not
     augmented_x_ym <- call_binding(
       "if_else",
@@ -298,7 +298,7 @@ process_data_for_parsing <- function(x,
   # for `yq` we need to transform the quarter into the start month (lubridate
   # behaviour) and then add 01 to parse to the first day of the quarter
   augmented_x_yq <- NULL
-  if (any(orders == "yq")) {
+  if (any(orders %in% c("yq", "Yq"))) {
     # extract everything that comes after the `-` separator, i.e. the quarter
     # (e.g. 4 from 2022-4)
     quarter_x <- call_binding("gsub", "^.*?-", "", processed_x)
@@ -314,7 +314,7 @@ process_data_for_parsing <- function(x,
   # same as for `yq`, we need to derive the month from the quarter and add a
   # "01" to give us the first day of the month
   augmented_x_qy <- NULL
-  if (any(orders == "qy")) {
+  if (any(orders %in% c("qy", "qY"))) {
     quarter_x <- call_binding("gsub", "-.*$", "", processed_x)
     quarter_x <- quarter_x$cast(int32())
     year_x <- call_binding("gsub", "^.*?-", "", processed_x)
