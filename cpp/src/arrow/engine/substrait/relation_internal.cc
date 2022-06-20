@@ -341,7 +341,6 @@ struct ExtractRelation {
     const std::string& rel_name = declaration.factory_name;
     switch (enum_map.find(rel_name)->second) {
       case ArrowRelationType::SCAN:
-        std::cout << "Scan Relation" << std::endl;
         return AddReadRelation(declaration);
       default:
         return Status::Invalid("Unsupported factory name :", rel_name);
@@ -396,7 +395,6 @@ struct ExtractRelation {
 
 Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declaration,
                                                 ExtensionSet* ext_set) {
-  std::cout << ">>>>> ToProto[Rel] >>>> " << std::endl;
   auto out = internal::make_unique<substrait::Rel>();
   RETURN_NOT_OK(ExtractRelation(out.get(), ext_set)(declaration));
   return std::move(out);
