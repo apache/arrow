@@ -16,10 +16,8 @@
 // under the License.
 
 #include <condition_variable>
-#include <iostream>
 #include <mutex>
 #include <set>
-#include <sstream>
 #include <thread>
 #include <unordered_map>
 
@@ -387,7 +385,6 @@ class CompositeReferenceTable {
   Result<std::shared_ptr<RecordBatch>> Materialize(
       const std::shared_ptr<arrow::Schema>& output_schema,
       const std::vector<std::unique_ptr<InputState>>& state) {
-    // cerr << "materialize BEGIN\n";
     DCHECK_EQ(state.size(), n_tables_);
 
     // Don't build empty batches
@@ -557,11 +554,8 @@ class AsofJoinNode : public ExecNode {
   }
 
   void Process() {
-    std::cerr << "process() begin\n";
-
     std::lock_guard<std::mutex> guard(gate_);
     if (finished_.is_finished()) {
-      std::cerr << "InputReceived EARLYEND\n";
       return;
     }
 
@@ -582,8 +576,6 @@ class AsofJoinNode : public ExecNode {
       }
     }
 
-    std::cerr << "process() end\n";
-
     // Report to the output the total batch count, if we've already finished everything
     // (there are two places where this can happen: here and InputFinished)
     //
@@ -596,10 +588,8 @@ class AsofJoinNode : public ExecNode {
   }
 
   void ProcessThread() {
-    std::cerr << "AsofJoinNode::process_thread started.\n";
     for (;;) {
       if (!process_.Pop()) {
-        std::cerr << "AsofJoinNode::process_thread done.\n";
         return;
       }
       Process();
@@ -689,28 +679,19 @@ class AsofJoinNode : public ExecNode {
     // Get the input
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
     size_t k = std::find(inputs_.begin(), inputs_.end(), input) - inputs_.begin();
-    std::cerr << "InputReceived BEGIN (k=" << k << ")\n";
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
-    std::stringstream stream;
-    stream << "(k=" << k << ") time=(" << *rb->columns()[0] << ")\n";
-    std::cerr << stream.str();
-
     state_.at(k)->Push(rb);
     process_.Push(true);
-
-    std::cerr << "InputReceived END\n";
   }
   void ErrorReceived(ExecNode* input, Status error) override {
     outputs_[0]->ErrorReceived(this, std::move(error));
     StopProducing();
   }
   void InputFinished(ExecNode* input, int total_batches) override {
-    std::cerr << "InputFinished BEGIN\n";
     {
       std::lock_guard<std::mutex> guard(gate_);
-      std::cerr << "InputFinished find\n";
       ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
       size_t k = std::find(inputs_.begin(), inputs_.end(), input) - inputs_.begin();
       state_.at(k)->set_total_batches(total_batches);
@@ -720,31 +701,18 @@ class AsofJoinNode : public ExecNode {
     // know whether the RHS of the join is up-to-date until we know that the table is
     // finished.
     process_.Push(true);
-
-    std::cerr << "InputFinished END\n";
   }
   Status StartProducing() override {
-    std::cout << "StartProducing"
-              << "\n";
     finished_ = arrow::Future<>::Make();
     return Status::OK();
   }
-  void PauseProducing(ExecNode* output, int32_t counter) override {
-    std::cout << "PauseProducing"
-              << "\n";
-  }
-  void ResumeProducing(ExecNode* output, int32_t counter) override {
-    std::cout << "ResumeProducing"
-              << "\n";
-  }
+  void PauseProducing(ExecNode* output, int32_t counter) override {}
+  void ResumeProducing(ExecNode* output, int32_t counter) override {}
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
     StopProducing();
   }
-  void StopProducing() override {
-    std::cerr << "StopProducing" << std::endl;
-    finished_.MarkFinished();
-  }
+  void StopProducing() override { finished_.MarkFinished(); }
   arrow::Future<> finished() override { return finished_; }
 
  private:
