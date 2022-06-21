@@ -260,8 +260,8 @@ TEST_F(TestHash, TestSha512Varlen) {
       "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\nY "
       "[ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
 
-  auto array_a =
-      MakeArrowArrayUtf8({"foo", first_string, second_string, " "}, {false, true, true, true});
+  auto array_a = MakeArrowArrayUtf8({"foo", first_string, second_string, " "},
+                                    {false, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
