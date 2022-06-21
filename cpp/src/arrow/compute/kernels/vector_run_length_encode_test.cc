@@ -34,6 +34,20 @@ struct RLETestData {
     };
   }
 
+  template <typename ArrowType>
+  static RLETestData TypeMinMaxNull() {
+    using CType = typename ArrowType::c_type;
+    RLETestData result;
+    NumericBuilder<ArrowType> builder;
+    ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::min()));
+    ARROW_EXPECT_OK(builder.AppendNull());
+    ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::max()));
+    result.input = *builder.Finish();
+    result.expected_values = result.input;
+    result.expected_run_lengths = {1, 2, 3};
+    return result;
+  }
+
   std::shared_ptr<Array> input;
   std::shared_ptr<Array>  expected_values;
   std::vector<int64_t> expected_run_lengths;
@@ -69,7 +83,17 @@ TEST_P(TestRunLengthEncode, EncodeArray) {
 INSTANTIATE_TEST_SUITE_P(EncodeArrayTests, TestRunLengthEncode,
                          ::testing::Values(
                            RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[1, 0, -5, 255]", {2, 3, 6, 8}),
-                           RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]", "[null, 1, null, 5]", {1, 3, 5, 6})
+                           RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]", "[null, 1, null, 5]", {1, 3, 5, 6}),
+                           RLETestData::TypeMinMaxNull<Int8Type>(),
+                           RLETestData::TypeMinMaxNull<UInt8Type>(),
+                           RLETestData::TypeMinMaxNull<Int16Type>(),
+                           RLETestData::TypeMinMaxNull<UInt16Type>(),
+                           RLETestData::TypeMinMaxNull<Int32Type>(),
+                           RLETestData::TypeMinMaxNull<UInt32Type>(),
+                           RLETestData::TypeMinMaxNull<Int64Type>(),
+                           RLETestData::TypeMinMaxNull<UInt64Type>(),
+                           RLETestData::TypeMinMaxNull<FloatType>(),
+                           RLETestData::TypeMinMaxNull<DoubleType>()
                            ));
 
 }  // namespace compute
