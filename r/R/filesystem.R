@@ -473,18 +473,12 @@ GcsFileSystem$create <- function(anonymous = FALSE, ...) {
         call. = FALSE
       )
     }
-  } else if (!is.null(options[["access_token"]])) {
-    # access_token string requires expiration timestamp
-    if (is.null(options[["expiration"]])) {
-      stop("access_token auth requires specifying 'expiration'", call. = FALSE)
-    }
-    # those are mutually exclusive with json_credentials
-    if (!is.null(options[["json_credentials"]])) {
-      stop("Cannot provide json_credentials with access_token", call. = FALSE)
-    }
-  } else if (!is.null(options[["json_credentials"]])) {
-    if (is.null(options[["access_token"]]) || is.null(options[["expiration"]])) {
+  } else {
+    token_args <- intersect(c("access_token", "expiration"), names(options))
+    if (!is.null(options[["json_credentials"]]) && length(token_args) > 0) {
       stop("Cannot provide access_token with json_credentials", call. = FALSE)
+    } else if (length(token_args) == 1) {
+      stop("token auth requires both 'access_token' and 'expiration'", call. = FALSE)
     }
   }
 
