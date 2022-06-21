@@ -74,7 +74,10 @@ test_that("arrow_scalar_function() returns a base scalar function", {
 test_that("register_scalar_function() adds a compute function to the registry", {
   fun <- arrow_base_scalar_function(
     int32(), int64(),
-    function(context, args) args[[1]]
+    function(context, args) {
+      browser()
+      args[[1]]
+    }
   )
 
   register_scalar_function("my_test_scalar_function", fun)

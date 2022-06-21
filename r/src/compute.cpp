@@ -639,8 +639,10 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
 
       cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
 
-      cpp11::writable::list udf_context = {batch_length_sexp};
-      udf_context.names() = {"batch_length"};
+      std::shared_ptr<arrow::DataType> output_type = result->type()->Copy();
+      cpp11::sexp output_type_sexp = cpp11::to_r6<arrow::DataType>(output_type);
+      cpp11::writable::list udf_context = {batch_length_sexp, output_type_sexp};
+      udf_context.names() = {"batch_length", "output_type"};
 
       cpp11::sexp func_result_sexp = state->exec_func_(udf_context, args_sexp);
 
