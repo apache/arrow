@@ -580,23 +580,24 @@ std::vector<std::string> compute__GetFunctionNames() {
 class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
  public:
   RScalarUDFCallable(const std::shared_ptr<arrow::Schema>& input_types,
-                     const std::shared_ptr<arrow::DataType>& output_type, cpp11::sexp fun)
-      : input_types_(input_types), output_type_(output_type), fun_(fun) {}
+                     const std::shared_ptr<arrow::DataType>& output_type,
+                     cpp11::sexp func)
+      : input_types_(input_types), output_type_(output_type), func_(func) {}
 
   arrow::Status operator()(arrow::compute::KernelContext* context,
                            const arrow::compute::ExecSpan& span,
                            arrow::compute::ExecResult* result) {
-    auto fun_result = SafeCallIntoR<std::shared_ptr<arrow::Array>>([&]() {
+    auto func_result = SafeCallIntoR<std::shared_ptr<arrow::Array>>([&]() {
       cpp11::writable::list args_sexp;
       args_sexp.reserve(span.num_values());
 
       for (int64_t i = 0; i < span.num_values(); i++) {
-        const arrow::compute::ExecValue& v = span[i];
-        if (v.is_array()) {
-          std::shared_ptr<arrow::Array> array = v.array.ToArray();
+        const arrow::compute::ExecValue& exec_val = span[i];
+        if (exec_val.is_array()) {
+          std::shared_ptr<arrow::Array> array = exec_val.array.ToArray();
           args_sexp.push_back(cpp11::to_r6<arrow::Array>(array));
-        } else if (v.is_scalar()) {
-          std::shared_ptr<arrow::Scalar> scalar = v.scalar->Copy();
+        } else if (exec_val.is_scalar()) {
+          std::shared_ptr<arrow::Scalar> scalar = exec_val.scalar->Copy();
           args_sexp.push_back(cpp11::to_r6<arrow::Scalar>(scalar));
         }
       }
@@ -606,7 +607,7 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
       cpp11::writable::list udf_context = {batch_length_sexp};
       udf_context.names() = {"batch_length"};
 
-      cpp11::sexp fun_result_sexp = fun_(udf_context, args_sexp);
+      cpp11::sexp fun_result_sexp = func_(udf_context, args_sexp);
       if (!Rf_inherits(fun_result_sexp, "Array")) {
         cpp11::stop("arrow_scalar_function must return an Array");
       }
@@ -614,18 +615,18 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
       return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(fun_result_sexp);
     });
 
-    if (!fun_result.ok()) {
-      return fun_result.status();
+    if (!func_result.ok()) {
+      return func_result.status();
     }
 
-    result->value = std::move(ValueOrStop(fun_result)->data());
+    result->value = std::move(ValueOrStop(func_result)->data());
     return arrow::Status::OK();
   }
 
  private:
   std::shared_ptr<arrow::Schema> input_types_;
   std::shared_ptr<arrow::DataType> output_type_;
-  cpp11::function fun_;
+  cpp11::function func_;
 };
 
 // [[arrow::export]]
