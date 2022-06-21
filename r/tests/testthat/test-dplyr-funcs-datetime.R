@@ -2227,7 +2227,7 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
   )
 })
 
-test_that("build_formats", {
+test_that("build_formats() and build_format_from_order()", {
   expect_equal(
     build_formats(c("ym", "myd", "%Y-%d-%m")),
     c(
@@ -2240,6 +2240,14 @@ test_that("build_formats", {
       # formats from "%Y-%d-%m" format
       "%y-%d-%m", "%Y-%d-%m", "%y-%d-%B", "%Y-%d-%B", "%y-%d-%b", "%Y-%d-%b",
       "%y%d%m", "%Y%d%m", "%y%d%B", "%Y%d%B", "%y%d%b", "%Y%d%b")
+  )
+
+  expect_equal(
+    build_formats("ymd_HMS"),
+    c("%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+      "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
+      "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
+      "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
   )
 
   # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
@@ -2278,5 +2286,24 @@ test_that("build_formats", {
   expect_error(
     build_formats("abd"),
     '"abd" `orders` not supported in Arrow'
+  )
+
+  expect_error(
+    build_formats("vup"),
+    '"vup" `orders` not supported in Arrow'
+  )
+
+  expect_equal(
+    build_format_from_order("ymd"),
+    c("%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
+      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d")
+  )
+
+  expect_equal(
+    build_format_from_order("ymdHMS"),
+    c("%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+      "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
+      "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
+      "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
   )
 })
