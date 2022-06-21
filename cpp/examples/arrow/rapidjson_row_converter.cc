@@ -178,10 +178,10 @@ class RowBatchBuilder {
   std::vector<rapidjson::Document> rows_;
 };  // RowBatchBuilder
 
-class ArrowToDocumentConverter : public arrow::ToRowConverter<rapidjson::Document> {
+class ArrowToDocumentConverter {
  public:
   arrow::Result<std::vector<rapidjson::Document>> ConvertToVector(
-      std::shared_ptr<arrow::RecordBatch> batch) override {
+      std::shared_ptr<arrow::RecordBatch> batch) {
     RowBatchBuilder builder{batch->num_rows()};
 
     for (int i = 0; i < batch->num_columns(); ++i) {
@@ -190,6 +190,23 @@ class ArrowToDocumentConverter : public arrow::ToRowConverter<rapidjson::Documen
     }
 
     return std::move(builder).Rows();
+  }
+
+  arrow::Iterator<rapidjson::Document> ConvertToIterator(
+      std::shared_ptr<arrow::Table> table, size_t batch_size) {
+    auto batch_reader = std::make_shared<arrow::TableBatchReader>(*table);
+    batch_reader->set_chunksize(batch_size);
+
+    auto read_batch = [this](const std::shared_ptr<arrow::RecordBatch>& batch)
+        -> arrow::Result<arrow::Iterator<rapidjson::Document>> {
+      ARROW_ASSIGN_OR_RAISE(auto rows, ConvertToVector(batch));
+      return arrow::MakeVectorIterator(std::move(rows));
+    };
+
+    auto nested_iter = arrow::MakeMaybeMapIterator(
+        read_batch, arrow::MakeIteratorFromReader(std::move(batch_reader)));
+
+    return arrow::MakeFlattenIterator(std::move(nested_iter));
   }
 };  // ArrowToDocumentConverter
 
@@ -286,7 +303,7 @@ class DocValuesIterator {
     return value;
   }
 
- protected:
+ private:
   const std::vector<rapidjson::Document>& rows;
   std::vector<std::string> path;
   int64_t array_levels;
@@ -451,7 +468,7 @@ class JsonValueConverter {
     return arrow::Status::OK();
   }
 
- protected:
+ private:
   std::string field_name_;
   arrow::ArrayBuilder* builder_;
   const std::vector<rapidjson::Document>& rows_;
@@ -473,13 +490,13 @@ class JsonValueConverter {
   }
 };  // JsonValueConverter
 
-class DocumentToArrowConverter : public arrow::FromRowConverter<rapidjson::Document> {
+class DocumentToArrowConverter {
  public:
   explicit DocumentToArrowConverter(arrow::MemoryPool* pool) : pool_(pool) {}
 
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
       const std::vector<rapidjson::Document>& rows,
-      std::shared_ptr<arrow::Schema> schema) override {
+      std::shared_ptr<arrow::Schema> schema) {
     std::unique_ptr<arrow::RecordBatchBuilder> batch_builder;
     ARROW_ASSIGN_OR_RAISE(batch_builder,
                           arrow::RecordBatchBuilder::Make(schema, pool_, rows.size()));
@@ -498,7 +515,7 @@ class DocumentToArrowConverter : public arrow::FromRowConverter<rapidjson::Docum
     return batch;
   }
 
- protected:
+ private:
   arrow::MemoryPool* pool_;
 };  // DocumentToArrowConverter
 
@@ -537,8 +554,11 @@ arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
   DocumentToArrowConverter to_arrow_converter(arrow::default_memory_pool());
 
   // Convert records into a table
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch,
+                        to_arrow_converter.ConvertToRecordBatch(records, schema));
+
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table,
-                        to_arrow_converter.ConvertToTable(records, schema));
+                        arrow::Table::FromRecordBatches({batch}));
 
   // Print table
   std::cout << table->ToString() << std::endl;
