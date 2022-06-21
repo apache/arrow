@@ -4036,13 +4036,18 @@ macro(build_google_cloud_cpp_storage)
                                    "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+  # Refer to https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/google_cloud_cpp_common.cmake
+  # (subsitute `main` for the SHA of the version we use)
+  # Version 1.39.0 is at a different place (they refactored after):
+  # https://github.com/googleapis/google-cloud-cpp/blob/29e5af8ca9b26cec62106d189b50549f4dc1c598/google/cloud/CMakeLists.txt#L146-L155
   set_property(TARGET google-cloud-cpp::common
                PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::any
-                        absl::flat_hash_map
+                        absl::base
                         absl::memory
                         absl::optional
+                        absl::span
                         absl::time
+                        absl::variant
                         Threads::Threads
                         OpenSSL::Crypto)
 
@@ -4052,6 +4057,7 @@ macro(build_google_cloud_cpp_storage)
                                    "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+  # Update this from https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/google_cloud_cpp_storage.cmake
   set_property(TARGET google-cloud-cpp::storage
                PROPERTY INTERFACE_LINK_LIBRARIES
                         google-cloud-cpp::common
