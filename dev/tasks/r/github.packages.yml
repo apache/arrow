@@ -158,6 +158,8 @@ jobs:
       - name: Build Binary
         id: build
         shell: Rscript {0}
+        env:  
+          ARROW_R_DEV: TRUE
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
