@@ -35,10 +35,11 @@ const char* r6_class_name<fs::FileSystem>::get(
     return "S3FileSystem";
   } else if (type_name == "gcs") {
     return "GcsFileSystem";
-  } else if (type_name == "abfs") {
-    return "AzureBlobFileSystem";
-  } else if (type_name == "hdfs") {
-    return "HadoopFileSystem";
+    // Uncomment these once R6 classes for these filesystems are added
+    // } else if (type_name == "abfs") {
+    //   return "AzureBlobFileSystem";
+    // } else if (type_name == "hdfs") {
+    //   return "HadoopFileSystem";
   } else if (type_name == "subtree") {
     return "SubTreeFileSystem";
   } else {
