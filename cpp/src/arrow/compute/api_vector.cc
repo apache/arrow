@@ -161,6 +161,10 @@ static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOpti
     DataMember("start", &CumulativeSumOptions::start),
     DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
     DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
+static auto kCumulativeProductOptionsType = GetFunctionOptionsType<CumulativeProductOptions>(
+    DataMember("start", &CumulativeProductOptions::start),
+    DataMember("skip_nulls", &CumulativeProductOptions::skip_nulls),
+    DataMember("check_overflow", &CumulativeProductOptions::check_overflow));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
@@ -218,6 +222,18 @@ CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool s
       check_overflow(check_overflow) {}
 constexpr char CumulativeSumOptions::kTypeName[];
 
+CumulativeProductOptions::CumulativeProductOptions(double start, bool skip_nulls,
+                                           bool check_overflow)
+    : CumulativeProductOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
+                           check_overflow) {}
+CumulativeProductOptions::CumulativeProductOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
+                                           bool check_overflow)
+    : FunctionOptions(internal::kCumulativeProductOptionsType),
+      start(std::move(start)),
+      skip_nulls(skip_nulls),
+      check_overflow(check_overflow) {}
+constexpr char CumulativeProductOptions::kTypeName[];
+
 RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
                          RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
@@ -236,6 +252,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeProductOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
 }
 }  // namespace internal
@@ -380,6 +397,14 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
 Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options,
                             ExecContext* ctx) {
   auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+  return CallFunction(func_name, {Datum(values)}, &options, ctx);
+}
+
+Result<Datum> CumulativeProduct(const Datum& values,
+                                const CumulativeProductOptions& options,
+                                ExecContext* ctx) {
+  auto func_name =
+      (options.check_overflow) ? "cumulative_product_checked" : "cumulative_product";
   return CallFunction(func_name, {Datum(values)}, &options, ctx);
 }
 

@@ -179,6 +179,24 @@ const FunctionDoc cumulative_sum_checked_doc{
      "function \"cumulative_sum\"."),
     {"values"},
     "CumulativeSumOptions"};
+
+const FunctionDoc cumulative_product_doc{
+    "Compute the cumulative product over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative product computed over `values`. Results will wrap around on\n"
+     "integer overflow. Use function \"cumulative_product_checked\" if you want\n"
+     "overflow to return an error."),
+    {"values"},
+    "CumulativeProductOptions"};
+
+const FunctionDoc cumulative_product_checked_doc{
+    "Compute the cumulative product over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative product computed over `values`. This function returns an error\n"
+     "on overflow. For a variant that doesn't fail on overflow, use\n"
+     "function \"cumulative_product\"."),
+    {"values"},
+    "CumulativeProductOptions"};
 }  // namespace
 
 template <typename Op, typename OptionsType>
@@ -210,11 +228,16 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
+void RegisterVectorCumulativeOps(FunctionRegistry* registry) {
   MakeVectorCumulativeFunction<Add, CumulativeSumOptions>(registry, "cumulative_sum",
                                                           cumulative_sum_doc);
   MakeVectorCumulativeFunction<AddChecked, CumulativeSumOptions>(
       registry, "cumulative_sum_checked", cumulative_sum_checked_doc);
+
+  MakeVectorCumulativeFunction<Multiply, CumulativeProductOptions>(registry, "cumulative_product",
+                                                          cumulative_product_doc);
+  MakeVectorCumulativeFunction<MultiplyChecked, CumulativeProductOptions>(
+      registry, "cumulative_product_checked", cumulative_product_checked_doc);
 }
 
 }  // namespace internal

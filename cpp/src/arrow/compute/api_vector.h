@@ -235,7 +235,28 @@ class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
   static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
 
-  /// Optional starting value for cumulative operation computation
+  /// Optional starting value for cumulative sum
+  std::shared_ptr<Scalar> start;
+
+  /// If true, nulls in the input are ignored and produce a corresponding null output.
+  /// When false, the first null encountered is propagated through the remaining output.
+  bool skip_nulls = false;
+
+  /// When true, returns an Invalid Status when overflow is detected
+  bool check_overflow = false;
+};
+
+/// \brief Options for cumulative product function
+class ARROW_EXPORT CumulativeProductOptions : public FunctionOptions {
+ public:
+  explicit CumulativeProductOptions(double start = 1, bool skip_nulls = false,
+                                    bool check_overflow = false);
+  explicit CumulativeProductOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
+                                    bool check_overflow = false);
+  static constexpr char const kTypeName[] = "CumulativeProductOptions";
+  static CumulativeProductOptions Defaults() { return CumulativeProductOptions(); }
+
+  /// Optional starting value for cumulative product
   std::shared_ptr<Scalar> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
@@ -584,6 +605,12 @@ ARROW_EXPORT
 Result<Datum> CumulativeSum(
     const Datum& values,
     const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<Datum> CumulativeProduct(
+    const Datum& values,
+    const CumulativeProductOptions& options = CumulativeProductOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------

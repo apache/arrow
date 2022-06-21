@@ -2265,6 +2265,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CScalar] start
         c_bool skip_nulls
 
+    cdef cppclass CCumulativeProductOptions \
+            "arrow::compute::CumulativeProductOptions"(CFunctionOptions):
+        CCumulativeProductOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
+        shared_ptr[CScalar] start
+        c_bool skip_nulls
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
         CArraySortOptions(CSortOrder, CNullPlacement)

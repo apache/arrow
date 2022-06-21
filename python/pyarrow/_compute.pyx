@@ -1824,6 +1824,34 @@ class CumulativeSumOptions(_CumulativeSumOptions):
         self._set_options(start, skip_nulls)
 
 
+cdef class _CumulativeProductOptions(FunctionOptions):
+    def _set_options(self, start, skip_nulls):
+        if not isinstance(start, Scalar):
+            try:
+                start = lib.scalar(start)
+            except Exception:
+                _raise_invalid_function_option(
+                    start, "`start` type for CumulativeProductOptions", TypeError)
+
+        self.wrapped.reset(new CCumulativeProductOptions((<Scalar> start).unwrap(), skip_nulls))
+
+
+class CumulativeProductOptions(_CumulativeProductOptions):
+    """
+    Options for `cumulative_product` function.
+
+    Parameters
+    ----------
+    start : Scalar, default 1.0
+        Starting value for product computation
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=1.0, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):
         self.wrapped.reset(new CArraySortOptions(
