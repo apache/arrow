@@ -172,7 +172,7 @@ build_formats <- function(orders) {
     orders1 <- setdiff(orders, short_orders)
     orders2 <- intersect(orders, short_orders)
     orders2 <- paste0(orders2, "d")
-    orders <- unique(c(orders1, orders2))
+    orders <- unique(c(orders2, orders1))
   }
 
   if (any(orders == "yq")) {
@@ -239,10 +239,14 @@ build_format_from_order <- function(order) {
   split_order <- strsplit(order, split = "")[[1]]
 
   outcome <- expand.grid(char_list[split_order])
-  # return only formats with "-" separator, which will be removed during parsing
-  # if the string to be parsed does not contain a separator
+  # we combine formats with and without the "-" separator, we will later
+  # coalesce through all of them (benchmarking indicated this is a more
+  # computationally efficient approach rather than figuring out if a string has
+  # separators or not and applying only )
+  # during parsing if the string to be parsed does not contain a separator
   formats_with_sep <- do.call(paste, c(outcome, sep = "-"))
-  formats_with_sep
+  formats_without_sep <- do.call(paste, c(outcome, sep = ""))
+  c(formats_with_sep, formats_without_sep)
 }
 
 #' Process data in preparation for parsing
@@ -352,7 +356,8 @@ attempt_parsing <- function(x,
   formats <- build_formats(orders)
 
   # depending on the orders argument we need to do some processing to the input
-  # data
+  # data. `process_data_for_parsing()` uses the passed `orders` and not the
+  # derived `formats`
   processed_data <- process_data_for_parsing(x, orders)
 
   # build a list of expressions for parsing each processed_data element and
@@ -361,7 +366,7 @@ attempt_parsing <- function(x,
 
   # if all orders are in c("ym", "my", "yq", "qy") only attempt to parse the
   # augmented version(s) of x
-  if (all(orders %in% c("ym", "my", "yq", "qy"))) {
+  if (all(orders %in% c("ym", "Ym", "my", "mY", "yq", "Yq", "qy", "qY"))) {
     parse_attempt_exprs_list$processed_x <- list()
   }
 
@@ -392,31 +397,12 @@ build_strptime_exprs <- function(x, formats) {
     return(list())
   }
 
-  # if x has a separator ("-") use the format as-is (i.e. with separator)
-  # if not, remove the separator
   map(
     formats,
-    ~ call_binding(
-      "if_else",
-      call_binding("grepl", "-", x),
-      build_expr(
-        "strptime",
-        x,
-        options = list(
-          format = .x,
-          unit = 0L,
-          error_is_null = TRUE
-        )
-      ),
-      build_expr(
-        "strptime",
-        x,
-        options = list(
-          format = gsub("-", "", .x),
-          unit = 0L,
-          error_is_null = TRUE
-        )
-      )
+    ~ build_expr(
+      "strptime",
+      x,
+      options = list(format = .x, unit = 0L, error_is_null = TRUE)
     )
   )
 }
