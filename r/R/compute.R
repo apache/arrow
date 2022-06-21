@@ -328,7 +328,7 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
 }
 
 arrow_scalar_function <- function(in_type, out_type, fun) {
-  force(fun)
+  fun <- rlang::as_function(fun)
   base_fun <- function(kernel_context, args) {
     args <- lapply(args, as.vector)
     result <- do.call(fun, args)
