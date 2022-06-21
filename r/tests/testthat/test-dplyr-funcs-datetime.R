@@ -1786,7 +1786,7 @@ test_that("year, month, day date/time parsers", {
 
 test_that("ym, my & yq parsers", {
   test_df <- tibble::tibble(
-    ym_string = c("2022-05", "2022/02", "22.03", "1979//12", "88.09", NA),
+    ym_string = c("2022-05", "2022/02", "22.3", "1979//12", "88.09", NA),
     my_string = c("05-2022", "02/2022", "03.22", "12//1979", "09.88", NA),
     Ym_string = c("2022-05", "2022/02", "2022.03", "1979//12", "1988.09", NA),
     mY_string = c("05-2022", "02/2022", "03.2022", "12//1979", "09.1988", NA),
@@ -2230,17 +2230,23 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 test_that("build_formats", {
   expect_equal(
     build_formats(c("ym", "myd", "%Y-%d-%m")),
-    c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d",
-      "%b-%Y-%d", "%y-%d-%m", "%Y-%d-%m", "%y-%d-%B", "%Y-%d-%B", "%y-%d-%b",
-      "%Y-%d-%b", "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d",
-      "%Y-%b-%d")
+    c(
+      # formats from "ym" order
+      "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
+      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d",
+      # formats from "myd" order
+      "%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
+      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d",
+      # formats from "%Y-%d-%m" format
+      "%y-%d-%m", "%Y-%d-%m", "%y-%d-%B", "%Y-%d-%B", "%y-%d-%b", "%Y-%d-%b",
+      "%y%d%m", "%Y%d%m", "%y%d%B", "%Y%d%B", "%y%d%b", "%Y%d%b")
   )
 
   # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
   # or "ydm" and the formats are built accordingly
   ymd_formats <- c(
-    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d"
-  )
+    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
+    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d")
   expect_equal(
     build_formats("yq"),
     ymd_formats
@@ -2264,7 +2270,8 @@ test_that("build_formats", {
 
   expect_equal(
     build_formats("my"),
-    c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d")
+    c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
+      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d")
   )
 
   # ab not supported yet
