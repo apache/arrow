@@ -590,19 +590,22 @@ class RScalarUDFKernelState : public arrow::compute::KernelState {
 
 class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver {
  public:
-  RScalarUDFOutputTypeResolver(cpp11::sexp func) : func_(func) {}
-
   arrow::Result<arrow::ValueDescr> operator()(
       arrow::compute::KernelContext* context,
       const std::vector<arrow::ValueDescr>& descr) {
     return SafeCallIntoR<arrow::ValueDescr>([&]() -> arrow::ValueDescr {
+      auto kernel =
+          reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
+      auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
+
       cpp11::writable::list input_types_sexp;
       input_types_sexp.reserve(descr.size());
       for (const auto& item : descr) {
         input_types_sexp.push_back(cpp11::to_r6<arrow::DataType>(item.type));
       }
+      input_types_sexp.names() = state->input_names_;
 
-      cpp11::sexp output_type_sexp = func_(input_types_sexp);
+      cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
       if (!Rf_inherits(output_type_sexp, "DataType")) {
         cpp11::stop("arrow_scalar_function resolver must return a DataType");
       }
@@ -611,20 +614,18 @@ class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver
           cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(output_type_sexp));
     });
   }
-
- private:
-  cpp11::function func_;
 };
 
 class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
  public:
-  RScalarUDFCallable(cpp11::sexp func, const std::vector<std::string>& input_names)
-      : func_(func), input_names_(input_names) {}
-
   arrow::Status operator()(arrow::compute::KernelContext* context,
                            const arrow::compute::ExecSpan& span,
                            arrow::compute::ExecResult* result) {
     return SafeCallIntoRVoid([&]() {
+      auto kernel =
+          reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
+      auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
+
       cpp11::writable::list args_sexp;
       args_sexp.reserve(span.num_values());
 
@@ -639,14 +640,14 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
         }
       }
 
-      args_sexp.names() = input_names_;
+      args_sexp.names() = state->input_names_;
 
       cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
 
       cpp11::writable::list udf_context = {batch_length_sexp};
       udf_context.names() = {"batch_length"};
 
-      cpp11::sexp func_result_sexp = func_(udf_context, args_sexp);
+      cpp11::sexp func_result_sexp = state->exec_func_(udf_context, args_sexp);
 
       if (Rf_inherits(func_result_sexp, "Array")) {
         auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(func_result_sexp);
@@ -691,10 +692,6 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
       }
     });
   }
-
- private:
-  cpp11::function func_;
-  cpp11::strings input_names_;
 };
 
 // [[arrow::export]]
@@ -720,14 +717,15 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
       compute_in_names.push_back(in_types->field(i)->name());
     }
 
-    arrow::compute::OutputType out_type((RScalarUDFOutputTypeResolver(out_type_func)));
+    arrow::compute::OutputType out_type((RScalarUDFOutputTypeResolver()));
 
     auto signature = std::make_shared<arrow::compute::KernelSignature>(
         compute_in_types, std::move(out_type), true);
-    arrow::compute::ScalarKernel kernel(
-        signature, RScalarUDFCallable(func_sexp, std::move(compute_in_names)));
+    arrow::compute::ScalarKernel kernel(signature, RScalarUDFCallable());
     kernel.mem_allocation = arrow::compute::MemAllocation::NO_PREALLOCATE;
     kernel.null_handling = arrow::compute::NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.data = std::make_shared<RScalarUDFKernelState>(func_sexp, out_type_func,
+                                                          compute_in_names);
 
     StopIfNotOk(func->AddKernel(std::move(kernel)));
   }

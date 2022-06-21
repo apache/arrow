@@ -29,7 +29,7 @@ test_that("arrow_base_scalar_function() works", {
 
   # check in/out type as data type/data type
   fun <- arrow_base_scalar_function(int32(), int64(), function(x, y) y[[1]])
-  expect_equal(attr(fun, "in_type")[[1]], schema(.x = int32()))
+  expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as field/data type
@@ -48,8 +48,8 @@ test_that("arrow_base_scalar_function() works", {
     function(x, y) y[[1]]
   )
 
-  expect_equal(attr(fun, "in_type")[[1]], schema(.x = int32()))
-  expect_equal(attr(fun, "in_type")[[2]], schema(.x = int64()))
+  expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
+  expect_equal(attr(fun, "in_type")[[2]][[1]], field("", int64()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
   expect_equal(attr(fun, "out_type")[[2]](), int32())
 
