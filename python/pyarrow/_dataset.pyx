@@ -156,6 +156,7 @@ cdef class Dataset(_Weakrefable):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         self.wrapped = sp
         self.dataset = sp.get()
+        self._scanner_options = {}
 
     @staticmethod
     cdef wrap(const shared_ptr[CDataset]& sp):
@@ -296,7 +297,8 @@ cdef class Dataset(_Weakrefable):
         n_legs: [[2,4,4,100]]
         animal: [["Parrot","Dog","Horse","Centipede"]]
         """
-        return Scanner.from_dataset(self, **kwargs)
+        scanner_options = {**self._scanner_options, **kwargs}
+        return Scanner.from_dataset(self, **scanner_options)
 
     def to_batches(self, **kwargs):
         """
@@ -384,6 +386,19 @@ cdef class Dataset(_Weakrefable):
     def schema(self):
         """The common schema of the full Dataset"""
         return pyarrow_wrap_schema(self.dataset.schema())
+
+    def filter(self, expression):
+        cdef:
+            Dataset filtered_dataset
+
+        if "filter" in self._scanner_options:
+            new_filter = self._scanner_options["filter"] & expression
+        else:
+            new_filter = expression
+        filtered_dataset = self.__class__.__new__(self.__class__)
+        filtered_dataset.init(self.wrapped)
+        filtered_dataset._scanner_options = dict(self._scanner_options, filter=new_filter)
+        return filtered_dataset
 
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,

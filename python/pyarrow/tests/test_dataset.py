@@ -4854,10 +4854,19 @@ def test_dataset_filter(tempdir):
     ds.write_dataset(t1, tempdir / "t1", format="ipc")
     ds1 = ds.dataset(tempdir / "t1", format="ipc")
 
-    result = ds1.scanner(filter=pc.field("colA") < 3)
+    result = ds1.filter(pc.field("colA") < 3).filter(pc.field("col2") == "a")
     assert result.to_table() == pa.table({
-        "colA": [1, 2],
-        "col2": ["a", "b"]
+        "colA": [1],
+        "col2": ["a"]
+    })
+
+    assert type(result) == ds.FileSystemDataset
+
+    ds.write_dataset(result, tempdir / "filtered", format="ipc")
+    filtered = ds.dataset(tempdir / "filtered", format="ipc")
+    assert filtered.to_table() == pa.table({
+        "colA": [1],
+        "col2": ["a"]
     })
 
 
