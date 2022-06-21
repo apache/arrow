@@ -93,13 +93,16 @@ TEST_F(TestRunLengthEncode, FilterArray) {
 
   ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(values), Datum(filter)},
                                                  NULLPTR, NULLPTR));
-  auto array = result.make_array();
-
   ASSERT_OK_AND_ASSIGN(
       auto encoded_result,
       CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR,
                    NULLPTR));
-  auto encoded_array = result.make_array();
+  ASSERT_OK_AND_ASSIGN(Datum decoded_result, RunLengthDecode(encoded_result));
+
+  auto array_filtered_plain = result.make_array();
+  auto array_filtered_encoded = decoded_result.make_array();
+
+  ASSERT_TRUE(array_filtered_encoded->Equals(array_filtered_plain));
 }
 
 }  // namespace compute
