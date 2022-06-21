@@ -152,6 +152,16 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
   x
 }
 
+#' Build formats from multiple orders
+#'
+#' This function is a vectorisation of `build_format_from_order()`. It also
+#' checks if the supplied orders are currently supported.
+#'
+#' @inheritParams process_data_for_parsing
+#'
+#' @return a vector of unique formats
+#'
+#' @noRd
 build_formats <- function(orders) {
   # only keep the letters and the underscore as separator -> allow the users to
   # pass strptime-like formats (with "%"). We process the data -> we need to
@@ -225,6 +235,14 @@ build_formats <- function(orders) {
   unique(formats)
 }
 
+#' Build formats from a single order
+#'
+#' @param order a single string date-time format, such as `"ymd"` or `"ymd_hms"`
+#'
+#' @return a vector of all possible formats derived from the input
+#' order
+#'
+#' @noRd
 build_format_from_order <- function(order) {
   char_list <- list(
     "y" = c("%y", "%Y"),
@@ -269,7 +287,7 @@ build_format_from_order <- function(order) {
 #' dates to be parsed.
 #' @param orders a character vector of date-time formats.
 #'
-#' @return a list made up of 4 list, each a different version of x:
+#' @return a list made up of 4 lists, each a different version of x:
 #'  * `processed_x`
 #'  * `augmented_x_ym`
 #'  * `augmented_x_yq`
@@ -387,7 +405,8 @@ attempt_parsing <- function(x,
 #'
 #' @param x an Expression corresponding to a character or numeric vector of
 #' dates to be parsed.
-#' @param formats a vector of formats as returned by `build_format_from_order`
+#' @param formats a character vector of formats as returned by
+#' `build_format_from_order`
 #'
 #' @return a list of Expressions
 #' @noRd
