@@ -42,12 +42,10 @@
 // As an example, this conversion is between Arrow and rapidjson::Documents.
 //
 // We use the following helpers and patterns here:
-//  * arrow::ToRowConverter and arrow::FromRowConverter, which provide additional
-//    conversion methods given a basic converter
 //  * arrow::VisitArrayInline and arrow::VisitTypeInline for implementing a visitor
 //    pattern with Arrow to handle different array types
 //  * arrow::enable_if_primitive_ctype to create a template method that handles
-//  * conversion for Arrow types that have corresponding C types (bool, integer,
+//    conversion for Arrow types that have corresponding C types (bool, integer,
 //    float).
 
 const rapidjson::Value kNullJsonSingleton = rapidjson::Value();
@@ -180,6 +178,7 @@ class RowBatchBuilder {
 
 class ArrowToDocumentConverter {
  public:
+  /// Convert a single batch of Arrow data into Documents
   arrow::Result<std::vector<rapidjson::Document>> ConvertToVector(
       std::shared_ptr<arrow::RecordBatch> batch) {
     RowBatchBuilder builder{batch->num_rows()};
@@ -192,8 +191,11 @@ class ArrowToDocumentConverter {
     return std::move(builder).Rows();
   }
 
+  /// Convert an Arrow table into an iterator of Documents
   arrow::Iterator<rapidjson::Document> ConvertToIterator(
       std::shared_ptr<arrow::Table> table, size_t batch_size) {
+    // Use TableBatchReader to divide table into smaller batches. The batches
+    // created are zero-copy slices with *at most* `batch_size` rows.
     auto batch_reader = std::make_shared<arrow::TableBatchReader>(*table);
     batch_reader->set_chunksize(batch_size);
 
@@ -490,34 +492,33 @@ class JsonValueConverter {
   }
 };  // JsonValueConverter
 
-class DocumentToArrowConverter {
- public:
-  explicit DocumentToArrowConverter(arrow::MemoryPool* pool) : pool_(pool) {}
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
+    const std::vector<rapidjson::Document>& rows, std::shared_ptr<arrow::Schema> schema) {
+  // RecordBatchBuilder will create array builders for us for each field in our
+  // schema. By passing the number of output rows (`rows.size()`) we can
+  // pre-allocate the correct size of arrays, except of course in the case of
+  // string, byte, and list arrays, which have dynamic lengths.
+  std::unique_ptr<arrow::RecordBatchBuilder> batch_builder;
+  ARROW_ASSIGN_OR_RAISE(
+      batch_builder,
+      arrow::RecordBatchBuilder::Make(schema, arrow::default_memory_pool(), rows.size()));
 
-  arrow::Result<std::shared_ptr<arrow::RecordBatch>> ConvertToRecordBatch(
-      const std::vector<rapidjson::Document>& rows,
-      std::shared_ptr<arrow::Schema> schema) {
-    std::unique_ptr<arrow::RecordBatchBuilder> batch_builder;
-    ARROW_ASSIGN_OR_RAISE(batch_builder,
-                          arrow::RecordBatchBuilder::Make(schema, pool_, rows.size()));
-
-    JsonValueConverter converter(rows);
-    for (int i = 0; i < batch_builder->num_fields(); ++i) {
-      std::shared_ptr<arrow::Field> field = schema->field(i);
-      arrow::ArrayBuilder* builder = batch_builder->GetField(i);
-      ARROW_RETURN_NOT_OK(converter.Convert(*field.get(), builder));
-    }
-
-    std::shared_ptr<arrow::RecordBatch> batch;
-    ARROW_ASSIGN_OR_RAISE(batch, batch_builder->Flush());
-
-    DCHECK_OK(batch->ValidateFull());
-    return batch;
+  // Inner converter will take rows and be responsible for appending values
+  // to provided array builders.
+  JsonValueConverter converter(rows);
+  for (int i = 0; i < batch_builder->num_fields(); ++i) {
+    std::shared_ptr<arrow::Field> field = schema->field(i);
+    arrow::ArrayBuilder* builder = batch_builder->GetField(i);
+    ARROW_RETURN_NOT_OK(converter.Convert(*field.get(), builder));
   }
 
- private:
-  arrow::MemoryPool* pool_;
-};  // DocumentToArrowConverter
+  std::shared_ptr<arrow::RecordBatch> batch;
+  ARROW_ASSIGN_OR_RAISE(batch, batch_builder->Flush());
+
+  // Use RecordBatch::ValidateFull() to make sure arrays were correctly constructed.
+  DCHECK_OK(batch->ValidateFull());
+  return batch;
+}  // ConvertToRecordBatch
 
 arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
   //(Doc section: Convert to Arrow)
@@ -550,12 +551,9 @@ arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
        arrow::field("data", arrow::struct_({arrow::field("deleted", arrow::boolean()),
                                             arrow::field("metrics", tags_schema)}))});
 
-  // Create converter
-  DocumentToArrowConverter to_arrow_converter(arrow::default_memory_pool());
-
   // Convert records into a table
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch,
-                        to_arrow_converter.ConvertToRecordBatch(records, schema));
+                        ConvertToRecordBatch(records, schema));
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table,
                         arrow::Table::FromRecordBatches({batch}));
