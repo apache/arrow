@@ -435,7 +435,7 @@ class CompositeReferenceTable {
     }
 
     // Build the result
-    DCHECK_LE(n_rows, std::numeric_limits<int32_t>::max());
+    DCHECK_LE(n_rows, std::numeric_limits<int64_t>::max());
     std::shared_ptr<arrow::RecordBatch> r =
         arrow::RecordBatch::Make(output_schema, (int64_t)n_rows, arrays);
     return r;
