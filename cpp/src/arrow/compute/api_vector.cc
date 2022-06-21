@@ -161,10 +161,11 @@ static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOpti
     DataMember("start", &CumulativeSumOptions::start),
     DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
     DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
-static auto kCumulativeProductOptionsType = GetFunctionOptionsType<CumulativeProductOptions>(
-    DataMember("start", &CumulativeProductOptions::start),
-    DataMember("skip_nulls", &CumulativeProductOptions::skip_nulls),
-    DataMember("check_overflow", &CumulativeProductOptions::check_overflow));
+static auto kCumulativeProductOptionsType =
+    GetFunctionOptionsType<CumulativeProductOptions>(
+        DataMember("start", &CumulativeProductOptions::start),
+        DataMember("skip_nulls", &CumulativeProductOptions::skip_nulls),
+        DataMember("check_overflow", &CumulativeProductOptions::check_overflow));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
@@ -223,11 +224,11 @@ CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool s
 constexpr char CumulativeSumOptions::kTypeName[];
 
 CumulativeProductOptions::CumulativeProductOptions(double start, bool skip_nulls,
-                                           bool check_overflow)
+                                                   bool check_overflow)
     : CumulativeProductOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
-                           check_overflow) {}
-CumulativeProductOptions::CumulativeProductOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
-                                           bool check_overflow)
+                               check_overflow) {}
+CumulativeProductOptions::CumulativeProductOptions(std::shared_ptr<Scalar> start,
+                                                   bool skip_nulls, bool check_overflow)
     : FunctionOptions(internal::kCumulativeProductOptionsType),
       start(std::move(start)),
       skip_nulls(skip_nulls),

@@ -234,8 +234,8 @@ void RegisterVectorCumulativeOps(FunctionRegistry* registry) {
   MakeVectorCumulativeFunction<AddChecked, CumulativeSumOptions>(
       registry, "cumulative_sum_checked", cumulative_sum_checked_doc);
 
-  MakeVectorCumulativeFunction<Multiply, CumulativeProductOptions>(registry, "cumulative_product",
-                                                          cumulative_product_doc);
+  MakeVectorCumulativeFunction<Multiply, CumulativeProductOptions>(
+      registry, "cumulative_product", cumulative_product_doc);
   MakeVectorCumulativeFunction<MultiplyChecked, CumulativeProductOptions>(
       registry, "cumulative_product_checked", cumulative_product_checked_doc);
 }

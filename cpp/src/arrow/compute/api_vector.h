@@ -251,8 +251,8 @@ class ARROW_EXPORT CumulativeProductOptions : public FunctionOptions {
  public:
   explicit CumulativeProductOptions(double start = 1, bool skip_nulls = false,
                                     bool check_overflow = false);
-  explicit CumulativeProductOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
-                                    bool check_overflow = false);
+  explicit CumulativeProductOptions(std::shared_ptr<Scalar> start,
+                                    bool skip_nulls = false, bool check_overflow = false);
   static constexpr char const kTypeName[] = "CumulativeProductOptions";
   static CumulativeProductOptions Defaults() { return CumulativeProductOptions(); }
 
