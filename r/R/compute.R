@@ -370,7 +370,7 @@ as_in_types <- function(x) {
   if (inherits(x, "Field")) {
     schema(x)
   } else if (inherits(x, "DataType")) {
-    schema(".x" = x)
+    schema(field("", x))
   } else {
     as_schema(x)
   }

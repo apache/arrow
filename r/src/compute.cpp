@@ -577,6 +577,17 @@ std::vector<std::string> compute__GetFunctionNames() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
 
+class RScalarUDFKernelState : public arrow::compute::KernelState {
+ public:
+  RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver,
+                        const std::vector<std::string>& input_names)
+      : exec_func_(exec_func), resolver_(resolver), input_names_(input_names) {}
+
+  cpp11::function exec_func_;
+  cpp11::function resolver_;
+  cpp11::strings input_names_;
+};
+
 class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver {
  public:
   RScalarUDFOutputTypeResolver(cpp11::sexp func) : func_(func) {}
