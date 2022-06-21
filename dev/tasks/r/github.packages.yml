@@ -175,10 +175,16 @@ jobs:
             ifelse(on_windows, "file:", "file://"),
             getwd(),
             "/repo")
-          
+          cat("Local repo: ", dev_repo)
+
           # This is necessary to use the local folder as a repo in both
           # install_arrow & tools/*libs.R
+          # The option has to be added to the .Rprofile as it will 
+          # otherwise not work while installing packages.
           options(arrow.dev_repo = dev_repo)
+          str <- paste0('options(arrow.dev_repo = "', dev_repo,'")')
+          profile_path <- file.path(getwd(), ".Rprofile")
+          write(str, file = profile_path, append = TRUE)
           
           # Build
           Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
