@@ -3335,7 +3335,7 @@ cdef class Table(_PandasConvertible):
 
         return result
 
-    def cast(self, Schema target_schema, bint safe=True):
+    def cast(self, Schema target_schema, safe=None, options=None):
         """
         Cast table values to another schema.
 
@@ -3345,6 +3345,8 @@ cdef class Table(_PandasConvertible):
             Schema to cast to, the names and order of fields must match.
         safe : bool, default True
             Check for overflows or other unsafe conversions.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
@@ -3388,7 +3390,7 @@ cdef class Table(_PandasConvertible):
                              .format(self.schema.names, target_schema.names))
 
         for column, field in zip(self.itercolumns(), target_schema):
-            casted = column.cast(field.type, safe=safe)
+            casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
         return Table.from_arrays(newcols, schema=target_schema)
