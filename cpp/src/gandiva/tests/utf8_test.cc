@@ -252,7 +252,7 @@ TEST_F(TestUtf8, TestLikeWithEscape) {
 
   // expected output
   auto exp =
-      MakeArrowArrayBool({true, true, true, true, true}, {true, true, true, true, true});
+      MakeArrowArrayBool({false, true, true, false, false}, {true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
