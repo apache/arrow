@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <limits>
@@ -397,8 +396,12 @@ struct ARROW_EXPORT ExecSpan {
   }
 
   bool is_all_scalar() const {
-    return std::all_of(this->values.begin(), this->values.end(),
-                       [](const ExecValue& v) { return v.is_scalar(); });
+    for (const ExecValue& value : this->values) {
+      if (value.is_array()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// \brief Return the value at the i-th index

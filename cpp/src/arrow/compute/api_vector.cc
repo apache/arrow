@@ -17,6 +17,7 @@
 
 #include "arrow/compute/api_vector.h"
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -26,6 +27,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -305,10 +307,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order, ExecContext* ctx) {
-  SortOptions options({SortKey("not-used", order)});
-  ARROW_ASSIGN_OR_RAISE(
-      Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
-  return result.make_array();
+  return SortIndices(chunked_array, ArraySortOptions(order), ctx);
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,

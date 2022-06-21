@@ -419,7 +419,7 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
     }
   }
 
-  compute::KernelContext kernel_context(exec_context);
+  compute::KernelContext kernel_context(exec_context, call.kernel);
   if (call.kernel->init) {
     const FunctionOptions* options =
         call.options ? call.options.get() : call.function->default_options();
@@ -593,7 +593,7 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
 
-  compute::KernelContext kernel_context(exec_context);
+  compute::KernelContext kernel_context(exec_context, call->kernel);
   kernel_context.SetState(call->kernel_state.get());
 
   auto kernel = call->kernel;

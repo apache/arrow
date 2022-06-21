@@ -127,7 +127,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
       *opt_projected_batch = projected;
     }
 
-    return encoder->EncodeAndAppend(projected);
+    return encoder->EncodeAndAppend(ExecSpan(projected));
   }
 
   void ProbeBatch_Lookup(ThreadLocalState* local_state, const RowEncoder& exec_batch_keys,

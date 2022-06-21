@@ -718,7 +718,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
         {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
   }
 
-  int32_t byte_width() const override { return byte_width_; }
+  int byte_width() const override { return byte_width_; }
+
   int bit_width() const override;
 
   // Validating constructor
@@ -2059,9 +2060,6 @@ std::string ToTypeName(Type::type id);
 
 ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
-
-ARROW_EXPORT
-int GetByteWidth(const DataType& type);
 
 }  // namespace internal
 

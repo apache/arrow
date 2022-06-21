@@ -151,6 +151,13 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     }
   }
 
+  Type::type type_id = this->type->id();
+  if (data.buffers[0] == nullptr && type_id != Type::NA &&
+      type_id != Type::SPARSE_UNION && type_id != Type::DENSE_UNION) {
+    // This should already be zero but we make for sure
+    this->null_count = 0;
+  }
+
   // Makes sure any other buffers are seen as null / non-existent
   for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
     ClearBuffer(i);
@@ -208,7 +215,6 @@ int64_t ArraySpan::GetNullCount() const {
 int GetNumBuffers(const DataType& type) {
   switch (type.id()) {
     case Type::NA:
-      return 0;
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
       return 1;
@@ -232,7 +238,7 @@ int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
 
 std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
   auto result = std::make_shared<ArrayData>(this->type->Copy(), this->length,
-                                            kUnknownNullCount, this->offset);
+                                            this->null_count, this->offset);
 
   for (int i = 0; i < this->num_buffers(); ++i) {
     if (this->buffers[i].owner) {

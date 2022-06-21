@@ -179,7 +179,7 @@ class ARROW_EXPORT KernelExecutor {
   static std::unique_ptr<KernelExecutor> MakeScalarAggregate();
 };
 
-Result<int64_t> InferBatchLength(const std::vector<Datum>& values);
+int64_t InferBatchLength(const std::vector<Datum>& values, bool* all_same);
 
 /// \brief Populate validity bitmap with the intersection of the nullity of the
 /// arguments. If a preallocated bitmap is not provided, then one will be
