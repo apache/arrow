@@ -77,7 +77,7 @@ call_function(
 base_fun_wrapper <- arrow_base_scalar_function(
   schema(x = float64(), y = float64(), z = float64()),
   float64(),
-  function(kernel_context, args) {
+  function(context, args) {
     args[[1]] + args[[2]] + args[[3]]
   }
 )

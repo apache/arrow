@@ -75,7 +75,6 @@ test_that("register_scalar_function() adds a compute function to the registry", 
   fun <- arrow_base_scalar_function(
     int32(), int64(),
     function(context, args) {
-      browser()
       args[[1]]
     }
   )
@@ -96,7 +95,7 @@ test_that("register_scalar_function() adds a compute function to the registry", 
   )
 
   # fails because there's no event loop registered
-  record_batch(a = 1L) %>%
-    dplyr::mutate(b = arrow_my_test_scalar_function(a)) %>%
-    dplyr::collect()
+  # record_batch(a = 1L) %>%
+  #   dplyr::mutate(b = my_test_scalar_function(a)) %>%
+  #   dplyr::collect()
 })

@@ -365,7 +365,7 @@ cast_options <- function(safe = TRUE, ...) {
 #' base_fun_wrapper <- arrow_base_scalar_function(
 #'   schema(x = float64(), y = float64(), z = float64()),
 #'   float64(),
-#'   function(kernel_context, args) {
+#'   function(context, args) {
 #'     args[[1]] + args[[2]] + args[[3]]
 #'   }
 #' )
@@ -404,10 +404,10 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
 #' @export
 arrow_scalar_function <- function(in_type, out_type, fun) {
   fun <- rlang::as_function(fun)
-  base_fun <- function(kernel_context, args) {
+  base_fun <- function(context, args) {
     args <- lapply(args, as.vector)
     result <- do.call(fun, args)
-    as_arrow_array(result)
+    as_arrow_array(result, type = context$output_type)
   }
 
   arrow_base_scalar_function(in_type, out_type, base_fun)
