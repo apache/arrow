@@ -2410,7 +2410,7 @@ cdef extern from "arrow/compute/exec/aggregate.h" namespace \
         "arrow::compute::internal" nogil:
     cdef cppclass CAggregate "arrow::compute::internal::Aggregate":
         c_string function
-        const CFunctionOptions* options
+        shared_ptr[CFunctionOptions] options
 
     CResult[CDatum] GroupBy(const vector[CDatum]& arguments,
                             const vector[CDatum]& keys,

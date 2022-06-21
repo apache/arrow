@@ -401,7 +401,7 @@ struct ARROW_EXPORT Aggregate {
   std::string function;
 
   /// options for the aggregation function
-  const FunctionOptions* options;
+  std::shared_ptr<FunctionOptions> options;
 };
 
 }  // namespace internal

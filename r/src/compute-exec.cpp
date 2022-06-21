@@ -231,15 +231,13 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     std::vector<std::string> target_names, std::vector<std::string> out_field_names,
     std::vector<std::string> key_names) {
   std::vector<arrow::compute::internal::Aggregate> aggregates;
-  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
 
   for (cpp11::list name_opts : options) {
     auto name = cpp11::as_cpp<std::string>(name_opts[0]);
     auto opts = make_compute_options(name, name_opts[1]);
 
     aggregates.push_back(
-        arrow::compute::internal::Aggregate{std::move(name), opts.get()});
-    keep_alives.push_back(std::move(opts));
+        arrow::compute::internal::Aggregate{std::move(name), std::move(opts)});
   }
 
   std::vector<arrow::FieldRef> targets, keys;

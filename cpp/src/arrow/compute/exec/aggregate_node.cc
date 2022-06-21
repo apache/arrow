@@ -43,18 +43,16 @@ namespace compute {
 
 namespace {
 
-void AggregatesToString(
-    std::stringstream* ss, const Schema& input_schema,
-    const std::vector<internal::Aggregate>& aggs,
-    const std::vector<int>& target_field_ids,
-    const std::vector<std::unique_ptr<FunctionOptions>>& owned_options, int indent = 0) {
+void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
+                        const std::vector<internal::Aggregate>& aggs,
+                        const std::vector<int>& target_field_ids, int indent = 0) {
   *ss << "aggregates=[" << std::endl;
   for (size_t i = 0; i < aggs.size(); i++) {
     for (int j = 0; j < indent; ++j) *ss << "  ";
     *ss << '\t' << aggs[i].function << '('
         << input_schema.field(target_field_ids[i])->name();
-    if (owned_options[i]) {
-      *ss << ", " << owned_options[i]->ToString();
+    if (aggs[i].options) {
+      *ss << ", " << aggs[i].options->ToString();
     }
     *ss << ")," << std::endl;
   }
@@ -69,16 +67,14 @@ class ScalarAggregateNode : public ExecNode {
                       std::vector<int> target_field_ids,
                       std::vector<internal::Aggregate> aggs,
                       std::vector<const ScalarAggregateKernel*> kernels,
-                      std::vector<std::vector<std::unique_ptr<KernelState>>> states,
-                      std::vector<std::unique_ptr<FunctionOptions>> owned_options)
+                      std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(plan, std::move(inputs), {"target"},
                  /*output_schema=*/std::move(output_schema),
                  /*num_outputs=*/1),
         target_field_ids_(std::move(target_field_ids)),
         aggs_(std::move(aggs)),
         kernels_(std::move(kernels)),
-        states_(std::move(states)),
-        owned_options_(std::move(owned_options)) {}
+        states_(std::move(states)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -95,7 +91,6 @@ class ScalarAggregateNode : public ExecNode {
     FieldVector fields(kernels.size());
     const auto& field_names = aggregate_options.names;
     std::vector<int> target_field_ids(kernels.size());
-    std::vector<std::unique_ptr<FunctionOptions>> owned_options(aggregates.size());
 
     for (size_t i = 0; i < kernels.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto match,
@@ -116,11 +111,7 @@ class ScalarAggregateNode : public ExecNode {
       kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
 
       if (aggregates[i].options == nullptr) {
-        aggregates[i].options = function->default_options();
-      }
-      if (aggregates[i].options) {
-        owned_options[i] = aggregates[i].options->Copy();
-        aggregates[i].options = owned_options[i].get();
+        aggregates[i].options = function->default_options()->Copy();
       }
 
       KernelContext kernel_ctx{exec_ctx};
@@ -130,7 +121,7 @@ class ScalarAggregateNode : public ExecNode {
                                                    {
                                                        in_type,
                                                    },
-                                                   aggregates[i].options},
+                                                   aggregates[i].options.get()},
                                     &states[i]));
 
       // pick one to resolve the kernel signature
@@ -143,8 +134,7 @@ class ScalarAggregateNode : public ExecNode {
 
     return plan->EmplaceNode<ScalarAggregateNode>(
         plan, std::move(inputs), schema(std::move(fields)), std::move(target_field_ids),
-        std::move(aggregates), std::move(kernels), std::move(states),
-        std::move(owned_options));
+        std::move(aggregates), std::move(kernels), std::move(states));
   }
 
   const char* kind_name() const override { return "ScalarAggregateNode"; }
@@ -242,7 +232,7 @@ class ScalarAggregateNode : public ExecNode {
   std::string ToStringExtra(int indent = 0) const override {
     std::stringstream ss;
     const auto input_schema = inputs_[0]->output_schema();
-    AggregatesToString(&ss, *input_schema, aggs_, target_field_ids_, owned_options_);
+    AggregatesToString(&ss, *input_schema, aggs_, target_field_ids_);
     return ss.str();
   }
 
@@ -277,7 +267,6 @@ class ScalarAggregateNode : public ExecNode {
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
-  const std::vector<std::unique_ptr<FunctionOptions>> owned_options_;
 
   ThreadIndexer get_thread_index_;
   AtomicCounter input_counter_;
@@ -288,16 +277,14 @@ class GroupByNode : public ExecNode {
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
               std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
               std::vector<internal::Aggregate> aggs,
-              std::vector<const HashAggregateKernel*> agg_kernels,
-              std::vector<std::unique_ptr<FunctionOptions>> owned_options)
+              std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
         ctx_(ctx),
         key_field_ids_(std::move(key_field_ids)),
         agg_src_field_ids_(std::move(agg_src_field_ids)),
         aggs_(std::move(aggs)),
-        agg_kernels_(std::move(agg_kernels)),
-        owned_options_(std::move(owned_options)) {}
+        agg_kernels_(std::move(agg_kernels)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -363,17 +350,9 @@ class GroupByNode : public ExecNode {
       output_fields[base + i] = input_schema->field(key_field_id);
     }
 
-    std::vector<std::unique_ptr<FunctionOptions>> owned_options;
-    owned_options.reserve(aggs.size());
-    for (auto& agg : aggs) {
-      owned_options.push_back(agg.options ? agg.options->Copy() : nullptr);
-      agg.options = owned_options.back().get();
-    }
-
     return input->plan()->EmplaceNode<GroupByNode>(
         input, schema(std::move(output_fields)), ctx, std::move(key_field_ids),
-        std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels),
-        std::move(owned_options));
+        std::move(agg_src_field_ids), std::move(aggs), std::move(agg_kernels));
   }
 
   const char* kind_name() const override { return "GroupByNode"; }
@@ -623,8 +602,7 @@ class GroupByNode : public ExecNode {
       ss << '"' << input_schema->field(key_field_ids_[i])->name() << '"';
     }
     ss << "], ";
-    AggregatesToString(&ss, *input_schema, aggs_, agg_src_field_ids_, owned_options_,
-                       indent);
+    AggregatesToString(&ss, *input_schema, aggs_, agg_src_field_ids_, indent);
     return ss.str();
   }
 
@@ -684,8 +662,6 @@ class GroupByNode : public ExecNode {
   const std::vector<int> agg_src_field_ids_;
   const std::vector<internal::Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
-  // ARROW-13638: must hold owned copy of function options
-  const std::vector<std::unique_ptr<FunctionOptions>> owned_options_;
 
   ThreadIndexer get_thread_index_;
   AtomicCounter input_counter_, output_counter_;

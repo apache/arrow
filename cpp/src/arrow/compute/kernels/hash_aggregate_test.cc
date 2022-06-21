@@ -101,8 +101,8 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
     for (int64_t i_group = 0; i_group < grouper->num_groups(); ++i_group) {
       auto slice = grouped_argument->value_slice(i_group);
       if (slice->length() == 0) continue;
-      ARROW_ASSIGN_OR_RAISE(
-          Datum d, CallFunction(scalar_agg_function, {slice}, aggregates[i].options));
+      ARROW_ASSIGN_OR_RAISE(Datum d, CallFunction(scalar_agg_function, {slice},
+                                                  aggregates[i].options.get()));
       aggregated_scalars.push_back(d.scalar());
     }
 
@@ -853,18 +853,18 @@ TEST(GroupBy, CountScalar) {
   };
   input.schema = schema({field("argument", int32()), field("key", int64())});
 
-  CountOptions skip_nulls(CountOptions::ONLY_VALID);
-  CountOptions keep_nulls(CountOptions::ONLY_NULL);
-  CountOptions count_all(CountOptions::ALL);
+  auto skip_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  auto keep_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
+  auto count_all = std::make_shared<CountOptions>(CountOptions::ALL);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
     ASSERT_OK_AND_ASSIGN(
         Datum actual,
         GroupByUsingExecPlan(input, {"key"}, {"argument", "argument", "argument"},
                              {
-                                 {"hash_count", &skip_nulls},
-                                 {"hash_count", &keep_nulls},
-                                 {"hash_count", &count_all},
+                                 {"hash_count", skip_nulls},
+                                 {"hash_count", keep_nulls},
+                                 {"hash_count", count_all},
                              },
                              use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
@@ -1028,14 +1028,15 @@ TEST(GroupBy, MeanOnly) {
     [null,  3]
                         ])"});
 
-    ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+    auto min_count =
+        std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                          internal::GroupBy({table->GetColumnByName("argument"),
                                             table->GetColumnByName("argument")},
                                            {table->GetColumnByName("key")},
                                            {
                                                {"hash_mean", nullptr},
-                                               {"hash_mean", &min_count},
+                                               {"hash_mean", min_count},
                                            },
                                            use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
@@ -1178,7 +1179,7 @@ TEST(GroupBy, VarianceAndStddev) {
                           /*verbose=*/true);
 
   // Test ddof
-  VarianceOptions variance_options(/*ddof=*/2);
+  auto variance_options = std::make_shared<VarianceOptions>(/*ddof=*/2);
   ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
                        internal::GroupBy(
                            {
@@ -1189,8 +1190,8 @@ TEST(GroupBy, VarianceAndStddev) {
                                batch->GetColumnByName("key"),
                            },
                            {
-                               {"hash_variance", &variance_options},
-                               {"hash_stddev", &variance_options},
+                               {"hash_variance", variance_options},
+                               {"hash_stddev", variance_options},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -1276,15 +1277,19 @@ TEST(GroupBy, TDigest) {
     [null, 4]
   ])");
 
-  TDigestOptions options1(std::vector<double>{0.5, 0.9, 0.99});
-  TDigestOptions options2(std::vector<double>{0.5, 0.9, 0.99}, /*delta=*/50,
-                          /*buffer_size=*/1024);
-  TDigestOptions keep_nulls(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
-                            /*skip_nulls=*/false, /*min_count=*/0);
-  TDigestOptions min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
-                           /*skip_nulls=*/true, /*min_count=*/3);
-  TDigestOptions keep_nulls_min_count(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
-                                      /*skip_nulls=*/false, /*min_count=*/3);
+  auto options1 = std::make_shared<TDigestOptions>(std::vector<double>{0.5, 0.9, 0.99});
+  auto options2 =
+      std::make_shared<TDigestOptions>(std::vector<double>{0.5, 0.9, 0.99}, /*delta=*/50,
+                                       /*buffer_size=*/1024);
+  auto keep_nulls =
+      std::make_shared<TDigestOptions>(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                                       /*skip_nulls=*/false, /*min_count=*/0);
+  auto min_count =
+      std::make_shared<TDigestOptions>(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                                       /*skip_nulls=*/true, /*min_count=*/3);
+  auto keep_nulls_min_count =
+      std::make_shared<TDigestOptions>(/*q=*/0.5, /*delta=*/100, /*buffer_size=*/500,
+                                       /*skip_nulls=*/false, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy(
                            {
@@ -1300,11 +1305,11 @@ TEST(GroupBy, TDigest) {
                            },
                            {
                                {"hash_tdigest", nullptr},
-                               {"hash_tdigest", &options1},
-                               {"hash_tdigest", &options2},
-                               {"hash_tdigest", &keep_nulls},
-                               {"hash_tdigest", &min_count},
-                               {"hash_tdigest", &keep_nulls_min_count},
+                               {"hash_tdigest", options1},
+                               {"hash_tdigest", options2},
+                               {"hash_tdigest", keep_nulls},
+                               {"hash_tdigest", min_count},
+                               {"hash_tdigest", keep_nulls_min_count},
                            }));
 
   AssertDatumsApproxEqual(
@@ -1390,12 +1395,12 @@ TEST(GroupBy, ApproximateMedian) {
     [null, 4]
   ])");
 
-    ScalarAggregateOptions options;
-    ScalarAggregateOptions keep_nulls(
+    std::shared_ptr<ScalarAggregateOptions> options;
+    auto keep_nulls = std::make_shared<ScalarAggregateOptions>(
         /*skip_nulls=*/false, /*min_count=*/0);
-    ScalarAggregateOptions min_count(
+    auto min_count = std::make_shared<ScalarAggregateOptions>(
         /*skip_nulls=*/true, /*min_count=*/3);
-    ScalarAggregateOptions keep_nulls_min_count(
+    auto keep_nulls_min_count = std::make_shared<ScalarAggregateOptions>(
         /*skip_nulls=*/false, /*min_count=*/3);
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                          internal::GroupBy(
@@ -1409,10 +1414,10 @@ TEST(GroupBy, ApproximateMedian) {
                                  batch->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_approximate_median", &options},
-                                 {"hash_approximate_median", &keep_nulls},
-                                 {"hash_approximate_median", &min_count},
-                                 {"hash_approximate_median", &keep_nulls_min_count},
+                                 {"hash_approximate_median", options},
+                                 {"hash_approximate_median", keep_nulls},
+                                 {"hash_approximate_median", min_count},
+                                 {"hash_approximate_median", keep_nulls_min_count},
                              }));
 
     AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -1502,31 +1507,34 @@ TEST(GroupBy, VarianceOptions) {
   input.schema = schema(
       {field("argument", int32()), field("argument1", float32()), field("key", int64())});
 
-  VarianceOptions keep_nulls(/*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/0);
-  VarianceOptions min_count(/*ddof=*/0, /*skip_nulls=*/true, /*min_count=*/3);
-  VarianceOptions keep_nulls_min_count(/*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
+  auto keep_nulls = std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/false,
+                                                      /*min_count=*/0);
+  auto min_count =
+      std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/true, /*min_count=*/3);
+  auto keep_nulls_min_count = std::make_shared<VarianceOptions>(
+      /*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
 
   for (bool use_threads : {false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(
-        Datum actual, GroupByUsingExecPlan(input, {"key"},
-                                           {
-                                               "argument",
-                                               "argument",
-                                               "argument",
-                                               "argument",
-                                               "argument",
-                                               "argument",
-                                           },
-                                           {
-                                               {"hash_stddev", &keep_nulls},
-                                               {"hash_stddev", &min_count},
-                                               {"hash_stddev", &keep_nulls_min_count},
-                                               {"hash_variance", &keep_nulls},
-                                               {"hash_variance", &min_count},
-                                               {"hash_variance", &keep_nulls_min_count},
-                                           },
-                                           use_threads, default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         GroupByUsingExecPlan(input, {"key"},
+                                              {
+                                                  "argument",
+                                                  "argument",
+                                                  "argument",
+                                                  "argument",
+                                                  "argument",
+                                                  "argument",
+                                              },
+                                              {
+                                                  {"hash_stddev", keep_nulls},
+                                                  {"hash_stddev", min_count},
+                                                  {"hash_stddev", keep_nulls_min_count},
+                                                  {"hash_variance", keep_nulls},
+                                                  {"hash_variance", min_count},
+                                                  {"hash_variance", keep_nulls_min_count},
+                                              },
+                                              use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
                                        field("hash_stddev", float64()),
                                        field("hash_stddev", float64()),
@@ -1545,25 +1553,25 @@ TEST(GroupBy, VarianceOptions) {
     ValidateOutput(expected);
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
 
-    ASSERT_OK_AND_ASSIGN(
-        actual, GroupByUsingExecPlan(input, {"key"},
-                                     {
-                                         "argument1",
-                                         "argument1",
-                                         "argument1",
-                                         "argument1",
-                                         "argument1",
-                                         "argument1",
-                                     },
-                                     {
-                                         {"hash_stddev", &keep_nulls},
-                                         {"hash_stddev", &min_count},
-                                         {"hash_stddev", &keep_nulls_min_count},
-                                         {"hash_variance", &keep_nulls},
-                                         {"hash_variance", &min_count},
-                                         {"hash_variance", &keep_nulls_min_count},
-                                     },
-                                     use_threads, default_exec_context()));
+    ASSERT_OK_AND_ASSIGN(actual,
+                         GroupByUsingExecPlan(input, {"key"},
+                                              {
+                                                  "argument1",
+                                                  "argument1",
+                                                  "argument1",
+                                                  "argument1",
+                                                  "argument1",
+                                                  "argument1",
+                                              },
+                                              {
+                                                  {"hash_stddev", keep_nulls},
+                                                  {"hash_stddev", min_count},
+                                                  {"hash_stddev", keep_nulls_min_count},
+                                                  {"hash_variance", keep_nulls},
+                                                  {"hash_variance", min_count},
+                                                  {"hash_variance", keep_nulls_min_count},
+                                              },
+                                              use_threads, default_exec_context()));
     expected = ArrayFromJSON(struct_({
                                  field("hash_stddev", float64()),
                                  field("hash_stddev", float64()),
@@ -2032,10 +2040,14 @@ TEST(GroupBy, AnyAndAll) {
     [null,  3]
                         ])"});
 
-    ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
-    ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
-    ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
-    ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+    auto no_min =
+        std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/0);
+    auto min_count =
+        std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+    auto keep_nulls =
+        std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/0);
+    auto keep_nulls_min_count =
+        std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                          internal::GroupBy(
                              {
@@ -2050,14 +2062,14 @@ TEST(GroupBy, AnyAndAll) {
                              },
                              {table->GetColumnByName("key")},
                              {
-                                 {"hash_any", &no_min},
-                                 {"hash_any", &min_count},
-                                 {"hash_any", &keep_nulls},
-                                 {"hash_any", &keep_nulls_min_count},
-                                 {"hash_all", &no_min},
-                                 {"hash_all", &min_count},
-                                 {"hash_all", &keep_nulls},
-                                 {"hash_all", &keep_nulls_min_count},
+                                 {"hash_any", no_min},
+                                 {"hash_any", min_count},
+                                 {"hash_any", keep_nulls},
+                                 {"hash_any", keep_nulls_min_count},
+                                 {"hash_all", no_min},
+                                 {"hash_all", min_count},
+                                 {"hash_all", keep_nulls},
+                                 {"hash_all", keep_nulls_min_count},
                              },
                              use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
@@ -2103,7 +2115,8 @@ TEST(GroupBy, AnyAllScalar) {
   };
   input.schema = schema({field("argument", boolean()), field("key", int64())});
 
-  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
+  auto keep_nulls =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/0);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
     ASSERT_OK_AND_ASSIGN(
@@ -2113,8 +2126,8 @@ TEST(GroupBy, AnyAllScalar) {
                              {
                                  {"hash_any", nullptr},
                                  {"hash_all", nullptr},
-                                 {"hash_any", &keep_nulls},
-                                 {"hash_all", &keep_nulls},
+                                 {"hash_any", keep_nulls},
+                                 {"hash_all", keep_nulls},
                              },
                              use_threads, default_exec_context()));
     Datum expected = ArrayFromJSON(struct_({
@@ -2134,9 +2147,9 @@ TEST(GroupBy, AnyAllScalar) {
 }
 
 TEST(GroupBy, CountDistinct) {
-  CountOptions all(CountOptions::ALL);
-  CountOptions only_valid(CountOptions::ONLY_VALID);
-  CountOptions only_null(CountOptions::ONLY_NULL);
+  auto all = std::make_shared<CountOptions>(CountOptions::ALL);
+  auto only_valid = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  auto only_null = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -2182,9 +2195,9 @@ TEST(GroupBy, CountDistinct) {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_count_distinct", &all},
-                                 {"hash_count_distinct", &only_valid},
-                                 {"hash_count_distinct", &only_null},
+                                 {"hash_count_distinct", all},
+                                 {"hash_count_distinct", only_valid},
+                                 {"hash_count_distinct", only_null},
                              },
                              use_threads));
     SortBy({"key_0"}, &aggregated_and_grouped);
@@ -2248,9 +2261,9 @@ TEST(GroupBy, CountDistinct) {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_count_distinct", &all},
-                                 {"hash_count_distinct", &only_valid},
-                                 {"hash_count_distinct", &only_null},
+                                 {"hash_count_distinct", all},
+                                 {"hash_count_distinct", only_valid},
+                                 {"hash_count_distinct", only_null},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -2294,9 +2307,9 @@ TEST(GroupBy, CountDistinct) {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_count_distinct", &all},
-                                 {"hash_count_distinct", &only_valid},
-                                 {"hash_count_distinct", &only_null},
+                                 {"hash_count_distinct", all},
+                                 {"hash_count_distinct", only_valid},
+                                 {"hash_count_distinct", only_null},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -2318,9 +2331,9 @@ TEST(GroupBy, CountDistinct) {
 }
 
 TEST(GroupBy, Distinct) {
-  CountOptions all(CountOptions::ALL);
-  CountOptions only_valid(CountOptions::ONLY_VALID);
-  CountOptions only_null(CountOptions::ONLY_NULL);
+  auto all = std::make_shared<CountOptions>(CountOptions::ALL);
+  auto only_valid = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  auto only_null = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
   for (bool use_threads : {false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -2366,9 +2379,9 @@ TEST(GroupBy, Distinct) {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_distinct", &all},
-                                 {"hash_distinct", &only_valid},
-                                 {"hash_distinct", &only_null},
+                                 {"hash_distinct", all},
+                                 {"hash_distinct", only_valid},
+                                 {"hash_distinct", only_null},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -2439,9 +2452,9 @@ TEST(GroupBy, Distinct) {
                                  table->GetColumnByName("key"),
                              },
                              {
-                                 {"hash_distinct", &all},
-                                 {"hash_distinct", &only_valid},
-                                 {"hash_distinct", &only_null},
+                                 {"hash_distinct", all},
+                                 {"hash_distinct", only_valid},
+                                 {"hash_distinct", only_null},
                              },
                              use_threads));
     ValidateOutput(aggregated_and_grouped);
@@ -3204,10 +3217,11 @@ TEST(GroupBy, CountAndSum) {
     [null,  3]
   ])");
 
-  CountOptions count_options;
-  CountOptions count_nulls(CountOptions::ONLY_NULL);
-  CountOptions count_all(CountOptions::ALL);
-  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+  std::shared_ptr<CountOptions> count_options;
+  auto count_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
+  auto count_all = std::make_shared<CountOptions>(CountOptions::ALL);
+  auto min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
       internal::GroupBy(
@@ -3224,11 +3238,11 @@ TEST(GroupBy, CountAndSum) {
               batch->GetColumnByName("key"),
           },
           {
-              {"hash_count", &count_options},
-              {"hash_count", &count_nulls},
-              {"hash_count", &count_all},
+              {"hash_count", count_options},
+              {"hash_count", count_nulls},
+              {"hash_count", count_all},
               {"hash_sum", nullptr},
-              {"hash_sum", &min_count},
+              {"hash_sum", min_count},
               {"hash_sum", nullptr},
           }));
 
@@ -3268,7 +3282,8 @@ TEST(GroupBy, Product) {
     [null,  3]
   ])");
 
-  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+  auto min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy(
                            {
@@ -3282,7 +3297,7 @@ TEST(GroupBy, Product) {
                            {
                                {"hash_product", nullptr},
                                {"hash_product", nullptr},
-                               {"hash_product", &min_count},
+                               {"hash_product", min_count},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -3342,8 +3357,9 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
     [null,  3]
   ])");
 
-  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false);
-  ScalarAggregateOptions min_count(/*skip_nulls=*/false, /*min_count=*/3);
+  auto keep_nulls = std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false);
+  auto min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy(
                            {
@@ -3358,12 +3374,12 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
                                batch->GetColumnByName("key"),
                            },
                            {
-                               {"hash_sum", &keep_nulls},
-                               {"hash_sum", &min_count},
-                               {"hash_mean", &keep_nulls},
-                               {"hash_mean", &min_count},
-                               {"hash_product", &keep_nulls},
-                               {"hash_product", &min_count},
+                               {"hash_sum", keep_nulls},
+                               {"hash_sum", min_count},
+                               {"hash_mean", keep_nulls},
+                               {"hash_mean", min_count},
+                               {"hash_product", keep_nulls},
+                               {"hash_product", min_count},
                            }));
 
   AssertDatumsApproxEqual(ArrayFromJSON(struct_({
@@ -3441,17 +3457,20 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
     [null,  "gama"]
   ])");
 
-  ScalarAggregateOptions keepna{false, 1};
-  CountOptions nulls(CountOptions::ONLY_NULL);
-  CountOptions non_null(CountOptions::ONLY_VALID);
+  std::shared_ptr<ScalarAggregateOptions> keepna =
+      std::make_shared<ScalarAggregateOptions>(false, 1);
+  std::shared_ptr<CountOptions> nulls =
+      std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
+  std::shared_ptr<CountOptions> non_null =
+      std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
 
   using internal::Aggregate;
   for (auto agg : {
            Aggregate{"hash_sum", nullptr},
-           Aggregate{"hash_count", &non_null},
-           Aggregate{"hash_count", &nulls},
+           Aggregate{"hash_count", non_null},
+           Aggregate{"hash_count", nulls},
            Aggregate{"hash_min_max", nullptr},
-           Aggregate{"hash_min_max", &keepna},
+           Aggregate{"hash_min_max", keepna},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3468,12 +3487,15 @@ TEST(GroupBy, CountNull) {
     [3.0, "gama"]
   ])");
 
-  CountOptions keepna{CountOptions::ONLY_NULL}, skipna{CountOptions::ONLY_VALID};
+  std::shared_ptr<CountOptions> keepna =
+      std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
+  std::shared_ptr<CountOptions> skipna =
+      std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
 
   using internal::Aggregate;
   for (auto agg : {
-           Aggregate{"hash_count", &keepna},
-           Aggregate{"hash_count", &skipna},
+           Aggregate{"hash_count", keepna},
+           Aggregate{"hash_count", skipna},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -3482,7 +3504,8 @@ TEST(GroupBy, CountNull) {
 }
 
 TEST(GroupBy, RandomArraySum) {
-  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+  std::shared_ptr<ScalarAggregateOptions> options =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/0);
   for (int64_t length : {1 << 10, 1 << 12, 1 << 15}) {
     for (auto null_probability : {0.0, 0.01, 0.5, 1.0}) {
       auto batch = random::GenerateBatch(
@@ -3496,7 +3519,7 @@ TEST(GroupBy, RandomArraySum) {
 
       ValidateGroupBy(
           {
-              {"hash_sum", &options},
+              {"hash_sum", options},
           },
           {batch->GetColumnByName("argument")}, {batch->GetColumnByName("key")});
     }
@@ -3639,9 +3662,9 @@ TEST(GroupBy, CountWithNullType) {
     [null, 3]
                         ])"});
 
-  CountOptions all(CountOptions::ALL);
-  CountOptions only_valid(CountOptions::ONLY_VALID);
-  CountOptions only_null(CountOptions::ONLY_NULL);
+  auto all = std::make_shared<CountOptions>(CountOptions::ALL);
+  auto only_valid = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  auto only_null = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
 
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
@@ -3655,9 +3678,9 @@ TEST(GroupBy, CountWithNullType) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_count", &all},
-                                   {"hash_count", &only_valid},
-                                   {"hash_count", &only_null},
+                                   {"hash_count", all},
+                                   {"hash_count", only_valid},
+                                   {"hash_count", only_null},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -3684,9 +3707,9 @@ TEST(GroupBy, CountWithNullTypeEmptyTable) {
   auto table = TableFromJSON(schema({field("argument", null()), field("key", int64())}),
                              {R"([])"});
 
-  CountOptions all(CountOptions::ALL);
-  CountOptions only_valid(CountOptions::ONLY_VALID);
-  CountOptions only_null(CountOptions::ONLY_NULL);
+  auto all = std::make_shared<CountOptions>(CountOptions::ALL);
+  auto only_valid = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  auto only_null = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
 
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
@@ -3700,9 +3723,9 @@ TEST(GroupBy, CountWithNullTypeEmptyTable) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_count", &all},
-                                   {"hash_count", &only_valid},
-                                   {"hash_count", &only_null},
+                                   {"hash_count", all},
+                                   {"hash_count", only_valid},
+                                   {"hash_count", only_null},
                                },
                                use_threads, use_exec_plan));
       auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
@@ -3854,10 +3877,14 @@ TEST(GroupBy, SumNullType) {
     [null, 3]
                         ])"});
 
-  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
-  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
-  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
-  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+  auto no_min =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/0);
+  auto min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+  auto keep_nulls =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/0);
+  auto keep_nulls_min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
 
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
@@ -3872,10 +3899,10 @@ TEST(GroupBy, SumNullType) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_sum", &no_min},
-                                   {"hash_sum", &keep_nulls},
-                                   {"hash_sum", &min_count},
-                                   {"hash_sum", &keep_nulls_min_count},
+                                   {"hash_sum", no_min},
+                                   {"hash_sum", keep_nulls},
+                                   {"hash_sum", min_count},
+                                   {"hash_sum", keep_nulls_min_count},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -3918,10 +3945,14 @@ TEST(GroupBy, ProductNullType) {
     [null, 3]
                         ])"});
 
-  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
-  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
-  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
-  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+  auto no_min =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/0);
+  auto min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+  auto keep_nulls =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/0);
+  auto keep_nulls_min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
 
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
@@ -3936,10 +3967,10 @@ TEST(GroupBy, ProductNullType) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_product", &no_min},
-                                   {"hash_product", &keep_nulls},
-                                   {"hash_product", &min_count},
-                                   {"hash_product", &keep_nulls_min_count},
+                                   {"hash_product", no_min},
+                                   {"hash_product", keep_nulls},
+                                   {"hash_product", min_count},
+                                   {"hash_product", keep_nulls_min_count},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -3982,10 +4013,14 @@ TEST(GroupBy, MeanNullType) {
     [null, 3]
                         ])"});
 
-  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
-  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
-  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
-  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+  auto no_min =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/0);
+  auto min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+  auto keep_nulls =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/0);
+  auto keep_nulls_min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
 
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
@@ -4000,10 +4035,10 @@ TEST(GroupBy, MeanNullType) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_mean", &no_min},
-                                   {"hash_mean", &keep_nulls},
-                                   {"hash_mean", &min_count},
-                                   {"hash_mean", &keep_nulls_min_count},
+                                   {"hash_mean", no_min},
+                                   {"hash_mean", keep_nulls},
+                                   {"hash_mean", min_count},
+                                   {"hash_mean", keep_nulls_min_count},
                                },
                                use_threads, use_exec_plan));
       SortBy({"key_0"}, &aggregated_and_grouped);
@@ -4031,10 +4066,14 @@ TEST(GroupBy, NullTypeEmptyTable) {
   auto table = TableFromJSON(schema({field("argument", null()), field("key", int64())}),
                              {R"([])"});
 
-  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
-  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
-  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
-  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+  auto no_min =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/0);
+  auto min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/true, /*min_count=*/3);
+  auto keep_nulls =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/0);
+  auto keep_nulls_min_count =
+      std::make_shared<ScalarAggregateOptions>(/*skip_nulls=*/false, /*min_count=*/3);
 
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
@@ -4048,9 +4087,9 @@ TEST(GroupBy, NullTypeEmptyTable) {
                                },
                                {table->GetColumnByName("key")},
                                {
-                                   {"hash_sum", &no_min},
-                                   {"hash_product", &min_count},
-                                   {"hash_mean", &keep_nulls},
+                                   {"hash_sum", no_min},
+                                   {"hash_product", min_count},
+                                   {"hash_mean", keep_nulls},
                                },
                                use_threads, use_exec_plan));
       auto struct_arr = aggregated_and_grouped.array_as<StructArray>();

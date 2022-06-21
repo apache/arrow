@@ -2136,9 +2136,9 @@ def _group_by(args, keys, aggregations):
     for aggr_func_name, aggr_opts in aggregations:
         c_aggr.function = tobytes(aggr_func_name)
         if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?> aggr_opts).get_options()
+            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
         else:
-            c_aggr.options = NULL
+            c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
         c_aggregations.push_back(c_aggr)
 
     with nogil:

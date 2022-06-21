@@ -74,12 +74,13 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
       "sum_charge",   "avg_qty",      "avg_price", "avg_disc"};
   ProjectNodeOptions project_opts(std::move(projection_list), std::move(project_names));
 
-  ScalarAggregateOptions sum_opts = ScalarAggregateOptions::Defaults();
-  CountOptions count_opts(CountOptions::CountMode::ALL);
+  auto sum_opts =
+      std::make_shared<ScalarAggregateOptions>(ScalarAggregateOptions::Defaults());
+  auto count_opts = std::make_shared<CountOptions>(CountOptions::CountMode::ALL);
   std::vector<arrow::compute::internal::Aggregate> aggs = {
-      {"hash_sum", &sum_opts},  {"hash_sum", &sum_opts},    {"hash_sum", &sum_opts},
-      {"hash_sum", &sum_opts},  {"hash_mean", &sum_opts},   {"hash_mean", &sum_opts},
-      {"hash_mean", &sum_opts}, {"hash_count", &count_opts}};
+      {"hash_sum", sum_opts},  {"hash_sum", sum_opts},    {"hash_sum", sum_opts},
+      {"hash_sum", sum_opts},  {"hash_mean", sum_opts},   {"hash_mean", sum_opts},
+      {"hash_mean", sum_opts}, {"hash_count", count_opts}};
 
   std::vector<FieldRef> to_aggregate = {"sum_qty",    "sum_base_price", "sum_disc_price",
                                         "sum_charge", "avg_qty",        "avg_price",
