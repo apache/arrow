@@ -71,7 +71,7 @@ test_that("arrow_scalar_function() returns a base scalar function", {
   )
 })
 
-test_that("register_scalar_function() creates a dplyr binding", {
+test_that("register_scalar_function() adds a compute function to the registry", {
   fun <- arrow_base_scalar_function(
     int32(), int64(),
     function(context, args) args[[1]]
@@ -93,5 +93,7 @@ test_that("register_scalar_function() creates a dplyr binding", {
   )
 
   # fails because there's no event loop registered
-  # record_batch(a = 1L) |> dplyr::mutate(b = arrow_my_test_scalar_function(a)) |> dplyr::collect()
+  record_batch(a = 1L) %>%
+    dplyr::mutate(b = arrow_my_test_scalar_function(a)) %>%
+    dplyr::collect()
 })

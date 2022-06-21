@@ -579,13 +579,11 @@ std::vector<std::string> compute__GetFunctionNames() {
 
 class RScalarUDFKernelState : public arrow::compute::KernelState {
  public:
-  RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver,
-                        const std::vector<std::string>& input_names)
-      : exec_func_(exec_func), resolver_(resolver), input_names_(input_names) {}
+  RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver)
+      : exec_func_(exec_func), resolver_(resolver) {}
 
   cpp11::function exec_func_;
   cpp11::function resolver_;
-  cpp11::strings input_names_;
 };
 
 class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver {
@@ -603,7 +601,6 @@ class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver
       for (const auto& item : descr) {
         input_types_sexp.push_back(cpp11::to_r6<arrow::DataType>(item.type));
       }
-      input_types_sexp.names() = state->input_names_;
 
       cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
       if (!Rf_inherits(output_type_sexp, "DataType")) {
@@ -639,8 +636,6 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
           args_sexp.push_back(cpp11::to_r6<arrow::Scalar>(scalar));
         }
       }
-
-      args_sexp.names() = state->input_names_;
 
       cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
 
@@ -711,10 +706,8 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
     cpp11::sexp out_type_func = out_type_r[i];
 
     std::vector<arrow::compute::InputType> compute_in_types;
-    std::vector<std::string> compute_in_names;
     for (int64_t j = 0; j < in_types->num_fields(); j++) {
       compute_in_types.push_back(arrow::compute::InputType(in_types->field(i)->type()));
-      compute_in_names.push_back(in_types->field(i)->name());
     }
 
     arrow::compute::OutputType out_type((RScalarUDFOutputTypeResolver()));
@@ -724,8 +717,7 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
     arrow::compute::ScalarKernel kernel(signature, RScalarUDFCallable());
     kernel.mem_allocation = arrow::compute::MemAllocation::NO_PREALLOCATE;
     kernel.null_handling = arrow::compute::NullHandling::COMPUTED_NO_PREALLOCATE;
-    kernel.data = std::make_shared<RScalarUDFKernelState>(func_sexp, out_type_func,
-                                                          compute_in_names);
+    kernel.data = std::make_shared<RScalarUDFKernelState>(func_sexp, out_type_func);
 
     StopIfNotOk(func->AddKernel(std::move(kernel)));
   }

@@ -307,6 +307,77 @@ cast_options <- function(safe = TRUE, ...) {
   modifyList(opts, list(...))
 }
 
+#' Register user-defined functions
+#'
+#' These functions support calling R code from query engine execution
+#' (i.e., a [dplyr::mutate()] or [dplyr::filter()] on a [Table] or [Dataset]).
+#' Use [arrow_scalar_function()] to define an R function that accepts and
+#' returns R objects; use [arrow_base_scalar_function()] to define a
+#' lower-level function that operates directly on Arrow objects.
+#'
+#' @param name The function name to be used in the dplyr bindings
+#' @param scalar_function An object created with [arrow_scalar_function()]
+#'   or [arrow_base_scalar_function()].
+#' @param registry_name The function name to be used in the Arrow C++
+#'   compute function registry. This may be different from `name`.
+#' @param in_type A [DataType] of the input type or a [schema()]
+#'   for functions with more than one argument. This signature will be used
+#'   to determine if this function is appropriate for a given set of arguments.
+#'   If this function is appropriate for more than one signature, pass a
+#'   `list()` of the above.
+#' @param out_type A [DataType] of the output type or a function accepting
+#'   a single argument (`types`), which is a `list()` of [DataType]s. If a
+#'   function it must return a [DataType].
+#' @param fun An R function or rlang-style lambda expression. This function
+#'   will be called with R objects as arguments and must return an object
+#'   that can be converted to an [Array] using [as_arrow_array()]. Function
+#'   authors must take care to return an array castable to the output data
+#'   type specified by `out_type`.
+#' @param base_fun An R function or rlang-style lambda expression. This
+#'   function will be called with exactly two arguments: `kernel_context`,
+#'   which is a `list()` of objects giving information about the
+#'   execution context and `args`, which is a list of [Array] or [Scalar]
+#'   objects corresponding to the input arguments.
+#'
+#' @return
+#'   - `register_scalar_function()`: `NULL`, invisibly
+#'   - `arrow_scalar_function()`: returns an object of class
+#'     "arrow_base_scalar_function" that can be passed to
+#'     `register_scalar_function()`.
+#' @export
+#'
+#' @examples
+#' fun_wrapper <- arrow_scalar_function(
+#'   schema(x = float64(), y = float64(), z = float64()),
+#'   float64(),
+#'   function(x, y, z) x + y + z
+#' )
+#' register_scalar_function("example_add3", fun_wrapper)
+#'
+#' call_function(
+#'   "example_add3",
+#'   Scalar$create(1),
+#'   Scalar$create(2),
+#'   Array$create(3)
+#' )
+#'
+#' # use arrow_base_scalar_function() for a lower-level interface
+#' base_fun_wrapper <- arrow_base_scalar_function(
+#'   schema(x = float64(), y = float64(), z = float64()),
+#'   float64(),
+#'   function(kernel_context, args) {
+#'     args[[1]] + args[[2]] + args[[3]]
+#'   }
+#' )
+#' register_scalar_function("example_add3", base_fun_wrapper)
+#'
+#' call_function(
+#'   "example_add3",
+#'   Scalar$create(1),
+#'   Scalar$create(2),
+#'   Array$create(3)
+#' )
+#'
 register_scalar_function <- function(name, scalar_function, registry_name = name) {
   assert_that(
     is.string(name),
@@ -320,13 +391,17 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
   # register with dplyr bindings
   register_binding(
     name,
-    function(...) Expression$create(compute_registry_name, ...)
+    function(...) build_expr(registry_name, ...)
   )
 
-  # invalidate function cache
+  # recreate dplyr binding cache
   create_binding_cache()
+
+  invisible(NULL)
 }
 
+#' @rdname register_scalar_function
+#' @export
 arrow_scalar_function <- function(in_type, out_type, fun) {
   fun <- rlang::as_function(fun)
   base_fun <- function(kernel_context, args) {
@@ -338,17 +413,19 @@ arrow_scalar_function <- function(in_type, out_type, fun) {
   arrow_base_scalar_function(in_type, out_type, base_fun)
 }
 
+#' @rdname register_scalar_function
+#' @export
 arrow_base_scalar_function <- function(in_type, out_type, base_fun) {
   if (is.list(in_type)) {
-    in_type <- lapply(in_type, as_in_types)
+    in_type <- lapply(in_type, as_scalar_function_in_type)
   } else {
-    in_type <- list(as_in_types(in_type))
+    in_type <- list(as_scalar_function_in_type(in_type))
   }
 
   if (is.list(out_type)) {
-    out_type <- lapply(out_type, as_out_type)
+    out_type <- lapply(out_type, as_scalar_function_out_type)
   } else {
-    out_type <- list(as_out_type(out_type))
+    out_type <- list(as_scalar_function_out_type(out_type))
   }
 
   out_type <- rep_len(out_type, length(in_type))
@@ -366,7 +443,7 @@ arrow_base_scalar_function <- function(in_type, out_type, base_fun) {
   )
 }
 
-as_in_types <- function(x) {
+as_scalar_function_in_type <- function(x) {
   if (inherits(x, "Field")) {
     schema(x)
   } else if (inherits(x, "DataType")) {
@@ -376,7 +453,7 @@ as_in_types <- function(x) {
   }
 }
 
-as_out_type <- function(x) {
+as_scalar_function_out_type <- function(x) {
   if (is.function(x)) {
     x
   } else {
