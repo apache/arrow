@@ -1133,12 +1133,11 @@ TEST(ExecPlanExecution, SourceScalarAggSink) {
           })
           .AddToPlan(plan.get()));
 
-  ASSERT_THAT(
-      StartAndCollect(plan.get(), sink_gen),
-      Finishes(ResultWith(UnorderedElementsAreArray({
-          ExecBatchFromJSON({ValueDescr::Scalar(int64()), ValueDescr::Scalar(boolean())},
-                            "[[22, true]]"),
-      }))));
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray({
+                  ExecBatchFromJSON({int64(), boolean()},
+                                    {ArgShape::SCALAR, ArgShape::SCALAR}, "[[22, true]]"),
+              }))));
 }
 
 TEST(ExecPlanExecution, AggregationPreservesOptions) {
@@ -1168,7 +1167,7 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                 Finishes(ResultWith(UnorderedElementsAreArray({
-                    ExecBatchFromJSON({ValueDescr::Array(float64())}, "[[5.5]]"),
+                    ExecBatchFromJSON({float64()}, "[[5.5]]"),
                 }))));
   }
   {
@@ -1209,7 +1208,7 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
 
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), ValueDescr::Scalar(boolean())},
+      ExecBatchFromJSON({int32(), boolean()}, {ArgShape::SCALAR, ArgShape::SCALAR},
                         "[[5, false], [5, false], [5, false]]"),
       ExecBatchFromJSON({int32(), boolean()}, "[[5, true], [6, false], [7, true]]")};
   scalar_data.schema = schema({field("a", int32()), field("b", boolean())});
@@ -1239,11 +1238,11 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
       StartAndCollect(plan.get(), sink_gen),
       Finishes(ResultWith(UnorderedElementsAreArray({
           ExecBatchFromJSON(
-              {ValueDescr::Scalar(boolean()), ValueDescr::Scalar(boolean()),
-               ValueDescr::Scalar(int64()), ValueDescr::Scalar(float64()),
-               ValueDescr::Scalar(int64()), ValueDescr::Scalar(float64()),
-               ValueDescr::Scalar(int64()), ValueDescr::Array(float64()),
-               ValueDescr::Scalar(float64())},
+              {boolean(), boolean(), int64(), float64(), int64(), float64(), int64(),
+               float64(), float64()},
+              {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+               ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY,
+               ArgShape::SCALAR},
               R"([[false, true, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
       }))));
 }
@@ -1255,9 +1254,9 @@ TEST(ExecPlanExecution, ScalarSourceGroupedSum) {
 
   BatchesWithSchema scalar_data;
   scalar_data.batches = {
-      ExecBatchFromJSON({int32(), ValueDescr::Scalar(boolean())},
+      ExecBatchFromJSON({int32(), boolean()}, {ArgShape::ARRAY, ArgShape::SCALAR},
                         "[[5, false], [6, false], [7, false]]"),
-      ExecBatchFromJSON({int32(), ValueDescr::Scalar(boolean())},
+      ExecBatchFromJSON({int32(), boolean()}, {ArgShape::ARRAY, ArgShape::SCALAR},
                         "[[1, true], [2, true], [3, true]]"),
   };
   scalar_data.schema = schema({field("a", int32()), field("b", boolean())});

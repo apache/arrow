@@ -27,6 +27,7 @@
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/pcg_random.h"
@@ -44,8 +45,11 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
                         int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
 
 ARROW_TESTING_EXPORT
-ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
-                            util::string_view json);
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types, util::string_view json);
+
+ARROW_TESTING_EXPORT
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
+                            const std::vector<ArgShape>& shapes, util::string_view json);
 
 struct BatchesWithSchema {
   std::vector<ExecBatch> batches;

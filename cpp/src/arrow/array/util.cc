@@ -664,22 +664,20 @@ class RepeatedArrayFactory {
   }
 
   Status Visit(const SparseUnionType& type) {
-    const auto& union_scalar = checked_cast<const UnionScalar&>(scalar_);
-    const auto& union_type = checked_cast<const UnionType&>(*scalar_.type);
+    const auto& union_scalar = checked_cast<const SparseUnionScalar&>(scalar_);
     const auto scalar_type_code = union_scalar.type_code;
-    const auto scalar_child_id = union_type.child_ids()[scalar_type_code];
 
     // Create child arrays: most of them are all-null, except for the child array
     // for the given type code (if the scalar is valid).
     ArrayVector fields;
     for (int i = 0; i < type.num_fields(); ++i) {
       fields.emplace_back();
-      if (i == scalar_child_id && scalar_.is_valid) {
-        ARROW_ASSIGN_OR_RAISE(fields.back(),
-                              MakeArrayFromScalar(*union_scalar.value, length_, pool_));
-      } else {
+      if (i == union_scalar.child_id && scalar_.is_valid) {
         ARROW_ASSIGN_OR_RAISE(
-            fields.back(), MakeArrayOfNull(union_type.field(i)->type(), length_, pool_));
+            fields.back(), MakeArrayFromScalar(*union_scalar.value[i], length_, pool_));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(fields.back(),
+                              MakeArrayOfNull(type.field(i)->type(), length_, pool_));
       }
     }
 
@@ -691,7 +689,7 @@ class RepeatedArrayFactory {
   }
 
   Status Visit(const DenseUnionType& type) {
-    const auto& union_scalar = checked_cast<const UnionScalar&>(scalar_);
+    const auto& union_scalar = checked_cast<const DenseUnionScalar&>(scalar_);
     const auto& union_type = checked_cast<const UnionType&>(*scalar_.type);
     const auto scalar_type_code = union_scalar.type_code;
     const auto scalar_child_id = union_type.child_ids()[scalar_type_code];

@@ -1,4 +1,3 @@
-
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -1998,11 +1997,12 @@ class FilterMetaFunction : public MetaFunction {
 // R -> RecordBatch
 // T -> Table
 
-Result<std::shared_ptr<Array>> TakeAA(const Array& values, const Array& indices,
-                                      const TakeOptions& options, ExecContext* ctx) {
+Result<std::shared_ptr<ArrayData>> TakeAA(const std::shared_ptr<ArrayData>& values,
+                                          const std::shared_ptr<ArrayData>& indices,
+                                          const TakeOptions& options, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("array_take", {values, indices}, &options, ctx));
-  return result.make_array();
+  return result.array();
 }
 
 Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
@@ -2010,7 +2010,6 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
                                              const TakeOptions& options,
                                              ExecContext* ctx) {
   auto num_chunks = values.num_chunks();
-  std::vector<std::shared_ptr<Array>> new_chunks(1);  // Hard-coded 1 for now
   std::shared_ptr<Array> current_chunk;
 
   // Case 1: `values` has a single chunk, so just use it
@@ -2032,8 +2031,10 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     }
   }
   // Call Array Take on our single chunk
-  ARROW_ASSIGN_OR_RAISE(new_chunks[0], TakeAA(*current_chunk, indices, options, ctx));
-  return std::make_shared<ChunkedArray>(std::move(new_chunks));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
+                        TakeAA(current_chunk->data(), indices.data(), options, ctx));
+  std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
+  return std::make_shared<ChunkedArray>(std::move(chunks));
 }
 
 Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
@@ -2063,7 +2064,9 @@ Result<std::shared_ptr<ChunkedArray>> TakeAC(const Array& values,
   std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
   for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
-    ARROW_ASSIGN_OR_RAISE(new_chunks[i], TakeAA(values, *indices.chunk(i), options, ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> chunk,
+                          TakeAA(values.data(), indices.chunk(i)->data(), options, ctx));
+    new_chunks[i] = MakeArray(chunk);
   }
   return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
 }
@@ -2076,7 +2079,9 @@ Result<std::shared_ptr<RecordBatch>> TakeRA(const RecordBatch& batch,
   auto nrows = indices.length();
   std::vector<std::shared_ptr<Array>> columns(ncols);
   for (int j = 0; j < ncols; j++) {
-    ARROW_ASSIGN_OR_RAISE(columns[j], TakeAA(*batch.column(j), indices, options, ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> col_data,
+                          TakeAA(batch.column(j)->data(), indices.data(), options, ctx));
+    columns[j] = MakeArray(col_data);
   }
   return RecordBatch::Make(batch.schema(), nrows, std::move(columns));
 }
@@ -2131,7 +2136,7 @@ class TakeMetaFunction : public MetaFunction {
     switch (args[0].kind()) {
       case Datum::ARRAY:
         if (index_kind == Datum::ARRAY) {
-          return TakeAA(*args[0].make_array(), *args[1].make_array(), take_opts, ctx);
+          return TakeAA(args[0].array(), args[1].array(), take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
           return TakeAC(*args[0].make_array(), *args[1].chunked_array(), take_opts, ctx);
         }
@@ -2330,22 +2335,22 @@ Status TakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return kernel.ExecTake();
 }
 
-struct SelectionKernelDescr {
+struct SelectionKernelData {
   InputType input;
   ArrayKernelExec exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                VectorKernel base_kernel, InputType selection_type,
-                               const std::vector<SelectionKernelDescr>& descrs,
+                               const std::vector<SelectionKernelData>& kernels,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
   auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), std::move(doc),
                                                default_options);
-  for (auto& descr : descrs) {
-    base_kernel.signature = KernelSignature::Make(
-        {std::move(descr.input), selection_type}, OutputType(FirstType));
-    base_kernel.exec = descr.exec;
+  for (auto& kernel_data : kernels) {
+    base_kernel.signature =
+        KernelSignature::Make({std::move(kernel_data.input), selection_type}, FirstType);
+    base_kernel.exec = kernel_data.exec;
     DCHECK_OK(func->AddKernel(base_kernel));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2447,7 +2452,7 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
 
   auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
     for (const std::shared_ptr<DataType>& ty : types) {
-      kernel.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+      kernel.signature = KernelSignature::Make({ty}, uint64());
       DCHECK_OK(func->AddKernel(kernel));
     }
   };
@@ -2456,7 +2461,7 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
   AddKernels({boolean()});
 
   for (const auto& ty : {Type::DECIMAL128, Type::DECIMAL256}) {
-    kernel.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    kernel.signature = KernelSignature::Make({ty}, uint64());
     DCHECK_OK(func->AddKernel(kernel));
   }
 
@@ -2467,62 +2472,59 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
 
 void RegisterVectorSelection(FunctionRegistry* registry) {
   // Filter kernels
-  std::vector<SelectionKernelDescr> filter_kernel_descrs = {
-      {InputType(match::Primitive(), ValueDescr::ARRAY), PrimitiveFilter},
-      {InputType(match::BinaryLike(), ValueDescr::ARRAY), BinaryFilter},
-      {InputType(match::LargeBinaryLike(), ValueDescr::ARRAY), BinaryFilter},
-      {InputType::Array(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>},
-      {InputType::Array(null()), NullFilter},
-      {InputType::Array(Type::DECIMAL128), FilterExec<FSBImpl>},
-      {InputType::Array(Type::DECIMAL256), FilterExec<FSBImpl>},
-      {InputType::Array(Type::DICTIONARY), DictionaryFilter},
-      {InputType::Array(Type::EXTENSION), ExtensionFilter},
-      {InputType::Array(Type::LIST), FilterExec<ListImpl<ListType>>},
-      {InputType::Array(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
-      {InputType::Array(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
-      {InputType::Array(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
-      {InputType::Array(Type::STRUCT), StructFilter},
+  std::vector<SelectionKernelData> filter_kernels = {
+      {InputType(match::Primitive()), PrimitiveFilter},
+      {InputType(match::BinaryLike()), BinaryFilter},
+      {InputType(match::LargeBinaryLike()), BinaryFilter},
+      {InputType(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>},
+      {InputType(null()), NullFilter},
+      {InputType(Type::DECIMAL128), FilterExec<FSBImpl>},
+      {InputType(Type::DECIMAL256), FilterExec<FSBImpl>},
+      {InputType(Type::DICTIONARY), DictionaryFilter},
+      {InputType(Type::EXTENSION), ExtensionFilter},
+      {InputType(Type::LIST), FilterExec<ListImpl<ListType>>},
+      {InputType(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
+      {InputType(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
+      {InputType(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
+      {InputType(Type::STRUCT), StructFilter},
       // TODO: Reuse ListType kernel for MAP
-      {InputType::Array(Type::MAP), FilterExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), FilterExec<ListImpl<MapType>>},
   };
 
   VectorKernel filter_base;
   filter_base.init = FilterState::Init;
   RegisterSelectionFunction("array_filter", array_filter_doc, filter_base,
-                            /*selection_type=*/InputType::Array(boolean()),
-                            filter_kernel_descrs, GetDefaultFilterOptions(), registry);
+                            /*selection_type=*/boolean(), filter_kernels,
+                            GetDefaultFilterOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 
   // Take kernels
-  std::vector<SelectionKernelDescr> take_kernel_descrs = {
-      {InputType(match::Primitive(), ValueDescr::ARRAY), PrimitiveTake},
-      {InputType(match::BinaryLike(), ValueDescr::ARRAY),
-       TakeExec<VarBinaryImpl<BinaryType>>},
-      {InputType(match::LargeBinaryLike(), ValueDescr::ARRAY),
-       TakeExec<VarBinaryImpl<LargeBinaryType>>},
-      {InputType::Array(Type::FIXED_SIZE_BINARY), TakeExec<FSBImpl>},
-      {InputType::Array(null()), NullTake},
-      {InputType::Array(Type::DECIMAL128), TakeExec<FSBImpl>},
-      {InputType::Array(Type::DECIMAL256), TakeExec<FSBImpl>},
-      {InputType::Array(Type::DICTIONARY), DictionaryTake},
-      {InputType::Array(Type::EXTENSION), ExtensionTake},
-      {InputType::Array(Type::LIST), TakeExec<ListImpl<ListType>>},
-      {InputType::Array(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
-      {InputType::Array(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
-      {InputType::Array(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
-      {InputType::Array(Type::STRUCT), TakeExec<StructImpl>},
+  std::vector<SelectionKernelData> take_kernels = {
+      {InputType(match::Primitive()), PrimitiveTake},
+      {InputType(match::BinaryLike()), TakeExec<VarBinaryImpl<BinaryType>>},
+      {InputType(match::LargeBinaryLike()), TakeExec<VarBinaryImpl<LargeBinaryType>>},
+      {InputType(Type::FIXED_SIZE_BINARY), TakeExec<FSBImpl>},
+      {InputType(null()), NullTake},
+      {InputType(Type::DECIMAL128), TakeExec<FSBImpl>},
+      {InputType(Type::DECIMAL256), TakeExec<FSBImpl>},
+      {InputType(Type::DICTIONARY), DictionaryTake},
+      {InputType(Type::EXTENSION), ExtensionTake},
+      {InputType(Type::LIST), TakeExec<ListImpl<ListType>>},
+      {InputType(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
+      {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
+      {InputType(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
+      {InputType(Type::STRUCT), TakeExec<StructImpl>},
       // TODO: Reuse ListType kernel for MAP
-      {InputType::Array(Type::MAP), TakeExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), TakeExec<ListImpl<MapType>>},
   };
 
   VectorKernel take_base;
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
-  RegisterSelectionFunction(
-      "array_take", array_take_doc, take_base,
-      /*selection_type=*/InputType(match::Integer(), ValueDescr::ARRAY),
-      take_kernel_descrs, GetDefaultTakeOptions(), registry);
+  RegisterSelectionFunction("array_take", array_take_doc, take_base,
+                            /*selection_type=*/match::Integer(), take_kernels,
+                            GetDefaultTakeOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));
 

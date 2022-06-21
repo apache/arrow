@@ -65,8 +65,7 @@ struct SumImpl : public ScalarAggregator {
   using SumCType = typename TypeTraits<SumType>::CType;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
-  SumImpl(const std::shared_ptr<DataType>& out_type,
-          const ScalarAggregateOptions& options_)
+  SumImpl(std::shared_ptr<DataType> out_type, const ScalarAggregateOptions& options_)
       : out_type(out_type), options(options_) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
@@ -216,10 +215,10 @@ template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  const std::shared_ptr<DataType> type;
+  std::shared_ptr<DataType> type;
   const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+  SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -261,7 +260,7 @@ struct SumLikeInit {
 
 template <template <typename> class KernelClass>
 struct MeanKernelInit : public SumLikeInit<KernelClass> {
-  MeanKernelInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+  MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
       : SumLikeInit<KernelClass>(ctx, type, options) {}
 
@@ -639,7 +638,7 @@ struct MinMaxInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& in_type;
-  const std::shared_ptr<DataType>& out_type;
+  std::shared_ptr<DataType> out_type;
   const ScalarAggregateOptions& options;
 
   MinMaxInitState(KernelContext* ctx, const DataType& in_type,

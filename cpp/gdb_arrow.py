@@ -1406,13 +1406,12 @@ class FixedSizeBinaryScalarPrinter(BaseBinaryScalarPrinter):
 
     def to_string(self):
         size = self.type['byte_width_']
-        if not self.is_valid:
-            return f"{self._format_type()} of size {size}, null value"
         bufptr = BufferPtr(SharedPtr(self.val['value']).get())
         if bufptr.data is None:
             return f"{self._format_type()} of size {size}, <unallocated>"
-        return (f"{self._format_type()} of size {size}, "
-                f"value {self._format_buf(bufptr)}")
+        nullness = 'non-null' if self.is_valid else 'null'
+        return (f"{self._format_type()} {nullness} of size {size}, "
+                f"value buffer {self._format_buf(bufptr)}")
 
 
 class DictionaryScalarPrinter(ScalarPrinter):

@@ -224,8 +224,8 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
 
   // Initialize encoder
   internal::RowEncoder encoder;
-  std::vector<ValueDescr> encoder_types;
-  encoder_types.emplace_back(value_type_, ValueDescr::ARRAY);
+  std::vector<TypeHolder> encoder_types;
+  encoder_types.emplace_back(value_type_);
   encoder.Init(encoder_types, ctx);
 
   // Encode all dictionary values
@@ -285,8 +285,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
   // Initialize encoder
   //
   internal::RowEncoder encoder;
-  std::vector<ValueDescr> encoder_types;
-  encoder_types.emplace_back(value_type_, ValueDescr::ARRAY);
+  std::vector<TypeHolder> encoder_types = {value_type_};
   encoder.Init(encoder_types, ctx);
 
   // Encode all
@@ -422,8 +421,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictProbe::RemapInput(
             remapped_ids_,
             opt_build_side->RemapInputValues(ctx, Datum(dict->data()), dict->length()));
       } else {
-        std::vector<ValueDescr> encoder_types;
-        encoder_types.emplace_back(dict_type.value_type(), ValueDescr::ARRAY);
+        std::vector<TypeHolder> encoder_types = {dict_type.value_type()};
         encoder_.Init(encoder_types, ctx);
         RETURN_NOT_OK(
             encoder_.EncodeAndAppend(ExecSpan({*dict->data()}, dict->length())));
@@ -516,14 +514,14 @@ void HashJoinDictBuildMulti::InitEncoder(
     const SchemaProjectionMaps<HashJoinProjection>& proj_map, RowEncoder* encoder,
     ExecContext* ctx) {
   int num_cols = proj_map.num_cols(HashJoinProjection::KEY);
-  std::vector<ValueDescr> data_types(num_cols);
+  std::vector<TypeHolder> data_types(num_cols);
   for (int icol = 0; icol < num_cols; ++icol) {
     std::shared_ptr<DataType> data_type =
         proj_map.data_type(HashJoinProjection::KEY, icol);
     if (HashJoinDictBuild::KeyNeedsProcessing(data_type)) {
       data_type = HashJoinDictBuild::DataTypeAfterRemapping();
     }
-    data_types[icol] = ValueDescr(data_type, ValueDescr::ARRAY);
+    data_types[icol] = data_type;
   }
   encoder->Init(data_types, ctx);
 }
@@ -610,7 +608,7 @@ void HashJoinDictProbeMulti::InitEncoder(
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, RowEncoder* encoder,
     ExecContext* ctx) {
   int num_cols = proj_map_probe.num_cols(HashJoinProjection::KEY);
-  std::vector<ValueDescr> data_types(num_cols);
+  std::vector<TypeHolder> data_types(num_cols);
   for (int icol = 0; icol < num_cols; ++icol) {
     std::shared_ptr<DataType> data_type =
         proj_map_probe.data_type(HashJoinProjection::KEY, icol);
@@ -619,7 +617,7 @@ void HashJoinDictProbeMulti::InitEncoder(
     if (HashJoinDictProbe::KeyNeedsProcessing(data_type, build_data_type)) {
       data_type = HashJoinDictProbe::DataTypeAfterRemapping(build_data_type);
     }
-    data_types[icol] = ValueDescr(data_type, ValueDescr::ARRAY);
+    data_types[icol] = data_type;
   }
   encoder->Init(data_types, ctx);
 }

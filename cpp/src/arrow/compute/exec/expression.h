@@ -55,7 +55,7 @@ class ARROW_EXPORT Expression {
     std::shared_ptr<Function> function;
     const Kernel* kernel = NULLPTR;
     std::shared_ptr<KernelState> kernel_state;
-    ValueDescr descr;
+    TypeHolder type;
 
     void ComputeHash();
   };
@@ -70,7 +70,7 @@ class ARROW_EXPORT Expression {
   /// Bind this expression to the given input type, looking up Kernels and field types.
   /// Some expression simplification may be performed and implicit casts will be inserted.
   /// Any state necessary for execution will be initialized and returned.
-  Result<Expression> Bind(const ValueDescr& in, ExecContext* = NULLPTR) const;
+  Result<Expression> Bind(const TypeHolder& in, ExecContext* = NULLPTR) const;
   Result<Expression> Bind(const Schema& in_schema, ExecContext* = NULLPTR) const;
 
   // XXX someday
@@ -82,8 +82,8 @@ class ARROW_EXPORT Expression {
   // Result<ExpressionState> CloneState() const;
   // Status SetState(ExpressionState);
 
-  /// Return true if all an expression's field references have explicit ValueDescr and all
-  /// of its functions' kernels are looked up.
+  /// Return true if all an expression's field references have explicit types
+  /// and all of its functions' kernels are looked up.
   bool IsBound() const;
 
   /// Return true if this expression is composed only of Scalar literals, field
@@ -107,9 +107,8 @@ class ARROW_EXPORT Expression {
   /// Access a FieldRef or return nullptr if this expression is not a field_ref
   const FieldRef* field_ref() const;
 
-  /// The type and shape to which this expression will evaluate
-  ValueDescr descr() const;
-  const std::shared_ptr<DataType>& type() const;
+  /// The type to which this expression will evaluate
+  const DataType* type() const;
   // XXX someday
   // NullGeneralization::type nullable() const;
 
@@ -117,7 +116,7 @@ class ARROW_EXPORT Expression {
     FieldRef ref;
 
     // post-bind properties
-    ValueDescr descr;
+    TypeHolder type;
     ::arrow::internal::SmallVector<int, 2> indices;
   };
   const Parameter* parameter() const;

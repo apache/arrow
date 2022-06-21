@@ -36,7 +36,7 @@ class ARROW_EXPORT Grouper {
   virtual ~Grouper() = default;
 
   /// Construct a Grouper which receives the specified key types
-  static Result<std::unique_ptr<Grouper>> Make(const std::vector<ValueDescr>& descrs,
+  static Result<std::unique_ptr<Grouper>> Make(const std::vector<TypeHolder>& key_types,
                                                ExecContext* ctx = default_exec_context());
 
   /// Consume a batch of keys, producing the corresponding group ids as an integer array.

@@ -54,10 +54,10 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
     }
 
     // Ensure `start` option matches input type
-    if (!start->type->Equals(args.inputs[0].type)) {
-      ARROW_ASSIGN_OR_RAISE(auto casted_start,
-                            Cast(Datum(start), args.inputs[0].type, CastOptions::Safe(),
-                                 ctx->exec_context()));
+    if (!start->type->Equals(*args.inputs[0])) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto casted_start,
+          Cast(Datum(start), args.inputs[0], CastOptions::Safe(), ctx->exec_context()));
       auto new_options = OptionsType(casted_start.scalar(), options->skip_nulls);
       return ::arrow::internal::make_unique<State>(new_options);
     }
@@ -125,14 +125,7 @@ struct CumulativeKernel {
     accumulator.skip_nulls = options.skip_nulls;
 
     RETURN_NOT_OK(accumulator.builder.Reserve(batch.length));
-
-    if (batch[0].is_array()) {
-      RETURN_NOT_OK(accumulator.Accumulate(batch[0].array));
-    } else {
-      // TODO(wesm): address up-promotion at a higher level per ARROW-16756
-      ArraySpan span(*batch[0].scalar);
-      RETURN_NOT_OK(accumulator.Accumulate(span));
-    }
+    RETURN_NOT_OK(accumulator.Accumulate(batch[0].array));
 
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(accumulator.builder.FinishInternal(&result));
@@ -196,8 +189,7 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
-    kernel.signature =
-        KernelSignature::Make({InputType::Array(ty)}, OutputType(ValueDescr(ty)));
+    kernel.signature = KernelSignature::Make({ty}, OutputType(ty));
     kernel.exec =
         ArithmeticExecFromOp<CumulativeKernel, Op, ArrayKernelExec, OptionsType>(ty);
     kernel.exec_chunked =

@@ -68,8 +68,7 @@ namespace {
 /// Implementations should be default constructible and perform initialization in
 /// Init().
 struct GroupedAggregator : KernelState {
-  virtual Status Init(ExecContext*, const std::vector<ValueDescr>& inputs,
-                      const FunctionOptions*) = 0;
+  virtual Status Init(ExecContext*, const KernelInitArgs& args) = 0;
 
   virtual Status Resize(int64_t new_num_groups) = 0;
 
@@ -86,7 +85,7 @@ template <typename Impl>
 Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
   auto impl = ::arrow::internal::make_unique<Impl>();
-  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args.inputs, args.options));
+  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);
 }
 
@@ -105,15 +104,17 @@ Status HashAggregateFinalize(KernelContext* ctx, Datum* out) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Finalize().Value(out);
 }
 
+Result<TypeHolder> ResolveGroupOutputType(KernelContext* ctx,
+                                          const std::vector<TypeHolder>&) {
+  return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
+}
+
 HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init) {
   HashAggregateKernel kernel;
   kernel.init = std::move(init);
-  kernel.signature = KernelSignature::Make(
-      {std::move(argument_type), InputType::Array(Type::UINT32)},
-      OutputType(
-          [](KernelContext* ctx, const std::vector<ValueDescr>&) -> Result<ValueDescr> {
-            return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
-          }));
+  kernel.signature =
+      KernelSignature::Make({std::move(argument_type), InputType(Type::UINT32)},
+                            OutputType(ResolveGroupOutputType));
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -224,9 +225,8 @@ void VisitGroupedValuesNonNull(const ExecBatch& batch, ConsumeValue&& valid_func
 // Count implementation
 
 struct GroupedCountImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    options_ = checked_cast<const CountOptions&>(*options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = checked_cast<const CountOptions&>(*args.options);
     counts_ = BufferBuilder(ctx->memory_pool());
     return Status::OK();
   }
@@ -320,14 +320,13 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   using CType = typename TypeTraits<AccType>::CType;
   using InputCType = typename TypeTraits<Type>::CType;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>& inputs,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     pool_ = ctx->memory_pool();
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    options_ = checked_cast<const ScalarAggregateOptions&>(*args.options);
     reduced_ = TypedBufferBuilder<CType>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
-    out_type_ = GetOutType(inputs[0].type);
+    out_type_ = GetOutType(args.inputs[0].GetSharedPtr());
     return Status::OK();
   }
 
@@ -447,10 +446,9 @@ struct GroupedReducingAggregator : public GroupedAggregator {
 };
 
 struct GroupedNullImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     pool_ = ctx->memory_pool();
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    options_ = checked_cast<const ScalarAggregateOptions&>(*args.options);
     return Status::OK();
   }
 
@@ -519,7 +517,7 @@ struct GroupedReducingFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedReducingFactory<Impl, kFriendlyName, NullImpl> factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -705,14 +703,14 @@ template <typename Type>
 struct GroupedVarStdImpl : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>& inputs,
-              const FunctionOptions* options) override {
-    options_ = *checked_cast<const VarianceOptions*>(options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = *checked_cast<const VarianceOptions*>(args.options);
     if (is_decimal_type<Type>::value) {
-      const int32_t scale = checked_cast<const DecimalType&>(*inputs[0].type).scale();
-      return InitInternal(ctx, scale, options);
+      const int32_t scale =
+          checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
+      return InitInternal(ctx, scale, args.options);
     }
-    return InitInternal(ctx, 0, options);
+    return InitInternal(ctx, 0, args.options);
   }
 
   Status InitInternal(ExecContext* ctx, int32_t decimal_scale,
@@ -976,7 +974,7 @@ Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   auto impl = ::arrow::internal::make_unique<GroupedVarStdImpl<T>>();
   impl->result_type_ = result_type;
-  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args.inputs, args.options));
+  RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
   return std::move(impl);
 }
 
@@ -1000,7 +998,7 @@ struct GroupedVarStdFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedVarStdFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1018,11 +1016,10 @@ template <typename Type>
 struct GroupedTDigestImpl : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>& inputs,
-              const FunctionOptions* options) override {
-    options_ = *checked_cast<const TDigestOptions*>(options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = *checked_cast<const TDigestOptions*>(args.options);
     if (is_decimal_type<Type>::value) {
-      decimal_scale_ = checked_cast<const DecimalType&>(*inputs[0].type).scale();
+      decimal_scale_ = checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
     } else {
       decimal_scale_ = 0;
     }
@@ -1163,7 +1160,7 @@ struct GroupedTDigestFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedTDigestFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1187,9 +1184,7 @@ HashAggregateKernel MakeApproximateMedianKernel(HashAggregateFunction* tdigest_f
     KernelInitArgs new_args{kernel, args.inputs, &options};
     return kernel->init(ctx, new_args);
   };
-  kernel.signature =
-      KernelSignature::Make({InputType(ValueDescr::ANY), InputType::Array(Type::UINT32)},
-                            ValueDescr::Array(float64()));
+  kernel.signature = KernelSignature::Make({InputType::Any(), Type::UINT32}, float64());
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -1248,9 +1243,8 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
   using ArrType =
       typename std::conditional<is_boolean_type<Type>::value, uint8_t, CType>::type;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
     // type_ initialized by MinMaxInit
     mins_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     maxes_ = TypedBufferBuilder<CType>(ctx->memory_pool());
@@ -1355,11 +1349,10 @@ struct GroupedMinMaxImpl<Type,
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     ctx_ = ctx;
     allocator_ = Allocator(ctx->memory_pool());
-    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
+    options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
     // type_ initialized by MinMaxInit
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
@@ -1518,10 +1511,7 @@ struct GroupedMinMaxImpl<Type,
 };
 
 struct GroupedNullMinMaxImpl final : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions*) override {
-    return Status::OK();
-  }
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override { return Status::OK(); }
 
   Status Resize(int64_t new_num_groups) override {
     num_groups_ = new_num_groups;
@@ -1555,7 +1545,7 @@ template <typename T>
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedMinMaxImpl<T>>(ctx, args));
-  static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].type;
+  static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -1565,17 +1555,13 @@ HashAggregateKernel MakeMinOrMaxKernel(HashAggregateFunction* min_max_func) {
   kernel.init = [min_max_func](
                     KernelContext* ctx,
                     const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
-    std::vector<ValueDescr> inputs = args.inputs;
+    std::vector<TypeHolder> inputs = args.inputs;
     ARROW_ASSIGN_OR_RAISE(auto kernel, min_max_func->DispatchExact(args.inputs));
     KernelInitArgs new_args{kernel, inputs, args.options};
     return kernel->init(ctx, new_args);
   };
-  kernel.signature = KernelSignature::Make(
-      {InputType(ValueDescr::ANY), InputType::Array(Type::UINT32)},
-      OutputType([](KernelContext* ctx,
-                    const std::vector<ValueDescr>& descrs) -> Result<ValueDescr> {
-        return ValueDescr::Array(descrs[0].type);
-      }));
+  kernel.signature =
+      KernelSignature::Make({InputType::Any(), Type::UINT32}, OutputType(FirstType));
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -1646,7 +1632,7 @@ struct GroupedMinMaxFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedMinMaxFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -1660,9 +1646,8 @@ struct GroupedMinMaxFactory {
 
 template <typename Impl>
 struct GroupedBooleanAggregator : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
+    options_ = checked_cast<const ScalarAggregateOptions&>(*args.options);
     pool_ = ctx->memory_pool();
     reduced_ = TypedBufferBuilder<bool>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
@@ -1831,11 +1816,10 @@ struct GroupedAllImpl : public GroupedBooleanAggregator<GroupedAllImpl> {
 // CountDistinct/Distinct implementation
 
 struct GroupedCountDistinctImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     ctx_ = ctx;
     pool_ = ctx->memory_pool();
-    options_ = checked_cast<const CountOptions&>(*options);
+    options_ = checked_cast<const CountOptions&>(*args.options);
     return Status::OK();
   }
 
@@ -1977,7 +1961,7 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
                                                          const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<Impl>(ctx, args));
   auto instance = static_cast<Impl*>(impl.get());
-  instance->out_type_ = args.inputs[0].type;
+  instance->out_type_ = args.inputs[0].GetSharedPtr();
   ARROW_ASSIGN_OR_RAISE(instance->grouper_,
                         Grouper::Make(args.inputs, ctx->exec_context()));
   return std::move(impl);
@@ -1991,8 +1975,7 @@ struct GroupedOneImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     // out_type_ initialized by GroupedOneInit
     ones_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     has_one_ = TypedBufferBuilder<bool>(ctx->memory_pool());
@@ -2059,10 +2042,7 @@ struct GroupedOneImpl final : public GroupedAggregator {
 };
 
 struct GroupedNullOneImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
-    return Status::OK();
-  }
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override { return Status::OK(); }
 
   Status Resize(int64_t new_num_groups) override {
     num_groups_ = new_num_groups;
@@ -2092,8 +2072,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     allocator_ = Allocator(ctx->memory_pool());
     // out_type_ initialized by GroupedOneInit
@@ -2226,7 +2205,7 @@ Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedOneImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedOneImpl<T>*>(impl.get());
-  instance->out_type_ = args.inputs[0].type;
+  instance->out_type_ = args.inputs[0].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -2281,7 +2260,7 @@ struct GroupedOneFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedOneFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -2298,8 +2277,7 @@ struct GroupedListImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     has_nulls_ = false;
     // out_type_ initialized by GroupedListInit
@@ -2407,8 +2385,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
   using GetSet = GroupedValueTraits<Type>;
 
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     allocator_ = Allocator(ctx_->memory_pool());
     // out_type_ initialized by GroupedListInit
@@ -2564,8 +2541,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
 };
 
 struct GroupedNullListImpl : public GroupedAggregator {
-  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
-              const FunctionOptions* options) override {
+  Status Init(ExecContext* ctx, const KernelInitArgs&) override {
     ctx_ = ctx;
     counts_ = TypedBufferBuilder<int64_t>(ctx_->memory_pool());
     return Status::OK();
@@ -2627,7 +2603,7 @@ Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
                                                      const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedListImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedListImpl<T>*>(impl.get());
-  instance->out_type_ = args.inputs[0].type;
+  instance->out_type_ = args.inputs[0].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -2682,7 +2658,7 @@ struct GroupedListFactory {
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedListFactory factory;
-    factory.argument_type = InputType::Array(type->id());
+    factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }
@@ -2812,7 +2788,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_count", Arity::Binary(), hash_count_doc, &default_count_options);
 
     DCHECK_OK(func->AddKernel(
-        MakeKernel(ValueDescr::ARRAY, HashAggregateInit<GroupedCountImpl>)));
+        MakeKernel(InputType::Any(), HashAggregateInit<GroupedCountImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -2970,7 +2946,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_count_distinct", Arity::Binary(), hash_count_distinct_doc,
         &default_count_options);
     DCHECK_OK(func->AddKernel(
-        MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedCountDistinctImpl>)));
+        MakeKernel(InputType::Any(), GroupedDistinctInit<GroupedCountDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -2978,7 +2954,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_distinct", Arity::Binary(), hash_distinct_doc, &default_count_options);
     DCHECK_OK(func->AddKernel(
-        MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedDistinctImpl>)));
+        MakeKernel(InputType::Any(), GroupedDistinctInit<GroupedDistinctImpl>)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 

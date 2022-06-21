@@ -255,7 +255,7 @@ class ARROW_EXPORT RowEncoder {
  public:
   static constexpr int kRowIdForNulls() { return -1; }
 
-  void Init(const std::vector<ValueDescr>& column_types, ExecContext* ctx);
+  void Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx);
   void Clear();
   Status EncodeAndAppend(const ExecSpan& batch);
   Result<ExecBatch> Decode(int64_t num_rows, const int32_t* row_ids);
