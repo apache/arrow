@@ -833,13 +833,13 @@ cdef class LocalFileSystem(FileSystem):
     Open an output stream for appending, add text and print the new data:
 
     >>> with local.open_append_stream('/tmp/local_fs-copy.dat') as f:
-    ...     f.write(b'\nnewly added')
+    ...     f.write(b'+newly added')
     ...
     12
     >>> with local.open_input_stream('/tmp/local_fs-copy.dat') as f:
     ...     print(f.readall())
     ...
-    b'data\nnewly added'
+    b'data+newly added'
 
     Create a directory, copy a file into it and then delete the whole directory:
 
@@ -883,6 +883,7 @@ cdef class LocalFileSystem(FileSystem):
     >>> local.get_file_info('/tmp/local_fs-copy.dat')
     <FileInfo for '/tmp/local_fs-copy.dat': type=FileType.NotFound>
     """
+
     def __init__(self, *, use_mmap=False):
         cdef:
             CLocalFileSystemOptions opts
@@ -927,6 +928,45 @@ cdef class SubTreeFileSystem(FileSystem):
         The root of the subtree.
     base_fs : FileSystem
         FileSystem object the operations delegated to.
+
+    Examples
+    --------
+    Create a LocalFileSystem instance:
+
+    >>> from pyarrow import fs
+    >>> local = fs.LocalFileSystem()
+    >>> with local.open_output_stream('/tmp/local_fs.dat') as stream:
+    ...     stream.write(b'data')
+    ... 
+    4
+
+    Create a directory and a SubTreeFileSystem instance:
+
+    >>> local.create_dir('/tmp/sub_tree')
+    >>> subtree = fs.SubTreeFileSystem('/tmp/sub_tree', local)
+
+    Write data into the existing file:
+
+    >>> with subtree.open_append_stream('sub_tree_fs.dat') as f:
+    ...     f.write(b'+newly added')
+    ... 
+    12
+
+    Print out the attributes:
+
+    >>> subtree.base_fs
+    <pyarrow._fs.LocalFileSystem object at ...>
+    >>> subtree.base_path
+    '/tmp/sub_tree/'
+
+    Get info for the given directory or given file:
+
+    >>> subtree.get_file_info('')
+    <FileInfo for '': type=FileType.Directory>
+    >>> subtree.get_file_info('sub_tree_fs.dat')
+    <FileInfo for 'sub_tree_fs.dat': type=FileType.File, size=16>
+
+    For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
 
     def __init__(self, base_path, FileSystem base_fs):
