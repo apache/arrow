@@ -39,30 +39,6 @@ using testing::UnorderedElementsAreArray;
 namespace arrow {
 namespace compute {
 
-BatchesWithSchema GenerateBatchesFromString(
-    const std::shared_ptr<Schema>& schema,
-    const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
-  BatchesWithSchema out_batches{{}, schema};
-
-  std::vector<ValueDescr> descrs;
-  for (auto&& field : schema->fields()) {
-    descrs.emplace_back(field->type());
-  }
-
-  for (auto&& s : json_strings) {
-    out_batches.batches.push_back(ExecBatchFromJSON(descrs, s));
-  }
-
-  size_t batch_count = out_batches.batches.size();
-  for (int repeat = 1; repeat < multiplicity; ++repeat) {
-    for (size_t i = 0; i < batch_count; ++i) {
-      out_batches.batches.push_back(out_batches.batches[i]);
-    }
-  }
-
-  return out_batches;
-}
-
 void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r0_batches,
                     const BatchesWithSchema& r1_batches,
@@ -119,18 +95,18 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
 
   // Test three table join
   BatchesWithSchema l_batches, r0_batches, r1_batches, exp_batches;
-  l_batches = GenerateBatchesFromString(l_schema, l_data);
-  r0_batches = GenerateBatchesFromString(r0_schema, r0_data);
-  r1_batches = GenerateBatchesFromString(r1_schema, r1_data);
-  exp_batches = GenerateBatchesFromString(exp_schema, exp_data);
+  l_batches = MakeBatchesFromString(l_schema, l_data);
+  r0_batches = MakeBatchesFromString(r0_schema, r0_data);
+  r1_batches = MakeBatchesFromString(r1_schema, r1_data);
+  exp_batches = MakeBatchesFromString(exp_schema, exp_data);
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key",
                  tolerance);
 }
 
 void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
                           const std::shared_ptr<Schema>& r_schema) {
-  BatchesWithSchema l_batches = GenerateBatchesFromString(l_schema, {R"([])"});
-  BatchesWithSchema r_batches = GenerateBatchesFromString(r_schema, {R"([])"});
+  BatchesWithSchema l_batches = MakeBatchesFromString(l_schema, {R"([])"});
+  BatchesWithSchema r_batches = MakeBatchesFromString(r_schema, {R"([])"});
 
   ExecContext exec_ctx;
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
@@ -316,6 +292,18 @@ TEST(AsofJoinTest, TestUnsupportedDatatype) {
   DoRunInvalidTypeTest(
       schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
       schema({field("time", int64()), field("key", int32()), field("r0_v0", utf8())}));
+}
+
+TEST(AsofJoinTest, TestMissingKeys) {
+  DoRunInvalidTypeTest(
+      schema({field("time1", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema(
+          {field("time1", int64()), field("key", int32()), field("r0_v0", float64())}));
+
+  DoRunInvalidTypeTest(
+      schema({field("time", int64()), field("key1", int32()), field("l_v0", float64())}),
+      schema(
+          {field("time", int64()), field("key1", int32()), field("r0_v0", float64())}));
 }
 
 }  // namespace compute

@@ -15,26 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <condition_variable>
 #include <iostream>
+#include <mutex>
 #include <set>
+#include <sstream>
+#include <thread>
 #include <unordered_map>
 
-#include <arrow/api.h>
-#include <arrow/compute/api.h>
-#include <arrow/util/optional.h>
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/make_unique.h"
-
-#include <condition_variable>
-#include <mutex>
-#include <thread>
+#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace compute {
@@ -101,46 +101,41 @@ struct MemoStore {
 
   struct Entry {
     // Timestamp associated with the entry
-    int64_t _time;
+    int64_t time;
 
     // Batch associated with the entry (perf is probably OK for this; batches change
     // rarely)
-    std::shared_ptr<arrow::RecordBatch> _batch;
+    std::shared_ptr<arrow::RecordBatch> batch;
 
     // Row associated with the entry
-    row_index_t _row;
+    row_index_t row;
   };
 
-  std::unordered_map<KeyType, Entry> _entries;
+  std::unordered_map<KeyType, Entry> entries_;
 
   void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, int64_t time,
              KeyType key) {
-    auto& e = _entries[key];
+    auto& e = entries_[key];
     // that we can do this assignment optionally, is why we
     // can get array with using shared_ptr above (the batch
     // shouldn't change that often)
-    if (e._batch != batch) e._batch = batch;
-    e._row = row;
-    e._time = time;
+    if (e.batch != batch) e.batch = batch;
+    e.row = row;
+    e.time = time;
   }
 
   util::optional<const Entry*> GetEntryForKey(KeyType key) const {
-    auto e = _entries.find(key);
-    if (_entries.end() == e) return util::nullopt;
+    auto e = entries_.find(key);
+    if (entries_.end() == e) return util::nullopt;
     return util::optional<const Entry*>(&e->second);
   }
 
   void RemoveEntriesWithLesserTime(int64_t ts) {
-    size_t dbg_size0 = _entries.size();
-    for (auto e = _entries.begin(); e != _entries.end();)
-      if (e->second._time < ts)
-        e = _entries.erase(e);
+    for (auto e = entries_.begin(); e != entries_.end();)
+      if (e->second.time < ts)
+        e = entries_.erase(e);
       else
         ++e;
-    size_t dbg_size1 = _entries.size();
-    if (dbg_size1 < dbg_size0) {
-      // cerr << "Removed " << dbg_size0-dbg_size1 << " memo entries.\n";
-    }
   }
 };
 
@@ -154,8 +149,7 @@ class InputState {
              const std::string& time_col_name, const std::string& key_col_name)
       : queue_(),
         schema_(schema),
-        time_col_index_(
-            schema->GetFieldIndex(time_col_name)),  // TODO: handle missing field name
+        time_col_index_(schema->GetFieldIndex(time_col_name)),
         key_col_index_(schema->GetFieldIndex(key_col_name)) {}
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
@@ -227,7 +221,7 @@ class InputState {
   }
 
   // Advance the data to be immediately past the specified timestamp, update
-  // latest_time and latest_ref_row to the value that immediately follows the
+  // latest_time and latest_ref_row to the value that immediately pass the
   // specified timestamp.
   // Returns true if updates were made, false if not.
   bool AdvanceAndMemoize(int64_t ts) {
@@ -272,7 +266,7 @@ class InputState {
   util::optional<int64_t> GetMemoTimeForKey(KeyType key) {
     auto r = GetMemoEntryForKey(key);
     if (r.has_value()) {
-      return (*r)->_time;
+      return (*r)->time;
     } else {
       return util::nullopt;
     }
@@ -291,31 +285,23 @@ class InputState {
   }
 
  private:
-  // Pending record batches.  The latest is the front.  Batches cannot be empty.
+  // Pending record batches. The latest is the front. Batches cannot be empty.
   ConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
-
   // Schema associated with the input
   std::shared_ptr<Schema> schema_;
-
   // Total number of batches (only int because InputFinished uses int)
   int total_batches_ = -1;
-
   // Number of batches processed so far (only int because InputFinished uses int)
   int batches_processed_ = 0;
-
   // Index of the time col
   col_index_t time_col_index_;
-
   // Index of the key col
   col_index_t key_col_index_;
-
   // Index of the latest row reference within; if >0 then queue_ cannot be empty
-  row_index_t latest_ref_row_ =
-      0;  // must be < queue_.front()->num_rows() if queue_ is non-empty
-
+  // Must be < queue_.front()->num_rows() if queue_ is non-empty
+  row_index_t latest_ref_row_ = 0;
   // Stores latest known values for the various keys
   MemoStore memo_;
-
   // Mapping of source columns to destination columns
   std::vector<util::optional<col_index_t>> src_to_dst_;
 };
@@ -383,12 +369,12 @@ class CompositeReferenceTable {
       util::optional<const MemoStore::Entry*> opt_entry = in[i]->GetMemoEntryForKey(key);
       if (opt_entry.has_value()) {
         DCHECK(*opt_entry);
-        if ((*opt_entry)->_time + tolerance >= lhs_latest_time) {
+        if ((*opt_entry)->time + tolerance >= lhs_latest_time) {
           // Have a valid entry
           const MemoStore::Entry* entry = *opt_entry;
-          row.refs[i].batch = entry->_batch.get();
-          row.refs[i].row = entry->_row;
-          AddRecordBatchRef(entry->_batch);
+          row.refs[i].batch = entry->batch.get();
+          row.refs[i].row = entry->row;
+          AddRecordBatchRef(entry->batch);
           continue;
         }
       }
@@ -636,21 +622,31 @@ class AsofJoinNode : public ExecNode {
       const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
 
+    const auto& on_field_name = *options.on_key.name();
+    const auto& by_field_name = *options.by_key.name();
+
     // Take all non-key, non-time RHS fields
     for (size_t j = 0; j < inputs.size(); ++j) {
       const auto& input_schema = inputs[j]->output_schema();
+      const auto& on_field_ix = input_schema->GetFieldIndex(on_field_name);
+      const auto& by_field_ix = input_schema->GetFieldIndex(by_field_name);
+
+      if ((on_field_ix == -1) | (by_field_ix == -1)) {
+        return Status::Invalid("Missing join key on table ", j);
+      }
+
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
-        if (field->name() == *options.on_key.name()) {
-          if (supported_on_types_.find(field->type()) == supported_on_types_.end()) {
+        if (field->name() == on_field_name) {
+          if (kSupportedOnTypes_.find(field->type()) == kSupportedOnTypes_.end()) {
             return Status::Invalid("Unsupported type for on key: ", field->name());
           }
           // Only add on field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
-        } else if (field->name() == *options.by_key.name()) {
-          if (supported_by_types_.find(field->type()) == supported_by_types_.end()) {
+        } else if (field->name() == by_field_name) {
+          if (kSupportedByTypes_.find(field->type()) == kSupportedByTypes_.end()) {
             return Status::Invalid("Unsupported type for by key: ", field->name());
           }
           // Only add by field from the left table
@@ -658,8 +654,8 @@ class AsofJoinNode : public ExecNode {
             fields.push_back(field);
           }
         } else {
-          if (supported_data_types_.find(field->type()) == supported_data_types_.end()) {
-            return Status::Invalid("Unsupported data type:", field->name());
+          if (kSupportedDataTypes_.find(field->type()) == kSupportedDataTypes_.end()) {
+            return Status::Invalid("Unsupported data type: ", field->name());
           }
 
           fields.push_back(field);
@@ -697,6 +693,9 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
+    std::stringstream stream;
+    stream << "(k=" << k << ") time=(" << *rb->columns()[0] << ")\n";
+    std::cerr << stream.str();
 
     state_.at(k)->Push(rb);
     process_.Push(true);
@@ -749,9 +748,9 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  static const std::set<std::shared_ptr<DataType>> kSupportedOnTypes;
-  static const std::set<std::shared_ptr<DataType>> kSupportedByTypes;
-  static const std::set<std::shared_ptr<DataType>> kSupportedDataTypes;
+  static const std::set<std::shared_ptr<DataType>> kSupportedOnTypes_;
+  static const std::set<std::shared_ptr<DataType>> kSupportedByTypes_;
+  static const std::set<std::shared_ptr<DataType>> kSupportedDataTypes_;
 
   arrow::Future<> finished_;
   // InputStates
@@ -791,9 +790,9 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
 }
 
 // Currently supported types
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_on_types_ = {int64()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_by_types_ = {int32()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_data_types_ = {
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {int64()};
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {int32()};
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
     int32(), int64(), float32(), float64()};
 
 namespace internal {
