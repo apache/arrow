@@ -596,8 +596,8 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
           std::shared_ptr<arrow::Array> array = v.array.ToArray();
           args_sexp.push_back(cpp11::to_r6<arrow::Array>(array));
         } else if (v.is_scalar()) {
-          std::shared_ptr<const arrow::Scalar> scalar = v.scalar->shared_from_this();
-          args_sexp.push_back(cpp11::to_r6<const arrow::Scalar>(scalar));
+          std::shared_ptr<arrow::Scalar> scalar = v.scalar->Copy();
+          args_sexp.push_back(cpp11::to_r6<arrow::Scalar>(scalar));
         }
       }
 
