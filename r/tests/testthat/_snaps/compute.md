@@ -1,8 +1,8 @@
-# arrow_scalar_function() works
+# arrow_base_scalar_function() works
 
-    `fun` must accept exactly two arguments (`kernel_context`, `batch`)
+    `base_fun` must accept exactly two arguments
 
 ---
 
-    Can't convert `fun`, NULL, to a function.
+    Can't convert `base_fun`, NULL, to a function.
 

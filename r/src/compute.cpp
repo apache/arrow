@@ -607,7 +607,8 @@ class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver
 
 class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
  public:
-  RScalarUDFCallable(cpp11::sexp func) : func_(func) {}
+  RScalarUDFCallable(cpp11::sexp func, const std::vector<std::string>& input_names)
+      : func_(func), input_names_(input_names) {}
 
   arrow::Status operator()(arrow::compute::KernelContext* context,
                            const arrow::compute::ExecSpan& span,
@@ -626,6 +627,8 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
           args_sexp.push_back(cpp11::to_r6<arrow::Scalar>(scalar));
         }
       }
+
+      args_sexp.names() = input_names_;
 
       cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
 
@@ -680,6 +683,7 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
 
  private:
   cpp11::function func_;
+  cpp11::strings input_names_;
 };
 
 // [[arrow::export]]
@@ -699,15 +703,18 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
     cpp11::sexp out_type_func = out_type_r[i];
 
     std::vector<arrow::compute::InputType> compute_in_types;
+    std::vector<std::string> compute_in_names;
     for (int64_t j = 0; j < in_types->num_fields(); j++) {
       compute_in_types.push_back(arrow::compute::InputType(in_types->field(i)->type()));
+      compute_in_names.push_back(in_types->field(i)->name());
     }
 
     arrow::compute::OutputType out_type((RScalarUDFOutputTypeResolver(out_type_func)));
 
     auto signature = std::make_shared<arrow::compute::KernelSignature>(
         compute_in_types, std::move(out_type), true);
-    arrow::compute::ScalarKernel kernel(signature, RScalarUDFCallable(func_sexp));
+    arrow::compute::ScalarKernel kernel(
+        signature, RScalarUDFCallable(func_sexp, std::move(compute_in_names)));
     kernel.mem_allocation = arrow::compute::MemAllocation::NO_PREALLOCATE;
     kernel.null_handling = arrow::compute::NullHandling::COMPUTED_NO_PREALLOCATE;
 

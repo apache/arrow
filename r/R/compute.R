@@ -311,7 +311,7 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
   assert_that(
     is.string(name),
     is.string(registry_name),
-    inherits(scalar_function, "arrow_scalar_function")
+    inherits(scalar_function, "arrow_base_scalar_function")
   )
 
   # register with Arrow C++
@@ -328,6 +328,17 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
 }
 
 arrow_scalar_function <- function(in_type, out_type, fun) {
+  force(fun)
+  base_fun <- function(kernel_context, args) {
+    args <- lapply(args, as.vector)
+    result <- do.call(fun, args)
+    as_arrow_array(result)
+  }
+
+  arrow_base_scalar_function(in_type, out_type, base_fun)
+}
+
+arrow_base_scalar_function <- function(in_type, out_type, base_fun) {
   if (is.list(in_type)) {
     in_type <- lapply(in_type, as_in_types)
   } else {
@@ -342,16 +353,16 @@ arrow_scalar_function <- function(in_type, out_type, fun) {
 
   out_type <- rep_len(out_type, length(in_type))
 
-  fun <- rlang::as_function(fun)
-  if (length(formals(fun)) != 2) {
-    abort("`fun` must accept exactly two arguments (`kernel_context`, `batch`)")
+  base_fun <- rlang::as_function(base_fun)
+  if (length(formals(base_fun)) != 2) {
+    abort("`base_fun` must accept exactly two arguments")
   }
 
   structure(
-    fun,
+    base_fun,
     in_type = in_type,
     out_type = out_type,
-    class = "arrow_scalar_function"
+    class = "arrow_base_scalar_function"
   )
 }
 
