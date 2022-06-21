@@ -642,7 +642,7 @@ class AsofJoinNode : public ExecNode {
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
         if (field->name() == *options.on_key.name()) {
-          if (supported_on_types_.find(field->type()) == supported_on_types_.end()) {
+          if (kSupportedOnTypes.find(field->type()) == kSupportedOnTypes.end()) {
             return Status::Invalid("Unsupported type for on key: ", field->name());
           }
           // Only add on field from the left table
@@ -650,7 +650,7 @@ class AsofJoinNode : public ExecNode {
             fields.push_back(field);
           }
         } else if (field->name() == *options.by_key.name()) {
-          if (supported_by_types_.find(field->type()) == supported_by_types_.end()) {
+          if (kSupportedByTypes.find(field->type()) == kSupportedByTypes.end()) {
             return Status::Invalid("Unsupported type for by key: ", field->name());
           }
           // Only add by field from the left table
@@ -658,7 +658,7 @@ class AsofJoinNode : public ExecNode {
             fields.push_back(field);
           }
         } else {
-          if (supported_data_types_.find(field->type()) == supported_data_types_.end()) {
+          if (kSupportedDataTypes.find(field->type()) == kSupportedDataTypes.end()) {
             return Status::Invalid("Unsupported data type:", field->name());
           }
 
@@ -791,9 +791,9 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
 }
 
 // Currently supported types
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_on_types_ = {int64()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_by_types_ = {int32()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::supported_data_types_ = {
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes = {int64()};
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes = {int32()};
+const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes = {
     int32(), int64(), float32(), float64()};
 
 namespace internal {
