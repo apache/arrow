@@ -335,11 +335,9 @@ arrow_scalar_function <- function(in_type, out_type, fun) {
   }
 
   if (is.list(out_type)) {
-    out_type <- lapply(out_type, as_data_type)
-  } else if (is.function(out_type)) {
-    out_type <- lapply(in_type, out_type)
+    out_type <- lapply(out_type, as_out_type)
   } else {
-    out_type <- list(as_data_type(out_type))
+    out_type <- list(as_out_type(out_type))
   }
 
   out_type <- rep_len(out_type, length(in_type))
@@ -364,5 +362,14 @@ as_in_types <- function(x) {
     schema(".x" = x)
   } else {
     as_schema(x)
+  }
+}
+
+as_out_type <- function(x) {
+  if (is.function(x)) {
+    x
+  } else {
+    x <- as_data_type(x)
+    function(types) x
   }
 }

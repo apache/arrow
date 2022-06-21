@@ -25,12 +25,12 @@ test_that("arrow_scalar_function() works", {
   # check in/out type as schema/data type
   fun <- arrow_scalar_function(schema(.y = int32()), int64(), function(x, y) y[[1]])
   expect_equal(attr(fun, "in_type")[[1]], schema(.y = int32()))
-  expect_equal(attr(fun, "out_type")[[1]], int64())
+  expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as data type/data type
   fun <- arrow_scalar_function(int32(), int64(), function(x, y) y[[1]])
   expect_equal(attr(fun, "in_type")[[1]], schema(.x = int32()))
-  expect_equal(attr(fun, "out_type")[[1]], int64())
+  expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as field/data type
   fun <- arrow_scalar_function(
@@ -39,7 +39,7 @@ test_that("arrow_scalar_function() works", {
     function(x, y) y[[1]]
   )
   expect_equal(attr(fun, "in_type")[[1]], schema(a_name = int32()))
-  expect_equal(attr(fun, "out_type")[[1]], int64())
+  expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as lists
   fun <- arrow_scalar_function(
@@ -50,8 +50,8 @@ test_that("arrow_scalar_function() works", {
 
   expect_equal(attr(fun, "in_type")[[1]], schema(.x = int32()))
   expect_equal(attr(fun, "in_type")[[2]], schema(.x = int64()))
-  expect_equal(attr(fun, "out_type")[[1]], int64())
-  expect_equal(attr(fun, "out_type")[[1]], int64())
+  expect_equal(attr(fun, "out_type")[[1]](), int64())
+  expect_equal(attr(fun, "out_type")[[2]](), int32())
 
   expect_snapshot_error(arrow_scalar_function(int32(), int32(), identity))
   expect_snapshot_error(arrow_scalar_function(int32(), int32(), NULL))
@@ -59,11 +59,8 @@ test_that("arrow_scalar_function() works", {
 
 test_that("register_scalar_function() creates a dplyr binding", {
   fun <- arrow_scalar_function(
-    int32(),
-    int64(),
-    function(context, args) {
-      args[[1]]
-    }
+    int32(), int64(),
+    function(context, args) args[[1]]
   )
 
   register_scalar_function("my_test_scalar_function", fun)
