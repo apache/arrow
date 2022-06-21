@@ -587,7 +587,7 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
   arrow::Status operator()(arrow::compute::KernelContext* context,
                            const arrow::compute::ExecSpan& span,
                            arrow::compute::ExecResult* result) {
-    auto func_result = SafeCallIntoR<std::shared_ptr<arrow::Array>>([&]() {
+    return SafeCallIntoRVoid([&]() {
       cpp11::writable::list args_sexp;
       args_sexp.reserve(span.num_values());
 
@@ -607,20 +607,48 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
       cpp11::writable::list udf_context = {batch_length_sexp};
       udf_context.names() = {"batch_length"};
 
-      cpp11::sexp fun_result_sexp = func_(udf_context, args_sexp);
-      if (!Rf_inherits(fun_result_sexp, "Array")) {
-        cpp11::stop("arrow_scalar_function must return an Array");
+      cpp11::sexp func_result_sexp = func_(udf_context, args_sexp);
+
+      if (Rf_inherits(func_result_sexp, "Array")) {
+        auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(func_result_sexp);
+
+        // handle an Array result of the wrong type
+        if (!array->type()->Equals(output_type_)) {
+          arrow::Datum out = ValueOrStop(arrow::compute::Cast(array, output_type_));
+          std::shared_ptr<arrow::Array> out_array = out.make_array();
+          array.swap(out_array);
+        }
+
+        // make sure we assign the type that the result is expecting
+        if (result->is_array_data()) {
+          result->value = std::move(array->data());
+        } else if (array->length() == 1) {
+          result->value = ValueOrStop(array->GetScalar(0));
+        } else {
+          cpp11::stop("expected Scalar return value but got Array with length != 1");
+        }
+      } else if (Rf_inherits(func_result_sexp, "Scalar")) {
+        auto scalar = cpp11::as_cpp<std::shared_ptr<arrow::Scalar>>(func_result_sexp);
+
+        // handle a Scalar result of the wrong type
+        if (!scalar->type->Equals(output_type_)) {
+          arrow::Datum out = ValueOrStop(arrow::compute::Cast(scalar, output_type_));
+          std::shared_ptr<arrow::Scalar> out_scalar = out.scalar();
+          scalar.swap(out_scalar);
+        }
+
+        // make sure we assign the type that the result is expecting
+        if (result->is_scalar()) {
+          result->value = std::move(scalar);
+        } else {
+          auto array = ValueOrStop(
+              arrow::MakeArrayFromScalar(*scalar, span.length, context->memory_pool()));
+          result->value = std::move(array->data());
+        }
+      } else {
+        cpp11::stop("arrow_scalar_function must return an Array or Scalar");
       }
-
-      return cpp11::as_cpp<std::shared_ptr<arrow::Array>>(fun_result_sexp);
     });
-
-    if (!func_result.ok()) {
-      return func_result.status();
-    }
-
-    result->value = std::move(ValueOrStop(func_result)->data());
-    return arrow::Status::OK();
   }
 
  private:
