@@ -154,8 +154,9 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
 #' Build formats from multiple orders
 #'
-#' This function is a vectorisation of `build_format_from_order()`. It also
-#' checks if the supplied orders are currently supported.
+#' This function is a vectorised version of `build_format_from_order()`. In
+#' addition to `build_format_from_order()`, it also checks if the supplied
+#' orders are currently supported.
 #'
 #' @inheritParams process_data_for_parsing
 #'
