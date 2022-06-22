@@ -4095,6 +4095,7 @@ macro(build_google_cloud_cpp_storage)
          absl::raw_logging_internal
          absl::spinlock_wait
          absl::strings_internal
+         absl::str_format_internal
          absl::time_zone)
   endif()
 endmacro()
