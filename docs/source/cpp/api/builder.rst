@@ -64,3 +64,10 @@ Dictionary-encoded
 
 .. doxygenclass:: arrow::DictionaryBuilder
    :members:
+
+
+Record Batch Builder
+====================
+
+.. doxygenclass:: arrow::RecordBatchBuilder
+   :members:

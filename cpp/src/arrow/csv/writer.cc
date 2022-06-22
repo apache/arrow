@@ -168,7 +168,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     }
 
     int64_t row_number = 0;
-    VisitArrayDataInline<StringType>(
+    VisitArraySpanInline<StringType>(
         *casted_array_->data(),
         [&](arrow::util::string_view s) {
           row_lengths[row_number] += static_cast<int64_t>(s.length());
@@ -202,7 +202,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       return Status::OK();
     };
 
-    return VisitArrayDataInline<StringType>(*casted_array_->data(), valid_function,
+    return VisitArraySpanInline<StringType>(*casted_array_->data(), valid_function,
                                             null_function);
   }
 
@@ -269,7 +269,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
     if (NoQuoteInArray(input)) {
       // fast path if no quote
       int row_number = 0;
-      VisitArrayDataInline<StringType>(
+      VisitArraySpanInline<StringType>(
           *input.data(),
           [&](arrow::util::string_view s) {
             row_lengths[row_number] += static_cast<int64_t>(s.length()) + kQuoteCount;
@@ -281,7 +281,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
           });
     } else {
       int row_number = 0;
-      VisitArrayDataInline<StringType>(
+      VisitArraySpanInline<StringType>(
           *input.data(),
           [&](arrow::util::string_view s) {
             // Each quote in the value string needs to be escaped.
@@ -301,7 +301,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
 
   Status PopulateRows(char* output, int64_t* offsets) const override {
     auto needs_escaping = row_needs_escaping_.begin();
-    VisitArrayDataInline<StringType>(
+    VisitArraySpanInline<StringType>(
         *(casted_array_->data()),
         [&](arrow::util::string_view s) {
           // still needs string content length to be added

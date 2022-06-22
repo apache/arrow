@@ -202,14 +202,38 @@ opentelemetry::trace::Tracer* GetTracer() {
   return tracer.get();
 }
 
-#ifdef ARROW_WITH_OPENTELEMETRY
+opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+    ::arrow::util::tracing::SpanDetails* span) {
+  SpanImpl* span_impl = checked_cast<SpanImpl*>(span);
+  ARROW_CHECK(span_impl->ot_span)
+      << "Attempted to dereference a null pointer. Use Span::Set before "
+         "dereferencing.";
+  return span_impl->ot_span;
+}
+
+const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+    const ::arrow::util::tracing::SpanDetails* span) {
+  const SpanImpl* span_impl = checked_cast<const SpanImpl*>(span);
+  ARROW_CHECK(span_impl->ot_span)
+      << "Attempted to dereference a null pointer. Use Span::Set before "
+         "dereferencing.";
+  return span_impl->ot_span;
+}
+
+opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
+    ::arrow::util::tracing::SpanDetails* span,
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span) {
+  SpanImpl* span_impl = checked_cast<SpanImpl*>(span);
+  span_impl->ot_span = std::move(ot_span);
+  return span_impl->ot_span;
+}
+
 opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
     const util::tracing::Span& parent_span) {
   opentelemetry::trace::StartSpanOptions options;
-  options.parent = parent_span.Get().span->GetContext();
+  options.parent = UnwrapSpan(parent_span.details.get())->GetContext();
   return options;
 }
-#endif
 
 }  // namespace tracing
 }  // namespace internal

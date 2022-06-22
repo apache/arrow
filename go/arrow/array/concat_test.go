@@ -18,7 +18,6 @@ package array_test
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"testing"
 
@@ -288,14 +287,4 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 			}
 		})
 	}
-}
-
-func TestOffsetOverflow(t *testing.T) {
-	fakeOffsets := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes([]int32{0, math.MaxInt32}))
-	fakeArr := array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, []*memory.Buffer{nil, fakeOffsets, memory.NewBufferBytes([]byte{})}, nil, 0, 0))
-	var err error
-	assert.NotPanics(t, func() {
-		_, err = array.Concatenate([]arrow.Array{fakeArr, fakeArr}, memory.DefaultAllocator)
-	})
-	assert.EqualError(t, err, "offset overflow while concatenating arrays")
 }

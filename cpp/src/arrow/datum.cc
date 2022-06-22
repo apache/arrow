@@ -258,12 +258,17 @@ std::string Datum::ToString() const {
 }
 
 ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args) {
-  for (const auto& descr : args) {
-    if (descr.shape == ValueDescr::ARRAY) {
-      return ValueDescr::ARRAY;
+  // This function to be deleted in ARROW-16577
+  if (args.size() == 0) {
+    return ValueDescr::ARRAY;
+  } else {
+    for (const auto& descr : args) {
+      if (descr.shape == ValueDescr::ARRAY) {
+        return ValueDescr::ARRAY;
+      }
     }
+    return ValueDescr::SCALAR;
   }
-  return ValueDescr::SCALAR;
 }
 
 void PrintTo(const Datum& datum, std::ostream* os) {

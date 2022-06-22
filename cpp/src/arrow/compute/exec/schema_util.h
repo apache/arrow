@@ -22,8 +22,8 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/exec/key_encode.h"  // for KeyColumnMetadata
-#include "arrow/type.h"                     // for DataType, FieldRef, Field and Schema
+#include "arrow/compute/light_array.h"  // for KeyColumnMetadata
+#include "arrow/type.h"                 // for DataType, FieldRef, Field and Schema
 #include "arrow/util/mutex.h"
 
 namespace arrow {

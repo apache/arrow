@@ -85,9 +85,11 @@ struct ExecPlanImpl : public ExecPlan {
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
       auto pairs = metadata().get()->sorted_pairs();
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span =
+          ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
       std::for_each(std::begin(pairs), std::end(pairs),
-                    [this](std::pair<std::string, std::string> const& pair) {
-                      span_.Get().span->SetAttribute(pair.first, pair.second);
+                    [span](std::pair<std::string, std::string> const& pair) {
+                      span->SetAttribute(pair.first, pair.second);
                     });
     }
 #endif
@@ -472,6 +474,16 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
         ARROW_ASSIGN_OR_RAISE(*record_batch, batch->ToRecordBatch(schema_, pool_));
       } else {
         *record_batch = IterationEnd<std::shared_ptr<RecordBatch>>();
+      }
+      return Status::OK();
+    }
+
+    Status Close() override {
+      // reading from generator until end is reached.
+      std::shared_ptr<RecordBatch> batch;
+      RETURN_NOT_OK(ReadNext(&batch));
+      while (batch != NULLPTR) {
+        RETURN_NOT_OK(ReadNext(&batch));
       }
       return Status::OK();
     }

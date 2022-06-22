@@ -22,7 +22,7 @@
 jobs:
   verify:
     name: "Verify release candidate on macOS"
-    runs-on: {{ github_runner|default("self-hosted") }}
+    runs-on: {{ github_runner|default(["self-hosted", "macOS", "arm64"]) }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}

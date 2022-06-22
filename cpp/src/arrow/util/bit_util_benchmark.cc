@@ -150,8 +150,8 @@ static void BenchmarkAndImpl(benchmark::State& state, DoAnd&& do_and) {
 
   for (auto _ : state) {
     do_and({bitmap_1, bitmap_2}, &bitmap_3);
-    auto total = internal::CountSetBits(bitmap_3.buffer()->data(), bitmap_3.offset(),
-                                        bitmap_3.length());
+    auto total =
+        internal::CountSetBits(bitmap_3.data(), bitmap_3.offset(), bitmap_3.length());
     benchmark::DoNotOptimize(total);
   }
   state.SetBytesProcessed(state.iterations() * nbytes);
@@ -159,9 +159,8 @@ static void BenchmarkAndImpl(benchmark::State& state, DoAnd&& do_and) {
 
 static void BenchmarkBitmapAnd(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
-    internal::BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
-                        bitmaps[1].buffer()->data(), bitmaps[1].offset(),
-                        bitmaps[0].length(), 0, out->buffer()->mutable_data());
+    internal::BitmapAnd(bitmaps[0].data(), bitmaps[0].offset(), bitmaps[1].data(),
+                        bitmaps[1].offset(), bitmaps[0].length(), 0, out->mutable_data());
   });
 }
 
@@ -177,8 +176,7 @@ static void BenchmarkBitmapVisitUInt8And(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
     int64_t i = 0;
     internal::Bitmap::VisitWords(bitmaps, [&](std::array<uint8_t, 2> uint8s) {
-      reinterpret_cast<uint8_t*>(out->buffer()->mutable_data())[i++] =
-          uint8s[0] & uint8s[1];
+      reinterpret_cast<uint8_t*>(out->mutable_data())[i++] = uint8s[0] & uint8s[1];
     });
   });
 }
@@ -187,8 +185,7 @@ static void BenchmarkBitmapVisitUInt64And(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
     int64_t i = 0;
     internal::Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
-      reinterpret_cast<uint64_t*>(out->buffer()->mutable_data())[i++] =
-          uint64s[0] & uint64s[1];
+      reinterpret_cast<uint64_t*>(out->mutable_data())[i++] = uint64s[0] & uint64s[1];
     });
   });
 }

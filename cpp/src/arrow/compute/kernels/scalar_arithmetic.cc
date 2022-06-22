@@ -31,7 +31,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 #include "arrow/visit_scalar_inline.h"
 
@@ -823,7 +823,7 @@ struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 };
 
 template <typename DecimalType, RoundMode kMode, int32_t kDigits>
-Status FixedRoundDecimalExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status FixedRoundDecimalExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   using Op = Round<DecimalType, kMode>;
   return ScalarUnaryNotNullStateful<DecimalType, DecimalType, Op>(
              Op(kDigits, *out->type()))
@@ -1333,7 +1333,7 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
 };
 
 // A scalar kernel that ignores (assumed all-null) inputs and returns null.
-Status NullToNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status NullToNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return Status::OK();
 }
 
@@ -1416,69 +1416,38 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(std::string n
   return func;
 }
 
+#define ROUND_CASE(MODE)                                                       \
+  case RoundMode::MODE: {                                                      \
+    using Op = OpImpl<Type, RoundMode::MODE>;                                  \
+    return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type())) \
+        .Exec(ctx, batch, out);                                                \
+  }
+
 // Exec the round kernel for the given types
 template <typename Type, typename OptionsType,
           template <typename, RoundMode, typename...> class OpImpl>
-Status ExecRound(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecRound(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   using State = RoundOptionsWrapper<OptionsType>;
   const auto& state = static_cast<const State&>(*ctx->state());
   switch (state.options.round_mode) {
-    case RoundMode::DOWN: {
-      using Op = OpImpl<Type, RoundMode::DOWN>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::UP: {
-      using Op = OpImpl<Type, RoundMode::UP>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::TOWARDS_ZERO: {
-      using Op = OpImpl<Type, RoundMode::TOWARDS_ZERO>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::TOWARDS_INFINITY: {
-      using Op = OpImpl<Type, RoundMode::TOWARDS_INFINITY>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_DOWN: {
-      using Op = OpImpl<Type, RoundMode::HALF_DOWN>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_UP: {
-      using Op = OpImpl<Type, RoundMode::HALF_UP>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TOWARDS_ZERO: {
-      using Op = OpImpl<Type, RoundMode::HALF_TOWARDS_ZERO>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TOWARDS_INFINITY: {
-      using Op = OpImpl<Type, RoundMode::HALF_TOWARDS_INFINITY>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TO_EVEN: {
-      using Op = OpImpl<Type, RoundMode::HALF_TO_EVEN>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TO_ODD: {
-      using Op = OpImpl<Type, RoundMode::HALF_TO_ODD>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
+    ROUND_CASE(DOWN)
+    ROUND_CASE(UP)
+    ROUND_CASE(TOWARDS_ZERO)
+    ROUND_CASE(TOWARDS_INFINITY)
+    ROUND_CASE(HALF_DOWN)
+    ROUND_CASE(HALF_UP)
+    ROUND_CASE(HALF_TOWARDS_ZERO)
+    ROUND_CASE(HALF_TOWARDS_INFINITY)
+    ROUND_CASE(HALF_TO_EVEN)
+    ROUND_CASE(HALF_TO_ODD)
   }
   DCHECK(false);
   return Status::NotImplemented(
       "Internal implementation error: round mode not implemented: ",
       state.options.ToString());
 }
+
+#undef ROUND_CASE
 
 // Like MakeUnaryArithmeticFunction, but for unary rounding functions that control
 // kernel dispatch based on RoundMode, only on non-null output.
@@ -1491,7 +1460,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
       name, Arity::Unary(), std::move(doc), &kDefaultOptions);
   for (const auto& ty : {float32(), float64(), decimal128(1, 0), decimal256(1, 0)}) {
     auto type_id = ty->id();
-    auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto exec = [type_id](KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       switch (type_id) {
         case Type::FLOAT:
           return ExecRound<FloatType, OptionsType, Op>(ctx, batch, out);

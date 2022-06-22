@@ -42,6 +42,7 @@ class ARROW_EXPORT RecordBatchBuilder {
   /// \param[in] schema The schema for the record batch
   /// \param[in] pool A MemoryPool to use for allocations
   /// \param[in] builder the created builder instance
+  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
   static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                      std::unique_ptr<RecordBatchBuilder>* builder);
 
@@ -50,9 +51,25 @@ class ARROW_EXPORT RecordBatchBuilder {
   /// \param[in] pool A MemoryPool to use for allocations
   /// \param[in] initial_capacity The initial capacity for the builders
   /// \param[in] builder the created builder instance
+  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
   static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                      int64_t initial_capacity,
                      std::unique_ptr<RecordBatchBuilder>* builder);
+
+  /// \brief Create and initialize a RecordBatchBuilder
+  /// \param[in] schema The schema for the record batch
+  /// \param[in] pool A MemoryPool to use for allocations
+  /// \return the created builder instance
+  static Result<std::unique_ptr<RecordBatchBuilder>> Make(
+      const std::shared_ptr<Schema>& schema, MemoryPool* pool);
+
+  /// \brief Create and initialize a RecordBatchBuilder
+  /// \param[in] schema The schema for the record batch
+  /// \param[in] pool A MemoryPool to use for allocations
+  /// \param[in] initial_capacity The initial capacity for the builders
+  /// \return the created builder instance
+  static Result<std::unique_ptr<RecordBatchBuilder>> Make(
+      const std::shared_ptr<Schema>& schema, MemoryPool* pool, int64_t initial_capacity);
 
   /// \brief Get base pointer to field builder
   /// \param i the field index
@@ -71,12 +88,23 @@ class ARROW_EXPORT RecordBatchBuilder {
   /// \param[in] reset_builders the resulting RecordBatch
   /// \param[out] batch the resulting RecordBatch
   /// \return Status
+  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
   Status Flush(bool reset_builders, std::shared_ptr<RecordBatch>* batch);
 
   /// \brief Finish current batch and reset
   /// \param[out] batch the resulting RecordBatch
   /// \return Status
+  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
   Status Flush(std::shared_ptr<RecordBatch>* batch);
+
+  /// \brief Finish current batch and optionally reset
+  /// \param[in] reset_builders the resulting RecordBatch
+  /// \return the resulting RecordBatch
+  Result<std::shared_ptr<RecordBatch>> Flush(bool reset_builders);
+
+  /// \brief Finish current batch and reset
+  /// \return the resulting RecordBatch
+  Result<std::shared_ptr<RecordBatch>> Flush();
 
   /// \brief Set the initial capacity for new builders
   void SetInitialCapacity(int64_t capacity);

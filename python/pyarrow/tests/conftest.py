@@ -18,6 +18,7 @@
 import os
 import pathlib
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -173,3 +174,23 @@ def s3_server(s3_connection):
         finally:
             if proc is not None:
                 proc.kill()
+
+
+@pytest.fixture(scope='session')
+def gcs_server():
+    port = find_free_port()
+    env = os.environ.copy()
+    args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+    except OSError as e:
+        pytest.skip(f"Command {args} failed to execute: {e}")
+    else:
+        yield {
+            'connection': ('localhost', port),
+            'process': proc,
+        }
+    finally:
+        if proc is not None:
+            proc.kill()

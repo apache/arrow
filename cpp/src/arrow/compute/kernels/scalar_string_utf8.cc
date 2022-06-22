@@ -342,7 +342,7 @@ void AddUtf8StringPredicates(FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
 
 struct FunctionalCaseMappingTransform : public StringTransformBase {
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     EnsureUtf8LookupTablesFilled();
     return Status::OK();
   }
@@ -602,31 +602,33 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
 
   using Utf8NormalizeBase::Utf8NormalizeBase;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = State::Get(ctx);
     Utf8NormalizeExec exec{options};
-    if (batch[0].kind() == Datum::ARRAY) {
-      return exec.ExecArray(ctx, *batch[0].array(), out);
+    if (batch[0].is_array()) {
+      return exec.ExecArray(ctx, batch[0].array, out);
     } else {
-      DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
-      return exec.ExecScalar(ctx, *batch[0].scalar(), out);
+      DCHECK(batch[0].is_scalar());
+      return exec.ExecScalar(ctx, *batch[0].scalar, out);
     }
   }
 
-  Status ExecArray(KernelContext* ctx, const ArrayData& array, Datum* out) {
+  Status ExecArray(KernelContext* ctx, const ArraySpan& array, ExecResult* out) {
     BufferBuilder data_builder(ctx->memory_pool());
 
     const offset_type* in_offsets = array.GetValues<offset_type>(1);
     if (array.length > 0) {
       RETURN_NOT_OK(data_builder.Reserve(in_offsets[array.length] - in_offsets[0]));
     }
+
     // Output offsets are preallocated
-    offset_type* out_offsets = out->mutable_array()->GetMutableValues<offset_type>(1);
+    ArrayData* output = out->array_data().get();
+    offset_type* out_offsets = output->GetMutableValues<offset_type>(1);
 
     int64_t offset = 0;
     *out_offsets++ = static_cast<offset_type>(offset);
 
-    RETURN_NOT_OK(VisitArrayDataInline<Type>(
+    RETURN_NOT_OK(VisitArraySpanInline<Type>(
         array,
         [&](util::string_view v) {
           ARROW_ASSIGN_OR_RAISE(auto n_bytes, Decompose(v, &data_builder));
@@ -639,12 +641,10 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
           return Status::OK();
         }));
 
-    ArrayData* output = out->mutable_array();
-    RETURN_NOT_OK(data_builder.Finish(&output->buffers[2]));
-    return Status::OK();
+    return data_builder.Finish(&output->buffers[2]);
   }
 
-  Status ExecScalar(KernelContext* ctx, const Scalar& scalar, Datum* out) {
+  Status ExecScalar(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
     if (scalar.is_valid) {
       const auto& string_scalar = checked_cast<const ScalarType&>(scalar);
       auto* out_scalar = checked_cast<ScalarType*>(out->scalar().get());
@@ -766,7 +766,7 @@ struct UTF8TrimTransform : public StringTransformBase {
 
   explicit UTF8TrimTransform(const UTF8TrimState& state) : state_(state) {}
 
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     return state_.status_;
   }
 
@@ -807,7 +807,7 @@ using UTF8RTrim = StringTransformExecWithState<Type, UTF8TrimTransform<false, tr
 
 template <bool TrimLeft, bool TrimRight>
 struct UTF8TrimWhitespaceTransform : public StringTransformBase {
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     EnsureUtf8LookupTablesFilled();
     return Status::OK();
   }
@@ -920,7 +920,7 @@ struct Utf8PadTransform : public StringTransformBase {
 
   explicit Utf8PadTransform(const PadOptions& options) : options_(options) {}
 
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
     auto strlen = options_.padding.size();
     if (util::UTF8Length(str, str + strlen) != 1) {

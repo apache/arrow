@@ -1148,7 +1148,7 @@ Status GetField(const rj::Value& obj, FieldPosition field_pos,
     // Parse dictionary id in JSON and add dictionary field to the
     // memo, and parse the dictionaries later
     RETURN_NOT_OBJECT("dictionary", it_dictionary, json_field);
-    bool is_ordered;
+    bool is_ordered{};
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(ParseDictionary(it_dictionary->value.GetObject(), &dictionary_id,
                                   &is_ordered, &index_type));

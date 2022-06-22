@@ -27,37 +27,44 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace compute {
 
-class TestRegistry : public ::testing::Test {
- public:
-  void SetUp() { registry_ = FunctionRegistry::Make(); }
+using MakeFunctionRegistry = std::function<std::unique_ptr<FunctionRegistry>()>;
+using GetNumFunctions = std::function<int()>;
+using GetFunctionNames = std::function<std::vector<std::string>()>;
+using TestRegistryParams =
+    std::tuple<MakeFunctionRegistry, GetNumFunctions, GetFunctionNames, std::string>;
 
- protected:
-  std::unique_ptr<FunctionRegistry> registry_;
-};
+struct TestRegistry : public ::testing::TestWithParam<TestRegistryParams> {};
 
-TEST_F(TestRegistry, CreateBuiltInRegistry) {
+TEST(TestRegistry, CreateBuiltInRegistry) {
   // This does DCHECK_OK internally for now so this will fail in debug builds
   // if there is a problem initializing the global function registry
   FunctionRegistry* registry = GetFunctionRegistry();
   ARROW_UNUSED(registry);
 }
 
-TEST_F(TestRegistry, Basics) {
-  ASSERT_EQ(0, registry_->num_functions());
+TEST_P(TestRegistry, Basics) {
+  auto registry_factory = std::get<0>(GetParam());
+  auto registry_ = registry_factory();
+  auto get_num_funcs = std::get<1>(GetParam());
+  int n_funcs = get_num_funcs();
+  auto get_func_names = std::get<2>(GetParam());
+  std::vector<std::string> func_names = get_func_names();
+  ASSERT_EQ(n_funcs, registry_->num_functions());
 
   std::shared_ptr<Function> func = std::make_shared<ScalarFunction>(
       "f1", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
   ASSERT_OK(registry_->AddFunction(func));
-  ASSERT_EQ(1, registry_->num_functions());
+  ASSERT_EQ(n_funcs + 1, registry_->num_functions());
 
   func = std::make_shared<VectorFunction>("f0", Arity::Binary(),
                                           /*doc=*/FunctionDoc::Empty());
   ASSERT_OK(registry_->AddFunction(func));
-  ASSERT_EQ(2, registry_->num_functions());
+  ASSERT_EQ(n_funcs + 2, registry_->num_functions());
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<const Function> f1, registry_->GetFunction("f1"));
   ASSERT_EQ("f1", f1->name());
@@ -75,7 +82,11 @@ TEST_F(TestRegistry, Basics) {
   ASSERT_OK_AND_ASSIGN(f1, registry_->GetFunction("f1"));
   ASSERT_EQ(Function::SCALAR_AGGREGATE, f1->kind());
 
-  std::vector<std::string> expected_names = {"f0", "f1"};
+  std::vector<std::string> expected_names(func_names);
+  for (auto name : {"f0", "f1"}) {
+    expected_names.push_back(name);
+  }
+  std::sort(expected_names.begin(), expected_names.end());
   ASSERT_EQ(expected_names, registry_->GetFunctionNames());
 
   // Aliases
@@ -83,6 +94,140 @@ TEST_F(TestRegistry, Basics) {
   ASSERT_OK(registry_->AddAlias("f11", "f1"));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<const Function> f2, registry_->GetFunction("f11"));
   ASSERT_EQ(func, f2);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TestRegistry, TestRegistry,
+    testing::Values(
+        std::make_tuple(
+            static_cast<MakeFunctionRegistry>([]() { return FunctionRegistry::Make(); }),
+            []() { return 0; }, []() { return std::vector<std::string>{}; }, "default"),
+        std::make_tuple(
+            static_cast<MakeFunctionRegistry>([]() {
+              return FunctionRegistry::Make(GetFunctionRegistry());
+            }),
+            []() { return GetFunctionRegistry()->num_functions(); },
+            []() { return GetFunctionRegistry()->GetFunctionNames(); }, "nested")));
+
+TEST(TestRegistry, RegisterTempFunctions) {
+  auto default_registry = GetFunctionRegistry();
+  constexpr int rounds = 3;
+  for (int i = 0; i < rounds; i++) {
+    auto registry = FunctionRegistry::Make(default_registry);
+    for (std::string func_name : {"f1", "f2"}) {
+      std::shared_ptr<Function> func = std::make_shared<ScalarFunction>(
+          func_name, Arity::Unary(), /*doc=*/FunctionDoc::Empty());
+      ASSERT_OK(registry->CanAddFunction(func));
+      ASSERT_OK(registry->AddFunction(func));
+      ASSERT_RAISES(KeyError, registry->CanAddFunction(func));
+      ASSERT_RAISES(KeyError, registry->AddFunction(func));
+      ASSERT_OK(default_registry->CanAddFunction(func));
+    }
+  }
+}
+
+TEST(TestRegistry, RegisterTempAliases) {
+  auto default_registry = GetFunctionRegistry();
+  std::vector<std::string> func_names = default_registry->GetFunctionNames();
+  constexpr int rounds = 3;
+  for (int i = 0; i < rounds; i++) {
+    auto registry = FunctionRegistry::Make(default_registry);
+    for (std::string func_name : func_names) {
+      std::string alias_name = "alias_of_" + func_name;
+      std::shared_ptr<Function> func = std::make_shared<ScalarFunction>(
+          func_name, Arity::Unary(), /*doc=*/FunctionDoc::Empty());
+      ASSERT_RAISES(KeyError, registry->GetFunction(alias_name));
+      ASSERT_OK(registry->CanAddAlias(alias_name, func_name));
+      ASSERT_OK(registry->AddAlias(alias_name, func_name));
+      ASSERT_OK(registry->GetFunction(alias_name));
+      ASSERT_OK(default_registry->GetFunction(func_name));
+      ASSERT_RAISES(KeyError, default_registry->GetFunction(alias_name));
+    }
+  }
+}
+
+template <int kExampleSeqNum>
+class ExampleOptions : public FunctionOptions {
+ public:
+  explicit ExampleOptions(std::shared_ptr<Scalar> value);
+  std::shared_ptr<Scalar> value;
+};
+
+template <int kExampleSeqNum>
+class ExampleOptionsType : public FunctionOptionsType {
+ public:
+  static const FunctionOptionsType* GetInstance() {
+    static std::unique_ptr<FunctionOptionsType> instance(
+        new ExampleOptionsType<kExampleSeqNum>());
+    return instance.get();
+  }
+  const char* type_name() const override {
+    static std::string name = std::string("example") + std::to_string(kExampleSeqNum);
+    return name.c_str();
+  }
+  std::string Stringify(const FunctionOptions& options) const override {
+    return type_name();
+  }
+  bool Compare(const FunctionOptions& options,
+               const FunctionOptions& other) const override {
+    return true;
+  }
+  std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
+    const auto& opts = static_cast<const ExampleOptions<kExampleSeqNum>&>(options);
+    return arrow::internal::make_unique<ExampleOptions<kExampleSeqNum>>(opts.value);
+  }
+};
+template <int kExampleSeqNum>
+ExampleOptions<kExampleSeqNum>::ExampleOptions(std::shared_ptr<Scalar> value)
+    : FunctionOptions(ExampleOptionsType<kExampleSeqNum>::GetInstance()),
+      value(std::move(value)) {}
+
+TEST(TestRegistry, RegisterTempFunctionOptionsType) {
+  auto default_registry = GetFunctionRegistry();
+  std::vector<const FunctionOptionsType*> options_types = {
+      ExampleOptionsType<1>::GetInstance(),
+      ExampleOptionsType<2>::GetInstance(),
+  };
+  constexpr int rounds = 3;
+  for (int i = 0; i < rounds; i++) {
+    auto registry = FunctionRegistry::Make(default_registry);
+    for (auto options_type : options_types) {
+      ASSERT_OK(registry->CanAddFunctionOptionsType(options_type));
+      ASSERT_OK(registry->AddFunctionOptionsType(options_type));
+      ASSERT_RAISES(KeyError, registry->CanAddFunctionOptionsType(options_type));
+      ASSERT_RAISES(KeyError, registry->AddFunctionOptionsType(options_type));
+      ASSERT_OK(default_registry->CanAddFunctionOptionsType(options_type));
+    }
+  }
+}
+
+TEST(TestRegistry, RegisterNestedFunctions) {
+  auto default_registry = GetFunctionRegistry();
+  std::shared_ptr<Function> func1 = std::make_shared<ScalarFunction>(
+      "f1", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
+  std::shared_ptr<Function> func2 = std::make_shared<ScalarFunction>(
+      "f2", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
+  constexpr int rounds = 3;
+  for (int i = 0; i < rounds; i++) {
+    auto registry1 = FunctionRegistry::Make(default_registry);
+
+    ASSERT_OK(registry1->CanAddFunction(func1));
+    ASSERT_OK(registry1->AddFunction(func1));
+
+    for (int j = 0; j < rounds; j++) {
+      auto registry2 = FunctionRegistry::Make(registry1.get());
+
+      ASSERT_OK(registry2->CanAddFunction(func2));
+      ASSERT_OK(registry2->AddFunction(func2));
+      ASSERT_RAISES(KeyError, registry2->CanAddFunction(func2));
+      ASSERT_RAISES(KeyError, registry2->AddFunction(func2));
+      ASSERT_OK(default_registry->CanAddFunction(func2));
+    }
+
+    ASSERT_RAISES(KeyError, registry1->CanAddFunction(func1));
+    ASSERT_RAISES(KeyError, registry1->AddFunction(func1));
+    ASSERT_OK(default_registry->CanAddFunction(func1));
+  }
 }
 
 }  // namespace compute

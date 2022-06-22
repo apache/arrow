@@ -45,6 +45,7 @@ from pyarrow._dataset import (  # noqa
     TaggedRecordBatch,
     UnionDataset,
     UnionDatasetFactory,
+    WrittenFile,
     _get_partition_keys,
     _filesystemdataset_write,
 )

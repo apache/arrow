@@ -160,7 +160,9 @@ cdef class ParquetFileFormat(FileFormat):
             parquet_metadata.init(metadata)
             parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
 
-        return WrittenFile(path, parquet_metadata)
+        size = GetResultValue(file_writer.GetBytesWritten())
+
+        return WrittenFile(path, parquet_metadata, size)
 
     @property
     def read_options(self):
