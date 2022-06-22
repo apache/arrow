@@ -72,6 +72,8 @@ test_that("arrow_scalar_function() returns a base scalar function", {
 })
 
 test_that("register_scalar_function() adds a compute function to the registry", {
+  skip_if_not_available("dataset")
+
   fun <- arrow_base_scalar_function(
     int32(), int64(),
     function(context, args) {
