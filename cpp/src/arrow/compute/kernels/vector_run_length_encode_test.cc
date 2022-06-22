@@ -84,6 +84,8 @@ INSTANTIATE_TEST_SUITE_P(EncodeArrayTests, TestRunLengthEncode,
                          ::testing::Values(
                            RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[1, 0, -5, 255]", {2, 3, 6, 8}),
                            RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]", "[null, 1, null, 5]", {1, 3, 5, 6}),
+                           RLETestData::JSON(boolean(), "[true, true, true, false, false]", "[true, false]", {3, 5}),
+                           RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]", "[true, false, null, false]", {3, 4, 6, 7}),
                            RLETestData::TypeMinMaxNull<Int8Type>(),
                            RLETestData::TypeMinMaxNull<UInt8Type>(),
                            RLETestData::TypeMinMaxNull<Int16Type>(),
