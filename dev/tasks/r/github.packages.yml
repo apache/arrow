@@ -184,7 +184,7 @@ jobs:
           install.packages(
             "arrow",
             type = "source",
-            repos = dev_repo,
+            repos = getOption("arrow.dev_repo"),
             INSTALL_opts = INSTALL_opts
           )
 
