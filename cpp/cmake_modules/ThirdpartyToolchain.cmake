@@ -4077,18 +4077,17 @@ macro(build_google_cloud_cpp_storage)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS google-cloud-cpp::storage
        google-cloud-cpp::common)
   if(ABSL_VENDORED)
-    # Copy and de-dupe these absl:: from above
+    # Copy and de-dupe these absl:: from above, but note: some are header-only
     list(APPEND
          ARROW_BUNDLED_STATIC_LIBS
          absl::base
-         # memory is header only
          # absl::memory
-         absl::optional
-         absl::span
+         # absl::optional
+         # absl::span
          absl::time
-         absl::variant
-         absl::strings
-         absl::str_format)
+         # absl::variant
+         # absl::str_format
+         absl::strings)
   endif()
 endmacro()
 
