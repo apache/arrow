@@ -19,10 +19,10 @@ struct EncodeDecodeCommonExec {
     }
   };
 
-  EncodeDecodeCommonExec(KernelContext* ctx, const ExecBatch& batch, Datum* output):
-    input_data{*batch.values[0].array()},
-    pool{ctx->memory_pool()},
-    output_datum{output} {
+  EncodeDecodeCommonExec(KernelContext* ctx, const ExecBatch& batch, Datum* output)
+      : input_data{*batch.values[0].array()},
+        pool{ctx->memory_pool()},
+        output_datum{output} {
     ARROW_DCHECK(batch.num_values() == 1);
   }
 
@@ -55,39 +55,46 @@ struct EncodeDecodeCommonExec {
   size_t output_position;
 };
 
-template<>
-EncodeDecodeCommonExec<BooleanType, true>::Element EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
+template <>
+EncodeDecodeCommonExec<BooleanType, true>::Element
+EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
   Element result;
   result.valid = bit_util::GetBit(input_validity, input_position);
   if (result.valid) {
-    result.value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), input_position);
+    result.value =
+        bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), input_position);
   }
   return result;
 }
 
-template<>
-EncodeDecodeCommonExec<BooleanType, false>::Element EncodeDecodeCommonExec<BooleanType, false>::ReadValue() {
+template <>
+EncodeDecodeCommonExec<BooleanType, false>::Element
+EncodeDecodeCommonExec<BooleanType, false>::ReadValue() {
   return {
-    .valid = true,
-    .value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), input_position),
+      .valid = true,
+      .value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values),
+                                input_position),
   };
 }
 
-template<>
+template <>
 void EncodeDecodeCommonExec<BooleanType, true>::WriteValue(Element element) {
   bit_util::SetBitTo(output_validity, output_position, element.valid);
   if (element.valid) {
-    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position, element.value);
+    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position,
+                       element.value);
   }
 }
 
-template<>
+template <>
 void EncodeDecodeCommonExec<BooleanType, false>::WriteValue(Element element) {
-  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position, element.value);
+  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position,
+                     element.value);
 }
 
 template <typename ArrowType, bool has_validity_buffer>
-struct RunLengthEncodeExec : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
+struct RunLengthEncodeExec
+    : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
   using EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::EncodeDecodeCommonExec;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::CType;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
@@ -103,7 +110,8 @@ struct RunLengthEncodeExec : public EncodeDecodeCommonExec<ArrowType, has_validi
     Element element = this->ReadValue();
     size_t num_values_output = 1;
     size_t output_null_count = element.valid ? 0 : 1;
-    for (this->input_position = 1; this->input_position < this->input_data.length; this->input_position++) {
+    for (this->input_position = 1; this->input_position < this->input_data.length;
+         this->input_position++) {
       Element previous_element = element;
       element = this->ReadValue();
       if (element != previous_element) {
@@ -119,15 +127,18 @@ struct RunLengthEncodeExec : public EncodeDecodeCommonExec<ArrowType, has_validi
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
       validity_buffer_size = (num_values_output - 1) / 8 + 1;
-      ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBuffer(validity_buffer_size, this->pool));
+      ARROW_ASSIGN_OR_RAISE(validity_buffer,
+                            AllocateBuffer(validity_buffer_size, this->pool));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(num_values_output * sizeof(CType), this->pool));
-    ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
-                          AllocateBuffer(num_values_output * sizeof(int64_t), this->pool));
+    ARROW_ASSIGN_OR_RAISE(
+        auto run_lengths_buffer,
+        AllocateBuffer(num_values_output * sizeof(int64_t), this->pool));
 
     auto output_type = std::make_shared<RunLengthEncodedType>(this->input_data.type);
-    auto output_array_data = ArrayData::Make(std::move(output_type), this->input_data.length);
+    auto output_array_data =
+        ArrayData::Make(std::move(output_type), this->input_data.length);
     auto child_array_data = ArrayData::Make(this->input_data.type, num_values_output);
     output_array_data->buffers.push_back(std::move(run_lengths_buffer));
     child_array_data->buffers.push_back(std::move(validity_buffer));
@@ -194,13 +205,15 @@ struct RunLengthEncodeGenerator<NullType> {
 };
 
 template <typename ArrowType, bool has_validity_buffer>
-struct RunLengthDecodeExec : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
+struct RunLengthDecodeExec
+    : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
   using EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::EncodeDecodeCommonExec;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::CType;
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
 
   Status Exec() {
-    this->input_validity = this->input_data->child_data[0]->template GetValues<uint8_t>(0);
+    this->input_validity =
+        this->input_data->child_data[0]->template GetValues<uint8_t>(0);
     this->input_values = this->input_data->child_data[0]->template GetValues<CType>(1);
     input_accumulated_run_length = this->input_data->template GetValues<int64_t>(0);
 
@@ -212,12 +225,14 @@ struct RunLengthDecodeExec : public EncodeDecodeCommonExec<ArrowType, has_validi
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
       validity_buffer_size = (num_values_output - 1) / 8 + 1;
-      ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBuffer(validity_buffer_size, this->pool));
+      ARROW_ASSIGN_OR_RAISE(validity_buffer,
+                            AllocateBuffer(validity_buffer_size, this->pool));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(num_values_output * sizeof(CType), this->pool));
 
-    auto& input_type = checked_cast<arrow::RunLengthEncodedType&>(*this->input_data->type);
+    auto& input_type =
+        checked_cast<arrow::RunLengthEncodedType&>(*this->input_data->type);
     auto output_type = input_type.encoded_type();
     auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
     output_array_data->buffers.push_back(std::move(validity_buffer));
@@ -247,7 +262,7 @@ struct RunLengthDecodeExec : public EncodeDecodeCommonExec<ArrowType, has_validi
           this->WriteValue(element);
           this->output_position++;
         }
-      } else { // !valid
+      } else {  // !valid
         output_position += run_length;
       }
     }
@@ -312,7 +327,6 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
-
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
