@@ -2702,4 +2702,34 @@ TEST(TestStringOps, TestInstr) {
   result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 8);
 }
+
+TEST(TestStringOps, TestUTF8toISO8859_1) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* out;
+
+  std::string s1="Â¤";
+  auto s1_len = static_cast<int32_t>(s1.size());
+  // int32_t len=2; 
+
+  out = iso_8859_1_to_utf8(ctx_ptr,s1.c_str(),s1_len,&out_len);
+  std::string output=std::string(out, out_len);
+  EXPECT_EQ(output, "¤");
+
+  // s1="Â¢"; 
+  // out = iso_8859_1_to_utf8(ctx_ptr,s1.c_str(),2,&out_len);
+  // EXPECT_EQ(std::string(out, out_len), "¢");
+
+  // s1="Â£";
+  // out = iso_8859_1_to_utf8(ctx_ptr,s1.c_str(),2,&out_len);
+  // EXPECT_EQ(std::string(out, out_len), "£");
+  
+  // s1="Â¥";
+  // // std::cout<<s1.size();
+  // out = iso_8859_1_to_utf8(ctx_ptr,s1.c_str(),2,&out_len);
+  // EXPECT_EQ(std::string(out, out_len), "¥");
+}
+
+
 }  // namespace gandiva

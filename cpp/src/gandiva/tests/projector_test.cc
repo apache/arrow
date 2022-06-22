@@ -2789,4 +2789,47 @@ TEST_F(TestProjector, TestCastBinaryBinary) {
 
   EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
 }
+
+TEST_F(TestProjector, TestISO8859_1toUTF8Function) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_base = field("from_iso_8859_1_to_utf8", arrow::utf8());
+
+  // Build expression
+  auto iso88591_toutf8expr =
+      TreeExprBuilder::MakeExpression("from_iso_8859_1_to_utf8", {field0}, field_base);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {iso88591_toutf8expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok())<< status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  auto array = MakeArrowArrayUtf8({"Â¡","Â¢","Â£","Â¤"}, {true,true,true,true});
+  auto exp_isotoutf8 =
+      MakeArrowArrayUtf8({"¡", "¢", "£", "¤"}, {true, true, true, true});
+
+
+  auto in_batch0 =
+      arrow::RecordBatch::Make(schema, num_records, {array});
+
+  // auto expected_out0 = MakeArrowArrayUtf8({"hey"}, {true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch0, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_isotoutf8, outputs.at(0));
+}
+
+
+
+
 }  // namespace gandiva

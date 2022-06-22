@@ -820,4 +820,6 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
                    int32_t substring_len);
 
+const char* iso_8859_1_to_utf8(int64_t context,const char* str,int32_t str_len,int32_t* ret_len);                   
+
 }  // extern "C"

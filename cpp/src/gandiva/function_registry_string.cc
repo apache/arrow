@@ -509,7 +509,11 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext),
 
       NativeFunction("instr", {}, DataTypeVector{utf8(), utf8()}, int32(),
-                     kResultNullIfNull, "instr_utf8")};
+                     kResultNullIfNull, "instr_utf8"),
+                     
+      NativeFunction("from_iso_8859_1_to_utf8", {}, DataTypeVector{utf8()}, utf8(),
+                           kResultNullIfNull, "iso_8859_1_to_utf8",
+                           NativeFunction::kNeedsContext)};
 
   return string_fn_registry_;
 }

@@ -3034,4 +3034,35 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
   }
   return 0;
 }
+
+const char* iso_8859_1_to_utf8(int64_t context,const char* str,int32_t str_len,int32_t* ret_len)
+{
+    if (str_len == 0) {
+      *ret_len = 0;
+      return "";
+    } 
+     
+    int j=0;
+  
+    auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 2*str_len));
+    for (int i=0;i<str_len;i++)
+    {
+        uint8_t ch = str[i];
+        if (ch < 0x80) {
+            ret[j++]=ch;
+        }
+        else {
+            ret[j++]=(0xc0 | ch >> 6);
+            ret[j++]=(0x80 | (ch & 0x3f));
+        }
+    }
+    
+  
+
+    *ret_len = static_cast<int32_t>(strlen(ret));
+    return ret;
+}
+
+
+
 }  // extern "C"
