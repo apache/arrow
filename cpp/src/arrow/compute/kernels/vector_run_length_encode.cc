@@ -39,7 +39,7 @@ struct EncodeDecodeCommonExec {
 
   void WriteValue(Element element) {
     if (has_validity_buffer) {
-      bit_util::SetBitTo(output_validity, output_position, element.valid);
+      bit_util::SetBitsTo(output_validity, output_position, 1, element.valid);
     }
     (reinterpret_cast<CType*>(output_values))[output_position] = element.value;
   }
@@ -52,7 +52,7 @@ struct EncodeDecodeCommonExec {
   uint8_t* output_validity;
   void* output_values;
   int64_t input_position;
-  size_t output_position;
+  int64_t output_position;
 };
 
 template <>
@@ -108,8 +108,8 @@ struct RunLengthEncodeExec
 
     this->input_position = 0;
     Element element = this->ReadValue();
-    size_t num_values_output = 1;
-    size_t output_null_count = element.valid ? 0 : 1;
+    int64_t num_values_output = 1;
+    int64_t output_null_count = element.valid ? 0 : 1;
     for (this->input_position = 1; this->input_position < this->input_data.length;
          this->input_position++) {
       Element previous_element = element;
@@ -213,12 +213,12 @@ struct RunLengthDecodeExec
 
   Status Exec() {
     this->input_validity =
-        this->input_data->child_data[0]->template GetValues<uint8_t>(0);
-    this->input_values = this->input_data->child_data[0]->template GetValues<CType>(1);
-    input_accumulated_run_length = this->input_data->template GetValues<int64_t>(0);
+        this->input_data.child_data[0]->template GetValues<uint8_t>(0);
+    this->input_values = this->input_data.child_data[0]->template GetValues<CType>(1);
+    input_accumulated_run_length = this->input_data.template GetValues<int64_t>(0);
 
-    int64_t num_values_input = this->input_data->child_data[0]->length;
-    int64_t num_values_output = this->input_data->length;
+    int64_t num_values_input = this->input_data.child_data[0]->length;
+    int64_t num_values_output = this->input_data.length;
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
@@ -232,12 +232,12 @@ struct RunLengthDecodeExec
                           AllocateBuffer(num_values_output * sizeof(CType), this->pool));
 
     auto& input_type =
-        checked_cast<arrow::RunLengthEncodedType&>(*this->input_data->type);
+        checked_cast<arrow::RunLengthEncodedType&>(*this->input_data.type);
     auto output_type = input_type.encoded_type();
     auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
     output_array_data->buffers.push_back(std::move(validity_buffer));
     output_array_data->buffers.push_back(std::move(values_buffer));
-    output_array_data->null_count.store(this->input_data->null_count);
+    output_array_data->null_count.store(this->input_data.null_count);
 
     this->output_validity = output_array_data->template GetMutableValues<uint8_t>(0);
     this->output_values = output_array_data->template GetMutableValues<CType>(1);
@@ -248,11 +248,11 @@ struct RunLengthDecodeExec
       this->output_validity[validity_buffer_size - 1] = 0;
     }
 
-    int64_t output_position = 0;
+    this->output_position = 0;
     int64_t run_start = 0;
-    for (int64_t input_position = 0; input_position < num_values_input;
-         input_position++) {
-      int64_t run_end = input_accumulated_run_length[input_position];
+    for (this->input_position = 0; this->input_position < num_values_input;
+         this->input_position++) {
+      int64_t run_end = input_accumulated_run_length[this->input_position];
       int64_t run_length = run_end - run_start;
       run_start = run_end;
 
@@ -263,10 +263,10 @@ struct RunLengthDecodeExec
           this->output_position++;
         }
       } else {  // !valid
-        output_position += run_length;
+        this->output_position += run_length;
       }
     }
-    ARROW_DCHECK(output_position == num_values_output);
+    ARROW_DCHECK(this->output_position == num_values_output);
 
     *this->output_datum = Datum(output_array_data);
     return Status::OK();
@@ -280,9 +280,9 @@ struct RunLengthDecodeGenerator {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
     bool has_validity_buffer = batch.values[0].array()->null_count != 0;
     if (has_validity_buffer) {
-      return RunLengthEncodeExec<Type, true>(ctx, batch, output).Exec();
+      return RunLengthDecodeExec<Type, true>(ctx, batch, output).Exec();
     } else {
-      return RunLengthEncodeExec<Type, false>(ctx, batch, output).Exec();
+      return RunLengthDecodeExec<Type, false>(ctx, batch, output).Exec();
     }
   }
 };
