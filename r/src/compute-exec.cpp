@@ -55,11 +55,10 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
       });
 }
 
-// [[arrow::export]]
-std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
+std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
+ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
+                 const std::shared_ptr<compute::ExecNode>& final_node,
+                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
@@ -89,7 +88,6 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
   }
 
   StopIfNotOk(plan->Validate());
-  StopIfNotOk(plan->StartProducing());
 
   // If the generator is destroyed before being completely drained, inform plan
   std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
@@ -109,9 +107,45 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     auto kv = strings_to_kvm(metadata);
     out_schema = out_schema->WithMetadata(kv);
   }
-  return compute::MakeGeneratorReader(
+
+  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
+      out;
+  out.first = plan;
+  out.second = compute::MakeGeneratorReader(
       out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
       gc_memory_pool());
+  return out;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    cpp11::strings metadata, int64_t head = -1) {
+  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
+  StopIfNotOk(prepared_plan.first->StartProducing());
+  return prepared_plan.second;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> ExecPlan_read_table(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    cpp11::strings metadata, int64_t head = -1) {
+  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
+#if !defined(HAS_SAFE_CALL_INTO_R)
+  StopIfNotOk(prepared_plan.first->StartProducing());
+  return ValueOrStop(prepared_plan.second->ToTable());
+#else
+  const auto& io_context = arrow::io::default_io_context();
+  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
+    return DeferNotOk(io_context.executor()->Submit([&]() {
+      StopIfNotOk(prepared_plan.first->StartProducing());
+      return prepared_plan.second->ToTable();
+    }));
+  });
+  return ValueOrStop(result);
+#endif
 }
 
 // [[arrow::export]]
