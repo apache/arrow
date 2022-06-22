@@ -40,6 +40,12 @@ namespace compute {
 static constexpr int64_t kTotalBatchSize = 1000000;
 constexpr auto kSeed = 0x94378165;
 
+/*
+    Will return batches of size length, with fields as specified.
+    null_probability controls the likelihood that an element within the batch is null,
+   across all fields. bool_true_probability controls the likelihood that an element
+   belonging to a boolean field is true.
+*/
 static std::shared_ptr<arrow::RecordBatch> GetBatchesWithNullProbability(
     const FieldVector& fields, int64_t length, double null_probability,
     double bool_true_probability = 0.5) {
@@ -114,7 +120,7 @@ arrow::compute::Expression is_not_null_and_true_expression =
 void SetArgs(benchmark::internal::Benchmark* bench) {
   for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
     bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
-        ->Args({batch_size, 50, 50})
+        ->Args({batch_size, 0, 50})
         ->UseRealTime();
   }
 }
@@ -131,8 +137,9 @@ void SelectivityArgs(benchmark::internal::Benchmark* bench) {
 
 void SetMultiPassArgs(benchmark::internal::Benchmark* bench) {
   for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
-    for (double null_prob : {0.25, 0.5, 1.0}) {
-      double bool_true_prob = 0.25 / null_prob;
+    for (double null_prob : {0.0, 0.25, 0.5, 0.75}) {
+      // we keep the number of selected elements constant for all benchmarks.
+      double bool_true_prob = 0.25 / (1 - null_prob);
       bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
           ->Args({batch_size, static_cast<int64_t>(null_prob * 100.0),
                   static_cast<int64_t>(bool_true_prob * 100)})
