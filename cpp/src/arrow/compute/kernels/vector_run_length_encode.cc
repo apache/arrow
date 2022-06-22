@@ -17,16 +17,25 @@ struct RunLengthEncodeExec {
     bool operator!=(const Element& other) const {
       return valid != other.valid || value != other.value;
     }
-
-    Element(const uint8_t* validity_buffer, const CType* value_buffer, size_t index) {
-      if (validity_buffer != NULLPTR) {
-        valid = bit_util::GetBit(validity_buffer, index);
-      } else {
-        valid = true;
-      }
-      value = value_buffer[index];
-    }
   };
+
+  Element Read() {
+    Element result;
+    if (input_validity != NULLPTR) {
+      result.valid = bit_util::GetBit(input_validity, input_position);
+    } else {
+      result.valid = true;
+    }
+    result.value = input_values[input_position];
+    return result;
+  }
+
+  void WriteValue(Element element) {
+    if (has_validity_buffer) {
+      bit_util::SetBitTo(output_validity, output_position, element.valid);
+    }
+    output_values[output_position] = element.value;
+  }
 
   RunLengthEncodeExec(KernelContext* ctx, const ExecBatch& batch, Datum* output):
     input_data{*batch.values[0].array()},
@@ -43,12 +52,13 @@ struct RunLengthEncodeExec {
     input_values = input_data.GetValues<CType>(1);
     bool has_validity_buffer = input_data.null_count != 0;
 
-    Element element = Element(input_validity, input_values, 0);
+    input_position = 0;
+    Element element = Read();
     size_t num_values_output = 1;
     size_t output_null_count = element.valid ? 0 : 1;
-    for (int64_t index = 1; index < input_data.length; index++) {
+    for (input_position = 1; input_position < input_data.length; input_position++) {
       Element previous_element = element;
-      element = Element(input_validity, input_values, index);
+      element = Read();
       if (element != previous_element) {
         num_values_output++;
         if (!element.valid) {
@@ -79,9 +89,9 @@ struct RunLengthEncodeExec {
     output_array_data->null_count.store(input_data.null_count);
     child_array_data->null_count = output_null_count;
 
-    auto output_validity = child_array_data->GetMutableValues<uint8_t>(0);
-    auto output_values = child_array_data->GetMutableValues<CType>(1);
-    auto output_run_lengths = output_array_data->GetMutableValues<int64_t>(0);
+    output_validity = child_array_data->GetMutableValues<uint8_t>(0);
+    output_values = child_array_data->GetMutableValues<CType>(1);
+    output_run_lengths = output_array_data->GetMutableValues<int64_t>(0);
     output_array_data->child_data.push_back(std::move(child_array_data));
 
     if (has_validity_buffer) {
@@ -90,21 +100,17 @@ struct RunLengthEncodeExec {
       output_validity[validity_buffer_size - 1] = 0;
     }
 
-    element = Element(input_validity, input_values, 0);
-    if (has_validity_buffer) {
-      bit_util::SetBitTo(output_validity, 0, element.valid);
-    }
-    size_t output_position = 1;
-    output_values[0] = element.value;
-    for (int64_t input_position = 1; input_position < input_data.length;
+    input_position = 0;
+    output_position = 0;
+    element = Read();
+    WriteValue(element);
+    output_position = 1;
+    for (input_position = 1; input_position < input_data.length;
          input_position++) {
       Element previous_element = element;
-      element = Element(input_validity, input_values, input_position);
+      element = Read();
       if (element != previous_element) {
-        if (has_validity_buffer) {
-          bit_util::SetBitTo(output_validity, output_position, element.valid);
-        }
-        output_values[output_position] = element.value;
+        WriteValue(element);
         // run lengths buffer holds accumulated run length values
         output_run_lengths[output_position - 1] = input_position;
         output_position++;
@@ -122,7 +128,12 @@ struct RunLengthEncodeExec {
   Datum* output_datum;
   const uint8_t* input_validity;
   const CType* input_values;
+  uint8_t* output_validity;
+  CType* output_values;
+  int64_t* output_run_lengths;
   bool has_validity_buffer;
+  int64_t input_position;
+  size_t output_position;
 };
 
 template <typename Type>
