@@ -106,6 +106,11 @@ const char* gdv_fn_castVARBINARY_int64_int64(int64_t context, gdv_int64 value,
                                              int64_t out_len, int32_t* out_length);
 
 GANDIVA_EXPORT
+const char* gdv_fn_sha512_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+                                     int32_t x_precision, int32_t x_scale,
+                                     gdv_boolean x_isvalid, int32_t* out_length);
+
+GANDIVA_EXPORT
 const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                      int32_t x_precision, int32_t x_scale,
                                      gdv_boolean x_isvalid, int32_t* out_length);
@@ -200,4 +205,132 @@ GANDIVA_EXPORT
 const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
                                        int32_t data_len, int32_t n_to_mask,
                                        int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_int8(int64_t context, gdv_int8 value, bool validity,
+                               int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_int16(int64_t context, gdv_int16 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_int32(int64_t context, gdv_int32 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_int64(int64_t context, gdv_int64 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_uint8(int64_t context, gdv_uint8 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_uint16(int64_t context, gdv_uint16 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_uint32(int64_t context, gdv_uint32 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_uint64(int64_t context, gdv_uint64 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_float32(int64_t context, gdv_float32 value, bool validity,
+                                  int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_float64(int64_t context, gdv_float64 value, bool validity,
+                                  int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_boolean(int64_t context, gdv_boolean value, bool validity,
+                                  int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_date64(int64_t context, gdv_date64 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_date32(int64_t context, gdv_date32 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_time32(int64_t context, gdv_time32 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_timestamp(int64_t context, gdv_timestamp value, bool validity,
+                                    int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha512_utf8(int64_t context, gdv_utf8 value, int32_t value_length,
+                               bool value_validity, int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_int8(int64_t context, gdv_int8 value, bool validity,
+                               int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_int16(int64_t context, gdv_int16 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_int32(int64_t context, gdv_int32 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_int64(int64_t context, gdv_int64 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_uint8(int64_t context, gdv_uint8 value, bool validity,
+                                int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_uint16(int64_t context, gdv_uint16 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_uint32(int64_t context, gdv_uint32 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_uint64(int64_t context, gdv_uint64 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_float32(int64_t context, gdv_float32 value, bool validity,
+                                  int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_float64(int64_t context, gdv_float64 value, bool validity,
+                                  int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_boolean(int64_t context, gdv_boolean value, bool validity,
+                                  int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_date64(int64_t context, gdv_date64 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_date32(int64_t context, gdv_date32 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_time32(int64_t context, gdv_time32 value, bool validity,
+                                 int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_timestamp(int64_t context, gdv_timestamp value, bool validity,
+                                    int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_utf8(int64_t context, gdv_utf8 value, int32_t value_length,
+                               bool value_validity, int32_t* out_length);
 }
