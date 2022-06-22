@@ -964,7 +964,7 @@ cdef class SubTreeFileSystem(FileSystem):
     >>> subtree.get_file_info('')
     <FileInfo for '': type=FileType.Directory>
     >>> subtree.get_file_info('sub_tree_fs.dat')
-    <FileInfo for 'sub_tree_fs.dat': type=FileType.File, size=16>
+    <FileInfo for 'sub_tree_fs.dat': type=FileType.File, size=12>
 
     For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
