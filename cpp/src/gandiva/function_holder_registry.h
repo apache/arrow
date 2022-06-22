@@ -68,7 +68,7 @@ class FunctionHolderRegistry {
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
                                  {"regexp_extract", LAMBDA_MAKER(ExtractHolder)},
                                  {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
-                                 {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
+                                 {"castINTERVALYEAR", LAMBDA_MAKER(IntervalYearsHolder)}};
     return maker_map;
   }
 };

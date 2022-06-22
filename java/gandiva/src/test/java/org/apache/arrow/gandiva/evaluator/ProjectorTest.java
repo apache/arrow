@@ -790,7 +790,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     TreeNode cond =
             TreeBuilder.makeFunction(
-                    "castintervalyear",
+                    "castINTERVALYEAR",
                     Lists.newArrayList(TreeBuilder.makeField(x)),
                     new ArrowType.Interval(IntervalUnit.YEAR_MONTH));
     ExpressionTree expr = TreeBuilder.makeExpression(cond, retType);
