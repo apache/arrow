@@ -68,7 +68,7 @@ function configure_release() {
   # S3, GCS, and re2 support only for Rtools40 (i.e. R >= 4.0)
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
-    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_R_WITH_GCS"
+    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_R_WITH_GCS -DCURL_STATICLIB"
     PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}"
   else
     # It seems that order matters
@@ -103,6 +103,10 @@ function configure_dev() {
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+  fi
+
+  if [ $(cmake_option ARROW_GCS) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS -DCURL_STATICLIB"
   fi
 
   if [ $(cmake_option ARROW_JSON) -eq 1 ]; then
