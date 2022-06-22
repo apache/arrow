@@ -44,6 +44,7 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 using UnaryRoundingOp = Result<Datum>(const Datum&, const RoundTemporalOptions,
                                       ExecContext*);
 using UnaryOp = Result<Datum>(const Datum&, ExecContext*);
+using BinaryOp = Result<Datum>(const Datum&, const Datum&, ExecContext*);
 
 template <UnaryRoundingOp& Op, std::shared_ptr<DataType>& timestamp_type,
           RoundTemporalOptions& options>
@@ -79,6 +80,24 @@ static void BenchmarkTemporal(benchmark::State& state) {
 
   for (auto _ : state) {
     ABORT_NOT_OK(Op(timestamp_array, ctx).status());
+  }
+
+  state.SetItemsProcessed(state.iterations() * array_size);
+}
+
+template <BinaryOp& Op, std::shared_ptr<DataType>& timestamp_type>
+static void BenchmarkTemporalBinary(benchmark::State& state) {
+  RegressionArgs args(state);
+  ExecContext* ctx = default_exec_context();
+
+  const int64_t array_size = args.size / sizeof(timestamp_type);
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto lhs = rand.ArrayOf(timestamp_type, args.size, args.null_proportion);
+  auto rhs = rand.ArrayOf(timestamp_type, args.size, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Op(lhs, rhs, ctx).status());
   }
 
   state.SetItemsProcessed(state.iterations() * array_size);
@@ -150,6 +169,10 @@ static void BenchmarkAssumeTimezone(benchmark::State& state) {
 
 auto zoned = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
 auto non_zoned = timestamp(TimeUnit::NANO);
+auto time32_type = time32(TimeUnit::MILLI);
+auto time64_type = time64(TimeUnit::NANO);
+auto date32_type = date32();
+auto date64_type = date64();
 
 #define DECLARE_TEMPORAL_ROUNDING_BENCHMARKS(OPTIONS)                              \
   BENCHMARK_TEMPLATE(BenchmarkTemporalRounding, CeilTemporal, zoned, OPTIONS)      \
@@ -171,6 +194,17 @@ auto non_zoned = timestamp(TimeUnit::NANO);
 
 #define DECLARE_TEMPORAL_BENCHMARKS_ZONED(OP) \
   BENCHMARK_TEMPLATE(BenchmarkTemporal, OP, zoned)->Apply(SetArgs);
+
+#define DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(OP)             \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, non_zoned)->Apply(SetArgs);   \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, zoned)->Apply(SetArgs);       \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, date64_type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, date32_type)->Apply(SetArgs);
+
+#define DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(OP)       \
+  DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(OP);                  \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, time32_type)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, time64_type)->Apply(SetArgs);
 
 // Temporal rounding benchmarks
 auto round_1_minute = RoundTemporalOptions(1, CalendarUnit::MINUTE);
@@ -214,5 +248,19 @@ BENCHMARK_TEMPLATE(BenchmarkStrptime, non_zoned)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BenchmarkStrptime, zoned)->Apply(SetArgs);
 BENCHMARK(BenchmarkAssumeTimezone)->Apply(SetArgs);
 
+// binary temporal benchmarks
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(YearsBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(QuartersBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(MonthsBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(MonthDayNanoBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(WeeksBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(DayTimeBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(DaysBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(HoursBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(MinutesBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(SecondsBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(MillisecondsBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(MicrosecondsBetween);
+DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_TIMES_AND_TIMESTAMPS(NanosecondsBetween);
 }  // namespace compute
 }  // namespace arrow

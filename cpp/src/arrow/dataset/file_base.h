@@ -320,6 +320,9 @@ class ARROW_DS_EXPORT FileWriter {
   const std::shared_ptr<FileWriteOptions>& options() const { return options_; }
   const fs::FileLocator& destination() const { return destination_locator_; }
 
+  /// \brief After Finish() is called, provides number of bytes written to file.
+  Result<int64_t> GetBytesWritten() const;
+
  protected:
   FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options,
              std::shared_ptr<io::OutputStream> destination,
@@ -335,6 +338,7 @@ class ARROW_DS_EXPORT FileWriter {
   std::shared_ptr<FileWriteOptions> options_;
   std::shared_ptr<io::OutputStream> destination_;
   fs::FileLocator destination_locator_;
+  util::optional<int64_t> bytes_written_;
 };
 
 /// \brief Options for writing a dataset.

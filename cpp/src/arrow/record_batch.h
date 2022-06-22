@@ -220,7 +220,7 @@ class ARROW_EXPORT RecordBatchReader {
  public:
   using ValueType = std::shared_ptr<RecordBatch>;
 
-  virtual ~RecordBatchReader() = default;
+  virtual ~RecordBatchReader();
 
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
@@ -242,6 +242,9 @@ class ARROW_EXPORT RecordBatchReader {
     ARROW_RETURN_NOT_OK(ReadNext(&batch));
     return batch;
   }
+
+  /// \brief finalize reader
+  virtual Status Close() { return Status::OK(); }
 
   class RecordBatchReaderIterator {
    public:

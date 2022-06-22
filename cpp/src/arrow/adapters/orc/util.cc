@@ -586,8 +586,8 @@ Status WriteGenericBatch(const Array& array, int64_t orc_offset,
     batch->hasNulls = true;
   }
   Appender<DataType, BatchType> appender{array_, batch, orc_offset, 0};
-  ArrayDataVisitor<DataType> visitor;
-  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
+  ArraySpanVisitor<DataType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*array_.data(), &appender));
   return Status::OK();
 }
 
@@ -608,8 +608,8 @@ Status WriteTimestampBatch(const Array& array, int64_t orc_offset,
                                        0,
                                        conversion_factor_from_second,
                                        conversion_factor_to_nano};
-  ArrayDataVisitor<DataType> visitor;
-  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
+  ArraySpanVisitor<DataType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*array_.data(), &appender));
   return Status::OK();
 }
 
@@ -621,8 +621,8 @@ Status WriteFixedSizeBinaryBatch(const Array& array, int64_t orc_offset,
     batch->hasNulls = true;
   }
   FixedSizeBinaryAppender appender{array_, batch, orc_offset, 0, array_.byte_width()};
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
-  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*array_.data(), &appender));
   return Status::OK();
 }
 

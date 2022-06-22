@@ -405,6 +405,9 @@ class TestS3FS : public S3TestMixin {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
+    // Most tests will create buckets
+    options_.allow_bucket_creation = true;
+    options_.allow_bucket_deletion = true;
     MakeFileSystem();
     // Set up test bucket
     {
@@ -1122,6 +1125,25 @@ TEST_F(TestS3FS, FileSystemFromUri) {
 
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);
+}
+
+TEST_F(TestS3FS, NoCreateDeleteBucket) {
+  // Create a bucket to try deleting
+  ASSERT_OK(fs_->CreateDir("test-no-delete"));
+
+  options_.allow_bucket_creation = false;
+  options_.allow_bucket_deletion = false;
+  MakeFileSystem();
+
+  auto maybe_create_dir = fs_->CreateDir("test-no-create");
+  ASSERT_RAISES(IOError, maybe_create_dir);
+  ASSERT_THAT(maybe_create_dir.message(),
+              ::testing::HasSubstr("Bucket 'test-no-create' not found"));
+
+  auto maybe_delete_dir = fs_->DeleteDir("test-no-delete");
+  ASSERT_RAISES(IOError, maybe_delete_dir);
+  ASSERT_THAT(maybe_delete_dir.message(),
+              ::testing::HasSubstr("Would delete bucket 'test-no-delete'"));
 }
 
 // Simple retry strategy that records errors encountered and its emitted retry delays

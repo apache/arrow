@@ -61,6 +61,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     google_cloud_cpp_storage
     gRPC
     GTest
+    jemalloc
     LLVM
     lz4
     nlohmann_json
@@ -100,6 +101,11 @@ endif()
 # upstream uses "lz4" not "Lz4" as package name.
 if("${lz4_SOURCE}" STREQUAL "" AND NOT "${Lz4_SOURCE}" STREQUAL "")
   set(lz4_SOURCE ${Lz4_SOURCE})
+endif()
+
+# For backward compatibility. We use bundled jemalloc by default.
+if("${jemalloc_SOURCE}" STREQUAL "")
+  set(jemalloc_SOURCE "BUNDLED")
 endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
@@ -162,6 +168,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
     build_gtest()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "jemalloc")
+    build_jemalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
@@ -300,15 +308,8 @@ if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-if(ARROW_HIVESERVER2 OR ARROW_PARQUET)
+if(ARROW_PARQUET)
   set(ARROW_WITH_THRIFT ON)
-  if(ARROW_HIVESERVER2)
-    set(ARROW_THRIFT_REQUIRED_COMPONENTS COMPILER)
-  else()
-    set(ARROW_THRIFT_REQUIRED_COMPONENTS)
-  endif()
-else()
-  set(ARROW_WITH_THRIFT OFF)
 endif()
 
 if(ARROW_FLIGHT)
@@ -1762,13 +1763,12 @@ endif()
 # ----------------------------------------------------------------------
 # jemalloc - Unix-only high-performance allocator
 
-if(ARROW_JEMALLOC)
-  message(STATUS "Building (vendored) jemalloc from source")
-  # We only use a vendored jemalloc as we want to control its version.
-  # Also our build of jemalloc is specially prefixed so that it will not
+macro(build_jemalloc)
+  # Our build of jemalloc is specially prefixed so that it will not
   # conflict with the default allocator as well as other jemalloc
   # installations.
-  # find_package(jemalloc)
+
+  message(STATUS "Building jemalloc from source")
 
   set(ARROW_JEMALLOC_USE_SHARED OFF)
   set(JEMALLOC_PREFIX
@@ -1823,15 +1823,23 @@ if(ARROW_JEMALLOC)
   set(JEMALLOC_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
-  add_library(jemalloc::jemalloc STATIC IMPORTED)
-  set_target_properties(jemalloc::jemalloc
+  add_library(jemalloc STATIC IMPORTED)
+  set_target_properties(jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
                                    IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${JEMALLOC_INCLUDE_DIR}")
-  add_dependencies(jemalloc::jemalloc jemalloc_ep)
+  add_dependencies(jemalloc jemalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc)
+
+  set(jemalloc_VENDORED TRUE)
+  # For config.h.cmake
+  set(ARROW_JEMALLOC_VENDORED ${jemalloc_VENDORED})
+endmacro()
+
+if(ARROW_JEMALLOC)
+  resolve_dependency(jemalloc)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1889,6 +1897,8 @@ if(ARROW_MIMALLOC)
   add_dependencies(toolchain mimalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
+
+  set(mimalloc_VENDORED TRUE)
 endif()
 
 # ----------------------------------------------------------------------
@@ -2204,16 +2214,20 @@ if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQ
 else()
   set(ARROW_USE_XSIMD FALSE)
 endif()
-if(ARROW_USE_XSIMD)
-  set(xsimd_SOURCE "BUNDLED")
-  resolve_dependency(xsimd)
 
-  add_library(xsimd INTERFACE IMPORTED)
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                           "${XSIMD_INCLUDE_DIR}")
+if(ARROW_USE_XSIMD)
+  resolve_dependency(xsimd REQUIRED_VERSION "8.1.0")
+
+  if(xsimd_SOURCE STREQUAL "BUNDLED")
+    add_library(xsimd INTERFACE IMPORTED)
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                             "${XSIMD_INCLUDE_DIR}")
+    else()
+      target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+    endif()
   else()
-    target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
   endif()
 endif()
 
@@ -2440,15 +2454,17 @@ if(ARROW_WITH_RE2)
   # source not uses C++ 11.
   resolve_dependency(re2 HAVE_ALT TRUE)
   if(${re2_SOURCE} STREQUAL "SYSTEM")
-    get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
-    if(NOT RE2_LIB)
-      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_RELEASE)
+    get_target_property(RE2_TYPE re2::re2 TYPE)
+    if(NOT RE2_TYPE STREQUAL "INTERFACE_LIBRARY")
+      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+      if(NOT RE2_LIB)
+        get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_RELEASE)
+      endif()
+      if(NOT RE2_LIB)
+        get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
+      endif()
+      string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
     endif()
-    if(NOT RE2_LIB)
-      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
-    endif()
-
-    string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
   endif()
   add_definitions(-DARROW_WITH_RE2)
 endif()
@@ -2638,6 +2654,11 @@ macro(resolve_dependency_absl)
         city
         civil_time
         cord
+        cord_internal
+        cordz_functions
+        cordz_handle
+        cordz_info
+        cordz_sample_token
         debugging_internal
         demangle_internal
         examine_stack
@@ -2662,6 +2683,7 @@ macro(resolve_dependency_absl)
         leak_check
         leak_check_disable
         log_severity
+        low_level_hash
         malloc_internal
         periodic_sampler
         random_distributions
@@ -2690,8 +2712,7 @@ macro(resolve_dependency_absl)
         synchronization
         throw_delegate
         time
-        time_zone
-        wyhash)
+        time_zone)
     # Abseil creates a number of header-only targets, which are needed to resolve dependencies.
     # The list can be refreshed using:
     #   comm -13 <(ls -l $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
@@ -2713,6 +2734,9 @@ macro(resolve_dependency_absl)
         config
         container_common
         container_memory
+        cordz_statistics
+        cordz_update_scope
+        cordz_update_tracker
         core_headers
         counting_allocator
         debugging
@@ -2759,6 +2783,7 @@ macro(resolve_dependency_absl)
         random_internal_wide_multiply
         random_random
         raw_hash_map
+        sample_recorder
         span
         str_format
         type_traits
@@ -2867,12 +2892,28 @@ macro(resolve_dependency_absl)
                           absl::memory
                           absl::type_traits
                           absl::utility)
-    set_property(TARGET absl::cord
+    set_property(TARGET absl::cord_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
-                          absl::base
                           absl::base_internal
                           absl::compressed_tuple
                           absl::config
+                          absl::core_headers
+                          absl::endian
+                          absl::inlined_vector
+                          absl::layout
+                          absl::raw_logging_internal
+                          absl::strings
+                          absl::throw_delegate
+                          absl::type_traits)
+    set_property(TARGET absl::cord
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
+                          absl::config
+                          absl::cord_internal
+                          absl::cordz_functions
+                          absl::cordz_info
+                          absl::cordz_update_scope
+                          absl::cordz_update_tracker
                           absl::core_headers
                           absl::endian
                           absl::fixed_array
@@ -2881,9 +2922,52 @@ macro(resolve_dependency_absl)
                           absl::optional
                           absl::raw_logging_internal
                           absl::strings
-                          absl::strings_internal
-                          absl::throw_delegate
                           absl::type_traits)
+    set_property(TARGET absl::cordz_functions
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::config
+                          absl::core_headers
+                          absl::exponential_biased
+                          absl::raw_logging_internal)
+    set_property(TARGET absl::cordz_handle
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
+                          absl::config
+                          absl::raw_logging_internal
+                          absl::synchronization)
+    set_property(TARGET absl::cordz_info
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
+                          absl::config
+                          absl::cord_internal
+                          absl::cordz_functions
+                          absl::cordz_handle
+                          absl::cordz_statistics
+                          absl::cordz_update_tracker
+                          absl::core_headers
+                          absl::inlined_vector
+                          absl::span
+                          absl::raw_logging_internal
+                          absl::stacktrace
+                          absl::synchronization)
+    set_property(TARGET absl::cordz_sample_token
+                 PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::cordz_handle
+                          absl::cordz_info)
+    set_property(TARGET absl::cordz_statistics
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::config
+                          absl::core_headers
+                          absl::cordz_update_tracker
+                          absl::synchronization)
+    set_property(TARGET absl::cordz_update_scope
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::config
+                          absl::cord_internal
+                          absl::cordz_info
+                          absl::cordz_update_tracker
+                          absl::core_headers)
+    set_property(TARGET absl::cordz_update_tracker PROPERTY INTERFACE_LINK_LIBRARIES
+                                                            absl::config)
     set_property(TARGET absl::core_headers PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
     set_property(TARGET absl::counting_allocator PROPERTY INTERFACE_LINK_LIBRARIES
                                                           absl::config)
@@ -3026,6 +3110,7 @@ macro(resolve_dependency_absl)
                           absl::flags_private_handle_accessor
                           absl::flags_program_name
                           absl::flags_reflection
+                          absl::flat_hash_map
                           absl::strings
                           absl::synchronization)
     set_property(TARGET absl::flags_usage
@@ -3050,8 +3135,9 @@ macro(resolve_dependency_absl)
                           absl::algorithm_container
                           absl::core_headers
                           absl::memory)
-    set_property(TARGET absl::function_ref PROPERTY INTERFACE_LINK_LIBRARIES
-                                                    absl::base_internal absl::meta)
+    set_property(TARGET absl::function_ref
+                 PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
+                          absl::meta)
     set_property(TARGET absl::graphcycles_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
                           absl::base
@@ -3079,7 +3165,7 @@ macro(resolve_dependency_absl)
                           absl::optional
                           absl::variant
                           absl::utility
-                          absl::wyhash)
+                          absl::low_level_hash)
     set_property(TARGET absl::hash_policy_traits PROPERTY INTERFACE_LINK_LIBRARIES
                                                           absl::meta)
     set_property(TARGET absl::hashtable_debug_hooks PROPERTY INTERFACE_LINK_LIBRARIES
@@ -3091,6 +3177,7 @@ macro(resolve_dependency_absl)
                           absl::base
                           absl::exponential_biased
                           absl::have_sse
+                          absl::sample_recorder
                           absl::synchronization)
     set_property(TARGET absl::inlined_vector_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
@@ -3123,6 +3210,12 @@ macro(resolve_dependency_absl)
                                                   absl::core_headers)
     set_property(TARGET absl::log_severity PROPERTY INTERFACE_LINK_LIBRARIES
                                                     absl::core_headers)
+    set_property(TARGET absl::low_level_hash
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::bits
+                          absl::config
+                          absl::endian
+                          absl::int128)
     set_property(TARGET absl::malloc_internal
                  PROPERTY INTERFACE_LINK_LIBRARIES
                           absl::base
@@ -3318,7 +3411,6 @@ macro(resolve_dependency_absl)
                           absl::hash_policy_traits
                           absl::hashtable_debug_hooks
                           absl::have_sse
-                          absl::layout
                           absl::memory
                           absl::meta
                           absl::optional
@@ -3330,6 +3422,8 @@ macro(resolve_dependency_absl)
                           absl::config
                           absl::core_headers
                           absl::log_severity)
+    set_property(TARGET absl::sample_recorder PROPERTY INTERFACE_LINK_LIBRARIES
+                                                       absl::base absl::synchronization)
     set_property(TARGET absl::scoped_set_env
                  PROPERTY INTERFACE_LINK_LIBRARIES absl::config
                           absl::raw_logging_internal)
@@ -3347,6 +3441,7 @@ macro(resolve_dependency_absl)
                           absl::core_headers)
     set_property(TARGET absl::statusor
                  PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::base
                           absl::status
                           absl::core_headers
                           absl::raw_logging_internal
@@ -3359,6 +3454,7 @@ macro(resolve_dependency_absl)
                           absl::atomic_hook
                           absl::config
                           absl::core_headers
+                          absl::function_ref
                           absl::raw_logging_internal
                           absl::inlined_vector
                           absl::stacktrace
@@ -3439,6 +3535,19 @@ macro(resolve_dependency_absl)
                           absl::raw_logging_internal
                           absl::strings
                           absl::time_zone)
+    set_property(TARGET absl::type_traits PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
+    set_property(TARGET absl::utility
+                 PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::config
+                          absl::type_traits)
+    set_property(TARGET absl::variant
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          absl::bad_variant_access
+                          absl::base_internal
+                          absl::config
+                          absl::core_headers
+                          absl::type_traits
+                          absl::utility)
+
     if(APPLE)
       # This is due to upstream absl::cctz issue
       # https://github.com/abseil/abseil-cpp/issues/283
@@ -3459,8 +3568,6 @@ macro(resolve_dependency_absl)
                           absl::core_headers
                           absl::type_traits
                           absl::utility)
-    set_property(TARGET absl::wyhash PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                              absl::endian absl::int128)
 
     externalproject_add(absl_ep
                         ${EP_LOG_OPTIONS}
@@ -3548,6 +3655,9 @@ macro(build_grpc)
   get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
+  # Put Abseil, etc. first so that local directories are searched
+  # before (what are likely) system directories
+  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
@@ -3555,7 +3665,6 @@ macro(build_grpc)
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
 
   if(RAPIDJSON_VENDORED)
     add_dependencies(grpc_dependencies rapidjson_ep)
@@ -3564,8 +3673,25 @@ macro(build_grpc)
   # Yuck, see https://stackoverflow.com/a/45433229/776560
   string(REPLACE ";" "|" GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
 
+  set(GRPC_C_FLAGS "${EP_C_FLAGS}")
+  set(GRPC_CXX_FLAGS "${EP_CXX_FLAGS}")
+  if(NOT MSVC)
+    # Negate warnings that gRPC cannot build under
+    # See https://github.com/grpc/grpc/issues/29417
+    set(GRPC_C_FLAGS
+        "${GRPC_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
+    )
+    set(GRPC_CXX_FLAGS
+        "${GRPC_CXX_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
+    )
+  endif()
+
   set(GRPC_CMAKE_ARGS
       "${EP_COMMON_CMAKE_ARGS}"
+      "-DCMAKE_C_FLAGS=${GRPC_C_FLAGS}"
+      "-DCMAKE_CXX_FLAGS=${GRPC_CXX_FLAGS}"
+      "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${GRPC_C_FLAGS}"
+      "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GRPC_CXX_FLAGS}"
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
       -DgRPC_ABSL_PROVIDER=package
       -DgRPC_BUILD_CSHARP_EXT=OFF
@@ -3625,8 +3751,11 @@ macro(build_grpc)
       absl::debugging_internal
       absl::demangle_internal
       absl::graphcycles_internal
+      absl::hash
       absl::int128
       absl::malloc_internal
+      absl::random_internal_pool_urbg
+      absl::random_internal_randen
       absl::raw_logging_internal
       absl::spinlock_wait
       absl::stacktrace
@@ -4322,6 +4451,14 @@ macro(build_awssdk)
       -DENABLE_UNITY_BUILD=ON
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
+  if(NOT MSVC)
+    list(APPEND
+         AWSSDK_COMMON_CMAKE_ARGS
+         # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1582
+         "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+         "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+    )
+  endif()
 
   # provide hint for AWS SDK to link with the already located openssl
   get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
@@ -4598,8 +4735,15 @@ endmacro()
 if(ARROW_WITH_UCX)
   resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
   add_library(ucx::ucx INTERFACE IMPORTED)
-  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
-  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(ucx::ucx PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                              "${UCX_INCLUDE_DIRS}")
+    set_property(TARGET ucx::ucx PROPERTY INTERFACE_LINK_LIBRARIES ucx::ucp ucx::uct
+                                          ucx::ucs)
+  else()
+    target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
+    target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
+  endif()
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

@@ -31,6 +31,9 @@ conan_args=()
 if [ -n "${ARROW_CONAN_PARQUET:-}" ]; then
   conan_args+=(--options arrow:parquet=${ARROW_CONAN_PARQUET})
 fi
+if [ -n "${ARROW_CONAN_WITH_JEMALLOC:-}" ]; then
+  conan_args+=(--options arrow:with_jemalloc=${ARROW_CONAN_WITH_JEMALLOC})
+fi
 if [ -n "${ARROW_CONAN_WITH_LZ4:-}" ]; then
   conan_args+=(--options arrow:with_lz4=${ARROW_CONAN_WITH_LZ4})
 fi

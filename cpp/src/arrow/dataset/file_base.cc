@@ -265,7 +265,18 @@ Status FileWriter::Write(RecordBatchReader* batches) {
 }
 
 Future<> FileWriter::Finish() {
-  return FinishInternal().Then([this]() { return destination_->CloseAsync(); });
+  return FinishInternal().Then([this]() -> Future<> {
+    ARROW_ASSIGN_OR_RAISE(bytes_written_, destination_->Tell());
+    return destination_->CloseAsync();
+  });
+}
+
+Result<int64_t> FileWriter::GetBytesWritten() const {
+  if (bytes_written_.has_value()) {
+    return bytes_written_.value();
+  } else {
+    return Status::Invalid("Cannot retrieve bytes written before calling Finish()");
+  }
 }
 
 namespace {

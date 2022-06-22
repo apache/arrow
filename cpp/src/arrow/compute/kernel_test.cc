@@ -266,7 +266,7 @@ TEST(OutputType, Constructors) {
   ASSERT_EQ(OutputType::COMPUTED, ty2.kind());
 
   ASSERT_OK_AND_ASSIGN(ValueDescr out_descr2, ty2.Resolve(nullptr, {}));
-  ASSERT_EQ(ValueDescr::Scalar(int32()), out_descr2);
+  ASSERT_EQ(ValueDescr::Array(int32()), out_descr2);
 
   // Copy constructor
   OutputType ty3 = ty1;
@@ -276,7 +276,7 @@ TEST(OutputType, Constructors) {
   OutputType ty4 = ty2;
   ASSERT_EQ(OutputType::COMPUTED, ty4.kind());
   ASSERT_OK_AND_ASSIGN(ValueDescr out_descr4, ty4.Resolve(nullptr, {}));
-  ASSERT_EQ(ValueDescr::Scalar(int32()), out_descr4);
+  ASSERT_EQ(ValueDescr::Array(int32()), out_descr4);
 
   // Move constructor
   OutputType ty5 = std::move(ty1);
@@ -286,7 +286,7 @@ TEST(OutputType, Constructors) {
   OutputType ty6 = std::move(ty4);
   ASSERT_EQ(OutputType::COMPUTED, ty6.kind());
   ASSERT_OK_AND_ASSIGN(ValueDescr out_descr6, ty6.Resolve(nullptr, {}));
-  ASSERT_EQ(ValueDescr::Scalar(int32()), out_descr6);
+  ASSERT_EQ(ValueDescr::Array(int32()), out_descr6);
 
   // ToString
 
@@ -300,7 +300,7 @@ TEST(OutputType, Resolve) {
   OutputType ty1(int32());
 
   ASSERT_OK_AND_ASSIGN(ValueDescr descr, ty1.Resolve(nullptr, {}));
-  ASSERT_EQ(ValueDescr::Scalar(int32()), descr);
+  ASSERT_EQ(ValueDescr::Array(int32()), descr);
 
   ASSERT_OK_AND_ASSIGN(descr,
                        ty1.Resolve(nullptr, {ValueDescr(int8(), ValueDescr::SCALAR)}));

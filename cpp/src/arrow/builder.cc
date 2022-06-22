@@ -119,7 +119,7 @@ class ARROW_EXPORT TypeErasedIntBuilder : public ArrayBuilder {
   Status AppendScalars(const ScalarVector& scalars) override {
     return builder_->AppendScalars(scalars);
   }
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     return builder_->AppendArraySlice(array, offset, length);
   }
@@ -170,7 +170,7 @@ struct DictionaryBuilderCase {
       out->reset(new internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>(
           index_type, value_type, pool));
     } else {
-      auto start_int_size = internal::GetByteWidth(*index_type);
+      auto start_int_size = index_type->byte_width();
       out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool));
     }
     return Status::OK();

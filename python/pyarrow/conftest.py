@@ -26,6 +26,7 @@ groups = [
     'hypothesis',
     'fastparquet',
     'gandiva',
+    'gcs',
     'gdb',
     'gzip',
     'hdfs',
@@ -56,6 +57,7 @@ defaults = {
     'fastparquet': False,
     'flight': False,
     'gandiva': False,
+    'gcs': False,
     'gdb': True,
     'gzip': Codec.is_available('gzip'),
     'hdfs': False,
@@ -144,6 +146,13 @@ try:
     defaults['flight'] = True
 except ImportError:
     pass
+
+try:
+    from pyarrow.fs import GcsFileSystem  # noqa
+    defaults['gcs'] = True
+except ImportError:
+    pass
+
 
 try:
     from pyarrow.fs import S3FileSystem  # noqa

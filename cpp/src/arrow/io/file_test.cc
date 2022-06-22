@@ -48,6 +48,7 @@ namespace arrow {
 
 using internal::CreatePipe;
 using internal::FileClose;
+using internal::FileDescriptor;
 using internal::FileGetSize;
 using internal::FileOpenReadable;
 using internal::FileOpenWritable;
@@ -93,11 +94,11 @@ class TestFileOutputStream : public FileTestFixture {
   }
 
   void OpenFileDescriptor() {
-    int fd_file;
     ASSERT_OK_AND_ASSIGN(auto file_name, PlatformFilename::FromString(path_));
-    ASSERT_OK_AND_ASSIGN(fd_file, FileOpenWritable(file_name, true /* write_only */,
-                                                   false /* truncate */));
-    ASSERT_OK_AND_ASSIGN(file_, FileOutputStream::Open(fd_file));
+    ASSERT_OK_AND_ASSIGN(
+        FileDescriptor fd,
+        FileOpenWritable(file_name, true /* write_only */, false /* truncate */));
+    ASSERT_OK_AND_ASSIGN(file_, FileOutputStream::Open(fd.Detach()));
   }
 
  protected:
@@ -155,18 +156,20 @@ TEST_F(TestFileOutputStream, FromFileDescriptor) {
 
   std::string data1 = "test";
   ASSERT_OK(file_->Write(data1.data(), data1.size()));
-  int fd = file_->file_descriptor();
+  int raw_fd = file_->file_descriptor();
   ASSERT_OK(file_->Close());
-  ASSERT_TRUE(FileIsClosed(fd));
+  ASSERT_TRUE(FileIsClosed(raw_fd));
 
   AssertFileContents(path_, data1);
 
   // Re-open at end of file
   ASSERT_OK_AND_ASSIGN(auto file_name, PlatformFilename::FromString(path_));
   ASSERT_OK_AND_ASSIGN(
-      fd, FileOpenWritable(file_name, true /* write_only */, false /* truncate */));
-  ASSERT_OK(FileSeek(fd, 0, SEEK_END));
-  ASSERT_OK_AND_ASSIGN(file_, FileOutputStream::Open(fd));
+      FileDescriptor fd,
+      FileOpenWritable(file_name, true /* write_only */, false /* truncate */));
+  raw_fd = fd.Detach();
+  ASSERT_OK(FileSeek(raw_fd, 0, SEEK_END));
+  ASSERT_OK_AND_ASSIGN(file_, FileOutputStream::Open(raw_fd));
 
   std::string data2 = "data";
   ASSERT_OK(file_->Write(data2.data(), data2.size()));
@@ -270,24 +273,24 @@ TEST_F(TestReadableFile, Close) {
 TEST_F(TestReadableFile, FromFileDescriptor) {
   MakeTestFile();
 
-  int fd = -2;
   ASSERT_OK_AND_ASSIGN(auto file_name, PlatformFilename::FromString(path_));
-  ASSERT_OK_AND_ASSIGN(fd, FileOpenReadable(file_name));
-  ASSERT_GE(fd, 0);
-  ASSERT_OK(FileSeek(fd, 4));
+  ASSERT_OK_AND_ASSIGN(FileDescriptor fd, FileOpenReadable(file_name));
+  int raw_fd = fd.fd();
+  ASSERT_GE(raw_fd, 0);
+  ASSERT_OK(FileSeek(raw_fd, 4));
 
-  ASSERT_OK_AND_ASSIGN(file_, ReadableFile::Open(fd));
-  ASSERT_EQ(file_->file_descriptor(), fd);
+  ASSERT_OK_AND_ASSIGN(file_, ReadableFile::Open(fd.Detach()));
+  ASSERT_EQ(file_->file_descriptor(), raw_fd);
   ASSERT_OK_AND_ASSIGN(auto buf, file_->Read(5));
   ASSERT_EQ(buf->size(), 4);
   ASSERT_TRUE(buf->Equals(Buffer("data")));
 
-  ASSERT_FALSE(FileIsClosed(fd));
+  ASSERT_FALSE(FileIsClosed(raw_fd));
   ASSERT_OK(file_->Close());
-  ASSERT_TRUE(FileIsClosed(fd));
+  ASSERT_TRUE(FileIsClosed(raw_fd));
   // Idempotent
   ASSERT_OK(file_->Close());
-  ASSERT_TRUE(FileIsClosed(fd));
+  ASSERT_TRUE(FileIsClosed(raw_fd));
 }
 
 TEST_F(TestReadableFile, Peek) {
@@ -500,26 +503,18 @@ TEST_F(TestReadableFile, ThreadSafety) {
 class TestPipeIO : public ::testing::Test {
  public:
   void MakePipe() {
-    ASSERT_OK_AND_ASSIGN(auto pipe, CreatePipe());
-    r_ = pipe.rfd;
-    w_ = pipe.wfd;
-    ASSERT_GE(r_, 0);
-    ASSERT_GE(w_, 0);
+    ASSERT_OK_AND_ASSIGN(pipe_, CreatePipe());
+    ASSERT_GE(pipe_.rfd.fd(), 0);
+    ASSERT_GE(pipe_.rfd.fd(), 0);
   }
   void ClosePipe() {
-    if (r_ != -1) {
-      ASSERT_OK(FileClose(r_));
-      r_ = -1;
-    }
-    if (w_ != -1) {
-      ASSERT_OK(FileClose(w_));
-      w_ = -1;
-    }
+    ASSERT_OK(pipe_.rfd.Close());
+    ASSERT_OK(pipe_.wfd.Close());
   }
   void TearDown() { ClosePipe(); }
 
  protected:
-  int r_ = -1, w_ = -1;
+  ::arrow::internal::Pipe pipe_;
 };
 
 TEST_F(TestPipeIO, TestWrite) {
@@ -529,33 +524,32 @@ TEST_F(TestPipeIO, TestWrite) {
   int64_t bytes_read;
 
   MakePipe();
-  ASSERT_OK_AND_ASSIGN(file, FileOutputStream::Open(w_));
-  w_ = -1;  // now owned by FileOutputStream
+  ASSERT_OK_AND_ASSIGN(file, FileOutputStream::Open(pipe_.wfd.Detach()));
 
   ASSERT_OK(file->Write(data1.data(), data1.size()));
-  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(r_, buffer, 4));
+  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(pipe_.rfd.fd(), buffer, 4));
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "test", 4));
 
   ASSERT_OK(file->Write(Buffer::FromString(std::string(data2))));
-  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(r_, buffer, 4));
+  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(pipe_.rfd.fd(), buffer, 4));
   ASSERT_EQ(bytes_read, 4);
   ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
 
   ASSERT_FALSE(file->closed());
   ASSERT_OK(file->Close());
   ASSERT_TRUE(file->closed());
-  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(r_, buffer, 2));
+  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(pipe_.rfd.fd(), buffer, 2));
   ASSERT_EQ(bytes_read, 1);
   ASSERT_EQ(0, std::memcmp(buffer, "!", 1));
   // EOF reached
-  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(r_, buffer, 2));
+  ASSERT_OK_AND_ASSIGN(bytes_read, FileRead(pipe_.rfd.fd(), buffer, 2));
   ASSERT_EQ(bytes_read, 0);
 }
 
 TEST_F(TestPipeIO, ReadableFileFails) {
   // ReadableFile fails on non-seekable fd
-  ASSERT_RAISES(IOError, ReadableFile::Open(r_));
+  ASSERT_RAISES(IOError, ReadableFile::Open(pipe_.rfd.fd()));
 }
 
 // ----------------------------------------------------------------------

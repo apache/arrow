@@ -95,7 +95,6 @@ cmake \
   -DARROW_GANDIVA=${ARROW_GANDIVA:-OFF} \
   -DARROW_GCS=${ARROW_GCS:-OFF} \
   -DARROW_HDFS=${ARROW_HDFS:-ON} \
-  -DARROW_HIVESERVER2=${ARROW_HIVESERVER2:-OFF} \
   -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
   -DARROW_JNI=${ARROW_JNI:-OFF} \
@@ -161,6 +160,7 @@ cmake \
   -DThrift_SOURCE=${Thrift_SOURCE:-} \
   -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
   -Dzstd_SOURCE=${zstd_SOURCE:-} \
+  -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
   -G "${CMAKE_GENERATOR:-Ninja}" \
   ${CMAKE_ARGS} \
   ${source_dir}

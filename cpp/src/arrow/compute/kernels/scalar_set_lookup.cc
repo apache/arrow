@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/array/array_base.h"
-#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common.h"
@@ -40,7 +39,7 @@ struct SetLookupState : public KernelState {
   explicit SetLookupState(MemoryPool* pool) : lookup_table(pool, 0) {}
 
   Status Init(const SetLookupOptions& options) {
-    if (options.value_set.kind() == Datum::ARRAY) {
+    if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
       RETURN_NOT_OK(AddArrayValueSet(options, *options.value_set.array()));
@@ -90,7 +89,7 @@ struct SetLookupState : public KernelState {
       return Status::OK();
     };
 
-    return VisitArrayDataInline<Type>(data, visit_valid, visit_null);
+    return VisitArraySpanInline<Type>(data, visit_valid, visit_null);
   }
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;
@@ -227,26 +226,23 @@ Result<std::unique_ptr<KernelState>> InitSetLookup(KernelContext* ctx,
 
 struct IndexInVisitor {
   KernelContext* ctx;
-  const ArrayData& data;
-  Datum* out;
-  Int32Builder builder;
+  const ArraySpan& data;
+  ArraySpan* out;
+  uint8_t* out_bitmap;
 
-  IndexInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
-      : ctx(ctx), data(data), out(out), builder(ctx->exec_context()->memory_pool()) {}
+  IndexInVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
+      : ctx(ctx), data(data), out(out), out_bitmap(out->buffers[0].data) {}
 
   Status Visit(const DataType& type) {
     DCHECK_EQ(type.id(), Type::NA);
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
+
     if (data.length != 0) {
       // skip_nulls is honored for consistency with other types
-      if (state.value_set_has_null) {
-        RETURN_NOT_OK(this->builder.Reserve(data.length));
-        for (int64_t i = 0; i < data.length; ++i) {
-          this->builder.UnsafeAppend(0);
-        }
-      } else {
-        RETURN_NOT_OK(this->builder.AppendNulls(data.length));
-      }
+      bit_util::SetBitsTo(out_bitmap, out->offset, out->length, state.value_set_has_null);
+
+      // Set all values to 0, which will be unmasked only if null is in the value_set
+      std::memset(out->GetValues<int32_t>(1), 0x00, out->length * sizeof(int32_t));
     }
     return Status::OK();
   }
@@ -257,28 +253,38 @@ struct IndexInVisitor {
 
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
 
-    RETURN_NOT_OK(this->builder.Reserve(data.length));
-    VisitArrayDataInline<Type>(
+    FirstTimeBitmapWriter bitmap_writer(out_bitmap, out->offset, out->length);
+    int32_t* out_data = out->GetValues<int32_t>(1);
+    VisitArraySpanInline<Type>(
         data,
         [&](T v) {
           int32_t index = state.lookup_table.Get(v);
           if (index != -1) {
+            bitmap_writer.Set();
+
             // matching needle; output index from value_set
-            this->builder.UnsafeAppend(state.memo_index_to_value_index[index]);
+            *out_data++ = state.memo_index_to_value_index[index];
           } else {
             // no matching needle; output null
-            this->builder.UnsafeAppendNull();
+            bitmap_writer.Clear();
+            *out_data++ = 0;
           }
+          bitmap_writer.Next();
         },
         [&]() {
           if (state.null_index != -1) {
+            bitmap_writer.Set();
+
             // value_set included null
-            this->builder.UnsafeAppend(state.null_index);
+            *out_data++ = state.null_index;
           } else {
             // value_set does not include null; output null
-            this->builder.UnsafeAppendNull();
+            bitmap_writer.Clear();
+            *out_data++ = 0;
           }
+          bitmap_writer.Next();
         });
+    bitmap_writer.Finish();
     return Status::OK();
   }
 
@@ -310,20 +316,11 @@ struct IndexInVisitor {
     return ProcessIndexIn<MonthDayNanoIntervalType>();
   }
 
-  Status Execute() {
-    Status s = VisitTypeInline(*data.type, this);
-    if (!s.ok()) {
-      return s;
-    }
-    std::shared_ptr<ArrayData> out_data;
-    RETURN_NOT_OK(this->builder.FinishInternal(&out_data));
-    out->value = std::move(out_data);
-    return Status::OK();
-  }
+  Status Execute() { return VisitTypeInline(*data.type, this); }
 };
 
-Status ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  return IndexInVisitor(ctx, *batch[0].array(), out).Execute();
+Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return IndexInVisitor(ctx, batch[0].array, out->array_span()).Execute();
 }
 
 // ----------------------------------------------------------------------
@@ -331,19 +328,18 @@ Status ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 // IsIn writes the results into a preallocated boolean data bitmap
 struct IsInVisitor {
   KernelContext* ctx;
-  const ArrayData& data;
-  Datum* out;
+  const ArraySpan& data;
+  ArraySpan* out;
 
-  IsInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
+  IsInVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
       : ctx(ctx), data(data), out(out) {}
 
   Status Visit(const DataType& type) {
     DCHECK_EQ(type.id(), Type::NA);
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
-    ArrayData* output = out->mutable_array();
     // skip_nulls is honored for consistency with other types
-    bit_util::SetBitsTo(output->buffers[1]->mutable_data(), output->offset,
-                        output->length, state.value_set_has_null);
+    bit_util::SetBitsTo(out->buffers[1].data, out->offset, out->length,
+                        state.value_set_has_null);
     return Status::OK();
   }
 
@@ -351,12 +347,9 @@ struct IsInVisitor {
   Status ProcessIsIn() {
     using T = typename GetViewType<Type>::T;
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
-    ArrayData* output = out->mutable_array();
 
-    FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
-                                 output->length);
-
-    VisitArrayDataInline<Type>(
+    FirstTimeBitmapWriter writer(out->buffers[1].data, out->offset, out->length);
+    VisitArraySpanInline<Type>(
         this->data,
         [&](T v) {
           if (state.lookup_table.Get(v) != -1) {
@@ -408,8 +401,8 @@ struct IsInVisitor {
   Status Execute() { return VisitTypeInline(*data.type, this); }
 };
 
-Status ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  return IsInVisitor(ctx, *batch[0].array(), out).Execute();
+Status ExecIsIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return IsInVisitor(ctx, batch[0].array, out->array_span()).Execute();
 }
 
 // Unary set lookup kernels available for the following input types
@@ -525,8 +518,9 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
-    isin_base.exec =
-        TrivialScalarUnaryAsArraysExec(ExecIsIn, NullHandling::OUTPUT_NOT_NULL);
+    isin_base.exec = TrivialScalarUnaryAsArraysExec(ExecIsIn,
+                                                    /*use_array_span=*/true,
+                                                    NullHandling::OUTPUT_NOT_NULL);
     isin_base.null_handling = NullHandling::OUTPUT_NOT_NULL;
     auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), is_in_doc);
 
@@ -539,14 +533,14 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::make_shared<IsInMetaBinary>()));
   }
 
-  // IndexIn uses Int32Builder and so is responsible for all its own allocation
+  // IndexIn writes its int32 output into preallocated memory
   {
     ScalarKernel index_in_base;
     index_in_base.init = InitSetLookup;
     index_in_base.exec = TrivialScalarUnaryAsArraysExec(
-        ExecIndexIn, NullHandling::COMPUTED_NO_PREALLOCATE);
-    index_in_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-    index_in_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
+        ExecIndexIn,
+        /*use_array_span=*/true, NullHandling::COMPUTED_PREALLOCATE);
+    index_in_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     auto index_in =
         std::make_shared<SetLookupFunction>("index_in", Arity::Unary(), index_in_doc);
 

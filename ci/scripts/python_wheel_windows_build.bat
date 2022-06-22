@@ -47,6 +47,9 @@ set ARROW_WITH_LZ4=ON
 set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
+@rem Workaround for https://github.com/aws/aws-sdk-cpp/issues/1809 .
+@rem Use (old) bundled AWS SDK C++ instead of (newer) AWS SDK C++.
+set AWSSDK_SOURCE=BUNDLED
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
 set VCPKG_ROOT=C:\vcpkg
@@ -81,7 +84,7 @@ cmake ^
     -DARROW_WITH_SNAPPY=%ARROW_WITH_SNAPPY% ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
-    -DAWSSDK_SOURCE=BUNDLED ^
+    -DAWSSDK_SOURCE=%AWSSDK_SOURCE% ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
     -DCMAKE_CXX_COMPILER=clcache ^
     -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^

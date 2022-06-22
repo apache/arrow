@@ -90,13 +90,20 @@ TEST(SelectionVector, Basics) {
   ASSERT_EQ(3, sel_vector->indices()[1]);
 }
 
+void AssertValidityZeroExtraBits(const uint8_t* data, int64_t length, int64_t offset) {
+  const int64_t bit_extent = ((offset + length + 7) / 8) * 8;
+  for (int64_t i = offset + length; i < bit_extent; ++i) {
+    EXPECT_FALSE(bit_util::GetBit(data, i)) << i;
+  }
+}
+
+void AssertValidityZeroExtraBits(const ArraySpan& arr) {
+  return AssertValidityZeroExtraBits(arr.buffers[0].data, arr.length, arr.offset);
+}
+
 void AssertValidityZeroExtraBits(const ArrayData& arr) {
   const Buffer& buf = *arr.buffers[0];
-
-  const int64_t bit_extent = ((arr.offset + arr.length + 7) / 8) * 8;
-  for (int64_t i = arr.offset + arr.length; i < bit_extent; ++i) {
-    EXPECT_FALSE(bit_util::GetBit(buf.data(), i)) << i;
-  }
+  return AssertValidityZeroExtraBits(buf.data(), arr.length, arr.offset);
 }
 
 class TestComputeInternals : public ::testing::Test {
@@ -137,6 +144,9 @@ class TestComputeInternals : public ::testing::Test {
   std::unique_ptr<random::RandomArrayGenerator> rng_;
 };
 
+// ----------------------------------------------------------------------
+// Test PropagateNulls
+
 class TestPropagateNulls : public TestComputeInternals {};
 
 TEST_F(TestPropagateNulls, UnknownNullCountWithNullsZeroCopies) {
@@ -149,7 +159,7 @@ TEST_F(TestPropagateNulls, UnknownNullCountWithNullsZeroCopies) {
   ArrayData input(boolean(), length, {nulls, nullptr}, kUnknownNullCount);
 
   ExecBatch batch({input}, length);
-  ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+  ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
   ASSERT_EQ(nulls.get(), output.buffers[0].get());
   ASSERT_EQ(kUnknownNullCount, output.null_count);
   ASSERT_EQ(9, output.GetNullCount());
@@ -164,7 +174,7 @@ TEST_F(TestPropagateNulls, UnknownNullCountWithoutNulls) {
   ArrayData input(boolean(), length, {nulls, nullptr}, kUnknownNullCount);
 
   ExecBatch batch({input}, length);
-  ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+  ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
   EXPECT_EQ(-1, output.null_count);
   EXPECT_EQ(nulls.get(), output.buffers[0].get());
 }
@@ -185,7 +195,7 @@ TEST_F(TestPropagateNulls, SetAllNulls) {
     ArrayData output(boolean(), length, buffers);
 
     ExecBatch batch(values, length);
-    ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+    ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
 
     if (preallocate) {
       // Ensure that buffer object the same when we pass in preallocated memory
@@ -228,7 +238,7 @@ TEST_F(TestPropagateNulls, SetAllNulls) {
     // null-scalar earlier in the batch
     ArrayData output(boolean(), length, {nullptr, nullptr});
     ExecBatch batch({MakeNullScalar(boolean()), arr_all_nulls}, length);
-    ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+    ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
     ASSERT_EQ(arr_all_nulls->data()->buffers[0].get(), output.buffers[0].get());
   }
 }
@@ -260,7 +270,7 @@ TEST_F(TestPropagateNulls, SingleValueWithNulls) {
       ASSERT_EQ(0, output.offset);
     }
 
-    ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+    ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
 
     if (!preallocate) {
       const Buffer* parent_buf = arr->data()->buffers[0].get();
@@ -308,14 +318,14 @@ TEST_F(TestPropagateNulls, ZeroCopyWhenZeroNullsOnOneInput) {
 
   ArrayData output(boolean(), length, {nullptr, nullptr});
   ExecBatch batch({some_nulls, no_nulls}, length);
-  ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+  ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
   ASSERT_EQ(nulls.get(), output.buffers[0].get());
   ASSERT_EQ(9, output.null_count);
 
   // Flip order of args
   output = ArrayData(boolean(), length, {nullptr, nullptr});
   batch.values = {no_nulls, no_nulls, some_nulls};
-  ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+  ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
   ASSERT_EQ(nulls.get(), output.buffers[0].get());
   ASSERT_EQ(9, output.null_count);
 
@@ -324,7 +334,7 @@ TEST_F(TestPropagateNulls, ZeroCopyWhenZeroNullsOnOneInput) {
   auto preallocated_mem = std::make_shared<MutableBuffer>(bitmap_data, 2);
   output.null_count = kUnknownNullCount;
   output.buffers[0] = preallocated_mem;
-  ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+  ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
 
   ASSERT_EQ(preallocated_mem.get(), output.buffers[0].get());
   ASSERT_EQ(9, output.null_count);
@@ -366,7 +376,7 @@ TEST_F(TestPropagateNulls, IntersectsNulls) {
     ArrayData output(boolean(), length, {nulls, nullptr});
     output.offset = output_offset;
 
-    ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+    ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
 
     // Preallocated memory used
     if (preallocate) {
@@ -405,8 +415,247 @@ TEST_F(TestPropagateNulls, NullOutputTypeNoop) {
   ExecBatch batch({rng_->Boolean(100, 0.5, 0.5)}, length);
 
   ArrayData output(null(), length, {nullptr});
-  ASSERT_OK(PropagateNulls(ctx_.get(), batch, &output));
+  ASSERT_OK(PropagateNulls(ctx_.get(), ExecSpan(batch), &output));
   ASSERT_EQ(nullptr, output.buffers[0]);
+}
+
+// ----------------------------------------------------------------------
+// Test PropagateNullsSpans (new span-based implementation). Some of
+// the tests above had to be rewritten because the span-based
+// implementation does not deal with zero-copy optimizations right now
+
+class TestPropagateNullsSpans : public TestComputeInternals {};
+
+TEST_F(TestPropagateNullsSpans, UnknownNullCountWithNullsZeroCopies) {
+  const int64_t length = 16;
+
+  const uint8_t validity_bitmap[8] = {254, 0, 0, 0, 0, 0, 0, 0};
+  auto nulls = std::make_shared<Buffer>(validity_bitmap, 8);
+  auto ty = boolean();
+  ArrayData input(ty, length, {nulls, nullptr}, kUnknownNullCount);
+
+  uint8_t validity_bitmap2[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  auto nulls2 = std::make_shared<Buffer>(validity_bitmap2, 8);
+  ArraySpan output(ty.get(), length);
+  output.buffers[0].data = validity_bitmap2;
+  output.buffers[0].size = 0;
+
+  ExecSpan span(ExecBatch({input}, length));
+  PropagateNullsSpans(span, &output);
+  ASSERT_EQ(kUnknownNullCount, output.null_count);
+  ASSERT_EQ(9, output.GetNullCount());
+}
+
+TEST_F(TestPropagateNullsSpans, UnknownNullCountWithoutNulls) {
+  const int64_t length = 16;
+  constexpr uint8_t validity_bitmap[8] = {255, 255, 0, 0, 0, 0, 0, 0};
+  auto nulls = std::make_shared<Buffer>(validity_bitmap, 8);
+
+  auto ty = boolean();
+  ArrayData input(ty, length, {nulls, nullptr}, kUnknownNullCount);
+
+  uint8_t validity_bitmap2[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  auto nulls2 = std::make_shared<Buffer>(validity_bitmap2, 8);
+  ArraySpan output(ty.get(), length);
+  output.buffers[0].data = validity_bitmap2;
+  output.buffers[0].size = 0;
+
+  ExecSpan span(ExecBatch({input}, length));
+  PropagateNullsSpans(span, &output);
+  ASSERT_EQ(kUnknownNullCount, output.null_count);
+  ASSERT_EQ(0, output.GetNullCount());
+}
+
+TEST_F(TestPropagateNullsSpans, SetAllNulls) {
+  const int64_t length = 16;
+
+  auto CheckSetAllNull = [&](std::vector<Datum> values) {
+    // Make fresh bitmap with all 1's
+    uint8_t bitmap_data[2] = {255, 255};
+    auto buf = std::make_shared<MutableBuffer>(bitmap_data, 2);
+
+    auto ty = boolean();
+    ArraySpan output(ty.get(), length);
+    output.SetBuffer(0, buf);
+
+    ExecSpan span(ExecBatch(values, length));
+    PropagateNullsSpans(span, &output);
+
+    uint8_t expected[2] = {0, 0};
+    ASSERT_EQ(0, std::memcmp(output.buffers[0].data, expected, output.buffers[0].size));
+  };
+
+  // There is a null scalar
+  std::shared_ptr<Scalar> i32_val = std::make_shared<Int32Scalar>(3);
+  std::vector<Datum> vals = {i32_val, MakeNullScalar(boolean())};
+  CheckSetAllNull(vals);
+
+  const double true_prob = 0.5;
+  vals[0] = rng_->Boolean(length, true_prob);
+  CheckSetAllNull(vals);
+
+  auto arr_all_nulls = rng_->Boolean(length, true_prob, /*null_probability=*/1);
+
+  // One value is all null
+  vals = {rng_->Boolean(length, true_prob, /*null_probability=*/0.5), arr_all_nulls};
+  CheckSetAllNull(vals);
+
+  // A value is NullType
+  std::shared_ptr<Array> null_arr = std::make_shared<NullArray>(length);
+  vals = {rng_->Boolean(length, true_prob), null_arr};
+  CheckSetAllNull(vals);
+}
+
+TEST_F(TestPropagateNullsSpans, SingleValueWithNulls) {
+  // Input offset is non-zero (0 mod 8 and nonzero mod 8 cases)
+  const int64_t length = 100;
+  auto arr = rng_->Boolean(length, 0.5, /*null_probability=*/0.5);
+
+  auto CheckSliced = [&](int64_t offset, int64_t out_offset = 0) {
+    // Unaligned bitmap, zero copy not possible
+    auto sliced = arr->Slice(offset);
+    std::vector<Datum> vals = {sliced};
+
+    auto ty = boolean();
+    ArraySpan output(ty.get(), vals[0].length());
+    output.offset = out_offset;
+
+    std::shared_ptr<Buffer> preallocated_bitmap;
+    ASSERT_OK_AND_ASSIGN(
+        preallocated_bitmap,
+        AllocateBuffer(bit_util::BytesForBits(sliced->length() + out_offset)));
+    std::memset(preallocated_bitmap->mutable_data(), 0, preallocated_bitmap->size());
+    output.SetBuffer(0, preallocated_bitmap);
+
+    ExecBatch batch(vals, vals[0].length());
+    PropagateNullsSpans(ExecSpan(batch), &output);
+    ASSERT_EQ(arr->Slice(offset)->null_count(), output.GetNullCount());
+    ASSERT_TRUE(BitmapEquals(output.buffers[0].data, output.offset,
+                             sliced->null_bitmap_data(), sliced->offset(),
+                             output.length));
+    AssertValidityZeroExtraBits(output);
+  };
+
+  CheckSliced(8);
+  CheckSliced(7);
+  CheckSliced(8, /*offset=*/4);
+  CheckSliced(7, /*offset=*/4);
+}
+
+TEST_F(TestPropagateNullsSpans, CasesThatUsedToBeZeroCopy) {
+  // ARROW-16576: testing behaviors that used to be zero copy but are
+  // not anymore
+  const int64_t length = 16;
+
+  auto ty = boolean();
+  constexpr uint8_t validity_bitmap[8] = {254, 0, 0, 0, 0, 0, 0, 0};
+  auto nulls = std::make_shared<Buffer>(validity_bitmap, 8);
+
+  ArraySpan some_nulls(ty.get(), length);
+  some_nulls.SetBuffer(0, nulls);
+  some_nulls.null_count = 9;
+
+  ArraySpan no_nulls(ty.get(), length);
+  no_nulls.null_count = 0;
+
+  {
+    uint8_t bitmap_data[2] = {0, 0};
+    auto preallocated_mem = std::make_shared<Buffer>(bitmap_data, 2);
+
+    ArraySpan output(ty.get(), length);
+    output.SetBuffer(0, preallocated_mem);
+    PropagateNullsSpans(ExecSpan({some_nulls, no_nulls}, length), &output);
+    ASSERT_EQ(
+        0, std::memcmp(output.buffers[0].data, validity_bitmap, output.buffers[0].size));
+    ASSERT_EQ(output.buffers[0].owner, &preallocated_mem);
+    ASSERT_EQ(9, output.GetNullCount());
+  }
+
+  // Flip order of args
+  {
+    uint8_t bitmap_data[2] = {0, 0};
+    auto preallocated_mem = std::make_shared<Buffer>(bitmap_data, 2);
+
+    ArraySpan output(ty.get(), length);
+    output.SetBuffer(0, preallocated_mem);
+    PropagateNullsSpans(ExecSpan({no_nulls, no_nulls, some_nulls}, length), &output);
+    ASSERT_EQ(
+        0, std::memcmp(output.buffers[0].data, validity_bitmap, output.buffers[0].size));
+    ASSERT_EQ(output.buffers[0].owner, &preallocated_mem);
+    ASSERT_EQ(9, output.GetNullCount());
+  }
+}
+
+TEST_F(TestPropagateNullsSpans, IntersectsNulls) {
+  const int64_t length = 16;
+
+  // 0b01111111 0b11001111
+  constexpr uint8_t bitmap1[8] = {127, 207, 0, 0, 0, 0, 0, 0};
+  auto buffer1 = std::make_shared<Buffer>(bitmap1, 8);
+
+  // 0b11111110 0b01111111
+  constexpr uint8_t bitmap2[8] = {254, 127, 0, 0, 0, 0, 0, 0};
+  auto buffer2 = std::make_shared<Buffer>(bitmap2, 8);
+
+  // 0b11101111 0b11111110
+  constexpr uint8_t bitmap3[8] = {239, 254, 0, 0, 0, 0, 0, 0};
+  auto buffer3 = std::make_shared<Buffer>(bitmap3, 8);
+
+  auto ty = boolean();
+
+  ArraySpan arr1(ty.get(), length);
+  arr1.SetBuffer(0, buffer1);
+
+  ArraySpan arr2(ty.get(), length);
+  arr2.SetBuffer(0, buffer2);
+
+  ArraySpan arr3(ty.get(), length);
+  arr3.SetBuffer(0, buffer3);
+
+  auto CheckCase = [&](std::vector<ExecValue> values, int64_t ex_null_count,
+                       const uint8_t* ex_bitmap, int64_t output_offset = 0) {
+    ExecSpan batch(values, length);
+
+    std::shared_ptr<Buffer> nulls;
+    // Make the buffer one byte bigger so we can have non-zero offsets
+    ASSERT_OK_AND_ASSIGN(nulls, AllocateBuffer(3));
+    std::memset(nulls->mutable_data(), 0, nulls->size());
+
+    ArraySpan output(ty.get(), length);
+    output.SetBuffer(0, nulls);
+    output.offset = output_offset;
+
+    PropagateNullsSpans(batch, &output);
+    ASSERT_EQ(&nulls, output.buffers[0].owner);
+    EXPECT_EQ(kUnknownNullCount, output.null_count);
+    EXPECT_EQ(ex_null_count, output.GetNullCount());
+    ASSERT_TRUE(BitmapEquals(output.buffers[0].data, output_offset, ex_bitmap,
+                             /*ex_offset=*/0, length));
+
+    // Now check that the rest of the bits in out_buffer are still 0
+    AssertValidityZeroExtraBits(output);
+  };
+
+  // 0b01101110 0b01001110
+  uint8_t expected1[2] = {110, 78};
+  CheckCase({arr1, arr2, arr3}, 7, expected1);
+  CheckCase({arr1, arr2, arr3}, 7, expected1, /*output_offset=*/4);
+
+  // 0b01111110 0b01001111
+  uint8_t expected2[2] = {126, 79};
+  CheckCase({arr1, arr2}, 5, expected2, /*output_offset=*/4);
+}
+
+TEST_F(TestPropagateNullsSpans, NullOutputTypeNoop) {
+  // Ensure we leave the buffers alone when the output type is null()
+  // TODO(wesm): is this test useful? Can probably delete
+  const int64_t length = 100;
+  ExecBatch batch({rng_->Boolean(100, 0.5, 0.5)}, length);
+
+  auto ty = null();
+  ArraySpan result(ty.get(), length);
+  PropagateNullsSpans(ExecSpan(batch), &result);
+  ASSERT_EQ(nullptr, result.buffers[0].data);
 }
 
 // ----------------------------------------------------------------------
@@ -541,58 +790,201 @@ TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
 }
 
 // ----------------------------------------------------------------------
+// ExecSpanIterator tests
+
+class TestExecSpanIterator : public TestComputeInternals {
+ public:
+  void SetupIterator(const ExecBatch& batch,
+                     ValueDescr::Shape output_shape = ValueDescr::ARRAY,
+                     int64_t max_chunksize = kDefaultMaxChunksize) {
+    ASSERT_OK(iterator_.Init(batch, output_shape, max_chunksize));
+  }
+  void CheckIteration(const ExecBatch& input, int chunksize,
+                      const std::vector<int>& ex_batch_sizes) {
+    SetupIterator(input, ValueDescr::ARRAY, chunksize);
+    ExecSpan batch;
+    int64_t position = 0;
+    for (size_t i = 0; i < ex_batch_sizes.size(); ++i) {
+      ASSERT_EQ(position, iterator_.position());
+      ASSERT_TRUE(iterator_.Next(&batch));
+      ASSERT_EQ(ex_batch_sizes[i], batch.length);
+
+      for (size_t j = 0; j < input.values.size(); ++j) {
+        switch (input[j].kind()) {
+          case Datum::SCALAR:
+            ASSERT_TRUE(input[j].scalar()->Equals(*batch[j].scalar));
+            break;
+          case Datum::ARRAY:
+            AssertArraysEqual(*input[j].make_array()->Slice(position, batch.length),
+                              *batch[j].array.ToArray());
+            break;
+          case Datum::CHUNKED_ARRAY: {
+            const ChunkedArray& carr = *input[j].chunked_array();
+            if (batch.length == 0) {
+              ASSERT_EQ(0, carr.length());
+            } else {
+              auto arg_slice = carr.Slice(position, batch.length);
+              // The sliced ChunkedArrays should only ever be 1 chunk
+              ASSERT_EQ(1, arg_slice->num_chunks());
+              AssertArraysEqual(*arg_slice->chunk(0), *batch[j].array.ToArray());
+            }
+          } break;
+          default:
+            break;
+        }
+      }
+      position += ex_batch_sizes[i];
+    }
+    // Ensure that the iterator is exhausted
+    ASSERT_FALSE(iterator_.Next(&batch));
+
+    ASSERT_EQ(iterator_.length(), iterator_.position());
+  }
+
+ protected:
+  ExecSpanIterator iterator_;
+};
+
+TEST_F(TestExecSpanIterator, Basics) {
+  const int64_t length = 100;
+
+  ExecBatch input;
+  input.length = 100;
+
+  // Simple case with a single chunk
+  input.values = {Datum(GetInt32Array(length)), Datum(GetFloat64Array(length)),
+                  Datum(std::make_shared<Int32Scalar>(3))};
+  SetupIterator(input);
+
+  ExecSpan batch;
+  ASSERT_TRUE(iterator_.Next(&batch));
+  ASSERT_EQ(3, batch.values.size());
+  ASSERT_EQ(3, batch.num_values());
+  ASSERT_EQ(length, batch.length);
+
+  AssertArraysEqual(*input[0].make_array(), *batch[0].array.ToArray());
+  AssertArraysEqual(*input[1].make_array(), *batch[1].array.ToArray());
+  ASSERT_TRUE(input[2].scalar()->Equals(*batch[2].scalar));
+
+  ASSERT_EQ(length, iterator_.position());
+  ASSERT_FALSE(iterator_.Next(&batch));
+
+  // Split into chunks of size 16
+  CheckIteration(input, /*chunksize=*/16, {16, 16, 16, 16, 16, 16, 4});
+}
+
+TEST_F(TestExecSpanIterator, InputValidation) {
+  ExecSpanIterator iterator;
+
+  ExecBatch batch({Datum(GetInt32Array(10)), Datum(GetInt32Array(9))}, 10);
+  ASSERT_RAISES(Invalid, iterator.Init(batch));
+
+  batch.values = {Datum(GetInt32Array(9)), Datum(GetInt32Array(10))};
+  ASSERT_RAISES(Invalid, iterator.Init(batch));
+
+  batch.values = {Datum(GetInt32Array(10))};
+  ASSERT_OK(iterator.Init(batch));
+}
+
+TEST_F(TestExecSpanIterator, ChunkedArrays) {
+  ExecBatch batch({Datum(GetInt32Chunked({0, 20, 10})), Datum(GetInt32Chunked({15, 15})),
+                   Datum(GetInt32Array(30)), Datum(std::make_shared<Int32Scalar>(5)),
+                   Datum(MakeNullScalar(boolean()))},
+                  30);
+
+  CheckIteration(batch, /*chunksize=*/10, {10, 5, 5, 10});
+  CheckIteration(batch, /*chunksize=*/20, {15, 5, 10});
+  CheckIteration(batch, /*chunksize=*/30, {15, 5, 10});
+}
+
+TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
+  auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
+
+  auto CheckArgs = [&](const ExecBatch& batch) {
+    ExecSpanIterator iterator;
+    ASSERT_OK(iterator.Init(batch, ValueDescr::ARRAY));
+    ExecSpan iter_span;
+    ASSERT_FALSE(iterator.Next(&iter_span));
+  };
+
+  ExecBatch input;
+  input.length = 0;
+
+  // Zero-length ChunkedArray with zero chunks
+  input.values = {Datum(carr)};
+  CheckArgs(input);
+
+  // Zero-length array
+  input.values = {Datum(GetInt32Array(0))};
+  CheckArgs(input);
+
+  // ChunkedArray with single empty chunk
+  input.values = {Datum(GetInt32Chunked({0}))};
+  CheckArgs(input);
+}
+
+// ----------------------------------------------------------------------
 // Scalar function execution
 
-Status ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
+Status ExecCopyArrayData(KernelContext*, const ExecSpan& batch, ExecResult* out) {
   DCHECK_EQ(1, batch.num_values());
-  const auto& type = checked_cast<const FixedWidthType&>(*batch[0].type());
-  int value_size = type.bit_width() / 8;
+  int value_size = batch[0].type()->byte_width();
 
-  const ArrayData& arg0 = *batch[0].array();
-  ArrayData* out_arr = out->mutable_array();
+  const ArraySpan& arg0 = batch[0].array;
+  ArrayData* out_arr = out->array_data().get();
   uint8_t* dst = out_arr->buffers[1]->mutable_data() + out_arr->offset * value_size;
-  const uint8_t* src = arg0.buffers[1]->data() + arg0.offset * value_size;
+  const uint8_t* src = arg0.buffers[1].data + arg0.offset * value_size;
   std::memcpy(dst, src, batch.length * value_size);
   return Status::OK();
 }
 
-Status ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecCopyArraySpan(KernelContext*, const ExecSpan& batch, ExecResult* out) {
+  DCHECK_EQ(1, batch.num_values());
+  int value_size = batch[0].type()->byte_width();
+  const ArraySpan& arg0 = batch[0].array;
+  ArraySpan* out_arr = out->array_span();
+  uint8_t* dst = out_arr->buffers[1].data + out_arr->offset * value_size;
+  const uint8_t* src = arg0.buffers[1].data + arg0.offset * value_size;
+  std::memcpy(dst, src, batch.length * value_size);
+  return Status::OK();
+}
+
+Status ExecComputedBitmap(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // Propagate nulls not used. Check that the out bitmap isn't the same already
   // as the input bitmap
-  const ArrayData& arg0 = *batch[0].array();
-  ArrayData* out_arr = out->mutable_array();
-
-  if (CountSetBits(arg0.buffers[0]->data(), arg0.offset, batch.length) > 0) {
+  const ArraySpan& arg0 = batch[0].array;
+  ArraySpan* out_arr = out->array_span();
+  if (CountSetBits(arg0.buffers[0].data, arg0.offset, batch.length) > 0) {
     // Check that the bitmap has not been already copied over
-    DCHECK(!BitmapEquals(arg0.buffers[0]->data(), arg0.offset,
-                         out_arr->buffers[0]->data(), out_arr->offset, batch.length));
+    DCHECK(!BitmapEquals(arg0.buffers[0].data, arg0.offset, out_arr->buffers[0].data,
+                         out_arr->offset, batch.length));
   }
 
-  CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
-             out_arr->buffers[0]->mutable_data(), out_arr->offset);
-  return ExecCopy(ctx, batch, out);
+  CopyBitmap(arg0.buffers[0].data, arg0.offset, batch.length, out_arr->buffers[0].data,
+             out_arr->offset);
+  return ExecCopyArraySpan(ctx, batch, out);
 }
 
-Status ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecNoPreallocatedData(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   // Validity preallocated, but not the data
-  ArrayData* out_arr = out->mutable_array();
+  ArrayData* out_arr = out->array_data().get();
   DCHECK_EQ(0, out_arr->offset);
-  const auto& type = checked_cast<const FixedWidthType&>(*batch[0].type());
-  int value_size = type.bit_width() / 8;
+  int value_size = batch[0].type()->byte_width();
   Status s = (ctx->Allocate(out_arr->length * value_size).Value(&out_arr->buffers[1]));
   DCHECK_OK(s);
-  return ExecCopy(ctx, batch, out);
+  return ExecCopyArrayData(ctx, batch, out);
 }
 
-Status ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch,
-                                  Datum* out) {
+Status ExecNoPreallocatedAnything(KernelContext* ctx, const ExecSpan& batch,
+                                  ExecResult* out) {
   // Neither validity nor data preallocated
-  ArrayData* out_arr = out->mutable_array();
+  ArrayData* out_arr = out->array_data().get();
   DCHECK_EQ(0, out_arr->offset);
   Status s = (ctx->AllocateBitmap(out_arr->length).Value(&out_arr->buffers[0]));
   DCHECK_OK(s);
-  const ArrayData& arg0 = *batch[0].array();
-  CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
+  const ArraySpan& arg0 = batch[0].array;
+  CopyBitmap(arg0.buffers[0].data, arg0.offset, batch.length,
              out_arr->buffers[0]->mutable_data(), /*offset=*/0);
 
   // Reuse the kernel that allocates the data
@@ -638,22 +1030,23 @@ Result<std::unique_ptr<KernelState>> InitStateful(KernelContext*,
   return std::unique_ptr<KernelState>(new ExampleState{func_options->value});
 }
 
-Status ExecStateful(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // We take the value from the state and multiply the data in batch[0] with it
   ExampleState* state = static_cast<ExampleState*>(ctx->state());
   int32_t multiplier = checked_cast<const Int32Scalar&>(*state->value).value;
 
-  const ArrayData& arg0 = *batch[0].array();
-  ArrayData* out_arr = out->mutable_array();
+  const ArraySpan& arg0 = batch[0].array;
+  ArraySpan* out_arr = out->array_span();
   const int32_t* arg0_data = arg0.GetValues<int32_t>(1);
-  int32_t* dst = out_arr->GetMutableValues<int32_t>(1);
+  int32_t* dst = out_arr->GetValues<int32_t>(1);
   for (int64_t i = 0; i < arg0.length; ++i) {
     dst[i] = arg0_data[i] * multiplier;
   }
   return Status::OK();
 }
 
-Status ExecAddInt32(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+// TODO: remove this / refactor it in ARROW-16577
+Status ExecAddInt32(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const Int32Scalar& arg0 = batch[0].scalar_as<Int32Scalar>();
   const Int32Scalar& arg1 = batch[1].scalar_as<Int32Scalar>();
   out->value = std::make_shared<Int32Scalar>(arg0.value + arg1.value);
@@ -685,9 +1078,10 @@ class TestCallScalarFunction : public TestComputeInternals {
                                                  /*doc=*/FunctionDoc::Empty());
 
     // Add a few kernels. Our implementation only accepts arrays
-    ASSERT_OK(func->AddKernel({InputType::Array(uint8())}, uint8(), ExecCopy));
-    ASSERT_OK(func->AddKernel({InputType::Array(int32())}, int32(), ExecCopy));
-    ASSERT_OK(func->AddKernel({InputType::Array(float64())}, float64(), ExecCopy));
+    ASSERT_OK(func->AddKernel({InputType::Array(uint8())}, uint8(), ExecCopyArraySpan));
+    ASSERT_OK(func->AddKernel({InputType::Array(int32())}, int32(), ExecCopyArraySpan));
+    ASSERT_OK(
+        func->AddKernel({InputType::Array(float64())}, float64(), ExecCopyArraySpan));
     ASSERT_OK(registry->AddFunction(func));
 
     // A version which doesn't want the executor to call PropagateNulls
@@ -767,7 +1161,7 @@ TEST_F(TestCallScalarFunction, ArgumentValidation) {
 TEST_F(TestCallScalarFunction, PreallocationCases) {
   double null_prob = 0.2;
 
-  auto arr = GetUInt8Array(1000, null_prob);
+  auto arr = GetUInt8Array(100, null_prob);
 
   auto CheckFunction = [&](std::string func_name) {
     ResetContexts();
@@ -792,7 +1186,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     {
       // Chunksize not multiple of 8
       std::vector<Datum> args = {Datum(arr)};
-      exec_ctx_->set_exec_chunksize(111);
+      exec_ctx_->set_exec_chunksize(11);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       AssertArraysEqual(*arr, *result.make_array());
     }
@@ -800,7 +1194,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     // Input is chunked, output has one big chunk
     {
       auto carr = std::shared_ptr<ChunkedArray>(
-          new ChunkedArray({arr->Slice(0, 100), arr->Slice(100)}));
+          new ChunkedArray({arr->Slice(0, 10), arr->Slice(10)}));
       std::vector<Datum> args = {Datum(carr)};
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();
@@ -812,14 +1206,14 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_preallocate_contiguous(false);
-      exec_ctx_->set_exec_chunksize(400);
+      exec_ctx_->set_exec_chunksize(40);
       ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
-      AssertArraysEqual(*arr->Slice(0, 400), *carr.chunk(0));
-      AssertArraysEqual(*arr->Slice(400, 400), *carr.chunk(1));
-      AssertArraysEqual(*arr->Slice(800), *carr.chunk(2));
+      AssertArraysEqual(*arr->Slice(0, 40), *carr.chunk(0));
+      AssertArraysEqual(*arr->Slice(40, 40), *carr.chunk(1));
+      AssertArraysEqual(*arr->Slice(80), *carr.chunk(2));
     }
   };
 

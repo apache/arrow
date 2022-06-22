@@ -183,11 +183,6 @@ std::string ToString(TimeUnit::type unit) {
   }
 }
 
-int GetByteWidth(const DataType& type) {
-  const auto& fw_type = checked_cast<const FixedWidthType&>(type);
-  return fw_type.bit_width() / CHAR_BIT;
-}
-
 }  // namespace internal
 
 namespace {

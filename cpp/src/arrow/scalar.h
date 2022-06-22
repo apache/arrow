@@ -49,7 +49,8 @@ class Array;
 /// Scalars are useful for passing single value inputs to compute functions,
 /// or for representing individual array elements (with a non-trivial
 /// wrapping cost, though).
-struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
+struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
+                             public util::EqualityComparable<Scalar> {
   virtual ~Scalar() = default;
 
   explicit Scalar(std::shared_ptr<DataType> type) : type(std::move(type)) {}
@@ -105,6 +106,13 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
 
   /// \brief Apply the ScalarVisitor::Visit() method specialized to the scalar type
   Status Accept(ScalarVisitor* visitor) const;
+
+  /// \brief EXPERIMENTAL Enable obtaining shared_ptr<Scalar> from a const
+  /// Scalar& context. Implementation depends on enable_shared_from_this, but
+  /// we may change this in the future
+  std::shared_ptr<Scalar> Copy() const {
+    return const_cast<Scalar*>(this)->shared_from_this();
+  }
 
  protected:
   Scalar(std::shared_ptr<DataType> type, bool is_valid)

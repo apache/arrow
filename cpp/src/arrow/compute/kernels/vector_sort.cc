@@ -1968,7 +1968,7 @@ class ArrayRanker : public TypeVisitor {
 
     switch (tiebreaker_) {
       case RankOptions::Dense: {
-        T curr_value, prev_value;
+        T curr_value, prev_value{};
         rank = 0;
 
         if (null_placement_ == NullPlacement::AtStart && sorted.null_count() > 0) {
@@ -2006,10 +2006,11 @@ class ArrayRanker : public TypeVisitor {
       }
 
       case RankOptions::Min: {
-        T curr_value, prev_value;
+        T curr_value, prev_value{};
+        rank = 0;
 
         if (null_placement_ == NullPlacement::AtStart) {
-          rank = 1;
+          rank++;
           for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
             out_begin[*it] = rank;
           }
@@ -2035,10 +2036,10 @@ class ArrayRanker : public TypeVisitor {
 
       case RankOptions::Max: {
         // The algorithm for Max is just like Min, but in reverse order.
-        T curr_value, prev_value;
+        T curr_value, prev_value{};
+        rank = length;
 
         if (null_placement_ == NullPlacement::AtEnd) {
-          rank = length;
           for (auto it = sorted.nulls_begin; it < sorted.nulls_end; it++) {
             out_begin[*it] = rank;
           }

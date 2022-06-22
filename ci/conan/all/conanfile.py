@@ -60,7 +60,6 @@ class ArrowConan(ConanFile):
         "with_gflags": ["auto", True, False],
         "with_glog": ["auto", True, False],
         "with_grpc": ["auto", True, False],
-        "with_hiveserver2": [True, False],
         "with_jemalloc": ["auto", True, False],
         "with_json": [True, False],
         "with_llvm": ["auto", True, False],
@@ -103,7 +102,6 @@ class ArrowConan(ConanFile):
         "with_jemalloc": "auto",
         "with_glog": "auto",
         "with_grpc": "auto",
-        "with_hiveserver2": False,
         "with_json": False,
         "with_llvm": "auto",
         "with_openssl": "auto",
@@ -164,10 +162,10 @@ class ArrowConan(ConanFile):
             raise ConanInvalidConfiguration("with_openssl options is required (or choose auto)")
         if self.options.with_cuda:
             raise ConanInvalidConfiguration("CCI has no cuda recipe (yet)")
-        if self.options.with_hiveserver2:
-            raise ConanInvalidConfiguration("CCI has no hiveserver2 recipe (yet)")
         if self.options.with_orc:
             raise ConanInvalidConfiguration("CCI has no orc recipe (yet)")
+        if self.options.with_s3 and not self.options["aws-sdk-cpp"].config:
+            raise ConanInvalidConfiguration("arrow:with_s3 requires aws-sdk-cpp:config is True.")
 
         if self.options.shared and self._with_jemalloc():
             if self.options["jemalloc"].enable_cxx:
@@ -178,7 +176,7 @@ class ArrowConan(ConanFile):
 
     def _compute(self, required=False):
         if required or self.options.compute == "auto":
-            return bool(self.options.dataset_modules)
+            return bool(self.options.dataset_modules) or bool(self.options.parquet)
         else:
             return bool(self.options.compute)
 
@@ -190,7 +188,7 @@ class ArrowConan(ConanFile):
 
     def _with_re2(self, required=False):
         if required or self.options.with_re2 == "auto":
-            return bool(self.options.gandiva)
+            return bool(self.options.gandiva) or bool(self._compute())
         else:
             return bool(self.options.with_re2)
 
@@ -235,7 +233,7 @@ class ArrowConan(ConanFile):
 
     def _with_thrift(self, required=False):
         # No self.options.with_thift exists
-        return bool(required or self.options.with_hiveserver2 or self.options.parquet)
+        return bool(required or self.options.parquet)
 
     def _with_utf8proc(self, required=False):
         if required or self.options.with_utf8proc == "auto":
@@ -259,7 +257,7 @@ class ArrowConan(ConanFile):
         if self._with_thrift():
             self.requires("thrift/0.15.0")
         if self._with_protobuf():
-            self.requires("protobuf/3.19.2")
+            self.requires("protobuf/3.20.0")
         if self._with_jemalloc():
             self.requires("jemalloc/5.2.1")
         if self._with_boost():
@@ -267,17 +265,21 @@ class ArrowConan(ConanFile):
         if self._with_gflags():
             self.requires("gflags/2.2.2")
         if self._with_glog():
-            self.requires("glog/0.5.0")
+            self.requires("glog/0.6.0")
         if self._with_grpc():
-            self.requires("grpc/1.44.0")
+            self.requires("grpc/1.45.2")
         if self.options.with_json:
             self.requires("rapidjson/1.1.0")
         if self._with_llvm():
             self.requires("llvm-core/13.0.0")
         if self._with_openssl():
-            self.requires("openssl/1.1.1m")
+            # aws-sdk-cpp requires openssl/1.1.1. it uses deprecated functions in openssl/3.0.0
+            if self.options.with_s3:
+                self.requires("openssl/1.1.1o")
+            else:
+                self.requires("openssl/3.0.3")
         if self.options.with_s3:
-            self.requires("aws-sdk-cpp/1.9.100")
+            self.requires("aws-sdk-cpp/1.9.234")
         if self.options.with_brotli:
             self.requires("brotli/1.0.9")
         if self.options.with_bz2:
@@ -289,17 +291,13 @@ class ArrowConan(ConanFile):
         if tools.Version(self.version) >= "6.0.0" and \
             self.options.get_safe("simd_level") != None or \
             self.options.get_safe("runtime_simd_level") != None:
-            if tools.Version(self.version) >= "8.0.0":
-                # TODO: Requires xsimd/master
-                pass
-            else:
-                self.requires("xsimd/8.0.3")
+            self.requires("xsimd/8.1.0")
         if self.options.with_zlib:
-            self.requires("zlib/1.2.11")
+            self.requires("zlib/1.2.12")
         if self.options.with_zstd:
             self.requires("zstd/1.5.2")
         if self._with_re2():
-            self.requires("re2/20211101")
+            self.requires("re2/20220201")
         if self._with_utf8proc():
             self.requires("utf8proc/2.7.0")
         if self.options.with_backtrace:
@@ -340,6 +338,7 @@ class ArrowConan(ConanFile):
             self._cmake.definitions["CMAKE_SYSTEM_PROCESSOR"] = cmake_system_processor
         if self.settings.compiler == "Visual Studio":
             self._cmake.definitions["ARROW_USE_STATIC_CRT"] = "MT" in str(self.settings.compiler.runtime)
+        self._cmake.definitions["ARROW_DEFINE_OPTIONS"] = True
         self._cmake.definitions["ARROW_DEPENDENCY_SOURCE"] = "SYSTEM"
         self._cmake.definitions["ARROW_GANDIVA"] = self.options.gandiva
         self._cmake.definitions["ARROW_PARQUET"] = self.options.parquet
@@ -353,11 +352,11 @@ class ArrowConan(ConanFile):
         self._cmake.definitions["ARROW_BUILD_STATIC"] = not self.options.shared
         self._cmake.definitions["ARROW_NO_DEPRECATED_API"] = not self.options.deprecated
         self._cmake.definitions["ARROW_FLIGHT"] = self.options.with_flight_rpc
-        self._cmake.definitions["ARROW_HIVESERVER2"] = self.options.with_hiveserver2
         self._cmake.definitions["ARROW_COMPUTE"] = self._compute()
         self._cmake.definitions["ARROW_CSV"] = self.options.with_csv
         self._cmake.definitions["ARROW_CUDA"] = self.options.with_cuda
         self._cmake.definitions["ARROW_JEMALLOC"] = self._with_jemalloc()
+        self._cmake.definitions["jemalloc_SOURCE"] = "SYSTEM"
         self._cmake.definitions["ARROW_JSON"] = self.options.with_json
 
         self._cmake.definitions["BOOST_SOURCE"] = "SYSTEM"
@@ -409,8 +408,8 @@ class ArrowConan(ConanFile):
         self._cmake.definitions["ORC_SOURCE"] = "SYSTEM"
         self._cmake.definitions["ARROW_WITH_THRIFT"] = self._with_thrift()
         self._cmake.definitions["Thrift_SOURCE"] = "SYSTEM"
-        self._cmake.definitions["THRIFT_VERSION"] = "1.0"  # a recent thrift does not require boost
         if self._with_thrift():
+            self._cmake.definitions["THRIFT_VERSION"] = self.deps_cpp_info["thrift"].version # a recent thrift does not require boost
             self._cmake.definitions["ARROW_THRIFT_USE_SHARED"] = self.options["thrift"].shared
         self._cmake.definitions["ARROW_USE_OPENSSL"] = self._with_openssl()
         if self._with_openssl():
@@ -557,12 +556,10 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow"].requires.append("libbacktrace::libbacktrace")
         if self.options.with_cuda:
             self.cpp_info.components["libarrow"].requires.append("cuda::cuda")
-        if self.options.with_hiveserver2:
-            self.cpp_info.components["libarrow"].requires.append("hiveserver2::hiveserver2")
         if self.options.with_json:
             self.cpp_info.components["libarrow"].requires.append("rapidjson::rapidjson")
         if self.options.with_s3:
-            self.cpp_info.components["libarrow"].requires.append("aws-sdk-cpp::filesystem")
+            self.cpp_info.components["libarrow"].requires.append("aws-sdk-cpp::s3")
         if self.options.with_orc:
             self.cpp_info.components["libarrow"].requires.append("orc::orc")
         if self.options.with_brotli:
@@ -574,11 +571,7 @@ class ArrowConan(ConanFile):
         if self.options.with_snappy:
             self.cpp_info.components["libarrow"].requires.append("snappy::snappy")
         if self.options.get_safe("simd_level") != None or self.options.get_safe("runtime_simd_level") != None:
-            if tools.Version(self.version) >= "8.0.0":
-                # Requires xsimd/master
-                pass
-            else:
-                self.cpp_info.components["libarrow"].requires.append("xsimd::xsimd")
+            self.cpp_info.components["libarrow"].requires.append("xsimd::xsimd")
         if self.options.with_zlib:
             self.cpp_info.components["libarrow"].requires.append("zlib::zlib")
         if self.options.with_zstd:

@@ -61,7 +61,8 @@ override_dh_auto_configure:
 	  -DCUDAToolkit_ROOT=/usr				\
 	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
 	  -DPythonInterp_FIND_VERSION=ON			\
-	  -DPythonInterp_FIND_VERSION_MAJOR=3
+	  -DPythonInterp_FIND_VERSION_MAJOR=3			\
+	  -Djemalloc_SOURCE=SYSTEM
 
 override_dh_auto_build:
 	dh_auto_build				\

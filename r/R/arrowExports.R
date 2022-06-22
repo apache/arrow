@@ -1280,8 +1280,8 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
   invisible(.Call(`_arrow_fs___CopyFiles`, source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes) {
-  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion) {
+  .Call(`_arrow_fs___S3FileSystem__create`, anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, proxy_options, background_writes, allow_bucket_creation, allow_bucket_deletion)
 }
 
 fs___S3FileSystem__region <- function(fs) {

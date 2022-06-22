@@ -266,6 +266,8 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
+            IArrowTypeVisitor<Time32Type>,
+            IArrowTypeVisitor<Time64Type>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<BinaryType>,
@@ -310,6 +312,8 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(UInt64Type type) => GenerateLongArray<ulong, UInt64Array>((v, n, c, nc, o) => new UInt64Array(v, n, c, nc, o), s => ulong.Parse(s));
             public void Visit(FloatType type) => GenerateArray<float, FloatArray>((v, n, c, nc, o) => new FloatArray(v, n, c, nc, o));
             public void Visit(DoubleType type) => GenerateArray<double, DoubleArray>((v, n, c, nc, o) => new DoubleArray(v, n, c, nc, o));
+            public void Visit(Time32Type type) => GenerateArray<int, Time32Array>((v, n, c, nc, o) => new Time32Array(type, v, n, c, nc, o));
+            public void Visit(Time64Type type) => GenerateLongArray<long, Time64Array>((v, n, c, nc, o) => new Time64Array(type, v, n, c, nc, o), s => long.Parse(s));
 
             public void Visit(Decimal128Type type)
             {
@@ -393,7 +397,21 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(TimestampType type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrowBuffer.Builder<long> valueBuilder = new ArrowBuffer.Builder<long>(JsonFieldData.Count);
+                var json = JsonFieldData.Data.GetRawText();
+                string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
+
+                foreach (string value in values)
+                {
+                    valueBuilder.Append(long.Parse(value));
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build();
+
+                Array = new TimestampArray(
+                    type, valueBuffer, validityBuffer,
+                    JsonFieldData.Count, nullCount, 0);
             }
 
             public void Visit(StringType type)

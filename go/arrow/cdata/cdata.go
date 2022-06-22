@@ -54,8 +54,7 @@ type (
 	CArrowSchema = C.struct_ArrowSchema
 	// CArrowArray is the C Data Interface object for Arrow Arrays as defined in abi.h
 	CArrowArray = C.struct_ArrowArray
-	// CArrowArrayStream is the Experimental API for handling streams of record batches
-	// through the C Data interface.
+	// CArrowArrayStream is the C Stream Interface object for handling streams of record batches.
 	CArrowArrayStream = C.struct_ArrowArrayStream
 )
 

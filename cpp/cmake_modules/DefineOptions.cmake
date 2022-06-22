@@ -83,6 +83,12 @@ endmacro()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  set(ARROW_DEFINE_OPTIONS_DEFAULT ON)
+else()
+  set(ARROW_DEFINE_OPTIONS_DEFAULT OFF)
+endif()
+option(ARROW_DEFINE_OPTIONS "Define Arrow options" ${ARROW_DEFINE_OPTIONS_DEFAULT})
+if(ARROW_DEFINE_OPTIONS)
   #----------------------------------------------------------------------
   set_option_category("Compile and link")
 
@@ -241,8 +247,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
-  define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
-
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
@@ -338,6 +342,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_JEMALLOC_USE_SHARED
+                "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"

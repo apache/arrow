@@ -48,6 +48,7 @@ RUN \
     libglib2.0-doc \
     libgoogle-glog-dev \
     libgtest-dev \
+    libjemalloc-dev \
     liblz4-dev \
     libre2-dev \
     libsnappy-dev \
