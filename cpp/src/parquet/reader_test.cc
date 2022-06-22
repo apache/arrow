@@ -154,7 +154,7 @@ TEST_F(TestTextDeltaLengthByteArray, TestTextScanner) {
     ASSERT_FALSE(is_null);
     std::string expected = expected_prefix + std::to_string(i * i);
     ASSERT_TRUE(val.len == expected.length());
-    ASSERT_TRUE(std::memcmp(val.ptr, expected.c_str(), val.len) == 0);
+    ASSERT_EQ(std::memcmp(val.ptr, expected.c_str(), val.len), 0);
   }
   ASSERT_FALSE(scanner->HasNext());
   ASSERT_FALSE(scanner->NextValue(&val, &is_null));
@@ -200,7 +200,7 @@ TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
       std::string expected =
           expected_prefix + std::to_string((i + values_read) * (i + values_read));
       ASSERT_TRUE(values[i].len == expected.length());
-      ASSERT_TRUE(std::memcmp(values[i].ptr, expected.c_str(), values[i].len) == 0);
+      ASSERT_EQ(std::memcmp(values[i].ptr, expected.c_str(), values[i].len), 0);
     }
     values_read += curr_batch_read;
   }
