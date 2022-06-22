@@ -296,7 +296,8 @@ on:
       tools::write_PACKAGES(file.path(getwd(), "repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
   - name: Show repo 
     shell: bash 
-    run: tree repo
+    # tree not available in git-bash on windows
+    run: ls -R repo
   - name: Serve repo via localhost
     shell: bash
     working-directory: repo
