@@ -237,8 +237,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
     auto target = cpp11::as_cpp<std::string>(name_opts["target"]);
     auto name = cpp11::as_cpp<std::string>(name_opts["name"]);
 
-    aggregates.push_back(arrow::compute::Aggregate{
-        std::move(function), opts, std::move(target), std::move(name)});
+    aggregates.push_back(arrow::compute::Aggregate{std::move(function), opts,
+                                                   std::move(target), std::move(name)});
   }
 
   std::vector<arrow::FieldRef> keys;
