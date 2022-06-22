@@ -2069,7 +2069,7 @@ Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  const int bit_width = values.type->bit_width();
+  const int bit_width = checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
   RETURN_NOT_OK(
       PreallocateDataRLE(ctx, output_length, bit_width, allocate_validity, out_arr));
 
