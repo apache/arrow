@@ -4098,7 +4098,6 @@ macro(build_google_cloud_cpp_storage)
          absl::throw_delegate
          absl::time
          absl::time_zone
-         nlohmann_json::nlohmann_json
          Crc32c::crc32c)
   endif()
 endmacro()
