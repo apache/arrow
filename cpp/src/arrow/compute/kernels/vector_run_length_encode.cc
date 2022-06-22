@@ -20,9 +20,7 @@ struct EncodeDecodeCommonExec {
   };
 
   EncodeDecodeCommonExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result)
-      : input_array{span.values[0].array},
-        pool{ctx->memory_pool()},
-        exec_result{result} {
+      : input_array{span.values[0].array}, pool{ctx->memory_pool()}, exec_result{result} {
     ARROW_DCHECK(span.num_values() == 1);
   }
 
@@ -144,10 +142,12 @@ struct RunLengthEncodeExec
         auto run_lengths_buffer,
         AllocateBuffer(num_values_output * sizeof(int64_t), this->pool));
 
-    auto output_type = std::make_shared<RunLengthEncodedType>(this->input_array.type->Copy());
+    auto output_type =
+        std::make_shared<RunLengthEncodedType>(this->input_array.type->Copy());
     auto output_array_data =
         ArrayData::Make(std::move(output_type), this->input_array.length);
-    auto child_array_data = ArrayData::Make(this->input_array.type->Copy(), num_values_output);
+    auto child_array_data =
+        ArrayData::Make(this->input_array.type->Copy(), num_values_output);
     output_array_data->buffers.push_back(std::move(run_lengths_buffer));
     child_array_data->buffers.push_back(std::move(validity_buffer));
     child_array_data->buffers.push_back(std::move(values_buffer));
@@ -222,7 +222,8 @@ struct RunLengthDecodeExec
   Status Exec() {
     this->input_validity = this->input_array.child_data[0].buffers[0].data;
     this->input_values = this->input_array.child_data[0].buffers[1].data;
-    input_accumulated_run_length = reinterpret_cast<const int64_t*>(this->input_array.buffers[0].data);
+    input_accumulated_run_length =
+        reinterpret_cast<const int64_t*>(this->input_array.buffers[0].data);
 
     int64_t num_values_input = this->input_array.child_data[0].length;
     int64_t num_values_output = this->input_array.length;

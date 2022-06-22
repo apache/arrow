@@ -120,7 +120,7 @@ Result<std::shared_ptr<ArrayData>> ArrayData::SliceSafe(int64_t off, int64_t len
 int64_t ArrayData::GetNullCount() const {
   int64_t precomputed = this->null_count.load();
   if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
-    assert(type->id() != Type::RUN_LENGTH_ENCODED); // TODO: implement for RLE
+    assert(type->id() != Type::RUN_LENGTH_ENCODED);  // TODO: implement for RLE
     if (this->buffers[0]) {
       precomputed = this->length -
                     CountSetBits(this->buffers[0]->data(), this->offset, this->length);
@@ -131,7 +131,6 @@ int64_t ArrayData::GetNullCount() const {
   }
   return precomputed;
 }
-
 
 bool ArrayData::MayHaveNulls() const {
   if (type->id() == Type::RUN_LENGTH_ENCODED) {
@@ -213,7 +212,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 int64_t ArraySpan::GetNullCount() const {
   int64_t precomputed = this->null_count;
   if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
-    assert(type->id() != Type::RUN_LENGTH_ENCODED); // TODO: implement for RLE
+    assert(type->id() != Type::RUN_LENGTH_ENCODED);  // TODO: implement for RLE
     if (this->buffers[0].data != nullptr) {
       precomputed =
           this->length - CountSetBits(this->buffers[0].data, this->offset, this->length);
