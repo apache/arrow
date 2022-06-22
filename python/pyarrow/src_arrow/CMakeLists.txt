@@ -32,8 +32,8 @@ endif()
 # CMAKE_MODULE_PATH: location of cmake_modules in python
 get_filename_component(PYARROW_SOURCE_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
-get_filename_component(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR} DIRECTORY)
-set(ARROW_SOURCE_DIR "${ARROW_SOURCE_DIR}/cpp")
+get_filename_component(ARROW_SOURCE ${PYTHON_SOURCE_DIR} DIRECTORY)
+set(ARROW_SOURCE_DIR "${ARROW_SOURCE}/cpp")
 set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules")
 
 set(ARROW_PYTHON_VERSION "9.0.0-SNAPSHOT")
@@ -222,11 +222,38 @@ endif()
 set(ARROW_FLIGHT ON)
 
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
-  # Must link to shared libarrow_flight: we don't want to link more than one
-  # copy of gRPC into the eventual Cython shared object, otherwise gRPC calls
-  # fail with weird errors due to multiple copies of global static state (The
-  # other solution is to link gRPC shared everywhere instead of statically only
-  # in Flight)
+
+  find_package(gRPC CONFIG REQUIRED)
+  set(ARROW_FLIGHT_LINK_LIBS arrow_python_flight_static)
+
+  if(APPLE)
+    set(GRPC_REFLECTION_LINK_LIBS -Wl,-force_load gRPC::grpc++_reflection)
+  else()
+    set(GRPC_REFLECTION_LINK_LIBS -Wl,--whole-archive gRPC::grpc++_reflection
+                                  -Wl,--no-whole-archive)
+  endif()
+
+  set(FLIGHT_PROTO_PATH "${ARROW_SOURCE}/format")
+  set(FLIGHT_PROTO "${ARROW_SOURCE}/format/Flight.proto")
+
+  set(FLIGHT_GENERATED_PROTO_FILES
+      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.cc"
+      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.h"
+      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.cc"
+      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.h")
+
+  set(PROTO_DEPENDS ${FLIGHT_PROTO} gRPC::grpc_cpp_plugin)
+
+  add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
+                    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+                            "--cpp_out=${${ARROW_SOURCE_DIR}/build/src/arrow/flight/}" "${FLIGHT_PROTO}"
+                    DEPENDS ${PROTO_DEPENDS} ARGS
+                    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+                            "--grpc_out=${${ARROW_SOURCE_DIR}/build/src/arrow/flight/}"
+                            "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+                            "${FLIGHT_PROTO}")
+
+  set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
   add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
   include_directories(${ARROW_SOURCE_DIR}/src)
