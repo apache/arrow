@@ -366,7 +366,7 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
         fs::TimePoint(std::chrono::duration_cast<fs::TimePoint::duration>(ns_count));
     gcs_opts = fs::GcsOptions::FromAccessToken(
         cpp11::as_cpp<std::string>(options["access_token"]), expiration_timepoint);
-    // TODO: implement FromImpersonatedServiceAccount
+    // TODO(ARROW-16885): implement FromImpersonatedServiceAccount
     // } else if (base_credentials != "") {
     //   // static GcsOptions FromImpersonatedServiceAccount(
     //   // const GcsCredentials& base_credentials, const std::string&
@@ -411,7 +411,7 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
   }
 
   auto io_context = arrow::io::IOContext(gc_memory_pool());
-  // TODO: S3FileSystem::Make returns a Result and uses ValueOrStop but this doesn't?
+  // TODO(ARROW-16884): update when this returns Result
   return fs::GcsFileSystem::Make(gcs_opts, io_context);
 }
 
