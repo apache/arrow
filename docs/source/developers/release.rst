@@ -70,41 +70,92 @@ generated properly.
     - Have Docker and docker-compose installed.
 
 
-Creating a Release Candidate
-============================
+Before creating a Release Candidate
+===================================
 
-These are the different steps that are required to create a release candidate.
+Ensure local tags are removed, gpg-agent is set and JIRA tickets are correctly assigned.
 
 .. code-block::
 
-    # Delete the local tag and release branch for RC1 or later
-    git branch -d release-<version>
+    # Delete the local tag for RC1 or later
     git tag -d apache-arrow-<version>
     
     # Setup gpg agent for signing artifacts
     source dev/release/setup-gpg-agent.sh
     
     # Curate the release
-    # The end of the generated report shows the jira tickets with wrong version number assigned.
+    # The end of the generated report shows the JIRA tickets with wrong version number assigned.
     archery release curate <version>
+
+
+Creating a Release Candidate
+============================
+
+These are the different steps that are required to create a Release Candidate.
+
+For the initial Release Candidate, we will create a maintenance branch from master.
+Follow up Release Candidates will update the maintenance branch by cherry-picking
+specific commits.
+
+We have implemented a Feature Freeze policy between Release Candidates.
+This means that, in general, we should only add bug fixes between Release Candidates.
+In rare cases, critical features can be added between Release Candidates, if
+there is community consensus.
+
+Create or update the corresponding maintenance branch
+-----------------------------------------------------
+
+.. tab-set::
+
+   .. tab-item:: Initial Release Candidate
+
+      .. code-block::
+
+            # Execute the following from an up to date master branch.
+            # This will create a branch locally called maint-X.Y.Z.
+            # X.Y.Z corresponds with the Major, Minor and Patch version number
+            # of the release respectively. As an example 9.0.0
+            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --execute
+            # Push the maintenance branch to the remote repository
+            git push -u apache maint-X.Y.Z
+
+   .. tab-item:: Follow up Release Candidates
+
+      .. code-block::
+
+            # First run in dry-mode to see which commits will be cherry-picked.
+            # If there are commits that we don't want to get applied ensure the version on
+            # JIRA is set to the following release.
+            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue
+            # Update the maintenance branch with the previous commits
+            archery release --jira-cache /tmp/jiracache cherry-pick X.Y.Z --continue --execute
+            # Push the updated maintenance branch to the remote repository
+            git push -u apache maint-X.Y.Z
+
+Create the Release Candidate branch from the updated maintenance branch
+-----------------------------------------------------------------------
+
+.. code-block::
+
+    # Start from the updated maintenance branch.
+    git checkout maint-X.Y.Z
     
-    # Checkout release branch
-    # Use master for major releases
-    git checkout -b release-4.0.0 master
-    # Use maintenance branches like maint-4.0.x for patch releases
-    git checkout -b release-4.0.1 maint-4.0.x
-    
-    # Create branch for the release candidate and place the necessary commits then create git tag
+    # The following script will create a branch for the Release Candidate,
+    # place the necessary commits updating the version number and then create a git tag
     # on OSX use gnu-sed with homebrew: brew install gnu-sed (and export to $PATH)
     #
-    # <rc-number> starts at 0 and increments every time the release candidate is burned
+    # <rc-number> starts at 0 and increments every time the Release Candidate is burned
     # so for the first RC this would be: dev/release/01-prepare.sh 4.0.0 5.0.0 0
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
     
-    # Push the release branch and release tag (for RC1 or later the --force flag is required)
-    git push -u apache release-<version>
+    # Push the release tag (for RC1 or later the --force flag is required)
     git push -u apache apache-arrow-<version>
-    
+
+Build source and binaries and submit them
+-----------------------------------------
+
+.. code-block::
+
     # Build the source release tarball
     dev/release/02-source.sh <version> <rc-number>
     
@@ -130,23 +181,27 @@ These are the different steps that are required to create a release candidate.
     # after you complete the script:
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
-    
-    # Automatically verify the release candidate
+
+Verify the Release
+------------------
+
+.. code-block::
+
+    # Automatically verify the Release Candidate
     #
-    # 1. Push the release candidate's branch to the fork
+    # 1. Push the Release Candidate's branch to the fork
     git push --set-upstream origin release-<version>-rc<rc-number>
-    # 2. Open a pull request from the release candidate's branch to the release branch
-    #    https://github.com/apache/arrow/compare/release-<version>...<fork-github-username>:release-<version>-rc<rc-number>
+    # 2. Open a pull request from the Release Candidate's branch to the maintenance branch
+    #    https://github.com/apache/arrow/compare/maint-<version>...<fork-github-username>:release-<version>-rc<rc-number>
     # 3. Create a comment for the pull request to trigger the automatized crossbow verification tasks
     #    @github-actions crossbow submit --group verify-rc-source --group verify-rc-binaries --group verify-rc-wheels --param release=<version> --param rc=<rc-number>
     #
     # See https://github.com/apache/arrow/pull/10126 as an example.
     
-    # Once the automatic verification has passed merge the release candidate's branch to the release branch
-    # may need the --force flag to push the release-<version> branch to the apache remote for RC1 or later
-    git checkout release-<version>
+    # Once the automatic verification has passed merge the Release Candidate's branch to the maintenance branch
+    git checkout maint-<version>
     git merge release-<version>-rc<rc-number>
-    git push apache release-<version>
+    git push apache maint-<version>
     
     # Start the vote thread on dev@arrow.apache.org
     # To regenerate the email template use
