@@ -59,6 +59,7 @@ returns R objects; use \code{\link[=arrow_base_scalar_function]{arrow_base_scala
 lower-level function that operates directly on Arrow objects.
 }
 \examples{
+\dontshow{if (.Machine$sizeof.pointer >= 8) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 fun_wrapper <- arrow_scalar_function(
   schema(x = float64(), y = float64(), z = float64()),
   float64(),
@@ -89,5 +90,5 @@ call_function(
   Scalar$create(2),
   Array$create(3)
 )
-
+\dontshow{\}) # examplesIf}
 }

@@ -346,7 +346,7 @@ cast_options <- function(safe = TRUE, ...) {
 #'     `register_scalar_function()`.
 #' @export
 #'
-#' @examples
+#' @examplesIf .Machine$sizeof.pointer >= 8
 #' fun_wrapper <- arrow_scalar_function(
 #'   schema(x = float64(), y = float64(), z = float64()),
 #'   float64(),
