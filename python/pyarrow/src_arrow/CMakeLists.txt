@@ -224,14 +224,11 @@ set(ARROW_FLIGHT ON)
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
 
   find_package(gRPC CONFIG REQUIRED)
-  set(ARROW_FLIGHT_LINK_LIBS arrow_python_flight_static)
 
-  if(APPLE)
-    set(GRPC_REFLECTION_LINK_LIBS -Wl,-force_load gRPC::grpc++_reflection)
-  else()
-    set(GRPC_REFLECTION_LINK_LIBS -Wl,--whole-archive gRPC::grpc++_reflection
-                                  -Wl,--no-whole-archive)
-  endif()
+  # We don't directly use symbols from the reflection library, so
+  # ensure the linker still links to it
+  set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
+                                -Wl,--as-needed)
 
   set(FLIGHT_PROTO_PATH "${ARROW_SOURCE}/format")
   set(FLIGHT_PROTO "${ARROW_SOURCE}/format/Flight.proto")
@@ -256,7 +253,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
   add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
-  include_directories(${ARROW_SOURCE_DIR}/src)
+  include_directories(${ARROW_SOURCE_DIR}/src ${ARROW_SOURCE_DIR}/build/src)
 
   add_arrow_lib(arrow_python_flight
                 CMAKE_PACKAGE_NAME
