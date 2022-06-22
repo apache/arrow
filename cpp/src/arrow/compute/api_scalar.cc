@@ -908,6 +908,12 @@ Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext*
 }
 
 // ----------------------------------------------------------------------
+// Hash functions
+Result<Datum> HashEach(const Datum &arg, ExecContext *ctx) {
+  return CallFunction("hash_each", { arg }, ctx);
+}
+
+// ----------------------------------------------------------------------
 
 }  // namespace compute
 }  // namespace arrow

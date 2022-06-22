@@ -1701,5 +1701,18 @@ ARROW_EXPORT Result<Datum> NanosecondsBetween(const Datum& left, const Datum& ri
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
                                      ExecContext* ctx = NULLPTR);
+
+/// \brief Construct a hash value for each value of the input.
+///
+/// The result should match the shape of the argument, `arg`. If `arg` is null, the result
+/// will be null. At the moment, this function does not take options, though these may be
+/// added in the future.
+///
+/// \param[in] arg     input data to hash
+/// \param[in] ctx     function execution context, optional
+/// \return elementwise hash values
+ARROW_EXPORT
+Result<Datum> HashEach(const Datum &arg, ExecContext *ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow
