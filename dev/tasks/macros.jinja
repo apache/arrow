@@ -297,15 +297,18 @@ on:
   - name: Show repo 
     shell: bash 
     # tree not available in git-bash on windows
-    run: ls -R repo
+    run: |
+      ls -R repo
+      curl localhost:8080 || echo "Curl Error"
   - name: Serve repo via localhost
     shell: bash
-    working-directory: repo
-    run: python3 -m http.server 8080 --bind localhost &
+    run: |
+      cd repo
+      python3 -m http.server 8080 --bind localhost &
   - name: Add dev repo to .Rprofile
     shell: bash
     run: |
       # It is important to use pwd here as this happens inside a container (during test-linux-binary)
       # so the normal github.workspace path is wrong.
-      echo "options(arrow.dev_repo = 'localhost:8080')" >> ~/.Rprofile
+      echo "options(arrow.dev_repo = 'http://localhost:8080')" >> ~/.Rprofile
   {% endmacro %}
