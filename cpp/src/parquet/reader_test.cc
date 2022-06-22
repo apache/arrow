@@ -57,7 +57,9 @@ std::string data_file(const char* file) {
   return ss.str();
 }
 
-std::string text_delta_len_byte_array() { return data_file("delta_length_byte_array.parquet"); }
+std::string text_delta_len_byte_array() {
+  return data_file("delta_length_byte_array.parquet");
+}
 std::string alltypes_plain() { return data_file("alltypes_plain.parquet"); }
 
 std::string nation_dict_truncated_data_page() {
@@ -128,7 +130,7 @@ void CheckRowGroupMetadata(const RowGroupMetaData* rg_metadata,
   }
 }
 
-class TestTextDeltaLengthByteArray: public ::testing::Test {
+class TestTextDeltaLengthByteArray : public ::testing::Test {
  public:
   void SetUp() { reader_ = ParquetFileReader::OpenFile(text_delta_len_byte_array()); }
 
@@ -181,18 +183,22 @@ TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
   // Check if the column is encoded with DELTA_LENGTH_BYTE_ARRAY
   std::unique_ptr<ColumnChunkMetaData> col_chunk = group->metadata()->ColumnChunk(0);
 
-  ASSERT_TRUE(std::find(col_chunk->encodings().begin(), col_chunk->encodings().end(), Encoding::DELTA_LENGTH_BYTE_ARRAY) != col_chunk->encodings().end());
+  ASSERT_TRUE(std::find(col_chunk->encodings().begin(), col_chunk->encodings().end(),
+                        Encoding::DELTA_LENGTH_BYTE_ARRAY) !=
+              col_chunk->encodings().end());
 
   ASSERT_TRUE(col->HasNext());
   int64_t values_read = 0;
   int64_t curr_batch_read;
   std::string expected_prefix("apple_banana_mango");
-  while(values_read < 1000) {
-    auto levels_read = col->ReadBatch(25, def_levels, rep_levels, values, &curr_batch_read);
+  while (values_read < 1000) {
+    auto levels_read =
+        col->ReadBatch(25, def_levels, rep_levels, values, &curr_batch_read);
     ASSERT_EQ(25, levels_read);
     ASSERT_EQ(25, curr_batch_read);
-    for(int i=0; i<25; i++) {
-      std::string expected = expected_prefix + std::to_string((i + values_read) * (i + values_read));
+    for (int i = 0; i < 25; i++) {
+      std::string expected =
+          expected_prefix + std::to_string((i + values_read) * (i + values_read));
       ASSERT_TRUE(values[i].len == expected.length());
       ASSERT_TRUE(std::memcmp(values[i].ptr, expected.c_str(), values[i].len) == 0);
     }
