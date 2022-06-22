@@ -219,6 +219,8 @@ if(ARROW_BUILD_STATIC AND MSVC)
   target_compile_definitions(arrow_python_static PUBLIC ARROW_STATIC)
 endif()
 
+set(ARROW_FLIGHT ON)
+
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   # Must link to shared libarrow_flight: we don't want to link more than one
   # copy of gRPC into the eventual Cython shared object, otherwise gRPC calls
@@ -226,7 +228,8 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   # other solution is to link gRPC shared everywhere instead of statically only
   # in Flight)
 
-  
+  add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
+  include_directories(${ARROW_SOURCE_DIR}/src)
 
   add_arrow_lib(arrow_python_flight
                 CMAKE_PACKAGE_NAME
