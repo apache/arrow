@@ -77,7 +77,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>>* sin
   auto sum_opts =
       std::make_shared<ScalarAggregateOptions>(ScalarAggregateOptions::Defaults());
   auto count_opts = std::make_shared<CountOptions>(CountOptions::CountMode::ALL);
-  std::vector<arrow::compute::internal::Aggregate> aggs = {
+  std::vector<arrow::compute::Aggregate> aggs = {
       {"hash_sum", sum_opts, "sum_qty", "sum_qty"},
       {"hash_sum", sum_opts, "sum_base_price", "sum_base_price"},
       {"hash_sum", sum_opts, "sum_disc_price", "sum_disc_price"},
