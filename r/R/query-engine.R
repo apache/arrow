@@ -98,8 +98,9 @@ ExecPlan <- R6Class("ExecPlan",
       }
 
       if (!is.null(.data$aggregations)) {
-        list[node, data] <- private$.config_aggregation(node, .data, grouped, group_vars)
-        .data <- data
+        config_agg <- private$.set_aggregation(node, .data, grouped, group_vars)
+        node <- config_agg$node
+        .data <- config_agg$data
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
         # If there are aggregations, the projection was already handled above
@@ -223,7 +224,7 @@ ExecPlan <- R6Class("ExecPlan",
     Stop = function() ExecPlan_StopProducing(self)
   ),
   private = list(
-    .config_aggregation = function(node, data, grouped, group_vars) {
+    .set_aggregation = function(node, data, grouped, group_vars) {
       # Project to include just the data required for each aggregation,
       # plus group_by_vars (last)
       # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
