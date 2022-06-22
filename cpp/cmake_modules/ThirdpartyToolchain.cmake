@@ -4081,7 +4081,8 @@ macro(build_google_cloud_cpp_storage)
     list(APPEND
          ARROW_BUNDLED_STATIC_LIBS
          absl::base
-         absl::memory
+         # memory is header only
+         # absl::memory
          absl::optional
          absl::span
          absl::time
