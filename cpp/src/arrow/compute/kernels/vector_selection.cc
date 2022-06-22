@@ -2090,8 +2090,7 @@ Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
       PrimitiveRLEFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
       break;
     default:
-      DCHECK(false) << "Invalid values bit width";
-      break;
+      return Status::NotImplemented(std::string("RLEFilter of fixed bit width ") + std::to_string(bit_width));
   }
   return Status::OK();
 }
