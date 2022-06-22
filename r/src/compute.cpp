@@ -596,10 +596,9 @@ class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver
           reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
       auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
 
-      cpp11::writable::list input_types_sexp;
-      input_types_sexp.reserve(descr.size());
-      for (const auto& item : descr) {
-        input_types_sexp.push_back(cpp11::to_r6<arrow::DataType>(item.type));
+      cpp11::writable::list input_types_sexp(descr.size());
+      for (int i = 0; i < descr.size(); i++) {
+        input_types_sexp[i] = cpp11::to_r6<arrow::DataType>(descr[i].type);
       }
 
       cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
@@ -623,17 +622,16 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
           reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
       auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
 
-      cpp11::writable::list args_sexp;
-      args_sexp.reserve(span.num_values());
+      cpp11::writable::list args_sexp(span.num_values());
 
-      for (int64_t i = 0; i < span.num_values(); i++) {
+      for (int i = 0; i < span.num_values(); i++) {
         const arrow::compute::ExecValue& exec_val = span[i];
         if (exec_val.is_array()) {
           std::shared_ptr<arrow::Array> array = exec_val.array.ToArray();
-          args_sexp.push_back(cpp11::to_r6<arrow::Array>(array));
+          args_sexp[i] = cpp11::to_r6<arrow::Array>(array);
         } else if (exec_val.is_scalar()) {
           std::shared_ptr<arrow::Scalar> scalar = exec_val.scalar->Copy();
-          args_sexp.push_back(cpp11::to_r6<arrow::Scalar>(scalar));
+          args_sexp[i] = cpp11::to_r6<arrow::Scalar>(scalar);
         }
       }
 
