@@ -4077,25 +4077,26 @@ macro(build_google_cloud_cpp_storage)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS google-cloud-cpp::storage
        google-cloud-cpp::common)
   if(ABSL_VENDORED)
-    # Copy and de-dupe these absl:: from above, but note: some are header-only
+    # Figure out what absl libraries (not header-only) are required by the
+    # google-cloud-cpp libraries above and add them to the bundled_dependencies
+    #
+    #   pkg-config --libs absl_memory absl_strings absl_str_format absl_time absl_variant absl_base absl_memory absl_optional absl_span absl_time absl_variant
+    # (and then some regexing)
     list(APPEND
          ARROW_BUNDLED_STATIC_LIBS
+         absl::bad_optional_access
+         absl::bad_variant_access
          absl::base
-         # absl::memory
-         # absl::optional
-         # absl::span
-         absl::time
-         # absl::variant
-         # absl::str_format
-         absl::strings
-         # Also these seem to be required, depended on by the above
          absl::civil_time
          absl::int128
          absl::log_severity
          absl::raw_logging_internal
          absl::spinlock_wait
+         absl::strings
          absl::strings_internal
          absl::str_format_internal
+         absl::throw_delegate
+         absl::time
          absl::time_zone)
   endif()
 endmacro()
