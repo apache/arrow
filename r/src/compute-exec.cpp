@@ -22,8 +22,8 @@
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
 #include <arrow/compute/exec/options.h>
-#include <arrow/table.h>
 #include <arrow/io/interfaces.h>
+#include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
 #include <arrow/util/optional.h>
