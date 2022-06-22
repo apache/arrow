@@ -229,8 +229,8 @@ void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
   source -> node_declarations -> sink sequence.
 */
 void BenchmarkNodeOverhead(benchmark::State& state, arrow::compute::ExecContext ctx,
-                           arrow::compute::Expression expr, int32_t num_batches,
-                           int32_t batch_size, arrow::compute::BatchesWithSchema data,
+                           int32_t num_batches, int32_t batch_size,
+                           arrow::compute::BatchesWithSchema data,
                            std::vector<arrow::compute::Declaration>& node_declarations) {
   for (auto _ : state) {
     state.PauseTiming();

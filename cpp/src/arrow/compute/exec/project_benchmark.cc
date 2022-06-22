@@ -47,8 +47,7 @@ static void ProjectionOverhead(benchmark::State& state, Expression expr) {
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   std::vector<arrow::compute::Declaration> project_node_dec = {
       {"project", ProjectNodeOptions{{expr}}}};
-  BenchmarkNodeOverhead(state, ctx, expr, num_batches, batch_size, data,
-                        project_node_dec);
+  BenchmarkNodeOverhead(state, ctx, num_batches, batch_size, data, project_node_dec);
 }
 
 static void ProjectionOverheadIsolated(benchmark::State& state, Expression expr) {

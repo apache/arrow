@@ -26,9 +26,11 @@
 #include "arrow/compute/exec/task_util.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/record_batch.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/benchmark_util.h"
 
@@ -36,17 +38,53 @@ namespace arrow {
 namespace compute {
 
 static constexpr int64_t kTotalBatchSize = 1000000;
+constexpr auto kSeed = 0x94378165;
 
-static void FilterOverhead(benchmark::State& state, Expression expr) {
+static std::shared_ptr<arrow::RecordBatch> GetBatchesWithNullProbability(
+    const FieldVector& fields, int64_t length, double null_probability,
+    double bool_true_probability = 0.5) {
+  std::vector<std::shared_ptr<Array>> arrays(fields.size());
+  auto rand = random::RandomArrayGenerator(kSeed);
+  for (size_t i = 0; i < fields.size(); i++) {
+    const auto& field = fields[i];
+    if (field.get()->name() == "bool") {
+      arrays[i] = rand.Boolean(length, bool_true_probability, null_probability);
+    } else {
+      arrays[i] = rand.ArrayOf(field.get()->type(), length, null_probability);
+    }
+  }
+  return RecordBatch::Make(schema(fields), length, std::move(arrays));
+}
+
+BatchesWithSchema MakeRandomBatchesWithNullProbability(std::shared_ptr<Schema> schema,
+                                                       int num_batches, int batch_size,
+                                                       double null_probability = 0.5) {
+  BatchesWithSchema out;
+  out.batches.resize(num_batches);
+
+  for (int i = 0; i < num_batches; ++i) {
+    out.batches[i] =
+        ExecBatch(*GetBatchesWithNullProbability(schema->fields(), batch_size, null_probability));
+    out.batches[i].values.emplace_back(i);
+  }
+  out.schema = schema;
+  return out;
+}
+
+static void FilterOverhead(benchmark::State& state, std::vector<Expression> expr_vector,
+                           double null_prob = 0.0) {
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
   const int32_t num_batches = kTotalBatchSize / batch_size;
 
-  arrow::compute::BatchesWithSchema data = MakeRandomBatches(
-      schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
+  arrow::compute::BatchesWithSchema data = MakeRandomBatchesWithNullProbability(
+      schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size,
+      null_prob);
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  std::vector<arrow::compute::Declaration> filter_node_dec = {
-      {"filter", FilterNodeOptions{expr}}};
-  BenchmarkNodeOverhead(state, ctx, expr, num_batches, batch_size, data, filter_node_dec);
+  std::vector<arrow::compute::Declaration> filter_node_dec;
+  for (Expression expr : expr_vector) {
+    filter_node_dec.push_back({"filter", FilterNodeOptions(expr)});
+  }
+  BenchmarkNodeOverhead(state, ctx, num_batches, batch_size, data, filter_node_dec);
 }
 
 static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
@@ -66,6 +104,12 @@ arrow::compute::Expression simple_expression =
     less(call("negate", {field_ref("i64")}), literal(0));
 arrow::compute::Expression ref_only_expression = field_ref("bool");
 
+arrow::compute::Expression is_not_null_expression =
+    not_(is_null(field_ref("bool"), false));
+arrow::compute::Expression is_true_expression = equal(field_ref("bool"), literal(true));
+arrow::compute::Expression is_not_null_and_true_expression =
+    and_(is_not_null_expression, is_true_expression);
+
 void SetArgs(benchmark::internal::Benchmark* bench) {
   bench->ArgNames({"batch_size"})
       ->RangeMultiplier(10)
@@ -80,9 +124,29 @@ BENCHMARK_CAPTURE(FilterOverheadIsolated, simple_expression, simple_expression)
 BENCHMARK_CAPTURE(FilterOverheadIsolated, ref_only_expression, ref_only_expression)
     ->Apply(SetArgs);
 
-BENCHMARK_CAPTURE(FilterOverhead, complex_expression, complex_expression)->Apply(SetArgs);
-BENCHMARK_CAPTURE(FilterOverhead, simple_expression, simple_expression)->Apply(SetArgs);
-BENCHMARK_CAPTURE(FilterOverhead, ref_only_expression, ref_only_expression)
+BENCHMARK_CAPTURE(FilterOverhead, complex_expression, {complex_expression})
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(FilterOverhead, simple_expression, {simple_expression})->Apply(SetArgs);
+BENCHMARK_CAPTURE(FilterOverhead, ref_only_expression, {ref_only_expression})
+    ->Apply(SetArgs);
+
+BENCHMARK_CAPTURE(FilterOverhead, NullProb0 .1, {is_not_null_expression}, 0.1)
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(FilterOverhead, NullProb0 .5, {is_not_null_expression}, 0.5)
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(FilterOverhead, NullProb0 .75, {is_not_null_expression}, 0.75)
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(FilterOverhead, NullProb1 .0, {is_not_null_expression}, 1)
+    ->Apply(SetArgs);
+
+BENCHMARK_CAPTURE(FilterOverhead, NotNullToIsTrueMultipass0 .5,
+                  {is_not_null_expression, is_true_expression}, 0.5)
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(FilterOverhead, IsTrueToNotNullMultipass0 .5,
+                  {is_true_expression, is_not_null_expression}, 0.5)
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(FilterOverhead, IsTrueToNotNullSinglePass0 .5,
+                  {is_not_null_and_true_expression}, 0.5)
     ->Apply(SetArgs);
 
 }  // namespace compute
