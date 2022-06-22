@@ -119,6 +119,7 @@ module Arrow
       require "arrow/table-saver"
       require "arrow/tensor"
       require "arrow/time"
+      require "arrow/time-unit"
       require "arrow/time32-array"
       require "arrow/time32-array-builder"
       require "arrow/time32-data-type"
