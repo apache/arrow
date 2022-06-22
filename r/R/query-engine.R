@@ -209,23 +209,14 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      if (as_table) {
-        out <- ExecPlan_read_table(
-          self,
-          node,
-          sorting,
-          prepare_key_value_metadata(node$final_metadata()),
-          select_k
-        )
-      } else {
-        out <- ExecPlan_run(
-          self,
-          node,
-          sorting,
-          prepare_key_value_metadata(node$final_metadata()),
-          select_k
-        )
-      }
+      read_func <- if (as_table) ExecPlan_read_table else ExecPlan_run
+      out <- read_func(
+        self,
+        node,
+        sorting,
+        prepare_key_value_metadata(node$final_metadata()),
+        select_k
+      )
 
       if (!has_sorting) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both

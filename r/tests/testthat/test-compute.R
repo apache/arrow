@@ -61,7 +61,9 @@ test_that("arrow_scalar_function() returns a base scalar function", {
   base_fun <- arrow_scalar_function(
     list(float64(), float64()),
     float64(),
-    function(x, y) { x + y }
+    function(x, y) {
+      x + y
+    }
   )
 
   expect_s3_class(base_fun, "arrow_base_scalar_function")
