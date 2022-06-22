@@ -4088,6 +4088,9 @@ macro(build_google_cloud_cpp_storage)
          # absl::variant
          # absl::str_format
          absl::strings)
+    if(NOT ARROW_USE_NATIVE_INT128)
+      list(APPEND ARROW_BUNDLED_STATIC_LIBS absl::int128)
+    endif()
   endif()
 endmacro()
 
