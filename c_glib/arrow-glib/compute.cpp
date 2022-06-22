@@ -1271,7 +1271,7 @@ garrow_aggregate_node_options_new(GList *aggregations,
     } else {
       arrow_aggregates.push_back({aggregation_priv->function, nullptr});
     };
-    if (!garrow_field_refs_add(arrow_targets,
+    if (!garrow_field_refs_add(aggregation_priv->output,
                                aggregation_priv->input,
                                error,
                                "[aggregate-node-options][new][input]")) {
@@ -1280,7 +1280,7 @@ garrow_aggregate_node_options_new(GList *aggregations,
     arrow_aggregates.push_back({
                                   aggregation_priv->function,
                                   function_options,
-                                  arrow_targets[0],
+                                  aggregation_priv->output,
                                   aggregation_priv->output
                                });
   }
