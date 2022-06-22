@@ -199,7 +199,6 @@ Verify the Release
     # See https://github.com/apache/arrow/pull/10126 as an example.
     
     # Once the automatic verification has passed merge the Release Candidate's branch to the maintenance branch
-    # may need the --force flag to push the maint-<version> branch to the apache remote for RC1 or later
     git checkout maint-<version>
     git merge release-<version>-rc<rc-number>
     git push apache maint-<version>
