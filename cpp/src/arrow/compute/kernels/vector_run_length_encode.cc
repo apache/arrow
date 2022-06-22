@@ -6,9 +6,9 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-template <typename Type>
+template <typename ArrowType, bool has_validity_buffer>
 struct RunLengthEncodeExec {
-  using CType = typename Type::c_type;
+  using CType = typename ArrowType::c_type;
 
   struct Element {
     bool valid;
@@ -26,7 +26,7 @@ struct RunLengthEncodeExec {
     } else {
       result.valid = true;
     }
-    result.value = input_values[input_position];
+    result.value = (reinterpret_cast<const CType*>(input_values))[input_position];
     return result;
   }
 
@@ -34,7 +34,7 @@ struct RunLengthEncodeExec {
     if (has_validity_buffer) {
       bit_util::SetBitTo(output_validity, output_position, element.valid);
     }
-    output_values[output_position] = element.value;
+    (reinterpret_cast<CType*>(output_values))[output_position] = element.value;
   }
 
   RunLengthEncodeExec(KernelContext* ctx, const ExecBatch& batch, Datum* output):
@@ -49,8 +49,7 @@ struct RunLengthEncodeExec {
       return Status::NotImplemented("TODO");
     }
     input_validity = input_data.GetValues<uint8_t>(0);
-    input_values = input_data.GetValues<CType>(1);
-    bool has_validity_buffer = input_data.null_count != 0;
+    input_values = input_data.GetValues<uint8_t>(1);
 
     input_position = 0;
     Element element = Read();
@@ -90,7 +89,7 @@ struct RunLengthEncodeExec {
     child_array_data->null_count = output_null_count;
 
     output_validity = child_array_data->GetMutableValues<uint8_t>(0);
-    output_values = child_array_data->GetMutableValues<CType>(1);
+    output_values = child_array_data->GetMutableValues<uint8_t>(1);
     output_run_lengths = output_array_data->GetMutableValues<int64_t>(0);
     output_array_data->child_data.push_back(std::move(child_array_data));
 
@@ -127,19 +126,54 @@ struct RunLengthEncodeExec {
   MemoryPool* pool;
   Datum* output_datum;
   const uint8_t* input_validity;
-  const CType* input_values;
+  const void* input_values;
   uint8_t* output_validity;
-  CType* output_values;
+  void* output_values;
   int64_t* output_run_lengths;
-  bool has_validity_buffer;
   int64_t input_position;
   size_t output_position;
 };
 
+template<>
+RunLengthEncodeExec<BooleanType, true>::Element RunLengthEncodeExec<BooleanType, true>::Read() {
+  Element result;
+  result.valid = bit_util::GetBit(input_validity, input_position);
+  if (result.valid) {
+    result.value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), input_position);
+  }
+  return result;
+}
+
+template<>
+RunLengthEncodeExec<BooleanType, false>::Element RunLengthEncodeExec<BooleanType, false>::Read() {
+  return {
+    .valid = true,
+    .value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), input_position),
+  };
+}
+
+template<>
+void RunLengthEncodeExec<BooleanType, true>::WriteValue(Element element) {
+  bit_util::SetBitTo(output_validity, output_position, element.valid);
+  if (element.valid) {
+    bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position, element.value);
+  }
+}
+
+template<>
+void RunLengthEncodeExec<BooleanType, false>::WriteValue(Element element) {
+  bit_util::SetBitTo(reinterpret_cast<uint8_t*>(output_values), output_position, element.value);
+}
+
 template <typename Type>
 struct RunLengthEncodeGenerator {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
-    return RunLengthEncodeExec<Type>(ctx, batch, output).Exec();
+    bool has_validity_buffer = batch.values[0].array()->null_count != 0;
+    if (has_validity_buffer) {
+      return RunLengthEncodeExec<Type, true>(ctx, batch, output).Exec();
+    } else {
+      return RunLengthEncodeExec<Type, false>(ctx, batch, output).Exec();
+    }
   }
 };
 
@@ -255,14 +289,6 @@ struct RunLengthDecodeGenerator<NullType> {
   }
 };
 
-template <>
-struct RunLengthDecodeGenerator<BooleanType> {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
-    // TODO
-    return Status::NotImplemented("TODO");
-  }
-};
-
 static const FunctionDoc run_length_encode_doc(
     "Run-length array", ("Return a run-length-encoded version of the input array."),
     {"array"}, "RunLengthEncodeOptions");
@@ -287,6 +313,15 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
+  {
+    const auto ty = boolean();
+    auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
+    auto sig = KernelSignature::Make({InputType(ty, ValueDescr::ARRAY)},
+                                     OutputType(ResolveEncodeOutput));
+    VectorKernel kernel(sig, exec);
+    DCHECK_OK(function->AddKernel(std::move(kernel)));
+  }
+
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
