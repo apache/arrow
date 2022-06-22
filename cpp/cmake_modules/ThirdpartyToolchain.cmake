@@ -4089,7 +4089,6 @@ macro(build_google_cloud_cpp_storage)
          # absl::str_format
          absl::strings
          # Also these seem to be required, depended on by the above
-         absl::base_internal
          absl::civil_time
          absl::int128
          absl::log_severity
