@@ -597,7 +597,7 @@ class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver
       auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
 
       cpp11::writable::list input_types_sexp(descr.size());
-      for (int i = 0; i < descr.size(); i++) {
+      for (size_t i = 0; i < descr.size(); i++) {
         input_types_sexp[i] = cpp11::to_r6<arrow::DataType>(descr[i].type);
       }
 
