@@ -1155,7 +1155,7 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType {
 
   std::string ToString() const override;
 
-  const std::shared_ptr<DataType>& encoded_type() { return encoded_type_; }
+  const std::shared_ptr<DataType>& encoded_type() const { return encoded_type_; }
 
   std::string name() const override { return "run_length_encoded"; }
 
