@@ -4087,10 +4087,11 @@ macro(build_google_cloud_cpp_storage)
          absl::time
          # absl::variant
          # absl::str_format
-         absl::strings)
-    if(NOT ARROW_USE_NATIVE_INT128)
-      list(APPEND ARROW_BUNDLED_STATIC_LIBS absl::int128)
-    endif()
+         absl::strings
+         # Also these seem to be required, depended on by the above
+         absl::int128
+         absl::time_zone
+         )
   endif()
 endmacro()
 
