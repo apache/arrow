@@ -133,12 +133,17 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
 std::shared_ptr<arrow::Table> ExecPlan_read_table(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
+    cpp11::strings metadata, int64_t head = -1, bool on_old_windows = false) {
   auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
 #if !defined(HAS_SAFE_CALL_INTO_R)
   StopIfNotOk(prepared_plan.first->StartProducing());
   return ValueOrStop(prepared_plan.second->ToTable());
 #else
+  if (on_old_windows) {
+    StopIfNotOk(prepared_plan.first->StartProducing());
+    return ValueOrStop(prepared_plan.second->ToTable());
+  }
+
   const auto& io_context = arrow::io::default_io_context();
   auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
     return DeferNotOk(io_context.executor()->Submit([&]() {

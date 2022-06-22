@@ -408,8 +408,8 @@ ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
-ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head) {
-  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head)
+ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head, on_old_windows) {
+  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head, on_old_windows)
 }
 
 ExecPlan_StopProducing <- function(plan) {
