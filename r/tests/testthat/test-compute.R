@@ -75,7 +75,7 @@ test_that("register_scalar_function() adds a compute function to the registry", 
   fun <- arrow_base_scalar_function(
     int32(), int64(),
     function(context, args) {
-      args[[1]]
+      args[[1]] + 1L
     }
   )
 
@@ -86,16 +86,18 @@ test_that("register_scalar_function() adds a compute function to the registry", 
 
   expect_equal(
     call_function("my_test_scalar_function", Array$create(1L, int32())),
-    Array$create(1L, int64())
+    Array$create(2L, int64())
   )
 
   expect_equal(
     call_function("my_test_scalar_function", Scalar$create(1L, int32())),
-    Scalar$create(1L, int64())
+    Scalar$create(2L, int64())
   )
 
-  # fails because there's no event loop registered
-  # record_batch(a = 1L) %>%
-  #   dplyr::mutate(b = my_test_scalar_function(a)) %>%
-  #   dplyr::collect()
+  expect_identical(
+    record_batch(a = 1L) %>%
+      dplyr::mutate(b = my_test_scalar_function(a)) %>%
+      dplyr::collect(),
+    tibble::tibble(a = 1L, b = 2L)
+  )
 })
