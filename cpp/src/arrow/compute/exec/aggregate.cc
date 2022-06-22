@@ -22,6 +22,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -55,7 +56,9 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    const FunctionOptions* options = aggregates[i].options.get();
+    const FunctionOptions* options =
+        arrow::internal::checked_cast<const FunctionOptions*>(
+            aggregates[i].options.get());
 
     if (options == nullptr) {
       // use known default options for the named function if possible

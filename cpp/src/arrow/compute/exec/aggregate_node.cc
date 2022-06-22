@@ -43,10 +43,9 @@ namespace compute {
 
 namespace {
 
-void AggregatesToString(
-    std::stringstream* ss, const Schema& input_schema, const std::vector<Aggregate>& aggs,
-    const std::vector<int>& target_field_ids,
-    int indent = 0) {
+void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
+                        const std::vector<Aggregate>& aggs,
+                        const std::vector<int>& target_field_ids, int indent = 0) {
   *ss << "aggregates=[" << std::endl;
   for (size_t i = 0; i < aggs.size(); i++) {
     for (int j = 0; j < indent; ++j) *ss << "  ";

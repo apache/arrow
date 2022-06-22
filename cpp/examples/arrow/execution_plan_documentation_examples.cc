@@ -540,7 +540,7 @@ arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
   auto options = std::make_shared<cp::CountOptions>(cp::CountOptions::ONLY_VALID);
   auto aggregate_options =
-      cp::AggregateNodeOptions{/*aggregates=*/{{"hash_count", &options, "a", "count(a)"}},
+      cp::AggregateNodeOptions{/*aggregates=*/{{"hash_count", options, "a", "count(a)"}},
                                /*keys=*/{"b"}};
   ARROW_ASSIGN_OR_RAISE(
       cp::ExecNode * aggregate,

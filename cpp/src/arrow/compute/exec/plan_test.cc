@@ -1152,19 +1152,18 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
 
     {
       auto options = std::make_shared<TDigestOptions>(TDigestOptions::Defaults());
-      ASSERT_OK(
-          Declaration::Sequence(
-              {
-                  {"source",
-                   SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
-                                                                       /*slow=*/false)}},
-                  {"aggregate",
-                   AggregateNodeOptions{
-                       /*aggregates=*/{{"tdigest", options, "i32", "tdigest(i32)"}},
-                   }},
-                  {"sink", SinkNodeOptions{&sink_gen}},
-              })
-              .AddToPlan(plan.get()));
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(/*parallel=*/false,
+                                                                    /*slow=*/false)}},
+                        {"aggregate",
+                         AggregateNodeOptions{
+                             /*aggregates=*/{{"tdigest", options, "i32", "tdigest(i32)"}},
+                         }},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
     }
 
     ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
@@ -1186,9 +1185,9 @@ TEST(ExecPlanExecution, AggregationPreservesOptions) {
                   {"source", SourceNodeOptions{data.schema, data.gen(/*parallel=*/false,
                                                                      /*slow=*/false)}},
                   {"aggregate",
-                   AggregateNodeOptions{/*aggregates=*/{{"hash_count", options,
-                                                         "i32", "count(i32)"}},
-                                        /*keys=*/{"str"}}},
+                   AggregateNodeOptions{
+                       /*aggregates=*/{{"hash_count", options, "i32", "count(i32)"}},
+                       /*keys=*/{"str"}}},
                   {"sink", SinkNodeOptions{&sink_gen}},
               })
               .AddToPlan(plan.get()));
