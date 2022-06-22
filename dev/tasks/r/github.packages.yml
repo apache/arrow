@@ -183,7 +183,7 @@ jobs:
           # otherwise not work while installing packages.
           options(arrow.dev_repo = dev_repo)
           str <- paste0('options(arrow.dev_repo = "', dev_repo,'")')
-          profile_path <- file.path(getwd(), ".Rprofile")
+          profile_path <- "~/.Rprofile"
           write(str, file = profile_path, append = TRUE)
           
           # Build
