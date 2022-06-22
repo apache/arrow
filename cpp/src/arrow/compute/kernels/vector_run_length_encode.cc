@@ -197,113 +197,13 @@ struct RunLengthEncodeGenerator {
 };
 
 template <>
-struct RunLengthEncodeGenerator<BooleanType> {
-  using CType = bool;
-
-  struct Element {
-    bool valid;
-    CType value;
-
-    bool operator!=(const Element& other) const {
-      return valid != other.valid || value != other.value;
-    }
-
-    Element(const uint8_t* validity_buffer, const uint8_t* value_buffer, size_t index) {
-      if (validity_buffer != NULLPTR) {
-        valid = bit_util::GetBit(validity_buffer, index);
-      } else {
-        valid = true;
-      }
-      value = bit_util::GetBit(value_buffer, index);
-    }
-  };
-
+struct RunLengthEncodeGenerator<NullType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
-    ARROW_DCHECK(batch.num_values() == 1);
-    auto& input_data = batch.values[0].array();
-    if (input_data->length == 0) {
-      return Status::NotImplemented("TODO");
-    }
-    auto input_validity = input_data->GetValues<uint8_t>(0);
-    auto input_values = input_data->GetValues<uint8_t>(1);
-    bool has_validity_buffer = input_validity != NULLPTR;
-
-    Element element = Element(input_validity, input_values, 0);
-    size_t num_values_output = 1;
-    size_t output_null_count = element.valid ? 0 : 1;
-    for (int64_t index = 1; index < input_data->length; index++) {
-      Element previous_element = element;
-      element = Element(input_validity, input_values, index);
-      if (element != previous_element) {
-        num_values_output++;
-        if (!element.valid) {
-          output_null_count++;
-        }
-      }
-    }
-
-    auto pool = ctx->memory_pool();
-
-    std::shared_ptr<Buffer> validity_buffer = NULLPTR;
-    // in bytes
-    int64_t validity_buffer_size = 0;
-    if (has_validity_buffer) {
-      validity_buffer_size = (num_values_output - 1) / 8 + 1;
-      ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBuffer(validity_buffer_size, pool));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(num_values_output * sizeof(CType), pool));
-    ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
-                          AllocateBuffer(num_values_output * sizeof(int64_t), pool));
-
-    auto output_type = std::make_shared<RunLengthEncodedType>(input_data->type);
-    auto output_array_data = ArrayData::Make(std::move(output_type), input_data->length);
-    auto child_array_data = ArrayData::Make(input_data->type, num_values_output);
-    output_array_data->buffers.push_back(std::move(run_lengths_buffer));
-    child_array_data->buffers.push_back(std::move(validity_buffer));
-    child_array_data->buffers.push_back(std::move(values_buffer));
-
-    output_array_data->null_count.store(input_data->null_count);
-    child_array_data->null_count = output_null_count;
-
-    auto output_validity = child_array_data->GetMutableValues<uint8_t>(0);
-    auto output_values = child_array_data->GetMutableValues<uint8_t>(1);
-    auto output_run_lengths = output_array_data->GetMutableValues<int64_t>(0);
-    output_array_data->child_data.push_back(std::move(child_array_data));
-
-    if (has_validity_buffer) {
-      // clear last byte in validity buffer, which won't completely be overwritten with
-      // validity values
-      output_validity[validity_buffer_size - 1] = 0;
-    }
-
-    element = Element(input_validity, input_values, 0);
-    if (has_validity_buffer) {
-      bit_util::SetBitTo(output_validity, 0, element.valid);
-    }
-    size_t output_position = 1;
-    output_values[0] = element.value;
-    for (int64_t input_position = 1; input_position < input_data->length;
-         input_position++) {
-      Element previous_element = element;
-      element = Element(input_validity, input_values, input_position);
-      if (element != previous_element) {
-        if (has_validity_buffer) {
-          bit_util::SetBitTo(output_validity, output_position, element.valid);
-        }
-        bit_util::SetBitTo(output_values, output_position, element.value);
-        // run lengths buffer holds accumulated run length values
-        output_run_lengths[output_position - 1] = input_position;
-        output_position++;
-      }
-    }
-    output_run_lengths[output_position - 1] = input_data->length;
-    ARROW_DCHECK(output_position == num_values_output);
-
-    *output = Datum(output_array_data);
-    return Status::OK();
+    // TODO
+    return Status::NotImplemented("TODO");
   }
 };
+
 
 template <typename ArrowType, bool has_validity_buffer>
 struct RunLengthDecodeExec
