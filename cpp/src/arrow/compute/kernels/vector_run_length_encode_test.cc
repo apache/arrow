@@ -22,67 +22,85 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
 
-class TestRunLengthEncode : public ::testing::Test {};
-
 namespace arrow {
 namespace compute {
 
-TEST_F(TestRunLengthEncode, EncodeInt32Array) {
-  auto input = ArrayFromJSON(int32(), "[1, 1, 2, -5, -5, -5]");
+struct RLETestData {
+  static RLETestData JSON(std::shared_ptr<DataType> data_type, std::string input_json,
+                          std::string expected_values_json,
+                          std::vector<int64_t> expected_run_lengths) {
+    return {.input = ArrayFromJSON(data_type, input_json),
+            .expected_values = ArrayFromJSON(data_type, expected_values_json),
+            .expected_run_lengths = std::move(expected_run_lengths)};
+  }
 
-  std::array<uint64_t, 3> expected_run_lengths{2, 3, 6};
-  std::array<int32_t, 3> expected_values{1, 2, -5};
+  template <typename ArrowType>
+  static RLETestData TypeMinMaxNull() {
+    using CType = typename ArrowType::c_type;
+    RLETestData result;
+    NumericBuilder<ArrowType> builder;
+    ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::min()));
+    ARROW_EXPECT_OK(builder.AppendNull());
+    ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::max()));
+    result.input = *builder.Finish();
+    result.expected_values = result.input;
+    result.expected_run_lengths = {1, 2, 3};
+    return result;
+  }
 
-  ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(input));
+  std::shared_ptr<Array> input;
+  std::shared_ptr<Array> expected_values;
+  std::vector<int64_t> expected_run_lengths;
+};
+
+class TestRunLengthEncode : public ::testing::TestWithParam<RLETestData> {};
+
+TEST_P(TestRunLengthEncode, EncodeArray) {
+  auto data = GetParam();
+
+  ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
   auto encoded = encoded_datum.array();
-  ASSERT_EQ(*(encoded->GetMutableValues<std::array<uint64_t, 3>>(0)),
-            expected_run_lengths);
-  ASSERT_EQ(*(encoded->child_data[0]->GetMutableValues<std::array<int32_t, 3>>(1)),
-            expected_values);
-  ASSERT_EQ(encoded->child_data[0]->GetMutableValues<uint8_t>(0), nullptr);
-  ASSERT_EQ(encoded->buffers[0]->size(), 3 * sizeof(uint64_t));
-  ASSERT_EQ(encoded->child_data[0]->buffers[1]->size(), 3 * sizeof(int32_t));
-  ASSERT_EQ(encoded->length, 6);
-  ASSERT_EQ(*encoded->type, RunLengthEncodedType(int32()));
-  ASSERT_EQ(encoded->null_count, 0);
-  ASSERT_EQ(encoded->child_data[0]->null_count, 0);
-  ASSERT_EQ(encoded->child_data[0]->length, 3);
+  const int64_t* run_lengths_buffer = encoded->GetValues<int64_t>(0);
+  ASSERT_EQ(std::vector<int64_t>(run_lengths_buffer,
+                                 run_lengths_buffer + encoded->child_data[0]->length),
+            data.expected_run_lengths);
+  auto values_array = MakeArray(encoded->child_data[0]);
+  ASSERT_OK(values_array->ValidateFull());
+  ASSERT_TRUE(values_array->Equals(data.expected_values));
+  ASSERT_EQ(encoded->buffers[0]->size(),
+            data.expected_run_lengths.size() * sizeof(uint64_t));
+  ASSERT_EQ(encoded->length, data.input->length());
+  ASSERT_EQ(*encoded->type, RunLengthEncodedType(data.input->type()));
+  ASSERT_EQ(encoded->null_count, data.input->null_count());
 
   ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded));
   auto decoded = decoded_datum.make_array();
   ASSERT_OK(decoded->ValidateFull());
-  ASSERT_TRUE(decoded->Equals(input));
+  ASSERT_TRUE(decoded->Equals(data.input));
 }
 
-TEST_F(TestRunLengthEncode, EncodeArrayWithNull) {
-  auto input = ArrayFromJSON(int32(), "[null, 1, 1, null, null, -5]");
-
-  std::array<uint64_t, 4> expected_run_lengths{1, 3, 5, 6};
-  uint8_t expected_null_bitmap{0b1010};
-
-  ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(input));
-
-  auto encoded = encoded_datum.array();
-  ASSERT_EQ(*(encoded->GetMutableValues<std::array<uint64_t, 4>>(0)),
-            expected_run_lengths);
-  ASSERT_EQ(encoded->child_data[0]->GetMutableValues<int32_t>(1)[1], 1);
-  ASSERT_EQ(encoded->child_data[0]->GetMutableValues<int32_t>(1)[3], -5);
-  ASSERT_EQ(*(encoded->child_data[0]->GetMutableValues<uint8_t>(0)),
-            expected_null_bitmap);
-  ASSERT_EQ(encoded->buffers[0]->size(), 4 * sizeof(uint64_t));
-  ASSERT_EQ(encoded->child_data[0]->buffers[1]->size(), 4 * sizeof(int32_t));
-  ASSERT_EQ(encoded->length, 6);
-  ASSERT_EQ(*encoded->type, RunLengthEncodedType(int32()));
-  ASSERT_EQ(encoded->null_count, 3);
-  ASSERT_EQ(encoded->child_data[0]->null_count, 2);
-  ASSERT_EQ(encoded->child_data[0]->length, 4);
-
-  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded));
-  auto decoded = decoded_datum.make_array();
-  ASSERT_OK(decoded->ValidateFull());
-  ASSERT_TRUE(decoded->Equals(input));
-}
+INSTANTIATE_TEST_SUITE_P(
+    EncodeArrayTests, TestRunLengthEncode,
+    ::testing::Values(RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]",
+                                        "[1, 0, -5, 255]", {2, 3, 6, 8}),
+                      RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]",
+                                        "[null, 1, null, 5]", {1, 3, 5, 6}),
+                      RLETestData::JSON(boolean(), "[true, true, true, false, false]",
+                                        "[true, false]", {3, 5}),
+                      RLETestData::JSON(boolean(),
+                                        "[true, true, true, false, null, null, false]",
+                                        "[true, false, null, false]", {3, 4, 6, 7}),
+                      RLETestData::TypeMinMaxNull<Int8Type>(),
+                      RLETestData::TypeMinMaxNull<UInt8Type>(),
+                      RLETestData::TypeMinMaxNull<Int16Type>(),
+                      RLETestData::TypeMinMaxNull<UInt16Type>(),
+                      RLETestData::TypeMinMaxNull<Int32Type>(),
+                      RLETestData::TypeMinMaxNull<UInt32Type>(),
+                      RLETestData::TypeMinMaxNull<Int64Type>(),
+                      RLETestData::TypeMinMaxNull<UInt64Type>(),
+                      RLETestData::TypeMinMaxNull<FloatType>(),
+                      RLETestData::TypeMinMaxNull<DoubleType>()));
 
 TEST_F(TestRunLengthEncode, FilterArray) {
   auto filter = ArrayFromJSON(
