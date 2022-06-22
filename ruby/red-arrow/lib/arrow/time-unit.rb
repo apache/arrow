@@ -16,13 +16,12 @@
 # under the License.
 
 module Arrow
-  class Time32DataType
+  class TimeUnit
     class << self
       # @api private
       def try_convert(value)
-        case value
-        when Symbol, Arrow::TimeUnit
-          new(value)
+        if value.is_a?(Hash) and value.size == 1 and value[:unit]
+          super(value[:unit])
         else
           super
         end

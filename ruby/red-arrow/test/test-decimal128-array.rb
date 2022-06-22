@@ -18,14 +18,13 @@
 class Decimal128ArrayTest < Test::Unit::TestCase
   sub_test_case(".new") do
     test("build") do
-      data_type = Arrow::Decimal128DataType.new(3, 1)
       values = [
         10.1,
         nil,
         "10.1",
         BigDecimal("10.1"),
       ]
-      array = Arrow::Decimal128Array.new(data_type, values)
+      array = Arrow::Decimal128Array.new({precision: 3, scale: 1}, values)
       assert_equal([
                      BigDecimal("10.1"),
                      nil,
