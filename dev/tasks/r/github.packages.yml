@@ -244,11 +244,11 @@ jobs:
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
           
         # Explicitly install Python as not all container might have it  
-        - name: Set up Python
-          uses: actions/setup-python@v3
-          with:
-            cache: 'pip'
-            python-version: 3.8
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          cache: 'pip'
+          python-version: 3.8
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
       - name: Install arrow from our repo
         env:
