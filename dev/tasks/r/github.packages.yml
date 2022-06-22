@@ -230,24 +230,19 @@ jobs:
         shell: bash
         run: |
           if [ "`which dnf`" ]; then
-            dnf install -y libcurl-devel openssl-devel
+            dnf install -y libcurl-devel openssl-devel python3
           elif [ "`which yum`" ]; then
-            yum install -y libcurl-devel openssl-devel
+            yum install -y libcurl-devel openssl-devel python3
           elif [ "`which zypper`" ]; then
-            zypper install -y libcurl-devel libopenssl-devel
+            zypper install -y libcurl-devel libopenssl-devel python3
           else
             apt-get update
-            apt-get install -y libcurl4-openssl-dev libssl-dev
+            apt-get install -y libcurl4-openssl-dev libssl-dev python3
           fi
 
           # Add R-devel to PATH
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
-          
-        # Explicitly install Python as not all container might have it  
-      - name: Set up Python
-        uses: actions/setup-python@v3
-        with:
-          python-version: 3.8
+
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
       - name: Install arrow from our repo
         env:
