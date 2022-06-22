@@ -168,23 +168,9 @@ jobs:
             type = "binary",
             repos = c("https://nightlies.apache.org/arrow/r", "https://cloud.r-project.org")
           )
+
+          cat("Remove old arrow version.\n")
           remove.packages("arrow")
-
-          # Setup local repo
-          dev_repo <- paste0(
-            ifelse(on_windows, "file:", "file://"),
-            getwd(),
-            "/repo")
-          cat("Local repo: ", dev_repo)
-
-          # This is necessary to use the local folder as a repo in both
-          # install_arrow & tools/*libs.R
-          # The option has to be added to the .Rprofile as it will 
-          # otherwise not work while installing packages.
-          options(arrow.dev_repo = dev_repo)
-          str <- paste0('options(arrow.dev_repo = "', dev_repo,'")')
-          profile_path <- "~/.Rprofile"
-          write(str, file = profile_path, append = TRUE)
           
           # Build
           Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
@@ -194,7 +180,7 @@ jobs:
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
 
-         
+          cat("Install arrow from dev repo.\n")
           install.packages(
             "arrow",
             type = "source",
@@ -256,15 +242,17 @@ jobs:
 
           # Add R-devel to PATH
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
+          
+        # Explicitly install Python as not all container might have it  
+        - name: Set up Python
+          uses: actions/setup-python@v3
+          with:
+            cache: 'pip'
+            python-version: 3.8
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
-      - name: Set dev repo
-        shell: bash
-        run: |
-          # It is important to use pwd here as this happens inside a container so the 
-          # normal github.workspace path is wrong.
-          echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
       - name: Install arrow from our repo
         env:
+          ARROW_R_DEV: TRUE
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: "TRUE"
         shell: Rscript {0}
@@ -281,10 +269,6 @@ jobs:
         with:
           install-r: false
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
-      - name: Set dev repo
-        shell: bash
-        run: |
-          echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary

@@ -294,5 +294,17 @@ on:
     run: |
       # getwd() is necessary as this macro is used within jobs using a docker container
       tools::write_PACKAGES(file.path(getwd(), "repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
-  - run: ls -R repo
-{% endmacro %}
+  - name: Show repo 
+    shell: bash 
+    run: tree repo
+  - name: Serve repo via localhost
+    shell: bash
+    working-directory: repo
+    run: python3 -m http.server 8080 --bind localhost &
+  - name: Add dev repo to .Rprofile
+    shell: bash
+    run: |
+      # It is important to use pwd here as this happens inside a container (during test-linux-binary)
+      # so the normal github.workspace path is wrong.
+      echo "options(arrow.dev_repo = 'localhost:8080')" >> ~/.Rprofile
+  {% endmacro %}
