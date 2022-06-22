@@ -15,27 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class Decimal128ArrayTest < Test::Unit::TestCase
-  sub_test_case(".new") do
-    test("build") do
-      values = [
-        10.1,
-        nil,
-        "10.1",
-        BigDecimal("10.1"),
-        BigDecimal("1.11"),
-        BigDecimal("1"),
-      ]
-      array = Arrow::Decimal128Array.new({precision: 3, scale: 1}, values)
-      assert_equal([
-                     BigDecimal("10.1"),
-                     nil,
-                     BigDecimal("10.1"),
-                     BigDecimal("10.1"),
-                     BigDecimal("1.1"),
-                     BigDecimal("1"),
-                   ],
-                   array.to_a)
+module Arrow
+  class StringArrayBuilder
+    private
+    def convert_to_arrow_value(value)
+      case value
+      when GLib::Bytes, String
+        value
+      else
+        value.to_s
+      end
     end
   end
 end

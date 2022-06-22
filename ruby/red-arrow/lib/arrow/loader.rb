@@ -107,6 +107,7 @@ module Arrow
       require "arrow/source-node-options"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
+      require "arrow/string-array-builder"
       require "arrow/struct-array"
       require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
