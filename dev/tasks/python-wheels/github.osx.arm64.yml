@@ -49,9 +49,6 @@ jobs:
 
       - name: Add Brew's Bison to PATH
         run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
-      
-      - name: Install libffi
-        run: brew install libffi
 
       - name: Retrieve VCPKG version from arrow/.env
         run: |
