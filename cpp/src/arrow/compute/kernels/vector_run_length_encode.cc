@@ -7,7 +7,7 @@ namespace compute {
 namespace internal {
 
 template <typename Type>
-struct RunLengthEncodeGenerator {
+struct RunLengthEncodeExec {
   using CType = typename Type::c_type;
 
   struct Element {
@@ -28,20 +28,25 @@ struct RunLengthEncodeGenerator {
     }
   };
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
+  RunLengthEncodeExec(KernelContext* ctx, const ExecBatch& batch, Datum* output):
+    input_data{*batch.values[0].array()},
+    pool{ctx->memory_pool()},
+    output_datum{output} {
     ARROW_DCHECK(batch.num_values() == 1);
-    auto& input_data = batch.values[0].array();
-    if (input_data->length == 0) {
+  }
+
+  Status Exec() {
+    if (input_data.length == 0) {
       return Status::NotImplemented("TODO");
     }
-    auto input_validity = input_data->GetValues<uint8_t>(0);
-    auto input_values = input_data->GetValues<CType>(1);
-    bool has_validity_buffer = input_validity != NULLPTR;
+    input_validity = input_data.GetValues<uint8_t>(0);
+    input_values = input_data.GetValues<CType>(1);
+    bool has_validity_buffer = input_data.null_count != 0;
 
     Element element = Element(input_validity, input_values, 0);
     size_t num_values_output = 1;
     size_t output_null_count = element.valid ? 0 : 1;
-    for (int64_t index = 1; index < input_data->length; index++) {
+    for (int64_t index = 1; index < input_data.length; index++) {
       Element previous_element = element;
       element = Element(input_validity, input_values, index);
       if (element != previous_element) {
@@ -51,8 +56,6 @@ struct RunLengthEncodeGenerator {
         }
       }
     }
-
-    auto pool = ctx->memory_pool();
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
@@ -66,14 +69,14 @@ struct RunLengthEncodeGenerator {
     ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
                           AllocateBuffer(num_values_output * sizeof(int64_t), pool));
 
-    auto output_type = std::make_shared<RunLengthEncodedType>(input_data->type);
-    auto output_array_data = ArrayData::Make(std::move(output_type), input_data->length);
-    auto child_array_data = ArrayData::Make(input_data->type, num_values_output);
+    auto output_type = std::make_shared<RunLengthEncodedType>(input_data.type);
+    auto output_array_data = ArrayData::Make(std::move(output_type), input_data.length);
+    auto child_array_data = ArrayData::Make(input_data.type, num_values_output);
     output_array_data->buffers.push_back(std::move(run_lengths_buffer));
     child_array_data->buffers.push_back(std::move(validity_buffer));
     child_array_data->buffers.push_back(std::move(values_buffer));
 
-    output_array_data->null_count.store(input_data->null_count);
+    output_array_data->null_count.store(input_data.null_count);
     child_array_data->null_count = output_null_count;
 
     auto output_validity = child_array_data->GetMutableValues<uint8_t>(0);
@@ -93,7 +96,7 @@ struct RunLengthEncodeGenerator {
     }
     size_t output_position = 1;
     output_values[0] = element.value;
-    for (int64_t input_position = 1; input_position < input_data->length;
+    for (int64_t input_position = 1; input_position < input_data.length;
          input_position++) {
       Element previous_element = element;
       element = Element(input_validity, input_values, input_position);
@@ -107,11 +110,25 @@ struct RunLengthEncodeGenerator {
         output_position++;
       }
     }
-    output_run_lengths[output_position - 1] = input_data->length;
+    output_run_lengths[output_position - 1] = input_data.length;
     ARROW_DCHECK(output_position == num_values_output);
 
-    *output = Datum(output_array_data);
+    *output_datum = Datum(output_array_data);
     return Status::OK();
+  }
+
+  const ArrayData& input_data;
+  MemoryPool* pool;
+  Datum* output_datum;
+  const uint8_t* input_validity;
+  const CType* input_values;
+  bool has_validity_buffer;
+};
+
+template <typename Type>
+struct RunLengthEncodeGenerator {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* output) {
+    return RunLengthEncodeExec<Type>(ctx, batch, output).Exec();
   }
 };
 
