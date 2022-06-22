@@ -127,7 +127,7 @@ module Arrow
           }
         when BigDecimal
           builder_info ||= {}
-          if builder_info[:builder]
+          if builder_info[:builder] or value.nan? or value.infinite?
             {
               builder: StringArrayBuilder.new,
               detected: true,

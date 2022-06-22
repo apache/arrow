@@ -56,6 +56,10 @@ module Arrow
     def normalize_value(value)
       case value
       when BigDecimal
+        if value.nan? or value.infinite?
+          message = "can't use #{value} as an Arrow::Decimal256Array value"
+          raise FloatDomainError, message
+        end
         integer, decimal = value.to_s("f").split(".", 2)
         decimal = decimal[0, scale].ljust(scale, "0")
         Decimal256.new("#{integer}.#{decimal}")

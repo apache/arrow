@@ -74,6 +74,18 @@ class ArrayBuilderTest < Test::Unit::TestCase
         assert_equal(raw_array.collect(&:to_s), array.to_a)
       end
 
+      test("NaN") do
+        raw_array = [BigDecimal("10.1"), BigDecimal::NAN]
+        array = Arrow::ArrayBuilder.build(raw_array)
+        assert_equal(raw_array.collect(&:to_s), array.to_a)
+      end
+
+      test("Infinity") do
+        raw_array = [BigDecimal("10.1"), BigDecimal::INFINITY]
+        array = Arrow::ArrayBuilder.build(raw_array)
+        assert_equal(raw_array.collect(&:to_s), array.to_a)
+      end
+
       test("decimal128") do
         values = [
           BigDecimal("10.1"),
