@@ -191,7 +191,7 @@ ExecPlan <- R6Class("ExecPlan",
       }
       node
     },
-    Run = function(node) {
+    Run = function(node, as_table = FALSE) {
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
@@ -209,13 +209,23 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      out <- ExecPlan_run(
-        self,
-        node,
-        sorting,
-        prepare_key_value_metadata(node$final_metadata()),
-        select_k
-      )
+      if (as_table) {
+        out <- ExecPlan_read_table(
+          self,
+          node,
+          sorting,
+          prepare_key_value_metadata(node$final_metadata()),
+          select_k
+        )
+      } else {
+        out <- ExecPlan_run(
+          self,
+          node,
+          sorting,
+          prepare_key_value_metadata(node$final_metadata()),
+          select_k
+        )
+      }
 
       if (!has_sorting) {
         # Since ExecPlans don't scan in deterministic order, head/tail are both
@@ -232,10 +242,12 @@ ExecPlan <- R6Class("ExecPlan",
       } else if (!is.null(node$extras$tail)) {
         # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect
-        out <- out$read_table()
+        out <- as_arrow_table(out)
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
         # Put back into RBR
-        out <- as_record_batch_reader(out)
+        if (!as_table) {
+          out <- as_record_batch_reader(out)
+        }
       }
 
       # If arrange() created $temp_columns, make sure to omit them from the result
@@ -243,9 +255,13 @@ ExecPlan <- R6Class("ExecPlan",
       # happens in the end (SinkNode) so nothing comes after it.
       # TODO(ARROW-16631): move into ExecPlan
       if (length(node$extras$sort$temp_columns) > 0) {
-        tab <- out$read_table()
+        tab <- as_arrow_table(out)
         tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
-        out <- as_record_batch_reader(tab)
+        if (!as_table) {
+          out <- as_record_batch_reader(tab)
+        } else {
+          out <- tab
+        }
       }
 
       out
