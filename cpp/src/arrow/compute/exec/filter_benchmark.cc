@@ -56,16 +56,15 @@ static std::shared_ptr<arrow::RecordBatch> GetBatchesWithNullProbability(
   return RecordBatch::Make(schema(fields), length, std::move(arrays));
 }
 
-BatchesWithSchema MakeRandomBatchesWithNullProbability(std::shared_ptr<Schema> schema,
-                                                       int num_batches, int batch_size,
-                                                       double null_probability = 0.5,
-                                                       double bool_true_probability = 0.5) {
+BatchesWithSchema MakeRandomBatchesWithNullProbability(
+    std::shared_ptr<Schema> schema, int num_batches, int batch_size,
+    double null_probability = 0.5, double bool_true_probability = 0.5) {
   BatchesWithSchema out;
   out.batches.resize(num_batches);
 
   for (int i = 0; i < num_batches; ++i) {
-    out.batches[i] =
-        ExecBatch(*GetBatchesWithNullProbability(schema->fields(), batch_size, null_probability, bool_true_probability));
+    out.batches[i] = ExecBatch(*GetBatchesWithNullProbability(
+        schema->fields(), batch_size, null_probability, bool_true_probability));
     out.batches[i].values.emplace_back(i);
   }
   out.schema = schema;
@@ -73,7 +72,6 @@ BatchesWithSchema MakeRandomBatchesWithNullProbability(std::shared_ptr<Schema> s
 }
 
 static void FilterOverhead(benchmark::State& state, std::vector<Expression> expr_vector) {
-
   const int32_t batch_size = static_cast<int32_t>(state.range(0));
   const double null_prob = state.range(1) / 100.0;
   const double bool_true_probability = state.range(2) / 100.0;
@@ -114,32 +112,33 @@ arrow::compute::Expression is_not_null_and_true_expression =
     and_(is_not_null_expression, is_true_expression);
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
-    for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
-            bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
-            ->Args({batch_size, 50, 50})
-            ->UseRealTime();
-    }
+  for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
+    bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
+        ->Args({batch_size, 50, 50})
+        ->UseRealTime();
+  }
 }
 
 void SelectivityArgs(benchmark::internal::Benchmark* bench) {
   for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
-        for (double null_prob : {0.1, 0.5, 0.75, 1.0}) {
-            bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
-            ->Args({batch_size, static_cast<int64_t>(null_prob * 100.0), 50})
-            ->UseRealTime();
-        }
+    for (double null_prob : {0.1, 0.5, 0.75, 1.0}) {
+      bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
+          ->Args({batch_size, static_cast<int64_t>(null_prob * 100.0), 50})
+          ->UseRealTime();
+    }
   }
 }
 
-void SetMultiPassArgs(benchmark::internal::Benchmark *bench) {
-    for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
-        for (double null_prob : {0.25, 0.5, 1.0}) {
-            double bool_true_prob = 0.25 / null_prob;
-            bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
-            ->Args({batch_size, static_cast<int64_t>(null_prob * 100.0), static_cast<int64_t>(bool_true_prob * 100)})
-            ->UseRealTime();
-        }
+void SetMultiPassArgs(benchmark::internal::Benchmark* bench) {
+  for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
+    for (double null_prob : {0.25, 0.5, 1.0}) {
+      double bool_true_prob = 0.25 / null_prob;
+      bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
+          ->Args({batch_size, static_cast<int64_t>(null_prob * 100.0),
+                  static_cast<int64_t>(bool_true_prob * 100)})
+          ->UseRealTime();
     }
+  }
 }
 
 BENCHMARK_CAPTURE(FilterOverheadIsolated, complex_expression, complex_expression)
