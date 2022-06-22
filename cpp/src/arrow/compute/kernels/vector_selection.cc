@@ -90,14 +90,14 @@ int64_t GetFilterOutputSize(const ArraySpan& filter,
   return output_size;
 }
 
-int64_t GetFilterOutputSizeRLE(const ArrayData& values, const ArrayData& filter,
+int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
                                FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
 
-  const ArrayData& filter_data = *filter.child_data[0];
+  const ArraySpan& filter_data = filter.child_data[0];
   const int64_t filter_offset = filter_data.offset;
-  const uint8_t* filter_is_valid = filter_data.buffers[0]->data();
-  const uint8_t* filter_selection = filter_data.buffers[1]->data();
+  const uint8_t* filter_is_valid = filter_data.buffers[0].data;
+  const uint8_t* filter_selection = filter_data.buffers[1].data;
 
   if (null_selection == FilterOptions::EMIT_NULL) {
     rle_util::VisitMergedRuns(
@@ -841,22 +841,20 @@ class PrimitiveRLEFilterImpl {
   using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
                                       uint8_t, typename ArrowType::c_type>::type;
 
-  PrimitiveRLEFilterImpl(const PrimitiveArg& values, const PrimitiveArg& filter,
-                         FilterOptions::NullSelectionBehavior null_selection,
-                         ArrayData* out_arr)
-      : values_is_valid_(values.is_valid),
-        values_run_length_(values.run_length),
-        values_data_(reinterpret_cast<const T*>(values.data)),
-        values_null_count_(values.null_count),
+  PrimitiveRLEFilterImpl(const ArraySpan& values, const ArraySpan& filter,
+                      FilterOptions::NullSelectionBehavior null_selection,
+                      ArrayData* out_arr)
+      : values_is_valid_(values.child_data[0].buffers[0].data),
+        values_run_length_(reinterpret_cast<const int64_t*>(values.buffers[0].data)),
+        values_data_(reinterpret_cast<const T*>(values.child_data[0].buffers[1].data)),
         values_offset_(values.offset),
-        values_physical_length_(values.length),
-        input_logical_length_(values_run_length_[values.length - 1]),
-        filter_is_valid_(filter.is_valid),
-        filter_data_(filter.data),
-        filter_run_length_(filter.run_length),
-        filter_null_count_(filter.null_count),
+        values_physical_length_(values.child_data[0].length),
+        input_logical_length_(values.length),
+        filter_is_valid_(filter.child_data[0].buffers[0].data),
+        filter_data_(filter.child_data[0].buffers[1].data),
+        filter_run_length_(reinterpret_cast<const int64_t*>(filter.buffers[0].data)),
         filter_offset_(filter.offset),
-        filter_physical_length_(filter.length),
+        filter_physical_length_(filter.child_data[0].length),
         null_selection_(null_selection),
         out_logical_length_(out_arr->length) {
     if (out_arr->buffers[0] != nullptr) {
@@ -944,14 +942,14 @@ class PrimitiveRLEFilterImpl {
   const uint8_t* values_is_valid_;
   const int64_t* values_run_length_;
   const T* values_data_;
-  int64_t values_null_count_;
+  //int64_t values_null_count_;
   int64_t values_offset_;
   int64_t values_physical_length_;
   int64_t input_logical_length_;
   const uint8_t* filter_is_valid_;
   const uint8_t* filter_data_;
   const int64_t* filter_run_length_;
-  int64_t filter_null_count_;
+  //int64_t filter_null_count_;
   int64_t filter_offset_;
   int64_t filter_physical_length_;
   FilterOptions::NullSelectionBehavior null_selection_;
@@ -2045,16 +2043,16 @@ Status StructFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   return Status::OK();
 }
 
-Status RLEFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
-  PrimitiveArg filter = GetPrimitiveArg(*batch[1].array());
+Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+  auto values = span.values[0].array;
+  auto filter = span.values[1].array;
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
   int64_t output_length =
-      GetFilterOutputSizeRLE(*batch[0].array(), *batch[1].array(), null_selection);
+      GetFilterOutputSizeRLE(values, filter, null_selection);
 
-  ArrayData* out_arr = out->mutable_array();
+  ArrayData* out_arr = result->array_data().get();
 
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
@@ -2071,14 +2069,13 @@ Status RLEFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  RETURN_NOT_OK(PreallocateDataRLE(ctx, output_length, values.bit_width,
-                                   allocate_validity, out_arr));
+  const int bit_width = values.type->bit_width();
+  RETURN_NOT_OK(
+      PreallocateDataRLE(ctx, output_length, bit_width, allocate_validity, out_arr));
 
-  switch (values.bit_width) {
+  switch (bit_width) {
     case 1:
-      DCHECK(false) << "TODO";
-      // PrimitiveRLEFilterImpl<BooleanType>(values, filter, null_selection,
-      // out_arr).Exec();
+      PrimitiveRLEFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
       break;
     case 8:
       PrimitiveRLEFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
