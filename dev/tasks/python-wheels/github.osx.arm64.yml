@@ -23,7 +23,6 @@
 {{ macros.github_header() }}
 
 env:
-  ARROW_FLIGHT: OFF
   ARROW_JEMALLOC: OFF
   CC: "clang"
   CMAKE_BUILD_TYPE: release
