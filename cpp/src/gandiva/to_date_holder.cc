@@ -89,10 +89,9 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const char* data,
   std::string str;
   str.assign(data, data_len);
   std::size_t found = str.find("T");
-  if (found!=std::string::npos) {
+  if (found != std::string::npos) {
     str = str.replace(found, 1, "'T'");
   }
-
 
   // Issues
   // 1. processes date that do not match the format.

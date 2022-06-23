@@ -118,7 +118,6 @@ TEST_F(TestToDateHolder, TestSimpleDate) {
   EXPECT_EQ(millis_since_epoch, 0);
 }
 
-
 TEST_F(TestToDateHolder, TestPartSimpleDate) {
   std::shared_ptr<ToDateHolder> to_date_holder;
   ASSERT_OK(ToDateHolder::Make("MM.YYYY", 1, &to_date_holder));
@@ -129,7 +128,6 @@ TEST_F(TestToDateHolder, TestPartSimpleDate) {
   int64_t millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
-
 }
 
 TEST_F(TestToDateHolder, TestDateTime) {
