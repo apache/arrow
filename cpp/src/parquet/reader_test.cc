@@ -57,9 +57,6 @@ std::string data_file(const char* file) {
   return ss.str();
 }
 
-std::string text_delta_len_byte_array() {
-  return data_file("delta_length_byte_array.parquet");
-}
 std::string alltypes_plain() { return data_file("alltypes_plain.parquet"); }
 
 std::string nation_dict_truncated_data_page() {
@@ -132,7 +129,9 @@ void CheckRowGroupMetadata(const RowGroupMetaData* rg_metadata,
 
 class TestTextDeltaLengthByteArray : public ::testing::Test {
  public:
-  void SetUp() { reader_ = ParquetFileReader::OpenFile(text_delta_len_byte_array()); }
+  void SetUp() {
+    reader_ = ParquetFileReader::OpenFile(data_file("delta_length_byte_array.parquet"));
+  }
 
   void TearDown() {}
 
@@ -141,10 +140,10 @@ class TestTextDeltaLengthByteArray : public ::testing::Test {
 };
 
 TEST_F(TestTextDeltaLengthByteArray, TestTextScanner) {
-  std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
+  auto group = reader_->RowGroup(0);
 
   // column 0, id
-  std::shared_ptr<ByteArrayScanner> scanner(new ByteArrayScanner(group->Column(0)));
+  auto scanner(new ByteArrayScanner(group->Column(0)));
   ByteArray val;
   bool is_null;
   std::string expected_prefix("apple_banana_mango");
@@ -154,34 +153,35 @@ TEST_F(TestTextDeltaLengthByteArray, TestTextScanner) {
     ASSERT_FALSE(is_null);
     std::string expected = expected_prefix + std::to_string(i * i);
     ASSERT_TRUE(val.len == expected.length());
-    ASSERT_EQ(std::memcmp(val.ptr, expected.c_str(), val.len), 0);
+    ASSERT_EQ(::arrow::util::string_view(reinterpret_cast<const char*>(val.ptr), val.len),
+              expected);
   }
   ASSERT_FALSE(scanner->HasNext());
   ASSERT_FALSE(scanner->NextValue(&val, &is_null));
 }
 
 TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
-  std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
+  auto group = reader_->RowGroup(0);
 
   // column 0, id
-  std::shared_ptr<ByteArrayReader> col =
-      std::dynamic_pointer_cast<ByteArrayReader>(group->Column(0));
+  auto col = std::dynamic_pointer_cast<ByteArrayReader>(group->Column(0));
 
-  int16_t def_levels[25];
-  int16_t rep_levels[25];
-  ByteArray values[25];
+  const int16_t batch_size = 25;
+  int16_t def_levels[batch_size];
+  int16_t rep_levels[batch_size];
+  ByteArray values[batch_size];
 
   // This file only has 1000 rows
   ASSERT_EQ(1000, reader_->metadata()->num_rows());
   // This file only has 1 row group
   ASSERT_EQ(1, reader_->metadata()->num_row_groups());
-  // Size of the metadata is 400 bytes
+  // Size of the metadata is 105 bytes
   ASSERT_EQ(105, reader_->metadata()->size());
   // This row group must have 1000 rows
   ASSERT_EQ(1000, group->metadata()->num_rows());
 
   // Check if the column is encoded with DELTA_LENGTH_BYTE_ARRAY
-  std::unique_ptr<ColumnChunkMetaData> col_chunk = group->metadata()->ColumnChunk(0);
+  auto col_chunk = group->metadata()->ColumnChunk(0);
 
   ASSERT_TRUE(std::find(col_chunk->encodings().begin(), col_chunk->encodings().end(),
                         Encoding::DELTA_LENGTH_BYTE_ARRAY) !=
@@ -193,14 +193,16 @@ TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
   std::string expected_prefix("apple_banana_mango");
   while (values_read < 1000) {
     auto levels_read =
-        col->ReadBatch(25, def_levels, rep_levels, values, &curr_batch_read);
-    ASSERT_EQ(25, levels_read);
-    ASSERT_EQ(25, curr_batch_read);
-    for (int i = 0; i < 25; i++) {
-      std::string expected =
+        col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
+    ASSERT_EQ(batch_size, levels_read);
+    ASSERT_EQ(batch_size, curr_batch_read);
+    for (int i = 0; i < batch_size; i++) {
+      auto expected =
           expected_prefix + std::to_string((i + values_read) * (i + values_read));
       ASSERT_TRUE(values[i].len == expected.length());
-      ASSERT_EQ(std::memcmp(values[i].ptr, expected.c_str(), values[i].len), 0);
+      ASSERT_EQ(::arrow::util::string_view(reinterpret_cast<const char*>(values[i].ptr),
+                                           values[i].len),
+                expected);
     }
     values_read += curr_batch_read;
   }
