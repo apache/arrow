@@ -440,6 +440,11 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length);
 gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis);
 gdv_time32 castTIME_int32(int32_t int_val);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds, 
+                                        const char* timezone, gdv_int32 length);
+
+gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context, gdv_timestamp time_miliseconds, 
+                                          const char* timezone, gdv_int32 length);   
 gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
 gdv_date64 next_day_from_timestamp(gdv_int64 context, gdv_date64 millis, const char* in,

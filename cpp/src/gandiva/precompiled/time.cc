@@ -16,6 +16,8 @@
 // under the License.
 
 #include "./epoch_time_point.h"
+#include "arrow/vendored/datetime/date.h"
+#include "arrow/vendored/datetime/tz.h"
 
 extern "C" {
 
@@ -1054,5 +1056,59 @@ gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
 
 CAST_NULLABLE_INTERVAL_YEAR(int32)
 CAST_NULLABLE_INTERVAL_YEAR(int64)
+
+FORCE_INLINE
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds, 
+                                        const char* timezone, gdv_int32 length) {
+                                        
+  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp
+                                 {std::chrono::milliseconds{time_miliseconds}};     // sys_time=time_point<system_clock, duration>
+  
+  char* tz = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, length));
+  if (tz == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    return 0;
+  }
+  strncpy(tz, timezone, length);
+  tz[length] = '\0';
+
+  try {
+    auto local_timezone = arrow_vendored::date::locate_zone(tz);
+    auto tz_offset = local_timezone->get_info(tp).offset;
+    return time_miliseconds - tz_offset.count()*1000;
+  }
+  catch(...) {
+    gdv_fn_context_set_error_msg(context, "Invalid time zone");
+    return 0;
+  }
+}
+
+FORCE_INLINE
+gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context, gdv_timestamp time_miliseconds, 
+                                          const char* timezone, gdv_int32 length) {
+
+  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp 
+                                  {std::chrono::milliseconds{time_miliseconds}};
+  auto utc_time_zone = arrow_vendored::date::make_zoned("Etc/UTC", tp);
+  char* tz = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, length));
+  if (tz == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    return 0;
+  }
+  strncpy(tz, timezone, length);
+  tz[length] = '\0';
+  
+  try {
+    auto local_tz = arrow_vendored::date::make_zoned(tz, utc_time_zone);
+    // auto timestamp_formatted = arrow_vendored::date::format("%F %T %z\0", local_tz);
+    auto tz_offset = local_tz.get_time_zone()->get_info(tp).offset;
+    return time_miliseconds + tz_offset.count()*1000;
+  }
+  catch(...) {
+    gdv_fn_context_set_error_msg(context, "Invalid time zone");
+    return 0;
+  }
+}
+
 
 }  // extern "C"
