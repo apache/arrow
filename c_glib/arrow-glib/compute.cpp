@@ -1265,7 +1265,14 @@ garrow_aggregate_node_options_new(GList *aggregations,
       function_options =
         garrow_function_options_get_raw(aggregation_priv->options);
     };
-    arrow_aggregates.push_back({aggregation_priv->function, function_options});
+    if (function_options) {
+      arrow_aggregates.push_back({
+        aggregation_priv->function,
+        function_options->Copy(),
+      });
+    } else {
+      arrow_aggregates.push_back({aggregation_priv->function, nullptr});
+    };
     if (!garrow_field_refs_add(arrow_targets,
                                aggregation_priv->input,
                                error,

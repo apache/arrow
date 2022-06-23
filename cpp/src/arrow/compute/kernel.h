@@ -52,7 +52,10 @@ struct ARROW_EXPORT KernelState {
 /// \brief Context/state for the execution of a particular kernel.
 class ARROW_EXPORT KernelContext {
  public:
-  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
+  // Can pass optional backreference; not used consistently for the
+  // moment but will be made so in the future
+  explicit KernelContext(ExecContext* exec_ctx, const Kernel* kernel = NULLPTR)
+      : exec_ctx_(exec_ctx), kernel_(kernel) {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
   /// not initialized.
@@ -68,6 +71,10 @@ class ARROW_EXPORT KernelContext {
   /// be minded separately.
   void SetState(KernelState* state) { state_ = state; }
 
+  // Set kernel that is being invoked since some kernel
+  // implementations will examine the kernel state.
+  void SetKernel(const Kernel* kernel) { kernel_ = kernel; }
+
   KernelState* state() { return state_; }
 
   /// \brief Configuration related to function execution that is to be shared
@@ -78,9 +85,12 @@ class ARROW_EXPORT KernelContext {
   /// MemoryPool contained in the ExecContext used to create the KernelContext.
   MemoryPool* memory_pool() { return exec_ctx_->memory_pool(); }
 
+  const Kernel* kernel() const { return kernel_; }
+
  private:
   ExecContext* exec_ctx_;
   KernelState* state_ = NULLPTR;
+  const Kernel* kernel_ = NULLPTR;
 };
 
 /// \brief An type-checking interface to permit customizable validation rules
@@ -548,10 +558,6 @@ struct Kernel {
 using ArrayKernelExec =
     std::function<Status(KernelContext*, const ExecSpan&, ExecResult*)>;
 
-/// \brief Kernel execution API being phased out per ARROW-16756
-using ArrayKernelExecOld =
-    std::function<Status(KernelContext*, const ExecBatch&, Datum*)>;
-
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
 /// and memory pre-allocation preferences.
@@ -584,6 +590,9 @@ struct ScalarKernel : public Kernel {
   // bitmaps is a reasonable default
   NullHandling::type null_handling = NullHandling::INTERSECTION;
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
+
+  // Additional kernel-specific data
+  std::shared_ptr<KernelState> data;
 };
 
 // ----------------------------------------------------------------------
@@ -597,16 +606,19 @@ struct VectorKernel : public Kernel {
   /// \brief See VectorKernel::finalize member for usage
   using FinalizeFunc = std::function<Status(KernelContext*, std::vector<Datum>*)>;
 
+  /// \brief Function for executing a stateful VectorKernel against a
+  /// ChunkedArray input. Does not need to be defined for all VectorKernels
+  typedef Status (*ChunkedExec)(KernelContext*, const ExecBatch&, Datum* out);
+
   VectorKernel() = default;
 
-  VectorKernel(std::vector<InputType> in_types, OutputType out_type,
-               ArrayKernelExecOld exec, KernelInit init = NULLPTR,
-               FinalizeFunc finalize = NULLPTR)
+  VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
+               KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
         exec(std::move(exec)),
         finalize(std::move(finalize)) {}
 
-  VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExecOld exec,
+  VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
                KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(sig), std::move(init)),
         exec(std::move(exec)),
@@ -614,7 +626,10 @@ struct VectorKernel : public Kernel {
 
   /// \brief Perform a single invocation of this kernel. Any required state is
   /// managed through the KernelContext.
-  ArrayKernelExecOld exec;
+  ArrayKernelExec exec;
+
+  /// \brief Execute the kernel on a ChunkedArray. Does not need to be defined
+  ChunkedExec exec_chunked = NULLPTR;
 
   /// \brief For VectorKernel, convert intermediate results into finalized
   /// results. Mutates input argument. Some kernels may accumulate state
@@ -637,7 +652,7 @@ struct VectorKernel : public Kernel {
   /// functionality.
   bool can_write_into_slices = true;
 
-  /// Some vector kernels can do chunkwise execution using ExecBatchIterator,
+  /// Some vector kernels can do chunkwise execution using ExecSpanIterator,
   /// in some cases accumulating some state. Other kernels (like Take) need to
   /// be passed whole arrays and don't work on ChunkedArray inputs
   bool can_execute_chunkwise = true;

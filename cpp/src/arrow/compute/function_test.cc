@@ -214,10 +214,6 @@ auto ExecNYI = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) {
   return Status::NotImplemented("NYI");
 };
 
-auto ExecNYIOld = [](KernelContext* ctx, const ExecBatch& args, Datum* out) {
-  return Status::NotImplemented("NYI");
-};
-
 template <typename FunctionType, typename ExecType>
 void CheckAddDispatch(FunctionType* func, ExecType exec) {
   using KernelType = typename FunctionType::KernelType;
@@ -272,7 +268,7 @@ TEST(ScalarVectorFunction, DispatchExact) {
   CheckAddDispatch(&func1, ExecNYI);
 
   // ARROW-16576: will migrate later to new span-based kernel exec API
-  CheckAddDispatch(&func2, ExecNYIOld);
+  CheckAddDispatch(&func2, ExecNYI);
 }
 
 TEST(ArrayFunction, VarArgs) {

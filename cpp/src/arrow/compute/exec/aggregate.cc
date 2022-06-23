@@ -55,7 +55,7 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    auto options = aggregates[i].options;
+    const FunctionOptions* options = aggregates[i].options.get();
 
     if (options == nullptr) {
       // use known default options for the named function if possible

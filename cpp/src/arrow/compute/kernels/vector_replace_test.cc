@@ -383,7 +383,8 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMask) {
            {"[null]", "[null, null]", "[null, null]", "[null, null, null]", "[null]"})},
   };
 
-  for (auto test_case : cases) {
+  for (size_t i = 0; i < cases.size(); ++i) {
+    auto test_case = cases[i];
     if (std::is_same<TypeParam, Date64Type>::value) {
       // ARROW-10924: account for Date64 value restrictions
       ASSERT_OK_AND_ASSIGN(test_case.input, Cast(test_case.input, int64()));

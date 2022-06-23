@@ -39,11 +39,13 @@ struct KeyEncoder {
 
   virtual ~KeyEncoder() = default;
 
-  virtual void AddLength(const Datum&, int64_t batch_length, int32_t* lengths) = 0;
+  virtual void AddLength(const ExecValue& value, int64_t batch_length,
+                         int32_t* lengths) = 0;
 
   virtual void AddLengthNull(int32_t* length) = 0;
 
-  virtual Status Encode(const Datum&, int64_t batch_length, uint8_t** encoded_bytes) = 0;
+  virtual Status Encode(const ExecValue&, int64_t batch_length,
+                        uint8_t** encoded_bytes) = 0;
 
   virtual void EncodeNull(uint8_t** encoded_bytes) = 0;
 
@@ -62,11 +64,11 @@ struct KeyEncoder {
 struct BooleanKeyEncoder : KeyEncoder {
   static constexpr int kByteWidth = 1;
 
-  void AddLength(const Datum& data, int64_t batch_length, int32_t* lengths) override;
+  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override;
 
   void AddLengthNull(int32_t* length) override;
 
-  Status Encode(const Datum& data, int64_t batch_length,
+  Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override;
 
   void EncodeNull(uint8_t** encoded_bytes) override;
@@ -80,11 +82,11 @@ struct FixedWidthKeyEncoder : KeyEncoder {
       : type_(std::move(type)),
         byte_width_(checked_cast<const FixedWidthType&>(*type_).bit_width() / 8) {}
 
-  void AddLength(const Datum& data, int64_t batch_length, int32_t* lengths) override;
+  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override;
 
   void AddLengthNull(int32_t* length) override;
 
-  Status Encode(const Datum& data, int64_t batch_length,
+  Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override;
 
   void EncodeNull(uint8_t** encoded_bytes) override;
@@ -100,7 +102,7 @@ struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
   DictionaryKeyEncoder(std::shared_ptr<DataType> type, MemoryPool* pool)
       : FixedWidthKeyEncoder(std::move(type)), pool_(pool) {}
 
-  Status Encode(const Datum& data, int64_t batch_length,
+  Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override;
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
@@ -114,18 +116,18 @@ template <typename T>
 struct VarLengthKeyEncoder : KeyEncoder {
   using Offset = typename T::offset_type;
 
-  void AddLength(const Datum& data, int64_t batch_length, int32_t* lengths) override {
+  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override {
     if (data.is_array()) {
       int64_t i = 0;
       VisitArraySpanInline<T>(
-          *data.array(),
+          data.array,
           [&](util::string_view bytes) {
             lengths[i++] +=
                 kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
           },
           [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
     } else {
-      const Scalar& scalar = *data.scalar();
+      const Scalar& scalar = *data.scalar;
       const int32_t buffer_size =
           scalar.is_valid ? static_cast<int32_t>(UnboxScalar<T>::Unbox(scalar).size())
                           : 0;
@@ -139,11 +141,11 @@ struct VarLengthKeyEncoder : KeyEncoder {
     *length += kExtraByteForNull + sizeof(Offset);
   }
 
-  Status Encode(const Datum& data, int64_t batch_length,
+  Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override {
     if (data.is_array()) {
       VisitArraySpanInline<T>(
-          *data.array(),
+          data.array,
           [&](util::string_view bytes) {
             auto& encoded_ptr = *encoded_bytes++;
             *encoded_ptr++ = kValidByte;
@@ -232,11 +234,11 @@ struct VarLengthKeyEncoder : KeyEncoder {
 };
 
 struct NullKeyEncoder : KeyEncoder {
-  void AddLength(const Datum&, int64_t batch_length, int32_t* lengths) override {}
+  void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override {}
 
   void AddLengthNull(int32_t* length) override {}
 
-  Status Encode(const Datum& data, int64_t batch_length,
+  Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override {
     return Status::OK();
   }
@@ -255,7 +257,7 @@ class ARROW_EXPORT RowEncoder {
 
   void Init(const std::vector<ValueDescr>& column_types, ExecContext* ctx);
   void Clear();
-  Status EncodeAndAppend(const ExecBatch& batch);
+  Status EncodeAndAppend(const ExecSpan& batch);
   Result<ExecBatch> Decode(int64_t num_rows, const int32_t* row_ids);
 
   inline std::string encoded_row(int32_t i) const {

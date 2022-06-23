@@ -30,33 +30,6 @@ using internal::checked_cast;
 namespace compute {
 namespace internal {
 
-const uint8_t* GetValidityBitmap(const ArrayData& data) {
-  const uint8_t* bitmap = nullptr;
-  if (data.buffers[0]) {
-    bitmap = data.buffers[0]->data();
-  }
-  return bitmap;
-}
-
-int GetBitWidth(const DataType& type) {
-  return checked_cast<const FixedWidthType&>(type).bit_width();
-}
-
-PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
-  PrimitiveArg arg;
-  arg.is_valid = GetValidityBitmap(arr);
-  arg.data = arr.buffers[1]->data();
-  arg.bit_width = GetBitWidth(*arr.type);
-  arg.offset = arr.offset;
-  arg.length = arr.length;
-  if (arg.bit_width > 1) {
-    arg.data += arr.offset * arg.bit_width / 8;
-  }
-  // This may be kUnknownNullCount
-  arg.null_count = (arg.is_valid != nullptr) ? arr.null_count.load() : 0;
-  return arg;
-}
-
 // TODO(wesm): ARROW-16577: this will be unneeded later
 ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec, bool use_array_span,
                                                NullHandling::type null_handling) {
@@ -119,6 +92,25 @@ ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec, bool use_ar
     }
     return Status::OK();
   };
+}
+
+ExecValue GetExecValue(const Datum& value) {
+  ExecValue result;
+  if (value.is_array()) {
+    result.SetArray(*value.array());
+  } else {
+    result.SetScalar(value.scalar().get());
+  }
+  return result;
+}
+
+int64_t GetTrueCount(const ArraySpan& mask) {
+  if (mask.buffers[0].data != nullptr) {
+    return CountAndSetBits(mask.buffers[0].data, mask.offset, mask.buffers[1].data,
+                           mask.offset, mask.length);
+  } else {
+    return CountSetBits(mask.buffers[1].data, mask.offset, mask.length);
+  }
 }
 
 }  // namespace internal

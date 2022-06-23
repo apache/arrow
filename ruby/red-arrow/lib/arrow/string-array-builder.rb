@@ -16,16 +16,14 @@
 # under the License.
 
 module Arrow
-  class Time32DataType
-    class << self
-      # @api private
-      def try_convert(value)
-        case value
-        when Symbol, Arrow::TimeUnit
-          new(value)
-        else
-          super
-        end
+  class StringArrayBuilder
+    private
+    def convert_to_arrow_value(value)
+      case value
+      when GLib::Bytes, String
+        value
+      else
+        value.to_s
       end
     end
   end

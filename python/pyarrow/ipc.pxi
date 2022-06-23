@@ -401,7 +401,8 @@ cdef class MessageReader(_Weakrefable):
     @staticmethod
     def open_stream(source):
         """
-        Open stream from source.
+        Open stream from source, if you want to use memory map use
+        MemoryMappedFile as source.
 
         Parameters
         ----------
@@ -847,7 +848,7 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         except TypeError:
             pass
 
-        get_reader(source, True, &self.file)
+        get_reader(source, False, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -1089,7 +1090,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
-    get_reader(obj, True, &cpp_file)
+    get_reader(obj, False, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo

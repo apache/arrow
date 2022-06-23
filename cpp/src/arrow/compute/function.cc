@@ -252,11 +252,11 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
     return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchBest(&inputs));
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
   ARROW_ASSIGN_OR_RAISE(std::vector<Datum> args_with_casts, Cast(args, inputs, ctx));
 
   std::unique_ptr<KernelState> state;
-  KernelContext kernel_ctx{ctx};
+  KernelContext kernel_ctx{ctx, kernel};
   if (kernel->init) {
     ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
     kernel_ctx.SetState(state.get());
@@ -266,20 +266,22 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
 
   detail::DatumAccumulator listener;
 
-  // Set length to 0 unless it's a scalar function (vector functions don't use
-  // it).
-  ExecBatch input(std::move(args_with_casts), 0);
-  if (kind() == Function::SCALAR) {
-    ARROW_ASSIGN_OR_RAISE(int64_t inferred_length,
-                          detail::InferBatchLength(input.values));
-    if (passed_length == -1) {
-      input.length = inferred_length;
-    } else {
-      // ARROW-16819: will clean up more later
-      if (input.num_values() > 0 && passed_length != inferred_length) {
-        return Status::Invalid("Passed batch length did not equal actual array lengths");
-      }
+  ExecBatch input(std::move(args_with_casts), /*length=*/0);
+  if (input.num_values() == 0) {
+    if (passed_length != -1) {
       input.length = passed_length;
+    }
+  } else {
+    bool all_same_length = false;
+    int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
+    input.length = inferred_length;
+    if (kind() == Function::SCALAR) {
+      DCHECK(passed_length == -1 || passed_length == inferred_length);
+    } else if (kind() == Function::VECTOR) {
+      auto vkernel = static_cast<const VectorKernel*>(kernel);
+      if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
+        return Status::Invalid("Vector kernel arguments must all be the same length");
+      }
     }
   }
   RETURN_NOT_OK(executor->Execute(input, &listener));
@@ -366,7 +368,7 @@ Status ScalarFunction::AddKernel(ScalarKernel kernel) {
 }
 
 Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
-                                 ArrayKernelExecOld exec, KernelInit init) {
+                                 ArrayKernelExec exec, KernelInit init) {
   RETURN_NOT_OK(CheckArity(in_types));
 
   if (arity_.is_varargs && in_types.size() != 1) {

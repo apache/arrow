@@ -457,14 +457,6 @@ Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descr
 Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
 
 // ----------------------------------------------------------------------
-// Generate an array kernel given template classes
-
-Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
-Status ExecFailOld(KernelContext* ctx, const ExecBatch& batch, Datum* out);
-
-ArrayKernelExec MakeFlippedBinaryExec(ArrayKernelExec exec);
-
-// ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
 // functions
 
@@ -1032,41 +1024,29 @@ struct GetTypeId {
 
 }  // namespace detail
 
-// GD for numeric types (integer and floating point)
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateNumeric(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return Generator<Type0, Int8Type, Args...>::Exec;
-    case Type::UINT8:
-      return Generator<Type0, UInt8Type, Args...>::Exec;
-    case Type::INT16:
-      return Generator<Type0, Int16Type, Args...>::Exec;
-    case Type::UINT16:
-      return Generator<Type0, UInt16Type, Args...>::Exec;
-    case Type::INT32:
-      return Generator<Type0, Int32Type, Args...>::Exec;
-    case Type::UINT32:
-      return Generator<Type0, UInt32Type, Args...>::Exec;
-    case Type::INT64:
-      return Generator<Type0, Int64Type, Args...>::Exec;
-    case Type::UINT64:
-      return Generator<Type0, UInt64Type, Args...>::Exec;
-    case Type::FLOAT:
-      return Generator<Type0, FloatType, Args...>::Exec;
-    case Type::DOUBLE:
-      return Generator<Type0, DoubleType, Args...>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
+template <typename KernelType>
+struct FailFunctor {};
 
-// TODO(wesm): for ARROW-16756, while in transition to a new kernel
-// API I duplicated this generator dispatcher to be able to create old
-// kernel types
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExecOld GenerateNumericOld(detail::GetTypeId get_id) {
+template <>
+struct FailFunctor<ArrayKernelExec> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return Status::NotImplemented("This kernel is malformed");
+  }
+};
+
+template <>
+struct FailFunctor<VectorKernel::ChunkedExec> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::NotImplemented("This kernel is malformed");
+  }
+};
+
+Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
+
+// GD for numeric types (integer and floating point)
+template <template <typename...> class Generator, typename Type0,
+          typename KernelType = ArrayKernelExec, typename... Args>
+KernelType GenerateNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1090,7 +1070,7 @@ ArrayKernelExecOld GenerateNumericOld(detail::GetTypeId get_id) {
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFailOld;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
@@ -1169,8 +1149,9 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
   }
 }
 
-template <template <typename...> class KernelGenerator, typename Op, typename... Args>
-ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
+template <template <typename...> class KernelGenerator, typename Op,
+          typename KernelType = ArrayKernelExec, typename... Args>
+KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
@@ -1196,40 +1177,7 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
-  }
-}
-
-// ARROW-16756: temporarily duplicated until we get all the kernels
-// migrated to the new API
-template <template <typename...> class KernelGenerator, typename Op, typename... Args>
-ArrayKernelExecOld ArithmeticExecFromOpOld(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return KernelGenerator<Int8Type, Int8Type, Op, Args...>::Exec;
-    case Type::UINT8:
-      return KernelGenerator<UInt8Type, UInt8Type, Op, Args...>::Exec;
-    case Type::INT16:
-      return KernelGenerator<Int16Type, Int16Type, Op, Args...>::Exec;
-    case Type::UINT16:
-      return KernelGenerator<UInt16Type, UInt16Type, Op, Args...>::Exec;
-    case Type::INT32:
-      return KernelGenerator<Int32Type, Int32Type, Op, Args...>::Exec;
-    case Type::UINT32:
-      return KernelGenerator<UInt32Type, UInt32Type, Op, Args...>::Exec;
-    case Type::DURATION:
-    case Type::INT64:
-    case Type::TIMESTAMP:
-      return KernelGenerator<Int64Type, Int64Type, Op, Args...>::Exec;
-    case Type::UINT64:
-      return KernelGenerator<UInt64Type, UInt64Type, Op, Args...>::Exec;
-    case Type::FLOAT:
-      return KernelGenerator<FloatType, FloatType, Op, Args...>::Exec;
-    case Type::DOUBLE:
-      return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFailOld;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
@@ -1309,8 +1257,9 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
 // bits).
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
+          typename... Args>
+KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::NA:
       return Generator<NullType, Args...>::Exec;
@@ -1342,51 +1291,14 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
       return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
-  }
-}
-
-// XXX: Duplicated temporarily
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExecOld GenerateTypeAgnosticPrimitiveOld(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::NA:
-      return Generator<NullType, Args...>::Exec;
-    case Type::BOOL:
-      return Generator<BooleanType, Args...>::Exec;
-    case Type::UINT8:
-    case Type::INT8:
-      return Generator<UInt8Type, Args...>::Exec;
-    case Type::UINT16:
-    case Type::INT16:
-      return Generator<UInt16Type, Args...>::Exec;
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::FLOAT:
-    case Type::DATE32:
-    case Type::TIME32:
-    case Type::INTERVAL_MONTHS:
-      return Generator<UInt32Type, Args...>::Exec;
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::DOUBLE:
-    case Type::DATE64:
-    case Type::TIMESTAMP:
-    case Type::TIME64:
-    case Type::DURATION:
-    case Type::INTERVAL_DAY_TIME:
-      return Generator<UInt64Type, Args...>::Exec;
-    case Type::INTERVAL_MONTH_DAY_NANO:
-      return Generator<MonthDayNanoIntervalType, Args...>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFailOld;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
 // similar to GenerateTypeAgnosticPrimitive, but for base variable binary types
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename KernelType = ArrayKernelExec,
+          typename... Args>
+KernelType GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
@@ -1396,23 +1308,7 @@ ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
       return Generator<LargeBinaryType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
-  }
-}
-
-// XXX: Duplicated temporarily
-template <template <typename...> class Generator, typename... Args>
-ArrayKernelExecOld GenerateTypeAgnosticVarBinaryBaseOld(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::BINARY:
-    case Type::STRING:
-      return Generator<BinaryType, Args...>::Exec;
-    case Type::LARGE_BINARY:
-    case Type::LARGE_STRING:
-      return Generator<LargeBinaryType, Args...>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFailOld;
+      return FailFunctor<KernelType>::Exec;
   }
 }
 
@@ -1452,22 +1348,6 @@ ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
     default:
       DCHECK(false);
       return ExecFail;
-  }
-}
-
-// TODO: Duplicated in ARROW-16756
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExecOld GenerateVarBinaryBaseOld(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::BINARY:
-    case Type::STRING:
-      return Generator<Type0, BinaryType, Args...>::Exec;
-    case Type::LARGE_BINARY:
-    case Type::LARGE_STRING:
-      return Generator<Type0, LargeBinaryType, Args...>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFailOld;
   }
 }
 
@@ -1526,20 +1406,6 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
     default:
       DCHECK(false);
       return ExecFail;
-  }
-}
-
-// Temporarily duplicated for ARROW-16756
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExecOld GenerateDecimalOld(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::DECIMAL128:
-      return Generator<Type0, Decimal128Type, Args...>::Exec;
-    case Type::DECIMAL256:
-      return Generator<Type0, Decimal256Type, Args...>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFailOld;
   }
 }
 

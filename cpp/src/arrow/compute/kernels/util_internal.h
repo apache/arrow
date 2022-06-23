@@ -26,9 +26,14 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/math_constants.h"
 
 namespace arrow {
+
+using internal::CountAndSetBits;
+using internal::CountSetBits;
+
 namespace compute {
 namespace internal {
 
@@ -41,31 +46,6 @@ template <typename T, typename Unsigned = typename maybe_make_unsigned<T>::type>
 constexpr Unsigned to_unsigned(T signed_) {
   return static_cast<Unsigned>(signed_);
 }
-
-// An internal data structure for unpacking a primitive argument to pass to a
-// kernel implementation
-struct PrimitiveArg {
-  const uint8_t* is_valid;
-  // If the bit_width is a multiple of 8 (i.e. not boolean), then "data" should
-  // be shifted by offset * (bit_width / 8). For bit-packed data, the offset
-  // must be used when indexing.
-  const uint8_t* data;
-  int bit_width;
-  int64_t length;
-  int64_t offset;
-  // This may be kUnknownNullCount if the null_count has not yet been computed,
-  // so use null_count != 0 to determine "may have nulls".
-  int64_t null_count;
-};
-
-// Get validity bitmap data or return nullptr if there is no validity buffer
-const uint8_t* GetValidityBitmap(const ArrayData& data);
-
-int GetBitWidth(const DataType& type);
-
-// Reduce code size by dealing with the unboxing of the kernel inputs once
-// rather than duplicating compiled code to do all these in each kernel.
-PrimitiveArg GetPrimitiveArg(const ArrayData& arr);
 
 // Augment a unary ArrayKernelExec which supports only array-like inputs
 // with support for scalar inputs. Scalars will be transformed to 1-long arrays
@@ -81,12 +61,12 @@ ArrayKernelExec TrivialScalarUnaryAsArraysExec(
 // Return (min, max) of a numerical array, ignore nulls.
 // For empty array, return the maximal number limit as 'min', and minimal limit as 'max'.
 template <typename T>
-ARROW_NOINLINE std::pair<T, T> GetMinMax(const ArrayData& data) {
+ARROW_NOINLINE std::pair<T, T> GetMinMax(const ArraySpan& data) {
   T min = std::numeric_limits<T>::max();
   T max = std::numeric_limits<T>::lowest();
 
   const T* values = data.GetValues<T>(1);
-  arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+  arrow::internal::VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
                                        [&](int64_t pos, int64_t len) {
                                          for (int64_t i = 0; i < len; ++i) {
                                            min = std::min(min, values[pos + i]);
@@ -98,13 +78,13 @@ ARROW_NOINLINE std::pair<T, T> GetMinMax(const ArrayData& data) {
 }
 
 template <typename T>
-std::pair<T, T> GetMinMax(const Datum& datum) {
+std::pair<T, T> GetMinMax(const ChunkedArray& arr) {
   T min = std::numeric_limits<T>::max();
   T max = std::numeric_limits<T>::lowest();
 
-  for (const auto& array : datum.chunks()) {
+  for (const auto& chunk : arr.chunks()) {
     T local_min, local_max;
-    std::tie(local_min, local_max) = GetMinMax<T>(*array->data());
+    std::tie(local_min, local_max) = GetMinMax<T>(*chunk->data());
     min = std::min(min, local_min);
     max = std::max(max, local_max);
   }
@@ -115,11 +95,11 @@ std::pair<T, T> GetMinMax(const Datum& datum) {
 // Count value occurrences of an array, ignore nulls.
 // 'counts' must be zeroed and with enough size.
 template <typename T>
-ARROW_NOINLINE int64_t CountValues(uint64_t* counts, const ArrayData& data, T min) {
+ARROW_NOINLINE int64_t CountValues(const ArraySpan& data, T min, uint64_t* counts) {
   const int64_t n = data.length - data.GetNullCount();
   if (n > 0) {
     const T* values = data.GetValues<T>(1);
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+    arrow::internal::VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
                                          [&](int64_t pos, int64_t len) {
                                            for (int64_t i = 0; i < len; ++i) {
                                              ++counts[values[pos + i] - min];
@@ -130,23 +110,23 @@ ARROW_NOINLINE int64_t CountValues(uint64_t* counts, const ArrayData& data, T mi
 }
 
 template <typename T>
-int64_t CountValues(uint64_t* counts, const Datum& datum, T min) {
+int64_t CountValues(const ChunkedArray& values, T min, uint64_t* counts) {
   int64_t n = 0;
-  for (const auto& array : datum.chunks()) {
-    n += CountValues<T>(counts, *array->data(), min);
+  for (const auto& array : values.chunks()) {
+    n += CountValues<T>(*array->data(), min, counts);
   }
   return n;
 }
 
 // Copy numerical array values to a buffer, ignore nulls.
 template <typename T>
-ARROW_NOINLINE int64_t CopyNonNullValues(const ArrayData& data, T* out) {
+ARROW_NOINLINE int64_t CopyNonNullValues(const ArraySpan& data, T* out) {
   const int64_t n = data.length - data.GetNullCount();
   if (n > 0) {
     int64_t index = 0;
     const T* values = data.GetValues<T>(1);
     arrow::internal::VisitSetBitRunsVoid(
-        data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
+        data.buffers[0].data, data.offset, data.length, [&](int64_t pos, int64_t len) {
           memcpy(out + index, values + pos, len * sizeof(T));
           index += len;
         });
@@ -155,13 +135,17 @@ ARROW_NOINLINE int64_t CopyNonNullValues(const ArrayData& data, T* out) {
 }
 
 template <typename T>
-int64_t CopyNonNullValues(const Datum& datum, T* out) {
+int64_t CopyNonNullValues(const ChunkedArray& arr, T* out) {
   int64_t n = 0;
-  for (const auto& array : datum.chunks()) {
-    n += CopyNonNullValues(*array->data(), out + n);
+  for (const auto& chunk : arr.chunks()) {
+    n += CopyNonNullValues(*chunk->data(), out + n);
   }
   return n;
 }
+
+ExecValue GetExecValue(const Datum& value);
+
+int64_t GetTrueCount(const ArraySpan& mask);
 
 }  // namespace internal
 }  // namespace compute

@@ -513,11 +513,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
   virtual ~UcxClientImpl() {
     if (!ucp_context_) return;
-    auto status = Close();
-    if (!status.ok()) {
-      ARROW_LOG(WARNING) << "UcxClientImpl errored in Close() in destructor: "
-                         << status.ToString();
-    }
+    ARROW_WARN_NOT_OK(Close(), "UcxClientImpl errored in Close() in destructor");
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
