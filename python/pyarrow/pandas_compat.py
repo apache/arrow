@@ -223,6 +223,14 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
                 # The index is represented in a non-serialized fashion,
                 # e.g. RangeIndex
                 continue
+
+            if not isinstance(level.name, str):
+                warnings.warn(
+                    f"The DataFrame has non-str index name `{level.name}`."
+                    "It will be converted to string"
+                    " and not roundtrip correctly.",
+                    UserWarning, stacklevel=4)
+
             metadata = get_column_metadata(
                 level,
                 name=_column_name_to_strings(level.name),
