@@ -98,9 +98,45 @@ ExecPlan <- R6Class("ExecPlan",
       }
 
       if (!is.null(.data$aggregations)) {
-        config_agg <- private$.set_aggregation(node, .data, grouped, group_vars)
-        node <- config_agg$node
-        .data <- config_agg$data
+        # Project to include just the data required for each aggregation,
+        # plus group_by_vars (last)
+        # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
+        # dplyr does not error on this but the result it gives isn't great
+        node <- node$Project(summarize_projection(.data))
+
+        if (grouped) {
+          # We need to prefix all of the aggregation function names with "hash_"
+          .data$aggregations <- lapply(.data$aggregations, function(x) {
+            x[["fun"]] <- paste0("hash_", x[["fun"]])
+            x
+          })
+        }
+
+        target_names <- names(.data$aggregations)
+        for (i in seq_len(length(target_names))) {
+          .data$aggregations[[i]][["name"]] <- .data$aggregations[[i]][["target"]] <- target_names[i]
+        }
+
+        node <- node$Aggregate(
+          options = .data$aggregations,
+          key_names = group_vars
+        )
+
+        if (grouped) {
+          # The result will have result columns first then the grouping cols.
+          # dplyr orders group cols first, so adapt the result to meet that expectation.
+          node <- node$Project(
+            make_field_refs(c(group_vars, names(.data$aggregations)))
+          )
+          if (getOption("arrow.summarise.sort", FALSE)) {
+            # Add sorting instructions for the rows too to match dplyr
+            # (see below about why sorting isn't itself a Node)
+            node$extras$sort <- list(
+              names = group_vars,
+              orders = rep(0L, length(group_vars))
+            )
+          }
+        }
       } else {
         # If any columns are derived, reordered, or renamed we need to Project
         # If there are aggregations, the projection was already handled above
@@ -222,57 +258,6 @@ ExecPlan <- R6Class("ExecPlan",
       )
     },
     Stop = function() ExecPlan_StopProducing(self)
-  ),
-  private = list(
-    .set_aggregate_func_names = function(data, grouped) {
-      if (grouped) {
-        # We need to prefix all of the aggregation function names with "hash_"
-        data$aggregations <- lapply(data$aggregations, function(x) {
-          x[["fun"]] <- paste0("hash_", x[["fun"]])
-          x
-        })
-      }
-      data
-    },
-    .set_group_by = function(node, data, group_vars, grouped) {
-      if (grouped) {
-        # The result will have result columns first then the grouping cols.
-        # dplyr orders group cols first, so adapt the result to meet that expectation.
-        node <- node$Project(
-          make_field_refs(c(group_vars, names(data$aggregations)))
-        )
-        if (getOption("arrow.summarise.sort", FALSE)) {
-          # Add sorting instructions for the rows too to match dplyr
-          # (see below about why sorting isn't itself a Node)
-          node$extras$sort <- list(
-            names = group_vars,
-            orders = rep(0L, length(group_vars))
-          )
-        }
-      }
-      return(list(node = node, data = data))
-    },
-    .set_aggregation = function(node, data, grouped, group_vars) {
-      # Project to include just the data required for each aggregation,
-      # plus group_by_vars (last)
-      # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
-      # dplyr does not error on this but the result it gives isn't great
-      node <- node$Project(summarize_projection(data))
-
-      data <- private$.set_aggregate_func_names(data, grouped)
-
-      target_names <- names(data$aggregations)
-      for (i in seq_len(length(target_names))) {
-        data$aggregations[[i]][["name"]] <- data$aggregations[[i]][["target"]] <- target_names[i]
-      }
-
-      node <- node$Aggregate(
-        options = data$aggregations,
-        key_names = group_vars
-      )
-      group_config <- private$.set_group_by(node, data, group_vars, grouped)
-      return(list(node = group_config$node, data = group_config$data))
-    }
   )
 )
 ExecPlan$create <- function(use_threads = option_use_threads()) {
