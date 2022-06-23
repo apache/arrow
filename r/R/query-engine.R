@@ -112,10 +112,12 @@ ExecPlan <- R6Class("ExecPlan",
           })
         }
 
-        target_names <- names(.data$aggregations)
-        for (i in seq_len(length(target_names))) {
-          .data$aggregations[[i]][["name"]] <- .data$aggregations[[i]][["target"]] <- target_names[i]
-        }
+        .data$aggregations <- imap(.data$aggregations, function(x, name) {
+          # Embed the name inside the aggregation objects. `target` and `name`
+          # are the same because we just Project()ed the data that way above
+          x[["name"]] <- x[["target"]] <- name
+          x
+        })
 
         node <- node$Aggregate(
           options = .data$aggregations,
