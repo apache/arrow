@@ -482,28 +482,26 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
   }
 
   // Searching multi-bytes in From
-  for (int i = 0; i < from_len; i++) {
-    if (has_multi_byte) {
-      break;
-    }
-    unsigned char char_single_byte = from[i];
-    if (char_single_byte > 127) {
-      // found a multi-byte utf-8 char
-      has_multi_byte = true;
-      break;
+  if (!has_multi_byte) {
+    for (int i = 0; i < from_len; i++) {
+      unsigned char char_single_byte = from[i];
+      if (char_single_byte > 127) {
+        // found a multi-byte utf-8 char
+        has_multi_byte = true;
+        break;
+      }
     }
   }
 
   // Searching multi-bytes in To
-  for (int i = 0; i < to_len; i++) {
-    if (has_multi_byte) {
-      break;
-    }
-    unsigned char char_single_byte = to[i];
-    if (char_single_byte > 127) {
-      // found a multi-byte utf-8 char
-      has_multi_byte = true;
-      break;
+  if (!has_multi_byte) {
+    for (int i = 0; i < to_len; i++) {
+      unsigned char char_single_byte = to[i];
+      if (char_single_byte > 127) {
+        // found a multi-byte utf-8 char
+        has_multi_byte = true;
+        break;
+      }
     }
   }
 
