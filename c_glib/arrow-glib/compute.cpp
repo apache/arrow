@@ -1263,26 +1263,19 @@ garrow_aggregate_node_options_new(GList *aggregations,
       function_options =
         garrow_function_options_get_raw(aggregation_priv->options);
     };
-    if (function_options) {
-      arrow_aggregates.push_back({
-        aggregation_priv->function,
-        function_options->Copy(),
-      });
-    } else {
-      arrow_aggregates.push_back({aggregation_priv->function, nullptr});
-    };
-    if (!garrow_field_refs_add(aggregation_priv->output,
+    std::vector<arrow::FieldRef> arrow_targets;
+    if (!garrow_field_refs_add(arrow_targets,
                                aggregation_priv->input,
                                error,
                                "[aggregate-node-options][new][input]")) {
       return NULL;
     }
     arrow_aggregates.push_back({
-                                  aggregation_priv->function,
-                                  function_options,
-                                  aggregation_priv->output,
-                                  aggregation_priv->output
-                               });
+      aggregation_priv->function,
+      function_options ? function_options->Copy() : nullptr,
+      arrow_targets[0],
+      aggregation_priv->output,
+    });
   }
   for (gsize i = 0; i < n_keys; ++i) {
     if (!garrow_field_refs_add(arrow_keys,
