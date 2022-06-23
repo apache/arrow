@@ -294,8 +294,7 @@ build_format_from_order <- function(order) {
 #'  * `augmented_x_yq`
 #'  * `augmented_x_qy`
 #' @noRd
-process_data_for_parsing <- function(x,
-                                     orders) {
+process_data_for_parsing <- function(x, orders) {
 
   processed_x <- x$cast(string())
 
@@ -369,8 +368,7 @@ process_data_for_parsing <- function(x,
 #'
 #' @return a list of `strptime` Expressions we can use with `coalesce`
 #' @noRd
-attempt_parsing <- function(x,
-                            orders) {
+attempt_parsing <- function(x, orders) {
   # translate orders into possible formats
   formats <- build_formats(orders)
 
