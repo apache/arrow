@@ -930,5 +930,41 @@ BENCHMARK_CAPTURE(AsOfJoinOverhead,
                   generateRightHandTables("high_freq", 5, 4, 2))
     ->Apply(SetArgs);
 
+// asymmetric joins
+BENCHMARK_CAPTURE(AsOfJoinOverhead,
+                  | high_freq | 20_cols | 2000_ids | 1_join | low_freq | 20_cols | 2000_ids |,
+                  "high_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("low_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead,
+                  | low_freq | 20_cols | 2000_ids | 1_join | high_freq | 20_cols | 2000_ids |,
+                  "low_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("high_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead,
+                  | mid_freq | 20_cols | 100_ids | 1_join | mid_freq | 20_cols | 5k_ids |,
+                  "mid_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead,
+                  | mid_freq | 20_cols | 5k_ids | 1_join | mid_freq | 20_cols | 100_ids |,
+                  "mid_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead,
+                  | mid_freq | 100_cols | 2000_ids | 1_join | mid_freq | 20_cols | 2000_ids |,
+                  "mid_freq_100_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead,
+                  | mid_freq | 20_cols | 2000_ids | 1_join | mid_freq | 100_cols | 2000_ids |,
+                  "mid_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 5, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead,
+                  | low_freq | 20_cols | 2000_ids | 4_join | high_freq | 20_cols | 2000_ids |,
+                  "low_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("high_freq", 2, 4, 1))
+    ->Apply(SetArgs);
 }  // namespace compute
 }  // namespace arrow
