@@ -797,6 +797,9 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
     return false;
   }
+
+  if (!result.tm_mday) result.tm_mday++;
+
   // ignore the time part
   arrow_vendored::date::sys_seconds secs =
       arrow_vendored::date::sys_days(arrow_vendored::date::year(result.tm_year + 1900) /

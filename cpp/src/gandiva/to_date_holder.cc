@@ -86,12 +86,20 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const char* data,
     return 0;
   }
 
+  std::string str;
+  str.assign(data, data_len);
+  std::size_t found = str.find("T");
+  if (found!=std::string::npos) {
+    str = str.replace(found, 1, "'T'");
+  }
+
+
   // Issues
   // 1. processes date that do not match the format.
   // 2. does not process time in format +08:00 (or) id.
   int64_t seconds_since_epoch = 0;
   if (!::arrow::internal::ParseTimestampStrptime(
-          data, data_len, pattern_.c_str(),
+          str.c_str(), str.length(), pattern_.c_str(),
           /*ignore_time_in_day=*/true, /*allow_trailing_chars=*/true,
           ::arrow::TimeUnit::SECOND, &seconds_since_epoch)) {
     return_error(context, data, data_len);
