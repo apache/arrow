@@ -138,18 +138,22 @@ def test_python_file_get_stream():
     buf_stream2_4 = stream2.read(nbytes=4)
     assert len(buf_stream2_4) == 4
     assert buf_stream2_4 == b'2dat'
+    assert stream2.tell() == 4
 
     buf_stream1_6 = stream1.read(nbytes=6)
     assert len(buf_stream1_6) == 6
     assert buf_stream1_6 == b'data1d'
+    assert stream1.tell() == 6
 
     # Read to end of each stream
     buf_stream1_4 = stream1.read(nbytes=4)
     assert len(buf_stream1_4) == 2
     assert buf_stream1_4 == b'a2'
+    assert stream1.tell() == 10
 
     buf_stream1_1 = stream1.read(nbytes=1)
     assert len(buf_stream1_1) == 0
+    assert stream1.tell() == 10
 
     # Idempotent
     stream1.close()
