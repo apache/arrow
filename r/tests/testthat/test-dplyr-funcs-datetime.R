@@ -2139,6 +2139,10 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
 })
 
 test_that("parse_date_time with truncated formats", {
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
   test_truncation_df <-  tibble(
     truncated_ymd_string =
       c(
