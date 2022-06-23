@@ -142,6 +142,14 @@ def test_python_file_get_stream():
     assert len(buf_stream1_6) == 6
     assert buf_stream1_6 == b'data1d'
 
+    # Read to end of each stream
+    buf_stream1_4 = stream1.read(nbytes=4)
+    assert len(buf_stream1_4) == 2
+    assert buf_stream1_4 == b'a2'
+
+    buf_stream1_1 = stream1.read(nbytes=1)
+    assert len(buf_stream1_1) == 0
+
 
 def test_python_file_read_at():
     data = b'some sample data'
