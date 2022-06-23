@@ -2128,19 +2128,6 @@ def _check_temporal_rounding(ts, values, unit):
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
-    # TODO: should work for day
-    if ta.type.tz is None and unit != "day":
-        options = pc.RoundTemporalOptions(
-            value, unit, change_on_boundary=True)
-        result = pc.ceil_temporal(ta, options=options)
-        expected = ts.dt.ceil(frequency)
-
-        expected = np.where(
-            expected == ts,
-            expected + pd.Timedelta(value, unit_shorthand[unit]),
-            expected)
-        np.testing.assert_array_equal(result, expected)
-
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.skipif(sys.platform == 'win32',

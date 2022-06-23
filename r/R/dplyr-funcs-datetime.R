@@ -680,11 +680,11 @@ register_bindings_datetime_parsers <- function() {
     }
 
     if (change_on_boundary == FALSE) {
-      opts$change_on_boundary <- 0L
+      opts$ceil_is_strictly_greater <- 0L
     }
 
     if (change_on_boundary == TRUE) {
-      opts$change_on_boundary <- 1L
+      opts$ceil_is_strictly_greater <- 1L
     }
 
     return(Expression$create("ceil_temporal", x, options = opts))
