@@ -82,7 +82,7 @@ class RowBatchBuilder {
   template <typename ArrayType, typename DataClass = typename ArrayType::TypeClass>
   arrow::enable_if_primitive_ctype<DataClass, arrow::Status> Visit(
       const ArrayType& array) {
-    assert((int64_t)rows_.size() == array.length());
+    assert(static_cast<int64_t>(rows_.size()) == array.length());
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
         rapidjson::Value str_key(field_->name(), rows_[i].GetAllocator());
@@ -93,7 +93,7 @@ class RowBatchBuilder {
   }
 
   arrow::Status Visit(const arrow::StringArray& array) {
-    assert((int64_t)rows_.size() == array.length());
+    assert(static_cast<int64_t>(rows_.size()) == array.length());
     for (int64_t i = 0; i < array.length(); ++i) {
       if (!array.IsNull(i)) {
         rapidjson::Value str_key(field_->name(), rows_[i].GetAllocator());
@@ -111,7 +111,7 @@ class RowBatchBuilder {
   arrow::Status Visit(const arrow::StructArray& array) {
     const arrow::StructType* type = array.struct_type();
 
-    assert((int64_t)rows_.size() == array.length());
+    assert(static_cast<int64_t>(rows_.size()) == array.length());
 
     RowBatchBuilder child_builder(rows_.size());
     for (int i = 0; i < type->num_fields(); ++i) {
@@ -134,7 +134,7 @@ class RowBatchBuilder {
   }
 
   arrow::Status Visit(const arrow::ListArray& array) {
-    assert((int64_t)rows_.size() == array.length());
+    assert(static_cast<int64_t>(rows_.size()) == array.length());
     // First create rows from values
     std::shared_ptr<arrow::Array> values = array.values();
     RowBatchBuilder child_builder(values->length());
