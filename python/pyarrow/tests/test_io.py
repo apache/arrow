@@ -150,6 +150,10 @@ def test_python_file_get_stream():
     buf_stream1_1 = stream1.read(nbytes=1)
     assert len(buf_stream1_1) == 0
 
+    # Idempotent
+    stream1.close()
+    assert stream1.closed() == True
+
 
 def test_python_file_read_at():
     data = b'some sample data'
