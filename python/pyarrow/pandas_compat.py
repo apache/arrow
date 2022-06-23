@@ -217,6 +217,7 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
 
     index_column_metadata = []
     if preserve_index is not False:
+        non_str_index_names = []
         for level, arrow_type, descriptor in zip(index_levels, index_types,
                                                  index_descriptors):
             if isinstance(descriptor, dict):
@@ -225,11 +226,7 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
                 continue
 
             if not isinstance(level.name, str):
-                warnings.warn(
-                    f"The DataFrame has non-str index name `{level.name}`."
-                    "It will be converted to string"
-                    " and not roundtrip correctly.",
-                    UserWarning, stacklevel=4)
+                non_str_index_names.append(level.name)
 
             metadata = get_column_metadata(
                 level,
@@ -238,6 +235,13 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
                 field_name=descriptor,
             )
             index_column_metadata.append(metadata)
+
+        if len(non_str_index_names) > 0:
+            warnings.warn(
+                f"The DataFrame has non-str index name `{non_str_index_names}`"
+                " which will be converted to string"
+                " and not roundtrip correctly.",
+                UserWarning, stacklevel=4)
 
         column_indexes = []
 
