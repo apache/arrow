@@ -1075,6 +1075,15 @@ macro(find_curl)
                                                               "${CURL_LIBRARIES}")
     endif()
   endif()
+  if(WIN32 AND NOT CURL_STATIC_CHECKED)
+    get_target_property(CURL_LIBRARY CURL::libcurl IMPORTED_LOCATION)
+    get_filename_component(CURL_LIBRARY_EXT "${CURL_LIBRARY}" LAST_EXT)
+    if(CURL_LIBRARY_EXT STREQUAL "${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB")
+    endif()
+    set(CURL_STATIC_CHECKED TRUE)
+  endif()
 endmacro()
 
 # ----------------------------------------------------------------------
