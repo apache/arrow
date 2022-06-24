@@ -993,4 +993,56 @@ TEST(TestGdvFnStubs, TestTranslate) {
   EXPECT_EQ(expected, std::string(result, out_len));
 }
 
+TEST(TestTime, TestToUtcTimezone) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
+  gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
+  
+  //2012-02-28 15:30:00 Asia/Kolkata
+  gdv_timestamp ts = 55800000;
+  gdv_timestamp ts2 = to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
+  EXPECT_EQ(36000000, ts2);
+
+  //1970-01-01 5:00:00 Asia/Kolkata
+  ts = 18000000;
+  ts2 = to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
+  EXPECT_EQ(ts2, -1800000);
+
+  //daylight savings check
+  //2018-03-11 01:00:00 America/Los_Angeles
+  ts = 	1520730000000;
+  ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
+  EXPECT_EQ(ts2, 1520758800000);
+
+  //2018-03-12 01:00:00 America/Los_Angeles
+  ts = 1331712000000;
+  ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
+  EXPECT_EQ(ts2, 1331737200000);
+
+}
+
+TEST(TestTime, TestFromUtcTimezone) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
+  gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
+
+  gdv_timestamp ts = 36000000;
+  gdv_timestamp ts2 = from_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
+  EXPECT_EQ(ts2, 55800000);
+
+  ts = -1800000;
+  ts2 = from_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
+  EXPECT_EQ(ts2, 18000000);
+
+  ts = 1520758800000;
+  ts2 = from_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
+  EXPECT_EQ(ts2, 1520730000000);
+
+  ts = 1331737200000;
+  ts2 = from_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
+  EXPECT_EQ(ts2, 1331712000000);
+}
+
 }  // namespace gandiva

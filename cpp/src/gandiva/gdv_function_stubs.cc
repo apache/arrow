@@ -611,6 +611,57 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
   auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
+
+GANDIVA_EXPORT
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds, 
+                                        const char* timezone, gdv_int32 length) {
+                                        
+  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp
+                                 {std::chrono::milliseconds{time_miliseconds}};
+  
+  char* tz = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, length));
+  if (tz == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    return 0;
+  }
+  strncpy(tz, timezone, length);
+  tz[length] = '\0';
+  
+  try {
+    auto local_timezone = arrow_vendored::date::locate_zone(tz);
+    return time_miliseconds - local_timezone->get_info(tp).offset.count()*1000;
+  }
+  catch(...) {
+    gdv_fn_context_set_error_msg(context, "Invalid time zone");
+    return 0;
+  }
+}
+
+GANDIVA_EXPORT
+gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context, gdv_timestamp time_miliseconds, 
+                                          const char* timezone, gdv_int32 length) {
+
+  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp 
+                                  {std::chrono::milliseconds{time_miliseconds}};
+  auto utc_time_zone = arrow_vendored::date::make_zoned("Etc/UTC", tp);
+  char* tz = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, length));
+  if (tz == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    return 0;
+  }
+  strncpy(tz, timezone, length);
+  tz[length] = '\0';
+  
+  try {
+    auto local_tz = arrow_vendored::date::make_zoned(tz, utc_time_zone);
+    return time_miliseconds + local_tz.get_time_zone()->get_info(tp).offset.count()*1000;
+  }
+  catch(...) {
+    gdv_fn_context_set_error_msg(context, "Invalid time zone");
+    return 0;
+  }
+}
+
 }
 
 namespace gandiva {
@@ -962,5 +1013,29 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
+  
+  // to_utc_timezone_timestamp
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // timestamp
+      types->i8_ptr_type(),  // timezone
+      types->i32_type()      // length
+  };
+
+  engine->AddGlobalMappingForFunc("to_utc_timezone_timestamp",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(to_utc_timezone_timestamp));
+  
+  // from_utc_timezone_timestamp
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // timestamp
+      types->i8_ptr_type(),  // timezone
+      types->i32_type()      // length
+  };
+
+  engine->AddGlobalMappingForFunc("from_utc_timezone_timestamp",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(from_utc_timezone_timestamp));
 }
 }  // namespace gandiva
