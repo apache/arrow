@@ -909,8 +909,8 @@ Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext*
 
 // ----------------------------------------------------------------------
 // Hash functions
-Result<Datum> HashEach(const Datum &arg, ExecContext *ctx) {
-  return CallFunction("hash_each", { arg }, ctx);
+Result<Datum> FastHash32(const Datum &input_array, ExecContext *ctx) {
+  return CallFunction("fast_hash_32", { input_array }, ctx);
 }
 
 // ----------------------------------------------------------------------

@@ -1702,17 +1702,19 @@ ARROW_EXPORT Result<Datum> NanosecondsBetween(const Datum& left, const Datum& ri
 ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
                                      ExecContext* ctx = NULLPTR);
 
-/// \brief Construct a hash value for each value of the input.
+/// \brief Construct a hash value for each row of the input.
 ///
-/// The result should match the shape of the argument, `arg`. If `arg` is null, the result
-/// will be null. At the moment, this function does not take options, though these may be
-/// added in the future.
+/// The result is an Array of length equal to the length of the input; however, the output
+/// shall be a UInt32Array, with each element being a hash constructed from each row of
+/// the input. If the input Array is a NestedArray, this means that each "attribute" or
+/// "field" of the input NestedArray will produce a single uint32_t hash. At the moment,
+/// this function does not take options, though these may be added in the future.
 ///
-/// \param[in] arg     input data to hash
-/// \param[in] ctx     function execution context, optional
+/// \param[in] input_array input data to hash
+/// \param[in] ctx         function execution context, optional
 /// \return elementwise hash values
 ARROW_EXPORT
-Result<Datum> HashEach(const Datum &arg, ExecContext *ctx = NULLPTR);
+Result<Datum> FastHash32(const Datum &input_array, ExecContext *ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
