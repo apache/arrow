@@ -299,16 +299,13 @@ on:
     # tree not available in git-bash on windows
     run: |
       ls -R repo
-      curl localhost:8080 || echo "Curl Error"
-  - name: Serve repo via localhost
-    shell: bash
-    run: |
-      cd repo
-      python3 -m http.server 8080 --bind localhost &
   - name: Add dev repo to .Rprofile
-    shell: bash
+    shell: Rscript {0}
     run: |
-      # It is important to use pwd here as this happens inside a container (during test-linux-binary)
-      # so the normal github.workspace path is wrong.
-      echo "options(arrow.dev_repo = 'http://localhost:8080')" >> ~/.Rprofile
+      str <- paste0("options(arrow.dev_repo ='file://", getwd(), "/repo' )")
+      print(str)
+      profile_path <- file.path(getwd(), ".Rprofile")
+      write(str, file = profile_path, append = TRUE)
+      # Set envvar for later steps by appending to $GITHUB_ENV 
+      write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
   {% endmacro %}

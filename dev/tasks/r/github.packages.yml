@@ -184,7 +184,7 @@ jobs:
           install.packages(
             "arrow",
             type = "source",
-            repos = getOption("arrow.dev_repo"),
+            repos = sub("file://", "file:", getOption("arrow.dev_repo")),,
             INSTALL_opts = INSTALL_opts
           )
 
@@ -230,14 +230,14 @@ jobs:
         shell: bash
         run: |
           if [ "`which dnf`" ]; then
-            dnf install -y libcurl-devel openssl-devel python3
+            dnf install -y libcurl-devel openssl-devel 
           elif [ "`which yum`" ]; then
-            yum install -y libcurl-devel openssl-devel python3
+            yum install -y libcurl-devel openssl-devel 
           elif [ "`which zypper`" ]; then
-            zypper install -y libcurl-devel libopenssl-devel python3
+            zypper install -y libcurl-devel libopenssl-devel 
           else
             apt-get update
-            apt-get install -y libcurl4-openssl-dev libssl-dev python3
+            apt-get install -y libcurl4-openssl-dev libssl-dev 
           fi
 
           # Add R-devel to PATH
