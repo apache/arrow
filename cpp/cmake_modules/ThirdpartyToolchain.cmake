@@ -1079,8 +1079,8 @@ macro(find_curl)
     get_target_property(CURL_LIBRARY CURL::libcurl IMPORTED_LOCATION)
     get_filename_component(CURL_LIBRARY_EXT "${CURL_LIBRARY}" LAST_EXT)
     if(CURL_LIBRARY_EXT STREQUAL "${CMAKE_STATIC_LIBRARY_SUFFIX}")
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB")
+      set_target_properties(CURL::libcurl PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                     "CURL_STATICLIB")
     endif()
     set(CURL_STATIC_CHECKED TRUE)
   endif()
@@ -4027,9 +4027,9 @@ macro(build_google_cloud_cpp_storage)
   if(CMAKE_VERSION VERSION_GREATER 3.9)
     find_package(Patch)
     if(Patch_FOUND)
-      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND ${Patch_EXECUTABLE}
-        "<SOURCE_DIR>/cmake/FindCurlWithTargets.cmake"
-        "${CMAKE_SOURCE_DIR}/build-support/google-cloud-cpp-curl-static-windows.patch")
+      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+          ${Patch_EXECUTABLE} "<SOURCE_DIR>/cmake/FindCurlWithTargets.cmake"
+          "${CMAKE_SOURCE_DIR}/build-support/google-cloud-cpp-curl-static-windows.patch")
     endif()
   endif()
   externalproject_add(google_cloud_cpp_ep
