@@ -31,7 +31,9 @@ AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-man
           -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
           -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
           -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
-GCS_LIBS="-lcurl"
+# pkg-config --libs libcurl
+GCS_LIBS="-lcurl -lnormaliz -lssh2 -lcrypt32 -lgdi32 -lssl -lwldap32 \
+          -lz -lws2_32"
 
 function configure_release() {
   VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
