@@ -1083,8 +1083,7 @@ const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_leng
     return char_buffer;                                                                \
   }
 
-DATE_TRUNC(date64);
-DATE_TRUNC(timestamp);
+DATE_TYPES(DATE_TRUNC);
 
 // Convert the seconds since epoch argument to timestamp
 #define TO_TIMESTAMP_INTEGER(TYPE)                              \

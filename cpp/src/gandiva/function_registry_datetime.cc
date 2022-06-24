@@ -47,6 +47,8 @@ namespace gandiva {
 
 #define NEXT_DAY_FNS(name) DATE_TYPES(NEXT_DAY_SAFE_NULL_IF_NULL, name, {})
 
+#define TRUNC_FNS(name) DATE_TYPES(TRUNC_SAFE_NULL_IF_NULL, name, {"trunc"})
+
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
       UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
@@ -61,6 +63,8 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       TIME_EXTRACTION_FNS(extract),
 
       NEXT_DAY_FNS(next_day),
+
+      TRUNC_FNS(date_trunc),
 
       NativeFunction("castDATE", {}, DataTypeVector{utf8()}, date64(), kResultNullIfNull,
                      "castDATE_utf8",
@@ -173,14 +177,6 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
 
       NativeFunction("trunc", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "trunc_utf8_utf8",
-                     NativeFunction::kCanReturnErrors | NativeFunction::kNeedsContext),
-
-      NativeFunction("trunc", {}, DataTypeVector{date64(), utf8()}, utf8(),
-                     kResultNullIfNull, "date_trunc_date64_utf8",
-                     NativeFunction::kCanReturnErrors | NativeFunction::kNeedsContext),
-
-      NativeFunction("trunc", {}, DataTypeVector{timestamp(), utf8()}, utf8(),
-                     kResultNullIfNull, "date_trunc_timestamp_utf8",
                      NativeFunction::kCanReturnErrors | NativeFunction::kNeedsContext),
 
       DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),

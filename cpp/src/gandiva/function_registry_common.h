@@ -191,6 +191,12 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
                  ARROW_STRINGIFY(NAME##_from_##TYPE),                         \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
+#define TRUNC_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                        \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                   \
+                 DataTypeVector{TYPE(), utf8()}, utf8(), kResultNullIfNull, \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##utf8),                   \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
+
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
