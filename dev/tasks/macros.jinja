@@ -293,6 +293,19 @@ on:
     shell: Rscript {0}
     run: |
       # getwd() is necessary as this macro is used within jobs using a docker container
-      tools::write_PACKAGES(file.path(getwd(), "/repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
-  - run: ls -R repo
-{% endmacro %}
+      tools::write_PACKAGES(file.path(getwd(), "repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
+  - name: Show repo 
+    shell: bash 
+    # tree not available in git-bash on windows
+    run: |
+      ls -R repo
+  - name: Add dev repo to .Rprofile
+    shell: Rscript {0}
+    run: |
+      str <- paste0("options(arrow.dev_repo ='file://", getwd(), "/repo' )")
+      print(str)
+      profile_path <- file.path(getwd(), ".Rprofile")
+      write(str, file = profile_path, append = TRUE)
+      # Set envvar for later steps by appending to $GITHUB_ENV 
+      write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
+  {% endmacro %}
