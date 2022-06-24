@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Platform-specific defines
+#include "arrow/flight/platform.h"
+
 #include "arrow/flight/sql/client.h"
 
 #include <google/protobuf/any.pb.h>
