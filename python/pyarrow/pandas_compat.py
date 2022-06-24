@@ -225,7 +225,7 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
                 # e.g. RangeIndex
                 continue
 
-            if not isinstance(level.name, str):
+            if level.name is not None and not isinstance(level.name, str):
                 non_str_index_names.append(level.name)
 
             metadata = get_column_metadata(
