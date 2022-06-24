@@ -27,11 +27,12 @@ struct EncodeDecodeCommonExec {
   Element ReadValue() {
     Element result;
     if (input_validity != NULLPTR) {
-      result.valid = bit_util::GetBit(input_validity, input_position);
+      result.valid = bit_util::GetBit(input_validity, input_offset + input_position);
     } else {
       result.valid = true;
     }
-    result.value = (reinterpret_cast<const CType*>(input_values))[input_position];
+    result.value =
+        (reinterpret_cast<const CType*>(input_values))[input_offset + input_position];
     return result;
   }
 
@@ -47,6 +48,7 @@ struct EncodeDecodeCommonExec {
   ExecResult* exec_result;
   const uint8_t* input_validity;
   const void* input_values;
+  int64_t input_offset;
   uint8_t* output_validity;
   void* output_values;
   int64_t input_position;
@@ -57,10 +59,10 @@ template <>
 EncodeDecodeCommonExec<BooleanType, true>::Element
 EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
   Element result;
-  result.valid = bit_util::GetBit(input_validity, input_position);
+  result.valid = bit_util::GetBit(input_validity, input_offset + input_position);
   if (result.valid) {
-    result.value =
-        bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), input_position);
+    result.value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values),
+                                    input_offset + input_position);
   }
   return result;
 }
@@ -103,6 +105,7 @@ struct RunLengthEncodeExec
     }
     this->input_validity = this->input_array.buffers[0].data;
     this->input_values = this->input_array.buffers[1].data;
+    this->input_offset = this->input_array.offset;
 
     this->input_position = 0;
     Element element = this->ReadValue();
@@ -220,8 +223,11 @@ struct RunLengthDecodeExec
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
 
   Status Exec() {
-    this->input_validity = this->input_array.child_data[0].buffers[0].data;
-    this->input_values = this->input_array.child_data[0].buffers[1].data;
+    const ArraySpan& child_array = this->input_array.child_data[0];
+    this->input_validity = child_array.buffers[0].data;
+    this->input_values = child_array.buffers[1].data;
+    this->input_offset = 0;  // TODO
+
     input_accumulated_run_length =
         reinterpret_cast<const int64_t*>(this->input_array.buffers[0].data);
 
