@@ -372,8 +372,8 @@ def cast(arr, target_type=None, safe=None, options=None):
     safe_vars_passed = (safe is not None) or (target_type is not None)
 
     if safe_vars_passed and (options is not None):
-        raise ValueError("Must either pass values for 'target_type' and 'safe' or pass a "
-                         "value for 'options'")
+        raise ValueError("Must either pass values for 'target_type' and 'safe'"
+                         " or pass a value for 'options'")
 
     if options is None:
         if target_type is None:
