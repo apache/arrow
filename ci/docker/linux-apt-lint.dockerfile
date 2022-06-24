@@ -56,13 +56,7 @@ COPY ci/etc/rprofile /arrow/ci/etc/
 RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
 RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
-
-
-COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
-COPY r/DESCRIPTION /arrow/r/
-# We need to install Arrow's dependencies in order for lintr's namespace searching to work.
-# This could be removed if lintr no longer loads the dependency namespaces (see issues/PRs below)
-RUN /arrow/ci/scripts/r_deps.sh /arrow
+# We don't need arrow's dependencies, only lintr (and its dependencies)
 RUN R -e "install.packages('lintr')"
 
 # Docker linter
