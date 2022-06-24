@@ -1263,6 +1263,27 @@ func (ps *ParquetIOTestSuite) TestFixedSizeList() {
 	ps.roundTripTable(expected, true)
 }
 
+func (ps *ParquetIOTestSuite) TestNull() {
+	bldr := array.NewNullBuilder(memory.DefaultAllocator)
+	defer bldr.Release()
+
+	bldr.AppendNull()
+	bldr.AppendNull()
+	bldr.AppendNull()
+
+	data := bldr.NewArray()
+	defer data.Release()
+
+	field := arrow.Field{Name: "x", Type: data.DataType(), Nullable: true}
+	expected := array.NewTable(
+		arrow.NewSchema([]arrow.Field{field}, nil),
+		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{data}))},
+		-1,
+	)
+
+	ps.roundTripTable(expected, true)
+}
+
 func TestParquetArrowIO(t *testing.T) {
 	suite.Run(t, new(ParquetIOTestSuite))
 }

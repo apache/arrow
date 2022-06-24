@@ -61,6 +61,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     google_cloud_cpp_storage
     gRPC
     GTest
+    jemalloc
     LLVM
     lz4
     nlohmann_json
@@ -100,6 +101,11 @@ endif()
 # upstream uses "lz4" not "Lz4" as package name.
 if("${lz4_SOURCE}" STREQUAL "" AND NOT "${Lz4_SOURCE}" STREQUAL "")
   set(lz4_SOURCE ${Lz4_SOURCE})
+endif()
+
+# For backward compatibility. We use bundled jemalloc by default.
+if("${jemalloc_SOURCE}" STREQUAL "")
+  set(jemalloc_SOURCE "BUNDLED")
 endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
@@ -162,6 +168,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_grpc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GTest")
     build_gtest()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "jemalloc")
+    build_jemalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
@@ -300,15 +308,8 @@ if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-if(ARROW_HIVESERVER2 OR ARROW_PARQUET)
+if(ARROW_PARQUET)
   set(ARROW_WITH_THRIFT ON)
-  if(ARROW_HIVESERVER2)
-    set(ARROW_THRIFT_REQUIRED_COMPONENTS COMPILER)
-  else()
-    set(ARROW_THRIFT_REQUIRED_COMPONENTS)
-  endif()
-else()
-  set(ARROW_WITH_THRIFT OFF)
 endif()
 
 if(ARROW_FLIGHT)
@@ -1762,13 +1763,12 @@ endif()
 # ----------------------------------------------------------------------
 # jemalloc - Unix-only high-performance allocator
 
-if(ARROW_JEMALLOC)
-  message(STATUS "Building (vendored) jemalloc from source")
-  # We only use a vendored jemalloc as we want to control its version.
-  # Also our build of jemalloc is specially prefixed so that it will not
+macro(build_jemalloc)
+  # Our build of jemalloc is specially prefixed so that it will not
   # conflict with the default allocator as well as other jemalloc
   # installations.
-  # find_package(jemalloc)
+
+  message(STATUS "Building jemalloc from source")
 
   set(ARROW_JEMALLOC_USE_SHARED OFF)
   set(JEMALLOC_PREFIX
@@ -1823,15 +1823,23 @@ if(ARROW_JEMALLOC)
   set(JEMALLOC_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
-  add_library(jemalloc::jemalloc STATIC IMPORTED)
-  set_target_properties(jemalloc::jemalloc
+  add_library(jemalloc STATIC IMPORTED)
+  set_target_properties(jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
                                    IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${JEMALLOC_INCLUDE_DIR}")
-  add_dependencies(jemalloc::jemalloc jemalloc_ep)
+  add_dependencies(jemalloc jemalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc)
+
+  set(jemalloc_VENDORED TRUE)
+  # For config.h.cmake
+  set(ARROW_JEMALLOC_VENDORED ${jemalloc_VENDORED})
+endmacro()
+
+if(ARROW_JEMALLOC)
+  resolve_dependency(jemalloc)
 endif()
 
 # ----------------------------------------------------------------------
@@ -1889,6 +1897,8 @@ if(ARROW_MIMALLOC)
   add_dependencies(toolchain mimalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
+
+  set(mimalloc_VENDORED TRUE)
 endif()
 
 # ----------------------------------------------------------------------
@@ -2204,16 +2214,20 @@ if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQ
 else()
   set(ARROW_USE_XSIMD FALSE)
 endif()
-if(ARROW_USE_XSIMD)
-  set(xsimd_SOURCE "BUNDLED")
-  resolve_dependency(xsimd)
 
-  add_library(xsimd INTERFACE IMPORTED)
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                           "${XSIMD_INCLUDE_DIR}")
+if(ARROW_USE_XSIMD)
+  resolve_dependency(xsimd REQUIRED_VERSION "8.1.0")
+
+  if(xsimd_SOURCE STREQUAL "BUNDLED")
+    add_library(xsimd INTERFACE IMPORTED)
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                             "${XSIMD_INCLUDE_DIR}")
+    else()
+      target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+    endif()
   else()
-    target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
   endif()
 endif()
 
@@ -3659,8 +3673,25 @@ macro(build_grpc)
   # Yuck, see https://stackoverflow.com/a/45433229/776560
   string(REPLACE ";" "|" GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
 
+  set(GRPC_C_FLAGS "${EP_C_FLAGS}")
+  set(GRPC_CXX_FLAGS "${EP_CXX_FLAGS}")
+  if(NOT MSVC)
+    # Negate warnings that gRPC cannot build under
+    # See https://github.com/grpc/grpc/issues/29417
+    set(GRPC_C_FLAGS
+        "${GRPC_C_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
+    )
+    set(GRPC_CXX_FLAGS
+        "${GRPC_CXX_FLAGS} -Wno-attributes -Wno-format-security -Wno-unknown-warning-option"
+    )
+  endif()
+
   set(GRPC_CMAKE_ARGS
       "${EP_COMMON_CMAKE_ARGS}"
+      "-DCMAKE_C_FLAGS=${GRPC_C_FLAGS}"
+      "-DCMAKE_CXX_FLAGS=${GRPC_CXX_FLAGS}"
+      "-DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${GRPC_C_FLAGS}"
+      "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GRPC_CXX_FLAGS}"
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
       -DgRPC_ABSL_PROVIDER=package
       -DgRPC_BUILD_CSHARP_EXT=OFF
@@ -4420,6 +4451,14 @@ macro(build_awssdk)
       -DENABLE_UNITY_BUILD=ON
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
+  if(NOT MSVC)
+    list(APPEND
+         AWSSDK_COMMON_CMAKE_ARGS
+         # Workaround for https://github.com/aws/aws-sdk-cpp/issues/1582
+         "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+         "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS} -Wno-error=deprecated-declarations"
+    )
+  endif()
 
   # provide hint for AWS SDK to link with the already located openssl
   get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
@@ -4696,8 +4735,15 @@ endmacro()
 if(ARROW_WITH_UCX)
   resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
   add_library(ucx::ucx INTERFACE IMPORTED)
-  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
-  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(ucx::ucx PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                              "${UCX_INCLUDE_DIRS}")
+    set_property(TARGET ucx::ucx PROPERTY INTERFACE_LINK_LIBRARIES ucx::ucp ucx::uct
+                                          ucx::ucs)
+  else()
+    target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
+    target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
+  endif()
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

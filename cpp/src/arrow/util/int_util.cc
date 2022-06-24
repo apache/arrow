@@ -531,7 +531,7 @@ static std::string FormatInt(T val) {
 }
 
 template <typename IndexCType, bool IsSigned = std::is_signed<IndexCType>::value>
-static Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limit) {
+static Status CheckIndexBoundsImpl(const ArraySpan& values, uint64_t upper_limit) {
   // For unsigned integers, if the values array is larger than the maximum
   // index value (e.g. especially for UINT8 / UINT16), then there is no need to
   // boundscheck.
@@ -540,25 +540,22 @@ static Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limi
     return Status::OK();
   }
 
-  const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
-  const uint8_t* bitmap = nullptr;
-  if (indices.buffers[0]) {
-    bitmap = indices.buffers[0]->data();
-  }
+  const IndexCType* values_data = values.GetValues<IndexCType>(1);
+  const uint8_t* bitmap = values.buffers[0].data;
   auto IsOutOfBounds = [&](IndexCType val) -> bool {
     return ((IsSigned && val < 0) ||
             (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
   };
   return VisitSetBitRuns(
-      bitmap, indices.offset, indices.length, [&](int64_t offset, int64_t length) {
+      bitmap, values.offset, values.length, [&](int64_t offset, int64_t length) {
         bool block_out_of_bounds = false;
         for (int64_t i = 0; i < length; ++i) {
-          block_out_of_bounds |= IsOutOfBounds(indices_data[offset + i]);
+          block_out_of_bounds |= IsOutOfBounds(values_data[offset + i]);
         }
         if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
           for (int64_t i = 0; i < length; ++i) {
-            if (IsOutOfBounds(indices_data[offset + i])) {
-              return Status::IndexError("Index ", FormatInt(indices_data[offset + i]),
+            if (IsOutOfBounds(values_data[offset + i])) {
+              return Status::IndexError("Index ", FormatInt(values_data[offset + i]),
                                         " out of bounds");
             }
           }
@@ -567,27 +564,27 @@ static Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limi
       });
 }
 
-/// \brief Branchless boundschecking of the indices. Processes batches of
-/// indices at a time and shortcircuits when encountering an out-of-bounds
+/// \brief Branchless boundschecking of the values. Processes batches of
+/// values at a time and shortcircuits when encountering an out-of-bounds
 /// index in a batch
-Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit) {
-  switch (indices.type->id()) {
+Status CheckIndexBounds(const ArraySpan& values, uint64_t upper_limit) {
+  switch (values.type->id()) {
     case Type::INT8:
-      return CheckIndexBoundsImpl<int8_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int8_t>(values, upper_limit);
     case Type::INT16:
-      return CheckIndexBoundsImpl<int16_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int16_t>(values, upper_limit);
     case Type::INT32:
-      return CheckIndexBoundsImpl<int32_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int32_t>(values, upper_limit);
     case Type::INT64:
-      return CheckIndexBoundsImpl<int64_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<int64_t>(values, upper_limit);
     case Type::UINT8:
-      return CheckIndexBoundsImpl<uint8_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint8_t>(values, upper_limit);
     case Type::UINT16:
-      return CheckIndexBoundsImpl<uint16_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint16_t>(values, upper_limit);
     case Type::UINT32:
-      return CheckIndexBoundsImpl<uint32_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint32_t>(values, upper_limit);
     case Type::UINT64:
-      return CheckIndexBoundsImpl<uint64_t>(indices, upper_limit);
+      return CheckIndexBoundsImpl<uint64_t>(values, upper_limit);
     default:
       return Status::Invalid("Invalid index type for boundschecking");
   }
@@ -599,7 +596,7 @@ Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit) {
 namespace {
 
 template <typename InType, typename CType = typename InType::c_type>
-Status IntegersInRange(const Datum& datum, CType bound_lower, CType bound_upper) {
+Status IntegersInRange(const ArraySpan& values, CType bound_lower, CType bound_upper) {
   if (std::numeric_limits<CType>::lowest() >= bound_lower &&
       std::numeric_limits<CType>::max() <= bound_upper) {
     return Status::OK();
@@ -617,25 +614,13 @@ Status IntegersInRange(const Datum& datum, CType bound_lower, CType bound_upper)
                            FormatInt(bound_upper));
   };
 
-  if (datum.kind() == Datum::SCALAR) {
-    const auto& scalar = datum.scalar_as<typename TypeTraits<InType>::ScalarType>();
-    if (IsOutOfBoundsMaybeNull(scalar.value, scalar.is_valid)) {
-      return GetErrorMessage(scalar.value);
-    }
-    return Status::OK();
-  }
-
-  const ArrayData& indices = *datum.array();
-  const CType* indices_data = indices.GetValues<CType>(1);
-  const uint8_t* bitmap = nullptr;
-  if (indices.buffers[0]) {
-    bitmap = indices.buffers[0]->data();
-  }
-  OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
+  const CType* values_data = values.GetValues<CType>(1);
+  const uint8_t* bitmap = values.buffers[0].data;
+  OptionalBitBlockCounter values_bit_counter(bitmap, values.offset, values.length);
   int64_t position = 0;
-  int64_t offset_position = indices.offset;
-  while (position < indices.length) {
-    BitBlockCount block = indices_bit_counter.NextBlock();
+  int64_t offset_position = values.offset;
+  while (position < values.length) {
+    BitBlockCount block = values_bit_counter.NextBlock();
     bool block_out_of_bounds = false;
     if (block.popcount == block.length) {
       // Fast path: branchless
@@ -643,45 +628,45 @@ Status IntegersInRange(const Datum& datum, CType bound_lower, CType bound_upper)
       for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
         // Let the compiler unroll this
         for (int j = 0; j < 8; ++j) {
-          block_out_of_bounds |= IsOutOfBounds(indices_data[i++]);
+          block_out_of_bounds |= IsOutOfBounds(values_data[i++]);
         }
       }
       for (; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBounds(indices_data[i]);
+        block_out_of_bounds |= IsOutOfBounds(values_data[i]);
       }
     } else if (block.popcount > 0) {
-      // Indices have nulls, must only boundscheck non-null values
+      // Values have nulls, must only boundscheck non-null values
       int64_t i = 0;
       for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
         // Let the compiler unroll this
         for (int j = 0; j < 8; ++j) {
           block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-              indices_data[i], bit_util::GetBit(bitmap, offset_position + i));
+              values_data[i], bit_util::GetBit(bitmap, offset_position + i));
           ++i;
         }
       }
       for (; i < block.length; ++i) {
         block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-            indices_data[i], bit_util::GetBit(bitmap, offset_position + i));
+            values_data[i], bit_util::GetBit(bitmap, offset_position + i));
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
-      if (indices.GetNullCount() > 0) {
+      if (values.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBoundsMaybeNull(indices_data[i],
+          if (IsOutOfBoundsMaybeNull(values_data[i],
                                      bit_util::GetBit(bitmap, offset_position + i))) {
-            return GetErrorMessage(indices_data[i]);
+            return GetErrorMessage(values_data[i]);
           }
         }
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBounds(indices_data[i])) {
-            return GetErrorMessage(indices_data[i]);
+          if (IsOutOfBounds(values_data[i])) {
+            return GetErrorMessage(values_data[i]);
           }
         }
       }
     }
-    indices_data += block.length;
+    values_data += block.length;
     position += block.length;
     offset_position += block.length;
   }
@@ -689,19 +674,18 @@ Status IntegersInRange(const Datum& datum, CType bound_lower, CType bound_upper)
 }
 
 template <typename Type>
-Status CheckIntegersInRangeImpl(const Datum& datum, const Scalar& bound_lower,
+Status CheckIntegersInRangeImpl(const ArraySpan& values, const Scalar& bound_lower,
                                 const Scalar& bound_upper) {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
-  return IntegersInRange<Type>(datum, checked_cast<const ScalarType&>(bound_lower).value,
+  return IntegersInRange<Type>(values, checked_cast<const ScalarType&>(bound_lower).value,
                                checked_cast<const ScalarType&>(bound_upper).value);
 }
 
 }  // namespace
 
-Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
+Status CheckIntegersInRange(const ArraySpan& values, const Scalar& bound_lower,
                             const Scalar& bound_upper) {
-  Type::type type_id = datum.type()->id();
-
+  Type::type type_id = values.type->id();
   if (bound_lower.type->id() != type_id || bound_upper.type->id() != type_id ||
       !bound_lower.is_valid || !bound_upper.is_valid) {
     return Status::Invalid("Scalar bound types must be non-null and same type as data");
@@ -709,21 +693,21 @@ Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
 
   switch (type_id) {
     case Type::INT8:
-      return CheckIntegersInRangeImpl<Int8Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<Int8Type>(values, bound_lower, bound_upper);
     case Type::INT16:
-      return CheckIntegersInRangeImpl<Int16Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<Int16Type>(values, bound_lower, bound_upper);
     case Type::INT32:
-      return CheckIntegersInRangeImpl<Int32Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<Int32Type>(values, bound_lower, bound_upper);
     case Type::INT64:
-      return CheckIntegersInRangeImpl<Int64Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<Int64Type>(values, bound_lower, bound_upper);
     case Type::UINT8:
-      return CheckIntegersInRangeImpl<UInt8Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<UInt8Type>(values, bound_lower, bound_upper);
     case Type::UINT16:
-      return CheckIntegersInRangeImpl<UInt16Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<UInt16Type>(values, bound_lower, bound_upper);
     case Type::UINT32:
-      return CheckIntegersInRangeImpl<UInt32Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<UInt32Type>(values, bound_lower, bound_upper);
     case Type::UINT64:
-      return CheckIntegersInRangeImpl<UInt64Type>(datum, bound_lower, bound_upper);
+      return CheckIntegersInRangeImpl<UInt64Type>(values, bound_lower, bound_upper);
     default:
       return Status::TypeError("Invalid index type for boundschecking");
   }
@@ -913,39 +897,50 @@ void GetSafeMinMax(Type::type out_type, T* min, T* max) {
 
 template <typename Type, typename CType = typename Type::c_type,
           typename ScalarType = typename TypeTraits<Type>::ScalarType>
-Status IntegersCanFitImpl(const Datum& datum, const DataType& target_type) {
+Status IntegersCanFitImpl(const ArraySpan& values, const DataType& target_type) {
   CType bound_min{}, bound_max{};
   GetSafeMinMax<Type>(target_type.id(), &bound_min, &bound_max);
-  return CheckIntegersInRange(datum, ScalarType(bound_min), ScalarType(bound_max));
+  return CheckIntegersInRange(values, ScalarType(bound_min), ScalarType(bound_max));
 }
 
 }  // namespace
 
-Status IntegersCanFit(const Datum& datum, const DataType& target_type) {
+Status IntegersCanFit(const ArraySpan& values, const DataType& target_type) {
   if (!is_integer(target_type.id())) {
     return Status::Invalid("Target type is not an integer type: ", target_type);
   }
 
-  switch (datum.type()->id()) {
+  switch (values.type->id()) {
     case Type::INT8:
-      return IntegersCanFitImpl<Int8Type>(datum, target_type);
+      return IntegersCanFitImpl<Int8Type>(values, target_type);
     case Type::INT16:
-      return IntegersCanFitImpl<Int16Type>(datum, target_type);
+      return IntegersCanFitImpl<Int16Type>(values, target_type);
     case Type::INT32:
-      return IntegersCanFitImpl<Int32Type>(datum, target_type);
+      return IntegersCanFitImpl<Int32Type>(values, target_type);
     case Type::INT64:
-      return IntegersCanFitImpl<Int64Type>(datum, target_type);
+      return IntegersCanFitImpl<Int64Type>(values, target_type);
     case Type::UINT8:
-      return IntegersCanFitImpl<UInt8Type>(datum, target_type);
+      return IntegersCanFitImpl<UInt8Type>(values, target_type);
     case Type::UINT16:
-      return IntegersCanFitImpl<UInt16Type>(datum, target_type);
+      return IntegersCanFitImpl<UInt16Type>(values, target_type);
     case Type::UINT32:
-      return IntegersCanFitImpl<UInt32Type>(datum, target_type);
+      return IntegersCanFitImpl<UInt32Type>(values, target_type);
     case Type::UINT64:
-      return IntegersCanFitImpl<UInt64Type>(datum, target_type);
+      return IntegersCanFitImpl<UInt64Type>(values, target_type);
     default:
       return Status::TypeError("Invalid index type for boundschecking");
   }
+}
+
+Status IntegersCanFit(const Scalar& scalar, const DataType& target_type) {
+  if (!is_integer(scalar.type->id())) {
+    return Status::Invalid("Scalar is not an integer");
+  } else if (!scalar.is_valid) {
+    return Status::OK();
+  }
+
+  ArraySpan span(scalar);
+  return IntegersCanFit(span, target_type);
 }
 
 }  // namespace internal

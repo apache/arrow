@@ -2789,4 +2789,72 @@ TEST_F(TestProjector, TestCastBinaryBinary) {
 
   EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
 }
+
+TEST_F(TestProjector, TestUCase) {
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto res_out1 = field("res_out1", arrow::utf8());
+
+  // Build expression
+  auto cast_expr_1 = TreeExprBuilder::MakeExpression("ucase", {field0}, res_out1);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {cast_expr_1}, TestConfiguration(), &projector);
+
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+
+  auto array0 = MakeArrowArrayUtf8({"toupper", "AaAaAa", "路学sd学"}, {true, true, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  auto out_1 = MakeArrowArrayUtf8({"TOUPPER", "AAAAAA", "路学SD学"}, {true, true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestLCase) {
+  auto field0 = field("f0", arrow::utf8());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto res_out1 = field("res_out1", arrow::utf8());
+
+  // Build expression
+  auto cast_expr_1 = TreeExprBuilder::MakeExpression("lcase", {field0}, res_out1);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {cast_expr_1}, TestConfiguration(), &projector);
+
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+
+  auto array0 = MakeArrowArrayUtf8({"TOLOWER", "AaAaAa", "路学SD学"}, {true, true, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  auto out_1 = MakeArrowArrayUtf8({"tolower", "aaaaaa", "路学sd学"}, {true, true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
+}
 }  // namespace gandiva

@@ -412,6 +412,10 @@ set(CYTHON_EXTENSIONS
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 
+if(PYARROW_BUILD_GCS)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _gcsfs)
+endif()
+
 if(PYARROW_BUILD_S3)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
 endif()

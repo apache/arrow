@@ -162,6 +162,8 @@ def _apply_options(cmd, options):
               help="Build with Flight rpc support.")
 @click.option("--with-gandiva", default=None, type=BOOL,
               help="Build with Gandiva expression compiler support.")
+@click.option("--with-gcs", default=None, type=BOOL,
+              help="Build Arrow with Google Cloud Storage (GCS) support.")
 @click.option("--with-hdfs", default=None, type=BOOL,
               help="Build the Arrow HDFS bridge.")
 @click.option("--with-hiveserver2", default=None, type=BOOL,

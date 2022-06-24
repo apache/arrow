@@ -275,14 +275,14 @@ namespace internal {
 
 /// \brief Return the number of selected indices in the boolean filter
 ARROW_EXPORT
-int64_t GetFilterOutputSize(const ArrayData& filter,
+int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection);
 
 /// \brief Compute uint64 selection indices for use with Take given a boolean
 /// filter
 ARROW_EXPORT
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
-    const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
+    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool = default_memory_pool());
 
 }  // namespace internal

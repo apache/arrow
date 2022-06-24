@@ -69,9 +69,9 @@ std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
   return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
 }
 
-arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                                  arrow::Datum* out) {
-  *out->mutable_array() = *batch[0].array();
+arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecSpan& batch,
+                                  cp::ExecResult* out) {
+  out->value = batch[0].array.ToArrayData();
   return arrow::Status::OK();
 }
 

@@ -48,16 +48,16 @@ using StaticCastFunc = std::function<void(const void*, int64_t, int64_t, int64_t
 
 template <typename OutType, typename InType, typename Enable = void>
 struct CastPrimitive {
-  static void Exec(const Datum& input, Datum* out) {
+  static void Exec(const ExecValue& input, ExecResult* out) {
     using OutT = typename OutType::c_type;
     using InT = typename InType::c_type;
 
     StaticCastFunc caster = DoStaticCast<OutT, InT>;
-    if (input.kind() == Datum::ARRAY) {
-      const ArrayData& arr = *input.array();
-      ArrayData* out_arr = out->mutable_array();
-      caster(arr.buffers[1]->data(), arr.offset, arr.length, out_arr->offset,
-             out_arr->buffers[1]->mutable_data());
+    if (input.is_array()) {
+      const ArraySpan& arr = input.array;
+      ArraySpan* out_span = out->array_span();
+      caster(arr.buffers[1].data, arr.offset, arr.length, out_span->offset,
+             out_span->buffers[1].data);
     } else {
       // Scalar path. Use the caster with length 1 to place the casted value into
       // the output
@@ -72,16 +72,13 @@ struct CastPrimitive {
 template <typename OutType, typename InType>
 struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>::value>> {
   // memcpy output
-  static void Exec(const Datum& input, Datum* out) {
+  static void Exec(const ExecValue& input, ExecResult* out) {
     using T = typename InType::c_type;
 
-    if (input.kind() == Datum::ARRAY) {
-      const ArrayData& arr = *input.array();
-      ArrayData* out_arr = out->mutable_array();
-      std::memcpy(
-          reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data()) + out_arr->offset,
-          reinterpret_cast<const T*>(arr.buffers[1]->data()) + arr.offset,
-          arr.length * sizeof(T));
+    if (input.is_array()) {
+      const ArraySpan& arr = input.array;
+      std::memcpy(out->array_span()->GetValues<T>(1), arr.GetValues<T>(1),
+                  arr.length * sizeof(T));
     } else {
       // Scalar path. Use the caster with length 1 to place the casted value into
       // the output
@@ -94,7 +91,7 @@ struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>:
 };
 
 template <typename InType>
-void CastNumberImpl(Type::type out_type, const Datum& input, Datum* out) {
+void CastNumberImpl(Type::type out_type, const ExecValue& input, ExecResult* out) {
   switch (out_type) {
     case Type::INT8:
       return CastPrimitive<Int8Type, InType>::Exec(input, out);
@@ -123,8 +120,8 @@ void CastNumberImpl(Type::type out_type, const Datum& input, Datum* out) {
 
 }  // namespace
 
-void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
-                              Datum* out) {
+void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
+                              const ExecValue& input, ExecResult* out) {
   switch (in_type) {
     case Type::INT8:
       return CastNumberImpl<Int8Type>(out_type, input, out);
@@ -154,10 +151,12 @@ void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Dat
 
 // ----------------------------------------------------------------------
 
-Status UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  DCHECK(out->is_array());
+Status UnpackDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  DCHECK(out->is_array_data());
 
-  DictionaryArray dict_arr(batch[0].array());
+  // TODO: is there an implementation more friendly to the "span" data structures?
+
+  DictionaryArray dict_arr(batch[0].array.ToArrayData());
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
 
   const auto& dict_type = *dict_arr.dictionary()->type();
@@ -166,55 +165,67 @@ Status UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) 
                            " incompatible with dictionary type ", dict_type.ToString());
   }
 
-  ARROW_ASSIGN_OR_RAISE(*out,
+  Datum take_result;
+  ARROW_ASSIGN_OR_RAISE(take_result,
                         Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
                              TakeOptions::Defaults(), ctx->exec_context()));
 
   if (!dict_type.Equals(options.to_type)) {
-    ARROW_ASSIGN_OR_RAISE(*out, Cast(*out, options));
+    ARROW_ASSIGN_OR_RAISE(take_result, Cast(take_result, options));
   }
+  out->value = std::move(take_result.array());
   return Status::OK();
 }
 
-Status OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status OutputAllNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (out->is_scalar()) {
     out->scalar()->is_valid = false;
   } else {
-    ArrayData* output = out->mutable_array();
+    // TODO(wesm): there is no good reason to have to use ArrayData here, so we
+    // should clean this up later. This is used in the dict<null>->null cast
+    DCHECK(out->is_array_data());
+    ArrayData* output = out->array_data().get();
     output->buffers = {nullptr};
     output->null_count = batch.length;
   }
   return Status::OK();
 }
 
-Status CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
 
-  if (batch[0].kind() == Datum::SCALAR) {
-    const auto& ext_scalar = checked_cast<const ExtensionScalar&>(*batch[0].scalar());
-    Datum casted_storage;
-
+  Datum result;
+  if (batch[0].is_scalar()) {
+    const auto& ext_scalar = checked_cast<const ExtensionScalar&>(*batch[0].scalar);
     if (ext_scalar.is_valid) {
-      return Cast(ext_scalar.value, out->type(), options, ctx->exec_context()).Value(out);
+      RETURN_NOT_OK(
+          Cast(ext_scalar.value, out->type()->Copy(), options, ctx->exec_context())
+              .Value(&result));
     } else {
       const auto& storage_type =
           checked_cast<const ExtensionType&>(*ext_scalar.type).storage_type();
-      return Cast(MakeNullScalar(storage_type), out->type(), options, ctx->exec_context())
-          .Value(out);
+      RETURN_NOT_OK(Cast(MakeNullScalar(storage_type), out->type()->Copy(), options,
+                         ctx->exec_context())
+                        .Value(&result));
     }
+    out->value = std::move(result.scalar());
   } else {
-    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
-    ExtensionArray extension(batch[0].array());
-    return Cast(*extension.storage(), out->type(), options, ctx->exec_context())
-        .Value(out);
+    DCHECK(batch[0].is_array());
+    ExtensionArray extension(batch[0].array.ToArrayData());
+    std::shared_ptr<Array> result;
+    RETURN_NOT_OK(
+        Cast(*extension.storage(), out->type()->Copy(), options, ctx->exec_context())
+            .Value(&result));
+    out->value = std::move(result->data());
   }
+  return Status::OK();
 }
 
-Status CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // TODO(wesm): handle this case more gracefully
   if (!batch[0].is_scalar()) {
-    ArrayData* output = out->mutable_array();
     std::shared_ptr<Array> nulls;
-    RETURN_NOT_OK(MakeArrayOfNull(output->type, batch.length).Value(&nulls));
+    RETURN_NOT_OK(MakeArrayOfNull(out->type()->Copy(), batch.length).Value(&nulls));
     out->value = nulls->data();
   }
   return Status::OK();
@@ -237,17 +248,17 @@ Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
 
 OutputType kOutputTargetType(ResolveOutputFromOptions);
 
-Status ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
-  // Make a copy of the buffers into a destination array without carrying
-  // the type
-  const ArrayData& input = *batch[0].array();
-  ArrayData* output = out->mutable_array();
-  output->length = input.length;
-  output->SetNullCount(input.null_count);
-  output->buffers = input.buffers;
-  output->offset = input.offset;
-  output->child_data = input.child_data;
+Status ZeroCopyCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // TODO(wesm): alternative strategy for zero copy casts after ARROW-16576
+  DCHECK(batch[0].is_array());
+  DCHECK(out->is_array_data());
+  std::shared_ptr<ArrayData> input = batch[0].array.ToArrayData();
+  ArrayData* output = out->array_data().get();
+  output->length = input->length;
+  output->offset = input->offset;
+  output->SetNullCount(input->null_count);
+  output->buffers = std::move(input->buffers);
+  output->child_data = std::move(input->child_data);
   return Status::OK();
 }
 
@@ -255,7 +266,8 @@ void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_ty
                      CastFunction* func) {
   auto sig = KernelSignature::Make({in_type}, out_type);
   ScalarKernel kernel;
-  kernel.exec = TrivialScalarUnaryAsArraysExec(ZeroCopyCastExec);
+  kernel.exec = TrivialScalarUnaryAsArraysExec(ZeroCopyCastExec,
+                                               /*use_array_span=*/false);
   kernel.signature = sig;
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
@@ -283,7 +295,8 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
     // XXX: Uses Take and does its own memory allocation for the moment. We can
     // fix this later.
     DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, out_ty,
-                              TrivialScalarUnaryAsArraysExec(UnpackDictionary),
+                              TrivialScalarUnaryAsArraysExec(UnpackDictionary,
+                                                             /*use_array_span=*/false),
                               NullHandling::COMPUTED_NO_PREALLOCATE,
                               MemAllocation::NO_PREALLOCATE));
   }

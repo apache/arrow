@@ -42,13 +42,15 @@ namespace {
 
 template <typename SrcType, typename DestType>
 typename std::enable_if<SrcType::type_id == DestType::type_id, Status>::type
-CastListOffsets(KernelContext* ctx, const ArrayData& in_array, ArrayData* out_array) {
+CastListOffsets(KernelContext* ctx, const ArraySpan& in_array, ArrayData* out_array) {
   return Status::OK();
 }
 
+// TODO(wesm): memory could be preallocated here and it would make
+// things simpler
 template <typename SrcType, typename DestType>
 typename std::enable_if<SrcType::type_id != DestType::type_id, Status>::type
-CastListOffsets(KernelContext* ctx, const ArrayData& in_array, ArrayData* out_array) {
+CastListOffsets(KernelContext* ctx, const ArraySpan& in_array, ArrayData* out_array) {
   using src_offset_type = typename SrcType::offset_type;
   using dest_offset_type = typename DestType::offset_type;
 
@@ -68,14 +70,14 @@ struct CastList {
   static constexpr bool is_upcast = sizeof(src_offset_type) < sizeof(dest_offset_type);
   static constexpr bool is_downcast = sizeof(src_offset_type) > sizeof(dest_offset_type);
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
 
     auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
 
-    if (out->kind() == Datum::SCALAR) {
+    if (out->is_scalar()) {
       // The scalar case is simple, as only the underlying values must be cast
-      const auto& in_scalar = checked_cast<const BaseListScalar&>(*batch[0].scalar());
+      const auto& in_scalar = checked_cast<const BaseListScalar&>(*batch[0].scalar);
       auto out_scalar = checked_cast<BaseListScalar*>(out->scalar().get());
 
       DCHECK(!out_scalar->is_valid);
@@ -88,17 +90,17 @@ struct CastList {
       return Status::OK();
     }
 
-    const ArrayData& in_array = *batch[0].array();
+    const ArraySpan& in_array = batch[0].array;
     auto offsets = in_array.GetValues<src_offset_type>(1);
-    Datum values = in_array.child_data[0];
 
-    ArrayData* out_array = out->mutable_array();
-    out_array->buffers = in_array.buffers;
+    ArrayData* out_array = out->array_data().get();
+    out_array->buffers[0] = in_array.GetBuffer(0);
+    out_array->buffers[1] = in_array.GetBuffer(1);
 
     // Shift bitmap in case the source offset is non-zero
-    if (in_array.offset != 0 && in_array.buffers[0]) {
+    if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
       ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
                                        in_array.offset, in_array.length));
     }
 
@@ -116,6 +118,8 @@ struct CastList {
       }
     }
 
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+
     if (in_array.offset != 0) {
       ARROW_ASSIGN_OR_RAISE(
           out_array->buffers[1],
@@ -125,7 +129,8 @@ struct CastList {
       for (int64_t i = 0; i < in_array.length + 1; ++i) {
         shifted_offsets[i] = static_cast<dest_offset_type>(offsets[i] - offsets[0]);
       }
-      values = in_array.child_data[0]->Slice(offsets[0], offsets[in_array.length]);
+
+      values = values->Slice(offsets[0], offsets[in_array.length]);
     } else {
       RETURN_NOT_OK((CastListOffsets<SrcType, DestType>(ctx, in_array, out_array)));
     }
@@ -134,7 +139,7 @@ struct CastList {
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                           Cast(values, child_type, options, ctx->exec_context()));
 
-    DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+    DCHECK(cast_values.is_array());
     out_array->child_data.push_back(cast_values.array());
     return Status::OK();
   }
@@ -151,7 +156,7 @@ void AddListCast(CastFunction* func) {
 }
 
 struct CastStruct {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
     const auto& in_type = checked_cast<const StructType&>(*batch[0].type());
     const auto& out_type = checked_cast<const StructType&>(*out->type());
@@ -181,8 +186,8 @@ struct CastStruct {
           in_type.ToString(), " output fields: ", out_type.ToString());
     }
 
-    if (out->kind() == Datum::SCALAR) {
-      const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar());
+    if (out->is_scalar()) {
+      const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar);
       auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
 
       DCHECK(!out_scalar->is_valid);
@@ -201,25 +206,25 @@ struct CastStruct {
       return Status::OK();
     }
 
-    const ArrayData& in_array = *batch[0].array();
-    ArrayData* out_array = out->mutable_array();
+    const ArraySpan& in_array = batch[0].array;
+    ArrayData* out_array = out->array_data().get();
 
-    if (in_array.buffers[0]) {
+    if (in_array.buffers[0].data != nullptr) {
       ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
                                        in_array.offset, in_array.length));
     }
 
     out_field_index = 0;
     for (int field_index : fields_to_select) {
-      const auto& values =
-          in_array.child_data[field_index]->Slice(in_array.offset, in_array.length);
+      const auto& values = (in_array.child_data[field_index].ToArrayData()->Slice(
+          in_array.offset, in_array.length));
       const auto& target_type = out->type()->field(out_field_index++)->type();
 
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
                             Cast(values, target_type, options, ctx->exec_context()));
 
-      DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+      DCHECK(cast_values.is_array());
       out_array->child_data.push_back(cast_values.array());
     }
 

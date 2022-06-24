@@ -45,17 +45,18 @@
 %if %{rhel} >= 9
 %define arrow_cmake_builddir %{__cmake_builddir}
 %define arrow_cmake %cmake
-%define arrow_cmake_build %cmake_build
+%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
 %define arrow_cmake_install %cmake_install
 %else
 %define arrow_cmake_builddir build
 %define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
-%define arrow_cmake_build ninja -C %{arrow_cmake_builddir} -v
-%define arrow_cmake_install DESTDIR="%{buildroot}" ninja -C %{arrow_cmake_builddir} install
+%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
+%define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
 %endif
 
 %define use_boost (!%{is_amazon_linux})
-%define use_flight (%{rhel} >= 8)
+# TODO: Enable this on aarch64 too. This causes timeout on Travis CI.
+%define use_flight (%{rhel} >= 8 && "%{_arch}" != "aarch64")
 %define use_gandiva (%{rhel} >= 8 && "%{_arch}" != "aarch64")
 %define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
@@ -102,6 +103,7 @@ BuildRequires:	git
 %if %{use_glog}
 BuildRequires:	glog-devel
 %endif
+BuildRequires:	jemalloc-devel
 %if %{use_gcs}
 BuildRequires:	json-devel
 %endif
@@ -176,6 +178,7 @@ cd cpp
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
+  -DARROW_USE_CCACHE=OFF \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
@@ -183,13 +186,13 @@ cd cpp
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
-  -DARROW_USE_CCACHE=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
 %if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %endif
-  -GNinja
+  -Djemalloc_SOURCE=SYSTEM \
+  -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
 
@@ -228,6 +231,7 @@ Requires:	gflags
 %if %{use_glog}
 Requires:	glog
 %endif
+Requires:	jemalloc
 %if %{have_zstd}
 Requires:	libzstd
 %endif
@@ -259,6 +263,7 @@ Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
 %endif
+Requires:	jemalloc-devel
 %if %{use_gcs}
 Requires:	json-devel
 %endif
@@ -303,6 +308,7 @@ Libraries and header files for Apache Arrow C++.
 %if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
+%{_libdir}/cmake/arrow/Findjemalloc.cmake
 %{_libdir}/cmake/arrow/Findlz4Alt.cmake
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake

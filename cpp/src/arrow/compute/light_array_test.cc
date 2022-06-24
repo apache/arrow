@@ -18,6 +18,7 @@
 #include "arrow/compute/light_array.h"
 
 #include <gtest/gtest.h>
+#include <numeric>
 
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/testing/generator.h"

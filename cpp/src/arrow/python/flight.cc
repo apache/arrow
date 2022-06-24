@@ -291,9 +291,7 @@ void PyServerMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_
     return status;
   });
 
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python server middleware failed in SendingHeaders: " << status;
-  }
+  ARROW_WARN_NOT_OK(status, "Python server middleware failed in SendingHeaders");
 }
 
 void PyServerMiddleware::CallCompleted(const Status& call_status) {
@@ -302,9 +300,8 @@ void PyServerMiddleware::CallCompleted(const Status& call_status) {
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python server middleware failed in CallCompleted: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python server middleware failed in CallCompleted");
 }
 
 std::string PyServerMiddleware::name() const { return kPyServerMiddlewareName; }
@@ -328,9 +325,8 @@ void PyClientMiddlewareFactory::StartCall(
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 PyClientMiddleware::PyClientMiddleware(PyObject* middleware, Vtable vtable)
@@ -345,9 +341,8 @@ void PyClientMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 void PyClientMiddleware::ReceivedHeaders(
@@ -357,9 +352,8 @@ void PyClientMiddleware::ReceivedHeaders(
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 void PyClientMiddleware::CallCompleted(const Status& call_status) {
@@ -368,9 +362,8 @@ void PyClientMiddleware::CallCompleted(const Status& call_status) {
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,

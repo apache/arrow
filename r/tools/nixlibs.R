@@ -404,8 +404,10 @@ ensure_cmake <- function() {
   cmake
 }
 
-find_cmake <- function(paths, version_required = 3.10) {
+find_cmake <- function(paths, version_required = "3.10") {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
+  # version_required should be a string or packageVersion; numeric version
+  # can be misleading (e.g. 3.10 is actually 3.1)
   for (path in paths) {
     if (nzchar(path) && cmake_version(path) >= version_required) {
       # Sys.which() returns a named vector, but that plays badly with c() later

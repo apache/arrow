@@ -178,7 +178,7 @@ jobs:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:

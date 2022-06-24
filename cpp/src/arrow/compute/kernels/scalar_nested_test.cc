@@ -68,6 +68,15 @@ TEST(TestScalarNested, ListElementFixedList) {
       auto index = ScalarFromJSON(index_type, "0");
       auto expected = ArrayFromJSON(ty, "[7, 6, 3, 1]");
       CheckScalar("list_element", {input, index}, expected);
+      index = ScalarFromJSON(index_type, "1");
+      expected = ArrayFromJSON(ty, "[5, 4, 12, 43]");
+      CheckScalar("list_element", {input, index}, expected);
+      index = ScalarFromJSON(index_type, "2");
+      expected = ArrayFromJSON(ty, "[81, 8, 2, 87]");
+      CheckScalar("list_element", {input, index}, expected);
+      index = ScalarFromJSON(index_type, "3");
+      EXPECT_THAT(CallFunction("list_element", {input, index}),
+                  Raises(StatusCode::Invalid));
     }
   }
 }
@@ -426,12 +435,12 @@ TYPED_TEST(TestMapLookupIntegralKeys, StringItems) {
   auto map_type = this->type_singleton();
   const char* input = R"(
     [
-      [ 
+      [
         [0, "zero"], [1, "first_one"], [2, "two"], [1, null], [3, "three"], [1, "second_one"],
         [1, "last_one"]
       ],
       null,
-      [ 
+      [
         [0, "zero_hero"], [9, "almost_six"], [1, "the_dumb_one"], [7, "eleven"],
         [1, "the_chosen_one"], [42, "meaning of life?"], [1, "just_one"],
         [1, "no more ones!"]

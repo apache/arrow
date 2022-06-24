@@ -33,7 +33,7 @@ constexpr int64_t kStringTransformError = -1;
 
 struct StringTransformBase {
   virtual ~StringTransformBase() = default;
-  virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  virtual Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return Status::OK();
   }
 
@@ -68,24 +68,26 @@ struct StringTransformExecBase {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
   static Status Execute(KernelContext* ctx, StringTransform* transform,
-                        const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      return ExecArray(ctx, transform, batch[0].array(), out);
+                        const ExecSpan& batch, ExecResult* out) {
+    if (batch[0].is_array()) {
+      return ExecArray(ctx, transform, batch[0].array, out);
     }
-    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
-    return ExecScalar(ctx, transform, batch[0].scalar(), out);
+    DCHECK(batch[0].is_scalar());
+    // TODO: change to execute with array of length 1
+    return ExecScalar(ctx, transform, batch[0].scalar, out);
   }
 
   static Status ExecArray(KernelContext* ctx, StringTransform* transform,
-                          const std::shared_ptr<ArrayData>& data, Datum* out) {
-    ArrayType input(data);
+                          const ArraySpan& data, ExecResult* out) {
+    // TODO(wesm): reimplement this to not use the array box type
+    ArrayType input(data.ToArrayData());
     const int64_t input_ncodeunits = input.total_values_length();
     const int64_t input_nstrings = input.length();
     const int64_t max_output_ncodeunits =
         transform->MaxCodeunits(input_nstrings, input_ncodeunits);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
-    ArrayData* output = out->mutable_array();
+    ArrayData* output = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(max_output_ncodeunits));
     output->buffers[2] = values_buffer;
 
@@ -114,7 +116,7 @@ struct StringTransformExecBase {
   }
 
   static Status ExecScalar(KernelContext* ctx, StringTransform* transform,
-                           const std::shared_ptr<Scalar>& scalar, Datum* out) {
+                           const Scalar* scalar, ExecResult* out) {
     const auto& input = checked_cast<const BaseBinaryScalar&>(*scalar);
     if (!input.is_valid) {
       return Status::OK();
@@ -149,7 +151,7 @@ template <typename Type, typename StringTransform>
 struct StringTransformExec : public StringTransformExecBase<Type, StringTransform> {
   using StringTransformExecBase<Type, StringTransform>::Execute;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     StringTransform transform;
     RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
     return Execute(ctx, &transform, batch, out);
@@ -162,7 +164,7 @@ struct StringTransformExecWithState
   using State = typename StringTransform::State;
   using StringTransformExecBase<Type, StringTransform>::Execute;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     StringTransform transform(State::Get(ctx));
     RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
     return Execute(ctx, &transform, batch, out);
@@ -240,22 +242,21 @@ static inline FunctionDoc StringClassifyDoc(std::string class_summary,
 
 template <typename Type, typename Predicate>
 struct StringPredicateFunctor {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     Status st = Status::OK();
     EnsureUtf8LookupTablesFilled();
-    if (batch[0].kind() == Datum::ARRAY) {
-      const ArrayData& input = *batch[0].array();
+    if (batch[0].is_array()) {
+      const ArraySpan& input = batch[0].array;
       ArrayIterator<Type> input_it(input);
-      ArrayData* out_arr = out->mutable_array();
+      ArraySpan* out_arr = out->array_span();
       ::arrow::internal::GenerateBitsUnrolled(
-          out_arr->buffers[1]->mutable_data(), out_arr->offset, input.length,
-          [&]() -> bool {
+          out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
             util::string_view val = input_it();
             return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
                                    val.size(), &st);
           });
     } else {
-      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
+      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar);
       if (input.is_valid) {
         bool boolean_result = Predicate::Call(
             ctx, input.value->data(), static_cast<size_t>(input.value->size()), &st);
@@ -288,7 +289,7 @@ struct StringSliceTransformBase : public StringTransformBase {
 
   const SliceOptions* options;
 
-  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+  Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     options = &State::Get(ctx);
     if (options->step == 0) {
       return Status::Invalid("Slice step cannot be zero");
@@ -349,23 +350,24 @@ struct StringSplitExec {
 
   explicit StringSplitExec(const Options& options) : options(options) {}
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return StringSplitExec{State::Get(ctx)}.Execute(ctx, batch, out);
   }
 
-  Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Execute(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     SplitFinder finder;
     RETURN_NOT_OK(finder.PreExec(options));
-    if (batch[0].kind() == Datum::ARRAY) {
-      return Execute(ctx, &finder, batch[0].array(), out);
+    if (batch[0].is_array()) {
+      return Execute(ctx, &finder, batch[0].array, out);
+    } else {
+      return Execute(ctx, &finder, batch[0].scalar, out);
     }
-    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
-    return Execute(ctx, &finder, batch[0].scalar(), out);
   }
 
-  Status Execute(KernelContext* ctx, SplitFinder* finder,
-                 const std::shared_ptr<ArrayData>& data, Datum* out) {
-    const ArrayType input(data);
+  Status Execute(KernelContext* ctx, SplitFinder* finder, const ArraySpan& data,
+                 ExecResult* out) {
+    // TODO(wesm): refactor to not require creating ArrayData
+    const ArrayType input(data.ToArrayData());
 
     BuilderType builder(input.type(), ctx->memory_pool());
     // A slight overestimate of the data needed
@@ -373,7 +375,7 @@ struct StringSplitExec {
     // The minimum amount of strings needed
     RETURN_NOT_OK(builder.Resize(input.length() - input.null_count()));
 
-    ArrayData* output_list = out->mutable_array();
+    ArrayData* output_list = out->array_data().get();
     // List offsets were preallocated
     auto* list_offsets = output_list->GetMutableValues<list_offset_type>(1);
     DCHECK_NE(list_offsets, nullptr);
@@ -396,8 +398,8 @@ struct StringSplitExec {
     return Status::OK();
   }
 
-  Status Execute(KernelContext* ctx, SplitFinder* finder,
-                 const std::shared_ptr<Scalar>& scalar, Datum* out) {
+  Status Execute(KernelContext* ctx, SplitFinder* finder, const Scalar* scalar,
+                 ExecResult* out) {
     const auto& input = checked_cast<const ScalarType&>(*scalar);
     auto result = checked_cast<ListScalarType*>(out->scalar().get());
     if (input.is_valid) {

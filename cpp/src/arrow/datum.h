@@ -236,6 +236,8 @@ struct ARROW_EXPORT Datum {
 
   bool is_array() const { return this->kind() == Datum::ARRAY; }
 
+  bool is_chunked_array() const { return this->kind() == Datum::CHUNKED_ARRAY; }
+
   bool is_arraylike() const {
     return this->kind() == Datum::ARRAY || this->kind() == Datum::CHUNKED_ARRAY;
   }

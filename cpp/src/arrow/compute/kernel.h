@@ -52,7 +52,10 @@ struct ARROW_EXPORT KernelState {
 /// \brief Context/state for the execution of a particular kernel.
 class ARROW_EXPORT KernelContext {
  public:
-  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
+  // Can pass optional backreference; not used consistently for the
+  // moment but will be made so in the future
+  explicit KernelContext(ExecContext* exec_ctx, const Kernel* kernel = NULLPTR)
+      : exec_ctx_(exec_ctx), kernel_(kernel) {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
   /// not initialized.
@@ -68,6 +71,10 @@ class ARROW_EXPORT KernelContext {
   /// be minded separately.
   void SetState(KernelState* state) { state_ = state; }
 
+  // Set kernel that is being invoked since some kernel
+  // implementations will examine the kernel state.
+  void SetKernel(const Kernel* kernel) { kernel_ = kernel; }
+
   KernelState* state() { return state_; }
 
   /// \brief Configuration related to function execution that is to be shared
@@ -78,20 +85,13 @@ class ARROW_EXPORT KernelContext {
   /// MemoryPool contained in the ExecContext used to create the KernelContext.
   MemoryPool* memory_pool() { return exec_ctx_->memory_pool(); }
 
+  const Kernel* kernel() const { return kernel_; }
+
  private:
   ExecContext* exec_ctx_;
   KernelState* state_ = NULLPTR;
+  const Kernel* kernel_ = NULLPTR;
 };
-
-/// \brief The standard kernel execution API that must be implemented for
-/// SCALAR and VECTOR kernel types. This includes both stateless and stateful
-/// kernels. Kernels depending on some execution state access that state via
-/// subclasses of KernelState set on the KernelContext object. May be used for
-/// SCALAR and VECTOR kernel kinds. Implementations should endeavor to write
-/// into pre-allocated memory if they are able, though for some kernels
-/// (e.g. in cases when a builder like StringBuilder) must be employed this may
-/// not be possible.
-using ArrayKernelExec = std::function<Status(KernelContext*, const ExecBatch&, Datum*)>;
 
 /// \brief An type-checking interface to permit customizable validation rules
 /// for use with InputType and KernelSignature. This is for scenarios where the
@@ -486,7 +486,7 @@ struct MemAllocation {
 
 struct Kernel;
 
-/// \brief Arguments to pass to a KernelInit function. A struct is used to help
+/// \brief Arguments to pass to an KernelInit function. A struct is used to help
 /// avoid API breakage should the arguments passed need to be expanded.
 struct KernelInitArgs {
   /// \brief A pointer to the kernel being initialized. The init function may
@@ -548,19 +548,28 @@ struct Kernel {
   SimdLevel::type simd_level = SimdLevel::NONE;
 };
 
-/// \brief Common kernel base data structure for ScalarKernel and
-/// VectorKernel. It is called "ArrayKernel" in that the functions generally
-/// output array values (as opposed to scalar values in the case of aggregate
-/// functions).
-struct ArrayKernel : public Kernel {
-  ArrayKernel() = default;
+/// \brief The scalar kernel execution API that must be implemented for SCALAR
+/// kernel types. This includes both stateless and stateful kernels. Kernels
+/// depending on some execution state access that state via subclasses of
+/// KernelState set on the KernelContext object. Implementations should
+/// endeavor to write into pre-allocated memory if they are able, though for
+/// some kernels (e.g. in cases when a builder like StringBuilder) must be
+/// employed this may not be possible.
+using ArrayKernelExec =
+    std::function<Status(KernelContext*, const ExecSpan&, ExecResult*)>;
 
-  ArrayKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
-              KernelInit init = NULLPTR)
+/// \brief Kernel data structure for implementations of ScalarFunction. In
+/// addition to the members found in Kernel, contains the null handling
+/// and memory pre-allocation preferences.
+struct ScalarKernel : public Kernel {
+  ScalarKernel() = default;
+
+  ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
+               KernelInit init = NULLPTR)
       : Kernel(std::move(sig), init), exec(std::move(exec)) {}
 
-  ArrayKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
-              KernelInit init = NULLPTR)
+  ScalarKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
+               KernelInit init = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
         exec(std::move(exec)) {}
 
@@ -576,51 +585,58 @@ struct ArrayKernel : public Kernel {
   /// not be able to do this, so setting this to false disables this
   /// functionality.
   bool can_write_into_slices = true;
-};
-
-/// \brief Kernel data structure for implementations of ScalarFunction. In
-/// addition to the members found in ArrayKernel, contains the null handling
-/// and memory pre-allocation preferences.
-struct ScalarKernel : public ArrayKernel {
-  using ArrayKernel::ArrayKernel;
 
   // For scalar functions preallocated data and intersecting arg validity
   // bitmaps is a reasonable default
   NullHandling::type null_handling = NullHandling::INTERSECTION;
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
+
+  // Additional kernel-specific data
+  std::shared_ptr<KernelState> data;
 };
 
 // ----------------------------------------------------------------------
 // VectorKernel (for VectorFunction)
 
-/// \brief See VectorKernel::finalize member for usage
-using VectorFinalize = std::function<Status(KernelContext*, std::vector<Datum>*)>;
-
 /// \brief Kernel data structure for implementations of VectorFunction. In
-/// addition to the members found in ArrayKernel, contains an optional
-/// finalizer function, the null handling and memory pre-allocation preferences
-/// (which have different defaults from ScalarKernel), and some other
-/// execution-related options.
-struct VectorKernel : public ArrayKernel {
+/// contains an optional finalizer function, the null handling and memory
+/// pre-allocation preferences (which have different defaults from
+/// ScalarKernel), and some other execution-related options.
+struct VectorKernel : public Kernel {
+  /// \brief See VectorKernel::finalize member for usage
+  using FinalizeFunc = std::function<Status(KernelContext*, std::vector<Datum>*)>;
+
+  /// \brief Function for executing a stateful VectorKernel against a
+  /// ChunkedArray input. Does not need to be defined for all VectorKernels
+  typedef Status (*ChunkedExec)(KernelContext*, const ExecBatch&, Datum* out);
+
   VectorKernel() = default;
 
   VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
-               KernelInit init = NULLPTR, VectorFinalize finalize = NULLPTR)
-      : ArrayKernel(std::move(in_types), std::move(out_type), std::move(exec),
-                    std::move(init)),
+               KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
+      : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
+        exec(std::move(exec)),
         finalize(std::move(finalize)) {}
 
   VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
-               KernelInit init = NULLPTR, VectorFinalize finalize = NULLPTR)
-      : ArrayKernel(std::move(sig), std::move(exec), std::move(init)),
+               KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
+      : Kernel(std::move(sig), std::move(init)),
+        exec(std::move(exec)),
         finalize(std::move(finalize)) {}
+
+  /// \brief Perform a single invocation of this kernel. Any required state is
+  /// managed through the KernelContext.
+  ArrayKernelExec exec;
+
+  /// \brief Execute the kernel on a ChunkedArray. Does not need to be defined
+  ChunkedExec exec_chunked = NULLPTR;
 
   /// \brief For VectorKernel, convert intermediate results into finalized
   /// results. Mutates input argument. Some kernels may accumulate state
   /// (example: hashing-related functions) through processing chunked inputs, and
   /// then need to attach some accumulated state to each of the outputs of
   /// processing each chunk of data.
-  VectorFinalize finalize;
+  FinalizeFunc finalize;
 
   /// Since vector kernels generally are implemented rather differently from
   /// scalar/elementwise kernels (and they may not even yield arrays of the same
@@ -629,7 +645,14 @@ struct VectorKernel : public ArrayKernel {
   NullHandling::type null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   MemAllocation::type mem_allocation = MemAllocation::NO_PREALLOCATE;
 
-  /// Some vector kernels can do chunkwise execution using ExecBatchIterator,
+  /// \brief Writing execution results into larger contiguous allocations
+  /// requires that the kernel be able to write into sliced output ArrayData*,
+  /// including sliced output validity bitmaps. Some kernel implementations may
+  /// not be able to do this, so setting this to false disables this
+  /// functionality.
+  bool can_write_into_slices = true;
+
+  /// Some vector kernels can do chunkwise execution using ExecSpanIterator,
   /// in some cases accumulating some state. Other kernels (like Take) need to
   /// be passed whole arrays and don't work on ChunkedArray inputs
   bool can_execute_chunkwise = true;

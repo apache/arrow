@@ -99,6 +99,12 @@ cdef class S3FileSystem(FileSystem):
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
 
+    When S3FileSystem creates new buckets (assuming allow_bucket_creation is 
+    True), it does not pass any non-default settings. In AWS S3, the bucket and 
+    all objects will be not publicly visible, and will have no bucket policies 
+    and no resource tags. To have more control over how buckets are created,
+    use a different API to create them.
+
     Parameters
     ----------
     access_key : str, default None
@@ -150,6 +156,23 @@ cdef class S3FileSystem(FileSystem):
             S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
+    allow_bucket_creation : bool, default False
+        Whether to allow CreateDir at the bucket-level. This option may also be 
+        passed in a URI query parameter.
+    allow_bucket_deletion : bool, default False
+        Whether to allow DeleteDir at the bucket-level. This option may also be 
+        passed in a URI query parameter.
+
+    Examples
+    --------
+    >>> from pyarrow import fs
+    >>> s3 = fs.S3FileSystem(region='us-west-2')
+    >>> s3.get_file_info(fs.FileSelector(
+    ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
+    ... ))
+    [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
+
+    For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
 
     cdef:
@@ -159,7 +182,8 @@ cdef class S3FileSystem(FileSystem):
                  bint anonymous=False, region=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  default_metadata=None, role_arn=None, session_name=None,
-                 external_id=None, load_frequency=900, proxy_options=None):
+                 external_id=None, load_frequency=900, proxy_options=None,
+                 allow_bucket_creation=False, allow_bucket_deletion=False):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -253,6 +277,9 @@ cdef class S3FileSystem(FileSystem):
                     "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
 
+        options.allow_bucket_creation = allow_bucket_creation
+        options.allow_bucket_deletion = allow_bucket_deletion
+
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
 
@@ -295,6 +322,8 @@ cdef class S3FileSystem(FileSystem):
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes,
+                allow_bucket_creation=opts.allow_bucket_creation,
+                allow_bucket_deletion=opts.allow_bucket_deletion,
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),
@@ -302,7 +331,7 @@ cdef class S3FileSystem(FileSystem):
                                'username': frombytes(
                                    opts.proxy_options.username),
                                'password': frombytes(
-                                   opts.proxy_options.password)}
+                                   opts.proxy_options.password)},
             ),)
         )
 

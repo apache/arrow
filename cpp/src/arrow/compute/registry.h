@@ -47,35 +47,64 @@ class ARROW_EXPORT FunctionRegistry {
  public:
   ~FunctionRegistry();
 
-  /// \brief Construct a new registry. Most users only need to use the global
-  /// registry
+  /// \brief Construct a new registry.
+  ///
+  /// Most users only need to use the global registry.
   static std::unique_ptr<FunctionRegistry> Make();
 
-  /// \brief Add a new function to the registry. Returns Status::KeyError if a
-  /// function with the same name is already registered
+  /// \brief Construct a new nested registry with the given parent.
+  ///
+  /// Most users only need to use the global registry. The returned registry never changes
+  /// its parent, even when an operation allows overwritting.
+  static std::unique_ptr<FunctionRegistry> Make(FunctionRegistry* parent);
+
+  /// \brief Check whether a new function can be added to the registry.
+  ///
+  /// \returns Status::KeyError if a function with the same name is already registered.
+  Status CanAddFunction(std::shared_ptr<Function> function, bool allow_overwrite = false);
+
+  /// \brief Add a new function to the registry.
+  ///
+  /// \returns Status::KeyError if a function with the same name is already registered.
   Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite = false);
 
-  /// \brief Add aliases for the given function name. Returns Status::KeyError if the
-  /// function with the given name is not registered
+  /// \brief Check whether an alias can be added for the given function name.
+  ///
+  /// \returns Status::KeyError if the function with the given name is not registered.
+  Status CanAddAlias(const std::string& target_name, const std::string& source_name);
+
+  /// \brief Add alias for the given function name.
+  ///
+  /// \returns Status::KeyError if the function with the given name is not registered.
   Status AddAlias(const std::string& target_name, const std::string& source_name);
 
-  /// \brief Add a new function options type to the registry. Returns Status::KeyError if
-  /// a function options type with the same name is already registered
+  /// \brief Check whether a new function options type can be added to the registry.
+  ///
+  /// \returns Status::KeyError if a function options type with the same name is already
+  /// registered.
+  Status CanAddFunctionOptionsType(const FunctionOptionsType* options_type,
+                                   bool allow_overwrite = false);
+
+  /// \brief Add a new function options type to the registry.
+  ///
+  /// \returns Status::KeyError if a function options type with the same name is already
+  /// registered.
   Status AddFunctionOptionsType(const FunctionOptionsType* options_type,
                                 bool allow_overwrite = false);
 
-  /// \brief Retrieve a function by name from the registry
+  /// \brief Retrieve a function by name from the registry.
   Result<std::shared_ptr<Function>> GetFunction(const std::string& name) const;
 
-  /// \brief Return vector of all entry names in the registry. Helpful for
-  /// displaying a manifest of available functions
+  /// \brief Return vector of all entry names in the registry.
+  ///
+  /// Helpful for displaying a manifest of available functions.
   std::vector<std::string> GetFunctionNames() const;
 
-  /// \brief Retrieve a function options type by name from the registry
+  /// \brief Retrieve a function options type by name from the registry.
   Result<const FunctionOptionsType*> GetFunctionOptionsType(
       const std::string& name) const;
 
-  /// \brief The number of currently registered functions
+  /// \brief The number of currently registered functions.
   int num_functions() const;
 
  private:
@@ -84,9 +113,13 @@ class ARROW_EXPORT FunctionRegistry {
   // Use PIMPL pattern to not have std::unordered_map here
   class FunctionRegistryImpl;
   std::unique_ptr<FunctionRegistryImpl> impl_;
+
+  explicit FunctionRegistry(FunctionRegistryImpl* impl);
+
+  class NestedFunctionRegistryImpl;
 };
 
-/// \brief Return the process-global function registry
+/// \brief Return the process-global function registry.
 ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
 
 }  // namespace compute

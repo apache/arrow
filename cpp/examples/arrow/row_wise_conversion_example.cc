@@ -97,7 +97,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> VectorToColumnarTable(
   ARROW_RETURN_NOT_OK(id_builder.Finish(&id_array));
   std::shared_ptr<arrow::Array> components_array;
   ARROW_RETURN_NOT_OK(components_builder.Finish(&components_array));
-  // No need to invoke component_cost_builder.Finish because it is implied by
+  // No need to invoke component_item_cost_builder.Finish because it is implied by
   // the parent builder's Finish invocation.
   std::shared_ptr<arrow::Array> component_cost_array;
   ARROW_RETURN_NOT_OK(component_cost_builder.Finish(&component_cost_array));

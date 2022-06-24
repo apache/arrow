@@ -282,7 +282,8 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     std::string session_token = "", std::string role_arn = "",
     std::string session_name = "", std::string external_id = "", int load_frequency = 900,
     std::string region = "", std::string endpoint_override = "", std::string scheme = "",
-    std::string proxy_options = "", bool background_writes = true) {
+    std::string proxy_options = "", bool background_writes = true,
+    bool allow_bucket_creation = false, bool allow_bucket_deletion = false) {
   // We need to ensure that S3 is initialized before we start messing with the
   // options
   StopIfNotOk(fs::EnsureS3Initialized());
@@ -320,6 +321,9 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   /// Whether OutputStream writes will be issued in the background, without blocking
   /// default true
   s3_opts.background_writes = background_writes;
+
+  s3_opts.allow_bucket_creation = allow_bucket_creation;
+  s3_opts.allow_bucket_deletion = allow_bucket_deletion;
 
   auto io_context = arrow::io::IOContext(gc_memory_pool());
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts, io_context));

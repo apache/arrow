@@ -317,9 +317,7 @@ cdef class ChunkedArray(_PandasConvertible):
           [
             false,
             false,
-            false
-          ],
-          [
+            false,
             false,
             true,
             false
@@ -3323,7 +3321,7 @@ cdef class Table(_PandasConvertible):
 
         Examples
         --------
-        >>> import pyarrow as pa  
+        >>> import pyarrow as pa
         >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> names=["n_legs", "animals"]
@@ -4124,7 +4122,7 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> for i in table.itercolumns():
         ...     print(i.null_count)
-        ... 
+        ...
         2
         1
         """
@@ -4648,7 +4646,7 @@ cdef class Table(_PandasConvertible):
             of the join operation left side.
         right_keys : str or list[str], default None
             The columns from the right_table that should be used as keys
-            on the join operation right side. 
+            on the join operation right side.
             When ``None`` use the same key names as the left table.
         join_type : str, default "left outer"
             The kind of join that should be performed, one of

@@ -2577,10 +2577,10 @@ cdef class FlightServerBase(_Weakrefable):
     root_certificates : bytes optional, default None
         If enabling mutual TLS, this specifies the PEM-encoded root
         certificate used to validate client certificates.
-    middleware : list optional, default None
-        A dictionary of :class:`ServerMiddlewareFactory` items. The
-        keys are used to retrieve the middleware instance during calls
-        (see :meth:`ServerCallContext.get_middleware`).
+    middleware : dict optional, default None
+        A dictionary of :class:`ServerMiddlewareFactory` instances. The
+        string keys can be used to retrieve the middleware instance within
+        RPC handlers (see :meth:`ServerCallContext.get_middleware`).
 
     """
 

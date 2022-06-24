@@ -27,8 +27,7 @@
 namespace arrow {
 
 class DataType;
-struct ArrayData;
-struct Datum;
+struct ArraySpan;
 struct Scalar;
 
 namespace internal {
@@ -99,20 +98,24 @@ Status TransposeInts(const DataType& src_type, const DataType& dest_type,
 /// indices must be nonnegative and strictly less than the passed upper
 /// limit (which is usually the length of an array that is being indexed-into).
 ARROW_EXPORT
-Status CheckIndexBounds(const ArrayData& indices, uint64_t upper_limit);
+Status CheckIndexBounds(const ArraySpan& values, uint64_t upper_limit);
 
 /// \brief Boundscheck integer values to determine if they are all between the
 /// passed upper and lower limits (inclusive). Upper and lower bounds must be
 /// the same type as the data and are not currently casted.
 ARROW_EXPORT
-Status CheckIntegersInRange(const Datum& datum, const Scalar& bound_lower,
+Status CheckIntegersInRange(const ArraySpan& values, const Scalar& bound_lower,
                             const Scalar& bound_upper);
 
 /// \brief Use CheckIntegersInRange to determine whether the passed integers
 /// can fit safely in the passed integer type. This helps quickly determine if
 /// integer narrowing (e.g. int64->int32) is safe to do.
 ARROW_EXPORT
-Status IntegersCanFit(const Datum& datum, const DataType& target_type);
+Status IntegersCanFit(const ArraySpan& values, const DataType& target_type);
+
+/// \brief Convenience for boundschecking a single Scalar vlue
+ARROW_EXPORT
+Status IntegersCanFit(const Scalar& value, const DataType& target_type);
 
 /// Upcast an integer to the largest possible width (currently 64 bits)
 

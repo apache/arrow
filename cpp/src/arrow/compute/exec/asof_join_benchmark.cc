@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <condition_variable>
 #include <mutex>
 #include <string>
@@ -40,6 +42,19 @@ namespace compute {
 
 static const char* time_col = "time";
 static const char* key_col = "id";
+static bool createdBenchmarkFiles = false;
+
+static void DoSetup() {
+  // requires export PYTHONPATH=/path/to/bamboo-streaming
+  // calls generate_benchmark_files to create tables varying in frequency, width, key density for benchmarks.
+  if (!createdBenchmarkFiles) {
+    system("mkdir benchmark_data/");
+    // system("python3 ~/summer/bamboo-streaming/bamboo/generate_benchmark_files.py");
+    createdBenchmarkFiles = true;
+  }
+}
+
+static void DoTeardown() { system("rm -rf benchmark_data/"); }
 
 static std::vector<std::string> generateRightHandTables(std::string freq, int width_index,
                                                         int num_tables,
@@ -121,12 +136,15 @@ make_arrow_ipc_reader_node(std::shared_ptr<arrow::compute::ExecPlan>& plan,
           rows, in_reader->num_record_batches(), row_size * rows};
 }
 
-static void AsOfJoinOverhead(benchmark::State& state, std::string left_table,
-                             std::vector<std::string> right_tables) {
-  int64_t tolerance = 0;
-  const std::string data_directory = "../../../bamboo-streaming/";
-
+static void TableOverhead(benchmark::State& state, std::string left_table,
+                          std::vector<std::string> right_tables, std::string factory_name,
+                          ExecNodeOptions& options) {
+  const std::string data_directory = "./benchmark_data/";
+  DoSetup();
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+  // std::cout << "beginning test for " << left_table << " and " << right_tables[0] << " "
+  // << factory_name << std::endl; std::cout << "starting with " <<
+  // ctx.memory_pool()->bytes_allocated() << std::endl;
   int64_t rows;
   int64_t bytes;
   for (auto _ : state) {
@@ -136,33 +154,41 @@ static void AsOfJoinOverhead(benchmark::State& state, std::string left_table,
                          ExecPlan::Make(&ctx));
     std::shared_ptr<arrow::fs::FileSystem> fs =
         std::make_shared<arrow::fs::LocalFileSystem>();
-    auto [left_table_source, left_table_rows, left_table_batches, left_table_bytes] =
+    arrow::compute::ExecNode* left_table_source;
+    int64_t left_table_rows;
+    int left_table_batches;
+    size_t left_table_bytes;
+    tie(left_table_source, left_table_rows, left_table_batches, left_table_bytes) =
         make_arrow_ipc_reader_node(plan, fs, data_directory + left_table);
     std::vector<ExecNode*> inputs = {left_table_source};
     int right_hand_rows = 0;
     int64_t right_hand_bytes = 0;
     for (std::string right_table : right_tables) {
-      auto [right_table_source, right_table_rows, right_table_batches,
-            right_table_bytes] =
+      arrow::compute::ExecNode* right_table_source;
+      int64_t right_table_rows;
+      int right_table_batches;
+      size_t right_table_bytes;
+      tie(right_table_source, right_table_rows, right_table_batches, right_table_bytes) =
           make_arrow_ipc_reader_node(plan, fs, data_directory + right_table);
       inputs.push_back(right_table_source);
       right_hand_rows += right_table_rows;
       right_hand_bytes += right_table_bytes;
     }
-
     rows = left_table_rows + right_hand_rows;
     bytes = left_table_bytes + right_hand_bytes;
-
     ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * asof_join_node,
-                         MakeExecNode("asofjoin", plan.get(), inputs,
-                                      AsofJoinNodeOptions(time_col, key_col, tolerance)));
+                         MakeExecNode(factory_name, plan.get(), inputs, options));
 
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     MakeExecNode("sink", plan.get(), {asof_join_node}, SinkNodeOptions{&sink_gen});
     state.ResumeTiming();
+    // std::cout << "starting and collecting with " <<
+    // ctx.memory_pool()->bytes_allocated() << std::endl;
     ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
+    // std::cout << "finishing with " << ctx.memory_pool()->bytes_allocated() <<
+    // std::endl;
   }
-
+  // std::cout << "reporting with " << ctx.memory_pool()->bytes_allocated() << std::endl;
   state.counters["total_rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * rows), benchmark::Counter::kIsRate);
 
@@ -170,55 +196,18 @@ static void AsOfJoinOverhead(benchmark::State& state, std::string left_table,
       static_cast<double>(state.iterations() * bytes), benchmark::Counter::kIsRate);
 }
 
-static void HashJoinOverhead(benchmark::State& state, std::string left_table,
+static void AsOfJoinOverhead(benchmark::State& state, std::string left_table,
                              std::vector<std::string> right_tables) {
   int64_t tolerance = 0;
-  const std::string data_directory = "../../../bamboo-streaming/";
+  AsofJoinNodeOptions options = AsofJoinNodeOptions(time_col, key_col, tolerance);
+  TableOverhead(state, left_table, right_tables, "asofjoin", options);
+}
 
-  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
-  int64_t rows;
-  size_t bytes;
-  for (auto _ : state) {
-    state.PauseTiming();
-
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                         ExecPlan::Make(&ctx));
-    std::shared_ptr<arrow::fs::FileSystem> fs =
-        std::make_shared<arrow::fs::LocalFileSystem>();
-    auto [left_table_source, left_table_rows, left_table_batches, left_table_bytes] =
-        make_arrow_ipc_reader_node(plan, fs, data_directory + left_table);
-
-    std::vector<ExecNode*> inputs = {left_table_source};
-    int right_hand_rows = 0;
-    size_t right_hand_bytes = 0;
-    for (std::string right_table : right_tables) {
-      auto [right_table_source, right_table_rows, right_table_batches,
-            right_table_bytes] =
-          make_arrow_ipc_reader_node(plan, fs, data_directory + right_table);
-      inputs.push_back(right_table_source);
-      right_hand_rows += right_table_rows;
-      right_hand_bytes += right_table_bytes;
-    }
-
-    rows = left_table_rows + right_hand_rows;
-    bytes = left_table_bytes + right_hand_bytes;
-
-    ASSERT_OK_AND_ASSIGN(
-        arrow::compute::ExecNode * asof_join_node,
-        MakeExecNode("hashjoin", plan.get(), inputs,
-                     HashJoinNodeOptions({time_col, key_col}, {time_col, key_col})));
-
-    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-    MakeExecNode("sink", plan.get(), {asof_join_node}, SinkNodeOptions{&sink_gen});
-    state.ResumeTiming();
-    ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
-  }
-
-  state.counters["total_rows_per_second"] = benchmark::Counter(
-      static_cast<double>(state.iterations() * rows), benchmark::Counter::kIsRate);
-
-  state.counters["total_bytes_per_second"] = benchmark::Counter(
-      static_cast<double>(state.iterations() * bytes), benchmark::Counter::kIsRate);
+static void HashJoinOverhead(benchmark::State& state, std::string left_table,
+                             std::vector<std::string> right_tables) {
+  HashJoinNodeOptions options =
+      HashJoinNodeOptions({time_col, key_col}, {time_col, key_col});
+  TableOverhead(state, left_table, right_tables, "hashjoin", options);
 }
 
 // this generates the set of right hand tables to test on.
@@ -776,14 +765,14 @@ BENCHMARK_CAPTURE(AsOfJoinOverhead,
     ->Apply(SetArgs);
 
 // asymmetric joins
-BENCHMARK_CAPTURE(AsOfJoinOverhead,
-                  | high_freq | 20_cols | 2000_ids | 1_join | low_freq | 20_cols | 2000_ids |,
-                  "high_freq_20_cols_2000_ids0.feather",
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | high_freq | 20_cols | 2000_ids | 1_join | low_freq |
+                                        20_cols | 2000_ids |
+                  , "high_freq_20_cols_2000_ids0.feather",
                   generateRightHandTables("low_freq", 2, 1, 1))
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverhead,
-                  | low_freq | 20_cols | 2000_ids | 1_join | high_freq | 20_cols | 2000_ids |,
-                  "low_freq_20_cols_2000_ids0.feather",
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | low_freq | 20_cols | 2000_ids | 1_join | high_freq |
+                                        20_cols | 2000_ids |
+                  , "low_freq_20_cols_2000_ids0.feather",
                   generateRightHandTables("high_freq", 2, 1, 1))
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(AsOfJoinOverhead,
@@ -796,20 +785,236 @@ BENCHMARK_CAPTURE(AsOfJoinOverhead,
                   "mid_freq_20_cols_2000_ids0.feather",
                   generateRightHandTables("mid_freq", 2, 1, 0))
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverhead,
-                  | mid_freq | 100_cols | 2000_ids | 1_join | mid_freq | 20_cols | 2000_ids |,
-                  "mid_freq_100_cols_2000_ids0.feather",
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | mid_freq | 100_cols | 2000_ids | 1_join | mid_freq |
+                                        20_cols | 2000_ids |
+                  , "mid_freq_100_cols_2000_ids0.feather",
                   generateRightHandTables("mid_freq", 2, 1, 1))
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverhead,
-                  | mid_freq | 20_cols | 2000_ids | 1_join | mid_freq | 100_cols | 2000_ids |,
-                  "mid_freq_20_cols_2000_ids0.feather",
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | mid_freq | 20_cols | 2000_ids | 1_join | mid_freq |
+                                        100_cols | 2000_ids |
+                  , "mid_freq_20_cols_2000_ids0.feather",
                   generateRightHandTables("mid_freq", 5, 1, 1))
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(AsOfJoinOverhead,
-                  | low_freq | 20_cols | 2000_ids | 4_join | high_freq | 20_cols | 2000_ids |,
-                  "low_freq_20_cols_2000_ids0.feather",
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | low_freq | 20_cols | 2000_ids | 4_join | high_freq |
+                                        20_cols | 2000_ids |
+                  , "low_freq_20_cols_2000_ids0.feather",
                   generateRightHandTables("high_freq", 2, 4, 1))
+    ->Apply(SetArgs);
+
+// hash joins
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 1_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 0, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 1_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 0, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 1_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 0, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 20_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 2, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 20_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 20_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 2, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 80_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 4, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 80_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 4, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 80_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 4, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 100_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 5, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 100_cols | 100_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 5, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 100_cols | 100_ids |
+                  , "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 5, 1, 0))
+    ->Apply(SetArgs);
+
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 1_cols | 2000_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 0, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 1_cols | 2000_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 0, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 1_cols | 2000_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 0, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 20_cols | 2000_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 20_cols | 2000_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 20_cols | 2000_ids |
+                  , "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 80_cols | 2000_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 4, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 80_cols | 2000_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 4, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 80_cols | 2000_ids |
+                  , "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 4, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 100_cols | 2000_ids |
+                  , "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 5, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 100_cols | 2000_ids |
+                  , "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 5, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | mid_freq | 1_cols | 5k_ids | 1_join | high_freq |
+                                        100_cols | 2000_ids |
+                  , "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 5, 1, 1))
+    ->Apply(SetArgs);
+
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 1_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 0, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 1_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 0, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 1_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 0, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 20_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 2, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 20_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 20_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 2, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 80_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 4, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 80_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 4, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 80_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 4, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | low_freq | 100_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("low_freq", 5, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | mid_freq | 100_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("mid_freq", 5, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 1_cols | 5k_ids | 1_join | high_freq | 100_cols | 5k_ids |,
+                  "mid_freq_1_cols_5k_ids0.feather",
+                  generateRightHandTables("high_freq", 5, 1, 2))
+    ->Apply(SetArgs);
+
+// asymmetric joins
+BENCHMARK_CAPTURE(HashJoinOverhead, | high_freq | 20_cols | 2000_ids | 1_join | low_freq |
+                                        20_cols | 2000_ids |
+                  , "high_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("low_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | low_freq | 20_cols | 2000_ids | 1_join | high_freq |
+                                        20_cols | 2000_ids |
+                  , "low_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("high_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 20_cols | 100_ids | 1_join | mid_freq | 20_cols | 5k_ids |,
+                  "mid_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 2))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead,
+                  | mid_freq | 20_cols | 5k_ids | 1_join | mid_freq | 20_cols | 100_ids |,
+                  "mid_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 0))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | mid_freq | 100_cols | 2000_ids | 1_join | mid_freq |
+                                        20_cols | 2000_ids |
+                  , "mid_freq_100_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 2, 1, 1))
+    ->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | mid_freq | 20_cols | 2000_ids | 1_join | mid_freq |
+                                        100_cols | 2000_ids |
+                  , "mid_freq_20_cols_2000_ids0.feather",
+                  generateRightHandTables("mid_freq", 5, 1, 1))
     ->Apply(SetArgs);
 }  // namespace compute
 }  // namespace arrow

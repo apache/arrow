@@ -696,6 +696,7 @@ TEST_F(TestArray, TestMakeEmptyArray) {
 
 TEST_F(TestArray, TestAppendArraySlice) {
   auto scalars = GetScalars();
+  ArraySpan span;
   for (const auto& scalar : scalars) {
     ARROW_SCOPED_TRACE(*scalar->type);
     ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 16));
@@ -704,31 +705,33 @@ TEST_F(TestArray, TestAppendArraySlice) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool_, scalar->type, &builder));
 
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 4));
+    span.SetMembers(*array->data());
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 0));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 0));
     ASSERT_EQ(4, builder->length());
-    ASSERT_OK(builder->AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 4));
     ASSERT_EQ(8, builder->length());
 
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 4));
+    span.SetMembers(*nulls->data());
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 0, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 0, 0));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 0));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 0));
     ASSERT_EQ(12, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(4, builder->null_count());
     }
-    ASSERT_OK(builder->AppendArraySlice(*nulls->data(), 1, 4));
+    ASSERT_OK(builder->AppendArraySlice(span, 1, 4));
     ASSERT_EQ(16, builder->length());
     if (!is_union(scalar->type->id())) {
       ASSERT_EQ(8, builder->null_count());
@@ -746,13 +749,15 @@ TEST_F(TestArray, TestAppendArraySlice) {
   {
     ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(null(), 16));
     NullBuilder builder(pool_);
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 4));
+
+    span.SetMembers(*array->data());
+    ASSERT_OK(builder.AppendArraySlice(span, 0, 4));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 0, 0));
+    ASSERT_OK(builder.AppendArraySlice(span, 0, 0));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 0));
+    ASSERT_OK(builder.AppendArraySlice(span, 1, 0));
     ASSERT_EQ(4, builder.length());
-    ASSERT_OK(builder.AppendArraySlice(*array->data(), 1, 4));
+    ASSERT_OK(builder.AppendArraySlice(span, 1, 4));
     ASSERT_EQ(8, builder.length());
     std::shared_ptr<Array> result;
     ASSERT_OK(builder.Finish(&result));
@@ -2257,23 +2262,23 @@ struct FWBinaryAppender {
   std::vector<util::string_view> data;
 };
 
-TEST_F(TestFWBinaryArray, ArrayDataVisitor) {
+TEST_F(TestFWBinaryArray, ArraySpanVisitor) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def"])");
   FWBinaryAppender appender;
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"abc", "(null)", "def"}));
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
 }
 
-TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
+TEST_F(TestFWBinaryArray, ArraySpanVisitorSliced) {
   auto type = fixed_size_binary(3);
 
   auto array = ArrayFromJSON(type, R"(["abc", null, "def", "ghi"])")->Slice(1, 2);
   FWBinaryAppender appender;
-  ArrayDataVisitor<FixedSizeBinaryType> visitor;
+  ArraySpanVisitor<FixedSizeBinaryType> visitor;
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "def"}));
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning

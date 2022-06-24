@@ -126,15 +126,15 @@ class BaseListBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     const offset_type* offsets = array.GetValues<offset_type>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(Append());
         int64_t slot_length = offsets[row + 1] - offsets[row];
-        ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(*array.child_data[0],
+        ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(array.child_data[0],
                                                              offsets[row], slot_length));
       } else {
         ARROW_RETURN_NOT_OK(AppendNull());
@@ -296,18 +296,18 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final;
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     const int32_t* offsets = array.GetValues<int32_t>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(Append());
         const int64_t slot_length = offsets[row + 1] - offsets[row];
         ARROW_RETURN_NOT_OK(key_builder_->AppendArraySlice(
-            *array.child_data[0]->child_data[0], offsets[row], slot_length));
+            array.child_data[0].child_data[0], offsets[row], slot_length));
         ARROW_RETURN_NOT_OK(item_builder_->AppendArraySlice(
-            *array.child_data[0]->child_data[1], offsets[row], slot_length));
+            array.child_data[0].child_data[1], offsets[row], slot_length));
       } else {
         ARROW_RETURN_NOT_OK(AppendNull());
       }
@@ -425,12 +425,12 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final;
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset, int64_t length) final {
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset, int64_t length) final {
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(
-            *array.child_data[0], list_size_ * (array.offset + row), list_size_));
+            array.child_data[0], list_size_ * (array.offset + row), list_size_));
         ARROW_RETURN_NOT_OK(Append());
       } else {
         ARROW_RETURN_NOT_OK(AppendNull());
@@ -532,13 +532,13 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     for (int i = 0; static_cast<size_t>(i) < children_.size(); i++) {
-      ARROW_RETURN_NOT_OK(children_[i]->AppendArraySlice(*array.child_data[i],
+      ARROW_RETURN_NOT_OK(children_[i]->AppendArraySlice(array.child_data[i],
                                                          array.offset + offset, length));
     }
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(validity, array.offset + offset, length);
     return Status::OK();

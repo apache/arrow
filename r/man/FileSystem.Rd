@@ -50,6 +50,10 @@ that emulate S3.
 \item \code{scheme}: S3 connection transport (default "https")
 \item \code{background_writes}: logical, whether \code{OutputStream} writes will be issued
 in the background, without blocking (default \code{TRUE})
+\item \code{allow_bucket_creation}: logical, if TRUE, the filesystem will create
+buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALSE}).
+\item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
+buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
 }
 }
 
@@ -95,5 +99,16 @@ containing a \code{S3FileSystem}
 \item \verb{$base_path}: for \code{SubTreeFileSystem}, the path in \verb{$base_fs} which is considered
 root in this \code{SubTreeFileSystem}.
 }
+}
+
+\section{Notes}{
+
+
+On S3FileSystem, \verb{$CreateDir()} on a top-level directory creates a new bucket.
+When S3FileSystem creates new buckets (assuming allow_bucket_creation is TRUE),
+it does not pass any non-default settings. In AWS S3, the bucket and all
+objects will be not publicly visible, and will have no bucket policies
+and no resource tags. To have more control over how buckets are created,
+use a different API to create them.
 }
 

@@ -496,7 +496,7 @@ std::vector<std::shared_ptr<Array>> GenRandomUniqueRecords(
   for (size_t i = 0; i < result.size(); ++i) {
     batch.values[i] = result[i];
   }
-  Status status = encoder.EncodeAndAppend(batch);
+  Status status = encoder.EncodeAndAppend(ExecSpan(batch));
   ARROW_DCHECK(status.ok());
 
   std::unordered_map<std::string, int> uniques;

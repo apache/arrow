@@ -16,8 +16,6 @@
 # under the License.
 
 class TestUTF8NormalizeOptions < Test::Unit::TestCase
-  include Helper::Buildable
-
   def setup
     @options = Arrow::UTF8NormalizeOptions.new
   end

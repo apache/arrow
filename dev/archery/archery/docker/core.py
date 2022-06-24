@@ -219,7 +219,8 @@ class DockerCompose(Command):
                 )
             )
 
-    def pull(self, service_name, pull_leaf=True, using_docker=False):
+    def pull(self, service_name, pull_leaf=True, using_docker=False,
+             ignore_pull_failures=True):
         def _pull(service):
             args = ['pull']
             if service['image'] in self.pull_memory:
@@ -229,10 +230,14 @@ class DockerCompose(Command):
                 try:
                     self._execute_docker(*args, service['image'])
                 except Exception as e:
-                    # better --ignore-pull-failures handling
-                    print(e)
+                    if ignore_pull_failures:
+                        # better --ignore-pull-failures handling
+                        print(e)
+                    else:
+                        raise
             else:
-                args.append('--ignore-pull-failures')
+                if ignore_pull_failures:
+                    args.append('--ignore-pull-failures')
                 self._execute_compose(*args, service['name'])
 
             self.pull_memory.add(service['image'])

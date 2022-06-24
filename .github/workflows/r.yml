@@ -72,8 +72,12 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .docker
-          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
+          # As this key is identical on both matrix builds only one will be able to successfully cache,
+          # this is fine as there are no differences in the build
+          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
+          restore-keys: |
+            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
+            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Check pkgdown reference sections
         run: ci/scripts/r_pkgdown_check.sh
       - name: Setup Python
@@ -126,12 +130,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Cache Docker Volumes
-        uses: actions/cache@v2
-        with:
-          path: .docker
-          key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.config.image }}-r-
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -197,8 +195,10 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
+          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
+          restore-keys: |
+            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
+            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       # We use the makepkg-mingw setup that is included in rtools40 even when
       # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@v2
@@ -257,28 +257,16 @@ jobs:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 35 }}
+        if: ${{ matrix.config.rtools != 42 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools35-mingw32.zip
+          name: libarrow-rtools${{ matrix.config.rtools }}-mingw32.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 35 }}
+        if: ${{ matrix.config.rtools !=42 }}
         uses: actions/download-artifact@v2
         with:
-          name: libarrow-rtools35-mingw64.zip
-          path: r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools == 40 }}
-        uses: actions/download-artifact@v2
-        with:
-          name: libarrow-rtools40-mingw32.zip
-          path: r/windows
-      - name: Download artifacts
-        if: ${{ matrix.config.rtools == 40 }}
-        uses: actions/download-artifact@v2
-        with:
-          name: libarrow-rtools40-mingw64.zip
+          name: libarrow-rtools${{ matrix.config.rtools }}-mingw64.zip
           path: r/windows
       - name: Download artifacts
         if: ${{ matrix.config.rtools == 42 }}
@@ -292,75 +280,23 @@ jobs:
           cd r/windows
           ls *.zip | xargs -n 1 unzip -uo
           rm -rf *.zip
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
-      # We must enable actions/cache before r-lib/actions/setup-r to ensure
-      # using system tar instead of tar provided by Rtools.
-      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
-      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
-      # when tar is GNU tar.
-      - name: Cache ccache
-        uses: actions/cache@v2
-        with:
-          path: ccache
-          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
           rtools-version: ${{ matrix.config.rtools }}
+          # RSPM keeps install times short for 3.6
+          use-public-rspm: true
           Ncpus: 2
-      - name: Make R tests verbose
-        # If you get a segfault/mysterious test Execution halted,
-        # make this `true` to see where it dies.
-        if: false
-        shell: cmd
-        run: |
-          cd r/tests
-          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
-          rm -f testthat.R.bak
-      - name: Install cpp11 (on R 3.6)
-      # Since we force installation of binary packages below, dependency versions
-      # are frozen for old versions of R. We need newer cpp11 than is available as
-      # "binary" (though it doesn't matter because the cpp11 R package is just a
-      # vehicle for the header-only C++ code.
-        if: ${{ matrix.config.rtools == 35 }}
-        shell: Rscript {0}
-        run: install.packages("cpp11", type = "source")
-      - name: Prune dependencies (on R 3.6)
-        if: ${{ matrix.config.rtools == 35 }}
-        shell: Rscript {0}
-        run: |
-            # To prevent the build from timing out, let's prune some optional deps (and their possible version requirements)
-            setwd("r")
-            # create a backup to use later
-            file.copy("DESCRIPTION", "DESCRIPTION.bak")
-            d <- read.dcf("DESCRIPTION")
-            to_prune <- c("duckdb", "DBI", "dbplyr", "decor", "knitr", "rmarkdown", "pkgload", "reticulate")
-            pattern <- paste0("\\n?", to_prune, "( \\([^,]*\\))?,?", collapse = "|")
-            d[,"Suggests"] <- gsub(pattern, "", d[,"Suggests"])
-            write.dcf(d, "DESCRIPTION")
-      - name: R package cache
-        uses: actions/cache@v2
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        env:
+          GITHUB_PAT: "${{ github.token }}"
         with:
-          path: |
-            ${{ env.R_LIBS_USER }}/*
-          key: r-${{ matrix.config.rtools }}-R-LIBS-${{ hashFiles('r/DESCRIPTION') }}
-          restore-keys: r-${{ matrix.config.rtools }}-R-LIBS-
-      - name: Install R package dependencies
-        shell: Rscript {0}
-        run: |
-          # options(pkgType="win.binary") # processx doesn't have a binary for UCRT yet
-          install.packages(c("remotes", "rcmdcheck"))
-          remotes::install_deps("r", dependencies = TRUE)
-      - name: Restore DESCRIPTION for 3.6
-        if: ${{ matrix.config.rtools == 35 }}
-        run: |
-          rm r/DESCRIPTION
-          mv r/DESCRIPTION.bak r/DESCRIPTION
+          # For some arcane reason caching does not work on the windows runners
+          # most likely due to https://github.com/actions/cache/issues/815
+          cache: false
+          working-directory: 'r'
+          extra-packages: |
+            any::rcmdcheck
       - name: Check
         shell: Rscript {0}
         run: |
@@ -391,7 +327,7 @@ jobs:
         shell: Rscript {0}
         working-directory: r
         run: |
-          remotes::install_github("jonkeane/lintr@arrow-branch")
+          pak::pak("lintr")
           lintr::expect_lint_free()
       - name: Dump install logs
         shell: cmd
@@ -401,8 +337,3 @@ jobs:
         shell: bash
         run: find r/check -name 'testthat.Rout*' -exec cat '{}' \; || true
         if: always()
-      # We can remove this when we drop support for Rtools 3.5.
-      - name: Ensure using system tar in actions/cache
-        run: |
-          Write-Output "${Env:windir}\System32" | `
-            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append

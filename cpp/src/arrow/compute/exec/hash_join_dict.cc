@@ -234,8 +234,7 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
     return Status::Invalid(
         "Dictionary length in hash join must fit into signed 32-bit integer.");
   }
-  ExecBatch batch({dictionary->data()}, length);
-  RETURN_NOT_OK(encoder.EncodeAndAppend(batch));
+  RETURN_NOT_OK(encoder.EncodeAndAppend(ExecSpan({*dictionary->data()}, length)));
 
   std::vector<int32_t> entries_to_take;
 
@@ -296,7 +295,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
   bool is_scalar = values.is_scalar();
   int64_t encoded_length = is_scalar ? 1 : batch_length;
   ExecBatch batch({values}, encoded_length);
-  RETURN_NOT_OK(encoder.EncodeAndAppend(batch));
+  RETURN_NOT_OK(encoder.EncodeAndAppend(ExecSpan(batch)));
 
   // Allocate output buffers
   //
@@ -426,8 +425,8 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictProbe::RemapInput(
         std::vector<ValueDescr> encoder_types;
         encoder_types.emplace_back(dict_type.value_type(), ValueDescr::ARRAY);
         encoder_.Init(encoder_types, ctx);
-        ExecBatch batch({dict->data()}, dict->length());
-        RETURN_NOT_OK(encoder_.EncodeAndAppend(batch));
+        RETURN_NOT_OK(
+            encoder_.EncodeAndAppend(ExecSpan({*dict->data()}, dict->length())));
       }
     }
 
@@ -547,7 +546,7 @@ Status HashJoinDictBuildMulti::EncodeBatch(
                                       proj_map.data_type(HashJoinProjection::KEY, icol)));
     }
   }
-  return encoder->EncodeAndAppend(projected);
+  return encoder->EncodeAndAppend(ExecSpan(projected));
 }
 
 Status HashJoinDictBuildMulti::PostDecode(
@@ -656,7 +655,7 @@ Status HashJoinDictProbeMulti::EncodeBatch(
   }
 
   local_state.post_remap_encoder.Clear();
-  RETURN_NOT_OK(local_state.post_remap_encoder.EncodeAndAppend(projected));
+  RETURN_NOT_OK(local_state.post_remap_encoder.EncodeAndAppend(ExecSpan(projected)));
   *out_encoder = &local_state.post_remap_encoder;
 
   return Status::OK();
