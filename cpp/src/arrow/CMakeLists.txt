@@ -387,6 +387,7 @@ if(ARROW_COMPUTE)
        compute/exec/aggregate.cc
        compute/exec/accumulation_queue.cc
        compute/exec/aggregate_node.cc
+       compute/exec/asof_join_node.cc
        compute/exec/bloom_filter.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc

@@ -390,6 +390,35 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   bool disable_bloom_filter = false;
 };
 
+/// \brief Make a node which implements asof join operation
+///
+/// Note, this API is experimental and will change in the future
+///
+/// This node takes one left table and any number of right tables, and asof joins them
+/// together. Batches produced by each input must be ordered by the "on" key.
+/// This node will output one row for each row in the left table.
+class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
+ public:
+  AsofJoinNodeOptions(FieldRef on_key, FieldRef by_key, int64_t tolerance)
+      : on_key(std::move(on_key)), by_key(std::move(by_key)), tolerance(tolerance) {}
+
+  /// \brief "on" key for the join. Each
+  ///
+  /// All inputs tables must be sorted by the "on" key. Inexact
+  /// match is used on the "on" key. i.e., a row is considiered match iff
+  /// left_on - tolerance <= right_on <= left_on.
+  /// Currently, "on" key must be an int64 field
+  FieldRef on_key;
+  /// \brief "by" key for the join.
+  ///
+  /// All input tables must have the "by" key.  Exact equality
+  /// is used for the "by" key.
+  /// Currently, the "by" key must be an int32 field
+  FieldRef by_key;
+  /// Tolerance for inexact "on" key matching
+  int64_t tolerance;
+};
+
 /// \brief Make a node which select top_k/bottom_k rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then selected, by the given

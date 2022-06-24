@@ -100,6 +100,11 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
                                     int num_batches = 10, int batch_size = 4);
 
 ARROW_TESTING_EXPORT
+BatchesWithSchema MakeBatchesFromString(
+    const std::shared_ptr<Schema>& schema,
+    const std::vector<util::string_view>& json_strings, int multiplicity = 1);
+
+ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab);
 
 ARROW_TESTING_EXPORT

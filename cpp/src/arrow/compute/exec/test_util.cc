@@ -227,6 +227,30 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
   return out;
 }
 
+BatchesWithSchema MakeBatchesFromString(
+    const std::shared_ptr<Schema>& schema,
+    const std::vector<util::string_view>& json_strings, int multiplicity) {
+  BatchesWithSchema out_batches{{}, schema};
+
+  std::vector<ValueDescr> descrs;
+  for (auto&& field : schema->fields()) {
+    descrs.emplace_back(field->type());
+  }
+
+  for (auto&& s : json_strings) {
+    out_batches.batches.push_back(ExecBatchFromJSON(descrs, s));
+  }
+
+  size_t batch_count = out_batches.batches.size();
+  for (int repeat = 1; repeat < multiplicity; ++repeat) {
+    for (size_t i = 0; i < batch_count; ++i) {
+      out_batches.batches.push_back(out_batches.batches[i]);
+    }
+  }
+
+  return out_batches;
+}
+
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {
   std::vector<SortKey> sort_keys;
   for (auto&& f : tab->schema()->fields()) {
