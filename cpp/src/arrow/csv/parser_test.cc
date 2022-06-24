@@ -405,6 +405,15 @@ TEST(BlockParser, FinalTruncatedData) {
   ASSERT_RAISES(Invalid, st);
 }
 
+TEST(BlockParser, FinalBulkFilterNoEol) {
+  // Last field processed by bulk filter. No EOL at last line.
+  auto csv = MakeCSVData({"12345678901,12345678\n", "12345678901,12345678"});
+
+  BlockParser parser(ParseOptions::Defaults());
+  AssertParseFinal(parser, csv);
+  AssertColumnsEq(parser, {{"12345678901", "12345678901"}, {"12345678", "12345678"}});
+}
+
 TEST(BlockParser, QuotingSimple) {
   auto csv = MakeCSVData({"1,\",3,\",5\n"});
 
