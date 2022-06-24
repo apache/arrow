@@ -28,7 +28,8 @@ namespace compute {
 struct RLETestData {
   static RLETestData JSON(std::shared_ptr<DataType> data_type, std::string input_json,
                           std::string expected_values_json,
-                          std::vector<int64_t> expected_run_lengths, int64_t input_offset = 0) {
+                          std::vector<int64_t> expected_run_lengths,
+                          int64_t input_offset = 0) {
     auto input_array = ArrayFromJSON(data_type, input_json);
     return {.input = input_array->Slice(input_offset),
             .expected_values = ArrayFromJSON(data_type, expected_values_json),
@@ -101,34 +102,32 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
 
 INSTANTIATE_TEST_SUITE_P(
     EncodeArrayTests, TestRunLengthEncode,
-    ::testing::Values(RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]",
-                                        "[1, 0, -5, 255]", {2, 3, 6, 8}),
-                      RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]",
-                                        "[null, 1, null, 5]", {1, 3, 5, 6}),
-                      RLETestData::JSON(boolean(), "[true, true, true, false, false]",
-                                        "[true, false]", {3, 5}),
-                      RLETestData::JSON(boolean(),
-                                        "[true, true, true, false, null, null, false]",
-                                        "[true, false, null, false]", {3, 4, 6, 7}),
-                      RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]",
-                                        "[-5, 255]", {3, 5}, 3),
-                      RLETestData::JSON(uint32(), "[4, 5, 5, null, null, 5]",
-                                        "[5, null, 5]", {1, 3, 4}, 2),
-                      RLETestData::JSON(boolean(), "[true, true, false, false, true]",
-                                        "[false, true]", {2, 3}, 2),
-                      RLETestData::JSON(boolean(),
-                                        "[true, true, true, false, null, null, false]",
-                                        "[null, false]", {1, 2}, 5),
-                      RLETestData::TypeMinMaxNull<Int8Type>(),
-                      RLETestData::TypeMinMaxNull<UInt8Type>(),
-                      RLETestData::TypeMinMaxNull<Int16Type>(),
-                      RLETestData::TypeMinMaxNull<UInt16Type>(),
-                      RLETestData::TypeMinMaxNull<Int32Type>(),
-                      RLETestData::TypeMinMaxNull<UInt32Type>(),
-                      RLETestData::TypeMinMaxNull<Int64Type>(),
-                      RLETestData::TypeMinMaxNull<UInt64Type>(),
-                      RLETestData::TypeMinMaxNull<FloatType>(),
-                      RLETestData::TypeMinMaxNull<DoubleType>()));
+    ::testing::Values(
+        RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[1, 0, -5, 255]",
+                          {2, 3, 6, 8}),
+        RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]", "[null, 1, null, 5]",
+                          {1, 3, 5, 6}),
+        RLETestData::JSON(boolean(), "[true, true, true, false, false]", "[true, false]",
+                          {3, 5}),
+        RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
+                          "[true, false, null, false]", {3, 4, 6, 7}),
+        RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[-5, 255]", {3, 5},
+                          3),
+        RLETestData::JSON(uint32(), "[4, 5, 5, null, null, 5]", "[5, null, 5]", {1, 3, 4},
+                          2),
+        RLETestData::JSON(boolean(), "[true, true, false, false, true]", "[false, true]",
+                          {2, 3}, 2),
+        RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
+                          "[null, false]", {1, 2}, 5),
+        RLETestData::TypeMinMaxNull<Int8Type>(), RLETestData::TypeMinMaxNull<UInt8Type>(),
+        RLETestData::TypeMinMaxNull<Int16Type>(),
+        RLETestData::TypeMinMaxNull<UInt16Type>(),
+        RLETestData::TypeMinMaxNull<Int32Type>(),
+        RLETestData::TypeMinMaxNull<UInt32Type>(),
+        RLETestData::TypeMinMaxNull<Int64Type>(),
+        RLETestData::TypeMinMaxNull<UInt64Type>(),
+        RLETestData::TypeMinMaxNull<FloatType>(),
+        RLETestData::TypeMinMaxNull<DoubleType>()));
 
 }  // namespace compute
 }  // namespace arrow
