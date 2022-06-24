@@ -1,0 +1,14 @@
+diff -ru google_cloud_cpp_ep.orig/cmake/FindCurlWithTargets.cmake google_cloud_cpp_ep/cmake/FindCurlWithTargets.cmake
+--- google_cloud_cpp_ep.orig/cmake/FindCurlWithTargets.cmake	2022-04-05 06:00:53.000000000 +0900
++++ google_cloud_cpp_ep/cmake/FindCurlWithTargets.cmake	2022-06-24 10:06:00.177969962 +0900
+@@ -68,6 +68,10 @@
+                 TARGET CURL::libcurl
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES crypt32 wsock32 ws2_32)
++            set_property(
++                TARGET CURL::libcurl
++                APPEND
++                PROPERTY INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB")
+         endif ()
+         if (APPLE)
+             set_property(
