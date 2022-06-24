@@ -28,8 +28,9 @@ namespace compute {
 struct RLETestData {
   static RLETestData JSON(std::shared_ptr<DataType> data_type, std::string input_json,
                           std::string expected_values_json,
-                          std::vector<int64_t> expected_run_lengths) {
-    return {.input = ArrayFromJSON(data_type, input_json),
+                          std::vector<int64_t> expected_run_lengths, int64_t input_offset = 0) {
+    auto input_array = ArrayFromJSON(data_type, input_json);
+    return {.input = input_array->Slice(input_offset),
             .expected_values = ArrayFromJSON(data_type, expected_values_json),
             .expected_run_lengths = std::move(expected_run_lengths)};
   }
@@ -55,7 +56,7 @@ struct RLETestData {
 
 class TestRunLengthEncode : public ::testing::TestWithParam<RLETestData> {};
 
-TEST_P(TestRunLengthEncode, EncodeArray) {
+TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   auto data = GetParam();
 
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
@@ -80,6 +81,24 @@ TEST_P(TestRunLengthEncode, EncodeArray) {
   ASSERT_TRUE(decoded->Equals(data.input));
 }
 
+// Encoding an input with an offset results in a completely new encoded array without an
+// offset. This means The EncodeDecodeArray test will never actually decode an array
+// with an offset, even though we have inputs with offsets. This test slices one element
+// off the encoded array and decodes that.
+TEST_P(TestRunLengthEncode, DecodeWithOffset) {
+  auto data = GetParam();
+
+  ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
+
+  auto encoded_array = encoded_datum.make_array();
+  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded_array->Slice(1)));
+  auto decoded_array = decoded_datum.make_array();
+  ASSERT_OK(encoded_array->ValidateFull());
+  ASSERT_TRUE(encoded_array->Equals(data.input->Slice(1)));
+}
+
+// TODO: test offset in child array
+
 INSTANTIATE_TEST_SUITE_P(
     EncodeArrayTests, TestRunLengthEncode,
     ::testing::Values(RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]",
@@ -91,6 +110,15 @@ INSTANTIATE_TEST_SUITE_P(
                       RLETestData::JSON(boolean(),
                                         "[true, true, true, false, null, null, false]",
                                         "[true, false, null, false]", {3, 4, 6, 7}),
+                      RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]",
+                                        "[-5, 255]", {3, 5}, 3),
+                      RLETestData::JSON(uint32(), "[4, 5, 5, null, null, 5]",
+                                        "[5, null, 5]", {1, 3, 4}, 2),
+                      RLETestData::JSON(boolean(), "[true, true, false, false, true]",
+                                        "[false, true]", {2, 3}, 2),
+                      RLETestData::JSON(boolean(),
+                                        "[true, true, true, false, null, null, false]",
+                                        "[null, false]", {1, 2}, 5),
                       RLETestData::TypeMinMaxNull<Int8Type>(),
                       RLETestData::TypeMinMaxNull<UInt8Type>(),
                       RLETestData::TypeMinMaxNull<Int16Type>(),
