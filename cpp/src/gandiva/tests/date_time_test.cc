@@ -650,6 +650,52 @@ TEST_F(TestProjector, TestLastDay) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestTrunc) {
+  auto f0 = field("f0", arrow::date64());
+  auto f1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto output = field("out", arrow::utf8());
+
+  auto trunc_expr = TreeExprBuilder::MakeExpression("trunc", {f0, f1}, output);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {trunc_expr}, TestConfiguration(), &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  // Create a row-batch with some sample data
+  // Used a leap year as example.
+  int num_records = 3;
+  auto validity = {true, true, true};
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 2019, 6, 5, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2019, 6, 1, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2019, 6, 3, 10, 15, 5, 2)};
+
+  auto array0 =
+      MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), f0_data, validity);
+
+  auto array1 = MakeArrowArrayUtf8({"MONTH", "YEAR", "YEAR"}, validity);
+
+  // expected output
+  auto exp_output =
+      MakeArrowArrayUtf8({"2019-06-01", "2019-01-01", "2019-01-01"}, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestToTimestampFromInt) {
   auto f0 = field("f0", arrow::int32());
   auto f1 = field("f1", arrow::int64());
