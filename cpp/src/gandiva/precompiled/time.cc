@@ -16,7 +16,7 @@
 // under the License.
 
 #include "./epoch_time_point.h"
-#include "arrow/vendored/datetime/date.h"
+// #include "arrow/vendored/datetime/date.h"
 #include "arrow/vendored/datetime/tz.h"
 
 extern "C" {
@@ -1100,7 +1100,6 @@ gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context, gdv_timestamp time_
   
   try {
     auto local_tz = arrow_vendored::date::make_zoned(tz, utc_time_zone);
-    // auto timestamp_formatted = arrow_vendored::date::format("%F %T %z\0", local_tz);
     auto tz_offset = local_tz.get_time_zone()->get_info(tp).offset;
     return time_miliseconds + tz_offset.count()*1000;
   }
