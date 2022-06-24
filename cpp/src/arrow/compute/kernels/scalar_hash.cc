@@ -21,6 +21,13 @@
  */
 
 #include "arrow/result.h"
+#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/light_array.h"
+#include "arrow/compute/exec/util.h"
+#include "arrow/compute/exec/key_hash.h"
+
+/*
+#include "arrow/array/util.h"
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
@@ -28,12 +35,9 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/dict_internal.h"
-#include "arrow/array/util.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/light_array.h"
-#include "arrow/compute/kernels/common.h"
-#include "arrow/compute/exec/key_hash.h"
 #include "arrow/util/make_unique.h"
+*/
 
 
 // NOTES:
@@ -45,41 +49,6 @@ namespace arrow::compute::internal {
   // Define symbols visible within `arrow::compute::internal` in this file;
   // these symbols are not visible outside of this file.
   namespace {
-
-    // Utility function to wrap a `FastHash32` input for propagation to `HashBatch`
-    Result<KeyColumnArray>
-    ColumnArrayFromArrayData( const std::shared_ptr<ArrayData> &array_data
-                             ,      int64_t                     start_row
-                             ,      int64_t                     num_rows) {
-      ARROW_ASSIGN_OR_RAISE(
-         KeyColumnMetadata metadata
-        ,ColumnMetadataFromDataType(array_data->type)
-      );
-
-      // Grab pointers to various data buffers
-      const uint8_t *array_validbuf = (
-        array_data->buffers[0] != NULLPTR ?  array_data->buffers[0]->data() : nullptr
-      );
-
-      const uint8_t *array_fixedbuf = array_data->buffers[1]->data();
-      const uint8_t *array_varbuf   = (
-        array_data->buffers.size() > 2 && array_data->buffers[2] != NULLPTR ?
-            array_data->buffers[2]->data()
-          : nullptr
-      );
-
-      // Construct a view into the specified rows of the ArrayData
-      KeyColumnArray column_array = KeyColumnArray(
-         metadata
-        ,array_data->offset + start_row + num_rows
-        ,array_validbuf
-        ,array_fixedbuf
-        ,array_varbuf
-      );
-
-      // I don't know why we need to slice it now
-      return column_array.Slice(array_data->offset + start_row, num_rows);
-    }
 
     // Documentation for `FastHash32` function:
     //  1. Summary
@@ -101,172 +70,64 @@ namespace arrow::compute::internal {
     struct FastHash32Scalar {
       template <typename ArrayType>
       UInt32Array
-      Call(KernelContext*, const ArrayType& left, Status*) {
-        // static_assert(std::is_same<T>::value && std::is_same<ArrayType>::value, "");
-        return left == right;
+      Exec(KernelContext *ctx, const Datum& input_array, ExecResult *out) {
+        ARROW_DCHECK(input_array.is_array());
+
+        LightContext    light_ctx;
+        TempVectorStack mem_stack;
+        std::vector<KeyColumnArray> col_arrays;
+        std::vector<uint32_t>       hash_results;
+
+        // Initialize LightContext
+        light_ctx.hardware_flags = hardware_flags;
+        light_ctx.stack          = mem_stack;
+
+				// TODO: replace this with correct type inspection and make robust
+				// CalculateTempStackSize<StringType, StringArray>()
+				auto col_bufsize = 16384;
+        auto init_status = mem_stack.Init(ctx->exec_context()->memory_pool(), col_bufsize);
+
+        // TODO: generalize for nested arrays
+        col_arrays.resize(1);
+        ARROW_ASSIGN_OR_RAISE(
+           col_arrays[0]
+          ,ColumnArrayFromArrayData(input_array.array(), start_row, num_rows)
+        );
+
+        // Use HashMultiColumn to compute hash for each col_array and combine them
+        HashMultiColumn(col_arrays, &light_ctx, hash_results.data());
+
+        // TODO: convert to an Array
+        return hash_results;
       }
     };
 
-    ScalarKernel kernel({InputType(in_type, shape)}, OutputType(ResolveStructFieldType),
-                        shape == ValueDescr::ARRAY ? StructFieldFunctor::ExecArray
-                                                   : StructFieldFunctor::ExecScalar,
-                        OptionsWrapper<StructFieldOptions>::Init);
+  } // anonymous namespace
 
-    struct FastHash32Scalar {
-      KernelContext   *ctx;
-      TempVectorStack  mem_stack;
-
-      Status Init (KernelContext *init_ctx, const ) {
-      }
-
-      Status Consume(KernelContext*, const ExecBatch& batch) override {
-        if (batch[0].is_array()) {
-          const auto& data = batch[0].array();
-          this->count += data->length - data->GetNullCount();
-          this->nulls_observed = this->nulls_observed || data->GetNullCount();
-
-          if (!options.skip_nulls && this->nulls_observed) {
-            // Short-circuit
-            return Status::OK();
-          }
-
-          if (is_boolean_type<ArrowType>::value) {
-            this->sum += static_cast<SumCType>(BooleanArray(data).true_count());
-          } else {
-            this->sum += SumArray<CType, SumCType, SimdLevel>(*data);
-          }
-        } else {
-          const auto& data = *batch[0].scalar();
-          this->count += data.is_valid * batch.length;
-          this->nulls_observed = this->nulls_observed || !data.is_valid;
-          if (data.is_valid) {
-            this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
-          }
-        }
-        return Status::OK();
-      }
-
-      Status MergeFrom(KernelContext*, KernelState&& src) override {
-        const auto& other = checked_cast<const ThisType&>(src);
-        this->count += other.count;
-        this->sum += other.sum;
-        this->nulls_observed = this->nulls_observed || other.nulls_observed;
-        return Status::OK();
-      }
-
-      Status Finalize(KernelContext*, Datum* out) override {
-        if ((!options.skip_nulls && this->nulls_observed) ||
-            (this->count < options.min_count)) {
-          out->value = std::make_shared<OutputType>(out_type);
-        } else {
-          out->value = std::make_shared<OutputType>(this->sum, out_type);
-        }
-        return Status::OK();
-      }
-
-      size_t count = 0;
-      bool nulls_observed = false;
-      SumCType sum = 0;
-      std::shared_ptr<DataType> out_type;
-      ScalarAggregateOptions options;
-    };
-
-    Status FastHash32Array(KernelContext *ctx, const Datum &scalar_datum, ExecResult *out) {
-      return Status::Invalid("Not yet implemented");
-    }
-
-    // ------------------------------
-    // For the new `ExecSpan`
-
-    // Function that will be registered as a `ScalarKernel` for `FastHash32`
-    /*
-    Status FastHash32Span(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-      using ScalarType       = typename TypeTraits<Type>::ScalarType;
-      using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
-
-      if (batch[0].is_array()) {
-        const ArraySpan   &arr        = batch[0].array;
-              ArraySpan   *out_arr    = out->array_span();
-              auto         out_values = out_arr->GetValues<offset_type>(1);
-        const offset_type *offsets    = arr.GetValues<offset_type>(1);
-
-        // Offsets are always well-defined and monotonic, even for null values
-        for (int64_t offset_ndx = 0; offset_ndx < arr.length; ++offset_ndx) {
-          *out_values++ = offsets[offset_ndx + 1] - offsets[offset_ndx];
-        }
-      }
-
-      else {
-        const auto& arg0 = batch[0].scalar_as<ScalarType>();
-        if (arg0.is_valid) {
-          checked_cast<OffsetScalarType*>(out->scalar().get())->value = (
-              static_cast<offset_type>(arg0.value->length())
-          );
-        }
-      }
-
-      return Status::OK();
-    }
-    */
-
-    // ------------------------------
-    // For the old `KeyColumnArray`
-
-    // Function that will be registered as a `ScalarKernel` for `FastHash32`
-    /*
-    Status FastHash32Array(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-      using ScalarType       = typename TypeTraits<Type>::ScalarType;
-      using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
-
-      if (batch[0].is_array()) {
-        const ArraySpan   &arr        = batch[0].array;
-              ArraySpan   *out_arr    = out->array_span();
-              auto         out_values = out_arr->GetValues<offset_type>(1);
-        const offset_type *offsets    = arr.GetValues<offset_type>(1);
-
-        // Offsets are always well-defined and monotonic, even for null values
-        for (int64_t offset_ndx = 0; offset_ndx < arr.length; ++offset_ndx) {
-          *out_values++ = offsets[offset_ndx + 1] - offsets[offset_ndx];
-        }
-      }
-
-      else {
-        const auto& arg0 = batch[0].scalar_as<ScalarType>();
-        if (arg0.is_valid) {
-          checked_cast<OffsetScalarType*>(out->scalar().get())->value = (
-              static_cast<offset_type>(arg0.value->length())
-          );
-        }
-      }
-
-      return Status::OK();
-    }
-    */
-  }
-
-
-
-  void RegisterScalarHash(FunctionRegistry* registry) {
+  void
+  RegisterScalarHash(FunctionRegistry* registry) {
     // >> Construct instance of compute function
-    auto fn_hash_each = std::make_shared<ScalarFunction>(
-       "hash_each"    // function name
-      ,Arity::Unary() // Arity of function (how many parameters)
-      ,hash_each_doc // function documentation
+    auto fn_fast_hash_32 = std::make_shared<ScalarFunction>(
+       "fast_hash_32"   // function name
+      ,Arity::Unary()   // Arity of function (how many parameters)
+      ,fast_hash_32_doc // function documentation
     );
 
     // >> Register kernel implementations with compute function instance
-
+    // TODO: we can probably add a kernel for each type, that also knows how to
+    //       calculate necessary Stack-based memory needed for the type
     //  |> Input is (scalar)
     DCHECK_OK(
-      list_value_length->AddKernel(
-         { InputType(Type::LIST) }
-        ,int32()
-        ,ListValueLength<ListType>
+      fn_fast_hash_32->AddKernel(
+         { InputType(Type::ARRAY) }    // Input types
+        ,UInt32Array                   // Output type
+        ,FastHash32Scalar<StringArray> // Exec function
+        ,                              // Init function (default: NULLPTR)
       )
     );
 
     // >> Register compute function with FunctionRegistry
-    DCHECK_OK(registry->AddFunction(std::move(fn_hash_each)));
+    DCHECK_OK(registry->AddFunction(std::move(fn_fast_hash_32)));
   }
 
 }  // namespace arrow::compute::internal
