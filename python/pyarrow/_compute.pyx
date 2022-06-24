@@ -2180,7 +2180,7 @@ cdef class Expression(_Weakrefable):
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
 
-    def cast(self, type, safe=None, options=None):
+    def cast(self, type=None, safe=None, options=None):
         """
         Explicitly set or change the expression's data type.
 
@@ -2189,7 +2189,7 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        type : DataType
+        type : DataType, default None
             Type to cast array to.
         safe : boolean, default True
             Whether to check for conversion errors such as overflow.
@@ -2198,10 +2198,16 @@ cdef class Expression(_Weakrefable):
         -------
         cast : Expression
         """
-        if (safe is not None) and (options is not None):
-            raise ValueError(
-                "Must past only a value for 'safe' or only a value for 'options'")
+        safe_vars_passed = (safe is not None) or (type is not None)
+
+        if safe_vars_passed and (options is not None):
+            raise ValueError("Must either pass values for 'type' and 'safe' or pass a "
+                             "value for 'options'")
+
         if options is None:
+            if type is None:
+                raise ValueError(
+                    "If no 'options' are passed, a 'type' must be passed")
             if safe is False:
                 options = CastOptions.unsafe(type)
             else:
