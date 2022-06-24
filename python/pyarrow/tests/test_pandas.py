@@ -149,6 +149,22 @@ class TestConvertMetadata:
         table = pa.Table.from_pandas(df)
         assert table.field(0).name == '0'
 
+    def test_non_string_columns_with_index(self):
+        df = pd.DataFrame({0: [1.0, 2.0, 3.0], 1: [4.0, 5.0, 6.0]})
+        df = df.set_index(0)
+
+        # assert that the from_pandas raises the warning
+        with pytest.warns(UserWarning):
+            table = pa.Table.from_pandas(df)
+            assert table.field(0).name == '1'
+
+        expected = df.copy()
+        # non-str index name will be converted to str
+        expected.index.name = str(expected.index.name)
+        with pytest.warns(UserWarning):
+            _check_pandas_roundtrip(df, expected=expected,
+                                    preserve_index=True)
+
     def test_from_pandas_with_columns(self):
         df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]},
                           columns=[1, 0])
