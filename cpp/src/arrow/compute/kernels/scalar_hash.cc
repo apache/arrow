@@ -46,7 +46,7 @@ namespace arrow::compute::internal {
   // these symbols are not visible outside of this file.
   namespace {
 
-    // Utility function to wrap a `HashEach` input for propagation to `HashBatch`
+    // Utility function to wrap a `FastHash32` input for propagation to `HashBatch`
     Result<KeyColumnArray>
     ColumnArrayFromArrayData( const std::shared_ptr<ArrayData> &array_data
                              ,      int64_t                     start_row
@@ -81,11 +81,11 @@ namespace arrow::compute::internal {
       return column_array.Slice(array_data->offset + start_row, num_rows);
     }
 
-    // Documentation for `HashEach` function:
+    // Documentation for `FastHash32` function:
     //  1. Summary
     //  2. Description
     //  3. Argument Names
-    const FunctionDoc hash_each_doc {
+    const FunctionDoc fast_hash_32_doc {
        "Construct a hash for every element of the input argument"
       ,(
          "`hash_input` may be a scalar value or an array.\n"
@@ -96,10 +96,91 @@ namespace arrow::compute::internal {
     };
 
     // ------------------------------
+    // For scalar inputs
+
+    struct FastHash32Scalar {
+      template <typename ArrayType>
+      UInt32Array
+      Call(KernelContext*, const ArrayType& left, Status*) {
+        // static_assert(std::is_same<T>::value && std::is_same<ArrayType>::value, "");
+        return left == right;
+      }
+    };
+
+    ScalarKernel kernel({InputType(in_type, shape)}, OutputType(ResolveStructFieldType),
+                        shape == ValueDescr::ARRAY ? StructFieldFunctor::ExecArray
+                                                   : StructFieldFunctor::ExecScalar,
+                        OptionsWrapper<StructFieldOptions>::Init);
+
+    struct FastHash32Scalar {
+      KernelContext   *ctx;
+      TempVectorStack  mem_stack;
+
+      Status Init (KernelContext *init_ctx, const ) {
+      }
+
+      Status Consume(KernelContext*, const ExecBatch& batch) override {
+        if (batch[0].is_array()) {
+          const auto& data = batch[0].array();
+          this->count += data->length - data->GetNullCount();
+          this->nulls_observed = this->nulls_observed || data->GetNullCount();
+
+          if (!options.skip_nulls && this->nulls_observed) {
+            // Short-circuit
+            return Status::OK();
+          }
+
+          if (is_boolean_type<ArrowType>::value) {
+            this->sum += static_cast<SumCType>(BooleanArray(data).true_count());
+          } else {
+            this->sum += SumArray<CType, SumCType, SimdLevel>(*data);
+          }
+        } else {
+          const auto& data = *batch[0].scalar();
+          this->count += data.is_valid * batch.length;
+          this->nulls_observed = this->nulls_observed || !data.is_valid;
+          if (data.is_valid) {
+            this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
+          }
+        }
+        return Status::OK();
+      }
+
+      Status MergeFrom(KernelContext*, KernelState&& src) override {
+        const auto& other = checked_cast<const ThisType&>(src);
+        this->count += other.count;
+        this->sum += other.sum;
+        this->nulls_observed = this->nulls_observed || other.nulls_observed;
+        return Status::OK();
+      }
+
+      Status Finalize(KernelContext*, Datum* out) override {
+        if ((!options.skip_nulls && this->nulls_observed) ||
+            (this->count < options.min_count)) {
+          out->value = std::make_shared<OutputType>(out_type);
+        } else {
+          out->value = std::make_shared<OutputType>(this->sum, out_type);
+        }
+        return Status::OK();
+      }
+
+      size_t count = 0;
+      bool nulls_observed = false;
+      SumCType sum = 0;
+      std::shared_ptr<DataType> out_type;
+      ScalarAggregateOptions options;
+    };
+
+    Status FastHash32Array(KernelContext *ctx, const Datum &scalar_datum, ExecResult *out) {
+      return Status::Invalid("Not yet implemented");
+    }
+
+    // ------------------------------
     // For the new `ExecSpan`
 
-    // A function that will be registered as a `ScalarKernel` for the `HashEach` function
-    Status HashEachSpan(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // Function that will be registered as a `ScalarKernel` for `FastHash32`
+    /*
+    Status FastHash32Span(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       using ScalarType       = typename TypeTraits<Type>::ScalarType;
       using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
 
@@ -126,12 +207,14 @@ namespace arrow::compute::internal {
 
       return Status::OK();
     }
+    */
 
     // ------------------------------
     // For the old `KeyColumnArray`
 
-    // A function that will be registered as a `ScalarKernel` for the `HashEach` function
-    Status HashEachArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // Function that will be registered as a `ScalarKernel` for `FastHash32`
+    /*
+    Status FastHash32Array(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       using ScalarType       = typename TypeTraits<Type>::ScalarType;
       using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
 
@@ -158,6 +241,7 @@ namespace arrow::compute::internal {
 
       return Status::OK();
     }
+    */
   }
 
 
