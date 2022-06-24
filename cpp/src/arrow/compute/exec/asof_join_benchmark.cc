@@ -44,12 +44,15 @@ static const char* time_col = "time";
 static const char* key_col = "id";
 static bool createdBenchmarkFiles = false;
 
+// requires export PYTHONPATH=/path/to/bamboo-streaming
+// calls generate_benchmark_files to create tables (feather files) varying in frequency,
+// width, key density for benchmarks. places generated files in benchmark/data. This
+// operation runs once at the beginning of benchmarking.
 static void DoSetup() {
-  // requires export PYTHONPATH=/path/to/bamboo-streaming
-  // calls generate_benchmark_files to create tables varying in frequency, width, key density for benchmarks.
   if (!createdBenchmarkFiles) {
-    system("mkdir benchmark_data/");
-    // system("python3 ~/summer/bamboo-streaming/bamboo/generate_benchmark_files.py");
+    system(
+        "mkdir benchmark_data/ && python3 "
+        "~/summer/bamboo-streaming/bamboo/generate_benchmark_files.py");
     createdBenchmarkFiles = true;
   }
 }
@@ -136,9 +139,9 @@ make_arrow_ipc_reader_node(std::shared_ptr<arrow::compute::ExecPlan>& plan,
           rows, in_reader->num_record_batches(), row_size * rows};
 }
 
-static void TableOverhead(benchmark::State& state, std::string left_table,
-                          std::vector<std::string> right_tables, std::string factory_name,
-                          ExecNodeOptions& options) {
+static void TableJoinOverhead(benchmark::State& state, std::string left_table,
+                              std::vector<std::string> right_tables,
+                              std::string factory_name, ExecNodeOptions& options) {
   const std::string data_directory = "./benchmark_data/";
   DoSetup();
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
@@ -200,14 +203,14 @@ static void AsOfJoinOverhead(benchmark::State& state, std::string left_table,
                              std::vector<std::string> right_tables) {
   int64_t tolerance = 0;
   AsofJoinNodeOptions options = AsofJoinNodeOptions(time_col, key_col, tolerance);
-  TableOverhead(state, left_table, right_tables, "asofjoin", options);
+  TableJoinOverhead(state, left_table, right_tables, "asofjoin", options);
 }
 
 static void HashJoinOverhead(benchmark::State& state, std::string left_table,
                              std::vector<std::string> right_tables) {
   HashJoinNodeOptions options =
       HashJoinNodeOptions({time_col, key_col}, {time_col, key_col});
-  TableOverhead(state, left_table, right_tables, "hashjoin", options);
+  TableJoinOverhead(state, left_table, right_tables, "hashjoin", options);
 }
 
 // this generates the set of right hand tables to test on.
