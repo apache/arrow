@@ -143,7 +143,7 @@ TEST_F(TestTextDeltaLengthByteArray, TestTextScanner) {
   auto group = reader_->RowGroup(0);
 
   // column 0, id
-  auto scanner(new ByteArrayScanner(group->Column(0)));
+  auto scanner = std::make_shared<ByteArrayScanner>(group->Column(0));
   ByteArray val;
   bool is_null;
   std::string expected_prefix("apple_banana_mango");
