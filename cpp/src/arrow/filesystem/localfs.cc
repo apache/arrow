@@ -210,7 +210,7 @@ Result<FileInfo> StatFile(const std::string& path) {
 
 Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
                     int32_t nesting_depth, std::vector<FileInfo>* out) {
-  auto result = ListDir(dir_fn);
+  auto result = ListDir(dir_fn, select.allow_errors);
   if (!result.ok()) {
     auto status = result.status();
     if (select.allow_not_found && status.IsIOError()) {

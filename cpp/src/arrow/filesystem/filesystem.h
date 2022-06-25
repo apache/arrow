@@ -128,12 +128,14 @@ struct ARROW_EXPORT FileSelector {
   /// The behavior if `base_dir` isn't found in the filesystem.  If false,
   /// an error is returned.  If true, an empty selection is returned.
   bool allow_not_found;
+  /// The behavior if errors occur such as access denied during directory traversal.
+  bool allow_errors;
   /// Whether to recurse into subdirectories.
   bool recursive;
   /// The maximum number of subdirectories to recurse into.
   int32_t max_recursion;
 
-  FileSelector() : allow_not_found(false), recursive(false), max_recursion(INT32_MAX) {}
+  FileSelector() : allow_not_found(false), allow_errors(false), recursive(false), max_recursion(INT32_MAX) {}
 };
 
 /// \brief FileSystem, path pair
