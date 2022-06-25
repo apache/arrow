@@ -471,9 +471,14 @@ if(ARROW_FILESYSTEM)
 
   if(ARROW_AZURE)
     set(AZURE_SRCS filesystem/azurefs.cc)
-    set_source_files_properties(filesystem/azurefs.cc filesystem/azurefs_mock.cc
+    set_source_files_properties(filesystem/azurefs.cc
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                            SKIP_UNITY_BUILD_INCLUSION ON)
+    add_library(azurefs_objlib OBJECT ${AZURE_SRCS})
+    target_link_libraries(azurefs_objlib PUBLIC ${ARROW_AZURE_LINK_LIBS})
+    
+    set_target_properties(azurefs_objlib PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
+    list(APPEND ARROW_LINK_LIBS ${ARROW_AZURE_LINK_LIBS} azurefs_objlib)
   endif()
   if(ARROW_GCS)
     list(APPEND ARROW_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
@@ -553,12 +558,6 @@ endif()
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
   string(APPEND ARROW_PC_LIBS_PRIVATE " -latomic")
 endif()
-
-add_library(azurefs_objlib OBJECT ${AZURE_SRCS})
-target_link_libraries(azurefs_objlib PUBLIC ${ARROW_AZURE_LINK_LIBS})
-
-set_target_properties(azurefs_objlib PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-list(APPEND ARROW_LINK_LIBS ${ARROW_AZURE_LINK_LIBS} azurefs_objlib)
 
 add_arrow_lib(arrow
               CMAKE_PACKAGE_NAME
