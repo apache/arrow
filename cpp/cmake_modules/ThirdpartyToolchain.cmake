@@ -324,6 +324,7 @@ endif()
 if(ARROW_GCS)
   set(ARROW_WITH_GOOGLE_CLOUD_CPP ON)
   set(ARROW_WITH_NLOHMANN_JSON ON)
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(ARROW_JSON)
@@ -4010,6 +4011,10 @@ macro(build_google_cloud_cpp_storage)
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
+  set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL
+      "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_rest_internal${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_common${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
@@ -4032,6 +4037,7 @@ macro(build_google_cloud_cpp_storage)
                       CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
                       PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
+                                       ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
                       DEPENDS google_cloud_cpp_dependencies)
 
@@ -4061,6 +4067,21 @@ macro(build_google_cloud_cpp_storage)
                         Threads::Threads
                         OpenSSL::Crypto)
 
+  add_library(google-cloud-cpp::rest-internal STATIC IMPORTED)
+  set_target_properties(google-cloud-cpp::rest-internal
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+  set_property(TARGET google-cloud-cpp::rest-internal
+               PROPERTY INTERFACE_LINK_LIBRARIES
+                        absl::span
+                        google-cloud-cpp::common
+                        CURL::libcurl
+                        nlohmann_json::nlohmann_json
+                        OpenSSL::SSL
+                        OpenSSL::Crypto)
+
   add_library(google-cloud-cpp::storage STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::storage
                         PROPERTIES IMPORTED_LOCATION
@@ -4071,6 +4092,7 @@ macro(build_google_cloud_cpp_storage)
   set_property(TARGET google-cloud-cpp::storage
                PROPERTY INTERFACE_LINK_LIBRARIES
                         google-cloud-cpp::common
+                        google-cloud-cpp::rest-internal
                         absl::memory
                         absl::strings
                         absl::str_format
@@ -4081,10 +4103,14 @@ macro(build_google_cloud_cpp_storage)
                         CURL::libcurl
                         Threads::Threads
                         OpenSSL::SSL
-                        OpenSSL::Crypto)
+                        OpenSSL::Crypto
+                        ZLIB::ZLIB)
   add_dependencies(google-cloud-cpp::storage google_cloud_cpp_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS google-cloud-cpp::storage
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       google-cloud-cpp::rest-internal
+       google-cloud-cpp::storage
        google-cloud-cpp::common)
   if(ABSL_VENDORED)
     # Figure out what absl libraries (not header-only) are required by the
