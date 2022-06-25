@@ -281,6 +281,7 @@ jobs:
       # * MinGW 64 fails to compile the GCS filesystem tests, some conflict
       #   with boost. First error says:
       # D:/a/_temp/msys64/mingw64/include/boost/asio/detail/socket_types.hpp:24:4: error: #error WinSock.h has already been included
+      # TODO(ARROW-16906)
       # ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
