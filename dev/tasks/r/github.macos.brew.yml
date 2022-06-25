@@ -30,7 +30,8 @@ jobs:
 
       - name: Install apache-arrow
         run: |
-          brew install -v --HEAD apache-arrow
+          # reinstall not install: somehow it may already be installed?
+          brew reinstall -v --HEAD apache-arrow
           # for testing
           brew install minio
       - uses: r-lib/actions/setup-r@v1

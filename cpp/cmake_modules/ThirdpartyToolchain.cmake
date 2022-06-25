@@ -476,7 +476,7 @@ else()
 endif()
 
 if(DEFINED ENV{ARROW_CRC32C_URL})
-  set(CRC32C_URL "$ENV{ARROW_CRC32C_URL}")
+  set(CRC32C_SOURCE_URL "$ENV{ARROW_CRC32C_URL}")
 else()
   set_urls(CRC32C_SOURCE_URL
            "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
