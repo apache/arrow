@@ -143,6 +143,9 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_azurite.sh /usr/local
+
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
@@ -150,7 +153,7 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
-ENV ARROW_AZURE: ON \
+ENV ARROW_AZURE=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \

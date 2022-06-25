@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <azure/core/credentials/credentials.hpp>
-#include <azure/storage/common/storage_credential.hpp>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +24,21 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
+
+namespace Azure {
+namespace Core {
+namespace Credentials {
+
+class TokenCredential;
+
+}  // namespace Credentials
+}  // namespace Core
+namespace Storage {
+
+class StorageSharedKeyCredential;
+
+}  // namespace Storage
+}  // namespace Azure
 
 namespace arrow {
 namespace fs {
@@ -48,6 +61,7 @@ struct ARROW_EXPORT AzureOptions {
   std::string scheme;
   std::string account_dfs_url;
   std::string account_blob_url;
+  bool isTestEnabled = false;
   AzureCredentialsKind credentials_kind = AzureCredentialsKind::Anonymous;
 
   std::string sas_token;

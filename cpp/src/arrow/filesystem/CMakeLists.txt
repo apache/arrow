@@ -38,7 +38,9 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_AZURE)
-  add_arrow_test(azurefs_test EXTRA_LABELS filesystem EXTRA_LINK_LIBS)
+  add_arrow_test(azurefs_test EXTRA_LABELS filesystem)
+  set_target_properties(arrow-azurefs-test PROPERTIES CXX_STANDARD 14
+                                                      CXX_STANDARD_REQUIRED ON)
 endif()
 
 if(ARROW_S3)

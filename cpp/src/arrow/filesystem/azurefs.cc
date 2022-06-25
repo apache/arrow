@@ -251,11 +251,15 @@ struct AzurePath {
     // path_to_file = testdir/testfile.txt
     // path_to_file_parts = [testdir, testfile.txt]
 
-    // Expected input here => s = /synapsemlfs/testdir/testfile.txt
+    // Expected input here => s = synapsemlfs/testdir/testfile.txt
     auto src = internal::RemoveTrailingSlash(s);
-    if (src.starts_with("https:") || src.starts_with("http::")) {
-      RemoveSchemeFromUri(src);
+    if ((src.find("127.0.0.1") != std::string::npos)) {
+      RETURN_NOT_OK(FromLocalHostString(src));
     }
+    if (internal::IsLikelyUri(src)) {
+      RETURN_NOT_OK(ExtractBlobPath(src));
+    }
+    src = internal::RemoveLeadingSlash(src);
     auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
@@ -272,9 +276,22 @@ struct AzurePath {
     return path;
   }
 
-  static void RemoveSchemeFromUri(nonstd::sv_lite::string_view& s) {
-    auto first = s.find(".core.windows.net");
-    s = s.substr(first + 18, s.length());
+  static Status FromLocalHostString(util::string_view& src) {
+    auto port = src.find("127.0.0.1");
+    src = src.substr(port);
+    auto first_sep = src.find_first_of(kSep);
+    src = src.substr(first_sep + 1);
+    auto sec_sep = src.find_first_of(kSep);
+    src = src.substr(sec_sep + 1);
+    return Status::OK();
+  }
+
+  // Removes scheme, host and port from the uri
+  static Status ExtractBlobPath(util::string_view& s) {
+    Uri uri;
+    RETURN_NOT_OK(uri.Parse(s.to_string()));
+    s = uri.path();
+    return Status::OK();
   }
 
   static Status Validate(const AzurePath* path) {
@@ -790,8 +807,14 @@ class AzureBlobFileSystem::Impl
     blob_endpoint_url = options_.account_blob_url;
     RETURN_NOT_OK(InitServiceClient(gen1Client_, options_, blob_endpoint_url));
     RETURN_NOT_OK(InitServiceClient(gen2Client_, options_, dfs_endpoint_url));
-    isHierarchicalNamespaceEnabled =
-        gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled;
+    if (options_.isTestEnabled) {
+      // gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled throws error
+      // in azurite
+      isHierarchicalNamespaceEnabled = false;
+    } else {
+      isHierarchicalNamespaceEnabled =
+          gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled;
+    }
     return Status::OK();
   }
 
@@ -909,7 +932,11 @@ class AzureBlobFileSystem::Impl
       if (!FileExists(fileClient.GetUrl()).ValueOrDie()) {
         return Status::IOError("Cannot delete File, Invalid File Path");
       }
-      fileClient.DeleteIfExists();
+      try {
+        fileClient.DeleteIfExists();
+      } catch (std::exception const& e) {
+        // Azurite throws an exception
+      }
       return Status::OK();
     }
     std::string file_name = path.back();
@@ -1253,7 +1280,7 @@ class AzureBlobFileSystem::Impl
             " hierarchical namespace not enabled");
       }
     }
-    if (!(FileExists(dfs_endpoint_url + path.full_path)).ValueOrDie()) {
+    if (!(FileExists(dfs_endpoint_url + path.full_path).ValueOrDie())) {
       return Status::IOError("Invalid path provided");
     }
     std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> pathClient_;

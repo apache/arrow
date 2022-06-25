@@ -4598,6 +4598,7 @@ macro(build_azuresdk)
   message(STATUS "Building Azure C++ SDK from source")
 
   find_curl()
+  find_package(LibXml2 REQUIRED)
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
 
   set(AZURESDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azuresdk_ep-install")
@@ -4610,14 +4611,13 @@ macro(build_azuresdk)
   set(AZURESDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=OFF
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_INSTALL_LIBDIR=${AZURESDK_LIB_DIR}
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
-      "-DCMAKE_INSTALL_PREFIX=${AZURESDK_PREFIX}"
-      "-DCMAKE_PREFIX_PATH=${AZURESDK_PREFIX}"
+      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
       -DWARNINGS_AS_ERRORS=OFF
-      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT})
+      "-DCMAKE_INSTALL_PREFIX=${AZURESDK_PREFIX}"
+      "-DCMAKE_PREFIX_PATH=${AZURESDK_PREFIX}")
 
   file(MAKE_DIRECTORY ${AZURESDK_INCLUDE_DIR})
 
@@ -4636,7 +4636,7 @@ macro(build_azuresdk)
                         PROPERTIES IMPORTED_LOCATION "${AZURE_CORE_STATIC_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AZURESDK_INCLUDE_DIR}")
-  target_link_libraries(Azure::azure-core INTERFACE LibXml2::LibXml2)
+  target_link_libraries(Azure::azure-core INTERFACE CURL::libcurl LibXml2::LibXml2)
   add_dependencies(Azure::azure-core azure_core_ep)
 
   set(AZURE_IDENTITY_STATIC_LIBRARY
@@ -4654,7 +4654,7 @@ macro(build_azuresdk)
                         PROPERTIES IMPORTED_LOCATION "${AZURE_IDENTITY_STATIC_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AZURESDK_INCLUDE_DIR}")
-  target_link_libraries(Azure::azure-identity INTERFACE LibXml2::LibXml2)
+  target_link_libraries(Azure::azure-identity INTERFACE CURL::libcurl LibXml2::LibXml2)
   add_dependencies(Azure::azure-identity azure_identity_ep)
 
   set(AZURE_STORAGE_BLOBS_STATIC_LIBRARY
@@ -4673,7 +4673,8 @@ macro(build_azuresdk)
                                    "${AZURE_STORAGE_BLOBS_STATIC_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AZURESDK_INCLUDE_DIR}")
-  target_link_libraries(Azure::azure-storage-blobs INTERFACE LibXml2::LibXml2)
+  target_link_libraries(Azure::azure-storage-blobs
+                        INTERFACE Azure::azure-core CURL::libcurl LibXml2::LibXml2)
   add_dependencies(Azure::azure-storage-blobs azure_storage_blobs_ep)
 
   set(AZURE_STORAGE_COMMON_STATIC_LIBRARY
@@ -4692,8 +4693,11 @@ macro(build_azuresdk)
                                    "${AZURE_STORAGE_COMMON_STATIC_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AZURESDK_INCLUDE_DIR}")
-  target_link_libraries(Azure::azure-storage-common INTERFACE LibXml2::LibXml2)
+  target_link_libraries(Azure::azure-storage-common INTERFACE CURL::libcurl
+                                                              LibXml2::LibXml2)
   add_dependencies(Azure::azure-storage-common azure_storage_common_ep)
+  set_property(TARGET Azure::azure-storage-common PROPERTY INTERFACE_LINK_LIBRARIES
+                                                           OpenSSL::Crypto)
 
   set(AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY
       "${AZURESDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-storage-files-datalake${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -4711,7 +4715,13 @@ macro(build_azuresdk)
                                    "${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AZURESDK_INCLUDE_DIR}")
-  target_link_libraries(Azure::azure-storage-files-datalake INTERFACE LibXml2::LibXml2)
+  target_link_libraries(Azure::azure-storage-files-datalake
+                        INTERFACE Azure::azure-core
+                                  Azure::azure-identity
+                                  Azure::azure-storage-blobs
+                                  Azure::azure-storage-common
+                                  CURL::libcurl
+                                  LibXml2::LibXml2)
   add_dependencies(Azure::azure-storage-files-datalake azure_storage_files_datalake_ep)
 
   set(AZURESDK_LIBRARIES)
@@ -4734,7 +4744,6 @@ macro(build_azuresdk)
 endmacro()
 
 if(ARROW_AZURE)
-  find_package(LibXml2 REQUIRED)
   build_azuresdk()
   message(STATUS "Found Azure SDK headers: ${AZURESDK_INCLUDE_DIR}")
   message(STATUS "Found Azure SDK libraries: ${AZURESDK_LINK_LIBRARIES}")

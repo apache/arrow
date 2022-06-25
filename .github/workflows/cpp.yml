@@ -161,6 +161,9 @@ jobs:
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: ci/scripts/install_gcs_testbench.sh default
+      - name: Install Azurite Storage Emulator
+        shell: bash
+        run: ci/scripts/install_azurite.sh $(pwd)
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
@@ -269,7 +272,7 @@ jobs:
           - 32
           - 64
     env:
-      ARROW_AZURE: OFF
+      ARROW_AZURE: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
