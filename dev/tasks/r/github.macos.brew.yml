@@ -30,10 +30,8 @@ jobs:
 
       - name: Install apache-arrow
         run: |
-          # In case it is somehow already installed, remove it.
-          # Otherwise, brew install will say "it's already installed"
-          # and won't do anything
-          brew uninstall apache-arrow || true
+          # TODO(ARROW-16907): apache/arrow@master seems to be installed already
+          # so this does nothing on a branch/PR
           brew install -v --HEAD apache-arrow
           # for testing
           brew install minio
