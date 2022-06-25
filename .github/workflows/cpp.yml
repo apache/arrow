@@ -276,7 +276,12 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
-      ARROW_GCS: ON
+      # With GCS on,
+      # * MinGW 32 build OOMs (maybe turn off unity build?)
+      # * MinGW 64 fails to compile the GCS filesystem tests, some conflict
+      #   with boost. First error says:
+      # D:/a/_temp/msys64/mingw64/include/boost/asio/detail/socket_types.hpp:24:4: error: #error WinSock.h has already been included
+      # ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
