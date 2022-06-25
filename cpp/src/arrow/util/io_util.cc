@@ -689,7 +689,7 @@ std::wstring PathWithoutTrailingSlash(const PlatformFilename& fn) {
   return path;
 }
 
-Result<std::vector<WIN32_FIND_DATAW>> ListDirInternal(const PlatformFilename& dir_path, const bool allow_errors) {
+Result<std::vector<WIN32_FIND_DATAW>> ListDirInternal(const PlatformFilename& dir_path) {
   WIN32_FIND_DATAW find_data;
   std::wstring pattern = PathWithoutTrailingSlash(dir_path) + L"\\*.*";
   HANDLE handle = FindFirstFileW(pattern.c_str(), &find_data);
@@ -711,7 +711,7 @@ Result<std::vector<WIN32_FIND_DATAW>> ListDirInternal(const PlatformFilename& di
       }
     }
     results.push_back(find_data);
-  } while (FindNextFileW(handle, &find_data) || allow_errors);
+  } while (FindNextFileW(handle, &find_data));
 
   int errnum = GetLastError();
   if (errnum != ERROR_NO_MORE_FILES) {
