@@ -4111,8 +4111,8 @@ macro(build_google_cloud_cpp_storage)
 
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
-       google-cloud-cpp::rest-internal
        google-cloud-cpp::storage
+       google-cloud-cpp::rest-internal
        google-cloud-cpp::common)
   if(ABSL_VENDORED)
     # Figure out what absl libraries (not header-only) are required by the
