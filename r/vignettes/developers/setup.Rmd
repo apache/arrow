@@ -237,6 +237,7 @@ cmake \
 To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags to your call to `cmake` (the trailing `\` makes them easier to paste into a bash shell on a new line):
 
 ```bash
+  -DARROW_GCS=ON \
   -DARROW_MIMALLOC=ON \
   -DARROW_S3=ON \
   -DARROW_WITH_BROTLI=ON \
@@ -307,6 +308,7 @@ cmake \
   -DARROW_DATASET=ON \
   -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
+  -DARROW_GCS=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
   -DARROW_JEMALLOC=ON \
   -DARROW_JSON=ON \

@@ -1305,7 +1305,7 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e xsimd_SOURCE=BUNDLED'
+      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
 
   test-r-offline-minimal:

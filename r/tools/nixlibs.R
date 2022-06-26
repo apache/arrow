@@ -69,7 +69,8 @@ download_binary <- function(os = identify_os()) {
     if (try_download(binary_url, libfile)) {
       cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
       if (!identical(os, "centos-7")) {
-        # centos-7 uses gcc 4.8 so the binary doesn't have ARROW_S3=ON but the others do
+        # centos-7 uses gcc 4.8 so the binary doesn't have ARROW_S3=ON
+        # or ARROW_GCS=ON but the others do
         # TODO: actually check for system requirements?
         cat("**** Binary package requires libcurl and openssl\n")
         cat("**** If installation fails, retry after installing those system requirements\n")
@@ -312,11 +313,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
-  env_var_list <- with_s3_support(env_var_list)
+  env_var_list <- with_cloud_support(env_var_list)
   env_var_list <- with_mimalloc(env_var_list)
 
   # turn_off_all_optional_features() needs to happen after with_mimalloc() and
-  # with_s3_support(), since those might turn features ON.
+  # with_cloud_support(), since those might turn features ON.
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
@@ -538,24 +539,45 @@ with_mimalloc <- function(env_var_list) {
   replace(env_var_list, "ARROW_MIMALLOC", ifelse(arrow_mimalloc, "ON", "OFF"))
 }
 
-with_s3_support <- function(env_var_list) {
+with_cloud_support <- function(env_var_list) {
   arrow_s3 <- is_feature_requested("ARROW_S3")
-  if (arrow_s3) {
-    # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
+  arrow_gcs <- is_feature_requested("ARROW_GCS")
+  if (arrow_s3 || arrow_gcs) {
+    # User wants S3 or GCS support.
+    # If they're using gcc, let's make sure the version is >= 4.9
+    # (aws-sdk-cpp requires that; google-cloud-cpp only tests with >= 6.3)
     # and make sure that we have curl and openssl system libs
+    feats <- c(
+      if (arrow_s3) "S3",
+      if (arrow_gcs) "GCS"
+    )
+    start_msg <- paste(feats, collapse = "/")
+    off_flags <- paste("ARROW_", feats, "=OFF", sep = "", collapse = " and ")
+    print_warning <- function(msg) {
+      # Utility to assemble warning message in the console
+      cat("**** ", start_msg, " support ", msg, "; building with ", off_flags, "\n")
+    }
+
+    # Check the features
     if (isTRUE(cmake_gcc_version(env_var_list) < "4.9")) {
-      cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
+      print_warning("not available for gcc < 4.9")
       arrow_s3 <- FALSE
+      arrow_gcs <- FALSE
     } else if (!cmake_find_package("CURL", NULL, env_var_list)) {
       # curl on macos should be installed, so no need to alter this for macos
-      cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
+      print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb")
       arrow_s3 <- FALSE
+      arrow_gcs <- FALSE
     } else if (!cmake_find_package("OpenSSL", "1.0.2", env_var_list)) {
-      cat("**** S3 support requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew); building with ARROW_S3=OFF\n")
+      print_warning("requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew)")
       arrow_s3 <- FALSE
+      arrow_gcs <- FALSE
     }
   }
-  replace(env_var_list, "ARROW_S3", ifelse(arrow_s3, "ON", "OFF"))
+
+  # Update the build flags
+  env_var_list <- replace(env_var_list, "ARROW_S3", ifelse(arrow_s3, "ON", "OFF"))
+  replace(env_var_list, "ARROW_GCS", ifelse(arrow_gcs, "ON", "OFF"))
 }
 
 cmake_gcc_version <- function(env_var_list) {

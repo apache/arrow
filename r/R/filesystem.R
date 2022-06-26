@@ -269,7 +269,20 @@ FileSystem <- R6Class("FileSystem",
     }
   ),
   active = list(
-    type_name = function() fs___FileSystem__type_name(self)
+    type_name = function() fs___FileSystem__type_name(self),
+    url_scheme = function() {
+      fs_type_name <- self$type_name
+      if (identical(fs_type_name, "subtree")) {
+        # Recurse
+        return(self$base_fs$url_scheme)
+      }
+      # Some type_names are the url scheme but others aren't
+      type_map <- list(
+        local = "file",
+        gcs = "gs"
+      )
+      type_map[[fs_type_name]] %||% fs_type_name
+    }
   )
 )
 FileSystem$from_uri <- function(uri) {
@@ -438,18 +451,68 @@ s3_bucket <- function(bucket, ...) {
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
+#' @importFrom utils modifyList
+#' @export
+GcsFileSystem <- R6Class("GcsFileSystem",
+  inherit = FileSystem
+)
+GcsFileSystem$create <- function(anonymous = FALSE, ...) {
+  options <- list(...)
+
+  # Validate options
+  if (isTRUE(anonymous)) {
+    invalid_args <- intersect(
+      c("access_token", "expiration", "json_credentials"),
+      names(options)
+    )
+    if (length(invalid_args)) {
+      stop(
+        "Cannot specify ",
+        oxford_paste(invalid_args),
+        " when anonymous = TRUE",
+        call. = FALSE
+      )
+    }
+  } else {
+    token_args <- intersect(c("access_token", "expiration"), names(options))
+    if (!is.null(options[["json_credentials"]]) && length(token_args) > 0) {
+      stop("Cannot provide access_token with json_credentials", call. = FALSE)
+    } else if (length(token_args) == 1) {
+      stop("token auth requires both 'access_token' and 'expiration'", call. = FALSE)
+    }
+  }
+
+  valid_opts <- c(
+    "access_token", "expiration", "json_credentials", "endpoint_override",
+    "scheme", "default_bucket_location", "retry_limit_seconds",
+    "default_metadata"
+  )
+
+  invalid_opts <- setdiff(names(options), valid_opts)
+  if (length(invalid_opts)) {
+    stop(
+      "Invalid options for GcsFileSystem: ",
+      oxford_paste(invalid_opts),
+      call. = FALSE
+    )
+  }
+
+  fs___GcsFileSystem__Make(anonymous, options)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
 #' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem",
   inherit = FileSystem,
   public = list(
     print = function(...) {
-      if (inherits(self$base_fs, "LocalFileSystem")) {
-        cat("SubTreeFileSystem: ", "file://", self$base_path, "\n", sep = "")
-      } else if (inherits(self$base_fs, "S3FileSystem")) {
-        cat("SubTreeFileSystem: ", "s3://", self$base_path, "\n", sep = "")
-      } else {
-        cat("SubTreeFileSystem", "\n", sep = "")
-      }
+      cat(
+        "SubTreeFileSystem: ",
+        self$url_scheme, "://", self$base_path, "\n",
+        sep = ""
+      )
       invisible(self)
     }
   ),
