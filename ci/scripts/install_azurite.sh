@@ -19,13 +19,22 @@
 
 set -e
 
-sudo apt-get -y install nodejs
+if [[ "$OSTYPE" == "darwin20" ]]; then
+  brew install node
+  npm install -g azurite
+  which azurite
+elif [[ "$OSTYPE" == "msys" ]]; then
+  choco install nodejs.install
+  npm install -g azurite
+else
+  apt-get -y install nodejs
+  npm install -g azurite
+  which azurite
+fi
 echo "node version = `node --version`"
-sudo npm install -g azurite
-AZURITE_DIR=${0}/azurite
-mkdir $AZURITE_DIR
-which azurite
 echo "azurite version = `azurite --version`"
+AZURITE_DIR=${1}/azurite
+mkdir $AZURITE_DIR
 
 # Start azurite
-azurite --silent --location $AZURITE_DIR --debug $AZURITE_DIR/debug.log
+azurite --silent --location $AZURITE_DIR --debug $AZURITE_DIR/debug.log & 

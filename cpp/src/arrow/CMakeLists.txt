@@ -470,15 +470,10 @@ if(ARROW_FILESYSTEM)
        filesystem/util_internal.cc)
 
   if(ARROW_AZURE)
-    set(AZURE_SRCS filesystem/azurefs.cc)
+    list(APPEND ARROW_SRCS filesystem/azurefs.cc)
     set_source_files_properties(filesystem/azurefs.cc
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                            SKIP_UNITY_BUILD_INCLUSION ON)
-    add_library(azurefs_objlib OBJECT ${AZURE_SRCS})
-    target_link_libraries(azurefs_objlib PUBLIC ${ARROW_AZURE_LINK_LIBS})
-    
-    set_target_properties(azurefs_objlib PROPERTIES CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON)
-    list(APPEND ARROW_LINK_LIBS ${ARROW_AZURE_LINK_LIBS} azurefs_objlib)
   endif()
   if(ARROW_GCS)
     list(APPEND ARROW_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
