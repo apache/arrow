@@ -166,11 +166,6 @@ TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
   // column 0, id
   auto col = std::dynamic_pointer_cast<ByteArrayReader>(group->Column(0));
 
-  const int16_t batch_size = 25;
-  int16_t def_levels[batch_size];
-  int16_t rep_levels[batch_size];
-  ByteArray values[batch_size];
-
   // This file only has 1000 rows
   ASSERT_EQ(1000, reader_->metadata()->num_rows());
   // This file only has 1 row group
@@ -192,11 +187,16 @@ TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
   int64_t curr_batch_read;
   std::string expected_prefix("apple_banana_mango");
   while (values_read < 1000) {
+    const int16_t batch_size = 25;
+    int16_t def_levels[batch_size];
+    int16_t rep_levels[batch_size];
+    ByteArray values[batch_size];
+
     auto levels_read =
         col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
     ASSERT_EQ(batch_size, levels_read);
     ASSERT_EQ(batch_size, curr_batch_read);
-    for (int i = 0; i < batch_size; i++) {
+    for (int16_t i = 0; i < batch_size; i++) {
       auto expected =
           expected_prefix + std::to_string((i + values_read) * (i + values_read));
       ASSERT_TRUE(values[i].len == expected.length());
