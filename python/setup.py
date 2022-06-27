@@ -264,7 +264,19 @@ class build_ext(_build_ext):
                 '-DCMAKE_INSTALL_PREFIX=' +
                 str(pjoin(saved_cwd, 'build/dist')),
                 '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type.lower()),
+                ''
             ]
+
+            # Check for specific options
+            def append_cmake_bool(value, varname):
+                cmake_options.append('-D{0}={1}'.format(
+                    varname, 'on' if value else 'off'))
+
+            append_cmake_bool(self.with_dataset, 'PYARROW_WITH_DATASET')
+            append_cmake_bool(self.with_parquet_encryption,
+                              'PYARROW_WITH_PARQUET_ENCRYPTION')
+            append_cmake_bool(self.with_hdfs,
+                              'PYARROW_WITH_HDFS')
 
             # run cmake
             print("-- Running cmake for C pyarrow")
