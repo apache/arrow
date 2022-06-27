@@ -767,15 +767,15 @@ below.
 
 .. _run-length-encoded-layout:
 
-Run-Length-encoded Layout
+Run-Length Encoded Layout
 -------------------------
 
 Run-Length is a data representation that represents data as sequences of the
 same value, called runs. Each run is represented as a value, and an integer
 describing how often this value is repeated.
 
-Any array can be run-length-encoded. A run-length encoded array has a single
-buffer holding as many signed 32-bit integers, as there are runs. The actual
+Any array can be run-length encoded. A run-length encoded array has a single
+buffer holding a signed 32-bit integer for each run. The actual
 values are held in a child array, which is just a regular array.
 
 The values in the parent array buffer represent the length of each run. They do
@@ -1016,7 +1016,7 @@ The ``Buffer`` Flatbuffers value describes the location and size of a
 piece of memory. Generally these are interpreted relative to the
 **encapsulated message format** defined below.
 
-The ``size`` field of ``Buffer`` is not required to account for paddingeng-career-mgmt
+The ``size`` field of ``Buffer`` is not required to account for padding
 bytes. Since this metadata can be used to communicate in-memory pointer
 addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
