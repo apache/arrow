@@ -69,7 +69,7 @@ add_arrow_lib(arrow_flight_sql
               "${Protobuf_INCLUDE_DIRS}")
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_EXPORTING)
 endforeach()
 
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
@@ -111,4 +111,10 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   add_executable(flight-sql-test-app test_app_cli.cc)
   target_link_libraries(flight-sql-test-app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                                                     ${GFLAGS_LIBRARIES})
+
+  if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
+    target_compile_definitions(flight_sql_test
+                               flight-sql-test-server flight-sql-test-app
+                               PUBLIC ARROW_FLIGHT_STATIC ARROW_FLIGHT_SQL_STATIC)
+  endif()
 endif()

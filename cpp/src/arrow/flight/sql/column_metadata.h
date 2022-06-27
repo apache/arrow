@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "arrow/flight/visibility.h"
+#include "arrow/flight/sql/visibility.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -27,7 +27,7 @@ namespace flight {
 namespace sql {
 
 /// \brief Helper class to set column metadata.
-class ARROW_FLIGHT_EXPORT ColumnMetadata {
+class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
  private:
   std::shared_ptr<const arrow::KeyValueMetadata> metadata_map_;
 
@@ -115,7 +115,7 @@ class ARROW_FLIGHT_EXPORT ColumnMetadata {
   const std::shared_ptr<const arrow::KeyValueMetadata>& metadata_map() const;
 
   /// \brief A builder class to construct the ColumnMetadata object.
-  class ARROW_FLIGHT_EXPORT ColumnMetadataBuilder {
+  class ARROW_FLIGHT_SQL_EXPORT ColumnMetadataBuilder {
    public:
     friend class ColumnMetadata;
 
