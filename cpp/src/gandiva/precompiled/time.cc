@@ -1039,48 +1039,7 @@ const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_leng
       return "";                                                                       \
     }                                                                                  \
                                                                                        \
-    gdv_int64 year = extractYear_timestamp(date);                                      \
-    gdv_int64 month = extractMonth_timestamp(date);                                    \
-    gdv_int64 day = extractDay_timestamp(date);                                        \
-                                                                                       \
-    static const int kTimeStampStringLen = 10;                                         \
-                                                                                       \
-    const int char_buffer_length = kTimeStampStringLen + 1;                            \
-                                                                                       \
-    char* char_buffer = reinterpret_cast<char*>(                                       \
-        gdv_fn_context_arena_malloc(context, char_buffer_length));                     \
-                                                                                       \
-    if (char_buffer == nullptr) {                                                      \
-      gdv_fn_context_set_error_msg(context,                                            \
-                                   "Could not allocate memory for output string");     \
-      *out_len = 0;                                                                    \
-      return "";                                                                       \
-    }                                                                                  \
-                                                                                       \
-    int res = snprintf(char_buffer, char_buffer_length,                                \
-                       "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);    \
-                                                                                       \
-    if (res < 0) {                                                                     \
-      gdv_fn_context_set_error_msg(context, "Could not format the timestamp");         \
-      *out_len = 0;                                                                    \
-      return "";                                                                       \
-    }                                                                                  \
-                                                                                       \
-    *out_len = static_cast<gdv_int32>(kTimeStampStringLen);                            \
-    if (*out_len > kTimeStampStringLen) {                                              \
-      *out_len = kTimeStampStringLen;                                                  \
-    }                                                                                  \
-                                                                                       \
-    if (*out_len <= 0) {                                                               \
-      if (*out_len < 0) {                                                              \
-        gdv_fn_context_set_error_msg(context,                                          \
-                                     "Length of output string cannot be negative");    \
-      }                                                                                \
-      *out_len = 0;                                                                    \
-      return "";                                                                       \
-    }                                                                                  \
-                                                                                       \
-    return char_buffer;                                                                \
+    return castVARCHAR_timestamp_int64(context, date, 10L, out_len);                   \
   }
 
 DATE_TYPES(DATE_TRUNC);
