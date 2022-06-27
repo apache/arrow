@@ -324,9 +324,6 @@ class build_ext(_build_ext):
         build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
         saved_cwd = os.getcwd()
 
-        # The directory containing C PyArrow headers and libs
-        build_dist = pjoin(saved_cwd, 'build/dist')
-
         if not os.path.isdir(build_temp):
             self.mkpath(build_temp)
 
