@@ -236,6 +236,7 @@ class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
   static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
 
   const bool is_minmax = false;
+  const bool is_max = false;
 
   /// Optional starting value for cumulative sum
   std::shared_ptr<Scalar> start;
@@ -259,6 +260,7 @@ class ARROW_EXPORT CumulativeProductOptions : public FunctionOptions {
   static CumulativeProductOptions Defaults() { return CumulativeProductOptions(); }
 
   const bool is_minmax = false;
+  const bool is_max = false;
 
   /// Optional starting value for cumulative product
   std::shared_ptr<Scalar> start;
