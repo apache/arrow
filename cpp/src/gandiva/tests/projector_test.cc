@@ -2857,4 +2857,54 @@ TEST_F(TestProjector, TestLCase) {
 
   EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
 }
+TEST_F(TestProjector, TestTranslate) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::utf8());
+
+  auto schema_translate = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto field_translate = field("translate", arrow::utf8());
+
+  // Build expression
+  auto translate_expr = TreeExprBuilder::MakeExpression(
+      "translate", {field0, field1, field2}, field_translate);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema_translate, {translate_expr}, TestConfiguration(),
+                                &projector);
+
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 7;
+  auto array0 = MakeArrowArrayUtf8({"a b c d", "abcde", "My Name Is JHONNY", "\n\n/n/n",
+                                    "x大路学路x", "学大路学路大", "abcd"},
+                                   {true, true, true, true, true, true, true});
+
+  auto array1 = MakeArrowArrayUtf8({" ", "bd", "JHONNY", "/\n", "x", "学大", "abc"},
+                                   {true, true, true, true, true, true, true});
+
+  auto array2 = MakeArrowArrayUtf8({"", "xb", "XXXXX", "a~", "b", "12", "学大路"},
+                                   {true, true, true, true, true, true, true});
+
+  // expected output
+  auto exp_translate = MakeArrowArrayUtf8({"abcd", "axcbe", "My Xame Is XXXXXX", "aa~n~n",
+                                           "b大路学路b", "12路1路2", "学大路d"},
+                                          {true, true, true, true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema_translate, num_records, {array0, array1, array2});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_translate, outputs.at(0));
+}
 }  // namespace gandiva
