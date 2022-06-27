@@ -627,6 +627,7 @@ register_bindings_datetime_parsers <- function() {
                                           week_start = getOption("lubridate.week.start", 7)) {
     opts <- parse_period_unit(unit)
     if (opts$unit == 7L) {
+
       if (week_start == 7) { # Sunday
         opts$week_starts_monday <- 0L
         return(Expression$create("round_temporal", x, options = opts))
@@ -658,7 +659,28 @@ register_bindings_datetime_parsers <- function() {
                                           week_start = getOption("lubridate.week.start", 7)) {
     opts <- parse_period_unit(unit)
     if (opts$unit == 7L) {
-      arrow_not_supported("Date/time rounding to week units")
+      if (week_start == 7) { # Sunday
+        opts$week_starts_monday <- 0L
+        return(Expression$create("floor_temporal", x, options = opts))
+
+      } else if (week_start == 1) { # Monday
+        opts$week_starts_monday <- 1L
+        return(Expression$create("floor_temporal", x, options = opts))
+
+      } else { # other values of week_start
+
+        # create a duration object as an offset
+        shift <- build_expr(
+          "cast",
+          Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
+          options = cast_options(to_type = duration(unit = "s"))
+        )
+
+        # add the offset, round, then subtract the offset
+        # [throws error: add_checked has no kernel for date32-array and duration(s)-scalar]
+        interim <- build_expr("floor_temporal", x + shift, options = opts)
+        return(interim - shift)
+      }
     }
     Expression$create("floor_temporal", x, options = opts)
   })
@@ -666,10 +688,8 @@ register_bindings_datetime_parsers <- function() {
   register_binding("ceiling_date", function(x, unit = "second",
                                             change_on_boundary = NULL,
                                             week_start = getOption("lubridate.week.start", 7)) {
+
     opts <- parse_period_unit(unit)
-    if (opts$unit == 7L) {
-      arrow_not_supported("Date/time rounding to week units")
-    }
 
     if (is.null(change_on_boundary)) {
       if (call_binding("is.Date", x)) {
@@ -687,6 +707,30 @@ register_bindings_datetime_parsers <- function() {
       opts$ceil_is_strictly_greater <- 1L
     }
 
+    if (opts$unit == 7L) {
+      if (week_start == 7) { # Sunday
+        opts$week_starts_monday <- 0L
+        return(Expression$create("ceil_temporal", x, options = opts))
+
+      } else if (week_start == 1) { # Monday
+        opts$week_starts_monday <- 1L
+        return(Expression$create("ceil_temporal", x, options = opts))
+
+      } else { # other values of week_start
+
+        # create a duration object as an offset
+        shift <- build_expr(
+          "cast",
+          Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
+          options = cast_options(to_type = duration(unit = "s"))
+        )
+
+        # add the offset, round, then subtract the offset
+        # [throws error: add_checked has no kernel for date32-array and duration(s)-scalar]
+        interim <- build_expr("ceil_temporal", x + shift, options = opts)
+        return(interim - shift)
+      }
+    }
     return(Expression$create("ceil_temporal", x, options = opts))
   })
 

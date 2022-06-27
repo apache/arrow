@@ -2607,11 +2607,17 @@ test_that("ceiling_time works with change_on_boundary: unit = millisecond", {
 })
 
 
-test_that("round to nearest week, adjusted for week_start", {
+# NOTE: until 16142 is resolved, this test has to be written to avoid the
+# 32-bit temporal array misinterpreted as 64-bit bug. The easiest solution
+# is to never use an arrow array of length greater than 1:
+# https://issues.apache.org/jira/browse/ARROW-16142
+
+test_that("round/floor/ceil to nearest week, adjusted for week_start", {
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
-  one_week <- tibble::tibble(
+  # rotate through two weeks to make certain we catch all change points
+  fortnight <- tibble::tibble(
     date = as.Date(c(
       "2022-04-04", # Monday
       "2022-04-05", # Tuesday
@@ -2619,27 +2625,127 @@ test_that("round to nearest week, adjusted for week_start", {
       "2022-04-07", # Thursday
       "2022-04-08", # Friday
       "2022-04-09", # Saturday
-      "2022-04-10"  # Sunday
+      "2022-04-10", # Sunday
+      "2022-04-11", # Monday
+      "2022-04-12", # Tuesday
+      "2022-04-13", # Wednesday
+      "2022-04-14", # Thursday
+      "2022-04-15", # Friday
+      "2022-04-16", # Saturday
+      "2022-04-17"  # Sunday
     )),
     datetime = as.POSIXct(date)
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = round_date(date, "week", week_start = 1),
-        #out_2 = round_date(date, "week", week_start = 2), # doesn't currently work
-        #out_3 = round_date(date, "week", week_start = 3),
-        #out_4 = round_date(date, "week", week_start = 4),
-        #out_5 = round_date(date, "week", week_start = 5),
-        #out_6 = round_date(date, "week", week_start = 6),
-        out_7 = round_date(date, "week", week_start = 7)
-      ) %>%
-      collect(),
-    one_week
-  )
+  # test round_date() for the Date objects
+  # tests performed one at a time to avoid ARROW-16142 issue
+
+  # FAILS: round_date() behaves like floor_date() for week units!!!
+
+  for(week_start in c(1,7)) { # Monday = 1, Sunday = 7
+    for(row_id in 1:7) {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            out = date %>%
+              round_date("week", week_start = week_start)
+          ) %>%
+          collect() %>%
+          pull(out),
+        fortnight[row_id,]
+      )
+    }
+  }
+
+  # as above, with floor_date()
+  for(week_start in c(1,7)) {
+    for(row_id in 1:7) {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            out = date %>%
+              floor_date("week", week_start = week_start)
+          ) %>%
+          collect() %>%
+          pull(out),
+        fortnight[row_id,]
+      )
+    }
+  }
+
+  # as above, with ceiling_date)()
+  for(week_start in c(1,7)) {
+    for(row_id in 1:7) {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            out = date %>%
+              ceiling_date("week", week_start = week_start)
+          ) %>%
+          collect() %>%
+          pull(out),
+        fortnight[row_id,]
+      )
+    }
+  }
+
+
+  # test round_date() for the datetime objects
+  # tests performed one at a time to avoid ARROW-16142 issue
+
+  # FAILS: round_date() behaves like floor_date() for week units!!!
+
+  # for(week_start in c(1,7)) { # Monday = 1, Sunday = 7
+  #   for(row_id in 1:7) {
+  #     compare_dplyr_binding(
+  #       .input %>%
+  #         mutate(
+  #           out = datetime %>%
+  #             round_date("week", week_start = week_start)
+  #         ) %>%
+  #         collect() %>%
+  #         pull(out),
+  #       fortnight[row_id,]
+  #     )
+  #   }
+  # }
+
+  # as above, with floor_date()
+  for(week_start in c(1,7)) {
+    for(row_id in 1:7) {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            out = datetime %>%
+              floor_date("week", week_start = week_start)
+          ) %>%
+          collect() %>%
+          pull(out) %>%
+          `attr<-`("tzone", ""), # empty string vs null on tzone attribute isn't interesting
+        fortnight[row_id,]
+      )
+    }
+  }
+
+  # as above, with ceiling_date)()
+  for(week_start in c(1,7)) {
+    for(row_id in 1:7) {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            out = datetime %>%
+              ceiling_date("week", week_start = week_start)
+          ) %>%
+          collect() %>%
+          pull(out) %>%
+          `attr<-`("tzone", ""),
+        fortnight[row_id,]
+      )
+    }
+  }
 
 })
+
 
 # NOTE: lubridate::round_date() sometimes coerces output from Date to POSIXct.
 # this is not the default for the round_temporal() function in libarrow, which
