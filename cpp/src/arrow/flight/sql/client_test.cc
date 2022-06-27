@@ -26,6 +26,9 @@
 
 #include <utility>
 
+// Must come before Protobuf include
+#include "arrow/flight/sql/visibility.h"
+
 #include "arrow/buffer.h"
 #include "arrow/flight/sql/FlightSql.pb.h"
 #include "arrow/flight/sql/api.h"

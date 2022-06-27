@@ -29,7 +29,8 @@ set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF})
 
 add_custom_command(OUTPUT ${FLIGHT_SQL_GENERATED_PROTO_FILES}
                    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
-                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_SQL_PROTO}"
+                           "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}"
+                           "${FLIGHT_SQL_PROTO}"
                    DEPENDS ${PROTO_DEPENDS})
 
 set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
