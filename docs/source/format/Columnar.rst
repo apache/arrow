@@ -800,7 +800,7 @@ In Run-length-encoded form, this could appear as:
 
 ::
 
-    * Length: 3, Null count: 2
+    * Length: 7, Null count: 2
     * Accumulated run lengths buffer:
 
       | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes  6-63           |
