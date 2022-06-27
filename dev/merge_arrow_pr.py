@@ -142,11 +142,9 @@ class JiraIssue(object):
     @classmethod
     def sort_versions(cls, versions):
         def version_tuple(x):
-            version = x.name
             # Parquet versions are something like cpp-1.2.0
-            if "-" in version:
-                version = version.split("-")[1]
-            return tuple(int(_) for _ in version.split("."))
+            numeric_version = x.name.split("-", 1)[-1]
+            return tuple(int(_) for _ in numeric_version.split("."))
         return sorted(versions, key=version_tuple, reverse=True)
 
     def get_candidate_fix_versions(self, merge_branches=('master',)):
