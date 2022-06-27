@@ -18,7 +18,7 @@
 {% import 'macros.jinja' as macros with context %}
 
 # This allows us to set a custom version via param:
-# crossbow submit --param custom_version=8.5.3 r-nightly-packages
+# crossbow submit --param custom_version=8.5.3 r-binary-packages
 # if the param is unset defaults to the usual Ymd naming scheme
 {% set package_version = custom_version|default("\\2.\'\"$(date +%Y%m%d)\"\'") %}
 # We need this as boolean and string
@@ -44,7 +44,7 @@ jobs:
       - name: Save Version
         id: save-version
         shell: bash
-        run: | 
+        run: |
           echo "::set-output name=pkg_version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
 
       - uses: r-lib/actions/setup-r@v2
@@ -99,7 +99,7 @@ jobs:
           cd arrow/r/libarrow/dist
           # These files were created by the docker user so we have to sudo to get them
           sudo -E zip -r $PKG_FILE lib/ include/
-          
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
@@ -131,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: r-lib__libarrow__bin__windows
-          path: build/arrow-*.zip 
+          path: build/arrow-*.zip
 
   r-packages:
     needs: [source, windows-cpp]
@@ -158,7 +158,7 @@ jobs:
       - name: Build Binary
         id: build
         shell: Rscript {0}
-        env:  
+        env:
           ARROW_R_DEV: TRUE
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
@@ -171,7 +171,7 @@ jobs:
 
           cat("Remove old arrow version.\n")
           remove.packages("arrow")
-          
+
           # Build
           Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
           INSTALL_opts <- "--build"
@@ -195,7 +195,7 @@ jobs:
 
           # encode contrib.url for artifact name
           cmd <- paste0(
-            "::set-output name=path::", 
+            "::set-output name=path::",
             gsub(
               "/", "__",
               contrib.url("", type = "binary")
@@ -287,9 +287,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      - name: Download Artifacts 
+      - name: Download Artifacts
         uses: actions/download-artifact@v3
-        with: 
+        with:
           path: artifacts
       - name: Install R
         uses: r-lib/actions/setup-r@v2
@@ -304,4 +304,3 @@ jobs:
           file.copy(file.path("artifacts", file_paths), new_names)
 
       {{ macros.github_upload_releases("binaries/r-*")|indent }}
-          

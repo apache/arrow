@@ -354,7 +354,7 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     command: *cpp-command
-  
+
   ubuntu-cpp-static:
     # Usage:
     #   docker-compose build ubuntu-cpp-static
@@ -400,7 +400,7 @@ services:
       cache_from:
         - ${REPO}:centos-7-cpp-static
     shm_size: *shm-size
-    volumes: 
+    volumes:
       - .:/arrow:delegated
     environment:
       <<: *ccache
@@ -410,9 +410,9 @@ services:
       ARROW_MIMALLOC: "ON"
     command: >
       /bin/bash -c "
-        if grep -q -i -e 'centos.* 7' /etc/os-release; then export ARROW_S3=OFF ARROW_MIMALLOC=OFF; fi &&
+        if grep -q -i -e 'centos.* 7' /etc/os-release; then export ARROW_S3=OFF ARROW_GCS=OFF ARROW_MIMALLOC=OFF; fi &&
         cd /arrow && r/inst/build_arrow_static.sh"
-        
+
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
