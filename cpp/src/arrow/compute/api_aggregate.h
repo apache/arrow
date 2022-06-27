@@ -393,8 +393,6 @@ ARROW_EXPORT
 Result<Datum> Index(const Datum& value, const IndexOptions& options,
                     ExecContext* ctx = NULLPTR);
 
-namespace internal {
-
 /// \brief Configure a grouped aggregation
 struct ARROW_EXPORT Aggregate {
   /// the name of the aggregation function
@@ -402,8 +400,13 @@ struct ARROW_EXPORT Aggregate {
 
   /// options for the aggregation function
   std::shared_ptr<FunctionOptions> options;
+
+  // fields to which aggregations will be applied
+  FieldRef target;
+
+  // output field name for aggregations
+  std::string name;
 };
 
-}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

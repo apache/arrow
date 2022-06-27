@@ -1254,9 +1254,7 @@ garrow_aggregate_node_options_new(GList *aggregations,
                                   gsize n_keys,
                                   GError **error)
 {
-  std::vector<arrow::compute::internal::Aggregate> arrow_aggregates;
-  std::vector<arrow::FieldRef> arrow_targets;
-  std::vector<std::string> arrow_names;
+  std::vector<arrow::compute::Aggregate> arrow_aggregates;
   std::vector<arrow::FieldRef> arrow_keys;
   for (auto node = aggregations; node; node = node->next) {
     auto aggregation_priv = GARROW_AGGREGATION_GET_PRIVATE(node->data);
@@ -1265,21 +1263,19 @@ garrow_aggregate_node_options_new(GList *aggregations,
       function_options =
         garrow_function_options_get_raw(aggregation_priv->options);
     };
-    if (function_options) {
-      arrow_aggregates.push_back({
-        aggregation_priv->function,
-        function_options->Copy(),
-      });
-    } else {
-      arrow_aggregates.push_back({aggregation_priv->function, nullptr});
-    };
+    std::vector<arrow::FieldRef> arrow_targets;
     if (!garrow_field_refs_add(arrow_targets,
                                aggregation_priv->input,
                                error,
                                "[aggregate-node-options][new][input]")) {
       return NULL;
     }
-    arrow_names.emplace_back(aggregation_priv->output);
+    arrow_aggregates.push_back({
+      aggregation_priv->function,
+      function_options ? function_options->Copy() : nullptr,
+      arrow_targets[0],
+      aggregation_priv->output,
+    });
   }
   for (gsize i = 0; i < n_keys; ++i) {
     if (!garrow_field_refs_add(arrow_keys,
@@ -1291,8 +1287,6 @@ garrow_aggregate_node_options_new(GList *aggregations,
   }
   auto arrow_options =
     new arrow::compute::AggregateNodeOptions(std::move(arrow_aggregates),
-                                             std::move(arrow_targets),
-                                             std::move(arrow_names),
                                              std::move(arrow_keys));
   auto options = g_object_new(GARROW_TYPE_AGGREGATE_NODE_OPTIONS,
                               "options", arrow_options,

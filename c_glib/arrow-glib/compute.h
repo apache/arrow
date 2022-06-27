@@ -755,7 +755,7 @@ garrow_quantile_options_get_qs(GArrowQuantileOptions *options,
 GARROW_AVAILABLE_IN_9_0
 void
 garrow_quantile_options_set_q(GArrowQuantileOptions *options,
-                              gdouble quantile);
+                              gdouble q);
 GARROW_AVAILABLE_IN_9_0
 void
 garrow_quantile_options_set_qs(GArrowQuantileOptions *options,

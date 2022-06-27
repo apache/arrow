@@ -432,8 +432,8 @@ ExecNode_Project <- function(input, exprs, names) {
   .Call(`_arrow_ExecNode_Project`, input, exprs, names)
 }
 
-ExecNode_Aggregate <- function(input, options, target_names, out_field_names, key_names) {
-  .Call(`_arrow_ExecNode_Aggregate`, input, options, target_names, out_field_names, key_names)
+ExecNode_Aggregate <- function(input, options, key_names) {
+  .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
 ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
