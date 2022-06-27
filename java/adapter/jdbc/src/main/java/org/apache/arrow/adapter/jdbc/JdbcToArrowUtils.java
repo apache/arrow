@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
@@ -427,7 +428,8 @@ public class JdbcToArrowUtils {
             return null;
         }
       case Decimal:
-        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable);
+        final RoundingMode bigDecimalRoundingMode = config.getBigDecimalRoundingMode();
+        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable, bigDecimalRoundingMode);
       case FloatingPoint:
         switch (((ArrowType.FloatingPoint) arrowType).getPrecision()) {
           case SINGLE:
