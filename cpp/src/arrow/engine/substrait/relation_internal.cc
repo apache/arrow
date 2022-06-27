@@ -357,7 +357,7 @@ struct ExtractRelation {
       case ArrowRelationType::AGGREGATE:
         return Status::NotImplemented("Aggregate operator not supported.");
       default:
-        return Status::Invalid("Unsupported factory name :", rel_name);
+        return Status::Invalid("Unsupported exec node factory name :", rel_name);
     }
   }
 
@@ -366,22 +366,27 @@ struct ExtractRelation {
     const auto& scan_node_options =
         internal::checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
 
-    const auto& fds = internal::checked_cast<const dataset::FileSystemDataset&>(
-        *scan_node_options.dataset);
-
+    auto dataset =
+        dynamic_cast<dataset::FileSystemDataset*>(scan_node_options.dataset.get());
+    if (dataset == nullptr) {
+      return Status::Invalid(
+          "Can only convert file system datasets to a Substrait plan.");
+    }
     // set schema
-    ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*fds.schema(), ext_set_));
+    ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set_));
     read_rel->set_allocated_base_schema(named_struct.release());
 
     // set local files
     auto read_rel_lfs = internal::make_unique<substrait::ReadRel_LocalFiles>();
-    for (const auto& file : fds.files()) {
+    for (const auto& file : dataset->files()) {
       auto read_rel_lfs_ffs =
           internal::make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
       read_rel_lfs_ffs->set_uri_path("file://" + file);
 
       // set file format
-      auto format_type_name = fds.format()->type_name();
+      // arrow and feather are temporarily handled via the Parquet format until 
+      // upgraded to the latest Substrait version.
+      auto format_type_name = dataset->format()->type_name();
       if (format_type_name == "parquet" || format_type_name == "arrow" ||
           format_type_name == "feather") {
         read_rel_lfs_ffs->set_format(

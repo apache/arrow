@@ -1216,12 +1216,14 @@ TEST(Substrait, SerializeRelation) {
 
   auto dataset_comparator = [](std::shared_ptr<dataset::Dataset> ds_lhs,
                                std::shared_ptr<dataset::Dataset> ds_rhs) -> bool {
-    const auto& fds_lhs = checked_cast<const dataset::FileSystemDataset&>(*ds_lhs);
-    const auto& fds_rhs = checked_cast<const dataset::FileSystemDataset&>(*ds_lhs);
-    const auto& files_lhs = fds_lhs.files();
-    const auto& files_rhs = fds_rhs.files();
+    const auto& fsd_lhs = checked_cast<const dataset::FileSystemDataset&>(*ds_lhs);
+    const auto& fsd_rhs = checked_cast<const dataset::FileSystemDataset&>(*ds_lhs);
+    const auto& files_lhs = fsd_lhs.files();
+    const auto& files_rhs = fsd_rhs.files();
 
-    bool cmp_fsize = files_lhs.size() == files_rhs.size();
+    if (files_lhs.size() != files_rhs.size()) {
+      return false;
+    }
     uint64_t fidx = 0;
     for (const auto& l_file : files_lhs) {
       if (l_file != files_rhs[fidx]) {
@@ -1229,9 +1231,9 @@ TEST(Substrait, SerializeRelation) {
       }
       fidx++;
     }
-    bool cmp_file_format = fds_lhs.format()->Equals(*fds_lhs.format());
-    bool cmp_file_system = fds_lhs.filesystem()->Equals(fds_rhs.filesystem());
-    return cmp_fsize && cmp_file_format && cmp_file_system;
+    bool cmp_file_format = fsd_lhs.format()->Equals(*fsd_lhs.format());
+    bool cmp_file_system = fsd_lhs.filesystem()->Equals(fsd_rhs.filesystem());
+    return cmp_file_format && cmp_file_system;
   };
 
   auto scan_option_comparator = [dataset_comparator](
