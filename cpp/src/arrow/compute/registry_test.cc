@@ -96,17 +96,14 @@ TEST_P(TestRegistry, Basics) {
   ASSERT_EQ(func, f2);
 }
 
-
 // Define a custom print since the default Googletest print trips Valgrind
 void PrintTo(const TestRegistryParams& param, std::ostream* os) {
   (*os) << "TestRegistryParams{"
-        << "get_num_funcs()=" << std::get<1>(param)()
-        << ", get_func_names()=";
+        << "get_num_funcs()=" << std::get<1>(param)() << ", get_func_names()=";
   for (std::string func_name : std::get<2>(param)()) {
     (*os) << func_name;
   }
-  (*os) << ", name=" << std::get<3>(param)
-        << "}";
+  (*os) << ", name=" << std::get<3>(param) << "}";
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -120,9 +117,7 @@ INSTANTIATE_TEST_SUITE_P(
               return FunctionRegistry::Make(GetFunctionRegistry());
             }),
             []() { return GetFunctionRegistry()->num_functions(); },
-            []() { return GetFunctionRegistry()->GetFunctionNames(); }, "nested")}
-    )
-);
+            []() { return GetFunctionRegistry()->GetFunctionNames(); }, "nested")}));
 
 TEST(TestRegistry, RegisterTempFunctions) {
   auto default_registry = GetFunctionRegistry();
