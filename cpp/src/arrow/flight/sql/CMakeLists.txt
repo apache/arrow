@@ -34,12 +34,6 @@ add_custom_command(OUTPUT ${FLIGHT_SQL_GENERATED_PROTO_FILES}
                    DEPENDS ${PROTO_DEPENDS})
 
 set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
-if(MSVC)
-  # Suppress warnings caused by Protobuf (casts, dll-interface)
-  set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES COMPILE_FLAGS
-                                                                             "/wd4267")
-endif()
-
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
 
 set(ARROW_FLIGHT_SQL_SRCS
@@ -69,6 +63,10 @@ add_arrow_lib(arrow_flight_sql
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 
+if(MSVC)
+  # Suppress warnings caused by Protobuf (casts)
+  set_source_files_properties(protocol_internal.cc PROPERTIES COMPILE_FLAGS "/wd4267")
+endif()
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_EXPORTING)
 endforeach()
