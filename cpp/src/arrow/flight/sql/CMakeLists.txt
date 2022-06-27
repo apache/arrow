@@ -36,8 +36,8 @@ add_custom_command(OUTPUT ${FLIGHT_SQL_GENERATED_PROTO_FILES}
 set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 if(MSVC)
   # Suppress warnings caused by Protobuf (casts, dll-interface)
-  set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES}
-                              PROPERTIES COMPILE_FLAGS "/wd4251 /wd4267")
+  set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES COMPILE_FLAGS
+                                                                             "/wd4267")
 endif()
 
 add_custom_target(flight_sql_protobuf_gen ALL DEPENDS ${FLIGHT_SQL_GENERATED_PROTO_FILES})
@@ -47,7 +47,7 @@ set(ARROW_FLIGHT_SQL_SRCS
     sql_info_internal.cc
     column_metadata.cc
     client.cc
-    "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.cc")
+    protocol_internal.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME

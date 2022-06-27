@@ -23,7 +23,7 @@
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
-#include "arrow/flight/sql/FlightSql.pb.h"
+#include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
