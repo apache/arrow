@@ -351,7 +351,7 @@ struct ExtractRelation {
       case ArrowRelationType::FILTER:
         return Status::NotImplemented("Filter operator not supported.");
       case ArrowRelationType::PROJECT:
-        return Status::NotImplemented("Project operator not supported.");
+        return AddProjectRelation(declaration);
       case ArrowRelationType::JOIN:
         return Status::NotImplemented("Join operator not supported.");
       case ArrowRelationType::AGGREGATE:
@@ -397,11 +397,40 @@ struct ExtractRelation {
     return Status::OK();
   }
 
+  Status AddProjectRelation(const compute::Declaration& declaration) {
+    auto project_rel = internal::make_unique<substrait::ProjectRel>();
+    const auto& project_node_options =
+        internal::checked_cast<const compute::ProjectNodeOptions&>(*declaration.options);
+
+    if (declaration.inputs.size() == 0) {
+      return Status::Invalid("Project node doesn't have an input.");
+    }
+
+    auto input_rel = GetRelationFromDeclaration(declaration, ext_set_);
+
+    for (const auto& expr : project_node_options.expressions) {
+      ARROW_ASSIGN_OR_RAISE(auto subs_expr, ToProto(expr, ext_set_));
+      project_rel->mutable_expressions()->AddAllocated(subs_expr.release());
+    }
+
+    project_rel->set_allocated_input(input_rel->release());
+    rel_->set_allocated_project(project_rel.release());
+    return Status::OK();
+  }
+
   Status operator()(const compute::Declaration& declaration) {
     return AddRelation(declaration);
   }
 
  private:
+  Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
+      const compute::Declaration declaration, ExtensionSet* ext_set) {
+    auto declr_input = declaration.inputs[0];
+    if (auto node = util::get_if<compute::ExecNode*>(&declr_input)) {
+      return Status::NotImplemented("Only support Plans written in Declaration format.");
+    }
+    return ToProto(util::get<compute::Declaration>(declr_input), ext_set);
+  }
   substrait::Rel* rel_;
   ExtensionSet* ext_set_;
 };

@@ -1343,5 +1343,118 @@ TEST(Substrait, SerializeRelationEndToEnd) {
 #endif
 }
 
+TEST(Substrait, SerializeProjectRelation) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ExtensionSet ext_set;
+  compute::ExecContext exec_context;
+
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto file_name =
+      arrow::internal::PlatformFilename::FromString(dir_string)->Join("alltypes_plain.parquet");
+
+  auto dummy_schema = schema({
+    field("id", int32()),
+    field("bool_col", boolean()),
+    field("tinyint_col", int32()),
+    field("smallint_col", int32()),
+    field("int_col", int32()),
+    field("bigint_col", int64()),
+    field("float_col", float32()),
+    field("date_string_col", binary()),
+    field("string_col", binary()),
+    field("timestamp_col", timestamp(TimeUnit::NANO)),
+  });
+  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+
+  std::vector<fs::FileInfo> files;
+  const std::string f_path = file_name->ToString();
+  ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+  files.push_back(std::move(f_file));
+
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            std::move(filesystem), std::move(files),
+                                            std::move(format), {}));
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+
+  auto options = std::make_shared<dataset::ScanOptions>();
+  options->projection = compute::project({}, {});
+
+  auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch> > sink_gen;
+
+  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
+
+  compute::Expression a_times_2 = compute::call("multiply", {compute::field_ref("bigint_col"), compute::literal(2)});
+  auto project_node_options = compute::ProjectNodeOptions{{a_times_2}};
+
+  auto scan_declaration = compute::Declaration({"scan", scan_node_options});
+  auto project_declaration = compute::Declaration({"project", project_node_options});
+  auto sink_declaration = compute::Declaration({"sink", sink_node_options});
+
+  auto declarations =
+      compute::Declaration::Sequence({scan_declaration, project_declaration, sink_declaration});
+
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
+  ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
+
+  ASSERT_OK(decl->Validate());
+
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      dummy_schema, std::move(sink_gen), exec_context.memory_pool());
+
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+
+  std::shared_ptr<arrow::Table> response_table;
+
+  ASSERT_OK_AND_ASSIGN(response_table,
+                       arrow::Table::FromRecordBatchReader(sink_reader.get()));
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_scan_rel,
+                       SerializeRelation(scan_declaration, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto deserialized_scan_decl,
+                       DeserializeRelation(*serialized_scan_rel, ext_set));
+
+  ASSERT_OK_AND_ASSIGN(auto serialized_proj_rel,
+                       SerializeRelation(project_declaration, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto deserialized_proj_decl,
+                       DeserializeRelation(*serialized_proj_rel, ext_set));
+
+
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch> > des_sink_gen;
+  auto des_sink_node_options = compute::SinkNodeOptions{&des_sink_gen};
+
+  auto des_sink_declaration = compute::Declaration({"sink", des_sink_node_options});
+
+  auto t_decls =
+      compute::Declaration::Sequence({deserialized_scan_decl, deserialized_proj_decl, des_sink_declaration});
+
+  ASSERT_OK_AND_ASSIGN(auto t_plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto t_decl, t_decls.AddToPlan(t_plan.get()));
+
+  ASSERT_OK(t_decl->Validate());
+
+  std::shared_ptr<arrow::RecordBatchReader> des_sink_reader =
+      compute::MakeGeneratorReader(dummy_schema, std::move(des_sink_gen),
+                                   exec_context.memory_pool());
+
+  ASSERT_OK(t_plan->Validate());
+  ASSERT_OK(t_plan->StartProducing());
+
+  std::shared_ptr<arrow::Table> des_response_table;
+
+  ASSERT_OK_AND_ASSIGN(des_response_table,
+                       arrow::Table::FromRecordBatchReader(des_sink_reader.get()));
+
+  ASSERT_TRUE(response_table->Equals(*des_response_table, true));
+#endif
+}
+
 }  // namespace engine
 }  // namespace arrow
