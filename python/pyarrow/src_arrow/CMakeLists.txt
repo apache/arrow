@@ -34,7 +34,11 @@ get_filename_component(PYARROW_SOURCE_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
 get_filename_component(ARROW_SOURCE ${PYTHON_SOURCE_DIR} DIRECTORY)
 set(ARROW_SOURCE_DIR "${ARROW_SOURCE}/cpp")
-set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules")
+# Add cmake_modules and lib/cmake/arrow folder to CMAKE_MODULE_PATH
+# TODO: remove lib/cmake/arrow folder as it should not be necessary as find_package(Arrow)
+# should load all the cmake variables (ex ARROW_DATASET)
+set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "${ARROW_SOURCE}/dist/lib/cmake/arrow")
+message(STATUS "CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}")
 
 set(ARROW_PYTHON_VERSION "9.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_PYTHON_BASE_VERSION "${ARROW_PYTHON_VERSION}")
@@ -46,6 +50,8 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
 endif()
 
 find_package(Arrow REQUIRED)
+# Loading ArrowOptions, they should be loaded by default with find_package(Arrow REQUIRED)
+include(ArrowOptions)
 find_package(Python3Alt 3.7 REQUIRED)
 
 # Needed due to
@@ -81,13 +87,14 @@ set(ARROW_PYTHON_SRCS
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
 
-# Set necessary components on (from arrow/cpp/CMakeLists.txt, end of the file)
-set(ARROW_COMPUTE ON)
-set(ARROW_CSV ON)
-set(ARROW_DATASET ON)
-set(ARROW_FILESYSTEM ON)
-set(ARROW_HDFS ON)
-set(ARROW_JSON ON)
+#
+# Arrow vs C PyArrow options
+#
+
+# Check all the options from Arrow and C PyArrow to be in line
+if(PYARROW_WITH_DATASET)
+  find_package(ArrowDataset REQUIRED)
+endif()
 
 if(ARROW_CSV)
   list(APPEND ARROW_PYTHON_SRCS csv.cc)
@@ -97,8 +104,18 @@ if(ARROW_FILESYSTEM)
   list(APPEND ARROW_PYTHON_SRCS filesystem.cc)
 endif()
 
-if(PARQUET_REQUIRE_ENCRYPTION)
-  list(APPEND ARROW_PYTHON_SRCS parquet_encryption.cc)
+if(PYARROW_WITH_PARQUET_ENCRYPTION)
+  if(PARQUET_REQUIRE_ENCRYPTION)
+    list(APPEND ARROW_PYTHON_SRCS parquet_encryption.cc)
+  else()
+    message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
+  endif()
+endif()
+
+if(PYARROW_WITH_HDFS)
+  if(NOT ARROW_HDFS)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_HDFS=ON")
+  endif()
 endif()
 
 # Link to arrow dependecies
@@ -219,8 +236,6 @@ if(ARROW_BUILD_STATIC AND MSVC)
   target_compile_definitions(arrow_python_static PUBLIC ARROW_STATIC)
 endif()
 
-set(ARROW_FLIGHT ON)
-
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
 
   find_package(ArrowFlight REQUIRED)
@@ -301,6 +316,7 @@ arrow_install_all_headers("arrow/python")
 
 # ----------------------------------------------------------------------
 
+set(ARROW_BUILD_TESTS off)
 if(ARROW_BUILD_TESTS)
   add_library(arrow_python_test_main STATIC util/test_main.cc)
 
