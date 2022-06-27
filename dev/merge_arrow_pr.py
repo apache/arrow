@@ -121,32 +121,6 @@ SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
 PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
 
-
-class ComparableVersion(object):
-
-    def __init__(self, jira_version):
-        self.jira_version = jira_version
-        version_name = jira_version.name
-        if "-" in version_name:
-            # Support pre-semver versioning like: JS-0.4.0
-            self.prefix, version_name = version_name.split("-", 1)
-        (major, minor, patch) = version_name.split(".")
-        self.major = int(major)
-        self.minor = int(minor)
-        self.patch = int(patch)
-
-    def __gt__(self, other):
-        if self.major != other.major:
-            return self.major > other.major
-        if self.minor != other.minor:
-            return self.minor > other.minor
-        if self.patch != other.patch:
-            return self.patch > other.patch
-
-    def __repr__(self):
-        return f"{self.major}.{self.minor}.{self.patch}"
-
-
 class JiraIssue(object):
 
     def __init__(self, jira_con, jira_id, project, cmd):
@@ -166,14 +140,15 @@ class JiraIssue(object):
 
     @classmethod
     def sort_versions(cls, versions):
-        # Use utility ComparableVersion class to sort JIRA text versions
-        comparable_versions = [
-            ComparableVersion(version) for version in versions
-        ]
-        comparable_versions = sorted(comparable_versions, reverse=True)
-        return [
-            comp_version.jira_version for comp_version in comparable_versions
-        ]
+        def version_tuple(x):
+            version = x.name
+            # Parquet versions are something like cpp-1.2.0
+            if "-" in version:
+                version = version.split("-")[1]
+            return tuple(int(_) for _ in version.split("."))
+        return sorted(versions,
+            key=version_tuple,
+            reverse=True)
 
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
@@ -181,9 +156,8 @@ class JiraIssue(object):
         unreleased_versions = [x for x in all_versions
                                if not x.raw['released']]
 
-        unreleased_versions = self.sort_versions(unreleased_versions)
-
         mainline_versions = self._filter_mainline_versions(unreleased_versions)
+        mainline_versions = self.sort_versions(mainline_versions)
 
         mainline_non_patch_versions = []
         for v in mainline_versions:
