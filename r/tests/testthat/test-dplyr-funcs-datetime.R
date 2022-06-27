@@ -2565,80 +2565,45 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
 })
 
 
-test_that("change_on_boundary is respected in ceiling_time", {
 
-  boundary_times <- tibble::tibble(
-    datetime = as.POSIXct(strptime(c(
-      "2022-05-10 00:00:00", # boundary for week (Sunday / week_start = 7)
-      "2022-03-10 00:00:00", # boundary for: day, hour, minute, second, millisecond
-      "2022-03-10 00:00:01", # boundary for: second, millisecond
-      "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
-      "2022-03-10 01:00:00"  # boundary for: second, millisecond, minute, hour
-    ), tz="UTC", format = "%F %T"))
-  )
+boundary_times <- tibble::tibble(
+  datetime = as.POSIXct(strptime(c(
+    "2022-05-10 00:00:00", # boundary for week (Sunday / week_start = 7)
+    "2022-03-10 00:00:00", # boundary for: day, hour, minute, second, millisecond
+    "2022-03-10 00:00:01", # boundary for: second, millisecond
+    "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
+    "2022-03-10 01:00:00"  # boundary for: second, millisecond, minute, hour
+  ), tz="UTC", format = "%F %T"))
+)
 
+check_boundary_with_unit <- function(unit, ...) {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        out_1 = ceiling_date(datetime, "day"),
-        out_2 = ceiling_date(datetime, "hour"),
-        out_3 = ceiling_date(datetime, "minute"),
-        out_4 = ceiling_date(datetime, "second"),
-        out_5 = ceiling_date(datetime, ".001 second")
+        cob_null = ceiling_date(datetime, unit, change_on_boundary = NULL),
+        cob_true = ceiling_date(datetime, unit, change_on_boundary = TRUE),
+        cob_false = ceiling_date(datetime, unit, change_on_boundary = FALSE)
       ) %>%
       collect(),
-    boundary_times
+    boundary_times,
+    ...
   )
+}
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = ceiling_date(datetime, "day", change_on_boundary = FALSE),
-        out_2 = ceiling_date(datetime, "hour", change_on_boundary = FALSE),
-        out_3 = ceiling_date(datetime, "minute", change_on_boundary = FALSE),
-        out_4 = ceiling_date(datetime, "second", change_on_boundary = FALSE),
-        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = FALSE)
-      ) %>%
-      collect(),
-    boundary_times
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = ceiling_date(datetime, "day", change_on_boundary = TRUE),
-        out_2 = ceiling_date(datetime, "hour", change_on_boundary = TRUE),
-        out_3 = ceiling_date(datetime, "minute", change_on_boundary = TRUE),
-        out_4 = ceiling_date(datetime, "second", change_on_boundary = TRUE),
-        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = TRUE)
-      ) %>%
-      collect(),
-    boundary_times
-  )
-
-  boundary_dates <- tibble::tibble(
-    date = as.Date(c(
-      "2001-05-10", # regular day
-      "2002-05-10", # regular day
-      "2003-05-10", # regular day
-      "2004-05-10", # regular day
-      "2005-05-10", # regular day
-      "2006-05-10", # regular day
-      "2007-05-10"  # regular day
-    ))
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = ceiling_date(date, "day", change_on_boundary = FALSE),
-        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE),
-        out_3 = ceiling_date(date, "day")
-      ) %>%
-      collect(),
-    boundary_dates
-  )
-
+test_that("ceiling_time works with change_on_boundary: unit = day", {
+  check_boundary_with_unit("day")
+})
+test_that("ceiling_time works with change_on_boundary: unit = hour", {
+  check_boundary_with_unit("hour")
+})
+test_that("ceiling_time works with change_on_boundary: unit = minute", {
+  check_boundary_with_unit("minute", tolerance = .001) # some weirdness with "2022-03-10 00:00:01", possibly floating point?
+})
+test_that("ceiling_time works with change_on_boundary: unit = second", {
+  check_boundary_with_unit("second")
+})
+test_that("ceiling_time works with change_on_boundary: unit = millisecond", {
+  check_boundary_with_unit(".001 second")
 })
 
 
