@@ -121,6 +121,7 @@ SUPPORTED_PROJECTS = ['ARROW', 'PARQUET']
 PR_TITLE_REGEXEN = [(project, re.compile(r'^(' + project + r'-[0-9]+)\b.*$'))
                     for project in SUPPORTED_PROJECTS]
 
+
 class JiraIssue(object):
 
     def __init__(self, jira_con, jira_id, project, cmd):
@@ -146,9 +147,7 @@ class JiraIssue(object):
             if "-" in version:
                 version = version.split("-")[1]
             return tuple(int(_) for _ in version.split("."))
-        return sorted(versions,
-            key=version_tuple,
-            reverse=True)
+        return sorted(versions, key=version_tuple, reverse=True)
 
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
