@@ -42,10 +42,6 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 # Default is build from source, not download a binary
 build_ok <- !env_is("LIBARROW_BUILD", "false")
-# For LIBARROW_BINARY we support "true" or the name of the OS to use to
-# locate the appropriate binary (e.g., 'ubuntu-18.04'). When NOT_CRAN=true, and
-# LIBARROW_BINARY is unset, configure script sets LIBARROW_BINARY=true.
-binary_ok <- !env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", "")
 
 # Check if we're doing an offline build.
 # (Note that cmake will still be downloaded if necessary
@@ -60,53 +56,159 @@ download_ok <- !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://gi
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
 
-download_binary <- function(os = identify_os()) {
+download_binary <- function(lib) {
   libfile <- tempfile()
-  if (!is.null(os)) {
-    # See if we can map this os-version to one we have binaries for
-    os <- find_available_binary(os)
-    binary_url <- paste0(arrow_repo, "bin/", os, "/arrow-", VERSION, ".zip")
-    if (try_download(binary_url, libfile)) {
-      cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
-      if (!identical(os, "centos-7")) {
-        # centos-7 uses gcc 4.8 so the binary doesn't have ARROW_S3=ON
-        # or ARROW_GCS=ON but the others do
-        # TODO: actually check for system requirements?
-        cat("**** Binary package requires libcurl and openssl\n")
-        cat("**** If installation fails, retry after installing those system requirements\n")
-      }
-    } else {
-      cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, os))
-      libfile <- NULL
-    }
+  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
+  if (try_download(binary_url, libfile)) {
+    cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", lib))
   } else {
+    cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, lib))
     libfile <- NULL
   }
   libfile
 }
 
 # Function to figure out which flavor of binary we should download, if at all.
-# By default (unset or "FALSE"), it will not download a precompiled library,
-# but you can override this by setting the env var LIBARROW_BINARY to:
-# * `TRUE` (not case-sensitive), to try to discover your current OS, or
-# * some other string, presumably a related "distro-version" that has binaries
-#   built that work for your OS
-identify_os <- function(os = Sys.getenv("LIBARROW_BINARY")) {
-  if (tolower(os) %in% c("", "false")) {
-    # Env var says not to download a binary
-    return(NULL)
-  } else if (!identical(tolower(os), "true")) {
-    # Env var provided an os-version to use--maybe you're on Ubuntu 18.10 but
-    # we only build for 18.04 and that's fine--so use what the user set
-    return(os)
+# LIBARROW_BINARY controls the behavior. If unset, it will determine a course
+# of action based on the current system. Other values you can set it to:
+# * "FALSE" (not case-sensitive), to
+# * "TRUE" (not case-sensitive), to try to discover your current OS, or
+# * some other string: a "distro-version" that corresponds to a binary that is
+#   available, to override what this function may determine by default.
+#   Possible values (also the potential return values of this function,
+#   along with `NULL`) are:
+#    * "centos-7" (gcc 4.8, no AWS/GCS support)
+#    * "ubuntu-18.04" (gcc 8, openssl 1)
+#    * "ubuntu-22.04" (openssl 3)
+identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
+  lib <- tolower(lib)
+  if (identical(lib, "")) {
+    # Not specified. Default is to find a binary on Ubuntu, CentOS/RHEL,
+    # but not elsewhere
+    # TODO: add a remote allowlist that we can add to
+    lib <- ifelse(any(grepl("ubuntu|centos|redhat", info$id)), "true", "false")
   }
 
-  linux <- distro()
-  if (is.null(linux)) {
-    cat("*** Unable to identify current OS/version\n")
+  if (identical(lib, "false")) {
+    # Do not download a binary
+    return(NULL)
+  } else if (!identical(lib, "true")) {
+    # Env var provided an os-version to use, to override our logic.
+    # TODO: validate that this exists? Current behavior is to try and fail,
+    # falling back to source build
+    return(lib)
+  } else {
+    # See if we can find a suitable binary
+    return(select_binary())
+  }
+}
+
+select_binary <- function(arch = tolower(Sys.info()[["machine"]]),
+                          compiler_version = compiler_version_string()) {
+  if (identical(arch, "x86_64")) {
+    # We only host x86 linux binaries today
+    is_gcc4 <- any(grepl("^g\\+\\+.*[^\\d.]4(\\.\\d){2}", compiler_version))
+    if (is_gcc4) {
+      return("centos-7")
+    } else {
+      # if (!has_libcurl()) {
+      #   # Exit: libcurl required for binaries
+      #   # TODO: message if !quietly
+      #   return(NULL)
+      # }
+
+      # openssl_version <- find_openssl_version()
+      # if (openssl_version < "1.0.2") {
+      #   # Exit: does not meet minimum version
+      #   # TODO: message if !quietly
+      #   return(NULL)
+      # } else if (openssl_version >= 3) {
+      #   return("ubuntu-22.04")
+      # } else {
+      #   return("ubuntu-18.04")
+      # }
+      errs <- compile_test_program()
+      determine_binary_from_stderr(err)
+    }
+  } else {
+    # No binary available for arch
+    NULL
+  }
+}
+
+determine_binary_from_stderr <- function(err) {
+  # TODO: also check compiler, standard library?
+  if (length(errs) == 0) {
+    # We found libcudf and openssl > 1.0.2, and openssl is < 3.0
+    return("ubuntu-18.04")
+  } else if (any(grepl("Using OpenSSL version 3", errs))) {
+    return("ubuntu-22.04")
+  } else {
+    if (any(grepl("#include <curl/curl.h>", errs, fixed = TRUE))) {
+      # Message: libcurl not found
+    }
+    if (any(grepl("#include <openssl/opensslv.h>", errs, fixed = TRUE))) {
+      # Message: openssl not found
+    }
+    if (any(grepl("OpenSSL version too old", errs, fixed = TRUE))) {
+      # Message: openssl found but too old
+    }
     return(NULL)
   }
-  paste(linux$id, linux$short_version, sep = "-")
+}
+
+compiler_version_string <- function(compiler = R_CMD_config("CXX11")) {
+  system(paste(compiler, "--version"), intern = TRUE)
+}
+
+has_libcurl <- function() {
+  # Compare to https://github.com/jeroen/curl/blob/e7502d27c7cff17baa0930c3327f84ae4918aa24/configure#L49
+  system('echo "#include <curl/curl.h>" | `R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc - >/dev/null 2>&1') == 0
+}
+
+
+
+# include <openssl/opensslv.h>
+# if OPENSSL_VERSION_NUMBER < 0x10002000L
+# error OpenSSL version too old
+# endif
+
+# system('echo "#include <curl/curl.h>
+# #include <openssl/opensslv.h>
+# #if OPENSSL_VERSION_NUMBER < 0x10002000L
+# #error OpenSSL version too old
+# #endif
+# #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+# #error Using OpenSSL version 3
+# #endif" | `R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc -I`brew --prefix`/opt/openssl/include -', intern = TRUE)
+
+# # TODO:
+# # * Factor this into something we can test its behavior (compiling, erroring)
+# # * Handle brew include dir (if env var set, check dir exists, etc.)
+# # * Delete find_openssl_version
+# system2("echo", '"#include <openssl/opensslv.h>
+# #if OPENSSL_VERSION_NUMBER < 0x10002000L
+# #error OpenSSL version too old
+# #endif
+# #if OPENSSL_VERSION_NUMBER > 0x30000000L
+# #error Using OpenSSL version 3
+# #endif" | `R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc -I`brew --prefix`/opt/openssl/include -', stdout = FALSE, stderr = TRUE)
+
+find_openssl_version <- function() {
+  # This should return a packageVersion
+  # TODO: don't require cmake; or pull cmake download up here too
+  cmake <- find_cmake()
+  if (!is.null(cmake)) {
+    has_openssl <- cmake_find_package("OpenSSL", "1.0.2", list(CMAKE = cmake))
+    if (has_openssl) {
+      if (cmake_find_package("OpenSSL", "3.0", list(CMAKE = cmake))) {
+        return(packageVersion("3.0"))
+      } else {
+        return(packageVersion("1.0.2"))
+      }
+    }
+  }
+  return(0)
 }
 
 #### start distro ####
@@ -262,6 +364,10 @@ env_vars_as_string <- function(env_var_list) {
   env_var_string
 }
 
+R_CMD_config <- function(var) {
+  tools::Rcmd(paste("config", var), stdout = TRUE)
+}
+
 build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
@@ -291,9 +397,6 @@ build_libarrow <- function(src_dir, dst_dir) {
   }
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
-  R_CMD_config <- function(var) {
-    tools::Rcmd(paste("config", var), stdout = TRUE)
-  }
   env_var_list <- c(
     SOURCE_DIR = src_dir,
     BUILD_DIR = build_dir,
@@ -356,11 +459,7 @@ build_libarrow <- function(src_dir, dst_dir) {
 }
 
 ensure_cmake <- function() {
-  cmake <- find_cmake(c(
-    Sys.getenv("CMAKE"),
-    Sys.which("cmake"),
-    Sys.which("cmake3")
-  ))
+  cmake <- find_cmake()
 
   if (is.null(cmake)) {
     # If not found, download it
@@ -368,7 +467,7 @@ ensure_cmake <- function() {
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.21.4")
     if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
       postfix <- "-macos-universal.tar.gz"
-    } else if (tolower(Sys.info()[["machine"]]) == "arm64") {
+    } else if (tolower(Sys.info()[["machine"]]) %in% c("arm64", "aarch64")) {
       postfix <- "-linux-aarch64.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) == "x86_64") {
       postfix <- "-linux-x86_64.tar.gz"
@@ -405,7 +504,12 @@ ensure_cmake <- function() {
   cmake
 }
 
-find_cmake <- function(paths, version_required = "3.10") {
+find_cmake <- function(paths = c(
+                         Sys.getenv("CMAKE"),
+                         Sys.which("cmake"),
+                         Sys.which("cmake3")
+                       ),
+                       version_required = "3.10") {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
   # version_required should be a string or packageVersion; numeric version
   # can be misleading (e.g. 3.10 is actually 3.1)
@@ -565,7 +669,7 @@ with_cloud_support <- function(env_var_list) {
       arrow_gcs <- FALSE
     } else if (!cmake_find_package("CURL", NULL, env_var_list)) {
       # curl on macos should be installed, so no need to alter this for macos
-      print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb")
+      print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
     } else if (!cmake_find_package("OpenSSL", "1.0.2", env_var_list)) {
@@ -619,13 +723,17 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
 
 #####
 
-if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
+if (!exists("TESTING") && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
   # don't need to do anything. Otherwise,
   # (1) Look for a prebuilt binary for this version
   bin_file <- src_dir <- NULL
-  if (download_ok && binary_ok) {
-    bin_file <- download_binary()
+  if (download_ok) {
+    binary_flavor <- identify_binary()
+    if (!is.null(binary_flavor)) {
+      # The env vars say we can, and we've determined a lib that should work
+      bin_file <- download_binary(binary_flavor)
+    }
   }
   if (!is.null(bin_file)) {
     # Extract them
