@@ -31,6 +31,7 @@
   Instead of these, use the `read_ipc_file()` and `write_ipc_file()` for IPC files, or,
   `read_ipc_stream()` and `write_ipc_stream()` for IPC streams.
 * `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps.
+* added `lubridate::qday()` (day of quarter)
 
 # arrow 8.0.0
 

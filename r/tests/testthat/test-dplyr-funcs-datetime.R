@@ -574,6 +574,15 @@ test_that("extract yday from timestamp", {
   )
 })
 
+test_that("extract qday from timestamp", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = qday(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract hour from timestamp", {
   compare_dplyr_binding(
     .input %>%
@@ -785,6 +794,15 @@ test_that("extract yday from date", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = yday(date)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract qday from date", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = qday(date)) %>%
       collect(),
     test_df
   )

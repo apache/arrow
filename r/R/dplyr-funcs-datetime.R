@@ -209,6 +209,15 @@ register_bindings_datetime_components <- function() {
     build_expr("month", x)
   })
 
+  register_binding("lubridate::qday", function(x) {
+    floored_x <- Expression$create("floor_temporal", x, options = list(unit = 9L, calendar_based_origin = FALSE))
+    days_between <- Expression$create("days_between", floored_x, x)
+    if (call_binding("is.Date", x)) {
+        return(Expression$create("add", days_between, Expression$scalar(1L)))
+    }
+    days_between
+  })
+
   register_binding("lubridate::am", function(x) {
     hour <- Expression$create("hour", x)
     hour < 12
