@@ -249,9 +249,11 @@ class SQLiteFlightSqlServer::Impl {
   std::string GenerateRandomString() {
     uint32_t length = 16;
 
-    std::uniform_int_distribution<char> dist('0', 'z');
+    // MSVC doesn't support char types here
+    std::uniform_int_distribution<uint16_t> dist(static_cast<uint16_t>('0'),
+                                                 static_cast<uint16_t>('z'));
     std::string ret(length, 0);
-    auto get_random_char = [&]() { return dist(gen_); };
+    auto get_random_char = [&]() { return static_cast<char>(dist(gen_)); };
     std::generate_n(ret.begin(), length, get_random_char);
     return ret;
   }
