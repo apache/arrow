@@ -597,6 +597,55 @@ struct Sign {
   }
 };
 
+struct Min {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return (left < right) ? left : right;
+  }
+};
+struct Max {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return (left > right) ? left : right;
+  }
+};
+
+template <typename CType>
+struct AntiExtrema {
+  static constexpr CType anti_min() { return std::numeric_limits<CType>::max(); }
+  static constexpr CType anti_max() { return std::numeric_limits<CType>::min(); }
+};
+
+template <>
+struct AntiExtrema<bool> {
+  static constexpr bool anti_min() { return true; }
+  static constexpr bool anti_max() { return false; }
+};
+
+template <>
+struct AntiExtrema<float> {
+  static constexpr float anti_min() { return std::numeric_limits<float>::infinity(); }
+  static constexpr float anti_max() { return -std::numeric_limits<float>::infinity(); }
+};
+
+template <>
+struct AntiExtrema<double> {
+  static constexpr double anti_min() { return std::numeric_limits<double>::infinity(); }
+  static constexpr double anti_max() { return -std::numeric_limits<double>::infinity(); }
+};
+
+template <>
+struct AntiExtrema<Decimal128> {
+  static constexpr Decimal128 anti_min() { return BasicDecimal128::GetMaxSentinel(); }
+  static constexpr Decimal128 anti_max() { return BasicDecimal128::GetMinSentinel(); }
+};
+
+template <>
+struct AntiExtrema<Decimal256> {
+  static constexpr Decimal256 anti_min() { return BasicDecimal256::GetMaxSentinel(); }
+  static constexpr Decimal256 anti_max() { return BasicDecimal256::GetMinSentinel(); }
+};
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

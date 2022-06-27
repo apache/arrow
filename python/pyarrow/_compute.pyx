@@ -1852,6 +1852,62 @@ class CumulativeProductOptions(_CumulativeProductOptions):
         self._set_options(start, skip_nulls)
 
 
+cdef class _CumulativeMinOptions(FunctionOptions):
+    def _set_options(self, start, skip_nulls):
+        if not isinstance(start, Scalar):
+            try:
+                start = lib.scalar(start)
+            except Exception:
+                _raise_invalid_function_option(
+                    start, "`start` type for CumulativeMinOptions", TypeError)
+
+        self.wrapped.reset(new CCumulativeMinOptions((<Scalar> start).unwrap(), skip_nulls))
+
+
+class CumulativeMinOptions(_CumulativeMinOptions):
+    """
+    Options for `cumulative_min` function.
+
+    Parameters
+    ----------
+    start : Scalar, default None
+        Starting value for min computation
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=None, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
+cdef class _CumulativeMaxOptions(FunctionOptions):
+    def _set_options(self, start, skip_nulls):
+        if not isinstance(start, Scalar):
+            try:
+                start = lib.scalar(start)
+            except Exception:
+                _raise_invalid_function_option(
+                    start, "`start` type for CumulativeMaxOptions", TypeError)
+
+        self.wrapped.reset(new CCumulativeMaxOptions((<Scalar> start).unwrap(), skip_nulls))
+
+
+class CumulativeMaxOptions(_CumulativeMaxOptions):
+    """
+    Options for `cumulative_max` function.
+
+    Parameters
+    ----------
+    start : Scalar, default None
+        Starting value for max computation
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=None, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):
         self.wrapped.reset(new CArraySortOptions(

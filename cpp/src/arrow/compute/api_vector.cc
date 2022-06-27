@@ -166,6 +166,12 @@ static auto kCumulativeProductOptionsType =
         DataMember("start", &CumulativeProductOptions::start),
         DataMember("skip_nulls", &CumulativeProductOptions::skip_nulls),
         DataMember("check_overflow", &CumulativeProductOptions::check_overflow));
+static auto kCumulativeMinOptionsType = GetFunctionOptionsType<CumulativeMinOptions>(
+    DataMember("start", &CumulativeMinOptions::start),
+    DataMember("skip_nulls", &CumulativeMinOptions::skip_nulls));
+static auto kCumulativeMaxOptionsType = GetFunctionOptionsType<CumulativeMaxOptions>(
+    DataMember("start", &CumulativeMaxOptions::start),
+    DataMember("skip_nulls", &CumulativeMaxOptions::skip_nulls));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
@@ -235,6 +241,26 @@ CumulativeProductOptions::CumulativeProductOptions(std::shared_ptr<Scalar> start
       check_overflow(check_overflow) {}
 constexpr char CumulativeProductOptions::kTypeName[];
 
+CumulativeMinOptions::CumulativeMinOptions(bool skip_nulls)
+    : FunctionOptions(internal::kCumulativeMinOptionsType), skip_nulls(skip_nulls) {}
+CumulativeMinOptions::CumulativeMinOptions(double start, bool skip_nulls)
+    : CumulativeMinOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
+CumulativeMinOptions::CumulativeMinOptions(std::shared_ptr<Scalar> start, bool skip_nulls)
+    : FunctionOptions(internal::kCumulativeMinOptionsType),
+      start(std::move(start)),
+      skip_nulls(skip_nulls) {}
+constexpr char CumulativeMinOptions::kTypeName[];
+
+CumulativeMaxOptions::CumulativeMaxOptions(bool skip_nulls)
+    : FunctionOptions(internal::kCumulativeMaxOptionsType), skip_nulls(skip_nulls) {}
+CumulativeMaxOptions::CumulativeMaxOptions(double start, bool skip_nulls)
+    : CumulativeMaxOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
+CumulativeMaxOptions::CumulativeMaxOptions(std::shared_ptr<Scalar> start, bool skip_nulls)
+    : FunctionOptions(internal::kCumulativeMaxOptionsType),
+      start(std::move(start)),
+      skip_nulls(skip_nulls) {}
+constexpr char CumulativeMaxOptions::kTypeName[];
+
 RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
                          RankOptions::Tiebreaker tiebreaker)
     : FunctionOptions(internal::kRankOptionsType),
@@ -254,6 +280,8 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeProductOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeMinOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeMaxOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
 }
 }  // namespace internal
@@ -397,16 +425,27 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
 
 Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options,
                             ExecContext* ctx) {
-  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
-  return CallFunction(func_name, {Datum(values)}, &options, ctx);
+  return CallFunction(
+      options.check_overflow ? "cumulative_sum_checked" : "cumulative_sum",
+      {Datum(values)}, &options, ctx);
 }
 
 Result<Datum> CumulativeProduct(const Datum& values,
                                 const CumulativeProductOptions& options,
                                 ExecContext* ctx) {
-  auto func_name =
-      (options.check_overflow) ? "cumulative_product_checked" : "cumulative_product";
-  return CallFunction(func_name, {Datum(values)}, &options, ctx);
+  return CallFunction(
+      options.check_overflow ? "cumulative_product_checked" : "cumulative_product",
+      {Datum(values)}, &options, ctx);
+}
+
+Result<Datum> CumulativeMin(const Datum& values, const CumulativeMinOptions& options,
+                            ExecContext* ctx) {
+  return CallFunction("cumulative_min", {Datum(values)}, &options, ctx);
+}
+
+Result<Datum> CumulativeMax(const Datum& values, const CumulativeMaxOptions& options,
+                            ExecContext* ctx) {
+  return CallFunction("cumulative_max", {Datum(values)}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------

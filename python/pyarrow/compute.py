@@ -35,6 +35,8 @@ from pyarrow._compute import (  # noqa
     CountOptions,
     CumulativeSumOptions,
     CumulativeProductOptions,
+    CumulativeMinOptions,
+    CumulativeMaxOptions,
     DayOfWeekOptions,
     DictionaryEncodeOptions,
     ElementWiseAggregateOptions,

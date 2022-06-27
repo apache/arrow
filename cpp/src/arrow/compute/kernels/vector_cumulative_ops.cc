@@ -33,9 +33,10 @@ namespace internal {
 
 namespace {
 
-template <typename OptionsType>
+template <typename OptionsType, typename ArrowType>
 struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
-  using State = CumulativeOptionsWrapper<OptionsType>;
+  using State = CumulativeOptionsWrapper<OptionsType, ArrowType>;
+  using CType = typename TypeTraits<ArrowType>::CType;
 
   explicit CumulativeOptionsWrapper(OptionsType options)
       : OptionsWrapper<OptionsType>(std::move(options)) {}
@@ -50,6 +51,14 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
 
     const auto& start = options->start;
     if (!start || !start->is_valid) {
+      if (options->is_minmax) {
+        auto new_scalar = std::make_shared<NumericScalar<ArrowType>>(
+            (options->is_max) ? AntiExtrema<CType>::anti_max()
+                              : AntiExtrema<CType>::anti_min());
+
+        OptionsType new_options(new_scalar, options->skip_nulls);
+        return ::arrow::internal::make_unique<State>(new_options);
+      }
       return Status::Invalid("Cumulative `start` option must be non-null and valid");
     }
 
@@ -119,7 +128,7 @@ struct Accumulator {
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeKernel {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
+    const auto& options = CumulativeOptionsWrapper<OptionsType, OutType>::Get(ctx);
     Accumulator<OutType, ArgType, Op, OptionsType> accumulator(ctx);
     accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start));
     accumulator.skip_nulls = options.skip_nulls;
@@ -144,7 +153,7 @@ struct CumulativeKernel {
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeKernelChunked {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
+    const auto& options = CumulativeOptionsWrapper<OptionsType, OutType>::Get(ctx);
     Accumulator<OutType, ArgType, Op, OptionsType> accumulator(ctx);
     accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start));
     accumulator.skip_nulls = options.skip_nulls;
@@ -197,7 +206,39 @@ const FunctionDoc cumulative_product_checked_doc{
      "function \"cumulative_product\"."),
     {"values"},
     "CumulativeProductOptions"};
+
+const FunctionDoc cumulative_min_doc{
+    "Compute the cumulative min over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative min computed over `values`."),
+    {"values"},
+    "CumulativeMinOptions"};
+
+const FunctionDoc cumulative_max_doc{
+    "Compute the cumulative max over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative max computed over `values`."),
+    {"values"},
+    "CumulativeMaxOptions"};
 }  // namespace
+
+template <typename Op, typename OptionsType, typename ArrowType>
+void AddCumulativeVectorKernel(std::shared_ptr<VectorFunction>& func) {
+  VectorKernel kernel;
+  auto ty = TypeTraits<ArrowType>::type_singleton();
+
+  kernel.can_execute_chunkwise = false;
+  kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
+  kernel.signature =
+      KernelSignature::Make({InputType::Array(ty)}, OutputType(ValueDescr(ty)));
+  kernel.exec =
+      ArithmeticExecFromOp<CumulativeKernel, Op, ArrayKernelExec, OptionsType>(ty);
+  kernel.exec_chunked = ArithmeticExecFromOp<CumulativeKernelChunked, Op,
+                                             VectorKernel::ChunkedExec, OptionsType>(ty);
+  kernel.init = CumulativeOptionsWrapper<OptionsType, ArrowType>::Init;
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
 
 template <typename Op, typename OptionsType>
 void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string func_name,
@@ -206,24 +247,16 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
   auto func =
       std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
 
-  std::vector<std::shared_ptr<DataType>> types;
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
-
-  for (const auto& ty : types) {
-    VectorKernel kernel;
-    kernel.can_execute_chunkwise = false;
-    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
-    kernel.signature =
-        KernelSignature::Make({InputType::Array(ty)}, OutputType(ValueDescr(ty)));
-    kernel.exec =
-        ArithmeticExecFromOp<CumulativeKernel, Op, ArrayKernelExec, OptionsType>(ty);
-    kernel.exec_chunked =
-        ArithmeticExecFromOp<CumulativeKernelChunked, Op, VectorKernel::ChunkedExec,
-                             OptionsType>(ty);
-    kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
-  }
+  AddCumulativeVectorKernel<Op, OptionsType, UInt8Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, UInt16Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, UInt32Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, UInt64Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, Int8Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, Int16Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, Int32Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, Int64Type>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, FloatType>(func);
+  AddCumulativeVectorKernel<Op, OptionsType, DoubleType>(func);
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -238,6 +271,11 @@ void RegisterVectorCumulativeOps(FunctionRegistry* registry) {
       registry, "cumulative_product", cumulative_product_doc);
   MakeVectorCumulativeFunction<MultiplyChecked, CumulativeProductOptions>(
       registry, "cumulative_product_checked", cumulative_product_checked_doc);
+
+  MakeVectorCumulativeFunction<Min, CumulativeMinOptions>(registry, "cumulative_min",
+                                                          cumulative_min_doc);
+  MakeVectorCumulativeFunction<Max, CumulativeMaxOptions>(registry, "cumulative_max",
+                                                          cumulative_max_doc);
 }
 
 }  // namespace internal

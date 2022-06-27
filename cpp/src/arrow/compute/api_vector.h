@@ -235,6 +235,8 @@ class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
   static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
 
+  const bool is_minmax = false;
+
   /// Optional starting value for cumulative sum
   std::shared_ptr<Scalar> start;
 
@@ -256,6 +258,8 @@ class ARROW_EXPORT CumulativeProductOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "CumulativeProductOptions";
   static CumulativeProductOptions Defaults() { return CumulativeProductOptions(); }
 
+  const bool is_minmax = false;
+
   /// Optional starting value for cumulative product
   std::shared_ptr<Scalar> start;
 
@@ -265,6 +269,46 @@ class ARROW_EXPORT CumulativeProductOptions : public FunctionOptions {
 
   /// When true, returns an Invalid Status when overflow is detected
   bool check_overflow = false;
+};
+
+/// \brief Options for cumulative min functions
+class ARROW_EXPORT CumulativeMinOptions : public FunctionOptions {
+ public:
+  explicit CumulativeMinOptions(bool skip_nulls = false);
+  explicit CumulativeMinOptions(double start, bool skip_nulls = false);
+  explicit CumulativeMinOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
+  static constexpr char const kTypeName[] = "CumulativeMinOptions";
+  static CumulativeMinOptions Defaults() { return CumulativeMinOptions(); }
+
+  const bool is_minmax = true;
+  const bool is_max = false;
+
+  /// Optional starting value for cumulative min
+  std::shared_ptr<Scalar> start;
+
+  /// If true, nulls in the input are ignored and produce a corresponding null output.
+  /// When false, the first null encountered is propagated through the remaining output.
+  bool skip_nulls = false;
+};
+
+/// \brief Options for cumulative max functions
+class ARROW_EXPORT CumulativeMaxOptions : public FunctionOptions {
+ public:
+  explicit CumulativeMaxOptions(bool skip_nulls = false);
+  explicit CumulativeMaxOptions(double start, bool skip_nulls = false);
+  explicit CumulativeMaxOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
+  static constexpr char const kTypeName[] = "CumulativeMaxOptions";
+  static CumulativeMaxOptions Defaults() { return CumulativeMaxOptions(); }
+
+  const bool is_minmax = true;
+  const bool is_max = true;
+
+  /// Optional starting value for cumulative max
+  std::shared_ptr<Scalar> start;
+
+  /// If true, nulls in the input are ignored and produce a corresponding null output.
+  /// When false, the first null encountered is propagated through the remaining output.
+  bool skip_nulls = false;
 };
 
 /// @}
@@ -611,6 +655,18 @@ ARROW_EXPORT
 Result<Datum> CumulativeProduct(
     const Datum& values,
     const CumulativeProductOptions& options = CumulativeProductOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<Datum> CumulativeMin(
+    const Datum& values,
+    const CumulativeMinOptions& options = CumulativeMinOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<Datum> CumulativeMax(
+    const Datum& values,
+    const CumulativeMaxOptions& options = CumulativeMaxOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
