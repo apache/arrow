@@ -1000,9 +1000,8 @@ const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_leng
                             const char* pattern_name, int32_t pattern_length,
                             int32_t* out_len) {
   int64_t result = castDATE_utf8(context, date, date_length);
-  return date_trunc_timestamp_utf8(context, result,
-                                   reinterpret_cast<const char*>(pattern_name),
-                                   pattern_length, out_len);
+  return date_trunc_timestamp_utf8(context, result, pattern_name, pattern_length,
+                                   out_len);
 }
 
 #define DATE_TRUNC(TYPE)                                                               \
@@ -1017,16 +1016,19 @@ const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_leng
       return "";                                                                       \
     }                                                                                  \
                                                                                        \
+    EpochTimePoint tp(date);                                                           \
+    const auto& dayWithoutHoursAndSec = tp.ClearTimeOfDay();                           \
+    int64_t millis;                                                                    \
     bool foundPattern = false;                                                         \
     for (int n = 0; n <= 2; n++) {                                                     \
       if (pattern_length == PARTTERN_MONTH_LEN[n] &&                                   \
           memcmp(pattern_name, PATTERN_MONTH[n], PARTTERN_MONTH_LEN[n]) == 0) {        \
-        date = date_trunc_Month_timestamp(date);                                       \
+        millis = date_trunc_Month_timestamp(dayWithoutHoursAndSec.MillisSinceEpoch()); \
         foundPattern = true;                                                           \
         break;                                                                         \
       } else if (pattern_length == PARTTERN_YEAR_LEN[n] &&                             \
                  memcmp(pattern_name, PATTERN_YEAR[n], PARTTERN_YEAR_LEN[n]) == 0) {   \
-        date = date_trunc_Year_timestamp(date);                                        \
+        millis = date_trunc_Year_timestamp(dayWithoutHoursAndSec.MillisSinceEpoch());  \
         foundPattern = true;                                                           \
         break;                                                                         \
       }                                                                                \
@@ -1039,7 +1041,7 @@ const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_leng
       return "";                                                                       \
     }                                                                                  \
                                                                                        \
-    return castVARCHAR_timestamp_int64(context, date, 10L, out_len);                   \
+    return castVARCHAR_timestamp_int64(context, millis, 10L, out_len);                 \
   }
 
 DATE_TYPES(DATE_TRUNC);
