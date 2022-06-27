@@ -2193,6 +2193,8 @@ cdef class Expression(_Weakrefable):
             Type to cast array to.
         safe : boolean, default True
             Whether to check for conversion errors such as overflow.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
@@ -2205,7 +2207,7 @@ cdef class Expression(_Weakrefable):
                              "value for 'options'")
 
         if options is None:
-            ensure_type(type, allow_none=False)
+            type = ensure_type(type, allow_none=False)
             if safe is False:
                 options = CastOptions.unsafe(type)
             else:
