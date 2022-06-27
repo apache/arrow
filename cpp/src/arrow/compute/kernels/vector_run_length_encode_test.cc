@@ -91,11 +91,11 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
 
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
-  auto encoded_array = encoded_datum.make_array();
-  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded_array->Slice(1)));
+  auto encoded = encoded_datum.array();
+  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(encoded->Slice(1, encoded->length - 1)));
   auto decoded_array = decoded_datum.make_array();
-  ASSERT_OK(encoded_array->ValidateFull());
-  ASSERT_TRUE(encoded_array->Equals(data.input->Slice(1)));
+  ASSERT_OK(decoded_array->ValidateFull());
+  ASSERT_TRUE(decoded_array->Equals(data.input->Slice(1)));
 }
 
 // TODO: test offset in child array
