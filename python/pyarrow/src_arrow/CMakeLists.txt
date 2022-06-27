@@ -223,12 +223,15 @@ set(ARROW_FLIGHT ON)
 
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
 
+  find_package(ArrowFlight REQUIRED)
   find_package(gRPC CONFIG REQUIRED)
+  include_directories("${ARROW_SOURCE_DIR}/src" "${ARROW_SOURCE_DIR}/build/src")
 
-  # We don't directly use symbols from the reflection library, so
-  # ensure the linker still links to it
+  # Using arrow_flight_shared, see example
+  # https://github.com/apache/arrow/blob/7a0f00c16e084d194ae53d209b33b809cfc8f2d5/cpp/examples/arrow/CMakeLists.txt
+  set(ARROW_GRPC_USE_SHARED ON)
   set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
-                                -Wl,--as-needed)
+                                  -Wl,--as-needed)
 
   set(FLIGHT_PROTO_PATH "${ARROW_SOURCE}/format")
   set(FLIGHT_PROTO "${ARROW_SOURCE}/format/Flight.proto")
@@ -251,9 +254,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
                             "${FLIGHT_PROTO}")
 
   set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
-
   add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
-  include_directories(${ARROW_SOURCE_DIR}/src ${ARROW_SOURCE_DIR}/build/src)
 
   add_arrow_lib(arrow_python_flight
                 CMAKE_PACKAGE_NAME
