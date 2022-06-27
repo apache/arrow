@@ -144,7 +144,9 @@ COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_azurite.sh /usr/local
+RUN \
+  chmod +x /arrow/ci/scripts/install_azurite.sh && \
+  /arrow/ci/scripts/install_azurite.sh /usr/local
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages

@@ -27,7 +27,8 @@ elif [[ "$OSTYPE" == "msys" ]]; then
   choco install nodejs.install
   npm install -g azurite
 else
-  apt-get -y install nodejs
+  apt-get update
+  apt-get -y install npm
   npm install -g azurite
   which azurite
 fi

@@ -113,7 +113,9 @@ COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_azurite.sh /usr/local
+RUN \
+  chmod +x /arrow/ci/scripts/install_azurite.sh && \
+  /arrow/ci/scripts/install_azurite.sh /usr/local
 
 COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ceph.sh
