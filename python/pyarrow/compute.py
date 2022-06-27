@@ -376,9 +376,7 @@ def cast(arr, target_type=None, safe=None, options=None):
                          " or pass a value for 'options'")
 
     if options is None:
-        if target_type is None:
-            raise ValueError(
-                "If no 'options' are passed, a 'target_type' must be passed")
+        pa.types.lib.ensure_type(target_type)
         if safe is False:
             options = CastOptions.unsafe(target_type)
         else:

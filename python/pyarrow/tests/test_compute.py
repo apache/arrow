@@ -1705,7 +1705,7 @@ def test_cast():
     arr = pa.array([1, 2, 3, 4], type='int64')
     options = pc.CastOptions(pa.int8())
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         pc.cast(arr, target_type=None)
 
     with pytest.raises(ValueError):

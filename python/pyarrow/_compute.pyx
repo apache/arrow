@@ -2205,9 +2205,7 @@ cdef class Expression(_Weakrefable):
                              "value for 'options'")
 
         if options is None:
-            if type is None:
-                raise ValueError(
-                    "If no 'options' are passed, a 'type' must be passed")
+            ensure_type(type, allow_none=False)
             if safe is False:
                 options = CastOptions.unsafe(type)
             else:
