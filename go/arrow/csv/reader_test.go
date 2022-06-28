@@ -186,8 +186,17 @@ func TestCSVReaderParseError(t *testing.T) {
 
 	n := 0
 	lines := 0
+	var rec arrow.Record
 	for r.Next() {
-		rec := r.Record()
+		if rec != nil {
+			rec.Release()
+		}
+		rec = r.Record()
+		rec.Retain()
+
+		if n == 1 && r.Err() == nil {
+			t.Fatal("Expected error on second chunk, but none found")
+		}
 
 		for i, col := range rec.Columns() {
 			fmt.Printf("rec[%d][%q]: %v\n", n, rec.ColumnName(i), col)
@@ -197,22 +206,21 @@ func TestCSVReaderParseError(t *testing.T) {
 	}
 
 	if r.Err() == nil {
-		t.Error("Expected a parse error, but no error found.")
+		t.Fatal("Expected any chunk with error to leave reader in an error state.")
 	}
 
-	if got, want := n, 1; got != want {
+	if got, want := n, 2; got != want {
 		t.Fatalf("invalid number of chunks: got=%d, want=%d", got, want)
 	}
 
-	if got, want := lines, 3; got != want {
+	if got, want := lines, 6; got != want {
 		t.Fatalf("invalid number of lines: got=%d, want=%d", got, want)
 	}
 
-	rec := r.Record()
 	if !rec.Columns()[1].IsNull(1) {
 		t.Fatalf("expected bad data to be null, found: %v", rec.Columns()[1].Data())
 	}
-
+	rec.Release()
 }
 
 func TestCSVReader(t *testing.T) {

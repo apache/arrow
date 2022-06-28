@@ -215,7 +215,7 @@ func (r *Reader) nextn() bool {
 	for i := 0; i < r.chunk && !r.done; i++ {
 		recs, err = r.r.Read()
 		if err != nil {
-			if !errors.Is(r.err, io.EOF) {
+			if !errors.Is(err, io.EOF) {
 				r.err = err
 			}
 			r.done = true
@@ -232,7 +232,7 @@ func (r *Reader) nextn() bool {
 	}
 
 	r.cur = r.bld.NewRecord()
-	return n > 0 && r.err == nil
+	return n > 0
 }
 
 func (r *Reader) validate(recs []string) {
