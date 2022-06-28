@@ -25,6 +25,7 @@ register_bindings_datetime <- function() {
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
   register_bindings_datetime_parsers()
+  register_bindings_datetime_rounding()
 }
 
 register_bindings_datetime_utility <- function() {
@@ -211,9 +212,15 @@ register_bindings_datetime_components <- function() {
     hour <- Expression$create("hour", x)
     hour < 12
   })
+
   register_binding("pm", function(x) {
     !call_binding("am", x)
   })
+
+  register_binding("leap_year", function(date) {
+    Expression$create("is_leap_year", date)
+  })
+
   register_binding("tz", function(x) {
     if (!call_binding("is.POSIXct", x)) {
       abort(
@@ -227,6 +234,7 @@ register_bindings_datetime_components <- function() {
 
     x$type()$timezone()
   })
+
   register_binding("semester", function(x, with_year = FALSE) {
     month <- call_binding("month", x)
     semester <- call_binding("if_else", month <= 6, 1L, 2L)
@@ -623,6 +631,11 @@ register_bindings_datetime_parsers <- function() {
     build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
 
+}
+
+
+register_bindings_datetime_rounding <- function() {
+
   register_binding("round_date", function(x, unit = "second",
                                           week_start = getOption("lubridate.week.start", 7)) {
     opts <- parse_period_unit(unit)
@@ -723,10 +736,6 @@ register_bindings_datetime_parsers <- function() {
       }
     }
     return(Expression$create("ceil_temporal", x, options = opts))
-  })
-
-  register_binding("leap_year", function(date) {
-    Expression$create("is_leap_year", date)
   })
 
 }
