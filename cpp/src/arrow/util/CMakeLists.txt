@@ -61,6 +61,7 @@ add_arrow_test(utility-test
                range_test.cc
                reflection_test.cc
                rle_encoding_test.cc
+               rle_util_test.cc
                small_vector_test.cc
                stl_util_test.cc
                string_test.cc
