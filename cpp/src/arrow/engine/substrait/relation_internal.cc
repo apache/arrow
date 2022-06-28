@@ -426,7 +426,7 @@ struct ExtractRelation {
   Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
       const compute::Declaration declaration, ExtensionSet* ext_set) {
     auto declr_input = declaration.inputs[0];
-    if (auto node = util::get_if<compute::ExecNode*>(&declr_input)) {
+    if (util::get_if<compute::ExecNode*>(&declr_input)) {
       return Status::NotImplemented("Only support Plans written in Declaration format.");
     }
     return ToProto(util::get<compute::Declaration>(declr_input), ext_set);

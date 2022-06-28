@@ -1396,7 +1396,7 @@ TEST(Substrait, SerializeProjectRelation) {
 
   compute::Expression a_times_2 =
       compute::call("add", {compute::field_ref("bigint_col"), compute::literal(2)});
-
+  // TODO: evaluate this
   const std::shared_ptr<Schema> kBoringSchema = schema({field("bigint_col", int32())});
   ASSERT_OK_AND_ASSIGN(a_times_2, a_times_2.Bind(*kBoringSchema));
   auto project_node_options = compute::ProjectNodeOptions{{a_times_2}};
