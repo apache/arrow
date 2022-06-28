@@ -28,12 +28,13 @@ struct EncodeDecodeCommonExec {
   Element ReadValue() {
     Element result;
     if (input_validity != NULLPTR) {
-      result.valid = bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
+      result.valid =
+          bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
     } else {
       result.valid = true;
     }
-    result.value =
-        (reinterpret_cast<const CType*>(input_values))[input_values_physical_offset + input_position];
+    result.value = (reinterpret_cast<const CType*>(
+        input_values))[input_values_physical_offset + input_position];
     return result;
   }
 
@@ -60,7 +61,8 @@ template <>
 EncodeDecodeCommonExec<BooleanType, true>::Element
 EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
   Element result;
-  result.valid = bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
+  result.valid =
+      bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
   if (result.valid) {
     result.value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values),
                                     input_values_physical_offset + input_position);
@@ -234,13 +236,12 @@ struct RunLengthDecodeExec
     // common_physical_offset is the physical equivalent to the logical offset that is
     // stored in the offset field of input_array. It is applied to both parent and child
     // buffers.
-    const int64_t common_physical_offset =
-        rle_util::FindPhysicalOffset(input_accumulated_run_length,
-                                     this->input_array.length,
-                                     logical_offset);
+    const int64_t common_physical_offset = rle_util::FindPhysicalOffset(
+        input_accumulated_run_length, this->input_array.length, logical_offset);
     this->input_values_physical_offset = common_physical_offset + child_array.offset;
     // the child array is not aware of the logical offset of the parent
-    const int64_t num_values_input = this->input_array.child_data[0].length - common_physical_offset;
+    const int64_t num_values_input =
+        this->input_array.child_data[0].length - common_physical_offset;
     const int64_t num_values_output = this->input_array.length;
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
@@ -276,7 +277,8 @@ struct RunLengthDecodeExec
     int64_t run_start = logical_offset;
     for (this->input_position = 0; this->input_position < num_values_input;
          this->input_position++) {
-      int64_t run_end = input_accumulated_run_length[common_physical_offset + this->input_position];
+      int64_t run_end =
+          input_accumulated_run_length[common_physical_offset + this->input_position];
       ARROW_DCHECK_LT(run_start, run_end);
       int64_t run_length = run_end - run_start;
       run_start = run_end;
