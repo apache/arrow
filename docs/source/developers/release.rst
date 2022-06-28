@@ -221,7 +221,9 @@ After the release vote, we must undertake many tasks to update source artifacts,
 Be sure to go through on the following checklist:
 
 #. Make the released version as "RELEASED" on JIRA
-#. Start the new version on JIRA
+#. Make the CPP PARQUET related version as "RELEASED" on JIRA
+#. Start the new version on JIRA on the ARROW project
+#. Start the new version on JIRA for the related CPP PARQUET version
 #. Merge changes on release branch to maintenance branch for patch releases
 #. Upload source
 #. Upload binaries
