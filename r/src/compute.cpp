@@ -536,14 +536,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       unit = cpp11::as_cpp<enum arrow::compute::CalendarUnit>(options["unit"]);
     }
     if (!Rf_isNull(options["week_starts_monday"])) {
-      week_starts_monday = cpp11::as_cpp<int64_t>(options["week_starts_monday"]);
+      week_starts_monday = cpp11::as_cpp<bool>(options["week_starts_monday"]);
     }
     if (!Rf_isNull(options["ceil_is_strictly_greater"])) {
       ceil_is_strictly_greater =
-          cpp11::as_cpp<int64_t>(options["ceil_is_strictly_greater"]);
+          cpp11::as_cpp<bool>(options["ceil_is_strictly_greater"]);
     }
     if (!Rf_isNull(options["calendar_based_origin"])) {
-      calendar_based_origin = cpp11::as_cpp<int64_t>(options["calendar_based_origin"]);
+      calendar_based_origin = cpp11::as_cpp<bool>(options["calendar_based_origin"]);
     }
     return std::make_shared<Options>(multiple, unit, week_starts_monday,
                                      ceil_is_strictly_greater, calendar_based_origin);

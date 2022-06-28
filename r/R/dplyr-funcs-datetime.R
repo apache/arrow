@@ -630,14 +630,15 @@ register_bindings_datetime_parsers <- function() {
     if (opts$unit == 7L) {
 
       if (week_start == 7) { # Sunday
-        opts$week_starts_monday <- 0L
+        opts$week_starts_monday <- FALSE
         return(Expression$create("round_temporal", x, options = opts))
 
       } else if (week_start == 1) { # Monday
-        opts$week_starts_monday <- 1L
+        opts$week_starts_monday <- TRUE
         return(Expression$create("round_temporal", x, options = opts))
 
       } else { # for other values of week_start, compute using an offset
+        opts$week_starts_monday <- TRUE
         week_start_offset <- build_expr(
           "cast",
           Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
@@ -655,14 +656,15 @@ register_bindings_datetime_parsers <- function() {
     opts <- parse_period_unit(unit)
     if (opts$unit == 7L) {
       if (week_start == 7) { # Sunday
-        opts$week_starts_monday <- 0L
+        opts$week_starts_monday <- FALSE
         return(Expression$create("floor_temporal", x, options = opts))
 
       } else if (week_start == 1) { # Monday
-        opts$week_starts_monday <- 1L
+        opts$week_starts_monday <- TRUE
         return(Expression$create("floor_temporal", x, options = opts))
 
       } else { # for other values of week_start, compute using an offset
+        opts$week_starts_monday <- TRUE
         week_start_offset <- build_expr(
           "cast",
           Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
@@ -690,23 +692,24 @@ register_bindings_datetime_parsers <- function() {
     }
 
     if (change_on_boundary == FALSE) {
-      opts$ceil_is_strictly_greater <- 0L
+      opts$ceil_is_strictly_greater <- FALSE
     }
 
     if (change_on_boundary == TRUE) {
-      opts$ceil_is_strictly_greater <- 1L
+      opts$ceil_is_strictly_greater <- TRUE
     }
 
     if (opts$unit == 7L) {
       if (week_start == 7) { # Sunday
-        opts$week_starts_monday <- 0L
+        opts$week_starts_monday <- FALSE
         return(Expression$create("ceil_temporal", x, options = opts))
 
       } else if (week_start == 1) { # Monday
-        opts$week_starts_monday <- 1L
+        opts$week_starts_monday <- TRUE
         return(Expression$create("ceil_temporal", x, options = opts))
 
       } else { # for other values of week_start, compute using an offset
+        opts$week_starts_monday <- TRUE
         week_start_offset <- build_expr(
           "cast",
           Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
