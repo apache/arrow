@@ -17,8 +17,11 @@
 
 #include "arrow/filesystem/azurefs.h"
 
+#include <gmock/gmock-matchers.h>
+#include <gmock/gmock-more-matchers.h>
 #include <gtest/gtest.h>
 #include <azure/storage/files/datalake.hpp>
+#include <boost/process.hpp>
 #include <chrono>
 #include <thread>
 
@@ -26,6 +29,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
@@ -37,6 +41,61 @@ using internal::Uri;
 namespace fs {
 namespace internal {
 
+namespace bp = boost::process;
+
+using ::arrow::internal::TemporaryDir;
+using ::testing::IsEmpty;
+using ::testing::NotNull;
+
+class AzuriteEmulator : public ::testing::Environment {
+ public:
+  AzuriteEmulator() {
+    account_name_ = "devstoreaccount1";
+    account_key_ =
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
+        "KBHBeksoGMGw==";
+    auto exe_path = bp::search_path("azurite");
+    if (exe_path.empty()) {
+      auto error = std::string("Could not find Azurite emulator.");
+      error_ = std::move(error);
+      return;
+    }
+    auto temp_dir_ = TemporaryDir::Make("azurefs-test-").ValueOrDie();
+    server_process_ = bp::child(boost::this_process::environment(), exe_path, "--silent",
+                                "--location", temp_dir_->path().ToString(), "--debug",
+                                temp_dir_->path().ToString() + "/debug.log");
+    if (!(server_process_.valid() && server_process_.running())) {
+      auto error = "Could not start Azurite emulator.";
+      server_process_.terminate();
+      server_process_.wait();
+      error_ = std::move(error);
+    }
+  }
+
+  ~AzuriteEmulator() override {
+    server_process_.terminate();
+    server_process_.wait();
+  }
+
+  const std::string& account_name() const { return account_name_; }
+  const std::string& account_key() const { return account_key_; }
+  const std::string& error() const { return error_; }
+
+ private:
+  std::string account_name_;
+  std::string account_key_;
+  bp::child server_process_;
+  std::string error_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
+};
+
+AzuriteEmulator* TestAzure() {
+  static auto* const environment = [] { return new AzuriteEmulator; }();
+  return environment;
+}
+
+auto* testazure_env = ::testing::AddGlobalTestEnvironment(TestAzure());
+
 class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
@@ -44,12 +103,12 @@ class TestAzureFileSystem : public ::testing::Test {
   AzureOptions options_;
 
   void MakeFileSystem() {
-    const std::string& account_name = "devstoreaccount1";
-    const std::string& account_key =
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
-        "KBHBeksoGMGw==";
-    options_.account_blob_url = "http://127.0.0.1:10000/devstoreaccount1/";
-    options_.account_dfs_url = "http://127.0.0.1:10000/devstoreaccount1/";
+    const std::string& account_name = TestAzure()->account_name();
+    const std::string& account_key = TestAzure()->account_key();
+    options_.account_blob_url =
+        "http://127.0.0.1:10000/" + TestAzure()->account_name() + "/";
+    options_.account_dfs_url =
+        "http://127.0.0.1:10000/" + TestAzure()->account_name() + "/";
     options_.isTestEnabled = true;
     options_.storage_credentials_provider =
         std::make_shared<Azure::Storage::StorageSharedKeyCredential>(account_name,
@@ -63,6 +122,9 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void SetUp() override {
+    ASSERT_THAT(TestAzure(), NotNull());
+    ASSERT_THAT(TestAzure()->error(), IsEmpty());
+
     MakeFileSystem();
     auto fileSystemClient = gen2Client_->GetFileSystemClient("container");
     fileSystemClient.CreateIfNotExists();

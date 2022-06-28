@@ -38,8 +38,3 @@ case "$(uname)" in
 esac
 echo "node version = $(node --version)"
 echo "azurite version = $(azurite --version)"
-AZURITE_DIR=${1}/azurite
-mkdir $AZURITE_DIR
-
-# Start azurite
-azurite --silent --location $AZURITE_DIR --debug $AZURITE_DIR/debug.log &
