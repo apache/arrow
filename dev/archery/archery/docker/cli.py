@@ -79,6 +79,36 @@ def check_config(obj):
     # during the configuration loading
 
 
+@docker.command('pull')
+@click.argument('image')
+@click.option('--using-docker-cli', default=False, is_flag=True,
+              envvar='ARCHERY_USE_DOCKER_CLI',
+              help="Use docker CLI directly for pulling instead of calling "
+                   "docker-compose. This may help to reuse cached layers.")
+@click.option('--pull-leaf/--no-leaf', default=True,
+              help="Whether to pull leaf images too.")
+@click.option('--ignore-pull-failures/--no-ignore-pull-failures', default=True,
+              help="Whether to ignore pull failures.")
+@click.pass_obj
+def docker_pull(obj, image, *, using_docker_cli, pull_leaf,
+                ignore_pull_failures):
+    """
+    Execute docker-compose pull.
+    """
+    compose = obj['compose']
+
+    try:
+        compose.pull(image, pull_leaf=pull_leaf, using_docker=using_docker_cli,
+                     ignore_pull_failures=ignore_pull_failures)
+    except UndefinedImage as e:
+        raise click.ClickException(
+            "There is no service/image defined in docker-compose.yml with "
+            "name: {}".format(str(e))
+        )
+    except RuntimeError as e:
+        raise click.ClickException(str(e))
+
+
 @docker.command('build')
 @click.argument('image')
 @click.option('--force-pull/--no-pull', default=True,

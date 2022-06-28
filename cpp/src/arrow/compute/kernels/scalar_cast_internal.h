@@ -37,23 +37,25 @@ struct CastFunctor {};
 template <typename O, typename I>
 struct CastFunctor<
     O, I, enable_if_t<std::is_same<O, I>::value && is_parameter_free_type<I>::value>> {
-  static Status Exec(KernelContext*, const ExecBatch&, Datum*) { return Status::OK(); }
+  static Status Exec(KernelContext*, const ExecSpan&, ExecResult*) {
+    return Status::OK();
+  }
 };
 
-Status CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 // Utility for numeric casts
-void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
-                              Datum* out);
+void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
+                              const ExecValue& input, ExecResult* out);
 
 // ----------------------------------------------------------------------
 // Dictionary to other things
 
-Status UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status UnpackDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
-Status OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status OutputAllNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
-Status CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 // Adds a cast function where CastFunctor is specialized and the input and output
 // types are parameter free (have a type_singleton). Scalar inputs are handled by
@@ -65,7 +67,7 @@ void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
       TrivialScalarUnaryAsArraysExec(CastFunctor<OutType, InType>::Exec)));
 }
 
-Status ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status ZeroCopyCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_type,
                      CastFunction* func);

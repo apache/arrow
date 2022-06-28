@@ -85,9 +85,11 @@ struct ExecPlanImpl : public ExecPlan {
 #ifdef ARROW_WITH_OPENTELEMETRY
     if (HasMetadata()) {
       auto pairs = metadata().get()->sorted_pairs();
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span =
+          ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
       std::for_each(std::begin(pairs), std::end(pairs),
-                    [this](std::pair<std::string, std::string> const& pair) {
-                      span_.Get().span->SetAttribute(pair.first, pair.second);
+                    [span](std::pair<std::string, std::string> const& pair) {
+                      span->SetAttribute(pair.first, pair.second);
                     });
     }
 #endif
@@ -476,6 +478,16 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
       return Status::OK();
     }
 
+    Status Close() override {
+      // reading from generator until end is reached.
+      std::shared_ptr<RecordBatch> batch;
+      RETURN_NOT_OK(ReadNext(&batch));
+      while (batch != NULLPTR) {
+        RETURN_NOT_OK(ReadNext(&batch));
+      }
+      return Status::OK();
+    }
+
     MemoryPool* pool_;
     std::shared_ptr<Schema> schema_;
     Iterator<util::optional<ExecBatch>> iterator_;
@@ -534,6 +546,7 @@ void RegisterUnionNode(ExecFactoryRegistry*);
 void RegisterAggregateNode(ExecFactoryRegistry*);
 void RegisterSinkNode(ExecFactoryRegistry*);
 void RegisterHashJoinNode(ExecFactoryRegistry*);
+void RegisterAsofJoinNode(ExecFactoryRegistry*);
 
 }  // namespace internal
 
@@ -548,6 +561,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterAggregateNode(this);
       internal::RegisterSinkNode(this);
       internal::RegisterHashJoinNode(this);
+      internal::RegisterAsofJoinNode(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {

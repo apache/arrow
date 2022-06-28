@@ -129,4 +129,5 @@ ENV ARROW_BUILD_TESTS=ON \
     PATH=/usr/lib/ccache/:$PATH \
     Thrift_SOURCE=BUNDLED \
     utf8proc_SOURCE=BUNDLED \
+    xsimd_SOURCE=BUNDLED \
     zstd_SOURCE=BUNDLED

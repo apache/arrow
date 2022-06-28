@@ -66,49 +66,24 @@ TEST(TestCumulativeSum, AllNulls) {
   }
 }
 
-TEST(TestCumulativeSum, ScalarInput) {
-  CumulativeSumOptions no_start_no_skip;
-  CumulativeSumOptions no_start_do_skip(0, true);
-  CumulativeSumOptions has_start_no_skip(10);
-  CumulativeSumOptions has_start_do_skip(10, true);
-
-  for (auto ty : NumericTypes()) {
-    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[10]"), &no_start_no_skip);
-    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[10]"), &no_start_no_skip);
-
-    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[20]"), &has_start_no_skip);
-    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[20]"), &has_start_no_skip);
-
-    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[null]"), &no_start_no_skip);
-    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[null]"), &no_start_no_skip);
-    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[null]"), &has_start_no_skip);
-    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[null]"), &has_start_no_skip);
-
-    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[0]"), &no_start_do_skip);
-    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[0]"), &no_start_do_skip);
-    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[10]"), &has_start_do_skip);
-    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
-                     ArrayFromJSON(ty, "[10]"), &has_start_do_skip);
-  }
-}
-
 using testing::HasSubstr;
+
+TEST(TestCumulativeSum, ScalarNotSupported) {
+  CumulativeSumOptions options;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, HasSubstr("no kernel"),
+      CallFunction("cumulative_sum", {std::make_shared<Int64Scalar>(5)}, &options));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, HasSubstr("no kernel"),
+      CallFunction("cumulative_sum_checked", {std::make_shared<Int64Scalar>(5)},
+                   &options));
+}
 
 template <typename ArrowType>
 void CheckCumulativeSumUnsignedOverflow() {
   using CType = typename TypeTraits<ArrowType>::CType;
-  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
   using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
 
   CumulativeSumOptions pos_overflow(1);
@@ -126,17 +101,13 @@ void CheckCumulativeSumUnsignedOverflow() {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, HasSubstr("overflow"),
-      CallFunction("cumulative_sum_checked", {ScalarType(max)}, &pos_overflow));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, HasSubstr("overflow"),
       CallFunction("cumulative_sum_checked", {max_arr}, &pos_overflow));
-  CheckVectorUnary("cumulative_sum", ScalarType(max), min_arr, &pos_overflow);
+  CheckVectorUnary("cumulative_sum", max_arr, min_arr, &pos_overflow);
 }
 
 template <typename ArrowType>
 void CheckCumulativeSumSignedOverflow() {
   using CType = typename TypeTraits<ArrowType>::CType;
-  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
   using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
 
   CheckCumulativeSumUnsignedOverflow<ArrowType>();
@@ -153,14 +124,10 @@ void CheckCumulativeSumSignedOverflow() {
   builder.Reset();
   ASSERT_OK(builder.Append(min));
   ASSERT_OK(builder.Finish(&min_arr));
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, HasSubstr("overflow"),
-      CallFunction("cumulative_sum_checked", {ScalarType(min)}, &neg_overflow));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, HasSubstr("overflow"),
       CallFunction("cumulative_sum_checked", {min_arr}, &neg_overflow));
-  CheckVectorUnary("cumulative_sum", ScalarType(min), max_arr, &neg_overflow);
+  CheckVectorUnary("cumulative_sum", min_arr, max_arr, &neg_overflow);
 }
 
 TEST(TestCumulativeSum, IntegerOverflow) {

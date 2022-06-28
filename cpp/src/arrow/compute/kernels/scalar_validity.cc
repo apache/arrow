@@ -33,40 +33,32 @@ namespace internal {
 namespace {
 
 struct IsValidOperator {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    checked_cast<BooleanScalar*>(out)->value = in.is_valid;
+  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
+    Scalar* output = out->scalar().get();
+    checked_cast<BooleanScalar*>(output)->value = in.is_valid;
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArraySpan& arr, ExecResult* out) {
+    ArraySpan* out_span = out->array_span();
     if (arr.type->id() == Type::NA) {
       // Input is all nulls => output is entirely false.
-      ARROW_ASSIGN_OR_RAISE(out->buffers[1],
-                            ctx->AllocateBitmap(out->length + out->offset));
-      bit_util::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
+      bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
                           false);
       return Status::OK();
     }
 
-    DCHECK_EQ(out->offset, 0);
-    DCHECK_LE(out->length, arr.length);
+    DCHECK_EQ(out_span->offset, 0);
+    DCHECK_LE(out_span->length, arr.length);
     if (arr.MayHaveNulls()) {
-      // Input has nulls => output is the null (validity) bitmap.
-      // To avoid copying the null bitmap, slice from the starting byte offset
-      // and set the offset to the remaining bit offset.
-      out->offset = arr.offset % 8;
-      out->buffers[1] =
-          arr.offset == 0
-              ? arr.buffers[0]
-              : SliceBuffer(arr.buffers[0], arr.offset / 8,
-                            bit_util::BytesForBits(out->length + out->offset));
-      return Status::OK();
+      // We could do a zero-copy optimization, but it isn't worth the added complexity
+      ::arrow::internal::CopyBitmap(arr.buffers[0].data, arr.offset, arr.length,
+                                    out_span->buffers[1].data, out_span->offset);
+    } else {
+      // Input has no nulls => output is entirely true.
+      bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
+                          true);
     }
-
-    // Input has no nulls => output is entirely true.
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1],
-                          ctx->AllocateBitmap(out->length + out->offset));
-    bit_util::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
     return Status::OK();
   }
 };
@@ -88,9 +80,11 @@ struct IsInfOperator {
 using NanOptionsState = OptionsWrapper<NullOptions>;
 
 struct IsNullOperator {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
+    Scalar* output = out->scalar().get();
+
     const auto& options = NanOptionsState::Get(ctx);
-    bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
+    bool* out_value = &checked_cast<BooleanScalar*>(output)->value;
 
     if (in.is_valid) {
       if (options.nan_is_null && is_floating(in.type->id())) {
@@ -116,7 +110,7 @@ struct IsNullOperator {
   }
 
   template <typename T>
-  static void SetNanBits(const ArrayData& arr, uint8_t* out_bitmap, int64_t out_offset) {
+  static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_offset) {
     const T* data = arr.GetValues<T>(1);
     for (int64_t i = 0; i < arr.length; ++i) {
       if (std::isnan(data[i])) {
@@ -125,26 +119,27 @@ struct IsNullOperator {
     }
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    const auto& options = NanOptionsState::Get(ctx);
+  static Status Call(KernelContext* ctx, const ArraySpan& arr, ExecResult* out) {
+    ArraySpan* out_span = out->array_span();
 
-    uint8_t* out_bitmap = out->buffers[1]->mutable_data();
+    const auto& options = NanOptionsState::Get(ctx);
+    uint8_t* out_bitmap = out_span->buffers[1].data;
     if (arr.GetNullCount() > 0) {
       // Input has nulls => output is the inverted null (validity) bitmap.
-      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length, out_bitmap,
-                   out->offset);
+      InvertBitmap(arr.buffers[0].data, arr.offset, arr.length, out_bitmap,
+                   out_span->offset);
     } else {
       // Input has no nulls => output is entirely false.
-      bit_util::SetBitsTo(out_bitmap, out->offset, out->length, false);
+      bit_util::SetBitsTo(out_bitmap, out_span->offset, out_span->length, false);
     }
 
     if (is_floating(arr.type->id()) && options.nan_is_null) {
       switch (arr.type->id()) {
         case Type::FLOAT:
-          SetNanBits<float>(arr, out_bitmap, out->offset);
+          SetNanBits<float>(arr, out_bitmap, out_span->offset);
           break;
         case Type::DOUBLE:
-          SetNanBits<double>(arr, out_bitmap, out->offset);
+          SetNanBits<double>(arr, out_bitmap, out_span->offset);
           break;
         default:
           return Status::NotImplemented("NaN detection not implemented for type ",
@@ -156,23 +151,26 @@ struct IsNullOperator {
 };
 
 struct TrueUnlessNullOperator {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    checked_cast<BooleanScalar*>(out)->is_valid = in.is_valid;
-    checked_cast<BooleanScalar*>(out)->value = true;
+  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
+    BooleanScalar* output = checked_cast<BooleanScalar*>(out->scalar().get());
+    output->is_valid = in.is_valid;
+    output->value = true;
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    // NullHandling::INTERSECTION with a single input means the execution engine
-    // has already reused or allocated a null_bitmap which can be reused as the values
-    // buffer.
-    if (out->buffers[0]) {
-      out->buffers[1] = out->buffers[0];
+  static Status Call(KernelContext* ctx, const ArraySpan& arr, ExecResult* out) {
+    ArraySpan* out_span = out->array_span();
+    if (out_span->buffers[0].data) {
+      // If there is a validity bitmap computed above the kernel
+      // invocation, we copy it to the output buffers
+      ::arrow::internal::CopyBitmap(out_span->buffers[0].data, out_span->offset,
+                                    out_span->length, out_span->buffers[1].data,
+                                    out_span->offset);
     } else {
       // But for all-valid inputs, the engine will skip allocating a
-      // buffer; we have to allocate one ourselves
-      ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(arr.length));
-      std::memset(out->buffers[1]->mutable_data(), 0xFF, out->buffers[1]->size());
+      // validity bitmap, so we set everything to true
+      bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
+                          true);
     }
     return Status::OK();
   }
@@ -187,8 +185,7 @@ struct IsNanOperator {
 
 void MakeFunction(std::string name, FunctionDoc doc, std::vector<InputType> in_types,
                   OutputType out_type, ArrayKernelExec exec, FunctionRegistry* registry,
-                  MemAllocation::type mem_allocation, NullHandling::type null_handling,
-                  bool can_write_into_slices,
+                  NullHandling::type null_handling, bool can_write_into_slices,
                   const FunctionOptions* default_options = NULLPTR,
                   KernelInit init = NULLPTR) {
   Arity arity{static_cast<int>(in_types.size())};
@@ -198,7 +195,6 @@ void MakeFunction(std::string name, FunctionDoc doc, std::vector<InputType> in_t
   ScalarKernel kernel(std::move(in_types), out_type, exec, init);
   kernel.null_handling = null_handling;
   kernel.can_write_into_slices = can_write_into_slices;
-  kernel.mem_allocation = mem_allocation;
 
   DCHECK_OK(func->AddKernel(std::move(kernel)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -211,14 +207,13 @@ void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction*
 }
 
 template <bool kConstant>
-Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  if (batch.values[0].is_scalar()) {
+Status ConstBoolExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  if (batch[0].is_scalar()) {
     checked_cast<BooleanScalar*>(out->scalar().get())->value = kConstant;
     return Status::OK();
   }
-  ArrayData* array = out->mutable_array();
-  bit_util::SetBitsTo(array->buffers[1]->mutable_data(), array->offset, array->length,
-                      kConstant);
+  ArraySpan* array = out->array_span();
+  bit_util::SetBitsTo(array->buffers[1].data, array->offset, array->length, kConstant);
   return Status::OK();
 }
 
@@ -276,20 +271,20 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc 
   return func;
 }
 
-Status IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return applicator::SimpleUnary<IsValidOperator>(ctx, batch, out);
 }
 
-Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  const Datum& arg0 = batch[0];
+Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ExecValue& arg0 = batch[0];
   if (arg0.type()->id() == Type::NA) {
-    if (arg0.kind() == Datum::SCALAR) {
+    if (arg0.is_scalar()) {
       out->value = std::make_shared<BooleanScalar>(true);
     } else {
       // Data is preallocated
-      ArrayData* out_arr = out->mutable_array();
-      bit_util::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
-                          out_arr->length, true);
+      ArraySpan* out_arr = out->array_span();
+      bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
+                          true);
     }
     return Status::OK();
   } else {
@@ -297,7 +292,7 @@ Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   }
 }
 
-Status TrueUnlessNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status TrueUnlessNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return applicator::SimpleUnary<TrueUnlessNullOperator>(ctx, batch, out);
 }
 
@@ -337,16 +332,15 @@ const FunctionDoc is_nan_doc("Return true if NaN",
 void RegisterScalarValidity(FunctionRegistry* registry) {
   static auto kNullOptions = NullOptions::Defaults();
   MakeFunction("is_valid", is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
-               registry, MemAllocation::NO_PREALLOCATE, NullHandling::OUTPUT_NOT_NULL,
+               registry, NullHandling::OUTPUT_NOT_NULL,
                /*can_write_into_slices=*/false);
 
   MakeFunction("is_null", is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec, registry,
-               MemAllocation::PREALLOCATE, NullHandling::OUTPUT_NOT_NULL,
+               NullHandling::OUTPUT_NOT_NULL,
                /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
   MakeFunction("true_unless_null", true_unless_null_doc, {ValueDescr::ANY}, boolean(),
-               TrueUnlessNullExec, registry, MemAllocation::NO_PREALLOCATE,
-               NullHandling::INTERSECTION,
+               TrueUnlessNullExec, registry, NullHandling::INTERSECTION,
                /*can_write_into_slices=*/false);
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", is_finite_doc)));

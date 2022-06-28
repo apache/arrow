@@ -151,14 +151,16 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Install Dependencies
-        shell: bash
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
           brew install --overwrite git
           brew bundle --file=cpp/Brewfile
+      - name: Install MinIO
+        run: |
+          $(brew --prefix bash)/bin/bash \
+            ci/scripts/install_minio.sh latest /usr/local
       - name: Install Google Cloud Storage Testbench
-        shell: bash
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Setup ccache
         run: |
@@ -174,7 +176,6 @@ jobs:
           key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-ccache-macos-
       - name: Build
-        shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
@@ -260,7 +261,7 @@ jobs:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -275,8 +276,12 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
-      # google-could-cpp uses _dupenv_s() but it can't be used with msvcrt.
-      # We need to use ucrt to use _dupenv_s().
+      # With GCS on,
+      # * MinGW 32 build OOMs (maybe turn off unity build?)
+      # * MinGW 64 fails to compile the GCS filesystem tests, some conflict
+      #   with boost. First error says:
+      # D:/a/_temp/msys64/mingw64/include/boost/asio/detail/socket_types.hpp:24:4: error: #error WinSock.h has already been included
+      # TODO(ARROW-16906)
       # ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}

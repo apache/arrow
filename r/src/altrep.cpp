@@ -671,7 +671,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
                                  Transpose transpose, int* out) {
     using index_type = typename Type::c_type;
 
-    VisitArrayDataInline<Type>(
+    VisitArraySpanInline<Type>(
         *array->data(),
         /*valid_func=*/[&](index_type index) { *out++ = transpose(index) + 1; },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });

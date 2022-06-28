@@ -434,11 +434,11 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
   const auto null_func = [&]() {};
 
   if (::arrow::is_binary_like(values.type_id())) {
-    ::arrow::VisitArrayDataInline<::arrow::BinaryType>(
+    ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
-    ::arrow::VisitArrayDataInline<::arrow::LargeBinaryType>(
+    ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   }
 

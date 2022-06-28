@@ -926,10 +926,8 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-  list(APPEND ARROW_LINK_LIBS jemalloc::jemalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_LINK_LIBS jemalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)

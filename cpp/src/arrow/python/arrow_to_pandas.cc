@@ -65,7 +65,6 @@ class MemoryPool;
 
 using internal::checked_cast;
 using internal::CheckIndexBounds;
-using internal::GetByteWidth;
 using internal::OptionalParallelFor;
 
 namespace py {
@@ -280,7 +279,7 @@ inline const T* GetPrimitiveValues(const Array& arr) {
   if (arr.length() == 0) {
     return nullptr;
   }
-  const int elsize = GetByteWidth(*arr.type());
+  const int elsize = arr.type()->byte_width();
   const auto& prim_arr = checked_cast<const PrimitiveArray&>(arr);
   return reinterpret_cast<const T*>(prim_arr.values()->data() + arr.offset() * elsize);
 }

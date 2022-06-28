@@ -46,6 +46,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-re2)
     packages+=(${MINGW_PACKAGE_PREFIX}-snappy)
     packages+=(${MINGW_PACKAGE_PREFIX}-thrift)
+    packages+=(${MINGW_PACKAGE_PREFIX}-xsimd)
     packages+=(${MINGW_PACKAGE_PREFIX}-zlib)
     packages+=(${MINGW_PACKAGE_PREFIX}-zstd)
   ;;

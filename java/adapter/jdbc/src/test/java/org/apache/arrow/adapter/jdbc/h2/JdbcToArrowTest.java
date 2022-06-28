@@ -50,6 +50,7 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -428,11 +429,28 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
       ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
       while (iter.hasNext()) {
         iter.next();
-        fail("This is expected to fail due to ARROW-16600");
+        fail("This is expected to fail due to inconsistent BigDecimal scales, while strict matching is enabled.");
       }
       iter.close();
     } catch (Exception ex) {
-      // Once ARROW-16600 is implemented, this should no longer fail.
+      // Expected to fail due to default strict scale matching of ResultSet and target vector BigDecimal.
+    }
+    // Reuse same ResultSet, with RoundingMode.UNNECESSARY set to coerce BigDecmial scale as needed:
+    config = new JdbcToArrowConfigBuilder(
+            allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setExplicitTypesByColumnIndex(explicitMapping)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .setBigDecimalRoundingMode(RoundingMode.UNNECESSARY)
+            .build();
+    try {
+      ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
+      while (iter.hasNext()) {
+        iter.next();
+      }
+      iter.close();
+    } catch (Exception ex) {
+      fail("BigDecminal scale failed to coerce as expected.");
     }
   }
 

@@ -204,7 +204,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       flags: >-
+        -e ARROW_CONAN_PARQUET=True
         -e ARROW_CONAN_WITH_LZ4=True
+        -e ARROW_CONAN_WITH_JEMALLOC=True
       image: conan
 
   ########################### Python Minimal ############################
@@ -467,9 +469,9 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-# enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-{% for macos_version, macos_codename, arrow_s3 in [("10.9", "mavericks", "OFF"),
-                                                   ("10.13", "high-sierra", "ON")] %}
+# enable S3 and GCS support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
+{% for macos_version, macos_codename, arrow_s3, arrow_gcs in [("10.9", "mavericks", "OFF", "OFF"),
+                                                              ("10.13", "high-sierra", "ON", "ON")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -479,6 +481,7 @@ tasks:
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
       arrow_s3: "{{ arrow_s3 }}"
+      arrow_gcs: "{{ arrow_gcs }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
@@ -930,10 +933,17 @@ tasks:
   ######################## R packages & binaries ##############################
   r-nightly-packages:
     ci: github
-    template: r/github.nightly.yml
+    template: r/github.packages.yml
     artifacts:
-      - r-libarrow-.+
-      - r-pkg_.+
+      - r-lib__libarrow__bin__windows__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__centos-7__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-18.04__arrow-[0-9\.]+\.zip
+      - r-lib__libarrow__bin__ubuntu-22.04__arrow-[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.1__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__windows__contrib__4.2__arrow_[0-9\.]+\.zip
+      - r-pkg__bin__macosx__contrib__4.1__arrow_[0-9\.]+\.tgz
+      - r-pkg__bin__macosx__contrib__4.2__arrow_[0-9\.]+\.tgz
+      - r-pkg__src__contrib__arrow_[0-9\.]+\.tar\.gz
 
 
   ########################### Release verification ############################
@@ -1032,7 +1042,7 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       target: {{ target }}
-      github_runner: "self-hosted"
+      github_runner: ["self-hosted", "macOS", "arm64"]
   {% endfor %}
 
   {% for macos_version in ["10.15", "11"] %}
@@ -1059,7 +1069,7 @@ tasks:
     params:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      github_runner: "self-hosted"
+      github_runner: ["self-hosted", "macOS", "arm64"]
       arch_emulation: arm64
       target: "wheels"
 
@@ -1283,19 +1293,19 @@ tasks:
     template: r/github.devdocs.yml
 
   test-r-depsource-bundled:
-      ci: azure
-      template: r/azure.linux.yml
-      params:
-        r_org: rocker
-        r_image: r-base
-        r_tag: latest
-        flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
+      r_tag: latest
+      flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
 
   test-r-depsource-system:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM'
+      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
 
   test-r-offline-minimal:
@@ -1552,13 +1562,6 @@ tasks:
       image: conda-python-spark
       fetch_depth: 0
 {% endfor %}
-
-  # Remove the "skipped-" prefix in ARROW-8475
-  skipped-test-conda-cpp-hiveserver2:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      image: conda-cpp-hiveserver2
 
 {% for kind in ["static", "static-system-dependency"] %}
   example-cpp-minimal-build-{{ kind }}:

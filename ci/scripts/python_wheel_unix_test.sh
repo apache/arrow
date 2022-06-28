@@ -31,6 +31,7 @@ source_dir=${1}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_SUBSTRAIT:=ON}
 : ${ARROW_S3:=ON}
+: ${ARROW_GCS:=ON}
 : ${CHECK_IMPORTS:=ON}
 : ${CHECK_UNITTESTS:=ON}
 : ${INSTALL_PYARROW:=ON}
@@ -39,6 +40,7 @@ export PYARROW_TEST_CYTHON=OFF
 export PYARROW_TEST_DATASET=ON
 export PYARROW_TEST_FLIGHT=${ARROW_FLIGHT}
 export PYARROW_TEST_GANDIVA=OFF
+export PYARROW_TEST_GCS=${ARROW_GCS}
 export PYARROW_TEST_HDFS=ON
 export PYARROW_TEST_ORC=ON
 export PYARROW_TEST_PANDAS=ON
@@ -69,6 +71,9 @@ import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 "
+  if [ "${PYARROW_TEST_GCS}" == "ON" ]; then
+    python -c "import pyarrow._gcsfs"
+  fi
   if [ "${PYARROW_TEST_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
   fi
@@ -81,8 +86,14 @@ import pyarrow.plasma
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
-  # Install testing dependencies
-  pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
+  # Generally, we should install testing dependencies here to install
+  # built wheels without testing dependencies. Testing dependencies are
+  # installed in ci/docker/python-wheel-manylinux-test.dockerfile to
+  # reduce test time.
+  #
+  # We also need to update dev/tasks/python-wheels/*.yml when we need
+  # to add more steps to prepare testing dependencies.
+
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
   python -m pytest -r s --pyargs pyarrow

@@ -141,7 +141,13 @@ func (w *Writer) Close() error {
 	return nil
 }
 
-func (w *Writer) Write(rec arrow.Record) error {
+func (w *Writer) Write(rec arrow.Record) (err error) {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			err = fmt.Errorf("arrow/ipc: unknown error while writing: %v", pErr)
+		}
+	}()
+
 	if !w.started {
 		err := w.start()
 		if err != nil {
@@ -161,7 +167,7 @@ func (w *Writer) Write(rec arrow.Record) error {
 	)
 	defer data.Release()
 
-	err := writeDictionaryPayloads(w.mem, rec, false, w.emitDictDeltas, &w.mapper, w.lastWrittenDicts, w.pw, enc)
+	err = writeDictionaryPayloads(w.mem, rec, false, w.emitDictDeltas, &w.mapper, w.lastWrittenDicts, w.pw, enc)
 	if err != nil {
 		return fmt.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
 	}

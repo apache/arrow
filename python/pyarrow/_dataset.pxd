@@ -160,3 +160,5 @@ cdef class WrittenFile(_Weakrefable):
     # This metadata will have the file path attribute set to the path of
     # the written file.
     cdef public object metadata
+    # The size of the file in bytes
+    cdef public int size

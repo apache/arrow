@@ -33,7 +33,7 @@ printenv
 # In the other CI checks the files are synced but ignored.
 make sync-cpp
 
-if [ "$ARROW_R_FORCE_TESTS" = "true"]; then
+if [ "$ARROW_R_FORCE_TESTS" = "true" ]; then
   export ARROW_R_DEV=TRUE
   export NOT_CRAN=true
   export ARROW_LARGE_MEMORY_TESTS=TRUE

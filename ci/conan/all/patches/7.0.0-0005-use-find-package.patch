@@ -45,7 +45,7 @@ index 2d7baf1..c2e86e0 100644
  
  if(ARROW_MIMALLOC)
 diff --git a/cpp/cmake_modules/ThirdpartyToolchain.cmake b/cpp/cmake_modules/ThirdpartyToolchain.cmake
-index bc38952..8196e09 100644
+index bc38952..ff81d00 100644
 --- a/cpp/cmake_modules/ThirdpartyToolchain.cmake
 +++ b/cpp/cmake_modules/ThirdpartyToolchain.cmake
 @@ -953,14 +953,7 @@ else()
@@ -120,7 +120,25 @@ index bc38952..8196e09 100644
    # TODO: Don't use global includes but rather target_include_directories
    include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
  
-@@ -1606,7 +1598,7 @@ if(ARROW_JEMALLOC)
+@@ -1400,6 +1392,7 @@ macro(build_thrift)
+ endmacro()
+ 
+ if(ARROW_WITH_THRIFT)
++if (0)
+   # We already may have looked for Thrift earlier, when considering whether
+   # to build Boost, so don't look again if already found.
+   if(NOT Thrift_FOUND)
+@@ -1412,6 +1405,9 @@ if(ARROW_WITH_THRIFT)
+   endif()
+   # TODO: Don't use global includes but rather target_include_directories
+   include_directories(SYSTEM ${THRIFT_INCLUDE_DIR})
++else()
++  find_package(Thrift REQUIRED CONFIG)
++endif()
+ 
+   string(REPLACE "." ";" VERSION_LIST ${THRIFT_VERSION})
+   list(GET VERSION_LIST 0 THRIFT_VERSION_MAJOR)
+@@ -1606,7 +1602,7 @@ if(ARROW_JEMALLOC)
    # conflict with the default allocator as well as other jemalloc
    # installations.
    # find_package(jemalloc)
@@ -129,7 +147,7 @@ index bc38952..8196e09 100644
    set(ARROW_JEMALLOC_USE_SHARED OFF)
    set(JEMALLOC_PREFIX
        "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
-@@ -1664,6 +1656,9 @@ if(ARROW_JEMALLOC)
+@@ -1664,6 +1660,9 @@ if(ARROW_JEMALLOC)
                                     "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
    add_dependencies(jemalloc::jemalloc jemalloc_ep)
  
@@ -139,7 +157,7 @@ index bc38952..8196e09 100644
    list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
  endif()
  
-@@ -1671,6 +1666,8 @@ endif()
+@@ -1671,6 +1670,8 @@ endif()
  # mimalloc - Cross-platform high-performance allocator, from Microsoft
  
  if(ARROW_MIMALLOC)
@@ -148,7 +166,7 @@ index bc38952..8196e09 100644
    message(STATUS "Building (vendored) mimalloc from source")
    # We only use a vendored mimalloc as we want to control its build options.
  
-@@ -1715,6 +1712,13 @@ if(ARROW_MIMALLOC)
+@@ -1715,6 +1716,13 @@ if(ARROW_MIMALLOC)
    add_dependencies(mimalloc::mimalloc mimalloc_ep)
    add_dependencies(toolchain mimalloc_ep)
  
@@ -162,7 +180,7 @@ index bc38952..8196e09 100644
    list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
  endif()
  
-@@ -2036,10 +2040,21 @@ macro(build_xsimd)
+@@ -2036,10 +2044,21 @@ macro(build_xsimd)
    set(XSIMD_VENDORED TRUE)
  endmacro()
  
@@ -186,7 +204,7 @@ index bc38952..8196e09 100644
    # TODO: Don't use global includes but rather target_include_directories
    include_directories(SYSTEM ${XSIMD_INCLUDE_DIR})
  endif()
-@@ -2082,11 +2097,14 @@ macro(build_zlib)
+@@ -2082,11 +2101,14 @@ macro(build_zlib)
  endmacro()
  
  if(ARROW_WITH_ZLIB)
@@ -201,7 +219,7 @@ index bc38952..8196e09 100644
  endif()
  
  macro(build_lz4)
-@@ -2140,11 +2158,14 @@ macro(build_lz4)
+@@ -2140,11 +2162,14 @@ macro(build_lz4)
  endmacro()
  
  if(ARROW_WITH_LZ4)
@@ -216,7 +234,7 @@ index bc38952..8196e09 100644
  endif()
  
  macro(build_zstd)
-@@ -2205,6 +2226,7 @@ macro(build_zstd)
+@@ -2205,6 +2230,7 @@ macro(build_zstd)
  endmacro()
  
  if(ARROW_WITH_ZSTD)
@@ -224,7 +242,7 @@ index bc38952..8196e09 100644
    # ARROW-13384: ZSTD_minCLevel was added in v1.4.0, required by ARROW-13091
    resolve_dependency(zstd
                       PC_PACKAGE_NAMES
-@@ -2232,6 +2254,8 @@ if(ARROW_WITH_ZSTD)
+@@ -2232,6 +2258,8 @@ if(ARROW_WITH_ZSTD)
    get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
                        INTERFACE_INCLUDE_DIRECTORIES)
    include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
@@ -233,7 +251,7 @@ index bc38952..8196e09 100644
  endif()
  
  # ----------------------------------------------------------------------
-@@ -2271,6 +2295,7 @@ macro(build_re2)
+@@ -2271,6 +2299,7 @@ macro(build_re2)
  endmacro()
  
  if(ARROW_WITH_RE2)
@@ -241,7 +259,7 @@ index bc38952..8196e09 100644
    # Don't specify "PC_PACKAGE_NAMES re2" here because re2.pc may
    # include -std=c++11. It's not compatible with C source and C++
    # source not uses C++ 11.
-@@ -2284,6 +2309,8 @@ if(ARROW_WITH_RE2)
+@@ -2284,6 +2313,8 @@ if(ARROW_WITH_RE2)
    # TODO: Don't use global includes but rather target_include_directories
    get_target_property(RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
    include_directories(SYSTEM ${RE2_INCLUDE_DIR})
@@ -250,7 +268,7 @@ index bc38952..8196e09 100644
  endif()
  
  macro(build_bzip2)
-@@ -2335,10 +2362,7 @@ macro(build_bzip2)
+@@ -2335,10 +2366,7 @@ macro(build_bzip2)
  endmacro()
  
  if(ARROW_WITH_BZ2)
@@ -262,7 +280,7 @@ index bc38952..8196e09 100644
  
    if(NOT TARGET BZip2::BZip2)
      add_library(BZip2::BZip2 UNKNOWN IMPORTED)
-@@ -2390,11 +2414,7 @@ macro(build_utf8proc)
+@@ -2390,11 +2418,7 @@ macro(build_utf8proc)
  endmacro()
  
  if(ARROW_WITH_UTF8PROC)
@@ -271,11 +289,11 @@ index bc38952..8196e09 100644
 -                     "2.2.0"
 -                     PC_PACKAGE_NAMES
 -                     libutf8proc)
-+  find_package(BZip2 REQUIRED CONFIG)
++  find_package(utf8proc REQUIRED CONFIG)
  
    add_definitions(-DARROW_WITH_UTF8PROC)
  
-@@ -3554,33 +3574,12 @@ if(ARROW_WITH_GRPC)
+@@ -3554,33 +3578,12 @@ if(ARROW_WITH_GRPC)
      message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
      set(gRPC_SOURCE "${Protobuf_SOURCE}")
    endif()

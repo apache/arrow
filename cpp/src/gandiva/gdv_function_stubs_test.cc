@@ -950,4 +950,47 @@ TEST(TestGdvFnStubs, TestMaskLastN) {
   EXPECT_EQ(expected, std::string(result, out_len));
 }
 
+TEST(TestGdvFnStubs, TestTranslate) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  std::string expected = "ACACACA";
+  const char* result =
+      translate_utf8_utf8_utf8(ctx_ptr, "ABABABA", 7, "B", 1, "C", 1, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "acde";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "a b c d e", 9, " b", 2, "", 0, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "h3110, h0w ar3 y0u/";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "hello, how are you?", 19, "elo?", 4, "310/",
+                                    4, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "1b9ef";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "abcdef", 6, "adc", 3, "19", 2, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "abcd";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "a b c d", 7, " ", 1, "", 0, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "1b9c9e1f";
+  result =
+      translate_utf8_utf8_utf8(ctx_ptr, "abdcdeaf", 8, "adad", 4, "192", 3, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "012345678";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "123456789", 9, "987654321", 9, "0123456789",
+                                    10, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+
+  expected = "012345678";
+  result = translate_utf8_utf8_utf8(ctx_ptr, "987654321", 9, "123456789", 9, "0123456789",
+                                    10, &out_len);
+  EXPECT_EQ(expected, std::string(result, out_len));
+}
+
 }  // namespace gandiva

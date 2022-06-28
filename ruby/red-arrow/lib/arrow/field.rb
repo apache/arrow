@@ -17,6 +17,22 @@
 
 module Arrow
   class Field
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when Hash
+          begin
+            new(value)
+          rescue ArgumentError
+            nil
+          end
+        else
+          nil
+        end
+      end
+    end
+
     alias_method :initialize_raw, :initialize
     private :initialize_raw
 

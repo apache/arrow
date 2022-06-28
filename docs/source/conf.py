@@ -92,7 +92,8 @@ breathe_default_project = "arrow_cpp"
 autodoc_mock_imports = []
 
 # copybutton configuration
-copybutton_prompt_text = "$"
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: "
+copybutton_prompt_is_regexp = True
 copybutton_line_continuation_character = "\\"
 
 # ipython directive options

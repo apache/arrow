@@ -45,7 +45,7 @@ Status BasicUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-Status DenseUnionBuilder::AppendArraySlice(const ArrayData& array, const int64_t offset,
+Status DenseUnionBuilder::AppendArraySlice(const ArraySpan& array, const int64_t offset,
                                            const int64_t length) {
   const int8_t* type_codes = array.GetValues<int8_t>(1);
   const int32_t* offsets = array.GetValues<int32_t>(2);
@@ -55,7 +55,7 @@ Status DenseUnionBuilder::AppendArraySlice(const ArrayData& array, const int64_t
     const int32_t union_offset = offsets[row];
     RETURN_NOT_OK(Append(type_code));
     RETURN_NOT_OK(type_id_to_children_[type_code]->AppendArraySlice(
-        *array.child_data[child_id], union_offset, /*length=*/1));
+        array.child_data[child_id], union_offset, /*length=*/1));
   }
   return Status::OK();
 }
@@ -137,11 +137,11 @@ int8_t BasicUnionBuilder::NextTypeId() {
   return dense_type_id_++;
 }
 
-Status SparseUnionBuilder::AppendArraySlice(const ArrayData& array, const int64_t offset,
+Status SparseUnionBuilder::AppendArraySlice(const ArraySpan& array, const int64_t offset,
                                             const int64_t length) {
   for (size_t i = 0; i < type_codes_.size(); i++) {
     RETURN_NOT_OK(type_id_to_children_[type_codes_[i]]->AppendArraySlice(
-        *array.child_data[i], array.offset + offset, length));
+        array.child_data[i], array.offset + offset, length));
   }
   const int8_t* type_codes = array.GetValues<int8_t>(1);
   RETURN_NOT_OK(types_builder_.Append(type_codes + offset, length));

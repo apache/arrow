@@ -205,16 +205,29 @@ Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) co
 
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
+  return ExecuteInternal(args, /*passed_length=*/-1, options, ctx);
+}
+
+Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
+                                ExecContext* ctx) const {
+  return ExecuteInternal(batch.values, batch.length, options, ctx);
+}
+
+Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
+                                        int64_t passed_length,
+                                        const FunctionOptions* options,
+                                        ExecContext* ctx) const {
   if (options == nullptr) {
     RETURN_NOT_OK(CheckOptions(*this, options));
     options = default_options();
   }
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return Execute(args, options, &default_ctx);
+    return ExecuteInternal(args, passed_length, options, &default_ctx);
   }
 
   util::tracing::Span span;
+
   START_COMPUTE_SPAN(span, name(),
                      {{"function.name", name()},
                       {"function.options", options ? options->ToString() : "<NULLPTR>"},
@@ -228,17 +241,6 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     inputs[i] = args[i].descr();
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto kernel, DispatchBest(&inputs));
-  ARROW_ASSIGN_OR_RAISE(auto implicitly_cast_args, Cast(args, inputs, ctx));
-
-  std::unique_ptr<KernelState> state;
-
-  KernelContext kernel_ctx{ctx};
-  if (kernel->init) {
-    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
-    kernel_ctx.SetState(state.get());
-  }
-
   std::unique_ptr<detail::KernelExecutor> executor;
   if (kind() == Function::SCALAR) {
     executor = detail::KernelExecutor::MakeScalar();
@@ -249,11 +251,41 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   } else {
     return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
+
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
+  ARROW_ASSIGN_OR_RAISE(std::vector<Datum> args_with_casts, Cast(args, inputs, ctx));
+
+  std::unique_ptr<KernelState> state;
+  KernelContext kernel_ctx{ctx, kernel};
+  if (kernel->init) {
+    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
+    kernel_ctx.SetState(state.get());
+  }
+
   RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
 
   detail::DatumAccumulator listener;
-  RETURN_NOT_OK(executor->Execute(implicitly_cast_args, &listener));
-  const auto out = executor->WrapResults(implicitly_cast_args, listener.values());
+
+  ExecBatch input(std::move(args_with_casts), /*length=*/0);
+  if (input.num_values() == 0) {
+    if (passed_length != -1) {
+      input.length = passed_length;
+    }
+  } else {
+    bool all_same_length = false;
+    int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
+    input.length = inferred_length;
+    if (kind() == Function::SCALAR) {
+      DCHECK(passed_length == -1 || passed_length == inferred_length);
+    } else if (kind() == Function::VECTOR) {
+      auto vkernel = static_cast<const VectorKernel*>(kernel);
+      if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
+        return Status::Invalid("Vector kernel arguments must all be the same length");
+      }
+    }
+  }
+  RETURN_NOT_OK(executor->Execute(input, &listener));
+  const auto out = executor->WrapResults(input.values, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, name_.c_str()));
 #endif
@@ -386,6 +418,12 @@ Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
     options = default_options();
   }
   return ExecuteImpl(args, options, ctx);
+}
+
+Result<Datum> MetaFunction::Execute(const ExecBatch& batch,
+                                    const FunctionOptions* options,
+                                    ExecContext* ctx) const {
+  return Execute(batch.values, options, ctx);
 }
 
 }  // namespace compute

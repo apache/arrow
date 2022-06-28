@@ -60,7 +60,6 @@ jobs:
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
-          -e ARROW_GCS=OFF
           -e ARROW_ORC=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
@@ -99,11 +98,11 @@ jobs:
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
-          -e ARROW_SUBSTRAIT=OFF
           -e ARROW_PARQUET=OFF
           -e ARROW_S3=OFF
-          -e CMAKE_UNITY_BUILD=ON
+          -e ARROW_SUBSTRAIT=OFF
           -e CMAKE_BUILD_PARALLEL_LEVEL=2
+          -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED
@@ -154,8 +153,8 @@ jobs:
           -e ARROW_PARQUET=OFF
           -e ARROW_PYTHON=ON
           -e ARROW_S3=OFF
-          -e CMAKE_UNITY_BUILD=ON
           -e CMAKE_BUILD_PARALLEL_LEVEL=2
+          -e CMAKE_UNITY_BUILD=ON
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED

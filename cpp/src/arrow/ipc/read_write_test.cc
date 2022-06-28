@@ -59,7 +59,6 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::GetByteWidth;
 using internal::TemporaryDir;
 
 namespace ipc {

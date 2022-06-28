@@ -187,5 +187,15 @@ util::optional<std::string> Replace(util::string_view s, util::string_view token
          s.substr(token_start + token.size()).to_string();
 }
 
+Result<bool> ParseBoolean(util::string_view value) {
+  if (AsciiEqualsCaseInsensitive(value, "true") || value == "1") {
+    return true;
+  } else if (AsciiEqualsCaseInsensitive(value, "false") || value == "0") {
+    return false;
+  } else {
+    return Status::Invalid("String is not a valid boolean value: '", value, "'.");
+  }
+}
+
 }  // namespace internal
 }  // namespace arrow

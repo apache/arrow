@@ -91,6 +91,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
@@ -353,6 +354,12 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
       options.scheme = kv.second;
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
+    } else if (kv.first == "allow_bucket_creation") {
+      ARROW_ASSIGN_OR_RAISE(options.allow_bucket_creation,
+                            ::arrow::internal::ParseBoolean(kv.second));
+    } else if (kv.first == "allow_bucket_deletion") {
+      ARROW_ASSIGN_OR_RAISE(options.allow_bucket_deletion,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
@@ -376,6 +383,8 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
+          allow_bucket_creation == other.allow_bucket_creation &&
+          allow_bucket_deletion == other.allow_bucket_deletion &&
           credentials_kind == other.credentials_kind &&
           proxy_options.Equals(other.proxy_options) &&
           GetAccessKey() == other.GetAccessKey() &&
@@ -1677,6 +1686,27 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
+    // Check bucket exists first.
+    {
+      S3Model::HeadBucketRequest req;
+      req.SetBucket(ToAwsString(bucket));
+      auto outcome = client_->HeadBucket(req);
+
+      if (outcome.IsSuccess()) {
+        return Status::OK();
+      } else if (!IsNotFound(outcome.GetError())) {
+        return ErrorToStatus(
+            std::forward_as_tuple("When creating bucket '", bucket, "': "),
+            outcome.GetError());
+      }
+
+      if (!options().allow_bucket_creation) {
+        return Status::IOError(
+            "Bucket '", bucket, "' not found. ",
+            "To create buckets, enable the allow_bucket_creation option.");
+      }
+    }
+
     S3Model::CreateBucketConfiguration config;
     S3Model::CreateBucketRequest req;
     auto _region = region();
@@ -2373,13 +2403,16 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
   RETURN_NOT_OK(impl_->DeleteDirContentsAsync(path.bucket, path.key).status());
-  if (path.key.empty()) {
+  if (path.key.empty() && options().allow_bucket_deletion) {
     // Delete bucket
     S3Model::DeleteBucketRequest req;
     req.SetBucket(ToAwsString(path.bucket));
     return OutcomeToStatus(
         std::forward_as_tuple("When deleting bucket '", path.bucket, "': "),
         impl_->client_->DeleteBucket(req));
+  } else if (path.key.empty()) {
+    return Status::IOError("Would delete bucket '", path.bucket, "'. ",
+                           "To delete buckets, enable the allow_bucket_deletion option.");
   } else {
     // Delete "directory"
     RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));

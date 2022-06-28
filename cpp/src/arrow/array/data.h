@@ -25,10 +25,13 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
 
 // When slicing, we do not know the null count of the sliced range without
 // doing some computation. To avoid doing this eagerly, we set the null count
@@ -240,6 +243,131 @@ struct ARROW_EXPORT ArrayData {
 
   // The dictionary for this Array, if any. Only used for dictionary type
   std::shared_ptr<ArrayData> dictionary;
+};
+
+/// \brief A non-owning Buffer reference
+struct ARROW_EXPORT BufferSpan {
+  // It is the user of this class's responsibility to ensure that
+  // buffers that were const originally are not written to
+  // accidentally.
+  uint8_t* data = NULLPTR;
+  int64_t size = 0;
+  // Pointer back to buffer that owns this memory
+  const std::shared_ptr<Buffer>* owner = NULLPTR;
+};
+
+/// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
+/// copyable and does not contain any shared_ptr objects. Do not use in public
+/// APIs aside from compute kernels for now
+struct ARROW_EXPORT ArraySpan {
+  const DataType* type = NULLPTR;
+  int64_t length = 0;
+  mutable int64_t null_count = kUnknownNullCount;
+  int64_t offset = 0;
+  BufferSpan buffers[3];
+
+  ArraySpan() = default;
+
+  explicit ArraySpan(const DataType* type, int64_t length) : type(type), length(length) {}
+
+  ArraySpan(const ArrayData& data) {  // NOLINT implicit conversion
+    SetMembers(data);
+  }
+  ArraySpan(const Scalar& data) {  // NOLINT implicit converstion
+    FillFromScalar(data);
+  }
+
+  /// If dictionary-encoded, put dictionary in the first entry
+  std::vector<ArraySpan> child_data;
+
+  /// \brief Populate ArraySpan to look like an array of length 1 pointing at
+  /// the data members of a Scalar value
+  void FillFromScalar(const Scalar& value);
+
+  void SetMembers(const ArrayData& data);
+
+  void SetBuffer(int index, const std::shared_ptr<Buffer>& buffer) {
+    this->buffers[index].data = const_cast<uint8_t*>(buffer->data());
+    this->buffers[index].size = buffer->size();
+    this->buffers[index].owner = &buffer;
+  }
+
+  void ClearBuffer(int index) {
+    this->buffers[index].data = NULLPTR;
+    this->buffers[index].size = 0;
+    this->buffers[index].owner = NULLPTR;
+  }
+
+  const ArraySpan& dictionary() const { return child_data[0]; }
+
+  /// \brief Return the number of buffers (out of 3) that are used to
+  /// constitute this array
+  int num_buffers() const;
+
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline T* GetValues(int i, int64_t absolute_offset) {
+    return reinterpret_cast<T*>(buffers[i].data) + absolute_offset;
+  }
+
+  template <typename T>
+  inline T* GetValues(int i) {
+    return GetValues<T>(i, this->offset);
+  }
+
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline const T* GetValues(int i, int64_t absolute_offset) const {
+    return reinterpret_cast<const T*>(buffers[i].data) + absolute_offset;
+  }
+
+  template <typename T>
+  inline const T* GetValues(int i) const {
+    return GetValues<T>(i, this->offset);
+  }
+
+  bool IsNull(int64_t i) const {
+    return ((this->buffers[0].data != NULLPTR)
+                ? !bit_util::GetBit(this->buffers[0].data, i + this->offset)
+                : this->null_count == this->length);
+  }
+
+  bool IsValid(int64_t i) const {
+    return ((this->buffers[0].data != NULLPTR)
+                ? bit_util::GetBit(this->buffers[0].data, i + this->offset)
+                : this->null_count != this->length);
+  }
+
+  std::shared_ptr<ArrayData> ToArrayData() const;
+
+  std::shared_ptr<Array> ToArray() const;
+
+  std::shared_ptr<Buffer> GetBuffer(int index) const {
+    if (this->buffers[index].owner == NULLPTR) {
+      return NULLPTR;
+    } else {
+      return *this->buffers[index].owner;
+    }
+  }
+
+  void AddOffset(int64_t offset) {
+    this->offset += offset;
+    this->null_count = kUnknownNullCount;
+  }
+
+  void SetOffset(int64_t offset) {
+    this->offset = offset;
+    this->null_count = kUnknownNullCount;
+  }
+
+  /// \brief Return null count, or compute and set it if it's not known
+  int64_t GetNullCount() const;
+
+  bool MayHaveNulls() const {
+    // If an ArrayData is slightly malformed it may have kUnknownNullCount set
+    // but no buffer
+    return null_count != 0 && buffers[0].data != NULLPTR;
+  }
 };
 
 namespace internal {

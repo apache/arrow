@@ -844,7 +844,7 @@ class PartAndPartSupplierGenerator {
   Status AllocatePartBatch(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.part[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[column]);
+    int32_t byte_width = kPartTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.part_to_generate * byte_width));
     ArrayData ad(kPartTypes[column], tld.part_to_generate, {nullptr, std::move(buff)});
@@ -917,7 +917,7 @@ class PartAndPartSupplierGenerator {
       RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_MFGR));
       char* p_mfgr = reinterpret_cast<char*>(
           tld.part[PART::P_MFGR].array()->buffers[1]->mutable_data());
-      int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_MFGR]);
+      int32_t byte_width = kPartTypes[PART::P_MFGR]->byte_width();
       for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
         std::strncpy(p_mfgr + byte_width * irow, manufacturer, byte_width);
         char mfgr_id = '0' + dist(tld.rng);
@@ -939,8 +939,8 @@ class PartAndPartSupplierGenerator {
           tld.part[PART::P_MFGR].array()->buffers[1]->data());
       char* p_brand = reinterpret_cast<char*>(
           tld.part[PART::P_BRAND].array()->buffers[1]->mutable_data());
-      int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_BRAND]);
-      int32_t mfgr_byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_MFGR]);
+      int32_t byte_width = kPartTypes[PART::P_BRAND]->byte_width();
+      int32_t mfgr_byte_width = kPartTypes[PART::P_MFGR]->byte_width();
       const size_t mfgr_id_offset = std::strlen("Manufacturer#");
       for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
         char* row = p_brand + byte_width * irow;
@@ -1023,7 +1023,7 @@ class PartAndPartSupplierGenerator {
       RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_CONTAINER));
       char* p_container = reinterpret_cast<char*>(
           tld.part[PART::P_CONTAINER].array()->buffers[1]->mutable_data());
-      int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_CONTAINER]);
+      int32_t byte_width = kPartTypes[PART::P_CONTAINER]->byte_width();
       for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
         int container1_idx = dist1(tld.rng);
         int container2_idx = dist2(tld.rng);
@@ -1090,7 +1090,7 @@ class PartAndPartSupplierGenerator {
 
   Status AllocatePartSuppBatch(size_t thread_index, size_t ibatch, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    int32_t byte_width = arrow::internal::GetByteWidth(*kPartsuppTypes[column]);
+    int32_t byte_width = kPartsuppTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateResizableBuffer(batch_size_ * byte_width));
     ArrayData ad(kPartsuppTypes[column], batch_size_, {nullptr, std::move(buff)});
@@ -1101,7 +1101,7 @@ class PartAndPartSupplierGenerator {
   Status SetPartSuppColumnSize(size_t thread_index, size_t ibatch, int column,
                                size_t new_size) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    int32_t byte_width = arrow::internal::GetByteWidth(*kPartsuppTypes[column]);
+    int32_t byte_width = kPartsuppTypes[column]->byte_width();
     tld.partsupp[ibatch][column].array()->length = static_cast<int64_t>(new_size);
     ResizableBuffer* buff = checked_cast<ResizableBuffer*>(
         tld.partsupp[ibatch][column].array()->buffers[1].get());
@@ -1554,7 +1554,7 @@ class OrdersAndLineItemGenerator {
   Status AllocateOrdersBatch(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.orders[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kOrdersTypes[column]);
+    int32_t byte_width = kOrdersTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.orders_to_generate * byte_width));
     ArrayData ad(kOrdersTypes[column], tld.orders_to_generate,
@@ -1711,8 +1711,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.orders[ORDERS::O_ORDERPRIORITY].kind() == Datum::NONE) {
       RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_ORDERPRIORITY));
-      int32_t byte_width =
-          arrow::internal::GetByteWidth(*kOrdersTypes[ORDERS::O_ORDERPRIORITY]);
+      int32_t byte_width = kOrdersTypes[ORDERS::O_ORDERPRIORITY]->byte_width();
       std::uniform_int_distribution<int32_t> dist(0, kNumPriorities - 1);
       char* o_orderpriority = reinterpret_cast<char*>(
           tld.orders[ORDERS::O_ORDERPRIORITY].array()->buffers[1]->mutable_data());
@@ -1728,7 +1727,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.orders[ORDERS::O_CLERK].kind() == Datum::NONE) {
       RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_CLERK));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kOrdersTypes[ORDERS::O_CLERK]);
+      int32_t byte_width = kOrdersTypes[ORDERS::O_CLERK]->byte_width();
       int64_t max_clerk_id = static_cast<int64_t>(scale_factor_ * 1000);
       std::uniform_int_distribution<int64_t> dist(1, max_clerk_id);
       char* o_clerk = reinterpret_cast<char*>(
@@ -1792,7 +1791,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.lineitem[ibatch][column].kind() == Datum::NONE) {
       ARROW_DCHECK(ibatch != 0 || tld.first_batch_offset == 0);
-      int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[column]);
+      int32_t byte_width = kLineitemTypes[column]->byte_width();
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                             AllocateResizableBuffer(batch_size_ * byte_width));
       ArrayData ad(kLineitemTypes[column], batch_size_, {nullptr, std::move(buff)});
@@ -1807,7 +1806,7 @@ class OrdersAndLineItemGenerator {
   Status SetLineItemColumnSize(size_t thread_index, size_t ibatch, int column,
                                size_t new_size) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[column]);
+    int32_t byte_width = kLineitemTypes[column]->byte_width();
     tld.lineitem[ibatch][column].array()->length = static_cast<int64_t>(new_size);
     ResizableBuffer* buff = checked_cast<ResizableBuffer*>(
         tld.lineitem[ibatch][column].array()->buffers[1].get());
@@ -2283,8 +2282,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (!tld.generated_lineitem[LINEITEM::L_SHIPINSTRUCT]) {
       tld.generated_lineitem[LINEITEM::L_SHIPINSTRUCT] = true;
-      int32_t byte_width =
-          arrow::internal::GetByteWidth(*kLineitemTypes[LINEITEM::L_SHIPINSTRUCT]);
+      int32_t byte_width = kLineitemTypes[LINEITEM::L_SHIPINSTRUCT]->byte_width();
       size_t ibatch = 0;
       std::uniform_int_distribution<size_t> dist(0, kNumInstructions - 1);
       for (int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++) {
@@ -2318,8 +2316,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (!tld.generated_lineitem[LINEITEM::L_SHIPMODE]) {
       tld.generated_lineitem[LINEITEM::L_SHIPMODE] = true;
-      int32_t byte_width =
-          arrow::internal::GetByteWidth(*kLineitemTypes[LINEITEM::L_SHIPMODE]);
+      int32_t byte_width = kLineitemTypes[LINEITEM::L_SHIPMODE]->byte_width();
       size_t ibatch = 0;
       std::uniform_int_distribution<size_t> dist(0, kNumModes - 1);
       for (int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++) {
@@ -2530,7 +2527,7 @@ class SupplierGenerator : public TpchTableGenerator {
   Status AllocateColumn(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.batch[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[column]);
+    int32_t byte_width = kTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.to_generate * byte_width));
     ArrayData ad(kTypes[column], tld.to_generate, {nullptr, std::move(buff)});
@@ -2558,7 +2555,7 @@ class SupplierGenerator : public TpchTableGenerator {
       const int32_t* s_suppkey = reinterpret_cast<const int32_t*>(
           tld.batch[SUPPLIER::S_SUPPKEY].array()->buffers[1]->data());
       RETURN_NOT_OK(AllocateColumn(thread_index, SUPPLIER::S_NAME));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[SUPPLIER::S_NAME]);
+      int32_t byte_width = kTypes[SUPPLIER::S_NAME]->byte_width();
       char* s_name = reinterpret_cast<char*>(
           tld.batch[SUPPLIER::S_NAME].array()->buffers[1]->mutable_data());
       // Look man, I'm just following the spec ok? Section 4.2.3 as of March 1 2022
@@ -2600,7 +2597,7 @@ class SupplierGenerator : public TpchTableGenerator {
     if (tld.batch[SUPPLIER::S_PHONE].kind() == Datum::NONE) {
       RETURN_NOT_OK(S_NATIONKEY(thread_index));
       RETURN_NOT_OK(AllocateColumn(thread_index, SUPPLIER::S_PHONE));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[SUPPLIER::S_PHONE]);
+      int32_t byte_width = kTypes[SUPPLIER::S_PHONE]->byte_width();
       const int32_t* s_nationkey = reinterpret_cast<const int32_t*>(
           tld.batch[SUPPLIER::S_NATIONKEY].array()->buffers[1]->data());
       char* s_phone = reinterpret_cast<char*>(
@@ -2913,7 +2910,7 @@ class CustomerGenerator : public TpchTableGenerator {
   Status AllocateColumn(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.batch[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[column]);
+    int32_t byte_width = kTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.to_generate * byte_width));
     ArrayData ad(kTypes[column], tld.to_generate, {nullptr, std::move(buff)});
@@ -2994,7 +2991,7 @@ class CustomerGenerator : public TpchTableGenerator {
     if (tld.batch[CUSTOMER::C_PHONE].kind() == Datum::NONE) {
       RETURN_NOT_OK(C_NATIONKEY(thread_index));
       RETURN_NOT_OK(AllocateColumn(thread_index, CUSTOMER::C_PHONE));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[CUSTOMER::C_PHONE]);
+      int32_t byte_width = kTypes[CUSTOMER::C_PHONE]->byte_width();
       const int32_t* c_nationkey = reinterpret_cast<const int32_t*>(
           tld.batch[CUSTOMER::C_NATIONKEY].array()->buffers[1]->data());
       char* c_phone = reinterpret_cast<char*>(
@@ -3023,7 +3020,7 @@ class CustomerGenerator : public TpchTableGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.batch[CUSTOMER::C_MKTSEGMENT].kind() == Datum::NONE) {
       RETURN_NOT_OK(AllocateColumn(thread_index, CUSTOMER::C_MKTSEGMENT));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[CUSTOMER::C_MKTSEGMENT]);
+      int32_t byte_width = kTypes[CUSTOMER::C_MKTSEGMENT]->byte_width();
       char* c_mktsegment = reinterpret_cast<char*>(
           tld.batch[CUSTOMER::C_MKTSEGMENT].array()->buffers[1]->mutable_data());
       std::uniform_int_distribution<int32_t> dist(0, kNumSegments - 1);

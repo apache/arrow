@@ -229,44 +229,48 @@ if [ $? -eq 0 ]; then
   # Check for features
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
   ARROW_OPTS_CMAKE="$LIB_DIR/cmake/arrow/ArrowOptions.cmake"
-  # Check for Parquet
-  grep -i 'set(ARROW_PARQUET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
+
+  arrow_built_with() {
+    # Function to check cmake options for features
+    grep -i 'set('"$1"' "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  }
+
+  if arrow_built_with ARROW_PARQUET; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
     PKG_LIBS="-lparquet $PKG_LIBS"
     # NOTE: parquet is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
-  # Check for Arrow Dataset subcomponent
-  grep -i 'set(ARROW_DATASET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
+  if arrow_built_with ARROW_DATASET; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
     PKG_LIBS="-larrow_dataset $PKG_LIBS"
     # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
-  # Check for Arrow Substrait subcomponent
-  grep -i 'set(ARROW_SUBSTRAIT "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
+  if arrow_built_with ARROW_SUBSTRAIT; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_SUBSTRAIT"
     PKG_LIBS="-larrow_substrait $PKG_LIBS"
     # NOTE: arrow-substrait is assumed to have the same -L flag as arrow
     # so there is no need to add its location to PKG_DIRS
   fi
-  # Check for S3
-  grep -i 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
+  if arrow_built_with ARROW_JSON; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
+  fi
+  if arrow_built_with ARROW_S3; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
     if [ "$BUNDLED_LIBS" != "" ]; then
       # We're depending on openssl/curl from the system, so they're not in the bundled deps
       BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
     fi
   fi
-  # Check for JSON
-  grep -i 'set(ARROW_JSON "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
+  if arrow_built_with ARROW_GCS; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS"
+    if [ "$BUNDLED_LIBS" != "" ]; then
+      # GCS also requires openssl and curl
+      BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
+    fi
   fi
+
   # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
   PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"

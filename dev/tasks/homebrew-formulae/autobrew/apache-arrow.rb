@@ -47,6 +47,7 @@ class ApacheArrow < Formula
       -DARROW_CSV=ON
       -DARROW_DATASET=ON
       -DARROW_FILESYSTEM=ON
+      -DARROW_GCS=ON
       -DARROW_HDFS=OFF
       -DARROW_JEMALLOC=ON
       -DARROW_JSON=ON

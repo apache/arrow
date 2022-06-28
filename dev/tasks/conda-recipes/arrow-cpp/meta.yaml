@@ -90,6 +90,7 @@ outputs:
         - re2
         - snappy
         - thrift-cpp
+        - xsimd
         - zlib
         - zstd
       run:

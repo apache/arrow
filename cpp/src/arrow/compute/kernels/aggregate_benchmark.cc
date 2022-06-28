@@ -21,6 +21,7 @@
 
 #include "arrow/array/array_primitive.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/exec/aggregate.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -305,8 +306,9 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 // GroupBy
 //
 
-static void BenchmarkGroupBy(benchmark::State& state,
-                             std::vector<internal::Aggregate> aggregates,
+using arrow::compute::internal::GroupBy;
+
+static void BenchmarkGroupBy(benchmark::State& state, std::vector<Aggregate> aggregates,
                              std::vector<Datum> arguments, std::vector<Datum> keys) {
   for (auto _ : state) {
     ABORT_NOT_OK(GroupBy(arguments, keys, aggregates).status());

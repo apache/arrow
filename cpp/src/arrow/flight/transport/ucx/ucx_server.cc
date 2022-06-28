@@ -185,10 +185,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
 
   virtual ~UcxServerImpl() {
     if (listening_.load()) {
-      auto st = Shutdown();
-      if (!st.ok()) {
-        ARROW_LOG(WARNING) << "Server did not shut down properly: " << st.ToString();
-      }
+      ARROW_WARN_NOT_OK(Shutdown(), "Server did not shut down properly");
     }
   }
 
@@ -521,10 +518,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
           pending_connections_.pop();
 
           auto submitted = rpc_pool_->Submit([this, request]() { WorkerLoop(request); });
-          if (!submitted.ok()) {
-            ARROW_LOG(WARNING) << "Failed to submit task to handle client "
-                               << submitted.status().ToString();
-          }
+          ARROW_WARN_NOT_OK(submitted.status(), "Failed to submit task to handle client");
         }
       }
 

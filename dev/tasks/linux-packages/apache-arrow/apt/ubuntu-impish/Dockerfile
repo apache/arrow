@@ -51,6 +51,7 @@ RUN \
     libgoogle-glog-dev \
     libgrpc++-dev \
     libgtest-dev \
+    libjemalloc-dev \
     liblz4-dev \
     libprotoc-dev \
     libprotobuf-dev \
