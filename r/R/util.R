@@ -341,7 +341,7 @@ shift_date32_to_week <- function(fn, x, offset, options) {
   x_int_offset <- x_int - offset
   x_offset <- build_expr("cast", x_int_offset, options = cast_options(to_type = date32()))
 
-  # round/floor/ceil
+  # apply round/floor/ceil
   shift_offset <- build_expr(fn, x_offset, options = options)
 
   # undo offset and return
