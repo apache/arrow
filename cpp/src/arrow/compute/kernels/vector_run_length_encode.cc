@@ -1,6 +1,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/rle_util.h"
 
 namespace arrow {
 namespace compute {
@@ -226,13 +227,15 @@ struct RunLengthDecodeExec
     const ArraySpan& child_array = this->input_array.child_data[0];
     this->input_validity = child_array.buffers[0].data;
     this->input_values = child_array.buffers[1].data;
-    this->input_values_physical_offset = 0;  // TODO
-
     input_accumulated_run_length =
         reinterpret_cast<const int64_t*>(this->input_array.buffers[0].data);
 
-    int64_t num_values_input = this->input_array.child_data[0].length;
-    int64_t num_values_output = this->input_array.length;
+    const int64_t logical_offset = this->input_array.offset;
+    const int64_t run_lengths_buffer_offset = rle_util::FindPhysicalOffset(input_accumulated_run_length, this->input_array.length, logical_offset);  // TODO
+    this->input_values_physical_offset = run_lengths_buffer_offset + child_array.offset;
+
+    const int64_t num_values_input = this->input_array.child_data[0].length - run_lengths_buffer_offset;
+    const int64_t num_values_output = this->input_array.length;
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
@@ -261,12 +264,14 @@ struct RunLengthDecodeExec
       this->output_validity[validity_buffer_size - 1] = 0;
     }
 
+    this->input_position = 0;
     this->output_position = 0;
     int64_t output_null_count = 0;
-    int64_t run_start = 0;
+    int64_t run_start = logical_offset;
     for (this->input_position = 0; this->input_position < num_values_input;
          this->input_position++) {
-      int64_t run_end = input_accumulated_run_length[this->input_position];
+      int64_t run_end = input_accumulated_run_length[run_lengths_buffer_offset + this->input_position];
+      ARROW_DCHECK_LT(run_start, run_end);
       int64_t run_length = run_end - run_start;
       run_start = run_end;
 
