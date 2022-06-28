@@ -24,6 +24,21 @@ arrow_dplyr_query <- function(.data) {
   # RecordBatch, or Dataset) and the state of the user's dplyr query--things
   # like selected columns, filters, and group vars.
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
+
+  supported <- c(
+    "Dataset", "RecordBatch", "RecordBatchReader",
+    "Table", "arrow_dplyr_query", "data.frame"
+  )
+  if (!inherits(.data, supported)) {
+    stop(
+      "You must supply a ",
+      oxford_paste(supported, "or", quote = FALSE),
+      ", not an object of type ",
+      deparse(class(.data)),
+      call. = FALSE
+    )
+  }
+
   gv <- tryCatch(
     # If dplyr is not available, or if the input doesn't have a group_vars
     # method, assume no group vars
@@ -38,7 +53,7 @@ arrow_dplyr_query <- function(.data) {
   dupes <- duplicated(names(.data))
   if (any(dupes)) {
     abort(c(
-      "Duplicated field names",
+      "Field names must be unique.",
       x = paste0(
         "The following field names were found more than once in the data: ",
         oxford_paste(names(.data)[dupes])
