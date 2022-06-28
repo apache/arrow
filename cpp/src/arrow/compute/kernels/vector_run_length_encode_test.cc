@@ -105,12 +105,17 @@ TEST_P(TestRunLengthEncode, DecodeWithOffsetInChildArray) {
   auto data = GetParam();
 
   const int64_t first_run_length = data.expected_run_lengths[0];
-  auto parent = ArrayData::Make(run_length_encoded(data.input->type()), data.input->length() - first_run_length);
+  auto parent = ArrayData::Make(run_length_encoded(data.input->type()),
+                                data.input->length() - first_run_length);
   parent->child_data.push_back(data.expected_values->Slice(1)->data());
-  ASSERT_OK_AND_ASSIGN(auto run_length_buffer, AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int64_t)));
-  int64_t* run_length_buffer_data = reinterpret_cast<int64_t*>(run_length_buffer->mutable_data());
+  ASSERT_OK_AND_ASSIGN(
+      auto run_length_buffer,
+      AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int64_t)));
+  int64_t* run_length_buffer_data =
+      reinterpret_cast<int64_t*>(run_length_buffer->mutable_data());
   for (size_t index = 0; index < data.expected_run_lengths.size() - 1; index++) {
-    run_length_buffer_data[index] = data.expected_run_lengths[index + 1] - first_run_length;
+    run_length_buffer_data[index] =
+        data.expected_run_lengths[index + 1] - first_run_length;
   }
   parent->buffers.push_back(std::move(run_length_buffer));
 

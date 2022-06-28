@@ -242,8 +242,7 @@ struct RunLengthDecodeExec
         input_accumulated_run_length, child_array.length, logical_offset);
     this->input_values_physical_offset = common_physical_offset + child_array.offset;
     // the child array is not aware of the logical offset of the parent
-    const int64_t num_values_input =
-        child_array.length - common_physical_offset;
+    const int64_t num_values_input = child_array.length - common_physical_offset;
     ARROW_DCHECK_GT(num_values_input, 0);
     const int64_t num_values_output = this->input_array.length;
     auto& input_type =

@@ -41,4 +41,3 @@ TEST(TestRleUtil, FindPhysicalOffsetTest) {
 
 }  // namespace rle_util
 }  // namespace arrow
-
