@@ -288,35 +288,65 @@ parse_period_unit <- function(x) {
 }
 
 
-# round/ceil/floor timestamp to nearest week when week_start
-# is set to a non-standard value (i.e., not Monday or Sunday)
-# requires a little sleight of hand
-shift_timestamp_to_week <- function(fn, x, offset_in_days, options) {
+# handles round/ceil/floor when unit is week and week_start is
+# a non-standard value (not Monday or Sunday)
+shift_temporal_to_week <- function(fn, x, week_start, options) {
 
-  offset_in_seconds <- build_expr(
+  if (week_start == 7) { # Sunday
+    options$week_starts_monday <- FALSE
+    return(Expression$create(fn, x, options = options))
+  }
+
+  if (week_start == 1) { # Monday
+    options$week_starts_monday <- TRUE
+    return(Expression$create(fn, x, options = options))
+  }
+
+  # other cases use offset-from-Monday
+  options$week_starts_monday <- TRUE
+  offset <- as.integer(week_start) - 1
+
+  is_date32 <- inherits(x, "Date") ||
+    (inherits(x, "Expression") && x$type_id() == Type$DATE32)
+
+  if (is_date32) {
+    shifted_date <- shift_date32_to_week(fn, x, offset, options = options)
+  } else {
+    shifted_date <- shift_timestamp_to_week(fn, x, offset, options = options)
+  }
+  return(shifted_date)
+}
+
+# timestamp input should remain timestamp
+shift_timestamp_to_week <- function(fn, x, offset, options) {
+
+  offset_seconds <- build_expr(
     "cast",
-    Scalar$create(offset_in_days * 86400L, int64()),
+    Scalar$create(offset * 86400L, int64()),
     options = cast_options(to_type = duration(unit = "s"))
   )
-  shift_with_offset <- build_expr(fn, x - offset_in_seconds, options = options)
-  return(shift_with_offset + offset_in_seconds)
-
+  shift_offset <- build_expr(fn, x - offset_seconds, options = options)
+  return(shift_offset + offset_seconds)
 }
 
 # to avoid date32 types being cast to timestamp during the temporal
 # arithmetic, the offset logic needs to use the count in days and
 # use integer arithmetic: this feels inelegant, but it ensures that
 # temporal rounding functions remain type stable
-shift_date32_to_week <- function(fn, x, offset_in_days, options) {
+shift_date32_to_week <- function(fn, x, offset, options) {
 
-  offset <- Expression$scalar(Scalar$create(offset_in_days, int32()))
+  # offset the date
+  offset <- Expression$scalar(Scalar$create(offset, int32()))
   x_int <- build_expr("cast", x, options = cast_options(to_type = int32()))
   x_int_offset <- x_int - offset
   x_offset <- build_expr("cast", x_int_offset, options = cast_options(to_type = date32()))
+
+  # round/floor/ceil
   shift_offset <- build_expr(fn, x_offset, options = options)
+
+  # undo offset and return
   shift_int_offset <- build_expr("cast", shift_offset, options = cast_options(to_type = int32()))
   shift_int <- shift_int_offset + offset
   shift <- build_expr("cast", shift_int, options = cast_options(to_type = date32()))
   return(shift)
-
 }

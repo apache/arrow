@@ -2756,9 +2756,6 @@ test_that("ceiling_date() works for Dates to nearest week, adjusted for week_sta
 })
 
 
-
-
-
 # NOTE: lubridate::round_date() sometimes coerces output from Date to POSIXct.
 # this is not the default for the round_temporal() function in libarrow, which
 # is type stable: timestamps stay timestamps, and date32 stays date32. the

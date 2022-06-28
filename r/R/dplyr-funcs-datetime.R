@@ -641,55 +641,22 @@ register_bindings_datetime_rounding <- function() {
     opts <- parse_period_unit(unit)
 
     if (opts$unit == 7L) {
-
-      if (week_start == 7) { # Sunday
-        opts$week_starts_monday <- FALSE
-        return(Expression$create("round_temporal", x, options = opts))
-
-      } else if (week_start == 1) { # Monday
-        opts$week_starts_monday <- TRUE
-        return(Expression$create("round_temporal", x, options = opts))
-
-      } else { # for other values of week_start, compute using an offset
-        opts$week_starts_monday <- TRUE
-        offset_in_days <- as.integer(week_start) - 1L
-
-        if (inherits(x, "Date") || (inherits(x, "Expression") && x$type_id() == Type$DATE32)) {
-          return(shift_date32_to_week("round_temporal", x, offset_in_days, options = opts))
-        } else {
-          return(shift_timestamp_to_week("round_temporal", x, offset_in_days, options = opts))
-        }
-
-      }
+      return(shift_temporal_to_week("round_temporal", x, week_start, options = opts))
     }
+
     Expression$create("round_temporal", x, options = opts)
   })
 
   register_binding("floor_date", function(x, unit = "second",
                                           week_start = getOption("lubridate.week.start", 7)) {
+
     opts <- parse_period_unit(unit)
+
     if (opts$unit == 7L) {
-      if (week_start == 7) { # Sunday
-        opts$week_starts_monday <- FALSE
-        return(Expression$create("floor_temporal", x, options = opts))
-
-      } else if (week_start == 1) { # Monday
-        opts$week_starts_monday <- TRUE
-        return(Expression$create("floor_temporal", x, options = opts))
-
-      } else { # for other values of week_start, compute using an offset
-        opts$week_starts_monday <- TRUE
-        offset_in_days <- as.integer(week_start) - 1L
-
-        if (inherits(x, "Date") || (inherits(x, "Expression") && x$type_id() == Type$DATE32)) {
-          return(shift_date32_to_week("floor_temporal", x, offset_in_days, options = opts))
-        } else {
-          return(shift_timestamp_to_week("floor_temporal", x, offset_in_days, options = opts))
-        }
-
-      }
+      return(shift_temporal_to_week("floor_temporal", x, week_start, options = opts))
     }
-    Expression$create("floor_temporal", x, options = opts)
+
+    return(Expression$create("floor_temporal", x, options = opts))
   })
 
   register_binding("ceiling_date", function(x, unit = "second",
@@ -709,32 +676,14 @@ register_bindings_datetime_rounding <- function() {
     if (change_on_boundary == FALSE) {
       opts$ceil_is_strictly_greater <- FALSE
     }
-
     if (change_on_boundary == TRUE) {
       opts$ceil_is_strictly_greater <- TRUE
     }
 
     if (opts$unit == 7L) {
-      if (week_start == 7) { # Sunday
-        opts$week_starts_monday <- FALSE
-        return(Expression$create("ceil_temporal", x, options = opts))
-
-      } else if (week_start == 1) { # Monday
-        opts$week_starts_monday <- TRUE
-        return(Expression$create("ceil_temporal", x, options = opts))
-
-      } else { # for other values of week_start, compute using an offset
-        opts$week_starts_monday <- TRUE
-        offset_in_days <- as.integer(week_start) - 1L
-
-        if (inherits(x, "Date") || (inherits(x, "Expression") && x$type_id() == Type$DATE32)) {
-          return(shift_date32_to_week("ceil_temporal", x, offset_in_days, options = opts))
-        } else {
-          return(shift_timestamp_to_week("ceil_temporal", x, offset_in_days, options = opts))
-        }
-
-      }
+      return(shift_temporal_to_week("ceil_temporal", x, week_start, options = opts))
     }
+
     return(Expression$create("ceil_temporal", x, options = opts))
   })
 
