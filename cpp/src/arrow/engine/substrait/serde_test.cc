@@ -1352,20 +1352,22 @@ TEST(Substrait, SerializeProjectRelation) {
 
   ASSERT_OK_AND_ASSIGN(std::string dir_string,
                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
-  auto file_name =
-      arrow::internal::PlatformFilename::FromString(dir_string)->Join("alltypes_plain.parquet");
+  auto file_name = arrow::internal::PlatformFilename::FromString(dir_string)
+                       ->Join("alltypes_plain.parquet");
 
+  // Note: left the timestamp field since it is not supported.
+  // Add it back once it is added.
   auto dummy_schema = schema({
-    field("id", int32()),
-    field("bool_col", boolean()),
-    field("tinyint_col", int32()),
-    field("smallint_col", int32()),
-    field("int_col", int32()),
-    field("bigint_col", int64()),
-    field("float_col", float32()),
-    field("date_string_col", binary()),
-    field("string_col", binary()),
-    field("timestamp_col", timestamp(TimeUnit::NANO)),
+      field("id", int32()),
+      field("bool_col", boolean()),
+      field("tinyint_col", int32()),
+      field("smallint_col", int32()),
+      field("int_col", int32()),
+      field("bigint_col", int64()),
+      field("float_col", float32()),
+      field("double_col", float64()),
+      field("date_string_col", binary()),
+      field("string_col", binary()),
   });
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
@@ -1382,6 +1384,8 @@ TEST(Substrait, SerializeProjectRelation) {
   ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
 
   auto options = std::make_shared<dataset::ScanOptions>();
+  options->filter =
+      compute::greater(compute::field_ref("bigint_col"), compute::literal(0));
   options->projection = compute::project({}, {});
 
   auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
@@ -1390,23 +1394,28 @@ TEST(Substrait, SerializeProjectRelation) {
 
   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
 
-  compute::Expression a_times_2 = compute::call("multiply", {compute::field_ref("bigint_col"), compute::literal(2)});
+  compute::Expression a_times_2 =
+      compute::call("add", {compute::field_ref("bigint_col"), compute::literal(2)});
+
+  const std::shared_ptr<Schema> kBoringSchema = schema({field("bigint_col", int32())});
+  ASSERT_OK_AND_ASSIGN(a_times_2, a_times_2.Bind(*kBoringSchema));
   auto project_node_options = compute::ProjectNodeOptions{{a_times_2}};
 
   auto scan_declaration = compute::Declaration({"scan", scan_node_options});
   auto project_declaration = compute::Declaration({"project", project_node_options});
   auto sink_declaration = compute::Declaration({"sink", sink_node_options});
 
-  auto declarations =
-      compute::Declaration::Sequence({scan_declaration, project_declaration, sink_declaration});
+  auto declarations = compute::Declaration::Sequence(
+      {scan_declaration, project_declaration, sink_declaration});
 
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
   ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
 
   ASSERT_OK(decl->Validate());
 
+  auto out_schema = schema({field("bigint_col", int64())});
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      dummy_schema, std::move(sink_gen), exec_context.memory_pool());
+      out_schema, std::move(sink_gen), exec_context.memory_pool());
 
   ASSERT_OK(plan->Validate());
   ASSERT_OK(plan->StartProducing());
@@ -1420,12 +1429,13 @@ TEST(Substrait, SerializeProjectRelation) {
                        SerializeRelation(scan_declaration, &ext_set));
   ASSERT_OK_AND_ASSIGN(auto deserialized_scan_decl,
                        DeserializeRelation(*serialized_scan_rel, ext_set));
+  auto scan_proj_declr =
+      compute::Declaration::Sequence({scan_declaration, project_declaration});
 
   ASSERT_OK_AND_ASSIGN(auto serialized_proj_rel,
-                       SerializeRelation(project_declaration, &ext_set));
+                       SerializeRelation(scan_proj_declr, &ext_set));
   ASSERT_OK_AND_ASSIGN(auto deserialized_proj_decl,
                        DeserializeRelation(*serialized_proj_rel, ext_set));
-
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch> > des_sink_gen;
   auto des_sink_node_options = compute::SinkNodeOptions{&des_sink_gen};
@@ -1433,7 +1443,7 @@ TEST(Substrait, SerializeProjectRelation) {
   auto des_sink_declaration = compute::Declaration({"sink", des_sink_node_options});
 
   auto t_decls =
-      compute::Declaration::Sequence({deserialized_scan_decl, deserialized_proj_decl, des_sink_declaration});
+      compute::Declaration::Sequence({deserialized_proj_decl, des_sink_declaration});
 
   ASSERT_OK_AND_ASSIGN(auto t_plan, compute::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto t_decl, t_decls.AddToPlan(t_plan.get()));
@@ -1441,7 +1451,7 @@ TEST(Substrait, SerializeProjectRelation) {
   ASSERT_OK(t_decl->Validate());
 
   std::shared_ptr<arrow::RecordBatchReader> des_sink_reader =
-      compute::MakeGeneratorReader(dummy_schema, std::move(des_sink_gen),
+      compute::MakeGeneratorReader(out_schema, std::move(des_sink_gen),
                                    exec_context.memory_pool());
 
   ASSERT_OK(t_plan->Validate());
