@@ -902,6 +902,13 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return ExtensionArray
 
+    def scalar_as_py(self, scalar):
+        """Convert scalar to a Python type.
+
+        This method can be overridden in subclasses to customize what type
+        scalars are converted to. Implementations should handle the case
+        where the scalar argument is None."""
+        return scalar.as_py() if scalar is not None else None
 
 cdef class PyExtensionType(ExtensionType):
     """
