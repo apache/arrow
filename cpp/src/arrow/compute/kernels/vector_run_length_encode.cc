@@ -138,12 +138,14 @@ struct RunLengthEncodeExec
     // in bytes
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
-      validity_buffer_size = (num_values_output - 1) / 8 + 1;
+      validity_buffer_size = bit_util::BytesForBits(num_values_output);
       ARROW_ASSIGN_OR_RAISE(validity_buffer,
                             AllocateBuffer(validity_buffer_size, this->pool));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(num_values_output * sizeof(CType), this->pool));
+                          AllocateBuffer(bit_util::BytesForBits(num_values_output *
+                                                                ArrowType().bit_width()),
+                                         this->pool));
     ARROW_ASSIGN_OR_RAISE(
         auto run_lengths_buffer,
         AllocateBuffer(num_values_output * sizeof(int64_t), this->pool));
@@ -243,21 +245,23 @@ struct RunLengthDecodeExec
     const int64_t num_values_input =
         this->input_array.child_data[0].length - common_physical_offset;
     const int64_t num_values_output = this->input_array.length;
+    auto& input_type =
+        checked_cast<const arrow::RunLengthEncodedType&>(*this->input_array.type);
+    auto output_type = input_type.encoded_type();
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
-      validity_buffer_size = (num_values_output - 1) / 8 + 1;
+      validity_buffer_size = bit_util::BytesForBits(num_values_output);
       ARROW_ASSIGN_OR_RAISE(validity_buffer,
                             AllocateBuffer(validity_buffer_size, this->pool));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(num_values_output * sizeof(CType), this->pool));
+                          AllocateBuffer(bit_util::BytesForBits(num_values_output *
+                                                                ArrowType().bit_width()),
+                                         this->pool));
 
-    auto& input_type =
-        checked_cast<const arrow::RunLengthEncodedType&>(*this->input_array.type);
-    auto output_type = input_type.encoded_type();
     auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
     output_array_data->buffers.push_back(std::move(validity_buffer));
     output_array_data->buffers.push_back(std::move(values_buffer));
