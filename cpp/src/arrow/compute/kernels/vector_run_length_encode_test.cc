@@ -99,7 +99,26 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
   ASSERT_TRUE(decoded_array->Equals(data.input->Slice(1)));
 }
 
-// TODO: test offset in child array
+// This test creates an run-length encoded array with an offset in the child array, which
+// removes the first run in the test data.
+TEST_P(TestRunLengthEncode, DecodeWithOffsetInChildArray) {
+  auto data = GetParam();
+
+  const int64_t first_run_length = data.expected_run_lengths[0];
+  auto parent = ArrayData::Make(run_length_encoded(data.input->type()), data.input->length() - first_run_length);
+  parent->child_data.push_back(data.expected_values->Slice(1)->data());
+  ASSERT_OK_AND_ASSIGN(auto run_length_buffer, AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int64_t)));
+  int64_t* run_length_buffer_data = reinterpret_cast<int64_t*>(run_length_buffer->mutable_data());
+  for (size_t index = 0; index < data.expected_run_lengths.size() - 1; index++) {
+    run_length_buffer_data[index] = data.expected_run_lengths[index + 1] - first_run_length;
+  }
+  parent->buffers.push_back(std::move(run_length_buffer));
+
+  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunLengthDecode(parent));
+  auto decoded_array = decoded_datum.make_array();
+  ASSERT_OK(decoded_array->ValidateFull());
+  ASSERT_TRUE(decoded_array->Equals(data.input->Slice(first_run_length)));
+}
 
 INSTANTIATE_TEST_SUITE_P(
     EncodeArrayTests, TestRunLengthEncode,
