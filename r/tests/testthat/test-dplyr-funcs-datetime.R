@@ -2614,8 +2614,6 @@ test_that("ceiling_time works with change_on_boundary: unit = millisecond", {
 
 test_that("round/floor/ceil for timestamps to nearest week, adjusted for week_start", {
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   # rotate through two weeks to make certain we catch all change points
   fortnight <- tibble::tibble(
     date = as.Date(c(
@@ -2694,8 +2692,6 @@ test_that("round/floor/ceil for timestamps to nearest week, adjusted for week_st
 
 test_that("round/floor/ceil for Dates to nearest week, adjusted for week_start", {
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   skip("Ignore weirdness momentarily...")
 
   # FAILS:
@@ -2766,8 +2762,6 @@ test_that("round/floor/ceil for Dates to nearest week, adjusted for week_start",
 
 test_that("round/floor/ceiling on dates (to nearest day)", {
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   expect_equal(
     test_df %>% arrow_table() %>% mutate(out = round_date(date, "1 day")) %>% collect(),
     test_df %>% mutate(out = round_date(date, "1 day") %>% as.Date())
@@ -2783,8 +2777,6 @@ test_that("round/floor/ceiling on dates (to nearest day)", {
 })
 
 test_that("date rounding below 1 day", {
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_equal(
     test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 second")) %>% collect(),
