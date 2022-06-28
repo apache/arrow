@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include <sstream>
 #include <thread>
 
 #include "arrow/util/hash_util.h"
@@ -108,6 +109,18 @@ class ExpressionCacheKey {
   }
 
   bool operator!=(const ExpressionCacheKey& other) const { return !(*this == other); }
+
+  std::string ToString() {
+    std::stringstream s;
+
+    s << schema_->ToString() << "\n";
+    s << mode_ << configuration_->Hash() << uniqifier_ << "\n";
+    for (std::string expr : expressions_as_strings_) {
+      s << expr << "\n";
+    }
+
+    return s.str();
+  }
 
  private:
   size_t hash_code_;

@@ -187,6 +187,45 @@ public class Projector {
   public static Projector make(Schema schema, List<ExpressionTree> exprs,
       SelectionVectorType selectionVectorType,
       long configurationId) throws GandivaException {
+    return make(schema, exprs, selectionVectorType, configurationId, null);
+  }
+    
+  /**
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
+   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
+   * against these projections.
+   *
+   * @param schema         Table schema. The field names in the schema should match the fields used
+   *                       to create the TreeNodes
+   * @param exprs          List of expressions to be evaluated against data
+   * @param configOptions  ConfigOptions parameter
+   * @param secondaryCache SecondaryCache cache for gandiva object code.
+   *
+   * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
+   */
+  public static Projector make(Schema schema, List<ExpressionTree> exprs,
+      ConfigurationBuilder.ConfigOptions configOptions,
+      JavaSecondaryCacheInterface secondaryCache) throws GandivaException {
+    return make(schema, exprs, SelectionVectorType.SV_NONE, JniLoader.getConfiguration(configOptions), secondaryCache);
+  }
+    
+  /**
+   * Invoke this function to generate LLVM code to evaluate the list of project expressions.
+   * Invoke Projector::Evaluate() against a RecordBatch to evaluate the record batch
+   * against these projections.
+   *
+   * @param schema              Table schema. The field names in the schema should match the fields used
+   *                            to create the TreeNodes
+   * @param exprs               List of expressions to be evaluated against data
+   * @param selectionVectorType type of selection vector
+   * @param configurationId     Custom configuration created through config builder.
+   * @param secondaryCache      SecondaryCache cache for gandiva object code.
+   *
+   * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
+   */
+  public static Projector make(Schema schema, List<ExpressionTree> exprs,
+      SelectionVectorType selectionVectorType,
+      long configurationId, JavaSecondaryCacheInterface secondaryCache) throws GandivaException {
     // serialize the schema and the list of expressions as a protobuf
     GandivaTypes.ExpressionList.Builder builder = GandivaTypes.ExpressionList.newBuilder();
     for (ExpressionTree expr : exprs) {
@@ -196,7 +235,7 @@ public class Projector {
     // Invoke the JNI layer to create the LLVM module representing the expressions
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
     JniWrapper wrapper = JniLoader.getInstance().getWrapper();
-    long moduleId = wrapper.buildProjector(schemaBuf.toByteArray(),
+    long moduleId = wrapper.buildProjector(secondaryCache, schemaBuf.toByteArray(),
         builder.build().toByteArray(), selectionVectorType.getNumber(), configurationId);
     logger.debug("Created module for the projector with id {}", moduleId);
     return new Projector(wrapper, moduleId, schema, exprs.size());

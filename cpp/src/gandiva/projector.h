@@ -27,6 +27,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 #include "gandiva/expression.h"
+#include "gandiva/secondary_cache.h"
 #include "gandiva/selection_vector.h"
 #include "gandiva/visibility.h"
 
@@ -77,6 +78,34 @@ class GANDIVA_EXPORT Projector {
                      std::shared_ptr<Configuration> configuration,
                      std::shared_ptr<Projector>* projector);
 
+  /// Build a projector for the given schema to evaluate the vector of expressions.
+  /// Customize the projector with a secondary cache
+  ///
+  /// \param[in] schema schema for the record batches, and the expressions.
+  /// \param[in] exprs vector of expressions.
+  /// \param[in] configuration run time configuration.
+  /// \param[in] sec_cache object to enable jni upcalls.
+  /// \param[out] projector the returned projector object
+  static Status Make(SchemaPtr schema, const ExpressionVector& exprs,
+                     std::shared_ptr<Configuration> configuration,
+                     std::shared_ptr<SecondaryCacheInterface> sec_cache,
+                     std::shared_ptr<Projector>* projector);
+
+  /// Build a projector for the given schema to evaluate the vector of expressions.
+  /// Customize the projector with a secondary cache
+  ///
+  /// \param[in] schema schema for the record batches, and the expressions.
+  /// \param[in] exprs vector of expressions.
+  /// \param[in] selection_vector_mode mode of selection vector
+  /// \param[in] configuration run time configuration.
+  /// \param[in] sec_cache object to enable jni upcalls.
+  /// \param[out] projector the returned projector object
+  static Status Make(SchemaPtr schema, const ExpressionVector& exprs,
+                     SelectionVector::Mode selection_vector_mode,
+                     std::shared_ptr<Configuration> configuration,
+                     std::shared_ptr<SecondaryCacheInterface> sec_cache,
+                     std::shared_ptr<Projector>* projector);
+
   /// Evaluate the specified record batch, and return the allocated and populated output
   /// arrays. The output arrays will be allocated from the memory pool 'pool', and added
   /// to the vector 'output'.
@@ -124,6 +153,8 @@ class GANDIVA_EXPORT Projector {
 
   bool GetBuiltFromCache();
 
+  void Clear();
+
  private:
   Projector(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
             const FieldVector& output_fields, std::shared_ptr<Configuration>);
@@ -138,6 +169,9 @@ class GANDIVA_EXPORT Projector {
 
   /// Validate the common args for Evaluate() APIs.
   Status ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) const;
+
+  // Create an arrow buffer with the key for the secondary cache.
+  static std::shared_ptr<arrow::Buffer> GetSecondaryCacheKey(std::string primaryKey);
 
   std::unique_ptr<LLVMGenerator> llvm_generator_;
   SchemaPtr schema_;
