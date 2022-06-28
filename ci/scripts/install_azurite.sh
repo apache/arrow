@@ -19,23 +19,27 @@
 
 set -e
 
-if [[ "$OSTYPE" == "darwin20" ]]; then
-  brew install node
-  npm install -g azurite
-  which azurite
-elif [[ "$OSTYPE" == "msys" ]]; then
-  choco install nodejs.install
-  npm install -g azurite
-else
-  apt-get update
-  apt-get -y install npm
-  npm install -g azurite
-  which azurite
-fi
-echo "node version = `node --version`"
-echo "azurite version = `azurite --version`"
+case "$(uname)" in
+  Darwin)
+    brew install node
+    npm install -g azurite
+    which azurite
+    ;;
+  MINGW*)
+    choco install nodejs.install
+    npm install -g azurite
+    ;;
+  Linux)
+    apt-get update
+    apt-get -y install npm
+    npm install -g azurite
+    which azurite
+    ;;
+esac
+echo "node version = $(node --version)"
+echo "azurite version = $(azurite --version)"
 AZURITE_DIR=${1}/azurite
 mkdir $AZURITE_DIR
 
 # Start azurite
-azurite --silent --location $AZURITE_DIR --debug $AZURITE_DIR/debug.log & 
+azurite --silent --location $AZURITE_DIR --debug $AZURITE_DIR/debug.log &
