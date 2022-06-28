@@ -81,6 +81,22 @@ public class Filter {
           throws GandivaException {
     return make(schema, condition, JniLoader.getConfiguration(configOptions));
   }
+  
+  /**
+   * Invoke this function to generate LLVM code to evaluate the condition expression. Invoke
+   * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
+   *
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *               create the TreeNodes
+   * @param condition condition to be evaluated against data
+   * @param configOptions ConfigOptions parameter
+   * @param secondaryCache  SecondaryCache cache for gandiva object code.
+   * @return A native filter object that can be used to invoke on a RecordBatch
+   */
+  public static Filter make(Schema schema, Condition condition, ConfigurationBuilder.ConfigOptions configOptions,
+      JavaSecondaryCacheInterface secondaryCache) throws GandivaException {
+    return make(schema, condition, JniLoader.getConfiguration(configOptions), secondaryCache);
+  }
 
   /**
    * Invoke this function to generate LLVM code to evaluate the condition expression. Invoke
@@ -110,11 +126,31 @@ public class Filter {
    */
   public static Filter make(Schema schema, Condition condition, long configurationId)
       throws GandivaException {
+    return make(schema, condition, configurationId, null);
+  }
+   
+  /**
+   * Invoke this function to generate LLVM code to evaluate the condition
+   * expression. Invoke
+   * Filter::Evaluate() against a RecordBatch to evaluate the filter on this
+   * record batch
+   *
+   * @param schema          Table schema. The field names in the schema should
+   *                        match the fields used to
+   *                        create the TreeNodes
+   * @param condition       condition to be evaluated against data
+   * @param configurationId Custom configuration created through config builder.
+   * @param secondaryCache  SecondaryCache cache for gandiva object code.
+   * @return A native evaluator object that can be used to invoke these
+   *         projections on a RecordBatch
+   */
+  public static Filter make(Schema schema, Condition condition, long configurationId,
+                                JavaSecondaryCacheInterface secondaryCache) throws GandivaException {
     // Invoke the JNI layer to create the LLVM module representing the filter.
     GandivaTypes.Condition conditionBuf = condition.toProtobuf();
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
     JniWrapper wrapper = JniLoader.getInstance().getWrapper();
-    long moduleId = wrapper.buildFilter(schemaBuf.toByteArray(),
+    long moduleId = wrapper.buildFilter(secondaryCache, schemaBuf.toByteArray(),
         conditionBuf.toByteArray(), configurationId);
     logger.debug("Created module for the filter with id {}", moduleId);
     return new Filter(wrapper, moduleId, schema);

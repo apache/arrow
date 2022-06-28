@@ -56,6 +56,23 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        SelectionVector::Mode selection_vector_mode,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector>* projector) {
+  return Projector::Make(schema, exprs, selection_vector_mode, configuration, nullptr,
+                         projector);
+}
+
+Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
+                       std::shared_ptr<Configuration> configuration,
+                       std::shared_ptr<SecondaryCacheInterface> sec_cache,
+                       std::shared_ptr<Projector>* projector) {
+  return Projector::Make(schema, exprs, SelectionVector::Mode::MODE_NONE, configuration,
+                         sec_cache, projector);
+}
+
+Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
+                       SelectionVector::Mode selection_vector_mode,
+                       std::shared_ptr<Configuration> configuration,
+                       std::shared_ptr<SecondaryCacheInterface> sec_cache,
+                       std::shared_ptr<Projector>* projector) {
   ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
   ARROW_RETURN_IF(exprs.empty(), Status::Invalid("Expressions cannot be empty"));
   ARROW_RETURN_IF(configuration == nullptr,
@@ -83,6 +100,20 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   std::unique_ptr<LLVMGenerator> llvm_gen;
   ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
 
+  if (!is_cached && sec_cache != nullptr) {
+    std::shared_ptr<arrow::Buffer> arrow_buffer =
+        sec_cache->Get(GetSecondaryCacheKey(cache_key.ToString()));
+    if (arrow_buffer != nullptr) {
+      is_cached = true;
+      llvm::StringRef string_buffer(reinterpret_cast<char*>(arrow_buffer->address()),
+                                    arrow_buffer->size());
+      std::unique_ptr<llvm::MemoryBuffer> obj_buffer =
+          llvm::MemoryBuffer::getMemBufferCopy(string_buffer);
+      std::shared_ptr<llvm::MemoryBuffer> sec_cached_obj = std::move(obj_buffer);
+      cache->PutObjectCode(cache_key, sec_cached_obj);
+    }
+  }
+
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
   // we will not be able to process further.
@@ -109,6 +140,14 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
   projector->get()->SetBuiltFromCache(is_cached);
+
+  if (sec_cache != nullptr && is_cached == false) {
+    std::shared_ptr<llvm::MemoryBuffer> sec_cached_obj = cache->GetObjectCode(cache_key);
+    llvm::StringRef string_buffer = sec_cached_obj->getBuffer();
+    std::shared_ptr<arrow::Buffer> arrow_buffer =
+        arrow::Buffer::FromString(string_buffer.str());
+    sec_cache->Set(GetSecondaryCacheKey(cache_key.ToString()), arrow_buffer);
+  }
 
   return Status::OK();
 }
@@ -284,5 +323,19 @@ std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
 void Projector::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 
 bool Projector::GetBuiltFromCache() { return built_from_cache_; }
+
+// added method for testing the secondary cache
+void Projector::Clear() {
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
+      LLVMGenerator::GetCache();
+  cache->Clear();
+}
+
+std::shared_ptr<arrow::Buffer> Projector::GetSecondaryCacheKey(std::string primaryKey) {
+  // compute key from primary key and cpu attributes
+  // cpu attributes are required as the compiled code depends on the cpu type and features
+  std::string key = std::string(Engine::GetCpuIdentifier()) + " | " + primaryKey;
+  return arrow::Buffer::FromString(key);
+}
 
 }  // namespace gandiva

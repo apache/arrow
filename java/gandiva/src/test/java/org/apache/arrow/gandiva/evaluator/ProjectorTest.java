@@ -2599,4 +2599,83 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     releaseValueVectors(output);
   }
+
+  public class DummySecondaryCache implements JavaSecondaryCacheInterface {
+    public DummySecondaryCache() {
+      gotFromCache = false;
+      setToCache = false;
+    }
+
+    public BufferResult getSecondaryCache(long addrKey, long sizeKey) {
+      gotFromCache = true;
+      return null;
+    }
+
+    public void setSecondaryCache(long addrKey, long sizeKey, long addrValue, long sizeValue) {
+      setToCache = true;
+    }
+
+    public boolean gotFromCache;
+    public boolean setToCache;
+  }
+
+  @Test
+  public void testSecondaryCache() throws GandivaException {
+    Field a = Field.nullable("field0", int32);
+    Field b = Field.nullable("field1", int32);
+    List<Field> args = Lists.newArrayList(a, b);
+
+    Field retType = Field.nullable("c", int32);
+    ExpressionTree root = TreeBuilder.makeExpression("add", args, retType);
+
+    List<ExpressionTree> exprs = Lists.newArrayList(root);
+
+    Schema schema = new Schema(args);
+
+    DummySecondaryCache secondaryCache = new DummySecondaryCache();
+
+    Projector eval = Projector.make(schema, exprs,
+        new ConfigurationBuilder.ConfigOptions().getDefault(), secondaryCache);
+
+    // assert the jni calls were successful
+    assertTrue(secondaryCache.gotFromCache);
+    assertTrue(secondaryCache.setToCache);
+
+    int numRows = 16;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    // second half is "undefined"
+    int[] aValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+
+    ArrowBuf validitya = buf(validity);
+    ArrowBuf valuesa = intBuf(aValues);
+    ArrowBuf validityb = buf(validity);
+    ArrowBuf valuesb = intBuf(bValues);
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(new ArrowFieldNode(numRows, 8), new ArrowFieldNode(numRows, 8)),
+            Lists.newArrayList(validitya, valuesa, validityb, valuesb));
+
+    IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+    intVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(intVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < 8; i++) {
+      assertFalse(intVector.isNull(i));
+      assertEquals(17, intVector.get(i));
+    }
+    for (int i = 8; i < 16; i++) {
+      assertTrue(intVector.isNull(i));
+    }
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
 }

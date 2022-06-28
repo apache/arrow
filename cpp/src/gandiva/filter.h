@@ -27,6 +27,7 @@
 #include "gandiva/arrow.h"
 #include "gandiva/condition.h"
 #include "gandiva/configuration.h"
+#include "gandiva/secondary_cache.h"
 #include "gandiva/selection_vector.h"
 #include "gandiva/visibility.h"
 
@@ -68,6 +69,19 @@ class GANDIVA_EXPORT Filter {
                      std::shared_ptr<Configuration> config,
                      std::shared_ptr<Filter>* filter);
 
+  /// \brief Build a filter for the given schema and condition.
+  /// Customize the filter with runtime configuration.
+  ///
+  /// \param[in] schema schema for the record batches, and the condition.
+  /// \param[in] condition filter conditions.
+  /// \param[in] config run time configuration.
+  /// \param[in] sec_cache object to enable jni upcalls.
+  /// \param[out] filter the returned filter object
+  static Status Make(SchemaPtr schema, ConditionPtr condition,
+                     std::shared_ptr<Configuration> config,
+                     std::shared_ptr<SecondaryCacheInterface> sec_cache,
+                     std::shared_ptr<Filter>* filter);
+
   /// Evaluate the specified record batch, and populate output selection vector.
   ///
   /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
@@ -82,7 +96,12 @@ class GANDIVA_EXPORT Filter {
 
   bool GetBuiltFromCache();
 
+  void Clear();
+
  private:
+  // Create an arrow buffer with the key for the secondary cache.
+  static std::shared_ptr<arrow::Buffer> GetSecondaryCacheKey(std::string primaryKey);
+
   std::unique_ptr<LLVMGenerator> llvm_generator_;
   SchemaPtr schema_;
   std::shared_ptr<Configuration> configuration_;

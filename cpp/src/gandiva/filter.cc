@@ -38,7 +38,14 @@ Filter::Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
 Filter::~Filter() {}
 
 Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
+                    std::shared_ptr<Configuration> config,
+                    std::shared_ptr<Filter>* filter) {
+  return Make(schema, condition, config, nullptr, filter);
+}
+
+Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                     std::shared_ptr<Configuration> configuration,
+                    std::shared_ptr<SecondaryCacheInterface> sec_cache,
                     std::shared_ptr<Filter>* filter) {
   ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
   ARROW_RETURN_IF(condition == nullptr, Status::Invalid("Condition cannot be null"));
@@ -68,6 +75,20 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   std::unique_ptr<LLVMGenerator> llvm_gen;
   ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
 
+  if (!is_cached && sec_cache != nullptr) {
+    std::shared_ptr<arrow::Buffer> arrow_buffer =
+        sec_cache->Get(GetSecondaryCacheKey(cache_key.ToString()));
+    if (arrow_buffer != nullptr) {
+      is_cached = true;
+      llvm::StringRef string_buffer(reinterpret_cast<char*>(arrow_buffer->address()),
+                                    arrow_buffer->size());
+      std::unique_ptr<llvm::MemoryBuffer> obj_buffer =
+          llvm::MemoryBuffer::getMemBufferCopy(string_buffer);
+      std::shared_ptr<llvm::MemoryBuffer> sec_cached_obj = std::move(obj_buffer);
+      cache->PutObjectCode(cache_key, sec_cached_obj);
+    }
+  }
+
   if (!is_cached) {
     // Run the validation on the expression.
     // Return if the expression is invalid since we will not be able to process further.
@@ -83,6 +104,15 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
   filter->get()->SetBuiltFromCache(is_cached);
+
+  // insert into the secondary cache, if present
+  if (sec_cache != nullptr && is_cached == false) {
+    std::shared_ptr<llvm::MemoryBuffer> sec_cached_obj = cache->GetObjectCode(cache_key);
+    llvm::StringRef string_buffer = sec_cached_obj->getBuffer();
+    std::shared_ptr<arrow::Buffer> arrow_buffer =
+        arrow::Buffer::FromString(string_buffer.str());
+    sec_cache->Set(GetSecondaryCacheKey(cache_key.ToString()), arrow_buffer);
+  }
 
   return Status::OK();
 }
@@ -123,5 +153,19 @@ std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
 void Filter::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 
 bool Filter::GetBuiltFromCache() { return built_from_cache_; }
+
+// added method for testing the secondary cache
+void Filter::Clear() {
+  std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
+      LLVMGenerator::GetCache();
+  cache->Clear();
+}
+
+std::shared_ptr<arrow::Buffer> Filter::GetSecondaryCacheKey(std::string primaryKey) {
+  // compute key from primary key and cpu attributes
+  // cpu attributes are required as the compiled code depends on the cpu type and features
+  std::string key = std::string(Engine::GetCpuIdentifier()) + " | " + primaryKey;
+  return arrow::Buffer::FromString(key);
+}
 
 }  // namespace gandiva
