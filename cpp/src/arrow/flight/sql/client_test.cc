@@ -26,18 +26,9 @@
 
 #include <utility>
 
-// XXX(ARROW-16902): Protobuf doesn't insert dllimport declarations in
-// all the right places for MinGW (causing an error "redeclared
-// without dllimport attribute"). Instead, just omit them and rely on
-// symbols being found implicitly.
-#if defined(__MINGW32__)
-#define ARROW_FLIGHT_SQL_STATIC
-#endif
-// Must come before Protobuf include
-#include "arrow/flight/sql/protocol_internal.h"
-
 #include "arrow/buffer.h"
 #include "arrow/flight/sql/api.h"
+#include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace pb = arrow::flight::protocol;
