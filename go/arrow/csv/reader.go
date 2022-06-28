@@ -209,11 +209,15 @@ func (r *Reader) nextn() bool {
 	var (
 		recs []string
 		n    = 0
+		err  error
 	)
 
-	for i := 0; (i < r.chunk) && !r.done && (r.err == nil); i++ {
-		recs, r.err = r.r.Read()
-		if r.err != nil {
+	for i := 0; i < r.chunk && !r.done; i++ {
+		recs, err = r.r.Read()
+		if err != nil {
+			if !errors.Is(r.err, io.EOF) {
+				r.err = err
+			}
 			r.done = true
 			break
 		}
@@ -225,15 +229,10 @@ func (r *Reader) nextn() bool {
 
 	if r.err != nil {
 		r.done = true
-		if errors.Is(r.err, io.EOF) {
-			r.err = nil
-		} else {
-			return false
-		}
 	}
 
 	r.cur = r.bld.NewRecord()
-	return n > 0
+	return n > 0 && r.err == nil
 }
 
 func (r *Reader) validate(recs []string) {
