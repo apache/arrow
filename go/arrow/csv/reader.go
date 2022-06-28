@@ -227,6 +227,8 @@ func (r *Reader) nextn() bool {
 		r.done = true
 		if errors.Is(r.err, io.EOF) {
 			r.err = nil
+		} else {
+			return false
 		}
 	}
 
