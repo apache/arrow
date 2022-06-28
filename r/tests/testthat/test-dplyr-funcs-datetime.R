@@ -2697,13 +2697,13 @@ test_that("round_date() works for Dates to nearest week, adjusted for week_start
       out <- fortnight[row_id,] %>%
         arrow_table() %>%
         mutate(
-          out_date = date %>% round_date("week", week_start = week_start), # should be Date
+          out_date = date %>% round_date("week", week_start = week_start), # Date
           out_time = datetime %>% round_date("week", week_start = week_start) # POSIXct
         ) %>%
         collect()
 
       expect_equal(
-        as.Date(out$out_date), # temporary hack!
+        out$out_date,
         as.Date(out$out_time)
       )
 
@@ -2726,8 +2726,7 @@ test_that("floor_date() works for Dates to nearest week, adjusted for week_start
               floor_date("week", week_start = week_start)
           ) %>%
           collect() %>%
-          pull(out) %>%
-          as.Date(), # hack!
+          pull(out),
         fortnight[row_id,],
         ignore_attr = TRUE
       )
@@ -2747,8 +2746,7 @@ test_that("ceiling_date() works for Dates to nearest week, adjusted for week_sta
               ceiling_date("week", week_start = week_start)
           ) %>%
           collect() %>%
-          pull(out) %>%
-          as.Date(), # hack!
+          pull(out),
         fortnight[row_id,],
         ignore_attr = TRUE
       )

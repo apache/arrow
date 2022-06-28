@@ -639,13 +639,14 @@ register_bindings_datetime_parsers <- function() {
 
       } else { # for other values of week_start, compute using an offset
         opts$week_starts_monday <- TRUE
-        week_start_offset <- build_expr(
-          "cast",
-          Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
-          options = cast_options(to_type = duration(unit = "s"))
-        )
-        interim <- build_expr("round_temporal", x - week_start_offset, options = opts)
-        return(interim + week_start_offset)
+        offset_in_days <- as.integer(week_start) - 1L
+
+        if (inherits(x, "Date") || (inherits(x, "Expression") && x$type_id() == Type$DATE32)) {
+          return(shift_date32_to_week("round_temporal", x, offset_in_days, options = opts))
+        } else {
+          return(shift_timestamp_to_week("round_temporal", x, offset_in_days, options = opts))
+        }
+
       }
     }
     Expression$create("round_temporal", x, options = opts)
@@ -665,13 +666,14 @@ register_bindings_datetime_parsers <- function() {
 
       } else { # for other values of week_start, compute using an offset
         opts$week_starts_monday <- TRUE
-        week_start_offset <- build_expr(
-          "cast",
-          Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
-          options = cast_options(to_type = duration(unit = "s"))
-        )
-        interim <- build_expr("floor_temporal", x - week_start_offset, options = opts)
-        return(interim + week_start_offset)
+        offset_in_days <- as.integer(week_start) - 1L
+
+        if (inherits(x, "Date") || (inherits(x, "Expression") && x$type_id() == Type$DATE32)) {
+          return(shift_date32_to_week("floor_temporal", x, offset_in_days, options = opts))
+        } else {
+          return(shift_timestamp_to_week("floor_temporal", x, offset_in_days, options = opts))
+        }
+
       }
     }
     Expression$create("floor_temporal", x, options = opts)
@@ -710,13 +712,14 @@ register_bindings_datetime_parsers <- function() {
 
       } else { # for other values of week_start, compute using an offset
         opts$week_starts_monday <- TRUE
-        week_start_offset <- build_expr(
-          "cast",
-          Scalar$create((as.integer(week_start) - 1L) * 86400L, int64()),
-          options = cast_options(to_type = duration(unit = "s"))
-        )
-        interim <- build_expr("ceil_temporal", x - week_start_offset, options = opts)
-        return(interim + week_start_offset)
+        offset_in_days <- as.integer(week_start) - 1L
+
+        if (inherits(x, "Date") || (inherits(x, "Expression") && x$type_id() == Type$DATE32)) {
+          return(shift_date32_to_week("ceil_temporal", x, offset_in_days, options = opts))
+        } else {
+          return(shift_timestamp_to_week("ceil_temporal", x, offset_in_days, options = opts))
+        }
+
       }
     }
     return(Expression$create("ceil_temporal", x, options = opts))
