@@ -81,7 +81,7 @@ boundary_times <- tibble::tibble(
     "2022-03-10 00:00:01", # boundary for: second, millisecond
     "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
     "2022-03-10 01:00:00"  # boundary for: second, millisecond, minute, hour
-  ), tz="UTC", format = "%F %T"))
+  ), tz = "UTC", format = "%F %T"))
 )
 
 
@@ -2612,7 +2612,7 @@ test_that("ceiling_time works with change_on_boundary: unit = hour", {
   check_boundary_with_unit("hour")
 })
 test_that("ceiling_time works with change_on_boundary: unit = minute", {
-  check_boundary_with_unit("minute", tolerance = .001) # some weirdness with "2022-03-10 00:00:01", possibly floating point?
+  check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
 })
 test_that("ceiling_time works with change_on_boundary: unit = second", {
   check_boundary_with_unit("second")
@@ -2629,8 +2629,8 @@ test_that("ceiling_time works with change_on_boundary: unit = millisecond", {
 
 test_that("round_date() works for timestamps, to nearest week, adjusted for week_start", {
 
-  for(week_start in 1:7) { # Monday = 1, Sunday = 7
-    for(row_id in 1:7) {
+  for (week_start in 1:7) { # Monday = 1, Sunday = 7
+    for (row_id in 1:7) {
       compare_dplyr_binding(
         .input %>%
           mutate(
@@ -2639,7 +2639,7 @@ test_that("round_date() works for timestamps, to nearest week, adjusted for week
           ) %>%
           collect() %>%
           pull(out),
-        fortnight[row_id,],
+        fortnight[row_id, ],
         ignore_attr = TRUE # ignore "" vs NULL on tzone attribute
       )
     }
@@ -2648,8 +2648,8 @@ test_that("round_date() works for timestamps, to nearest week, adjusted for week
 
 test_that("floor_date() works for timestamps, to nearest week, adjusted for week_start", {
 
-  for(week_start in 1:7) {
-    for(row_id in 1:7) {
+  for (week_start in 1:7) {
+    for (row_id in 1:7) {
       compare_dplyr_binding(
         .input %>%
           mutate(
@@ -2658,7 +2658,7 @@ test_that("floor_date() works for timestamps, to nearest week, adjusted for week
           ) %>%
           collect() %>%
           pull(out),
-        fortnight[row_id,],
+        fortnight[row_id, ],
         ignore_attr = TRUE
       )
     }
@@ -2667,8 +2667,8 @@ test_that("floor_date() works for timestamps, to nearest week, adjusted for week
 
 test_that("ceiling_date() works for timestamps, to nearest week, adjusted for week_start", {
 
-  for(week_start in 1:7) {
-    for(row_id in 1:7) {
+  for (week_start in 1:7) {
+    for (row_id in 1:7) {
       compare_dplyr_binding(
         .input %>%
           mutate(
@@ -2677,7 +2677,7 @@ test_that("ceiling_date() works for timestamps, to nearest week, adjusted for we
           ) %>%
           collect() %>%
           pull(out),
-        fortnight[row_id,],
+        fortnight[row_id, ],
         ignore_attr = TRUE
       )
     }
@@ -2691,10 +2691,10 @@ test_that("ceiling_date() works for timestamps, to nearest week, adjusted for we
 
 test_that("round_date() works for Dates to nearest week, adjusted for week_start", {
 
-  for(week_start in 1:7) {
-    for(row_id in 1:7) {
+  for (week_start in 1:7) {
+    for (row_id in 1:7) {
 
-      out <- fortnight[row_id,] %>%
+      out <- fortnight[row_id, ] %>%
         arrow_table() %>%
         mutate(
           out_date = date %>% round_date("week", week_start = week_start), # Date
@@ -2717,8 +2717,8 @@ test_that("round_date() works for Dates to nearest week, adjusted for week_start
 
 test_that("floor_date() works for Dates to nearest week, adjusted for week_start", {
 
-  for(week_start in 1:7) {
-    for(row_id in 1:7) {
+  for (week_start in 1:7) {
+    for (row_id in 1:7) {
       compare_dplyr_binding(
         .input %>%
           mutate(
@@ -2727,7 +2727,7 @@ test_that("floor_date() works for Dates to nearest week, adjusted for week_start
           ) %>%
           collect() %>%
           pull(out),
-        fortnight[row_id,],
+        fortnight[row_id, ],
         ignore_attr = TRUE
       )
     }
@@ -2737,8 +2737,8 @@ test_that("floor_date() works for Dates to nearest week, adjusted for week_start
 
 test_that("ceiling_date() works for Dates to nearest week, adjusted for week_start", {
 
-  for(week_start in 1:7) {
-    for(row_id in 1:7) {
+  for (week_start in 1:7) {
+    for (row_id in 1:7) {
       compare_dplyr_binding(
         .input %>%
           mutate(
@@ -2747,7 +2747,7 @@ test_that("ceiling_date() works for Dates to nearest week, adjusted for week_sta
           ) %>%
           collect() %>%
           pull(out),
-        fortnight[row_id,],
+        fortnight[row_id, ],
         ignore_attr = TRUE
       )
     }
