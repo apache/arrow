@@ -27,6 +27,7 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace engine {

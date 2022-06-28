@@ -208,7 +208,11 @@ std::string Uri::path() const {
   return std::move(ss).str();
 }
 
-std::string Uri::extension() const { return impl_->path_segments_.back().to_string(); }
+std::string Uri::extension() const { 
+  std::string filename = impl_->path_segments_.back().to_string();
+  size_t extension_index = filename.find(".");
+  return filename.substr(extension_index); 
+}
 
 std::string Uri::query_string() const { return TextRangeToString(impl_->uri_.query); }
 

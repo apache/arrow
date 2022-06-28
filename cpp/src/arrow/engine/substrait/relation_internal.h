@@ -24,7 +24,6 @@
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/uri.h"
 
 #include "substrait/relations.pb.h"  // IWYU pragma: export
 
