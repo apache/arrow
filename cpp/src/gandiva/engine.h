@@ -76,6 +76,8 @@ class GANDIVA_EXPORT Engine {
   /// Load the function IRs that can be accessed in the module.
   Status LoadFunctionIRs();
 
+  static char* GetCpuIdentifier();
+
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::LLVMContext> ctx,
