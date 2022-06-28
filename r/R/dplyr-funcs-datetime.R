@@ -216,11 +216,6 @@ register_bindings_datetime_components <- function() {
   register_binding("pm", function(x) {
     !call_binding("am", x)
   })
-
-  register_binding("leap_year", function(date) {
-    Expression$create("is_leap_year", date)
-  })
-
   register_binding("tz", function(x) {
     if (!call_binding("is.POSIXct", x)) {
       abort(
