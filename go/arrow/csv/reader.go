@@ -211,7 +211,7 @@ func (r *Reader) nextn() bool {
 		n    = 0
 	)
 
-	for i := 0; i < r.chunk && !r.done; i++ {
+	for i := 0; (i < r.chunk) && !r.done && (r.err == nil); i++ {
 		recs, r.err = r.r.Read()
 		if r.err != nil {
 			r.done = true
