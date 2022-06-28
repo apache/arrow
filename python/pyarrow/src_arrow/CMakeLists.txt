@@ -34,10 +34,7 @@ get_filename_component(PYARROW_SOURCE_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
 get_filename_component(ARROW_SOURCE ${PYTHON_SOURCE_DIR} DIRECTORY)
 set(ARROW_SOURCE_DIR "${ARROW_SOURCE}/cpp")
-# Add cmake_modules and lib/cmake/arrow folder to CMAKE_MODULE_PATH
-# TODO: remove lib/cmake/arrow folder as it should not be necessary as find_package(Arrow)
-# should load all the cmake variables (ex ARROW_DATASET)
-set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "${ARROW_SOURCE}/dist/lib/cmake/arrow")
+set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "$ENV{ARROW_HOME}/lib/cmake/arrow")
 message(STATUS "CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}")
 
 set(ARROW_PYTHON_VERSION "9.0.0-SNAPSHOT")
@@ -50,7 +47,6 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
 endif()
 
 find_package(Arrow REQUIRED)
-# Loading ArrowOptions, they should be loaded by default with find_package(Arrow REQUIRED)
 include(ArrowOptions)
 find_package(Python3Alt 3.7 REQUIRED)
 

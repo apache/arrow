@@ -264,7 +264,6 @@ class build_ext(_build_ext):
                 '-DCMAKE_INSTALL_PREFIX=' +
                 str(pjoin(saved_cwd, 'build/dist')),
                 '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type.lower()),
-                ''
             ]
 
             # Check for specific options
