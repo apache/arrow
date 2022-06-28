@@ -114,12 +114,12 @@ elseif(ARROW_CPU_FLAG STREQUAL "armv8")
 endif()
 
 # Support C11
-if(NOT DEFINED CMAKE_C_STANDARD)
+if(CMAKE_C_STANDARD STREQUAL "")
   set(CMAKE_C_STANDARD 11)
 endif()
 
 # This ensures that things like c++11/c++14 get passed correctly
-if(NOT DEFINED CMAKE_CXX_STANDARD)
+if(CMAKE_CXX_STANDARD STREQUAL "")
   if(ARROW_AZURE)
     set(CMAKE_CXX_STANDARD 14)
   else()
