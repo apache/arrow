@@ -52,6 +52,38 @@ test_df_v2 <- tibble::tibble(
   integer = 1:2
 )
 
+# test case used to check we catch week boundaries for all week_start values
+fortnight <- tibble::tibble(
+  date = as.Date(c(
+    "2022-04-04", # Monday
+    "2022-04-05", # Tuesday
+    "2022-04-06", # Wednesday
+    "2022-04-07", # Thursday
+    "2022-04-08", # Friday
+    "2022-04-09", # Saturday
+    "2022-04-10", # Sunday
+    "2022-04-11", # Monday
+    "2022-04-12", # Tuesday
+    "2022-04-13", # Wednesday
+    "2022-04-14", # Thursday
+    "2022-04-15", # Friday
+    "2022-04-16", # Saturday
+    "2022-04-17"  # Sunday
+  )),
+  datetime = as.POSIXct(date)
+)
+
+# test case to check we catch interval lower boundaries for ceiling_date
+boundary_times <- tibble::tibble(
+  datetime = as.POSIXct(strptime(c(
+    "2022-05-10 00:00:00", # boundary for week (Sunday / week_start = 7)
+    "2022-03-10 00:00:00", # boundary for: day, hour, minute, second, millisecond
+    "2022-03-10 00:00:01", # boundary for: second, millisecond
+    "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
+    "2022-03-10 01:00:00"  # boundary for: second, millisecond, minute, hour
+  ), tz="UTC", format = "%F %T"))
+)
+
 
 
 test_that("strptime", {
@@ -2455,8 +2487,6 @@ test_that("period unit maxima are enforced", {
 
 test_that("datetime rounding between 1sec and 1day", {
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2475,8 +2505,6 @@ test_that("datetime rounding between 1sec and 1day", {
 # that arrow verify that fractional second inputs to arrow mirror lubridate
 
 test_that("datetime rounding below 1sec", {
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_equal(
     test_df %>%
@@ -2528,8 +2556,6 @@ test_that("datetime rounding below 1sec", {
 
 test_that("datetime round/floor/ceil to month/quarter/year", {
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2564,17 +2590,6 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
   )
 })
 
-
-
-boundary_times <- tibble::tibble(
-  datetime = as.POSIXct(strptime(c(
-    "2022-05-10 00:00:00", # boundary for week (Sunday / week_start = 7)
-    "2022-03-10 00:00:00", # boundary for: day, hour, minute, second, millisecond
-    "2022-03-10 00:00:01", # boundary for: second, millisecond
-    "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
-    "2022-03-10 01:00:00"  # boundary for: second, millisecond, minute, hour
-  ), tz="UTC", format = "%F %T"))
-)
 
 check_boundary_with_unit <- function(unit, ...) {
   compare_dplyr_binding(
@@ -2614,27 +2629,6 @@ test_that("ceiling_time works with change_on_boundary: unit = millisecond", {
 
 test_that("round/floor/ceil for timestamps to nearest week, adjusted for week_start", {
 
-  # rotate through two weeks to make certain we catch all change points
-  fortnight <- tibble::tibble(
-    date = as.Date(c(
-      "2022-04-04", # Monday
-      "2022-04-05", # Tuesday
-      "2022-04-06", # Wednesday
-      "2022-04-07", # Thursday
-      "2022-04-08", # Friday
-      "2022-04-09", # Saturday
-      "2022-04-10", # Sunday
-      "2022-04-11", # Monday
-      "2022-04-12", # Tuesday
-      "2022-04-13", # Wednesday
-      "2022-04-14", # Thursday
-      "2022-04-15", # Friday
-      "2022-04-16", # Saturday
-      "2022-04-17"  # Sunday
-    )),
-    datetime = as.POSIXct(date)
-  )
-
   # test round_date() for the datetime objects
   for(week_start in 1:7) { # Monday = 1, Sunday = 7
     for(row_id in 1:7) {
@@ -2645,9 +2639,9 @@ test_that("round/floor/ceil for timestamps to nearest week, adjusted for week_st
               round_date("week", week_start = week_start)
           ) %>%
           collect() %>%
-          pull(out) %>%
-          `attr<-`("tzone", ""),
-        fortnight[row_id,]
+          pull(out),
+        fortnight[row_id,],
+        ignore_attr = TRUE # ignore "" vs NULL on tzone attribute
       )
     }
   }
@@ -2662,9 +2656,9 @@ test_that("round/floor/ceil for timestamps to nearest week, adjusted for week_st
               floor_date("week", week_start = week_start)
           ) %>%
           collect() %>%
-          pull(out) %>%
-          `attr<-`("tzone", ""), # ignore "" vs NULL on tzone attribute
-        fortnight[row_id,]
+          pull(out),
+        fortnight[row_id,],
+        ignore_attr = TRUE
       )
     }
   }
@@ -2679,9 +2673,9 @@ test_that("round/floor/ceil for timestamps to nearest week, adjusted for week_st
               ceiling_date("week", week_start = week_start)
           ) %>%
           collect() %>%
-          pull(out) %>%
-          `attr<-`("tzone", ""),
-        fortnight[row_id,]
+          pull(out),
+        fortnight[row_id,],
+        ignore_attr = TRUE
       )
     }
   }
@@ -2692,30 +2686,28 @@ test_that("round/floor/ceil for timestamps to nearest week, adjusted for week_st
 
 test_that("round/floor/ceil for Dates to nearest week, adjusted for week_start", {
 
-  skip("Ignore weirdness momentarily...")
-
   # FAILS:
   #  - round_date() behaves like floor_date() for week units!!!
   #  - all three fail for week_start in 2:6 because it returns POSIXct
 
-  # test round_date() for the date objects
-  for(week_start in c(1,7)) { # Monday = 1, Sunday = 7
-    for(row_id in 1:7) {
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            out = date %>%
-              round_date("week", week_start = week_start)
-          ) %>%
-          collect() %>%
-          pull(out),
-        fortnight[row_id,]
-      )
-    }
-  }
+  # # test round_date() for the date objects
+  # for(week_start in c(1,7)) { # Monday = 1, Sunday = 7
+  #   for(row_id in 1:7) {
+  #     compare_dplyr_binding(
+  #       .input %>%
+  #         mutate(
+  #           out = date %>%
+  #             round_date("week", week_start = week_start)
+  #         ) %>%
+  #         collect() %>%
+  #         pull(out),
+  #       fortnight[row_id,]
+  #     )
+  #   }
+  # }
 
   # as above, with floor_date()
-  for(week_start in 1:7) {
+  for(week_start in c(1,7)) {
     for(row_id in 1:7) {
       compare_dplyr_binding(
         .input %>%
@@ -2731,7 +2723,7 @@ test_that("round/floor/ceil for Dates to nearest week, adjusted for week_start",
   }
 
   # as above, with ceiling_date)()
-  for(week_start in 1:7) {
+  for(week_start in c(1,7)) {
     for(row_id in 1:7) {
       compare_dplyr_binding(
         .input %>%
