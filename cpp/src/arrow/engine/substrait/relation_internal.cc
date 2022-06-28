@@ -349,7 +349,7 @@ struct ExtractRelation {
       case ArrowRelationType::SCAN:
         return AddReadRelation(declaration);
       case ArrowRelationType::FILTER:
-        return Status::NotImplemented("Filter operator not supported.");
+        return AddFilterRelation(declaration);
       case ArrowRelationType::PROJECT:
         return Status::NotImplemented("Project operator not supported.");
       case ArrowRelationType::JOIN:
@@ -384,7 +384,7 @@ struct ExtractRelation {
       read_rel_lfs_ffs->set_uri_path("file://" + file);
 
       // set file format
-      // arrow and feather are temporarily handled via the Parquet format until 
+      // arrow and feather are temporarily handled via the Parquet format until
       // upgraded to the latest Substrait version.
       auto format_type_name = dataset->format()->type_name();
       if (format_type_name == "parquet" || format_type_name == "arrow" ||
@@ -402,11 +402,42 @@ struct ExtractRelation {
     return Status::OK();
   }
 
+  Status AddFilterRelation(const compute::Declaration& declaration) {
+    auto filter_rel = internal::make_unique<substrait::FilterRel>();
+    const auto& filter_node_options =
+        internal::checked_cast<const compute::FilterNodeOptions&>(*declaration.options);
+
+    if (declaration.inputs.size() == 0) {
+      return Status::Invalid("Filter node doesn't have an input.");
+    }
+
+    auto input_rel = GetRelationFromDeclaration(declaration, ext_set_);
+
+    filter_rel->set_allocated_input(input_rel->release());
+
+    ARROW_ASSIGN_OR_RAISE(auto subs_expr,
+                          ToProto(filter_node_options.filter_expression, ext_set_));
+    *filter_rel->mutable_condition() = *subs_expr.get();
+
+    rel_->set_allocated_filter(filter_rel.release());
+
+    return Status::OK();
+  }
+
   Status operator()(const compute::Declaration& declaration) {
     return AddRelation(declaration);
   }
 
  private:
+  Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
+      const compute::Declaration declaration, ExtensionSet* ext_set) {
+    auto declr_input = declaration.inputs[0];
+    // TODO: figure out a better way
+    if (util::get_if<compute::ExecNode*>(&declr_input)) {
+      return Status::NotImplemented("Only support Plans written in Declaration format.");
+    }
+    return ToProto(util::get<compute::Declaration>(declr_input), ext_set);
+  }
   substrait::Rel* rel_;
   ExtensionSet* ext_set_;
 };
