@@ -720,8 +720,7 @@ register_bindings_datetime_parsers <- function() {
   })
 
   register_binding("leap_year", function(date) {
-    year <- Expression$create("year", date)
-    (year %% 4 == 0) & ((year %% 100 != 0) | (year %% 400 == 0))
+    Expression$create("is_leap_year", date)
   })
 
 }
