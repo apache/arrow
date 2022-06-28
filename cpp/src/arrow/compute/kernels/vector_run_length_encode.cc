@@ -239,11 +239,12 @@ struct RunLengthDecodeExec
     // stored in the offset field of input_array. It is applied to both parent and child
     // buffers.
     const int64_t common_physical_offset = rle_util::FindPhysicalOffset(
-        input_accumulated_run_length, this->input_array.length, logical_offset);
+        input_accumulated_run_length, child_array.length, logical_offset);
     this->input_values_physical_offset = common_physical_offset + child_array.offset;
     // the child array is not aware of the logical offset of the parent
     const int64_t num_values_input =
-        this->input_array.child_data[0].length - common_physical_offset;
+        child_array.length - common_physical_offset;
+    ARROW_DCHECK_GT(num_values_input, 0);
     const int64_t num_values_output = this->input_array.length;
     auto& input_type =
         checked_cast<const arrow::RunLengthEncodedType&>(*this->input_array.type);
