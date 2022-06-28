@@ -1453,7 +1453,7 @@ TEST(Substrait, AggregateBase) {
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(
       auto sink_decls,
-      DeserializePlan(
+      DeserializePlans(
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
   auto agg_decl = sink_decls[0].inputs[0];
@@ -1464,7 +1464,7 @@ TEST(Substrait, AggregateBase) {
       checked_cast<const compute::AggregateNodeOptions&>(*agg_rel->options);
 
   EXPECT_EQ(agg_rel->factory_name, "aggregate");
-  EXPECT_EQ(agg_options.names[0], "count(0)");
+  EXPECT_EQ(agg_options.aggregates[0].name, "count(0)");
   EXPECT_EQ(agg_options.aggregates[0].function, "count");
 }
 
@@ -1565,5 +1565,3 @@ TEST(Substrait, AggregateInvalidFunction) {
 
 }  // namespace engine
 }  // namespace arrow
-
-
