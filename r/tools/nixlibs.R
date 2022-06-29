@@ -91,49 +91,50 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
 
   if (identical(lib, "false")) {
     # Do not download a binary
-    return(NULL)
+    NULL
   } else if (!identical(lib, "true")) {
     # Env var provided an os-version to use, to override our logic.
     # TODO: validate that this exists? Current behavior is to try and fail,
     # falling back to source build
-    return(lib)
+    lib
   } else {
     # See if we can find a suitable binary
-    return(select_binary())
+    select_binary()
   }
 }
 
-select_binary <- function(arch = tolower(Sys.info()[["machine"]]),
-                          compiler_version = compiler_version_string()) {
-  if (identical(arch, "x86_64")) {
+select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
+                          arch = tolower(Sys.info()[["machine"]]),
+                          compiler_version = compiler_version_string(),
+                          test_program = test_for_curl_and_openssl) {
+  if (identical(os, "linux") && identical(arch, "x86_64")) {
     # We only host x86 linux binaries today
     is_gcc4 <- any(grepl("^g\\+\\+.*[^\\d.]4(\\.\\d){2}", compiler_version))
     if (is_gcc4) {
       return("centos-7")
     } else {
-      # if (!has_libcurl()) {
-      #   # Exit: libcurl required for binaries
-      #   # TODO: message if !quietly
-      #   return(NULL)
-      # }
-
-      # openssl_version <- find_openssl_version()
-      # if (openssl_version < "1.0.2") {
-      #   # Exit: does not meet minimum version
-      #   # TODO: message if !quietly
-      #   return(NULL)
-      # } else if (openssl_version >= 3) {
-      #   return("ubuntu-22.04")
-      # } else {
-      #   return("ubuntu-18.04")
-      # }
-      errs <- compile_test_program()
+      errs <- compile_test_program(test_program)
       determine_binary_from_stderr(err)
     }
   } else {
     # No binary available for arch
     NULL
   }
+}
+
+test_for_curl_and_openssl <- "
+#include <curl/curl.h>
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_NUMBER < 0x10002000L
+#error OpenSSL version too old
+#endif
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#error Using OpenSSL version 3
+#endif"
+
+compile_test_program <- function(code) {
+  runner <- "`R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc"
+  suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
 determine_binary_from_stderr <- function(err) {
@@ -159,56 +160,6 @@ determine_binary_from_stderr <- function(err) {
 
 compiler_version_string <- function(compiler = R_CMD_config("CXX11")) {
   system(paste(compiler, "--version"), intern = TRUE)
-}
-
-has_libcurl <- function() {
-  # Compare to https://github.com/jeroen/curl/blob/e7502d27c7cff17baa0930c3327f84ae4918aa24/configure#L49
-  system('echo "#include <curl/curl.h>" | `R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc - >/dev/null 2>&1') == 0
-}
-
-
-
-# include <openssl/opensslv.h>
-# if OPENSSL_VERSION_NUMBER < 0x10002000L
-# error OpenSSL version too old
-# endif
-
-# system('echo "#include <curl/curl.h>
-# #include <openssl/opensslv.h>
-# #if OPENSSL_VERSION_NUMBER < 0x10002000L
-# #error OpenSSL version too old
-# #endif
-# #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-# #error Using OpenSSL version 3
-# #endif" | `R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc -I`brew --prefix`/opt/openssl/include -', intern = TRUE)
-
-# # TODO:
-# # * Factor this into something we can test its behavior (compiling, erroring)
-# # * Handle brew include dir (if env var set, check dir exists, etc.)
-# # * Delete find_openssl_version
-# system2("echo", '"#include <openssl/opensslv.h>
-# #if OPENSSL_VERSION_NUMBER < 0x10002000L
-# #error OpenSSL version too old
-# #endif
-# #if OPENSSL_VERSION_NUMBER > 0x30000000L
-# #error Using OpenSSL version 3
-# #endif" | `R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc -I`brew --prefix`/opt/openssl/include -', stdout = FALSE, stderr = TRUE)
-
-find_openssl_version <- function() {
-  # This should return a packageVersion
-  # TODO: don't require cmake; or pull cmake download up here too
-  cmake <- find_cmake()
-  if (!is.null(cmake)) {
-    has_openssl <- cmake_find_package("OpenSSL", "1.0.2", list(CMAKE = cmake))
-    if (has_openssl) {
-      if (cmake_find_package("OpenSSL", "3.0", list(CMAKE = cmake))) {
-        return(packageVersion("3.0"))
-      } else {
-        return(packageVersion("1.0.2"))
-      }
-    }
-  }
-  return(0)
 }
 
 #### start distro ####
@@ -313,20 +264,6 @@ read_system_release <- function() {
 }
 
 #### end distro ####
-
-find_available_binary <- function(os) {
-  # Download a csv that maps one to the other, columns "actual" and "use_this"
-  u <- "https://raw.githubusercontent.com/ursa-labs/arrow-r-nightly/master/linux/distro-map.csv"
-  lookup <- try(utils::read.csv(u, stringsAsFactors = FALSE), silent = quietly)
-  if (!inherits(lookup, "try-error") && os %in% lookup$actual) {
-    new <- lookup$use_this[lookup$actual == os]
-    if (length(new) == 1 && !is.na(new)) { # Just some sanity checking
-      cat(sprintf("*** Using %s binary for %s\n", new, os))
-      os <- new
-    }
-  }
-  os
-}
 
 find_local_source <- function() {
   # We'll take the first of these that exists
@@ -723,6 +660,7 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
 
 #####
 
+# TESTING is set in test-nixlibs.R; it won't be set when called from configure
 if (!exists("TESTING") && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
   # don't need to do anything. Otherwise,
