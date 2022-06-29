@@ -3834,7 +3834,74 @@ macro(build_grpc)
 
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
-       ${GRPC_GPR_ABSL_LIBRARIES}
+       #${GRPC_GPR_ABSL_LIBRARIES}
+       bad_any_cast_impl
+        bad_optional_access
+        bad_variant_access
+        base
+        city
+        civil_time
+        cord
+        cord_internal
+        cordz_functions
+        cordz_handle
+        cordz_info
+        cordz_sample_token
+        debugging_internal
+        demangle_internal
+        examine_stack
+        exponential_biased
+        failure_signal_handler
+        flags
+        flags_commandlineflag
+        flags_commandlineflag_internal
+        flags_config
+        flags_internal
+        flags_marshalling
+        flags_parse
+        flags_private_handle_accessor
+        flags_program_name
+        flags_reflection
+        flags_usage
+        flags_usage_internal
+        graphcycles_internal
+        hash
+        hashtablez_sampler
+        int128
+        leak_check
+        leak_check_disable
+        log_severity
+        low_level_hash
+        malloc_internal
+        periodic_sampler
+        random_distributions
+        random_internal_distribution_test_util
+        random_internal_platform
+        random_internal_pool_urbg
+        random_internal_randen
+        random_internal_randen_hwaes
+        random_internal_randen_hwaes_impl
+        random_internal_randen_slow
+        random_internal_seed_material
+        random_seed_gen_exception
+        random_seed_sequences
+        raw_hash_set
+        raw_logging_internal
+        scoped_set_env
+        spinlock_wait
+        stacktrace
+        status
+        statusor
+        str_format_internal
+        strerror
+        strings
+        strings_internal
+        symbolize
+        synchronization
+        throw_delegate
+        time
+        time_zone
+        wyhash
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
