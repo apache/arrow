@@ -116,7 +116,7 @@ struct ARROW_EXPORT S3Options {
   /// Optional external idenitifer to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
-  int load_frequency;
+  int load_frequency = 900;
 
   /// If connection is through a proxy, set options here
   S3ProxyOptions proxy_options;

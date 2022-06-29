@@ -234,6 +234,10 @@ cdef class S3FileSystem(FileSystem):
 
             options = CS3Options.Anonymous()
         elif role_arn:
+            if session_name is None:
+                session_name = ''
+            if external_id is None:
+                external_id = ''
 
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
