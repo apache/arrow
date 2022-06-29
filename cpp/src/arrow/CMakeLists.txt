@@ -216,6 +216,7 @@ set(ARROW_SRCS
     util/key_value_metadata.cc
     util/memory.cc
     util/mutex.cc
+    util/rle_util.cc
     util/string.cc
     util/string_builder.cc
     util/task_group.cc

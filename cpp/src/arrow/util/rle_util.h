@@ -53,5 +53,8 @@ void VisitMergedRuns(const int64_t* a, const int64_t* b, int64_t logical_length,
   }
 }
 
+int64_t FindPhysicalOffset(const int64_t* accumulated_run_lengths,
+                           int64_t physical_length, int64_t logical_offset);
+
 }  // namespace rle_util
 }  // namespace arrow

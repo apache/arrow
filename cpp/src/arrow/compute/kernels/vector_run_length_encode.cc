@@ -1,6 +1,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/rle_util.h"
 
 namespace arrow {
 namespace compute {
@@ -27,11 +28,13 @@ struct EncodeDecodeCommonExec {
   Element ReadValue() {
     Element result;
     if (input_validity != NULLPTR) {
-      result.valid = bit_util::GetBit(input_validity, input_position);
+      result.valid =
+          bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
     } else {
       result.valid = true;
     }
-    result.value = (reinterpret_cast<const CType*>(input_values))[input_position];
+    result.value = (reinterpret_cast<const CType*>(
+        input_values))[input_values_physical_offset + input_position];
     return result;
   }
 
@@ -47,6 +50,7 @@ struct EncodeDecodeCommonExec {
   ExecResult* exec_result;
   const uint8_t* input_validity;
   const void* input_values;
+  int64_t input_values_physical_offset;
   uint8_t* output_validity;
   void* output_values;
   int64_t input_position;
@@ -57,10 +61,11 @@ template <>
 EncodeDecodeCommonExec<BooleanType, true>::Element
 EncodeDecodeCommonExec<BooleanType, true>::ReadValue() {
   Element result;
-  result.valid = bit_util::GetBit(input_validity, input_position);
+  result.valid =
+      bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
   if (result.valid) {
-    result.value =
-        bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values), input_position);
+    result.value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values),
+                                    input_values_physical_offset + input_position);
   }
   return result;
 }
@@ -71,7 +76,7 @@ EncodeDecodeCommonExec<BooleanType, false>::ReadValue() {
   return {
       .valid = true,
       .value = bit_util::GetBit(reinterpret_cast<const uint8_t*>(input_values),
-                                input_position),
+                                input_values_physical_offset + input_position),
   };
 }
 
@@ -103,6 +108,7 @@ struct RunLengthEncodeExec
     }
     this->input_validity = this->input_array.buffers[0].data;
     this->input_values = this->input_array.buffers[1].data;
+    this->input_values_physical_offset = this->input_array.offset;
 
     this->input_position = 0;
     Element element = this->ReadValue();
@@ -132,12 +138,14 @@ struct RunLengthEncodeExec
     // in bytes
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
-      validity_buffer_size = (num_values_output - 1) / 8 + 1;
+      validity_buffer_size = bit_util::BytesForBits(num_values_output);
       ARROW_ASSIGN_OR_RAISE(validity_buffer,
                             AllocateBuffer(validity_buffer_size, this->pool));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(num_values_output * sizeof(CType), this->pool));
+                          AllocateBuffer(bit_util::BytesForBits(num_values_output *
+                                                                ArrowType().bit_width()),
+                                         this->pool));
     ARROW_ASSIGN_OR_RAISE(
         auto run_lengths_buffer,
         AllocateBuffer(num_values_output * sizeof(int64_t), this->pool));
@@ -221,28 +229,40 @@ struct RunLengthDecodeExec
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
 
   Status Exec() {
-    this->input_validity = this->input_array.child_data[0].buffers[0].data;
-    this->input_values = this->input_array.child_data[0].buffers[1].data;
+    const ArraySpan& child_array = this->input_array.child_data[0];
+    this->input_validity = child_array.buffers[0].data;
+    this->input_values = child_array.buffers[1].data;
     input_accumulated_run_length =
         reinterpret_cast<const int64_t*>(this->input_array.buffers[0].data);
 
-    int64_t num_values_input = this->input_array.child_data[0].length;
-    int64_t num_values_output = this->input_array.length;
+    const int64_t logical_offset = this->input_array.offset;
+    // common_physical_offset is the physical equivalent to the logical offset that is
+    // stored in the offset field of input_array. It is applied to both parent and child
+    // buffers.
+    const int64_t common_physical_offset = rle_util::FindPhysicalOffset(
+        input_accumulated_run_length, child_array.length, logical_offset);
+    this->input_values_physical_offset = common_physical_offset + child_array.offset;
+    // the child array is not aware of the logical offset of the parent
+    const int64_t num_values_input = child_array.length - common_physical_offset;
+    ARROW_DCHECK_GT(num_values_input, 0);
+    const int64_t num_values_output = this->input_array.length;
+    auto& input_type =
+        checked_cast<const arrow::RunLengthEncodedType&>(*this->input_array.type);
+    auto output_type = input_type.encoded_type();
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
-      validity_buffer_size = (num_values_output - 1) / 8 + 1;
+      validity_buffer_size = bit_util::BytesForBits(num_values_output);
       ARROW_ASSIGN_OR_RAISE(validity_buffer,
                             AllocateBuffer(validity_buffer_size, this->pool));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
-                          AllocateBuffer(num_values_output * sizeof(CType), this->pool));
+                          AllocateBuffer(bit_util::BytesForBits(num_values_output *
+                                                                ArrowType().bit_width()),
+                                         this->pool));
 
-    auto& input_type =
-        checked_cast<const arrow::RunLengthEncodedType&>(*this->input_array.type);
-    auto output_type = input_type.encoded_type();
     auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
     output_array_data->buffers.push_back(std::move(validity_buffer));
     output_array_data->buffers.push_back(std::move(values_buffer));
@@ -256,12 +276,15 @@ struct RunLengthDecodeExec
       this->output_validity[validity_buffer_size - 1] = 0;
     }
 
+    this->input_position = 0;
     this->output_position = 0;
     int64_t output_null_count = 0;
-    int64_t run_start = 0;
+    int64_t run_start = logical_offset;
     for (this->input_position = 0; this->input_position < num_values_input;
          this->input_position++) {
-      int64_t run_end = input_accumulated_run_length[this->input_position];
+      int64_t run_end =
+          input_accumulated_run_length[common_physical_offset + this->input_position];
+      ARROW_DCHECK_LT(run_start, run_end);
       int64_t run_length = run_end - run_start;
       run_start = run_end;
 
