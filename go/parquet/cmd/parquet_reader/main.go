@@ -73,6 +73,11 @@ func main() {
 		}
 	}
 
+	if config.CSV && config.JSON {
+		fmt.Fprintln(os.Stderr, "error: both --json and --csv outputs selected.")
+		os.Exit(1)
+	}
+
 	selectedColumns := []int{}
 	if config.Columns != "" {
 		for _, c := range strings.Split(config.Columns, ",") {
@@ -278,7 +283,6 @@ func main() {
 							fmt.Fprintf(dataOut, "%v", val)
 						default:
 							fmt.Fprintf(dataOut, "%q", val)
-							//fmt.Printf("I don't know about type %T!\n", val)
 						}
 						data = true
 					} else {
