@@ -65,12 +65,6 @@ jobs:
       - name: Install Archery
         shell: bash
         run: pip install -e arrow/dev/archery[all]
-      - uses: actions/cache@v3
-        with:
-          path: repo
-          key: r-nightly-${{ github.run_id }}
-          restore-keys: r-nightly-
-      
       - run: mkdir -p binaries
       - name: Download Artifacts
         env:
