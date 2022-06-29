@@ -100,6 +100,26 @@ cdef class FileInfo(_Weakrefable):
         If given, the filesystem entry size in bytes.  This should only
         be given if `type` is `FileType.File`.
 
+    Examples
+    --------
+    Generate a file:
+
+    >>> from pyarrow import fs
+    >>> local = fs.LocalFileSystem()
+    >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
+    ...     stream.write(b'data')
+    ...
+    4
+
+    Get FileInfo object using get_file_info():
+
+    >>> local.get_file_info('/tmp/fileinfo.dat')
+    <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
+
+    or FileInfo constructor:
+
+    >>> fs.FileInfo('/tmp/fileinfo.dat', type=fs.FileType.File)
+    <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=None>
     """
 
     def __init__(self, path, FileType type=FileType.Unknown, *,
@@ -166,12 +186,25 @@ cdef class FileInfo(_Weakrefable):
         Returns
         -------
         type : FileType
+
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.type
+        <FileType.File: 2>
         """
         return _wrap_file_type(self.info.type())
 
     @property
     def is_file(self):
         """
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.is_file
+        True
         """
         return self.type == FileType.File
 
@@ -179,6 +212,13 @@ cdef class FileInfo(_Weakrefable):
     def path(self):
         """
         The full file path in the filesystem.
+
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.path
+        '/tmp/fileinfo.dat'
         """
         return frombytes(self.info.path())
 
@@ -188,6 +228,13 @@ cdef class FileInfo(_Weakrefable):
         The file base name.
 
         Component after the last directory separator.
+
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.base_name
+        'fileinfo.dat'
         """
         return frombytes(self.info.base_name())
 
@@ -201,6 +248,13 @@ cdef class FileInfo(_Weakrefable):
         Returns
         -------
         size : int or None
+
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.size
+        4
         """
         cdef int64_t size
         size = self.info.size()
@@ -210,6 +264,13 @@ cdef class FileInfo(_Weakrefable):
     def extension(self):
         """
         The file extension.
+
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.extension
+        'dat'
         """
         return frombytes(self.info.extension())
 
@@ -221,6 +282,13 @@ cdef class FileInfo(_Weakrefable):
         Returns
         -------
         mtime : datetime.datetime or None
+
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.mtime # doctest: +SKIP
+        datetime.datetime(2022, 6, 29, 7, 56, 10, 873922, tzinfo=datetime.timezone.utc)
         """
         cdef int64_t nanoseconds
         nanoseconds = TimePoint_to_ns(self.info.mtime())
@@ -236,6 +304,13 @@ cdef class FileInfo(_Weakrefable):
         Returns
         -------
         mtime_ns : int or None
+
+        Examples
+        --------
+        >>> local = getfixture('local_fs')
+        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info.mtime_ns # doctest: +SKIP
+        1656489370873922073
         """
         cdef int64_t nanoseconds
         nanoseconds = TimePoint_to_ns(self.info.mtime())
