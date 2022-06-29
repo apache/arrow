@@ -59,10 +59,17 @@ namespace csv {
 
 namespace {
 
-// Copy delimiter or end-of-line chars. Though configurable,
-// delimiter is always one char, end-of-line is often at most two chars.
-void copy_endchars(char* dest, const char* src, size_t size) {
+// This function is to improve performance. It copies csv delimiter and eol
+// without calling `memcpy`.
+// Each csv field is followed by a delimiter or eol, which is often only one
+// or two chars. If copying both the field and delimiter with `memcpy`, cpu
+// may suffer from high branch misprediction as we are tripping `memcpy` with
+// interleaved (normal/tiny/normal/tiny/...) buffer sizes, which are handled
+// separately inside `memcpy`. This function goes fast path if the buffer
+// size is one or two chars to leave `memcpy` only for copyig csv fields.
+void CopyEndChars(char* dest, const char* src, size_t size) {
   if (size == 1) {
+    // for fixed size memcpy, compiler will generate direct load/store opcode
     memcpy(dest, src, 1);
   } else if (size == 2) {
     memcpy(dest, src, 2);
@@ -197,8 +204,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     // Function applied to valid values cast to string.
     auto valid_function = [&](arrow::util::string_view s) {
       memcpy(output + *offsets, s.data(), s.length());
-      copy_endchars(output + *offsets + s.length(), end_chars_.c_str(),
-                    end_chars_.size());
+      CopyEndChars(output + *offsets + s.length(), end_chars_.c_str(), end_chars_.size());
       *offsets += static_cast<int64_t>(s.length() + end_chars_.size());
       offsets++;
       return Status::OK();
@@ -208,8 +214,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     auto null_function = [&]() {
       // For nulls, the configured null value string is copied into the output.
       memcpy(output + *offsets, null_string_->data(), null_string_->size());
-      copy_endchars(output + *offsets + null_string_->size(), end_chars_.c_str(),
-                    end_chars_.size());
+      CopyEndChars(output + *offsets + null_string_->size(), end_chars_.c_str(),
+                   end_chars_.size());
       *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
       offsets++;
       return Status::OK();
@@ -327,7 +333,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
             row = Escape(s, row);
           }
           *row++ = '"';
-          copy_endchars(row, end_chars_.data(), end_chars_.length());
+          CopyEndChars(row, end_chars_.data(), end_chars_.length());
           row += end_chars_.length();
           *offsets = static_cast<int64_t>(row - output);
           offsets++;
@@ -336,8 +342,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
         [&]() {
           // For nulls, the configured null value string is copied into the output.
           memcpy(output + *offsets, null_string_->data(), null_string_->size());
-          copy_endchars(output + *offsets + null_string_->size(), end_chars_.c_str(),
-                        end_chars_.size());
+          CopyEndChars(output + *offsets + null_string_->size(), end_chars_.c_str(),
+                       end_chars_.size());
           *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
           offsets++;
           needs_escaping++;
