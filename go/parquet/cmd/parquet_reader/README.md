@@ -6,11 +6,11 @@ A tool to read Parquet files and write selected columns into TEXT, JSON, or CSV 
 
 ```
 $ ./parquet_reader -h
-Parquet Reader (version 0.1.20220629.1236)
+Parquet Reader (version 0.1.20220629.1846)
 Usage:
   parquet_reader -h | --help
   parquet_reader [--only-metadata] [--no-metadata] [--no-memory-map] [--json] [--csv] [--output=FILE]
-                 [--print-key-value-metadata] [--columns=COLUMNS] <file>
+                 [--print-key-value-metadata] [--int96-timestamp] [--columns=COLUMNS] <file>
 Options:
   -h --help                     Show this screen.
   --print-key-value-metadata    Print out the key-value metadata. [default: false]
@@ -18,6 +18,7 @@ Options:
   --no-metadata                 Do not print metadata.
   --output=FILE                 Specify output file for data. [default: -]
   --no-memory-map               Disable memory mapping the file.
+  --int96-timestamp             Parse INT96 as TIMESTAMP for legacy support.
   --json                        Format output as JSON instead of text.
   --csv                         Format output as CSV instead of text.
   --columns=COLUMNS             Specify a subset of columns to print, comma delimited indexes.
