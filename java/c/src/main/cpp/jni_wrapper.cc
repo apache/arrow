@@ -28,6 +28,7 @@
 
 namespace {
 
+jclass kObjectClass;
 jclass kRuntimeExceptionClass;
 jclass kPrivateDataClass;
 jclass kCDataExceptionClass;
@@ -35,6 +36,7 @@ jclass kStreamPrivateDataClass;
 
 jfieldID kPrivateDataLastErrorField;
 
+jmethodID kObjectToStringMethod;
 jmethodID kPrivateDataCloseMethod;
 jmethodID kPrivateDataGetNextMethod;
 jmethodID kPrivateDataGetSchemaMethod;
@@ -61,7 +63,7 @@ jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
     ThrowPendingException(message);
   }
   jclass global_class = (jclass)env->NewGlobalRef(local_class);
-  if (!local_class) {
+  if (!global_class) {
     std::string message = "Could not create global reference to class ";
     message += class_name;
     ThrowPendingException(message);
@@ -165,9 +167,10 @@ void release_exported(T* base) {
 
   env->CallObjectMethod(private_data->j_private_data_, kPrivateDataCloseMethod);
   if (env->ExceptionCheck()) {
+    // Can't signal this to caller, so log and then try to free things
+    // as best we can
     env->ExceptionDescribe();
     env->ExceptionClear();
-    ThrowPendingException("Error calling close of private data");
   }
   env->DeleteGlobalRef(private_data->j_private_data_);
   delete private_data;
@@ -177,6 +180,48 @@ void release_exported(T* base) {
   base->release = nullptr;
 }
 
+// Attempt to copy the JVM-side lastError to the C++ side
+void TryCopyLastError(JNIEnv* env, InnerPrivateData* private_data) {
+  jobject error_data =
+      env->GetObjectField(private_data->j_private_data_, kPrivateDataLastErrorField);
+  if (!error_data) {
+    private_data->last_error_.clear();
+    return;
+  }
+
+  auto arr = reinterpret_cast<jbyteArray>(error_data);
+  jbyte* error_bytes = env->GetByteArrayElements(arr, nullptr);
+  if (!error_bytes) {
+    private_data->last_error_.clear();
+    return;
+  }
+
+  char* error_str = reinterpret_cast<char*>(error_bytes);
+  private_data->last_error_ = std::string(error_str, std::strlen(error_str));
+
+  env->ReleaseByteArrayElements(arr, error_bytes, JNI_ABORT);
+}
+
+// Normally the Java side catches all exceptions and populates
+// lastError. If that fails we check for an exception and try to
+// populate last_error_ ourselves.
+void TryHandleUncaughtException(JNIEnv* env, InnerPrivateData* private_data,
+                                jthrowable exc) {
+  jstring message =
+      reinterpret_cast<jstring>(env->CallObjectMethod(exc, kObjectToStringMethod));
+  if (!message) {
+    private_data->last_error_.clear();
+    return;
+  }
+  const char* str = env->GetStringUTFChars(message, 0);
+  if (!str) {
+    private_data->last_error_.clear();
+    return;
+  }
+  private_data->last_error_ = str;
+  env->ReleaseStringUTFChars(message, 0);
+}
+
 int ArrowArrayStreamGetSchema(ArrowArrayStream* stream, ArrowSchema* out) {
   assert(stream->private_data != nullptr);
   InnerPrivateData* private_data =
@@ -184,13 +229,15 @@ int ArrowArrayStreamGetSchema(ArrowArrayStream* stream, ArrowSchema* out) {
   JNIEnvGuard guard(private_data->vm_);
   JNIEnv* env = guard.env();
 
-  const long out_addr = static_cast<long>(reinterpret_cast<uintptr_t>(out));
+  const jlong out_addr = static_cast<jlong>(reinterpret_cast<uintptr_t>(out));
   const int err_code = env->CallIntMethod(private_data->j_private_data_,
                                           kPrivateDataGetSchemaMethod, out_addr);
-  if (env->ExceptionCheck()) {
-    env->ExceptionDescribe();
+  if (jthrowable exc = env->ExceptionOccurred()) {
+    TryHandleUncaughtException(env, private_data, exc);
     env->ExceptionClear();
     return EIO;
+  } else if (err_code != 0) {
+    TryCopyLastError(env, private_data);
   }
   return err_code;
 }
@@ -202,13 +249,15 @@ int ArrowArrayStreamGetNext(ArrowArrayStream* stream, ArrowArray* out) {
   JNIEnvGuard guard(private_data->vm_);
   JNIEnv* env = guard.env();
 
-  const long out_addr = static_cast<long>(reinterpret_cast<uintptr_t>(out));
+  const jlong out_addr = static_cast<jlong>(reinterpret_cast<uintptr_t>(out));
   const int err_code = env->CallIntMethod(private_data->j_private_data_,
                                           kPrivateDataGetNextMethod, out_addr);
-  if (env->ExceptionCheck()) {
-    env->ExceptionDescribe();
+  if (jthrowable exc = env->ExceptionOccurred()) {
+    TryHandleUncaughtException(env, private_data, exc);
     env->ExceptionClear();
     return EIO;
+  } else if (err_code != 0) {
+    TryCopyLastError(env, private_data);
   }
   return err_code;
 }
@@ -220,18 +269,7 @@ const char* ArrowArrayStreamGetLastError(ArrowArrayStream* stream) {
   JNIEnvGuard guard(private_data->vm_);
   JNIEnv* env = guard.env();
 
-  jobject error_data =
-      env->GetObjectField(private_data->j_private_data_, kPrivateDataLastErrorField);
-  if (!error_data) return nullptr;
-
-  auto arr = reinterpret_cast<jbyteArray>(error_data);
-  jbyte* error_bytes = env->GetByteArrayElements(arr, nullptr);
-  if (!error_bytes) return nullptr;
-
-  char* error_str = reinterpret_cast<char*>(error_bytes);
-  private_data->last_error_ = std::string(error_str, std::strlen(error_str));
-
-  env->ReleaseByteArrayElements(arr, error_bytes, JNI_ABORT);
+  if (private_data->last_error_.empty()) return nullptr;
   return private_data->last_error_.c_str();
 }
 
@@ -247,9 +285,10 @@ void ArrowArrayStreamRelease(ArrowArrayStream* stream) {
 
   env->CallObjectMethod(private_data->j_private_data_, kPrivateDataCloseMethod);
   if (env->ExceptionCheck()) {
+    // Can't signal this to caller, so log and then try to free things
+    // as best we can
     env->ExceptionDescribe();
     env->ExceptionClear();
-    ThrowPendingException("Error calling close of private data");
   }
   env->DeleteGlobalRef(private_data->j_private_data_);
   delete private_data;
@@ -278,6 +317,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     return JNI_ERR;
   }
   JNI_METHOD_START
+  kObjectClass = CreateGlobalClassReference(env, "Ljava/lang/Object;");
   kRuntimeExceptionClass =
       CreateGlobalClassReference(env, "Ljava/lang/RuntimeException;");
   kPrivateDataClass =
@@ -290,6 +330,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   kPrivateDataLastErrorField =
       GetFieldID(env, kStreamPrivateDataClass, "lastError", "[B");
 
+  kObjectToStringMethod =
+      GetMethodID(env, kObjectClass, "toString", "()Ljava/lang/String;");
   kPrivateDataCloseMethod = GetMethodID(env, kPrivateDataClass, "close", "()V");
   kPrivateDataGetNextMethod =
       GetMethodID(env, kStreamPrivateDataClass, "getNext", "(J)I");
@@ -305,9 +347,11 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 void JNI_OnUnload(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
+  env->DeleteGlobalRef(kObjectClass);
   env->DeleteGlobalRef(kRuntimeExceptionClass);
   env->DeleteGlobalRef(kPrivateDataClass);
   env->DeleteGlobalRef(kCDataExceptionClass);
+  env->DeleteGlobalRef(kStreamPrivateDataClass);
 }
 
 /*

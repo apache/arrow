@@ -332,7 +332,7 @@ public final class Data {
    * @param stream C stream interface struct to import.
    * @return Imported reader
    */
-  public static ArrowReader importStream(BufferAllocator allocator, ArrowArrayStream stream) {
+  public static ArrowReader importArrayStream(BufferAllocator allocator, ArrowArrayStream stream) {
     return new ArrowArrayStreamReader(allocator, stream);
   }
 }

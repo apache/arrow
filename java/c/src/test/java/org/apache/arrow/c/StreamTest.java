@@ -173,7 +173,7 @@ final class StreamTest {
   @Test
   public void importReleasedStream() {
     try (final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
-      Exception e = assertThrows(IllegalStateException.class, () -> Data.importStream(allocator, stream));
+      Exception e = assertThrows(IllegalStateException.class, () -> Data.importArrayStream(allocator, stream));
       assertThat(e).hasMessageContaining("Cannot import released ArrowArrayStream");
     }
   }
@@ -190,7 +190,7 @@ final class StreamTest {
       }
     }; final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
       Data.exportArrayStream(allocator, source, stream);
-      try (final ArrowReader reader = Data.importStream(allocator, stream)) {
+      try (final ArrowReader reader = Data.importArrayStream(allocator, stream)) {
         assertThat(reader.getVectorSchemaRoot().getSchema()).isEqualTo(schema);
         final IOException e = assertThrows(IOException.class, reader::loadNextBatch);
         assertThat(e).hasMessageContaining("Failed to load batch!");
@@ -211,7 +211,7 @@ final class StreamTest {
       }
     }; final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
       Data.exportArrayStream(allocator, source, stream);
-      try (final ArrowReader reader = Data.importStream(allocator, stream)) {
+      try (final ArrowReader reader = Data.importArrayStream(allocator, stream)) {
         final IOException e = assertThrows(IOException.class, reader::getVectorSchemaRoot);
         assertThat(e).hasMessageContaining("Failed to read schema!");
         assertThat(e).hasMessageContaining("[errno ");
@@ -227,7 +227,7 @@ final class StreamTest {
       final VectorLoader loader = new VectorLoader(root);
       Data.exportArrayStream(allocator, source, stream);
 
-      try (final ArrowReader reader = Data.importStream(allocator, stream)) {
+      try (final ArrowReader reader = Data.importArrayStream(allocator, stream)) {
         assertThat(reader.getVectorSchemaRoot().getSchema()).isEqualTo(schema);
 
         for (ArrowRecordBatch batch : batches) {

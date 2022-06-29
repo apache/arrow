@@ -44,13 +44,12 @@ final class ArrayStreamExporter {
   static class ExportedArrayStreamPrivateData implements PrivateData {
     final BufferAllocator allocator;
     final ArrowReader reader;
-    int nextDictionary;
+    // Read by the JNI side for get_last_error
     byte[] lastError;
 
     ExportedArrayStreamPrivateData(BufferAllocator allocator, ArrowReader reader) {
       this.allocator = allocator;
       this.reader = reader;
-      this.nextDictionary = 0;
     }
 
     private int setLastError(Throwable err) {
@@ -97,7 +96,7 @@ final class ArrayStreamExporter {
       try {
         reader.close();
       } catch (IOException e) {
-        // XXX: C Data Interface gives us no way to signal this to the caller,
+        // XXX: C Data Interface gives us no way to signal errors to the caller,
         // but the JNI side will catch this and log an error.
         throw new RuntimeException(e);
       }
