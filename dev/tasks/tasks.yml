@@ -87,6 +87,7 @@ groups:
     - conda-linux-gcc-py*-cpu-r*
     - conda-osx-clang-py*-r*
     - conda-win-vs2017-py*-r*
+    - r-binary-packages
 
   ruby:
     - test-*ruby*
@@ -177,7 +178,7 @@ groups:
     - nuget
     - wheel-*
     - python-sdist
-    - r-nightly-packages
+    - r-binary-packages
 
   nightly-release:
     - verify-rc-source-*
@@ -931,7 +932,7 @@ tasks:
       - Apache.Arrow.{no_rc_version}.snupkg
 
   ######################## R packages & binaries ##############################
-  r-nightly-packages:
+  r-binary-packages:
     ci: github
     template: r/github.packages.yml
     artifacts:

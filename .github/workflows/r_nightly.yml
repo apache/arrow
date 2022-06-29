@@ -17,7 +17,7 @@
 
 name: Upload R Nightly builds
 # This workflow downloads the (nightly) binaries created in crossbow and uploads them
-# to nightlies.apache.org. Due to authorization requirements, this upload can't be done 
+# to nightlies.apache.org. Due to authorization requirements, this upload can't be done
 
 # from the crossbow repository.
 
@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 0
           path: crossbow
           repository: ursacomputing/crossbow
-          ref: master 
+          ref: master
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
@@ -70,7 +70,7 @@ jobs:
           fi
           echo $PREFIX
 
-          archery crossbow download-artifacts -f r-nightly-packages -t binaries $PREFIX
+          archery crossbow download-artifacts -f r-binary-packages -t binaries $PREFIX
 
           if [ -n "$(ls -A binaries/*/*/)" ]; then
             echo "Found files!"
@@ -83,12 +83,12 @@ jobs:
         run: |
           # folder that we rsync to nightlies.apache.org
           repo_root <- "repo"
-          # The binaries are in a nested dir 
+          # The binaries are in a nested dir
           # so we need to find the correct path.
           art_path <- list.files("binaries",
             recursive = TRUE,
             include.dirs = TRUE,
-            pattern = "r-nightly-packages$",
+            pattern = "r-binary-packages$",
             full.names = TRUE
           )
 
