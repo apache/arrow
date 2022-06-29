@@ -138,7 +138,10 @@ func (r *Reader) Record() arrow.Record { return r.cur }
 // Next returns whether a Record could be extracted from the underlying CSV file.
 //
 // Next panics if the number of records extracted from a CSV row does not match
-// the number of fields of the associated schema.
+// the number of fields of the associated schema. If a parse failure occurs, Next
+// will return true and the Record will contain nulls where failures occurred.
+// Subsequent calls to Next will return false - The user should check Err() after
+// each call to Next to check if an error took place.
 func (r *Reader) Next() bool {
 	if r.header {
 		r.once.Do(func() {
