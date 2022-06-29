@@ -34,6 +34,7 @@ on:
 
 jobs:
   upload:
+    if: github.repository == 'apache/arrow'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
