@@ -92,17 +92,10 @@ if(PYARROW_WITH_DATASET)
   find_package(ArrowDataset REQUIRED)
 endif()
 
-if(ARROW_CSV)
-  list(APPEND ARROW_PYTHON_SRCS csv.cc)
-endif()
-
-if(ARROW_FILESYSTEM)
-  list(APPEND ARROW_PYTHON_SRCS filesystem.cc)
-endif()
-
 if(PYARROW_WITH_PARQUET_ENCRYPTION)
   if(PARQUET_REQUIRE_ENCRYPTION)
     list(APPEND ARROW_PYTHON_SRCS parquet_encryption.cc)
+    find_package(Parquet REQUIRED)
   else()
     message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
   endif()
@@ -112,6 +105,15 @@ if(PYARROW_WITH_HDFS)
   if(NOT ARROW_HDFS)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_HDFS=ON")
   endif()
+endif()
+
+# Check for only Arrow C++ options
+if(ARROW_CSV)
+  list(APPEND ARROW_PYTHON_SRCS csv.cc)
+endif()
+
+if(ARROW_FILESYSTEM)
+  list(APPEND ARROW_PYTHON_SRCS filesystem.cc)
 endif()
 
 # Link to arrow dependecies
