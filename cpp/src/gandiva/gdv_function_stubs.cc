@@ -1002,7 +1002,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
-  
 
   // to_utc_timezone_timestamp
   args = {
