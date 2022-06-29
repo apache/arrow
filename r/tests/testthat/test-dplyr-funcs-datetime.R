@@ -806,6 +806,13 @@ test_that("extract qday from date", {
       collect(),
     test_df
   )
+
+  compare_dplyr_binding(
+    .input %>%
+       mutate(y = qday(as.Date(date))) %>%
+       collect(),
+    test_df
+  )
 })
 
 test_that("leap_year mirror lubridate", {

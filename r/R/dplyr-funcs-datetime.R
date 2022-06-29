@@ -209,13 +209,13 @@ register_bindings_datetime_components <- function() {
     build_expr("month", x)
   })
 
-  register_binding("lubridate::qday", function(x) {
-    floored_x <- Expression$create("floor_temporal", x, options = list(unit = 9L, calendar_based_origin = FALSE))
-    days_between <- Expression$create("days_between", floored_x, x)
-    if (call_binding("is.Date", x)) {
-        return(Expression$create("add", days_between, Expression$scalar(1L)))
-    }
-    days_between
+  register_binding("qday", function(x) {
+    x <- build_expr("floor_temporal", x, options = list(unit = 6L, calendar_based_origin = FALSE))
+    x <- build_expr("cast", x, options = cast_options(to_type = timestamp("s")))
+    floored_x <- build_expr("floor_temporal", x, options = list(unit = 9L, calendar_based_origin = FALSE))
+    duration_between <- build_expr("subtract", x, floored_x)
+    seconds_between <- build_expr("cast", duration_between, options = cast_options(to_type = int64()))
+    build_expr("floor", seconds_between / Expression$scalar(86400L) + Expression$scalar(1L))
   })
 
   register_binding("lubridate::am", function(x) {
