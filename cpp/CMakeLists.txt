@@ -979,6 +979,7 @@ if(ARROW_PARQUET)
 endif()
 
 if(ARROW_JNI)
+  add_subdirectory(src/jni)
   add_subdirectory(../java/adapter/orc/src/main/cpp ./java/jni)
 endif()
 
