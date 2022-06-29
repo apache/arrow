@@ -1015,7 +1015,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("to_utc_timezone_timestamp",
                                   types->i64_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(to_utc_timezone_timestamp));
-
   // from_utc_timezone_timestamp
   args = {
       types->i64_type(),     // context
