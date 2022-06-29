@@ -1685,16 +1685,13 @@ endif()
 macro(build_substrait)
   message(STATUS "Building Substrait from source")
 
+  # Note: not all protos in Substrait actually matter to plan
+  # consumption. No need to build the ones we don't need.
   set(SUBSTRAIT_PROTOS
-      capabilities
-      expression
+      algebra
       extensions/extensions
-      function
-      parameterized_types
       plan
-      relations
-      type
-      type_expressions)
+      type)
 
   externalproject_add(substrait_ep
                       CONFIGURE_COMMAND ""
