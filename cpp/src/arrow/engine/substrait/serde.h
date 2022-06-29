@@ -64,17 +64,16 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
 /// message
-/// \param[in] consumer_factory factory function for generating the node that consumes
-/// the batches produced by each toplevel Substrait relation
+/// \param[in] consumer node that consumes the batches produced by each toplevel Substrait
+/// relation
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
 /// Plan is returned here.
 /// \return an ExecNode corresponding to the single toplevel relation in the Substrait
 /// Plan
-Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
-                                          const ConsumerFactory& consumer_factory,
-                                          const ExtensionIdRegistry* registry = NULLPTR,
-                                          ExtensionSet* ext_set_out = NULLPTR);
+Result<compute::ExecPlan> DeserializePlan(
+    const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
+    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
 
 /// Factory function type for generating the write options of a node consuming the batches
 /// produced by each toplevel Substrait relation when deserializing a Substrait Plan.
@@ -105,15 +104,15 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
 /// message
-/// \param[in] write_options_factory factory function for generating the write options of
-/// a node consuming the batches produced by each toplevel Substrait relation
+/// \param[in] write_options write options of a node consuming the batches produced by
+/// each toplevel Substrait relation
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
 /// Plan is returned here.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<compute::ExecPlan> DeserializePlan(
-    const Buffer& buf, const WriteOptionsFactory& write_options_factory,
+    const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type

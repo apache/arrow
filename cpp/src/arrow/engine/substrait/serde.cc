@@ -58,14 +58,20 @@ Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
   return FromProto(rel, ext_set);
 }
 
-using DeclarationFactory = std::function<compute::Declaration(
+using DeclarationFactory = std::function<Result<compute::Declaration>(
     compute::Declaration, std::vector<std::string> names)>;
 
 namespace {
 
 DeclarationFactory MakeConsumingSinkDeclarationFactory(
     const ConsumerFactory& consumer_factory) {
-  return [&consumer_factory](compute::Declaration input, std::vector<std::string> names) {
+  return [&consumer_factory](
+             compute::Declaration input,
+             std::vector<std::string> names) -> Result<compute::Declaration> {
+    std::shared_ptr<compute::SinkNodeConsumer> consumer = consumer_factory();
+    if (consumer == NULLPTR) {
+      return Status::Invalid("consumer factory is exhausted");
+    }
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::ConsumingSinkNodeOptions>(
             compute::ConsumingSinkNodeOptions{consumer_factory(), std::move(names)});
@@ -92,11 +98,16 @@ compute::Declaration ProjectByNamesDeclaration(compute::Declaration input,
 
 DeclarationFactory MakeWriteDeclarationFactory(
     const WriteOptionsFactory& write_options_factory) {
-  return [&write_options_factory](compute::Declaration input,
-                                  std::vector<std::string> names) {
+  return [&write_options_factory](
+             compute::Declaration input,
+             std::vector<std::string> names) -> Result<compute::Declaration> {
+    std::shared_ptr<dataset::WriteNodeOptions> options = write_options_factory();
+    if (options == NULLPTR) {
+      return Status::Invalid("write options factory is exhausted");
+    }
     compute::Declaration projected = ProjectByNamesDeclaration(input, names);
-    std::shared_ptr<compute::ExecNodeOptions> options = write_options_factory();
-    return compute::Declaration::Sequence({std::move(projected), {"write", options}});
+    return compute::Declaration::Sequence(
+        {std::move(projected), {"write", std::move(*options)}});
   };
 }
 
@@ -119,7 +130,8 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     }
 
     // pipe each relation
-    auto sink_decl = declaration_factory(std::move(decl), std::move(names));
+    ARROW_ASSIGN_OR_RAISE(auto sink_decl,
+                          declaration_factory(std::move(decl), std::move(names)));
     sink_decls.push_back(std::move(sink_decl));
   }
 
@@ -160,19 +172,34 @@ Result<compute::ExecPlan> MakeSingleDeclarationPlan(
 
 }  // namespace
 
-Result<compute::ExecPlan> DeserializePlan(const Buffer& buf,
-                                          const ConsumerFactory& consumer_factory,
-                                          const ExtensionIdRegistry* registry,
-                                          ExtensionSet* ext_set_out) {
+Result<compute::ExecPlan> DeserializePlan(
+    const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
+    const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
+  bool factory_done = false;
+  auto single_consumer = [&factory_done, &consumer] {
+    if (factory_done) {
+      return std::shared_ptr<compute::SinkNodeConsumer>{};
+    }
+    factory_done = true;
+    return consumer;
+  };
   ARROW_ASSIGN_OR_RAISE(auto declarations,
-                        DeserializePlans(buf, consumer_factory, registry, ext_set_out));
+                        DeserializePlans(buf, single_consumer, registry, ext_set_out));
   return MakeSingleDeclarationPlan(declarations);
 }
 
 Result<compute::ExecPlan> DeserializePlan(
-    const Buffer& buf, const WriteOptionsFactory& write_options_factory,
+    const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
-  ARROW_ASSIGN_OR_RAISE(auto declarations, DeserializePlans(buf, write_options_factory,
+  bool factory_done = false;
+  auto single_write_options = [&factory_done, &write_options] {
+    if (factory_done) {
+      return std::shared_ptr<dataset::WriteNodeOptions>{};
+    }
+    factory_done = true;
+    return write_options;
+  };
+  ARROW_ASSIGN_OR_RAISE(auto declarations, DeserializePlans(buf, single_write_options,
                                                             registry, ext_set_out));
   return MakeSingleDeclarationPlan(declarations);
 }

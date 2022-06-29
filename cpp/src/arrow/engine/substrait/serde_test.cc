@@ -45,6 +45,8 @@ using internal::checked_cast;
 
 namespace engine {
 
+const auto kNullConsumer = std::make_shared<compute::NullSinkNodeConsumer>();
+
 const std::shared_ptr<Schema> kBoringSchema = schema({
     field("bool", boolean()),
     field("i8", int8()),
@@ -705,11 +707,9 @@ TEST(Substrait, ExtensionSetFromPlan) {
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_OK_AND_ASSIGN(
-        auto sink_decls,
-        DeserializePlans(
-            *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-            ext_id_reg, &ext_set));
+    ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                         DeserializePlans(
+                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
 
     EXPECT_OK_AND_ASSIGN(auto decoded_null_type, ext_set.DecodeType(42));
     EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
@@ -747,10 +747,56 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  }
+}
+
+TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
+  std::string substrait_json = R"({
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [ {"i64": {}}, {"bool": {}} ]
+            },
+            "names": ["i", "b"]
+          },
+          "local_files": { "items": [] }
+        }
+      }}
+    ],
+    "extension_uris": [
+      {
+        "extension_uri_anchor": 7,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 7,
+        "function_anchor": 42,
+        "name": "add"
+      }}
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(
         Invalid,
         DeserializePlans(
-            *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+            *buf, []() -> std::shared_ptr<compute::SinkNodeConsumer> { return NULLPTR; },
+            ext_id_reg, &ext_set));
+    ASSERT_RAISES(
+        Invalid,
+        DeserializePlans(
+            *buf, []() -> std::shared_ptr<dataset::WriteNodeOptions> { return NULLPTR; },
             ext_id_reg, &ext_set));
   }
 }
@@ -779,20 +825,16 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   // invalid before registration
   ExtensionSet ext_set_invalid(ext_id_reg);
-  ASSERT_RAISES(
-      Invalid,
-      DeserializePlans(
-          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          ext_id_reg, &ext_set_invalid));
+  ASSERT_RAISES(Invalid,
+                DeserializePlans(
+                    *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
   ASSERT_OK(substrait::RegisterFunction(
       *ext_id_reg, substrait::default_extension_types_uri(), "new_func", "multiply"));
   // valid after registration
   ExtensionSet ext_set_valid(ext_id_reg);
-  ASSERT_OK_AND_ASSIGN(
-      auto sink_decls,
-      DeserializePlans(
-          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          ext_id_reg, &ext_set_valid));
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set_valid));
   EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set_valid.DecodeFunction(42));
   EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
   EXPECT_EQ(decoded_add_func.id.name, "new_func");
@@ -1035,11 +1077,9 @@ TEST(Substrait, JoinPlanBasic) {
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_OK_AND_ASSIGN(
-        auto sink_decls,
-        DeserializePlans(
-            *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-            ext_id_reg, &ext_set));
+    ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                         DeserializePlans(
+                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
 
     auto join_decl = sink_decls[0].inputs[0];
 
@@ -1173,11 +1213,8 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_RAISES(
-        Invalid,
-        DeserializePlans(
-            *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-            ext_id_reg, &ext_set));
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   }
 }
 
@@ -1244,11 +1281,8 @@ TEST(Substrait, JoinPlanInvalidExpression) {
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_RAISES(
-        Invalid,
-        DeserializePlans(
-            *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-            ext_id_reg, &ext_set));
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   }
 }
 
@@ -1316,11 +1350,8 @@ TEST(Substrait, JoinPlanInvalidKeys) {
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_RAISES(
-        Invalid,
-        DeserializePlans(
-            *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-            ext_id_reg, &ext_set));
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   }
 }
 
