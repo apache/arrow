@@ -2282,7 +2282,7 @@ easy_df <- tibble::tibble(datetime = easy_date)
 
 # dates over about a year, useful to test rounding to calendar units
 year_of_dates <- tibble::tibble(
-  date = as.Date("2021-01-01") + seq(1, 360, 30),
+  date = as.Date("2021-01-01") + seq(1, 360, 15),
   datetime = as.POSIXct(date, tz = "UTC")
 )
 
@@ -2573,8 +2573,6 @@ test_that("timestamp round/floor/ceil works for units of 1 day or less", {
 
 test_that("date round/floor/ceil works for units: month/quarter/year", {
 
-  skip("skipping month/quarter/year tests")
-
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
   for(r in nrow(year_of_dates)) {
     year_of_dates[r, ] %>% check_date_rounding("month", ignore_attr = TRUE)
@@ -2592,8 +2590,6 @@ test_that("date round/floor/ceil works for units: month/quarter/year", {
 
 
 test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
-
-  skip("skipping month/quarter/year tests")
 
   year_of_dates %>% check_timestamp_rounding("month", ignore_attr = TRUE)
   year_of_dates %>% check_timestamp_rounding("quarter", ignore_attr = TRUE)
