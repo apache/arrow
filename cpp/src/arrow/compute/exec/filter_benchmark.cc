@@ -40,7 +40,6 @@ namespace compute {
 constexpr int64_t kTotalBatchSize = 1000000;
 constexpr auto kSeed = 0x94378165;
 
-
 // Will return batches of size length, with fields as specified.
 // null_probability controls the likelihood that an element within the batch is null,
 // across all fields. bool_true_probability controls the likelihood that an element

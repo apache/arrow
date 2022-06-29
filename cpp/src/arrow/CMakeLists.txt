@@ -193,6 +193,7 @@ set(ARROW_SRCS
     io/transform.cc
     util/async_util.cc
     util/basic_decimal.cc
+    # util/benchmark_util.cc
     util/bit_block_counter.cc
     util/bit_run_reader.cc
     util/bit_util.cc
