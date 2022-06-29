@@ -202,8 +202,8 @@ def run_debug_memory_pool(pool_factory, env_value):
         """
     env = dict(os.environ)
     env['ARROW_DEBUG_MEMORY_POOL'] = env_value
-    # Ensure PYTHONFAULTHANDLER is not on the environment for the subprocess
-    env.pop('PYTHONFAULTHANDLER', None)
+    # Ensure PYTHONFAULTHANDLER is not set for the subprocess
+    env['PYTHONFAULTHANDLER'] = ""
     res = subprocess.run([sys.executable, "-c", code], env=env,
                          universal_newlines=True, stderr=subprocess.PIPE)
     print(res.stderr, file=sys.stderr)
