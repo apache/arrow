@@ -37,15 +37,15 @@
 namespace arrow {
 namespace compute {
 
-static constexpr int64_t kTotalBatchSize = 1000000;
+constexpr int64_t kTotalBatchSize = 1000000;
 constexpr auto kSeed = 0x94378165;
 
-/*
-    Will return batches of size length, with fields as specified.
-    null_probability controls the likelihood that an element within the batch is null,
-   across all fields. bool_true_probability controls the likelihood that an element
-   belonging to a boolean field is true.
-*/
+
+// Will return batches of size length, with fields as specified.
+// null_probability controls the likelihood that an element within the batch is null,
+// across all fields. bool_true_probability controls the likelihood that an element
+// belonging to a boolean field is true.
+
 static std::shared_ptr<arrow::RecordBatch> GetBatchesWithNullProbability(
     const FieldVector& fields, int64_t length, double null_probability,
     double bool_true_probability = 0.5) {
@@ -73,7 +73,7 @@ BatchesWithSchema MakeRandomBatchesWithNullProbability(
         schema->fields(), batch_size, null_probability, bool_true_probability));
     out.batches[i].values.emplace_back(i);
   }
-  out.schema = schema;
+  out.schema = std::move(schema);
   return out;
 }
 
@@ -125,7 +125,7 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
   }
 }
 
-void SelectivityArgs(benchmark::internal::Benchmark* bench) {
+void SetSelectivityArgs(benchmark::internal::Benchmark* bench) {
   for (int batch_size = 1000; batch_size <= kTotalBatchSize; batch_size *= 10) {
     for (double null_prob : {0.1, 0.5, 0.75, 1.0}) {
       bench->ArgNames({"batch_size", "null_prob", "bool_true_prob"})
@@ -162,7 +162,7 @@ BENCHMARK_CAPTURE(FilterOverhead, ref_only_expression, {ref_only_expression})
     ->Apply(SetArgs);
 
 BENCHMARK_CAPTURE(FilterOverhead, selectivity_benchmark, {is_not_null_expression})
-    ->Apply(SelectivityArgs);
+    ->Apply(SetSelectivityArgs);
 
 BENCHMARK_CAPTURE(FilterOverhead, not_null_to_is_true_multipass_benchmark,
                   {is_not_null_expression, is_true_expression})

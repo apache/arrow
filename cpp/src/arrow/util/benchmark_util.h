@@ -149,11 +149,10 @@ struct RegressionArgs {
   bool size_is_bytes_;
 };
 
-/*
-  Generates batches from data, then benchmark rows_per_second and batches_per_second for
-  an isolated node. We do this by passing in batches through a task scheduler, and calling
-  InputFinished and InputReceived.
-*/
+// Generates batches from data, then benchmark rows_per_second and batches_per_second for
+// an isolated node. We do this by passing in batches through a task scheduler, and calling
+// InputFinished and InputReceived.
+
 void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
                                    arrow::compute::ExecContext ctx,
                                    arrow::compute::Expression expr, int32_t num_batches,
@@ -224,10 +223,9 @@ void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
-/*
-  Generates batches from data, then benchmark rows_per_second and batches_per_second for a
-  source -> node_declarations -> sink sequence.
-*/
+// Generates batches from data, then benchmark rows_per_second and batches_per_second for a
+// source -> node_declarations -> sink sequence.
+
 void BenchmarkNodeOverhead(benchmark::State& state, arrow::compute::ExecContext ctx,
                            int32_t num_batches, int32_t batch_size,
                            arrow::compute::BatchesWithSchema data,
