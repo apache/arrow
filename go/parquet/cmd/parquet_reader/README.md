@@ -27,7 +27,7 @@ Options:
 
 ## Text
 ```
-$ ./parquet2csv --no-metadata v0.7.1.parquet
+$ ./parquet_reader --no-metadata v0.7.1.parquet
 carat             |cut               |color             |clarity           |depth             |table             |price             |x                 |y                 |z                 |__index_level_0__ |
 0.230000          |Ideal             |E                 |SI2               |61.500000         |55.000000         |326               |3.950000          |3.980000          |2.430000          |0                 |
 0.210000          |Premium           |E                 |SI1               |59.800000         |61.000000         |326               |3.890000          |3.840000          |2.310000          |1                 |
@@ -43,13 +43,13 @@ carat             |cut               |color             |clarity           |dept
 
 ## JSON
 ```
-$ ./parquet2csv --no-metadata --json v0.7.1.parquet
+$ ./parquet_reader --no-metadata --json v0.7.1.parquet
 [{"carat":0.23,"cut":"Ideal","color":"E","clarity":"SI2","depth":61.5,"table":55,"price":326,"x":3.95,"y":3.98,"z":2.43,"__index_level_0__":0},{"carat":0.21,"cut":"Premium","color":"E","clarity":"SI1","depth":59.8,"table":61,"price":326,"x":3.89,"y":3.84,"z":2.31,"__index_level_0__":1},{"carat":0.23,"cut":"Good","color":"E","clarity":"VS1","depth":56.9,"table":65,"price":327,"x":4.05,"y":4.07,"z":2.31,"__index_level_0__":2},{"carat":0.29,"cut":"Premium","color":"I","clarity":"VS2","depth":62.4,"table":58,"price":334,"x":4.2,"y":4.23,"z":2.63,"__index_level_0__":3},{"carat":0.31,"cut":"Good","color":"J","clarity":"SI2","depth":63.3,"table":58,"price":335,"x":4.34,"y":4.35,"z":2.75,"__index_level_0__":4},{"carat":0.24,"cut":"Very Good","color":"J","clarity":"VVS2","depth":62.8,"table":57,"price":336,"x":3.94,"y":3.96,"z":2.48,"__index_level_0__":5},{"carat":0.24,"cut":"Very Good","color":"I","clarity":"VVS1","depth":62.3,"table":57,"price":336,"x":3.95,"y":3.98,"z":2.47,"__index_level_0__":6},{"carat":0.26,"cut":"Very Good","color":"H","clarity":"SI1","depth":61.9,"table":55,"price":337,"x":4.07,"y":4.11,"z":2.53,"__index_level_0__":7},{"carat":0.22,"cut":"Fair","color":"E","clarity":"VS2","depth":65.1,"table":61,"price":337,"x":3.87,"y":3.78,"z":2.49,"__index_level_0__":8},{"carat":0.23,"cut":"Very Good","color":"H","clarity":"VS1","depth":59.4,"table":61,"price":338,"x":4,"y":4.05,"z":2.39,"__index_level_0__":9}]
 ```
 
 ## CSV
 ```
-$ ./parquet2csv --no-metadata --csv v0.7.1.parquet
+$ ./parquet_reader --no-metadata --csv v0.7.1.parquet
 "carat","cut","color","clarity","depth","table","price","x","y","z","__index_level_0__"
 0.23,"Ideal","E","SI2",61.5,55,326,3.95,3.98,2.43,0
 0.21,"Premium","E","SI1",59.8,61,326,3.89,3.84,2.31,1
@@ -65,10 +65,22 @@ $ ./parquet2csv --no-metadata --csv v0.7.1.parquet
 
 ## Write JSON to output file
 ```
-$ ./parquet2csv --no-metadata --json --output=data.json v0.7.1.parquet
+$ ./parquet_reader --no-metadata --json --output=data.json v0.7.1.parquet
+$ jq . data.json
+[
+  {
+    "carat": 0.23,
+    "cut": "Ideal",
+    "color": "E",
+    "clarity": "SI2",
+    "depth": 61.5,
+    "table": 55,
+    "price": 326,
+    "x": 3.95,
+...
 ```
 
 ## Write CSV to output file
 ```
-$ ./parquet2csv --no-metadata --csv --output=data.csv v0.7.1.parquet
+$ ./parquet_reader --no-metadata --csv --output=data.csv v0.7.1.parquet
 ```
