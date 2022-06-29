@@ -59,14 +59,14 @@ namespace csv {
 
 namespace {
 
-// This function is to improve performance. It copies csv delimiter and eol
+// This function is to improve performance. It copies CSV delimiter and eol
 // without calling `memcpy`.
-// Each csv field is followed by a delimiter or eol, which is often only one
-// or two chars. If copying both the field and delimiter with `memcpy`, cpu
+// Each CSV field is followed by a delimiter or eol, which is often only one
+// or two chars. If copying both the field and delimiter with `memcpy`, CPU
 // may suffer from high branch misprediction as we are tripping `memcpy` with
 // interleaved (normal/tiny/normal/tiny/...) buffer sizes, which are handled
 // separately inside `memcpy`. This function goes fast path if the buffer
-// size is one or two chars to leave `memcpy` only for copyig csv fields.
+// size is one or two chars to leave `memcpy` only for copying CSV fields.
 void CopyEndChars(char* dest, const char* src, size_t size) {
   if (size == 1) {
     // for fixed size memcpy, compiler will generate direct load/store opcode
