@@ -233,7 +233,9 @@ func main() {
 						line += ","
 					}
 					if val, ok := s.Next(); ok {
-						if _, ok := val.(parquet.ByteArray); ok {
+						switch val.(type) {
+						case bool, int32, int64, parquet.Int96, float32, float64:
+						default:
 							val = fmt.Sprintf("%s", val)
 						}
 						jsonVal, err := json.Marshal(val)
@@ -279,7 +281,7 @@ func main() {
 							fmt.Fprint(dataOut, line)
 						}
 						switch val.(type) {
-						case int64, float64:
+						case bool, int32, int64, parquet.Int96, float32, float64:
 							fmt.Fprintf(dataOut, "%v", val)
 						default:
 							fmt.Fprintf(dataOut, "%q", val)
