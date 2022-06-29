@@ -706,14 +706,14 @@ year_month_day GetFlooredYmd(int64_t arg, const int multiple,
     // covered here.
     switch (options.unit) {
       case compute::CalendarUnit::MONTH: {
-        const auto m =
-            static_cast<uint32_t>(ymd.month()) / options.multiple * options.multiple;
-        return year_month_day(ymd.year() / 1 / 1) + months{m};
+        const auto m = (static_cast<uint32_t>(ymd.month()) - 1) / options.multiple *
+                       options.multiple;
+        return year_month_day(ymd.year() / jan / 1) + months{m};
       }
       case compute::CalendarUnit::QUARTER: {
-        const auto m = static_cast<uint32_t>(ymd.month()) / (options.multiple * 3) *
+        const auto m = (static_cast<uint32_t>(ymd.month()) - 1) / (options.multiple * 3) *
                        (options.multiple * 3);
-        return year_month_day(ymd.year() / 1 / 1) + months{m};
+        return year_month_day(ymd.year() / jan / 1) + months{m};
       }
       default:
         return ymd;
@@ -945,14 +945,16 @@ struct CeilTemporal {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, options.multiple,
                                                                 options, localizer_);
         ymd += months{options.multiple};
-        t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
+        t = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
         break;
       }
       case compute::CalendarUnit::QUARTER: {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple,
                                                                 options, localizer_);
         ymd += months{3 * options.multiple};
-        t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
+        t = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
         break;
       }
       case compute::CalendarUnit::YEAR: {
@@ -960,7 +962,8 @@ struct CeilTemporal {
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)));
         year y{(static_cast<int32_t>(ymd.year()) / options.multiple + 1) *
                options.multiple};
-        t = localizer_.ConvertDays(y / jan / 1).time_since_epoch();
+        t = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(y / jan / 1).time_since_epoch(), st);
         break;
       }
       default:
@@ -1020,20 +1023,23 @@ struct FloorTemporal {
       case compute::CalendarUnit::MONTH: {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, options.multiple,
                                                                 options, localizer_);
-        t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
+        t = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
         break;
       }
       case compute::CalendarUnit::QUARTER: {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple,
                                                                 options, localizer_);
-        t = localizer_.ConvertDays(ymd.year() / ymd.month() / 1).time_since_epoch();
+        t = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
         break;
       }
       case compute::CalendarUnit::YEAR: {
         year_month_day ymd(
             floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)));
         year y{(static_cast<int32_t>(ymd.year()) / options.multiple) * options.multiple};
-        t = localizer_.ConvertDays(y / jan / 1).time_since_epoch();
+        t = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(y / jan / 1).time_since_epoch(), st);
         break;
       }
       default:
@@ -1095,11 +1101,13 @@ struct RoundTemporal {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, options.multiple,
                                                                 options, localizer_);
 
-        auto f = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
+        auto f = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
         ymd += months{options.multiple};
-        auto c = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
+        auto c = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
 
-        t = (t0 - f >= c - t0) ? c.time_since_epoch() : f.time_since_epoch();
+        t = (t0.time_since_epoch() - f >= c - t0.time_since_epoch()) ? c : f;
         break;
       }
       case compute::CalendarUnit::QUARTER: {
@@ -1107,21 +1115,25 @@ struct RoundTemporal {
         year_month_day ymd = GetFlooredYmd<Duration, Localizer>(arg, 3 * options.multiple,
                                                                 options, localizer_);
 
-        auto f = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
+        auto f = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
         ymd += months{3 * options.multiple};
-        auto c = localizer_.ConvertDays(ymd.year() / ymd.month() / 1);
+        auto c = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(ymd.year() / ymd.month() / 1).time_since_epoch(), st);
 
-        t = (t0 - f >= c - t0) ? c.time_since_epoch() : f.time_since_epoch();
+        t = (t0.time_since_epoch() - f >= c - t0.time_since_epoch()) ? c : f;
         break;
       }
       case compute::CalendarUnit::YEAR: {
         auto t0 = localizer_.template ConvertTimePoint<Duration>(arg);
         year_month_day ymd(floor<days>(t0));
         year y{(static_cast<int32_t>(ymd.year()) / options.multiple) * options.multiple};
-        auto f = localizer_.ConvertDays(y / jan / 1);
-        auto c = localizer_.ConvertDays((y + years{options.multiple}) / jan / 1);
+        auto f = localizer_.template ConvertLocalToSys<Duration>(
+            local_days(y / jan / 1).time_since_epoch(), st);
+        auto c = localizer_.template ConvertLocalToSys<Duration>(
+            local_days((y + years{options.multiple}) / jan / 1).time_since_epoch(), st);
 
-        t = (t0 - f >= c - t0) ? c.time_since_epoch() : f.time_since_epoch();
+        t = (t0.time_since_epoch() - f >= c - t0.time_since_epoch()) ? c : f;
         break;
       }
       default:
