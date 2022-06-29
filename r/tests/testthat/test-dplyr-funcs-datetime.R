@@ -2311,11 +2311,15 @@ fortnight <- tibble::tibble(
 boundary_times <- tibble::tibble(
   datetime = as.POSIXct(strptime(c(
     "2022-05-10 00:00:00", # boundary for week when week_start = 7 (Sunday)
+    "2022-05-11 00:00:00", # boundary for week when week_start = 1 (Monday)
+    "2022-05-12 00:00:00", # boundary for week when week_start = 2 (Tuesday)
     "2022-03-10 00:00:00", # boundary for day, hour, minute, second, millisecond
     "2022-03-10 00:00:01", # boundary for second, millisecond
     "2022-03-10 00:01:00", # boundary for second, millisecond, minute
-    "2022-03-10 01:00:00"  # boundary for second, millisecond, minute, hour
-  ), tz = "UTC", format = "%F %T"))
+    "2022-03-10 01:00:00", # boundary for second, millisecond, minute, hour
+    "2022-01-01 00:00:00"  # boundary for year
+  ), tz = "UTC", format = "%F %T")),
+  date = as.Date(datetime)
 )
 })
 
@@ -2712,6 +2716,8 @@ test_that("date round/floor/ceil works for week units (non-standard week_start)"
 # ceiling_date behaves identically to the lubridate version. It takes
 # unit as an argument to run tests separately for different rounding units
 check_boundary_with_unit <- function(unit, ...) {
+
+  # timestamps
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2723,23 +2729,40 @@ check_boundary_with_unit <- function(unit, ...) {
     boundary_times,
     ...
   )
+
+  # dates
+  # these tests are run one row at a time to avoid ARROW-16412 (see note)
+  for(r in nrow(boundary_times)) {
+    expect_equal(
+      boundary_times[r, ] %>%
+        arrow_table() %>%
+        mutate(
+          cob_null = ceiling_date(date, unit, change_on_boundary = NULL),
+          cob_true = ceiling_date(date, unit, change_on_boundary = TRUE),
+          cob_false = ceiling_date(date, unit, change_on_boundary = FALSE)
+        ) %>%
+        collect(),
+      boundary_times[r, ] %>%
+        mutate(
+          cob_null = as.Date(ceiling_date(date, unit, change_on_boundary = NULL)),
+          cob_true = as.Date(ceiling_date(date, unit, change_on_boundary = TRUE)),
+          cob_false = as.Date(ceiling_date(date, unit, change_on_boundary = FALSE))
+        ),
+      ...
+    )
+  }
+
+
 }
 
-test_that("timestamp ceiling_time works with change_on_boundary: unit = day", {
+test_that("timestamp change_on_boundary", {
+  check_boundary_with_unit(".001 second")
+  check_boundary_with_unit("second")
+  check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
+  check_boundary_with_unit("hour")
   check_boundary_with_unit("day")
 })
-test_that("timestamp ceiling_time works with change_on_boundary: unit = hour", {
-  check_boundary_with_unit("hour")
-})
-test_that("timestamp ceiling_time works with change_on_boundary: unit = minute", {
-  check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
-})
-test_that("timestamp ceiling_time works with change_on_boundary: unit = second", {
-  check_boundary_with_unit("second")
-})
-test_that("timestamp ceiling_time works with change_on_boundary: unit = millisecond", {
-  check_boundary_with_unit(".001 second")
-})
+
 
 
 # In lubridate, an error is thrown when 60 sec/60 min/24 hour thresholds are
