@@ -27,7 +27,7 @@ struct EncodeDecodeCommonExec {
 
   Element ReadValue() {
     Element result;
-    if (input_validity != NULLPTR) {
+    if (has_validity_buffer) {
       result.valid =
           bit_util::GetBit(input_validity, input_values_physical_offset + input_position);
     } else {
