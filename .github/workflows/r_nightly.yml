@@ -17,9 +17,12 @@
 
 name: Upload R Nightly builds
 # This workflow downloads the (nightly) binaries created in crossbow and uploads them
-# to nightlies.apache.org. Due to authorization requirements, this upload can't be done
-
+# to nightlies.apache.org. Due to authorization requirements, this upload can't be done 
 # from the crossbow repository.
+
+# This removes all permissions from the token
+permissions:
+  contents: none
 
 on:
   workflow_dispatch:
