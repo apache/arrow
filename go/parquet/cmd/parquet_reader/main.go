@@ -17,8 +17,10 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -36,7 +38,7 @@ var usage = `Parquet Reader (version ` + version + `)
 Usage:
   parquet_reader -h | --help
   parquet_reader [--only-metadata] [--no-metadata] [--no-memory-map] [--json] [--csv] [--output=FILE]
-                 [--print-key-value-metadata] [--columns=COLUMNS] <file>
+                 [--print-key-value-metadata] [--int96-timestamp] [--columns=COLUMNS] <file>
 Options:
   -h --help                     Show this screen.
   --print-key-value-metadata    Print out the key-value metadata. [default: false]
@@ -44,6 +46,7 @@ Options:
   --no-metadata                 Do not print metadata.
   --output=FILE                 Specify output file for data. [default: -]
   --no-memory-map               Disable memory mapping the file.
+  --int96-timestamp             Parse INT96 as TIMESTAMP for legacy support.
   --json                        Format output as JSON instead of text.
   --csv                         Format output as CSV instead of text.
   --columns=COLUMNS             Specify a subset of columns to print, comma delimited indexes.`
@@ -58,19 +61,29 @@ func main() {
 		NoMemoryMap           bool
 		JSON                  bool `docopt:"--json"`
 		CSV                   bool `docopt:"--csv"`
+		ParseInt96AsTimestamp bool `docopt:"--int96-timestamp"`
 		Columns               string
 		File                  string
 	}
 	opts.Bind(&config)
 
-	dataOut := os.Stdout
+	parseInt96AsTimestamp = config.ParseInt96AsTimestamp
+
+	var dataOut io.Writer
+	dataOut = os.Stdout
 	if config.Output != "-" {
 		var err error
-		dataOut, err = os.Create(config.Output)
+		fileOut, err := os.Create(config.Output)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: --output %q cannot be created, %s\n", config.Output, err)
 			os.Exit(1)
 		}
+		bufOut := bufio.NewWriter(fileOut)
+		defer func() {
+			bufOut.Flush()
+			fileOut.Close()
+		}()
+		dataOut = bufOut
 	}
 
 	if config.CSV && config.JSON {
@@ -218,42 +231,52 @@ func main() {
 			fields := make([]string, len(selectedColumns))
 			for idx, c := range selectedColumns {
 				scanners[idx] = createDumper(rgr.Column(c))
-				fields[idx] = rgr.Column(c).Descriptor().Name()
+				fields[idx] = rgr.Column(c).Descriptor().Path()
 			}
 
-			line := "{"
+			var line string
 			for {
-				if line != "{" {
-					line = ",{"
+				if line == "" {
+					line = "\n  {"
+				} else {
+					line = ",\n  {"
 				}
 
 				data := false
+				first := true
 				for idx, s := range scanners {
-					if idx > 0 {
-						line += ","
-					}
 					if val, ok := s.Next(); ok {
+						if !data {
+							fmt.Fprint(dataOut, line)
+						}
+						data = true
+						if val == nil {
+							continue
+						}
+						if !first {
+							fmt.Fprint(dataOut, ",")
+						}
+						first = false
 						switch val.(type) {
-						case bool, int32, int64, parquet.Int96, float32, float64:
+						case bool, int32, int64, float32, float64:
 						default:
-							val = fmt.Sprintf("%s", val)
+							val = s.FormatValue(val, 0)
 						}
 						jsonVal, err := json.Marshal(val)
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "error: marshalling json for %+v, %s\n", val, err)
 							os.Exit(1)
 						}
-						line += fmt.Sprintf("%q:%s", fields[idx], jsonVal)
-						data = true
+						fmt.Fprintf(dataOut, "\n    %q: %s", fields[idx], jsonVal)
 					}
 				}
 				if !data {
 					break
 				}
-				fmt.Fprint(dataOut, line, "}")
+				fmt.Fprint(dataOut, "\n  }")
 			}
 
-			fmt.Fprintln(dataOut, "]")
+			fmt.Fprintln(dataOut, "\n]")
 		case config.CSV:
 			scanners := make([]*Dumper, len(selectedColumns))
 			for idx, c := range selectedColumns {
@@ -261,7 +284,7 @@ func main() {
 					fmt.Fprint(dataOut, ",")
 				}
 				scanners[idx] = createDumper(rgr.Column(c))
-				fmt.Fprintf(dataOut, "%q", rgr.Column(c).Descriptor().Name())
+				fmt.Fprintf(dataOut, "%q", rgr.Column(c).Descriptor().Path())
 			}
 			fmt.Fprintln(dataOut)
 
@@ -280,13 +303,17 @@ func main() {
 						if !data {
 							fmt.Fprint(dataOut, line)
 						}
+						data = true
+						if val == nil {
+							fmt.Fprint(dataOut, "")
+							continue
+						}
 						switch val.(type) {
 						case bool, int32, int64, parquet.Int96, float32, float64:
 							fmt.Fprintf(dataOut, "%v", val)
 						default:
-							fmt.Fprintf(dataOut, "%q", val)
+							fmt.Fprintf(dataOut, "%q", s.FormatValue(val, 0))
 						}
-						data = true
 					} else {
 						if data {
 							fmt.Fprint(dataOut, ",")
@@ -301,6 +328,7 @@ func main() {
 				fmt.Fprintln(dataOut)
 				line = ""
 			}
+			fmt.Fprintln(dataOut)
 		default:
 			const colwidth = 18
 
@@ -335,7 +363,7 @@ func main() {
 				fmt.Fprintln(dataOut)
 				line = ""
 			}
+			fmt.Fprintln(dataOut)
 		}
-		fmt.Fprintln(dataOut)
 	}
 }
