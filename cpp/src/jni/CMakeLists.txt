@@ -18,10 +18,6 @@
 #
 # arrow_jni
 #
-if(ARROW_ORC)
-  add_subdirectory(orc)
-endif()
-
 if(ARROW_DATASET)
   add_subdirectory(dataset)
 endif()
