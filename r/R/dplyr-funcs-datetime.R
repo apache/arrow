@@ -634,20 +634,16 @@ register_bindings_datetime_rounding <- function() {
   register_binding("round_date", function(x, unit = "second",
                                           week_start = getOption("lubridate.week.start", 7)) {
     opts <- parse_period_unit(unit)
-
-    if (opts$unit == 7L) {
+    if (opts$unit == 7L) { # weeks (unit = 7L) are special
       return(shift_temporal_to_week("round_temporal", x, week_start, options = opts))
     }
-
     Expression$create("round_temporal", x, options = opts)
   })
 
   register_binding("floor_date", function(x, unit = "second",
                                           week_start = getOption("lubridate.week.start", 7)) {
-
     opts <- parse_period_unit(unit)
-
-    if (opts$unit == 7L) {
+    if (opts$unit == 7L) { # weeks (unit = 7L) are special
       return(shift_temporal_to_week("floor_temporal", x, week_start, options = opts))
     }
 
@@ -657,28 +653,15 @@ register_bindings_datetime_rounding <- function() {
   register_binding("ceiling_date", function(x, unit = "second",
                                             change_on_boundary = NULL,
                                             week_start = getOption("lubridate.week.start", 7)) {
-
     opts <- parse_period_unit(unit)
-
     if (is.null(change_on_boundary)) {
-      if (call_binding("is.Date", x)) {
-        change_on_boundary <- TRUE
-      } else {
-        change_on_boundary <- FALSE
-      }
+      change_on_boundary <- ifelse(call_binding("is.Date", x), TRUE, FALSE)
     }
+    opts$ceil_is_strictly_greater <- change_on_boundary
 
-    if (change_on_boundary == FALSE) {
-      opts$ceil_is_strictly_greater <- FALSE
-    }
-    if (change_on_boundary == TRUE) {
-      opts$ceil_is_strictly_greater <- TRUE
-    }
-
-    if (opts$unit == 7L) {
+    if (opts$unit == 7L) { # weeks (unit = 7L) are special
       return(shift_temporal_to_week("ceil_temporal", x, week_start, options = opts))
     }
-
     return(Expression$create("ceil_temporal", x, options = opts))
   })
 
