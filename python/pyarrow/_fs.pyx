@@ -111,7 +111,7 @@ cdef class FileInfo(_Weakrefable):
     ...
     4
 
-    Get FileInfo object using get_file_info():
+    Get FileInfo object using `get_file_info()`:
 
     >>> local.get_file_info('/tmp/fileinfo.dat')
     <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
