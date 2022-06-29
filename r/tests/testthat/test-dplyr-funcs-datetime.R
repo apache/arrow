@@ -2315,8 +2315,6 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 
 test_that("round/floor/ceiling on datetime (to nearest second)", {
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2432,8 +2430,6 @@ test_that("build_formats() and build_format_from_order()", {
 
 test_that("period unit abbreviation", {
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2447,8 +2443,6 @@ test_that("period unit abbreviation", {
 })
 
 test_that("period unit extracts integer multiples", {
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
     .input %>%
@@ -2465,8 +2459,6 @@ test_that("period unit extracts integer multiples", {
 # lubridate errors when 60 sec/60 min/24 hour thresholds exceeded.
 # this test checks that arrow does too.
 test_that("period unit maxima are enforced", {
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_error(
     call_binding("round_date", Expression$scalar(Sys.time()), "61 seconds"),
@@ -2591,6 +2583,9 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
 })
 
 
+# Test helper used to check that the change_on_boundary argument to
+# ceiling_date behaves identically to the lubridate version. It takes
+# unit as an argument to run tests separately for different rounding units
 check_boundary_with_unit <- function(unit, ...) {
   compare_dplyr_binding(
     .input %>%
@@ -2622,9 +2617,10 @@ test_that("ceiling_time works with change_on_boundary: unit = millisecond", {
 })
 
 
-# NOTE: until 16142 is resolved, this test has to be written to avoid the
-# 32-bit temporal array misinterpreted as 64-bit bug. The easiest solution
-# is to never use an arrow array of length greater than 1:
+# NOTE: until 16142 is resolved, these "nearest week, adjusted for week_start"
+# tests need to be written in a way that avoids the "32-bit temporal array
+# misinterpreted as 64-bit temporal array" bug (ARROW-16142). The easiest
+# solution is to never use an arrow array of length greater than 1.
 # https://issues.apache.org/jira/browse/ARROW-16142
 
 test_that("round_date() works for timestamps, to nearest week, adjusted for week_start", {
