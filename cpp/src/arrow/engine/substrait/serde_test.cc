@@ -45,7 +45,21 @@ using internal::checked_cast;
 
 namespace engine {
 
-const auto kNullConsumer = std::make_shared<compute::NullSinkNodeConsumer>();
+class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
+ public:
+  Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*) override {
+    return Status::OK();
+  }
+  Status Consume(compute::ExecBatch exec_batch) override { return Status::OK(); }
+  Future<> Finish() override { return Status::OK(); }
+
+ public:
+  static std::shared_ptr<NullSinkNodeConsumer> Make() {
+    return std::make_shared<NullSinkNodeConsumer>();
+  }
+};
+
+const auto kNullConsumer = std::make_shared<NullSinkNodeConsumer>();
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
     field("bool", boolean()),
@@ -886,7 +900,7 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations,
-                       DeserializePlans(*buf, compute::NullSinkNodeConsumer::Make));
+                       DeserializePlans(*buf, NullSinkNodeConsumer::Make));
   ASSERT_EQ(declarations.size(), 1);
   compute::Declaration* decl = &declarations[0];
   ASSERT_TRUE(decl->factory_name == std::string("consuming_sink"));
