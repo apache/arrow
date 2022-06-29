@@ -45,47 +45,6 @@ test_df <- tibble::tibble(
   integer = 1:2
 )
 
-# a simplified test case using UTC timezone only
-test_df_v2 <- tibble::tibble(
-  datetime = c(as.POSIXct("2017-01-01 00:00:11.3456789", tz = "UTC"), NA) + 1,
-  date = c(as.Date("2021-09-09"), NA),
-  integer = 1:2
-)
-
-# test case used to check we catch week boundaries for all week_start values
-fortnight <- tibble::tibble(
-  date = as.Date(c(
-    "2022-04-04", # Monday
-    "2022-04-05", # Tuesday
-    "2022-04-06", # Wednesday
-    "2022-04-07", # Thursday
-    "2022-04-08", # Friday
-    "2022-04-09", # Saturday
-    "2022-04-10", # Sunday
-    "2022-04-11", # Monday
-    "2022-04-12", # Tuesday
-    "2022-04-13", # Wednesday
-    "2022-04-14", # Thursday
-    "2022-04-15", # Friday
-    "2022-04-16", # Saturday
-    "2022-04-17"  # Sunday
-  )),
-  datetime = as.POSIXct(date)
-)
-
-# test case to check we catch interval lower boundaries for ceiling_date
-boundary_times <- tibble::tibble(
-  datetime = as.POSIXct(strptime(c(
-    "2022-05-10 00:00:00", # boundary for week (Sunday / week_start = 7)
-    "2022-03-10 00:00:00", # boundary for: day, hour, minute, second, millisecond
-    "2022-03-10 00:00:01", # boundary for: second, millisecond
-    "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
-    "2022-03-10 01:00:00"  # boundary for: second, millisecond, minute, hour
-  ), tz = "UTC", format = "%F %T"))
-)
-
-
-
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   # lubridate defaults to "UTC" as timezone => t_stamp is in "UTC"
@@ -2315,12 +2274,63 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 
 test_that("round/floor/ceiling on datetime (to nearest second)", {
 
+# tests for datetime rounding ---------------------------------------------
+
+# an easy date to avoid conflating tests of different things
+easy_date <- as.POSIXct("2022-10-11 12:00:00", tz = "UTC")
+easy_df <- tibble::tibble(datetime = easy_date)
+
+# dates over about a year, useful to test rounding to calendar units
+year_of_dates <- tibble::tibble(
+  date = as.Date("2021-01-01") + seq(1, 360, 30),
+  datetime = as.POSIXct(date, tz = "UTC")
+)
+
+# test case used to check we catch week boundaries for all week_start values
+fortnight <- tibble::tibble(
+  date = as.Date(c(
+    "2022-04-04", # Monday
+    "2022-04-05", # Tuesday
+    "2022-04-06", # Wednesday
+    "2022-04-07", # Thursday
+    "2022-04-08", # Friday
+    "2022-04-09", # Saturday
+    "2022-04-10", # Sunday
+    "2022-04-11", # Monday
+    "2022-04-12", # Tuesday
+    "2022-04-13", # Wednesday
+    "2022-04-14", # Thursday
+    "2022-04-15", # Friday
+    "2022-04-16", # Saturday
+    "2022-04-17"  # Sunday
+  )),
+  datetime = as.POSIXct(date)
+)
+
+# test case to check we catch interval lower boundaries for ceiling_date
+boundary_times <- tibble::tibble(
+  datetime = as.POSIXct(strptime(c(
+    "2022-05-10 00:00:00", # boundary for week when week_start = 7 (Sunday)
+    "2022-03-10 00:00:00", # boundary for day, hour, minute, second, millisecond
+    "2022-03-10 00:00:01", # boundary for second, millisecond
+    "2022-03-10 00:01:00", # boundary for second, millisecond, minute
+    "2022-03-10 01:00:00"  # boundary for second, millisecond, minute, hour
+  ), tz = "UTC", format = "%F %T"))
+)
+})
+
+# TODO: add test case to check rounding takes place in local time
+
+
+
+test_that("timestamp round/floor/ceiling works for a minimal test", {
+
   compare_dplyr_binding(
     .input %>%
       mutate(
-        out_1 = round_date(datetime),
-        out_2 = floor_date(datetime),
-        out_3 = ceiling_date(datetime, change_on_boundary = FALSE),
+        round_datetime = round_date(datetime),
+        floor_datetime = floor_date(datetime),
+        ceiling_datetime = ceiling_date(datetime, change_on_boundary = FALSE)
       ) %>%
       collect(),
     test_df
@@ -2428,159 +2438,274 @@ test_that("build_formats() and build_format_from_order()", {
   )
 })
 
-test_that("period unit abbreviation", {
+test_that("timestamp round/floor/ceiling accepts period unit abbreviation", {
 
-  compare_dplyr_binding(
-    .input %>%
+  # test helper to ensure standard abbreviations of period names
+  # are understood by arrow and mirror the lubridate behaviour
+  check_period_abbreviation <- function(unit, synonyms) {
+
+    # check arrow against lubridate
+    compare_dplyr_binding(
+      .input %>%
+        mutate(out_1 = round_date(datetime, unit)) %>%
+        collect(),
+      easy_df
+    )
+
+    # check synonyms
+    base <- call_binding("round_date", Expression$scalar(easy_date), unit)
+    for(syn in synonyms) {
+      expect_equal(
+        call_binding("round_date", Expression$scalar(easy_date), syn),
+        base
+      )
+    }
+  }
+
+  check_period_abbreviation("minute", synonyms = c("minutes", "min", "mins"))
+  check_period_abbreviation("second", synonyms = c("seconds", "sec", "secs"))
+  check_period_abbreviation("month", synonyms = c("months", "mon", "mons"))
+})
+
+
+test_that("temporal round/floor/ceiling accepts periods with multiple units", {
+
+  check_multiple_unit_period <- function(unit, multiplier) {
+    unit_string <- paste(multiplier, unit)
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          round_datetime = round_date(datetime, unit_string),
+          floor_datetime = floor_date(datetime, unit_string),
+          ceiling_datetime = ceiling_date(datetime, unit_string)
+        ) %>%
+        collect(),
+      easy_df
+    )
+  }
+
+  for(multiplier in c(1, 2, 10)) {
+    for(unit in c("second", "minute", "day", "year")) {
+      check_multiple_unit_period(unit, multiplier)
+    }
+  }
+})
+
+
+# Test helper functions for checking equivalence of outputs regardless of
+# the unit specified. The lubridate_unit argument allows for cases where
+# arrow supports a unit name (e.g., nanosecond) that lubridate doesn't. Also
+# note that in the check_date_rounding helper the lubridate output is coerced
+# to ensure type stable output (arrow output should be type stable without this)
+
+check_date_rounding <- function(data, unit, lubridate_unit = unit, ...) {
+  expect_equal(
+    data %>%
+      arrow_table() %>%
       mutate(
-        out_1 = round_date(datetime, "minute"),
-        out_2 = round_date(datetime, "minutes"),
-        out_3 = round_date(datetime, "mins"),
+        date_rounded = round_date(date, unit),
+        date_floored = floor_date(date, unit),
+        date_ceiling = ceiling_date(date, unit)
       ) %>%
       collect(),
-    test_df
-  )
-})
-
-test_that("period unit extracts integer multiples", {
-
-  compare_dplyr_binding(
-    .input %>%
+    data %>%
       mutate(
-        out_1 = round_date(datetime, "1 minute"),
-        out_2 = round_date(datetime, "2 minutes"),
-        out_3 = round_date(datetime, "10 minutes")
-      ) %>%
-      collect(),
-    test_df
+        date_rounded = as.Date(round_date(date, lubridate_unit)),
+        date_floored = as.Date(floor_date(date, lubridate_unit)),
+        date_ceiling = as.Date(ceiling_date(date, lubridate_unit))
+      ),
+    ...
   )
-})
+}
 
-# lubridate errors when 60 sec/60 min/24 hour thresholds exceeded.
-# this test checks that arrow does too.
-test_that("period unit maxima are enforced", {
-
-  expect_error(
-    call_binding("round_date", Expression$scalar(Sys.time()), "61 seconds"),
-    "Rounding with second > 60 is not supported"
-  )
-
-  expect_error(
-    call_binding("round_date", Expression$scalar(Sys.time()), "61 minutes"),
-    "Rounding with minute > 60 is not supported"
-  )
-
-  expect_error(
-    call_binding("round_date", Expression$scalar(Sys.time()), "25 hours"),
-    "Rounding with hour > 24 is not supported"
-  )
-
-})
-
-test_that("datetime rounding between 1sec and 1day", {
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = round_date(datetime, "second"),
-        out_2 = round_date(datetime, "minute"),
-        out_3 = round_date(datetime, "hour"),
-        out_4 = round_date(datetime, "day")
-      ) %>%
-      collect(),
-    test_df
-  )
-})
-
-# lubridate doesn't accept millisecond, microsecond or nanosecond descriptors:
-# instead it supports corresponding fractions of 1 second. these tests added to
-# that arrow verify that fractional second inputs to arrow mirror lubridate
-
-test_that("datetime rounding below 1sec", {
+check_timestamp_rounding <- function(data, unit, lubridate_unit = unit, ...) {
 
   expect_equal(
-    test_df %>%
+    data %>%
       arrow_table() %>%
-      mutate(out = round_date(datetime, ".001 second")) %>%
-      collect(),
-
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, "1 millisecond")) %>%
-      collect()
-  )
-
-  expect_equal(
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, ".000001 second")) %>%
-      collect(),
-
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, "1 microsecond")) %>%
-      collect()
-  )
-
-  expect_equal(
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, ".000000001 second")) %>%
-      collect(),
-
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, "1 nanosecond")) %>%
-      collect()
-  )
-
-  compare_dplyr_binding(
-    .input %>%
       mutate(
-        out_1 = round_date(datetime, ".01 second"),
-        out_2 = round_date(datetime, ".001 second"),
-        out_3 = round_date(datetime, ".00001 second")
+        datetime_rounded = round_date(datetime, unit),
+        datetime_floored = floor_date(datetime, unit),
+        datetime_ceiling = ceiling_date(datetime, unit)
       ) %>%
       collect(),
-    test_df
+    data %>%
+      mutate(
+        datetime_rounded = round_date(datetime, lubridate_unit),
+        datetime_floored = floor_date(datetime, lubridate_unit),
+        datetime_ceiling = ceiling_date(datetime, lubridate_unit)
+      ),
+    ...
   )
+}
+
+
+test_that("date round/floor/ceil works for units of 1 day or less", {
+
+  test_df %>% check_date_rounding("1 day")
+  test_df %>% check_date_rounding("1 second")
+  test_df %>% check_date_rounding("1 hour")
+  test_df %>% check_date_rounding("1 month")
+  test_df %>% check_date_rounding("1 millisecond", lubridate_unit = ".001 second")
+
 })
 
-test_that("datetime round/floor/ceil to month/quarter/year", {
+test_that("timestamp round/floor/ceil works for units of 1 day or less", {
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = round_date(datetime, "month"),
-        out_2 = round_date(datetime, "quarter"),
-        out_3 = round_date(datetime, "year"),
-      ) %>%
-      collect(),
-    test_df_v2
-  )
+  test_df %>% check_timestamp_rounding("second")
+  test_df %>% check_timestamp_rounding("minute")
+  test_df %>% check_timestamp_rounding("hour")
+  test_df %>% check_timestamp_rounding("day")
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = floor_date(datetime, "month"),
-        out_2 = floor_date(datetime, "quarter"),
-        out_3 = floor_date(datetime, "year"),
-      ) %>%
-      collect(),
-    test_df_v2
-  )
+  test_df %>% check_timestamp_rounding(".01 second")
+  test_df %>% check_timestamp_rounding(".001 second")
+  test_df %>% check_timestamp_rounding(".00001 second")
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        out_1 = ceiling_date(datetime, "month", change_on_boundary = FALSE),
-        out_2 = ceiling_date(datetime, "quarter", change_on_boundary = FALSE),
-        out_3 = ceiling_date(datetime, "year", change_on_boundary = FALSE),
-      ) %>%
-      collect(),
-    test_df_v2
-  )
+  test_df %>% check_timestamp_rounding("1 millisecond", lubridate_unit = ".001 second")
+  test_df %>% check_timestamp_rounding("1 microsecond", lubridate_unit = ".000001 second")
+  test_df %>% check_timestamp_rounding("1 nanosecond", lubridate_unit = ".000000001 second")
+
 })
+
+test_that("date round/floor/ceil works for units: month/quarter/year", {
+
+  skip("skipping month/quarter/year tests")
+
+  # these tests are run one row at a time to avoid ARROW-16412 (see note)
+  for(r in nrow(year_of_dates)) {
+    year_of_dates[r, ] %>% check_date_rounding("month", ignore_attr = TRUE)
+    year_of_dates[r, ] %>% check_date_rounding("quarter", ignore_attr = TRUE)
+    year_of_dates[r, ] %>% check_date_rounding("year", ignore_attr = TRUE)
+  }
+
+})
+
+# ARROW-16142 note: Until 16142 is resolved, there are a few cases where the
+# tests need to be written in a way that avoids the "32-bit temporal array
+# misinterpreted as 64-bit temporal array" bug (ARROW-16142). The easiest
+# solution is to never use an arrow array of length greater than 1.
+# https://issues.apache.org/jira/browse/ARROW-16142
+
+
+test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
+
+  skip("skipping month/quarter/year tests")
+
+  year_of_dates %>% check_timestamp_rounding("month", ignore_attr = TRUE)
+  year_of_dates %>% check_timestamp_rounding("quarter", ignore_attr = TRUE)
+  year_of_dates %>% check_timestamp_rounding("year", ignore_attr = TRUE)
+
+})
+
+
+check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
+  expect_equal(
+    data %>%
+      arrow_table() %>%
+      mutate(
+        date_rounded = round_date(date, unit),
+        date_floored = floor_date(date, unit),
+        date_ceiling = ceiling_date(date, unit)
+      ) %>%
+      collect(),
+    data %>%
+      mutate(
+        date_rounded = as.Date(round_date(date, lubridate_unit)),
+        date_floored = as.Date(floor_date(date, lubridate_unit)),
+        date_ceiling = as.Date(ceiling_date(date, lubridate_unit))
+      ),
+    ignore_attr = ignore_attr,
+    ...
+  )
+}
+
+check_timestamp_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        datetime_rounded = round_date(datetime, "week", week_start = week_start),
+        datetime_floored = floor_date(datetime, "week", week_start = week_start),
+        datetime_ceiling = ceiling_date(datetime, "week", week_start = week_start)
+      ) %>%
+      collect(),
+    data,
+    ignore_attr = ignore_attr,
+    ...
+  )
+}
+
+test_that("timestamp round/floor/ceil works for week units (standard week_start)", {
+
+  fortnight %>% check_timestamp_week_rounding(week_start = 1) # Monday
+  fortnight %>% check_timestamp_week_rounding(week_start = 7) # Sunday
+
+})
+
+test_that("timestamp round/floor/ceil works for week units (non-standard week_start)", {
+
+  fortnight %>% check_timestamp_week_rounding(week_start = 1) # Tuesday
+  fortnight %>% check_timestamp_week_rounding(week_start = 2) # Wednedsday
+  fortnight %>% check_timestamp_week_rounding(week_start = 3) # Thursday
+  fortnight %>% check_timestamp_week_rounding(week_start = 4) # Friday
+  fortnight %>% check_timestamp_week_rounding(week_start = 5) # Saturday
+
+})
+
+
+check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
+
+  # directly compare arrow to lubridate for floor and ceiling
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_floored = floor_date(date, "week", week_start = week_start),
+        date_ceiling = ceiling_date(date, "week", week_start = week_start)
+      ) %>%
+      collect(),
+    data,
+    ignore_attr = ignore_attr,
+    ...
+  )
+
+  # The round-to-week tests for dates is run against Arrow timestamp behaviour
+  # because of a lubridate bug specific to Date objects with week-unit rounding:
+  # https://github.com/tidyverse/lubridate/issues/1051
+  out <- data %>%
+    arrow_table() %>%
+    mutate(
+      out_date = date %>% round_date("week", week_start = week_start), # Date
+      out_time = datetime %>% round_date("week", week_start = week_start) # POSIXct
+    ) %>%
+    collect()
+
+  expect_equal(
+    out$out_date,
+    as.Date(out$out_time)
+  )
+}
+
+test_that("date round/floor/ceil works for week units (standard week_start)", {
+
+  # these tests are run one row at a time to avoid ARROW-16412 (see note)
+  for(r in 1:nrow(fortnight)) {
+    fortnight[r, ] %>% check_date_week_rounding(week_start = 1) # Monday
+    fortnight[r, ] %>% check_date_week_rounding(week_start = 7) # Sunday
+  }
+})
+
+test_that("date round/floor/ceil works for week units (non-standard week_start)", {
+
+  # these tests are run one row at a time to avoid ARROW-16412 (see note)
+  for(r in 1:nrow(fortnight)) {
+    fortnight[r, ] %>% check_date_week_rounding(week_start = 1) # Tuesday
+    fortnight[r, ] %>% check_date_week_rounding(week_start = 2) # Wednedsday
+    fortnight[r, ] %>% check_date_week_rounding(week_start = 3) # Thursday
+    fortnight[r, ] %>% check_date_week_rounding(week_start = 4) # Friday
+    fortnight[r, ] %>% check_date_week_rounding(week_start = 5) # Saturday
+  }
+})
+
 
 
 # Test helper used to check that the change_on_boundary argument to
@@ -2600,194 +2725,43 @@ check_boundary_with_unit <- function(unit, ...) {
   )
 }
 
-test_that("ceiling_time works with change_on_boundary: unit = day", {
+test_that("timestamp ceiling_time works with change_on_boundary: unit = day", {
   check_boundary_with_unit("day")
 })
-test_that("ceiling_time works with change_on_boundary: unit = hour", {
+test_that("timestamp ceiling_time works with change_on_boundary: unit = hour", {
   check_boundary_with_unit("hour")
 })
-test_that("ceiling_time works with change_on_boundary: unit = minute", {
+test_that("timestamp ceiling_time works with change_on_boundary: unit = minute", {
   check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
 })
-test_that("ceiling_time works with change_on_boundary: unit = second", {
+test_that("timestamp ceiling_time works with change_on_boundary: unit = second", {
   check_boundary_with_unit("second")
 })
-test_that("ceiling_time works with change_on_boundary: unit = millisecond", {
+test_that("timestamp ceiling_time works with change_on_boundary: unit = millisecond", {
   check_boundary_with_unit(".001 second")
 })
 
 
-# NOTE: until 16142 is resolved, these "nearest week, adjusted for week_start"
-# tests need to be written in a way that avoids the "32-bit temporal array
-# misinterpreted as 64-bit temporal array" bug (ARROW-16142). The easiest
-# solution is to never use an arrow array of length greater than 1.
-# https://issues.apache.org/jira/browse/ARROW-16142
+# In lubridate, an error is thrown when 60 sec/60 min/24 hour thresholds are
+# exceeded. Checks that arrow mimics this behaviour and throws an identically
+# worded error message
+test_that("temporal round/floor/ceil period unit maxima are enforced", {
 
-test_that("round_date() works for timestamps, to nearest week, adjusted for week_start", {
-
-  for (week_start in 1:7) { # Monday = 1, Sunday = 7
-    for (row_id in 1:7) {
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            out = datetime %>%
-              round_date("week", week_start = week_start)
-          ) %>%
-          collect() %>%
-          pull(out),
-        fortnight[row_id, ],
-        ignore_attr = TRUE # ignore "" vs NULL on tzone attribute
-      )
-    }
-  }
-})
-
-test_that("floor_date() works for timestamps, to nearest week, adjusted for week_start", {
-
-  for (week_start in 1:7) {
-    for (row_id in 1:7) {
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            out = datetime %>%
-              floor_date("week", week_start = week_start)
-          ) %>%
-          collect() %>%
-          pull(out),
-        fortnight[row_id, ],
-        ignore_attr = TRUE
-      )
-    }
-  }
-})
-
-test_that("ceiling_date() works for timestamps, to nearest week, adjusted for week_start", {
-
-  for (week_start in 1:7) {
-    for (row_id in 1:7) {
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            out = datetime %>%
-              ceiling_date("week", week_start = week_start)
-          ) %>%
-          collect() %>%
-          pull(out),
-        fortnight[row_id, ],
-        ignore_attr = TRUE
-      )
-    }
-  }
-})
-
-
-# The round-to-week tests for dates is run against Arrow timestamp behaviour
-# because of a lubridate bug specific to Date objects with week-unit rounding:
-# https://github.com/tidyverse/lubridate/issues/1051
-
-test_that("round_date() works for Dates to nearest week, adjusted for week_start", {
-
-  for (week_start in 1:7) {
-    for (row_id in 1:7) {
-
-      out <- fortnight[row_id, ] %>%
-        arrow_table() %>%
-        mutate(
-          out_date = date %>% round_date("week", week_start = week_start), # Date
-          out_time = datetime %>% round_date("week", week_start = week_start) # POSIXct
-        ) %>%
-        collect()
-
-      expect_equal(
-        out$out_date,
-        as.Date(out$out_time)
-      )
-
-    }
-  }
-})
-
-
-# the lubridate issue in previous test is specific to round_date: tests for
-# floor_date and ceiling_date revert to using lubridate as baseline
-
-test_that("floor_date() works for Dates to nearest week, adjusted for week_start", {
-
-  for (week_start in 1:7) {
-    for (row_id in 1:7) {
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            out = date %>%
-              floor_date("week", week_start = week_start)
-          ) %>%
-          collect() %>%
-          pull(out),
-        fortnight[row_id, ],
-        ignore_attr = TRUE
-      )
-    }
-  }
-
-})
-
-test_that("ceiling_date() works for Dates to nearest week, adjusted for week_start", {
-
-  for (week_start in 1:7) {
-    for (row_id in 1:7) {
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            out = date %>%
-              ceiling_date("week", week_start = week_start)
-          ) %>%
-          collect() %>%
-          pull(out),
-        fortnight[row_id, ],
-        ignore_attr = TRUE
-      )
-    }
-  }
-
-})
-
-
-# NOTE: lubridate::round_date() sometimes coerces output from Date to POSIXct.
-# this is not the default for the round_temporal() function in libarrow, which
-# is type stable: timestamps stay timestamps, and date32 stays date32. the
-# current implementation preserves the type stability property. consequently
-# there are edge cases where the arrow dplyr binding will not precisely mirror
-# the lubridate original. with that in mind, all tests for date32 rounding coerce
-# the lubridate equivalent back to Date
-
-test_that("round/floor/ceiling on dates (to nearest day)", {
-
-  expect_equal(
-    test_df %>% arrow_table() %>% mutate(out = round_date(date, "1 day")) %>% collect(),
-    test_df %>% mutate(out = round_date(date, "1 day") %>% as.Date())
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "61 seconds"),
+    "Rounding with second > 60 is not supported"
   )
-  expect_equal(
-    test_df %>% arrow_table() %>% mutate(out = floor_date(date, "1 day")) %>% collect(),
-    test_df %>% mutate(out = floor_date(date, "1 day") %>% as.Date())
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "61 minutes"),
+    "Rounding with minute > 60 is not supported"
   )
-  expect_equal(
-    test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day", change_on_boundary = FALSE)) %>% collect(),
-    test_df %>% mutate(out = ceiling_date(date, "1 day", change_on_boundary = FALSE) %>% as.Date())
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "25 hours"),
+    "Rounding with hour > 24 is not supported"
   )
-})
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.Date()), "25 hours"),
+    "Rounding with hour > 24 is not supported"
+  )
 
-test_that("date rounding below 1 day", {
-
-  expect_equal(
-    test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 second")) %>% collect(),
-    test_df_v2 %>% mutate(out = round_date(date, "1 second") %>% as.Date())
-  )
-  expect_equal(
-    test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 millisecond")) %>% collect(),
-    test_df_v2 %>% mutate(out = round_date(date, ".001 second") %>% as.Date())
-  )
-  expect_equal(
-    test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 hour")) %>% collect(),
-    test_df_v2 %>% mutate(out = round_date(date, "1 hour") %>% as.Date())
-  )
 })
