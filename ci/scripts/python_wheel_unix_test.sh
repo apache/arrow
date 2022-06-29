@@ -55,7 +55,7 @@ export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
   # Install the built wheels
-  pip install --force-reinstall ${source_dir}/python/repaired_wheels/*.whl
+  pip install ${source_dir}/python/repaired_wheels/*.whl
 fi
 
 if [ "${CHECK_IMPORTS}" == "ON" ]; then
@@ -86,12 +86,13 @@ import pyarrow.plasma
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
-  # Install testing dependencies here to install
-  # built wheels without testing dependencies.
-  # We have to re-install some of our dependencies to ensure dependency
-  # versions are the correct ones for the specific python version
-  # and architecture.
-  pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
+  # Generally, we should install testing dependencies here to install
+  # built wheels without testing dependencies. Testing dependencies are
+  # installed in ci/docker/python-wheel-manylinux-test.dockerfile to
+  # reduce test time.
+  #
+  # We also need to update dev/tasks/python-wheels/*.yml when we need
+  # to add more steps to prepare testing dependencies.
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
