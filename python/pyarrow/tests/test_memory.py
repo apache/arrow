@@ -188,10 +188,10 @@ def run_debug_memory_pool(pool_factory, env_value):
     code = f"""if 1:
         import ctypes
         import pyarrow as pa
+        # ARROW-16873: some Python installs enable faulthandler by default,
+        # which could dump a spurious stack trace if the following crashes
         import faulthandler
-        if faulthandler.is_enabled():
-            faulthandler.disable()
-        print("faulthandler.is_enabled(): ", faulthandler.is_enabled())
+        faulthandler.disable()
 
         pool = pa.{pool_factory}()
         buf = pa.allocate_buffer(64, memory_pool=pool)
