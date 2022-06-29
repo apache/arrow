@@ -189,6 +189,8 @@ def run_debug_memory_pool(pool_factory, env_value):
         import ctypes
         import pyarrow as pa
         import faulthandler
+        if faulthandler.is_enabled():
+            faulthandler.disable()
         print("faulthandler.is_enabled(): ", faulthandler.is_enabled())
 
         pool = pa.{pool_factory}()
@@ -202,8 +204,6 @@ def run_debug_memory_pool(pool_factory, env_value):
         """
     env = dict(os.environ)
     env['ARROW_DEBUG_MEMORY_POOL'] = env_value
-    # Ensure PYTHONFAULTHANDLER is not set for the subprocess
-    env['PYTHONFAULTHANDLER'] = ""
     res = subprocess.run([sys.executable, "-c", code], env=env,
                          universal_newlines=True, stderr=subprocess.PIPE)
     print(res.stderr, file=sys.stderr)
