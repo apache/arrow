@@ -19,6 +19,10 @@
 # arrow_dataset_java
 #
 
+if(ARROW_DATASET)
+  add_subdirectory(src/main/cpp)
+endif()
+
 # Headers: top level
 
 project(arrow_dataset_java)
