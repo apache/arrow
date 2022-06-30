@@ -2267,6 +2267,7 @@ macro(build_zlib)
   add_dependencies(ZLIB::ZLIB zlib_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
+  set(ZLIB_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZLIB)
@@ -3970,6 +3971,9 @@ macro(build_google_cloud_cpp_storage)
   if(ABSL_VENDORED)
     list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${ABSL_PREFIX})
   endif()
+  if(ZLIB_VENDORED)
+    list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${ZLIB_PREFIX})
+  endif()
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${CRC32C_PREFIX})
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
 
@@ -4003,6 +4007,9 @@ macro(build_google_cloud_cpp_storage)
 
   if(ABSL_VENDORED)
     add_dependencies(google_cloud_cpp_dependencies absl_ep)
+  endif()
+  if(ZLIB_VENDORED)
+    add_dependencies(google_cloud_cpp_dependencies zlib_ep)
   endif()
   add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
@@ -4642,7 +4649,7 @@ macro(build_awssdk)
     set_property(TARGET CURL::libcurl
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
-    if(TARGET zlib_ep)
+    if(ZLIB_VENDORED)
       set_property(TARGET aws-cpp-sdk-core
                    APPEND
                    PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
