@@ -56,7 +56,6 @@ case "$(uname)" in
     exclude_tests="${exclude_tests}|gandiva-projector-test"
     exclude_tests="${exclude_tests}|gandiva-utf8-test"
     if [ "${MSYSTEM}" = "MINGW32" ]; then
-      exclude_tests="${exclude_tests}|gandiva-projector-test"
       exclude_tests="${exclude_tests}|gandiva-binary-test"
       exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
       exclude_tests="${exclude_tests}|gandiva-date-time-test"
@@ -69,6 +68,8 @@ case "$(uname)" in
       exclude_tests="${exclude_tests}|gandiva-in-expr-test"
       exclude_tests="${exclude_tests}|gandiva-literal-test"
       exclude_tests="${exclude_tests}|gandiva-null-validity-test"
+      exclude_tests="${exclude_tests}|gandiva-precompiled-test"
+      exclude_tests="${exclude_tests}|gandiva-projector-test"
     fi
     ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
