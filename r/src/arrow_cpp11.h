@@ -443,6 +443,4 @@ inline SEXP as_sexp(r_vec_size size) {
   }
 }
 
-
-
 }  // namespace cpp11
