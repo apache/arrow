@@ -209,13 +209,11 @@ register_bindings_datetime_components <- function() {
     build_expr("month", x)
   })
 
-  register_binding("qday", function(x) {
-    x <- build_expr("floor_temporal", x, options = list(unit = 6L, calendar_based_origin = FALSE))
-    x <- build_expr("cast", x, options = cast_options(to_type = timestamp("s")))
-    floored_x <- build_expr("floor_temporal", x, options = list(unit = 9L, calendar_based_origin = FALSE))
-    duration_between <- build_expr("subtract", x, floored_x)
-    seconds_between <- build_expr("cast", duration_between, options = cast_options(to_type = int64()))
-    build_expr("floor", seconds_between / Expression$scalar(86400L) + Expression$scalar(1L))
+  register_binding("lubridate::qday", function(x) {
+    # We calculate day of quarter by flooring timestamp to beginning of quarter and
+    # calculating days between beginning of quarter and timestamp/date in question.
+    floored_x <- build_expr("floor_temporal", x, options = list(unit = 9L))
+    build_expr("days_between", floored_x, x) + Expression$scalar(1L)
   })
 
   register_binding("lubridate::am", function(x) {

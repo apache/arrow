@@ -583,7 +583,7 @@ test_that("extract qday from timestamp", {
   )
   compare_dplyr_binding(
      .input %>%
-       mutate(x = qday(as.POSIXct("2022-06-29 12:35))) %>%
+       mutate(x = qday(as.POSIXct("2022-06-29 12:35"))) %>%
        collect(),
      test_df
    )
