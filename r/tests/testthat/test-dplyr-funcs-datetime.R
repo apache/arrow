@@ -1624,22 +1624,6 @@ test_that("`as.Date()` and `as_date()`", {
       collect(),
     test_df
   )
-
-  # some string processing (which depends on the RE2 library) is involved when
-  # parsing as date with multiple formats. RE2 is not available in R 3.6 on Windows
-  skip_if_not_available("re2")
-  # as.Date() supports multiple tryFormats
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_char_ymd = as.Date(
-        character_ymd_var,
-        tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-      )
-      ) %>%
-      collect(),
-    test_df
-  )
-
 })
 
 test_that("`as_date()` and `as.Date()` work with R objects", {
