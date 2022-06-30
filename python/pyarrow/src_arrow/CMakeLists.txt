@@ -37,6 +37,10 @@ set(ARROW_SOURCE_DIR "${ARROW_SOURCE}/cpp")
 set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "$ENV{ARROW_HOME}/lib/cmake/arrow")
 message(STATUS "CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}")
 
+#
+# Arrow version
+#
+
 set(ARROW_PYTHON_VERSION "9.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_PYTHON_BASE_VERSION "${ARROW_PYTHON_VERSION}")
 # Need to set to ARRROW_VERSION before finding Arrow package!
@@ -45,6 +49,10 @@ project(arrow_python VERSION "${ARROW_PYTHON_BASE_VERSION}")
 if(NOT DEFINED CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
+
+#
+# Arrow
+#
 
 find_package(Arrow REQUIRED)
 include(ArrowOptions)
@@ -314,8 +322,68 @@ arrow_install_all_headers("arrow/python")
 
 # ----------------------------------------------------------------------
 
-set(ARROW_BUILD_TESTS off)
 if(ARROW_BUILD_TESTS)
+  enable_testing()
+
+  # Set necessary paths for cmake to find GTest
+  set(GTEST_ROOT ${ARROW_SOURCE_DIR}/build/googletest_ep-prefix)
+  set(GTEST_INCLUDE_DIR "${GTEST_ROOT}/include")
+  set(GTEST_LIBRARY ${GTEST_ROOT}/lib)
+  set(GTEST_MAIN_LIBRARY ${GTEST_ROOT}/lib)
+
+  #
+  # Taken from Matlab CMakeLists.txt (enable_gtest and build_gtest)
+  #
+
+  set(ARROW_GTEST_PREFIX "${GTEST_ROOT}")
+  set(ARROW_GTEST_MAIN_PREFIX "${GTEST_ROOT}")
+
+  if(WIN32)
+    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/bin")
+    set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/bin")
+
+    set(ARROW_GTEST_LINK_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
+    set(ARROW_GTEST_LINK_LIB
+        "${ARROW_GTEST_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtestd${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
+
+    set(ARROW_GTEST_MAIN_LINK_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
+    set(ARROW_GTEST_MAIN_LINK_LIB
+        "${ARROW_GTEST_MAIN_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest_maind${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
+  else()
+    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
+    set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
+  endif()
+
+  set(ARROW_GTEST_INCLUDE_DIR "${ARROW_GTEST_PREFIX}/include")
+  set(ARROW_GTEST_SHARED_LIB
+      "${ARROW_GTEST_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtestd${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
+
+  set(ARROW_GTEST_MAIN_INCLUDE_DIR "${ARROW_GTEST_MAIN_PREFIX}/include")
+  set(ARROW_GTEST_MAIN_SHARED_LIB
+      "${ARROW_GTEST_MAIN_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_maind${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
+
+  file(MAKE_DIRECTORY "${ARROW_GTEST_INCLUDE_DIR}")
+
+  # Create target GTest::gtest
+  add_library(GTest::gtest SHARED IMPORTED)
+  set_target_properties(GTest::gtest
+                        PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_SHARED_LIB}
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   ${ARROW_GTEST_INCLUDE_DIR})
+  if(WIN32)
+    set_target_properties(GTest::gtest PROPERTIES IMPORTED_IMPLIB ${ARROW_GTEST_LINK_LIB})
+  endif()
+
+  # ArrowTesting
+  # needed to be able to use arrow_testing_shared target
+  find_package(ArrowTesting REQUIRED)
+
+  add_custom_target(all-tests)
+
   add_library(arrow_python_test_main STATIC util/test_main.cc)
 
   target_link_libraries(arrow_python_test_main GTest::gtest)
@@ -338,14 +406,57 @@ if(ARROW_BUILD_TESTS)
                                     arrow_testing_static arrow_static)
   endif()
 
-  add_arrow_test(python_test
-                 STATIC_LINK_LIBS
-                 "${ARROW_PYTHON_TEST_LINK_LIBS}"
-                 EXTRA_LINK_LIBS
-                 ${PYTHON_LIBRARIES}
-                 EXTRA_INCLUDES
-                 "${ARROW_PYTHON_INCLUDES}"
-                 LABELS
-                 "arrow_python-tests"
-                 NO_VALGRIND)
+  #
+  # Add a test case
+  #
+
+  set(REL_TEST_NAME "python_test")
+  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
+  set(TEST_NAME "arrow-${TEST_NAME}")
+  set(SOURCES "${REL_TEST_NAME}.cc")
+
+  # # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
+
+  set(TEST_PATH "${CMAKE_BINARY_DIR}/${TEST_NAME}")
+  add_executable(${TEST_NAME} ${SOURCES})
+
+  # With OSX and conda, we need to set the correct RPATH so that dependencies
+  # are found. The installed libraries with conda have an RPATH that matches
+  # for executables and libraries lying in $ENV{CONDA_PREFIX}/bin or
+  # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
+  # installed there.
+  if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
+    set_target_properties(${TEST_NAME}
+                          PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                                    INSTALL_RPATH_USE_LINK_PATH TRUE
+                                    INSTALL_RPATH
+                                    "${PYTHON_SOURCE_DIR}/pyarrow;$ENV{CONDA_PREFIX}/lib")
+  endif()
+
+  # Customize link libraries
+  target_link_libraries(${TEST_NAME} PRIVATE "${ARROW_PYTHON_TEST_LINK_LIBS}")
+  # Extra link libs
+  target_link_libraries(${TEST_NAME} PRIVATE ${PYTHON_LIBRARIES})
+  # Extra includes
+  target_include_directories(${TEST_NAME} SYSTEM PUBLIC "${ARROW_PYTHON_INCLUDES}")
+
+  # Add the test
+  if(ARROW_TEST_MEMCHECK)
+    add_test(${TEST_NAME}
+            bash
+            -c
+            "cd '${CMAKE_SOURCE_DIR}'; \
+              valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
+                --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
+                --error-exitcode=1 ${TEST_PATH} ${ARG_TEST_ARGUMENTS}")
+  elseif(WIN32)
+    add_test(${TEST_NAME} ${TEST_PATH})
+  else()
+    add_test(${TEST_NAME}
+            ${ARROW_SOURCE_DIR}/build-support/run-test.sh
+            ${CMAKE_BINARY_DIR}
+            test
+            ${TEST_PATH})
+  endif()
 endif()

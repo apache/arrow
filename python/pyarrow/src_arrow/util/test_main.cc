@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "platform.h"
+#include "../platform.h"
 
 #include <gtest/gtest.h>
 
-#include "datetime.h"
-#include "init.h"
-#include "pyarrow.h"
+#include "../datetime.h"
+#include "../init.h"
+#include "../pyarrow.h"
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
