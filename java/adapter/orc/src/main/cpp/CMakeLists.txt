@@ -19,35 +19,39 @@
 # arrow_orc_jni
 #
 
-project(arrow_orc_jni)
+if(ARROW_ORC)
+  project(arrow_orc_jni)
 
-cmake_minimum_required(VERSION 3.11)
+  cmake_minimum_required(VERSION 3.11)
 
-find_package(JNI REQUIRED)
+  find_package(JNI REQUIRED)
 
-add_custom_target(arrow_orc_jni)
+  add_custom_target(arrow_orc_jni)
 
-set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+  set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
-add_subdirectory(../../../../orc ./java)
+  add_subdirectory(../../../../orc ./java)
 
-add_arrow_lib(arrow_orc_jni
-              BUILD_SHARED
-              ON
-              BUILD_STATIC
-              OFF
-              SOURCES
-              jni_wrapper.cpp
-              OUTPUTS
-              ARROW_ORC_JNI_LIBRARIES
-              SHARED_PRIVATE_LINK_LIBS
-              arrow_static
-              EXTRA_INCLUDES
-              ${JNI_HEADERS_DIR}
-              PRIVATE_INCLUDES
-              ${JNI_INCLUDE_DIRS}
-              DEPENDENCIES
-              arrow_static
-              arrow_orc_java)
+  add_arrow_lib(arrow_orc_jni
+                BUILD_SHARED
+                ON
+                BUILD_STATIC
+                OFF
+                SOURCES
+                jni_wrapper.cpp
+                OUTPUTS
+                ARROW_ORC_JNI_LIBRARIES
+                SHARED_PRIVATE_LINK_LIBS
+                arrow_static
+                EXTRA_INCLUDES
+                ${JNI_HEADERS_DIR}
+                PRIVATE_INCLUDES
+                ${JNI_INCLUDE_DIRS}
+                DEPENDENCIES
+                arrow_static
+                arrow_orc_java)
 
-add_dependencies(arrow_orc_jni ${ARROW_ORC_JNI_LIBRARIES})
+  add_dependencies(arrow_orc_jni ${ARROW_ORC_JNI_LIBRARIES})
+endif()
+
+
