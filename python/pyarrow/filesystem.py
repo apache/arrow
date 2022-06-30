@@ -17,7 +17,9 @@
 
 
 import os
+import pathlib
 import posixpath
+import shutil
 import sys
 import urllib.parse
 import warnings
@@ -26,7 +28,6 @@ from os.path import join as pjoin
 
 import pyarrow as pa
 from pyarrow.util import implements, _stringify_path, _is_path_like, _DEPR_MSG
-
 
 _FS_DEPR_MSG = _DEPR_MSG.format(
     "filesystem.LocalFileSystem", "2.0.0", "fs.LocalFileSystem"
@@ -240,7 +241,6 @@ class FileSystem:
 
 
 class LocalFileSystem(FileSystem):
-
     _instance = None
 
     def __init__(self):
@@ -264,6 +264,33 @@ class LocalFileSystem(FileSystem):
     def ls(self, path):
         path = _stringify_path(path)
         return sorted(pjoin(path, x) for x in os.listdir(path))
+
+    @implements(FileSystem.delete)
+    def delete(self, path, recursive=False):
+        path = _stringify_path(path)
+        if recursive:
+            path = pathlib.Path(path)
+            shutil.rmtree(path)
+        else:
+            os.rmdir(path)
+
+    @implements(FileSystem.rename)
+    def rename(self, path, new_path):
+        path = _stringify_path(path)
+        new_path = _stringify_path(new_path)
+        return os.rename(path, new_path)
+
+    @implements(FileSystem.stat)
+    def stat(self, path):
+        path = _stringify_path(path)
+        stats = os.stat(path)
+        fileType = None
+        st_mode = stats.st_mode
+        if os.stat.S_ISDIR(st_mode):
+            fileType = "dir"
+        elif os.stat.S_ISREG(st_mode):
+            fileType = "file"
+        return {"size": stats.st_size, "kind": fileType}
 
     @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
