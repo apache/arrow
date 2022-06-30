@@ -1554,9 +1554,11 @@ test_that("`as.Date()` and `as_date()`", {
   # we do not support multiple tryFormats
   compare_dplyr_binding(
     .input %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var,
-                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-      )) %>%
+      mutate(date_char_ymd = as.Date(
+        character_ymd_var,
+        tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+      )
+      ) %>%
       collect(),
     test_df,
     warning = TRUE
@@ -1608,17 +1610,6 @@ test_that("`as.Date()` and `as_date()`", {
       collect()
   )
 
-  test_df %>%
-    arrow_table() %>%
-    mutate(
-      date_try_formats_base = as.Date(
-        try_formats_string,
-        tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-      ),
-      .keep = "used"
-    ) %>%
-    collect()
-
   # difference between as.Date() and as_date():
   # `as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
@@ -1628,12 +1619,7 @@ test_that("`as.Date()` and `as_date()`", {
     .input %>%
       transmute(
         date_diff_lubridate = as_date(difference_date),
-        date_diff_base = as.Date(difference_date),
-        date_try_formats_base = as.Date(
-          try_formats_string,
-          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        ),
-        date_try_formats_lubridate = as_date(try_formats_string)
+        date_diff_base = as.Date(difference_date)
       ) %>%
       collect(),
     test_df
