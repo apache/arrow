@@ -407,11 +407,22 @@ TEST(BlockParser, FinalTruncatedData) {
 
 TEST(BlockParser, FinalBulkFilterNoEol) {
   // Last field processed by bulk filter. No EOL at last line.
-  auto csv = MakeCSVData({"12345678901,12345678\n", "12345678901,12345678"});
+  auto csv = MakeCSVData({"12345678901,12345678\n", "10987654321,87654321"});
 
   BlockParser parser(ParseOptions::Defaults());
   AssertParseFinal(parser, csv);
-  AssertColumnsEq(parser, {{"12345678901", "12345678901"}, {"12345678", "12345678"}});
+  AssertColumnsEq(parser, {{"12345678901", "10987654321"}, {"12345678", "87654321"}});
+}
+
+TEST(BlockParser, FinalTruncatedBulkFilterNoEol) {
+  // Not enough fields at last line. Processed by bulk filter. No EOL at last line.
+  auto csv = MakeCSVData({"12345678901,12345678\n", "87654321"});
+
+  uint32_t out_size;
+  BlockParser parser(ParseOptions::Defaults());
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: CSV parse error: Expected 2 columns, got 1: 87654321",
+      ParseFinal(parser, csv, &out_size));
 }
 
 TEST(BlockParser, QuotingSimple) {

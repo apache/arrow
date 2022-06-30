@@ -240,7 +240,6 @@ class BlockParserImpl {
     int32_t num_cols = 0;
     char c;
     const auto start = data;
-    int32_t final_offset = 0;
 
     DCHECK_GT(data_end, data);
 
@@ -298,7 +297,7 @@ class BlockParserImpl {
       const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         if (is_final) {
-          final_offset = static_cast<int32_t>(data_end - data);
+          data = data_end;
         }
         goto AbortLine;
       }
@@ -341,6 +340,9 @@ class BlockParserImpl {
     if (UseBulkFilter) {
       const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+        if (is_final) {
+          data = data_end;
+        }
         goto AbortLine;
       }
       data = bulk_end;
@@ -393,7 +395,7 @@ class BlockParserImpl {
       }
     }
     ++batch_.num_rows_;
-    *out_data = data + final_offset;
+    *out_data = data;
     return Status::OK();
 
   AbortLine:
