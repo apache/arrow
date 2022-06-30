@@ -1551,6 +1551,17 @@ test_that("`as.Date()` and `as_date()`", {
     test_df
   )
 
+  # we do not support multiple tryFormats
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var,
+                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+      )) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
   # strptime does not support a partial format - Arrow returns NA, while
   # lubridate parses correctly
   # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
