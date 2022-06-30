@@ -838,7 +838,7 @@ test_that("ARROW-14989: num_rows method not susceptible to integer overflow", {
   test_array2 <- Array$create(raw(1))
   big_chunked <- chunked_array(test_array1, test_array2)
 
-  small_table <- record_batch(col = test_array2)
+  small_table <- record_batch(col = test_array1)
   expect_type(small_table$num_rows, "integer")
 
   big_table <- record_batch(col = big_chunked)
