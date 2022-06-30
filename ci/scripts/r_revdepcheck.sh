@@ -23,7 +23,36 @@ set -ex
 source_dir=${1}/r
 
 # cpp building dependencies
-apt install -y cmake
+apt update -y -q && \
+apt install -y \
+  cmake \
+  libboost-filesystem-dev \
+  libboost-system-dev \
+  libbrotli-dev \
+  libbz2-dev \
+  libc-ares-dev \
+  libcurl4-openssl-dev \
+  libgflags-dev \
+  libgoogle-glog-dev \
+  liblz4-dev \
+  libprotobuf-dev \
+  libprotoc-dev \
+  libradospp-dev \
+  libre2-dev \
+  libsnappy-dev \
+  libssl-dev \
+  libthrift-dev \
+  libutf8proc-dev \
+  libzstd-dev \
+  nlohmann-json3-dev \
+  pkg-config \
+  protobuf-compiler \
+  python3-dev \
+  python3-pip \
+  python3-rados \
+  rados-objclass-dev \
+  rapidjson-dev \
+  tzdata 
 
 # system dependencies needed for arrow's reverse dependencies
 apt install -y libxml2-dev \
@@ -72,6 +101,7 @@ SCRIPT="
         LIBARROW_MINIMAL = FALSE,
         revdepcheck::revdep_env_vars()
     ))
+
     revdepcheck::revdep_report(all = TRUE)
 
     # Go through the summary and fail if any of the statuses include -
