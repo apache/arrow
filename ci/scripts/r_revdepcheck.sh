@@ -26,8 +26,6 @@ source_dir=${1}/r
 apt update -y -q && \
 apt install -y \
   cmake \
-  libboost-filesystem-dev \
-  libboost-system-dev \
   libbrotli-dev \
   libbz2-dev \
   libc-ares-dev \
@@ -52,7 +50,8 @@ apt install -y \
   python3-rados \
   rados-objclass-dev \
   rapidjson-dev \
-  tzdata 
+  tzdata \
+  wget
 
 # system dependencies needed for arrow's reverse dependencies
 apt install -y libxml2-dev \
