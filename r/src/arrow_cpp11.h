@@ -407,6 +407,12 @@ cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
 }  // namespace r
 }  // namespace arrow
 
+struct r_vec_size{
+  r_vec_size(R_xlen_t x) : value(x){}
+
+  R_xlen_t value;
+};
+
 namespace cpp11 {
 
 template <typename T>
@@ -428,13 +434,6 @@ SEXP as_sexp(const std::shared_ptr<T>& ptr) {
   return cpp11::to_r6<T>(ptr);
 }
 
-struct r_vec_size{
-  r_vec_size(R_xlen_t x) : value(x){}
-
-  R_xlen_t value;
-};
-
-
 inline SEXP as_sexp(r_vec_size size) {
   R_xlen_t x = size.value;
   if (x > std::numeric_limits<int>::max()) {
@@ -443,6 +442,7 @@ inline SEXP as_sexp(r_vec_size size) {
     return Rf_ScalarInteger(x);
   }
 }
+
 
 
 }  // namespace cpp11
