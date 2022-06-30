@@ -43,10 +43,7 @@ class UuidType(pa.PyExtensionType):
         return UuidType, ()
 
     def scalar_as_py(self, scalar):
-        if scalar is not None:
-            return UUID(bytes=scalar.as_py())
-        else:
-            return None
+        return UUID(bytes=scalar.as_py())
 
 
 class ParamExtType(pa.PyExtensionType):

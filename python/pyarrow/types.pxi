@@ -906,12 +906,11 @@ cdef class ExtensionType(BaseExtensionType):
         """Convert scalar to a Python type.
 
         This method can be overridden in subclasses to customize what type
-        scalars are converted to. Implementations should handle the case
-        where the scalar argument is ``None``.
+        scalars are converted to.
 
         Parameters
         ----------
-        scalar : pyarrow.ExtensionScalar or None
+        scalar : pyarrow.ExtensionScalar
           The scalar to be converted to a Python object.
         """
         return scalar.as_py() if scalar is not None else None
