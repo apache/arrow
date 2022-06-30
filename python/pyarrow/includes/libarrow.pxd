@@ -2545,6 +2545,12 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
     cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
         pass
 
+    cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
+        @staticmethod
+        CResult[shared_ptr[CSourceNodeOptions]] FromRecordBatchReader(
+            shared_ptr[CRecordBatchReader] reader, shared_ptr[CSchema] schema,
+            CExecutor* exc)
+
     cdef cppclass CTableSourceNodeOptions "arrow::compute::TableSourceNodeOptions"(CExecNodeOptions):
         CTableSourceNodeOptions(shared_ptr[CTable] table, int64_t max_batch_size)
 

@@ -27,10 +27,11 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table)
+from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table, 
+                          RecordBatchReader)
 from pyarrow.lib import tobytes
 from pyarrow._compute cimport Expression, _true
-from pyarrow._dataset cimport Dataset
+from pyarrow._dataset cimport Dataset, FilteredDataset, Scanner
 from pyarrow._dataset import InMemoryDataset
 
 Initialize()  # Initialise support for Datasets in ExecPlan
@@ -66,11 +67,13 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         shared_ptr[CTable] c_in_table
         shared_ptr[CTable] c_out_table
         shared_ptr[CTableSourceNodeOptions] c_tablesourceopts
+        shared_ptr[CScanner] c_dataset_scanner
         shared_ptr[CScanNodeOptions] c_scanopts
         shared_ptr[CExecNodeOptions] c_input_node_opts
         shared_ptr[CSinkNodeOptions] c_sinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_async_exec_batch_gen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
+        shared_ptr[CRecordBatchReader] c_recordbatchreader_in
         vector[CDeclaration].iterator plan_iter
         vector[CDeclaration.Input] no_c_inputs
         CStatus c_plan_status
@@ -95,6 +98,22 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
                 c_in_table)
             c_input_node_opts = static_pointer_cast[CExecNodeOptions, CTableSourceNodeOptions](
                 c_tablesourceopts)
+        elif isinstance(ipt, FilteredDataset):
+            node_factory = "source"
+            c_in_dataset = (<Dataset>ipt).unwrap()
+            c_dataset_scanner = <shared_ptr[CScanner]>(
+                (<Scanner>(<FilteredDataset>ipt)._make_scanner({})).unwrap()
+            )
+            c_recordbatchreader_in = <shared_ptr[CRecordBatchReader]>(
+                GetResultValue(deref(c_dataset_scanner).ToRecordBatchReader())
+            )
+            c_sourceopts = GetResultValue(
+                CSourceNodeOptions.FromRecordBatchReader(c_recordbatchreader_in, 
+                                                         deref(c_in_dataset).schema(), 
+                                                         c_executor)
+            )
+            c_input_node_opts = static_pointer_cast[CExecNodeOptions, CSourceNodeOptions](
+                c_sourceopts)
         elif isinstance(ipt, Dataset):
             node_factory = "scan"
             c_in_dataset = (<Dataset>ipt).unwrap()

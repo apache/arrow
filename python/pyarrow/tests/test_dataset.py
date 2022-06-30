@@ -4846,13 +4846,21 @@ def test_dataset_join_collisions(tempdir):
 
 
 @pytest.mark.dataset
-def test_dataset_filter(tempdir):
+@pytest.mark.parametrize('dstype', [
+    "fs", "mem"
+])
+def test_dataset_filter(tempdir, dstype):
     t1 = pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
-    ds.write_dataset(t1, tempdir / "t1", format="ipc")
-    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+    if dstype == "fs":
+        ds.write_dataset(t1, tempdir / "t1", format="ipc")
+        ds1 = ds.dataset(tempdir / "t1", format="ipc")
+    elif dstype == "mem":
+        ds1 = ds.dataset(t1)
+    else:
+        raise NotImplementedError
 
     result = ds1.filter(pc.field("colA") < 3).filter(pc.field("col2") == "a")
     assert result.to_table() == pa.table({
@@ -4860,13 +4868,23 @@ def test_dataset_filter(tempdir):
         "col2": ["a"]
     })
 
-    assert type(result) == ds.FileSystemDataset
+    assert type(result) == ds.FilteredDataset
 
     ds.write_dataset(result, tempdir / "filtered", format="ipc")
     filtered = ds.dataset(tempdir / "filtered", format="ipc")
     assert filtered.to_table() == pa.table({
         "colA": [1],
         "col2": ["a"]
+    })
+
+    joined = result.join(ds.dataset(pa.table({
+        "colB": [10, 20],
+        "col2": ["a", "b"]
+    })), keys="col2", join_type="right outer")
+    assert joined.to_table().combine_chunks() == pa.table({
+        "colA": [1, None],
+        "colB": [10, 20],
+        "col2": ["a", "b"]
     })
 
 

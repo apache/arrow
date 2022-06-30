@@ -47,7 +47,6 @@ cdef class Dataset(_Weakrefable):
     cdef:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
-        public dict _scanner_options
 
     cdef void init(self, const shared_ptr[CDataset]& sp)
 
@@ -55,6 +54,27 @@ cdef class Dataset(_Weakrefable):
     cdef wrap(const shared_ptr[CDataset]& sp)
 
     cdef shared_ptr[CDataset] unwrap(self) nogil
+
+
+cdef class FilteredDataset(Dataset):
+
+    cdef:
+        public object _filter
+
+    cdef Scanner _make_scanner(self, options)
+
+
+cdef class Scanner(_Weakrefable):
+    cdef:
+        shared_ptr[CScanner] wrapped
+        CScanner* scanner
+
+    cdef void init(self, const shared_ptr[CScanner]& sp)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CScanner]& sp)
+
+    cdef shared_ptr[CScanner] unwrap(self)
 
 
 cdef class FragmentScanOptions(_Weakrefable):

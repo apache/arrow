@@ -24,6 +24,7 @@ from pyarrow._dataset import (  # noqa
     CsvFileFormat,
     CsvFragmentScanOptions,
     Dataset,
+    FilteredDataset,
     DatasetFactory,
     DirectoryPartitioning,
     FeatherFileFormat,

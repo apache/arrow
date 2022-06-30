@@ -156,7 +156,6 @@ cdef class Dataset(_Weakrefable):
     cdef void init(self, const shared_ptr[CDataset]& sp):
         self.wrapped = sp
         self.dataset = sp.get()
-        self._scanner_options = {}
 
     @staticmethod
     cdef wrap(const shared_ptr[CDataset]& sp):
@@ -297,8 +296,7 @@ cdef class Dataset(_Weakrefable):
         n_legs: [[2,4,4,100]]
         animal: [["Parrot","Dog","Horse","Centipede"]]
         """
-        scanner_options = {**self._scanner_options, **kwargs}
-        return Scanner.from_dataset(self, **scanner_options)
+        return Scanner.from_dataset(self, **kwargs)
 
     def to_batches(self, **kwargs):
         """
@@ -388,17 +386,7 @@ cdef class Dataset(_Weakrefable):
         return pyarrow_wrap_schema(self.dataset.schema())
 
     def filter(self, expression):
-        cdef:
-            Dataset filtered_dataset
-
-        if "filter" in self._scanner_options:
-            new_filter = self._scanner_options["filter"] & expression
-        else:
-            new_filter = expression
-        filtered_dataset = self.__class__.__new__(self.__class__)
-        filtered_dataset.init(self.wrapped)
-        filtered_dataset._scanner_options = dict(self._scanner_options, filter=new_filter)
-        return filtered_dataset
+        return FilteredDataset(self, expression)
 
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
@@ -447,6 +435,45 @@ cdef class Dataset(_Weakrefable):
                                               left_suffix=left_suffix, right_suffix=right_suffix,
                                               use_threads=use_threads, coalesce_keys=coalesce_keys,
                                               output_type=InMemoryDataset)
+
+cdef class FilteredDataset(Dataset):
+    """
+    A Dataset with an applied filter.
+
+    Parameters
+    ----------
+    dataset : Dataset
+        The dataset to which the filter should be applied.
+    expression : Expression
+        The filter that should be applied to the dataset.
+    """
+    def __init__(self, dataset, expression):
+        self.init(<shared_ptr[CDataset]>(<Dataset>dataset).wrapped)
+        self._filter = expression
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self._filter = None
+
+    def filter(self, expression):
+        cdef:
+            FilteredDataset filtered_dataset
+
+        if self._filter is not None:
+            new_filter = self._filter & expression
+        else:
+            new_filter = expression
+        filtered_dataset = self.__class__.__new__(self.__class__)
+        filtered_dataset.init(self.wrapped)
+        filtered_dataset._filter = new_filter
+        return filtered_dataset
+        
+    cdef Scanner _make_scanner(self, options):
+        scanner_options = dict(options, filter=self._filter)
+        return Scanner.from_dataset(self, **scanner_options)
+
+    def scanner(self, **kwargs):
+        return self._make_scanner(kwargs)
 
 
 cdef class InMemoryDataset(Dataset):
@@ -2202,6 +2229,9 @@ cdef class RecordBatchIterator(_Weakrefable):
         self.iterator = make_shared[CRecordBatchIterator](move(iterator))
         return self
 
+    cdef inline shared_ptr[CRecordBatchIterator] unwrap(self) nogil:
+        return self.iterator
+
     def __iter__(self):
         return self
 
@@ -2368,10 +2398,6 @@ cdef class Scanner(_Weakrefable):
         For memory allocations, if required. If not specified, uses the
         default pool.
     """
-
-    cdef:
-        shared_ptr[CScanner] wrapped
-        CScanner* scanner
 
     def __init__(self):
         _forbid_instantiation(self.__class__)

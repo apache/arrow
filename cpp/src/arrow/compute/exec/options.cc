@@ -62,5 +62,17 @@ Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromTable(
   return std::make_shared<SourceNodeOptions>(table.schema(), batch_gen);
 }
 
+Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromRecordBatchReader(
+    std::shared_ptr<RecordBatchReader> reader, std::shared_ptr<Schema> schema,
+    arrow::internal::Executor* exc) {
+  if (exc == nullptr) return Status::TypeError("No executor provided.");
+
+  // Map the RecordBatchReader to a SourceNode
+  ARROW_ASSIGN_OR_RAISE(auto batch_gen, MakeReaderGenerator(std::move(reader), exc));
+
+  return std::shared_ptr<SourceNodeOptions>(
+      new SourceNodeOptions(schema, batch_gen));
+}
+
 }  // namespace compute
 }  // namespace arrow
