@@ -1627,9 +1627,6 @@ test_that("`as.Date()` and `as_date()`", {
 })
 
 test_that("`as_date()` and `as.Date()` work with R objects", {
-  # some string processing (which depends on the RE2 library) is involved when
-  # parsing as date with multiple formats. RE2 is not available in R 3.6 on Windows
-  skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1773,18 +1770,6 @@ test_that("parse_date_time() works with a mix of formats and orders", {
       ) %>%
       collect(),
     test_df
-  )
-
-  # parse_date_time() works with R objects
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        parsed_date_ymd = parse_date_time("2021/09///2", orders = "ymd")
-      ) %>%
-      collect(),
-    tibble::tibble(
-      a = 1
-    )
   )
 })
 
