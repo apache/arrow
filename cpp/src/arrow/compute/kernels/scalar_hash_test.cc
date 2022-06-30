@@ -20,26 +20,22 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/status.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
-  namespace compute {
+namespace compute {
 
-  TEST(TestScalarHash, HashPrimitive) {
-    for (auto input_dtype : { int32(), uint32(), int8(), uint8() }) {
+TEST(TestScalarHash, HashPrimitive) {
+  for (auto input_dtype : {int32(), uint32(), int8(), uint8()}) {
+    auto input_arr = ArrayFromJSON(input_dtype, "[3, null, 2, 0, 127, 64]");
 
-      auto input_arr = ArrayFromJSON(input_dtype, "[3, null, 2, 0, 127, 64]");
-
-      ASSERT_OK_AND_ASSIGN(
-         Datum hash_result
-        ,CallFunction("fast_hash_32", { input_arr })
-      );
-    }
+    ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("fast_hash_32", {input_arr}));
   }
+}
 
-  } // namespace arrow::compute
+}  // namespace compute
 }  // namespace arrow
