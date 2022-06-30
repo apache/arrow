@@ -204,7 +204,8 @@ function(ADD_ARROW_LIB LIB_NAME)
 
   if(WIN32
      OR (CMAKE_GENERATOR STREQUAL Xcode)
-     OR CMAKE_VERSION VERSION_LESS 3.12)
+     OR CMAKE_VERSION VERSION_LESS 3.12
+     OR NOT ARROW_POSITION_INDEPENDENT_CODE)
     # We need to compile C++ separately for each library kind (shared and static)
     # because of dllexport declarations on Windows.
     # The Xcode generator doesn't reliably work with Xcode as target names are not
@@ -222,7 +223,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     # that "objlib" into each library kind, to avoid compiling twice
     add_library(${LIB_NAME}_objlib OBJECT ${ARG_SOURCES})
     # Necessary to make static linking into other shared libraries work properly
-    set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+    set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE ON)
     if(ARG_DEPENDENCIES)
       add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
     endif()
