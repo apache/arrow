@@ -1082,7 +1082,6 @@ class BinaryTask
 
   def available_apt_targets
     [
-      ["debian", "buster", "main"],
       ["debian", "bullseye", "main"],
       ["debian", "bookworm", "main"],
       ["ubuntu", "bionic", "main"],

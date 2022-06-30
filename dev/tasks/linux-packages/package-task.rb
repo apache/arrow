@@ -280,8 +280,6 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-buster",
-      # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
       "debian-bookworm",

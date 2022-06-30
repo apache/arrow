@@ -549,8 +549,7 @@ tasks:
 
 {############################## Linux PKGS ####################################}
 
-{% for target in ["debian-buster",
-                  "debian-bullseye",
+{% for target in ["debian-bullseye",
                   "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
