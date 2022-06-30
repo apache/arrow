@@ -311,8 +311,7 @@ register_bindings_datetime_conversion <- function() {
       x = x,
       format = format,
       tryFormats = tryFormats,
-      origin = origin,
-      coalesce = FALSE
+      origin = origin
     )
   })
 
@@ -332,8 +331,7 @@ register_bindings_datetime_conversion <- function() {
     binding_as_date(
       x = x,
       format = format,
-      origin = origin,
-      coalesce = TRUE
+      origin = origin
     )
   })
 
