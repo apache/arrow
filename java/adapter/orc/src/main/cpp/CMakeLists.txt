@@ -53,5 +53,3 @@ if(ARROW_ORC)
 
   add_dependencies(arrow_orc_jni ${ARROW_ORC_JNI_LIBRARIES})
 endif()
-
-
