@@ -54,12 +54,27 @@ mutate.arrow_dplyr_query <- function(.data,
     # (which overwrites the previous name)
     new_var <- names(exprs)[i]
     results[[new_var]] <- arrow_eval(exprs[[i]], mask)
-    if (inherits(results[[new_var]], "try-error")) {
+    if (inherits(results[[new_var]], "arrow-binding-error")) {
+
+      expr <- rlang::quo_get_expr(exprs[[i]])
+      new_expr <- grep(
+        paste0("::", rlang::expr_text(expr[[1]])),
+        names(mask$.top_env),
+        value = TRUE
+      ) %>%
+        rlang::parse_expr()
+
+      exprs[[i]][[2]][[1]] <- new_expr
+
+      results[[new_var]] <- arrow_eval(exprs[[i]], mask)
+
+    } else if (inherits(results[[new_var]], "try-error")) {
       msg <- handle_arrow_not_supported(
         results[[new_var]],
         format_expr(exprs[[i]])
       )
       return(abandon_ship(call, .data, msg))
+
     } else if (!inherits(results[[new_var]], "Expression") &&
       !is.null(results[[new_var]])) {
       # We need some wrapping to handle literal values

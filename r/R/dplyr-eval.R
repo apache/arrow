@@ -22,30 +22,36 @@ arrow_eval <- function(expr, mask) {
 
   # This yields an Expression as long as the `exprs` are implemented in Arrow.
   # Otherwise, it returns a try-error
-  tryCatch(eval_tidy(expr, mask), error = function(e) {
-    # Look for the cases where bad input was given, i.e. this would fail
-    # in regular dplyr anyway, and let those raise those as errors;
-    # else, for things not supported in Arrow return a "try-error",
-    # which we'll handle differently
-    msg <- conditionMessage(e)
-    if (getOption("arrow.debug", FALSE)) print(msg)
-    patterns <- .cache$i18ized_error_pattern
-    if (is.null(patterns)) {
-      patterns <- i18ize_error_messages()
-      # Memoize it
-      .cache$i18ized_error_pattern <- patterns
-    }
-    if (grepl(patterns, msg)) {
-      stop(e)
-    }
+  tryCatch(
+    eval_tidy(expr, mask),
+    error = function(e) {
+      # Look for the cases where bad input was given, i.e. this would fail
+      # in regular dplyr anyway, and let those raise those as errors;
+      # else, for things not supported in Arrow return a "try-error",
+      # which we'll handle differently
+      msg <- conditionMessage(e)
+      if (getOption("arrow.debug", FALSE)) print(msg)
+      patterns <- .cache$i18ized_error_pattern
+      if (is.null(patterns)) {
+        patterns <- i18ize_error_messages()
+        # Memoize it
+        .cache$i18ized_error_pattern <- patterns
+      }
+      if (grepl(patterns, msg)) {
+        stop(e)
+      }
 
-    out <- structure(msg, class = "try-error", condition = e)
-    if (grepl("not supported.*Arrow", msg) || getOption("arrow.debug", FALSE)) {
-      # One of ours. Mark it so that consumers can handle it differently
-      class(out) <- c("arrow-try-error", class(out))
-    }
-    invisible(out)
-  })
+      out <- structure(msg, class = "try-error", condition = e)
+      if (grepl("not supported.*Arrow", msg) || getOption("arrow.debug", FALSE)) {
+        # One of ours. Mark it so that consumers can handle it differently
+        class(out) <- c("arrow-try-error", class(out))
+      }
+      expr_text <- rlang::quo_get_expr(expr)[[1]] %>% rlang::expr_text()
+      if (!expr_text %in% names(mask$.top_env)) {
+        class(out) <- c("arrow-binding-error", class(out))
+      }
+      invisible(out)
+    })
 }
 
 handle_arrow_not_supported <- function(err, lab) {

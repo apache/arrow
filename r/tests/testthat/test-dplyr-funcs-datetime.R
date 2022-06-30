@@ -417,7 +417,7 @@ test_that("extract quarter from timestamp", {
 test_that("extract month from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = month(datetime)) %>%
+      mutate(x = lubridate::month(datetime)) %>%
       collect(),
     test_df
   )

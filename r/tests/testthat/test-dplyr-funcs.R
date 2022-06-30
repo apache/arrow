@@ -26,8 +26,8 @@ test_that("register_binding() works", {
   expect_false("some_fun" %in% names(fake_registry))
   expect_silent(expect_null(register_binding("some_fun", NULL, fake_registry)))
 
-  expect_null(register_binding("some_pkg::some_fun", fun1, fake_registry))
-  expect_identical(fake_registry$some_fun, fun1)
+  expect_null(register_binding("some.pkg::some_fun", fun1, fake_registry))
+  expect_identical(fake_registry$`some.pkg::some_fun`, fun1)
 })
 
 test_that("register_binding_agg() works", {
