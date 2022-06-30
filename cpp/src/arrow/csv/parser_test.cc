@@ -417,12 +417,13 @@ TEST(BlockParser, FinalBulkFilterNoEol) {
 TEST(BlockParser, FinalTruncatedBulkFilterNoEol) {
   // Not enough fields at last line. Processed by bulk filter. No EOL at last line.
   auto csv = MakeCSVData({"12345678901,12345678\n", "87654321"});
+  const char* err_msg = "Expected 2 columns, got 1: 87654321";
 
   uint32_t out_size;
   BlockParser parser(ParseOptions::Defaults());
-  ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: CSV parse error: Expected 2 columns, got 1: 87654321",
-      ParseFinal(parser, csv, &out_size));
+  Status st = ParseFinal(parser, csv, &out_size);
+  ASSERT_RAISES(Invalid, st);
+  ASSERT_NE(st.ToString().find(err_msg), std::string::npos);
 }
 
 TEST(BlockParser, QuotingSimple) {
