@@ -407,8 +407,8 @@ cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
 }  // namespace r
 }  // namespace arrow
 
-struct r_vec_size{
-  r_vec_size(R_xlen_t x) : value(x){}
+struct r_vec_size {
+  r_vec_size(R_xlen_t x) : value(x) {}
 
   R_xlen_t value;
 };
