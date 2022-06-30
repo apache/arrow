@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -162,17 +163,25 @@ void release_exported(T* base) {
   InnerPrivateData* private_data =
       reinterpret_cast<InnerPrivateData*>(base->private_data);
 
-  JNIEnvGuard guard(private_data->vm_);
-  JNIEnv* env = guard.env();
+  // It is possible for the JVM to be shut down when this is called;
+  // guard against that.  Example: Python code using JPype may shut
+  // down the JVM before releasing the stream.
+  try {
+    JNIEnvGuard guard(private_data->vm_);
+    JNIEnv* env = guard.env();
 
-  env->CallObjectMethod(private_data->j_private_data_, kPrivateDataCloseMethod);
-  if (env->ExceptionCheck()) {
-    // Can't signal this to caller, so log and then try to free things
-    // as best we can
-    env->ExceptionDescribe();
-    env->ExceptionClear();
+    env->CallObjectMethod(private_data->j_private_data_, kPrivateDataCloseMethod);
+    if (env->ExceptionCheck()) {
+      // Can't signal this to caller, so log and then try to free things
+      // as best we can
+      env->ExceptionDescribe();
+      env->ExceptionClear();
+    }
+    env->DeleteGlobalRef(private_data->j_private_data_);
+  } catch (const JniPendingException& e) {
+    std::cerr << "WARNING: Failed to release Java C Data resource: " << e.what()
+              << std::endl;
   }
-  env->DeleteGlobalRef(private_data->j_private_data_);
   delete private_data;
   base->private_data = nullptr;
 
@@ -280,17 +289,21 @@ void ArrowArrayStreamRelease(ArrowArrayStream* stream) {
   InnerPrivateData* private_data =
       reinterpret_cast<InnerPrivateData*>(stream->private_data);
 
-  JNIEnvGuard guard(private_data->vm_);
-  JNIEnv* env = guard.env();
+  // It is possible for the JVM to be shut down (see above)
+  try {
+    JNIEnvGuard guard(private_data->vm_);
+    JNIEnv* env = guard.env();
 
-  env->CallObjectMethod(private_data->j_private_data_, kPrivateDataCloseMethod);
-  if (env->ExceptionCheck()) {
-    // Can't signal this to caller, so log and then try to free things
-    // as best we can
-    env->ExceptionDescribe();
-    env->ExceptionClear();
+    env->CallObjectMethod(private_data->j_private_data_, kPrivateDataCloseMethod);
+    if (env->ExceptionCheck()) {
+      env->ExceptionDescribe();
+      env->ExceptionClear();
+    }
+    env->DeleteGlobalRef(private_data->j_private_data_);
+  } catch (const JniPendingException& e) {
+    std::cerr << "WARNING: Failed to release Java ArrowArrayStream: " << e.what()
+              << std::endl;
   }
-  env->DeleteGlobalRef(private_data->j_private_data_);
   delete private_data;
   stream->private_data = nullptr;
 
