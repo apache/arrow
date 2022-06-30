@@ -32,7 +32,7 @@ int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
 }
 
 // [[arrow::export]]
-int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x) {
+r_vec_size RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x) {
   return x->num_rows();
 }
 
