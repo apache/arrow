@@ -56,6 +56,6 @@ jobs:
           name: revdepcheck-folder
           path: arrow/r/revdep
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: success()
         continue-on-error: true
         run: archery docker push r-revdepcheck
