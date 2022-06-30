@@ -101,7 +101,9 @@ duration_from_chunks <- function(chunks) {
 
 
 binding_as_date <- function(x,
-                            ...) {
+                            format = NULL,
+                            tryFormats = "%Y-%m-%d",
+                            origin = "1970-01-01") {
   if (is.null(format) && length(tryFormats) > 1) {
     abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
   }
@@ -111,11 +113,11 @@ binding_as_date <- function(x,
 
     # cast from character
   } else if (call_binding("is.character", x)) {
-    x <- binding_as_date_character(x, ...)
+    x <- binding_as_date_character(x, format, tryFormats)
 
     # cast from numeric
   } else if (call_binding("is.numeric", x)) {
-    x <- binding_as_date_numeric(x, ...)
+    x <- binding_as_date_numeric(x, origin)
   }
 
   build_expr("cast", x, options = cast_options(to_type = date32()))
