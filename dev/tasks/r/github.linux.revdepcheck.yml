@@ -33,7 +33,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
-
+      {{ macros.github_login_dockerhub()|indent }}
       - name: Docker Run
         shell: bash
         run: archery docker run r-revdepcheck
@@ -55,3 +55,7 @@ jobs:
         with:
           name: revdepcheck-folder
           path: arrow/r/revdep
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push r-revdepcheck
