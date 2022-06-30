@@ -43,17 +43,24 @@ library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
 prefix = get_option('prefix')
 include_dir = join_paths(prefix, get_option('includedir'))
 data_dir = join_paths(prefix, get_option('datadir'))
+gir_dir = join_paths(data_dir, 'gir-1.0')
+vapi_dir = join_paths(data_dir, 'vala', 'vapi')
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
+pkgconfig_variables = []
 
 base_include_directories = [
   include_directories('.')
 ]
 
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
+if have_gi
+  pkgconfig_variables += ['girdir=@0@'.format(gir_dir)]
+endif
 generate_vapi = have_gi and get_option('vala')
 if generate_vapi
+  pkgconfig_variables += ['vapidir=@0@'.format(vapi_dir)]
   add_languages('vala')
 endif
 
