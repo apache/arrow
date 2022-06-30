@@ -428,4 +428,21 @@ SEXP as_sexp(const std::shared_ptr<T>& ptr) {
   return cpp11::to_r6<T>(ptr);
 }
 
+struct r_vec_size{
+  r_vec_size(R_xlen_t x) : value(x){}
+
+  R_xlen_t value;
+};
+
+
+inline SEXP as_sexp(r_vec_size size) {
+  R_xlen_t x = size.value;
+  if (x > std::numeric_limits<int>::max()) {
+    return Rf_ScalarReal(x);
+  } else {
+    return Rf_ScalarInteger(x);
+  }
+}
+
+
 }  // namespace cpp11
