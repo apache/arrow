@@ -27,15 +27,20 @@ if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)
 endif()
 
+#
 # Define
 # ARROW_SOURCE_DIR: location of arrow/cpp
 # CMAKE_MODULE_PATH: location of cmake_modules in python
+#
+
 get_filename_component(PYARROW_SOURCE_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
 get_filename_component(ARROW_SOURCE ${PYTHON_SOURCE_DIR} DIRECTORY)
 set(ARROW_SOURCE_DIR "${ARROW_SOURCE}/cpp")
-set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "$ENV{ARROW_HOME}/lib/cmake/arrow")
-message(STATUS "CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}")
+
+# normalize ARROW_HOME path
+cmake_path(CONVERT "$ENV{ARROW_HOME}" TO_CMAKE_PATH_LIST ARROW_HOME)
+set(CMAKE_MODULE_PATH "${PYTHON_SOURCE_DIR}/cmake_modules" "${ARROW_HOME}/lib/cmake/arrow")
 
 #
 # Arrow version
