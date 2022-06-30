@@ -980,7 +980,9 @@ endif()
 
 if(ARROW_JNI)
   add_subdirectory(src/jni)
-  add_subdirectory(../java/adapter/orc/src/main/cpp ./java/jni)
+  if(ARROW_ORC)
+    add_subdirectory(../java/adapter/orc/src/main/cpp ./java/jni)
+  endif()
 endif()
 
 if(ARROW_GANDIVA)
