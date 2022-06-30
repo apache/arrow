@@ -40,6 +40,8 @@ void RegisterScalarTemporalBinary(FunctionRegistry* registry);
 void RegisterScalarTemporalUnary(FunctionRegistry* registry);
 void RegisterScalarValidity(FunctionRegistry* registry);
 
+void RegisterScalarHash(FunctionRegistry* registry);
+
 void RegisterScalarOptions(FunctionRegistry* registry);
 
 // Vector functions
