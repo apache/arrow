@@ -58,7 +58,7 @@
 # TODO: Enable this on aarch64 too. This causes timeout on Travis CI.
 %define use_flight (%{rhel} >= 8 && "%{_arch}" != "aarch64")
 %define use_gandiva (%{rhel} >= 8 && "%{_arch}" != "aarch64")
-%define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
+%define use_gcs (%{rhel} >= 8)
 %define use_gflags (!%{is_amazon_linux})
 %define use_glog (%{rhel} <= 8)
 %define use_mimalloc (%{rhel} >= 8)
