@@ -26,3 +26,24 @@ test_that("select_binary() based on system", {
     "centos-7"
   )
 })
+
+test_that("compile_test_program()", {
+  expect_null(attr(compile_test_program("int a;"), "status"))
+  expect_true(any(grepl("<wrong/NOTAHEADER.h>", compile_test_program("#include <wrong/NOTAHEADER.h>"))))
+})
+
+test_that("determine_binary_from_stderr", {
+  expect_identical(determine_binary_from_stderr(compile_test_program("int a;")), "ubuntu-18.04")
+  expect_identical(determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 3")), "ubuntu-22.04")
+})
+
+test_that("select_binary() with test program", {
+  expect_identical(
+    select_binary("linux", "x86_64", "clang", "int a;"),
+    "ubuntu-18.04"
+  )
+  expect_identical(
+    select_binary("linux", "x86_64", "clang", "#error Using OpenSSL version 3"),
+    "ubuntu-22.04"
+  )
+})

@@ -86,7 +86,7 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
     # Not specified. Default is to find a binary on Ubuntu, CentOS/RHEL,
     # but not elsewhere
     # TODO: add a remote allowlist that we can add to
-    lib <- ifelse(any(grepl("ubuntu|centos|redhat", info$id)), "true", "false")
+    lib <- ifelse(any(grepl("ubuntu|centos|redhat|rhel", info$id)), "true", "false")
   }
 
   if (identical(lib, "false")) {
@@ -114,7 +114,7 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
       return("centos-7")
     } else {
       errs <- compile_test_program(test_program)
-      determine_binary_from_stderr(err)
+      determine_binary_from_stderr(errs)
     }
   } else {
     # No binary available for arch
@@ -137,10 +137,11 @@ compile_test_program <- function(code) {
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
-determine_binary_from_stderr <- function(err) {
+determine_binary_from_stderr <- function(errs) {
   # TODO: also check compiler, standard library?
-  if (length(errs) == 0) {
-    # We found libcudf and openssl > 1.0.2, and openssl is < 3.0
+  if (is.null(attr(errs, "status"))) {
+    # There was no error in compiling, so we found libcurl and openssl > 1.0.2,
+    # and openssl is < 3.0
     return("ubuntu-18.04")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
     return("ubuntu-22.04")
