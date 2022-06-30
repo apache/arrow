@@ -447,6 +447,7 @@ cdef class FilteredDataset(Dataset):
     expression : Expression
         The filter that should be applied to the dataset.
     """
+
     def __init__(self, dataset, expression):
         self.init(<shared_ptr[CDataset]>(<Dataset>dataset).wrapped)
         self._filter = expression
@@ -467,7 +468,7 @@ cdef class FilteredDataset(Dataset):
         filtered_dataset.init(self.wrapped)
         filtered_dataset._filter = new_filter
         return filtered_dataset
-        
+
     cdef Scanner _make_scanner(self, options):
         scanner_options = dict(options, filter=self._filter)
         return Scanner.from_dataset(self, **scanner_options)

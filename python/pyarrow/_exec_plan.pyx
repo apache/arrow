@@ -27,7 +27,7 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table, 
+from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import tobytes
 from pyarrow._compute cimport Expression, _true
@@ -108,8 +108,9 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
                 GetResultValue(deref(c_dataset_scanner).ToRecordBatchReader())
             )
             c_sourceopts = GetResultValue(
-                CSourceNodeOptions.FromRecordBatchReader(c_recordbatchreader_in, 
-                                                         deref(c_in_dataset).schema(), 
+                CSourceNodeOptions.FromRecordBatchReader(c_recordbatchreader_in,
+                                                         deref(
+                                                             c_in_dataset).schema(),
                                                          c_executor)
             )
             c_input_node_opts = static_pointer_cast[CExecNodeOptions, CSourceNodeOptions](
