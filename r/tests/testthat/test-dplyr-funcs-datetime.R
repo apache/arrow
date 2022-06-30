@@ -2071,6 +2071,11 @@ test_that("parse_date_time with month names and HMS", {
   # locale (affecting "%b% and "%B" formats) does not work properly on Windows
   # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16443 is done
   skip_on_os("windows")
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  skip_if_not_available("re2")
+
   test_dates_times2 <- tibble(
     ymd_hms_string =
       c("67-Jan-09 12:34:56", "1970-June-22 20:13:59", "87Aug22201359", NA),
