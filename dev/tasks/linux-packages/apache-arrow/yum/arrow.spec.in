@@ -219,6 +219,7 @@ cd -
 
 cd cpp
 %arrow_cmake_install
+rm -rf %{buildroot}%{_docdir}/arrow/
 cd -
 
 %package -n %{name}%{major_version}-libs
@@ -250,8 +251,8 @@ This package contains the libraries for Apache Arrow C++.
 
 %files -n %{name}%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
-%{_docdir}/arrow/
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow.so.*
 
 %package devel
@@ -289,7 +290,8 @@ Libraries and header files for Apache Arrow C++.
 
 %files devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/
 %exclude %{_includedir}/arrow/dataset/
 %if %{use_flight}
@@ -340,7 +342,8 @@ This package contains the libraries for Apache Arrow dataset.
 
 %files -n %{name}%{major_version}-dataset-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_dataset.so.*
 
 %package dataset-devel
@@ -354,7 +357,8 @@ Libraries and header files for Apache Arrow dataset.
 
 %files dataset-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/dataset/
 %{_libdir}/cmake/arrow/ArrowDatasetConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowDatasetTargets*.cmake
@@ -378,7 +382,8 @@ This package contains the libraries for Apache Arrow Flight.
 
 %files -n %{name}%{major_version}-flight-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_flight.so.*
 
 %package flight-devel
@@ -392,7 +397,8 @@ Libraries and header files for Apache Arrow Flight.
 
 %files flight-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/
 %{_libdir}/cmake/arrow/ArrowFlightConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowFlightTargets*.cmake
@@ -414,7 +420,8 @@ This package contains the libraries for Gandiva.
 
 %files -n gandiva%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libgandiva.so.*
 
 %package -n gandiva-devel
@@ -429,7 +436,8 @@ Libraries and header files for Gandiva.
 
 %files -n gandiva-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/gandiva/
 %{_libdir}/cmake/arrow/GandivaConfig*.cmake
 %{_libdir}/cmake/arrow/GandivaTargets*.cmake
@@ -451,7 +459,8 @@ This package contains the Python integration library for Apache Arrow.
 
 %files -n %{name}%{major_version}-python-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_python.so.*
 
 %package python-devel
@@ -466,7 +475,8 @@ Libraries and header files for Python integration library for Apache Arrow.
 
 %files python-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/python/
 %exclude %{_includedir}/arrow/python/flight.h
 %{_libdir}/cmake/arrow/ArrowPythonConfig*.cmake
@@ -488,7 +498,8 @@ This package contains the Python integration library for Apache Arrow Flight.
 
 %files -n %{name}%{major_version}-python-flight-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_python_flight.so.*
 
 %package python-flight-devel
@@ -504,7 +515,8 @@ Apache Arrow Flight.
 
 %files python-flight-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/python/flight.h
 %{_libdir}/cmake/arrow/ArrowPythonFlightConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowPythonFlightTargets*.cmake
@@ -525,7 +537,8 @@ This package contains the libraries for Plasma in-memory object store.
 
 %files -n plasma%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libplasma.so.*
 
 %package -n plasma-store-server
@@ -538,7 +551,8 @@ This package contains the server for Plasma in-memory object store.
 
 %files -n plasma-store-server
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_bindir}/plasma-store-server
 
 %package -n plasma-devel
@@ -552,7 +566,8 @@ Libraries and header files for Plasma in-memory object store.
 
 %files -n plasma-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/plasma/
 %{_libdir}/cmake/arrow/PlasmaConfig*.cmake
 %{_libdir}/cmake/arrow/PlasmaTargets*.cmake
@@ -572,7 +587,8 @@ This package contains the libraries for Apache Parquet C++.
 
 %files -n parquet%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libparquet.so.*
 
 %package -n parquet-devel
@@ -587,7 +603,8 @@ Libraries and header files for Apache Parquet C++.
 
 %files -n parquet-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/parquet/
 %{_libdir}/cmake/arrow/ParquetConfig*.cmake
 %{_libdir}/cmake/arrow/ParquetTargets*.cmake
@@ -607,7 +624,8 @@ This package contains the libraries for Apache Arrow GLib.
 
 %files -n %{name}%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow-glib.so.*
 %{_datadir}/gir-1.0/Arrow-1.0.gir
 
@@ -624,7 +642,8 @@ Libraries and header files for Apache Arrow GLib.
 
 %files glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow-glib/
 %{_libdir}/libarrow-glib.a
 %{_libdir}/libarrow-glib.so
@@ -643,7 +662,8 @@ Documentation for Apache Arrow GLib.
 
 %files glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_docdir}/arrow-glib/
 %{_datadir}/gtk-doc/html/arrow-glib/
 
@@ -658,7 +678,8 @@ This package contains the libraries for Apache Arrow Dataset GLib.
 
 %files -n %{name}%{major_version}-dataset-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow-dataset-glib.so.*
 %{_datadir}/gir-1.0/ArrowDataset-1.0.gir
 
@@ -674,7 +695,8 @@ Libraries and header files for Apache Arrow Dataset GLib.
 
 %files dataset-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow-dataset-glib/
 %{_libdir}/libarrow-dataset-glib.a
 %{_libdir}/libarrow-dataset-glib.so
@@ -691,7 +713,8 @@ Documentation for Apache Arrow dataset GLib.
 
 %files dataset-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/arrow-dataset-glib/
 
 %if %{use_flight}
@@ -706,7 +729,8 @@ This package contains the libraries for Apache Arrow Flight GLib.
 
 %files -n %{name}%{major_version}-flight-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow-flight-glib.so.*
 %{_datadir}/gir-1.0/ArrowFlight-1.0.gir
 
@@ -722,7 +746,8 @@ Libraries and header files for Apache Arrow Flight GLib.
 
 %files flight-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow-flight-glib/
 %{_libdir}/libarrow-flight-glib.a
 %{_libdir}/libarrow-flight-glib.so
@@ -739,7 +764,8 @@ Documentation for Apache Arrow Flight GLib.
 
 %files flight-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/arrow-flight-glib/
 %endif
 
@@ -755,7 +781,8 @@ This package contains the libraries for Gandiva GLib.
 
 %files -n gandiva%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libgandiva-glib.so.*
 %{_datadir}/gir-1.0/Gandiva-1.0.gir
 
@@ -771,7 +798,8 @@ Libraries and header files for Gandiva GLib.
 
 %files -n gandiva-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/gandiva-glib/
 %{_libdir}/libgandiva-glib.a
 %{_libdir}/libgandiva-glib.so
@@ -788,7 +816,8 @@ Documentation for Gandiva GLib.
 
 %files -n gandiva-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/gandiva-glib/
 %endif
 
@@ -803,7 +832,8 @@ This package contains the libraries for Plasma GLib.
 
 %files -n plasma%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libplasma-glib.so.*
 %{_datadir}/gir-1.0/Plasma-1.0.gir
 
@@ -819,7 +849,8 @@ Libraries and header files for Plasma GLib.
 
 %files -n plasma-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/plasma-glib/
 %{_libdir}/libplasma-glib.a
 %{_libdir}/libplasma-glib.so
@@ -836,7 +867,8 @@ Documentation for Plasma GLib.
 
 %files -n plasma-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/plasma-glib/
 
 %package -n parquet%{major_version}-glib-libs
@@ -850,7 +882,8 @@ This package contains the libraries for Apache Parquet GLib.
 
 %files -n parquet%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libparquet-glib.so.*
 %{_datadir}/gir-1.0/Parquet-1.0.gir
 
@@ -866,7 +899,8 @@ Libraries and header files for Apache Parquet GLib.
 
 %files -n parquet-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/parquet-glib/
 %{_libdir}/libparquet-glib.a
 %{_libdir}/libparquet-glib.so
@@ -883,7 +917,8 @@ Documentation for Apache Parquet GLib.
 
 %files -n parquet-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
