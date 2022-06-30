@@ -94,7 +94,7 @@ SCRIPT="
     revdepcheck::revdep_check(
     quiet = FALSE,
     timeout = as.difftime(120, units = 'mins'),
-    num_workers = 1,
+    num_workers = 2,
     env = c(
         ARROW_R_DEV = '$ARROW_R_DEV',
         LIBARROW_DOWNLOAD = TRUE,
