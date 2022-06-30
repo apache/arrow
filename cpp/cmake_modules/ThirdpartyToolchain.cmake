@@ -3834,74 +3834,55 @@ macro(build_grpc)
 
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
-       #${GRPC_GPR_ABSL_LIBRARIES}
-       absl::bad_any_cast_impl
-       absl::bad_optional_access
-       absl::bad_variant_access
-       absl::base
-       absl::city
-       absl::civil_time
-       absl::cord
-       absl::cord_internal
-       absl::cordz_functions
-       absl::cordz_handle
-       absl::cordz_info
-       absl::cordz_sample_token
-       absl::debugging_internal
-       absl::demangle_internal
-       absl::examine_stack
-       absl::exponential_biased
-       absl::failure_signal_handler
-       absl::flags
-       absl::flags_commandlineflag
-       absl::flags_commandlineflag_internal
-       absl::flags_config
-       absl::flags_internal
-       absl::flags_marshalling
-       absl::flags_parse
-       absl::flags_private_handle_accessor
-       absl::flags_program_name
-       absl::flags_reflection
-       absl::flags_usage
-       absl::flags_usage_internal
-       absl::graphcycles_internal
-       absl::hash
+       # This list of absl dependencies can be generated with:
+       # pkg-config --libs --static grpc \
+       #   | tr " " "\n" \
+       #   | grep ^-labsl_ \
+       #   | sed 's/^-labsl_/absl::/'
+       absl::raw_hash_set
        absl::hashtablez_sampler
-       absl::int128
-       absl::leak_check
-       absl::leak_check_disable
-       absl::log_severity
+       absl::hash
+       absl::city
        absl::low_level_hash
-       absl::malloc_internal
-       absl::periodic_sampler
        absl::random_distributions
-       absl::random_internal_distribution_test_util
-       absl::random_internal_platform
+       absl::random_seed_sequences
        absl::random_internal_pool_urbg
        absl::random_internal_randen
        absl::random_internal_randen_hwaes
        absl::random_internal_randen_hwaes_impl
        absl::random_internal_randen_slow
+       absl::random_internal_platform
        absl::random_internal_seed_material
        absl::random_seed_gen_exception
-       absl::random_seed_sequences
-       absl::raw_hash_set
-       absl::raw_logging_internal
-       absl::scoped_set_env
-       absl::spinlock_wait
-       absl::stacktrace
-       absl::status
        absl::statusor
+       absl::status
+       absl::cord
+       absl::cordz_info
+       absl::cord_internal
+       absl::cordz_functions
+       absl::exponential_biased
+       absl::cordz_handle
+       absl::bad_optional_access
        absl::str_format_internal
-       absl::strerror
+       absl::synchronization
+       absl::graphcycles_internal
+       absl::stacktrace
+       absl::symbolize
+       absl::debugging_internal
+       absl::demangle_internal
+       absl::malloc_internal
+       absl::time
+       absl::civil_time
        absl::strings
        absl::strings_internal
-       absl::symbolize
-       absl::synchronization
+       absl::base
+       absl::spinlock_wait
+       absl::int128
        absl::throw_delegate
-       absl::time
        absl::time_zone
-       absl::wyhash
+       absl::bad_variant_access
+       absl::raw_logging_internal
+       absl::log_severity
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
