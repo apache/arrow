@@ -76,7 +76,9 @@ case "${distribution}-${distribution_version}" in
     have_flight=no
     have_gandiva=no
     have_python=no
-    have_arrow_libs=yes
+    if [ "$(arch)" != "aarch64" ]; then
+      have_arrow_libs=yes
+    fi
     install_command="yum install -y"
     uninstall_command="yum remove -y"
     clean_command="yum clean"
