@@ -1,4 +1,22 @@
-# Run this with testthat::test_dir(".") inside of this directory
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+
+# Usage: run testthat::test_dir(".") inside of this directory
 
 # Flag so that we just load the functions and don't evaluate them like we do
 # when called from configure.R
@@ -13,7 +31,7 @@ test_that("identify_binary() based on LIBARROW_BINARY", {
 })
 
 test_that("select_binary() based on system", {
-  expect_null(select_binary("darwin"))
+  expect_null(select_binary("darwin")) # Not built today
   expect_null(select_binary("linux", arch = "aarch64")) # Not built today
   gcc48 <- c(
     "g++-4.8 (Ubuntu 4.8.4-2ubuntu1~14.04.3) 4.8.4",
@@ -46,4 +64,14 @@ test_that("select_binary() with test program", {
     select_binary("linux", "x86_64", "clang", "#error Using OpenSSL version 3"),
     "ubuntu-22.04"
   )
+})
+
+test_that("check_allowlist", {
+  tf <- tempfile()
+  cat("tu$\n^cent\n", file = tf)
+  expect_true(check_allowlist("ubuntu", tf))
+  expect_true(check_allowlist("centos", tf))
+  expect_false(check_allowlist("redhat", tf)) # remote allowlist doesn't have this
+  expect_true(check_allowlist("redhat", tempfile())) # remote allowlist doesn't exist, so we fall back to the default list, which contains redhat
+  expect_false(check_allowlist("debian", tf))
 })

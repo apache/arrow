@@ -19,6 +19,9 @@ args <- commandArgs(TRUE)
 VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 
+# TESTING is set in test-nixlibs.R; it won't be set when called from configure
+test_mode <- exists("TESTING")
+
 arrow_repo <- paste0(getOption("arrow.dev_repo", "https://arrow-r-nightly.s3.amazonaws.com"), "/libarrow/")
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
@@ -40,7 +43,8 @@ try_download <- function(from_url, to_file) {
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
-# Default is build from source, not download a binary
+# Set LIBARROW_BUILD=FALSE to ensure that we use a previously built libarrow
+# and don't fall back to a full source build
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 
 # Check if we're doing an offline build.
@@ -83,10 +87,8 @@ download_binary <- function(lib) {
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
   lib <- tolower(lib)
   if (identical(lib, "")) {
-    # Not specified. Default is to find a binary on Ubuntu, CentOS/RHEL,
-    # but not elsewhere
-    # TODO: add a remote allowlist that we can add to
-    lib <- ifelse(any(grepl("ubuntu|centos|redhat|rhel", info$id)), "true", "false")
+    # Not specified. Check the allowlist.
+    lib <- ifelse(check_allowlist(info$id), "true", "false")
   }
 
   if (identical(lib, "false")) {
@@ -94,13 +96,24 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
     NULL
   } else if (!identical(lib, "true")) {
     # Env var provided an os-version to use, to override our logic.
-    # TODO: validate that this exists? Current behavior is to try and fail,
-    # falling back to source build
+    # We don't validate that this exists. If it doesn't, the download will fail
+    # and the build will fall back to building from source
     lib
   } else {
     # See if we can find a suitable binary
     select_binary()
   }
+}
+
+check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/master/r/tools/nixlibs-allowlist.txt") {
+  allowlist <- tryCatch(
+    # Try a remote allowlist so that we can add/remove without a release
+    suppressWarnings(readLines(allowed)),
+    # Fallback to default: allowed only on Ubuntu and CentOS/RHEL
+    error = function(e) c("ubuntu", "centos", "redhat", "rhel")
+  )
+  # allowlist should contain valid regular expressions (plain strings ok too)
+  any(grepl(paste(allowlist, collapse = "|"), os))
 }
 
 select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
@@ -133,6 +146,9 @@ test_for_curl_and_openssl <- "
 #endif"
 
 compile_test_program <- function(code) {
+  # Note: if we wanted to check for openssl on macOS, we'd have to set the brew
+  # path as a -I directory. But since we (currently) only run this code to
+  # determine whether we can download a Linux binary, it's not relevant.
   runner <- "`R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc"
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
@@ -147,6 +163,8 @@ determine_binary_from_stderr <- function(errs) {
     return("ubuntu-22.04")
   } else {
     if (any(grepl("#include <curl/curl.h>", errs, fixed = TRUE))) {
+      # TODO: print messages if !quietly
+      # TODO: check for apt/yum/etc. and message the right thing
       # Message: libcurl not found
     }
     if (any(grepl("#include <openssl/opensslv.h>", errs, fixed = TRUE))) {
@@ -661,8 +679,7 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
 
 #####
 
-# TESTING is set in test-nixlibs.R; it won't be set when called from configure
-if (!exists("TESTING") && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
+if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
   # don't need to do anything. Otherwise,
   # (1) Look for a prebuilt binary for this version
@@ -684,6 +701,7 @@ if (!exists("TESTING") && !file.exists(paste0(dst_dir, "/include/arrow/api.h")))
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
       cat(paste0(
+        # TODO: change this message
         "*** Building libarrow from source\n",
         "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
         "    See install vignette for details:\n",
