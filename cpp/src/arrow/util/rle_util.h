@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "arrow/util/macros.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace rle_util {
