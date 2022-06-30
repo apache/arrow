@@ -2333,7 +2333,7 @@ https://github.com/ursa-labs/arrow-r-nightly
 which is made available under the Apache License 2.0.
 
 --------------------------------------------------------------------------------
-.github/workflows/r_nightly.yml (some portions)
+.github/actions/sync-nightlies/action.yml  (some portions)
 
 Some portions of this file are derived from code from
 
@@ -2362,7 +2362,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 --------------------------------------------------------------------------------
-.github/workflows/r_nightly.yml (some portions)
+.github/actions/sync-nightlies/action.yml (some portions)
 
 Some portions of this file are derived from code from
 

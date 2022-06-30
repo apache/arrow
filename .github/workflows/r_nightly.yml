@@ -93,35 +93,16 @@ jobs:
           key: r-nightly-${{ github.run_id }}
           restore-keys: r-nightly-
       - name: Sync from Remote
-        env:
-          RSYNC_PATH: repo
-          SSH_KEY: "${{ secrets.NIGHTLIES_RSYNC_KEY }}"
-          PORT: "${{ secrets.NIGHTLIES_RSYNC_PORT }}"
-          USER: "${{ secrets.NIGHTLIES_RSYNC_USER }}"
-          HOST: "${{ secrets.NIGHTLIES_RSYNC_HOST }}"
-          HOST_KEY: "${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}"
-          REMOTE_PATH: "${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/r"
-        run: |
-            # Make SSH key available and add remote to known hosts
-            eval "$(ssh-agent)" > /dev/null
-            echo "$SSH_KEY" | tr -d '\r' | DISPLAY=1 ssh-add - >/dev/null
-            mkdir -p ~/.ssh
-            echo "$HOST_KEY" >> ~/.ssh/known_hosts
-
-            # strict errors
-            set -eu
-
-            # avzrh - archive mode, verbose, with compression, recurse into dirs, human readable numbers
-            # transfer only new files, delete files not in source, show progress info
-            RSYNC_SWITCHES="-avzrh --update --delete --progress"
-            # We have to use a custom remote shell to supply the port
-            RSH="ssh -p $PORT"
-            LOCAL_PATH="$GITHUB_WORKSPACE/$RSYNC_PATH"
-            DSN="$USER@$HOST"
-
-            # Deploy. It is important to append '/*' to the source path otherwise
-            # the entire source dir will be created as a sub dir in the destination
-            sh -c "rsync $RSYNC_SWITCHES -e '$RSH' $DSN:$REMOTE_PATH/* $LOCAL_PATH"
+        uses: ./arrow/.github/actions/sync-nightlies
+        with:
+          switches: -avzh --update --delete --progress
+          local_path: repo
+          remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/r
+          remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
+          remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
+          remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
+          remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
+          remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
       - run: tree repo
       - name: Build Repository
         shell: Rscript {0}
@@ -191,30 +172,14 @@ jobs:
       - name: Show repo contents
         run: tree repo
       - name: Sync to Remote
-        env:
-          RSYNC_PATH: repo
-          SSH_KEY: "${{ secrets.NIGHTLIES_RSYNC_KEY }}"
-          PORT: "${{ secrets.NIGHTLIES_RSYNC_PORT }}"
-          USER: "${{ secrets.NIGHTLIES_RSYNC_USER }}"
-          HOST: "${{ secrets.NIGHTLIES_RSYNC_HOST }}"
-          HOST_KEY: "${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}"
-          REMOTE_PATH: "${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/r"
-        run: |
-            # Make SSH key available and add remote to known hosts
-            eval "$(ssh-agent)" > /dev/null
-            echo "$SSH_KEY" | tr -d '\r' | DISPLAY=1 ssh-add - >/dev/null
-            mkdir -p ~/.ssh
-            echo "$HOST_KEY" >> ~/.ssh/known_hosts
-            set -eu
-
-            # avzrh - archive mode, verbose, with compression, recurse into dirs, human readable numbers
-            # transfer only new files, delete files not in source, show progress info
-            RSYNC_SWITCHES="-avzrh --update --delete --progress"
-            # We have to use a custom RSH to supply the port
-            RSH="ssh -p $PORT"
-            LOCAL_PATH="$GITHUB_WORKSPACE/$RSYNC_PATH"
-            DSN="$USER@$HOST"
-
-            # Deploy. It is important to append '/*' to the source path otherwise
-            # the entire source dir will be created as a sub dir in the destination
-            sh -c "rsync $RSYNC_SWITCHES -e '$RSH' $LOCAL_PATH/*  $DSN:$REMOTE_PATH"
+        uses: ./arrow/.github/actions/sync-nightlies
+        with:
+          upload: true
+          switches: -avzh --update --delete --progress
+          local_path: repo
+          remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/r
+          remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
+          remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
+          remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
+          remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
+          remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
