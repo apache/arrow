@@ -50,6 +50,7 @@ add_arrow_compute_test(scalar_utility_test
                        scalar_random_test.cc
                        scalar_set_lookup_test.cc
                        scalar_validity_test.cc
+                       scalar_hash_test.cc
                        test_util.cc)
 
 add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
