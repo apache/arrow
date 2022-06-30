@@ -1422,6 +1422,14 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
 }
 
 FORCE_INLINE
+gdv_int64 convert_fromINT_binary(gdv_int64 context, const char* bin_in, gdv_int32 len) {
+  gdv_int64 a;
+  a = gdv_int64((unsigned char)(bin_in[0]) << 24 | (unsigned char)(bin_in[1]) << 16 |
+                (unsigned char)(bin_in[2]) << 8 | (unsigned char)(bin_in[3]));
+  return a;
+}
+
+FORCE_INLINE
 const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char* text_in,
                                                     int32_t text_len,
                                                     const char* char_to_replace,

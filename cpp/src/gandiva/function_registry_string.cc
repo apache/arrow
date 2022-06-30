@@ -357,6 +357,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "convert_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("convert_fromINT", {"convert_fromint"}, DataTypeVector{binary()},
+                     int64(), kResultNullIfNull, "convert_fromINT_binary",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("convert_replaceUTF8", {"convert_replaceutf8"},
                      DataTypeVector{binary(), utf8()}, utf8(), kResultNullIfNull,
                      "convert_replace_invalid_fromUTF8_binary",

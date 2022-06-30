@@ -2684,6 +2684,51 @@ TEST_F(TestProjector, TestToHex) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_numerical, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestConvertFromInt) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::binary());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto output_convert_from = field("convert_fromINT", int64());
+
+  // Build expression
+  auto convert_fromINT_expr =
+      TreeExprBuilder::MakeExpression("convert_fromINT", {field0}, output_convert_from);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {convert_fromINT_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+
+  auto array_a = MakeArrowArrayBinary(
+      {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+       {0x00, 0x00, static_cast<char>(0x88), static_cast<char>(0xB8), 0x00, 0x00, 0x00,
+        0x00},
+       {0x00, 0x0E, static_cast<char>(0xDC), 0x1C},
+       {0x07, 0x5B, static_cast<char>(0xCD), 0x15, 0x00, 0x00},
+       {0x00, static_cast<char>(0xAB), static_cast<char>(0xCD), static_cast<char>(0xEF)}},
+      {true, true, true, true, true});
+
+  // expected output
+  auto exp_convert = MakeArrowArrayInt64({0, 35000, 973852, 123456789, 11259375},
+                                         {true, true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convert, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestAesEncryptDecrypt) {
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::utf8());

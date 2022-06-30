@@ -659,6 +659,8 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len);
 
+gdv_int64 convert_fromINT_binary(gdv_int64 context, const char* bin_in, gdv_int32 len);
+
 const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char* text_in,
                                                     int32_t text_len,
                                                     const char* char_to_replace,

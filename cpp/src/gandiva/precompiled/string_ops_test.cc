@@ -278,6 +278,37 @@ TEST(TestStringOps, TestConvertUtf8) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestStringOps, TestConvertInt) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  const char* binary_str;
+
+  binary_str = "\x00\x00\x00\x00\x00\x00\x00\x00";
+  gdv_int64 result = convert_fromINT_binary(ctx_ptr, binary_str, 8);
+  EXPECT_EQ(result, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str = "\x00\x00\x88\xB8\x00\x00\x00\x00";
+  result = convert_fromINT_binary(ctx_ptr, binary_str, 8);
+  EXPECT_EQ(result, 35000);
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str = "\x00\x0E\xDC\x1C";
+  result = convert_fromINT_binary(ctx_ptr, binary_str, 4);
+  EXPECT_EQ(result, 973852);
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str = "\x07\x5B\xCD\x15\x00\x00";
+  result = convert_fromINT_binary(ctx_ptr, binary_str, 6);
+  EXPECT_EQ(result, 123456789);
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str = "\x00\xAB\xCD\xEF";
+  result = convert_fromINT_binary(ctx_ptr, binary_str, 4);
+  EXPECT_EQ(result, 11259375);
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
