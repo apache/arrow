@@ -421,9 +421,8 @@ TEST(BlockParser, FinalTruncatedBulkFilterNoEol) {
 
   uint32_t out_size;
   BlockParser parser(ParseOptions::Defaults());
-  Status st = ParseFinal(parser, csv, &out_size);
-  ASSERT_RAISES(Invalid, st);
-  ASSERT_NE(st.ToString().find(err_msg), std::string::npos);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg),
+                                  ParseFinal(parser, csv, &out_size));
 }
 
 TEST(BlockParser, QuotingSimple) {
