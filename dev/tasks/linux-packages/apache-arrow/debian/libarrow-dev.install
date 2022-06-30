@@ -17,3 +17,5 @@ usr/lib/*/pkgconfig/arrow-filesystem.pc
 usr/lib/*/pkgconfig/arrow-json.pc
 usr/lib/*/pkgconfig/arrow-orc.pc
 usr/lib/*/pkgconfig/arrow.pc
+usr/share/arrow/gdb/
+usr/share/gdb/auto-load/

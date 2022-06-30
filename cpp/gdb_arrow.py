@@ -2481,4 +2481,5 @@ def main():
     objfile.pretty_printers.append(arrow_pretty_print)
 
 
-main()
+if __name__ == '__main__':
+    main()
