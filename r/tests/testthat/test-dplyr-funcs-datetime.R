@@ -2597,8 +2597,7 @@ check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...)
 
   # The rounding tests for dates is run against Arrow timestamp behaviour
   # because of a lubridate bug specific to Date objects with week and
-  # higher-unit rounding:
-  # https://github.com/tidyverse/lubridate/issues/1051
+  # higher-unit rounding (see lubridate issue 1051)
   out <- data %>%
     arrow_table() %>%
     mutate(
@@ -2616,9 +2615,8 @@ check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...)
 
 test_that("date round/floor/ceil works for units: month/quarter/year", {
 
-  # these test cases are affected by lubridate-1051 so we bypass
+  # these test cases are affected by lubridate issue 1051 so we bypass
   # lubridate::round_date() for Date objects with large rounding units
-  # https://github.com/tidyverse/lubridate/issues/1051
 
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
   for (r in nrow(year_of_dates)) {
