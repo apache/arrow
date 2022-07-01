@@ -2848,21 +2848,22 @@ check_timezone_rounding <- function(data, unit) {
   )
 }
 
-test_that("timestamp rounding takes place in local time, units day and smaller", {
+test_that("timestamp rounding takes place in local time", {
+
+  # lubridate does not always return the correct results
+  # for some of our test cases in tz_times, esp on windows
+  skip_on_os("windows")
 
   tz_times %>% check_timezone_rounding(".001 second")
   tz_times %>% check_timezone_rounding("second")
   tz_times %>% check_timezone_rounding("minute")
   tz_times %>% check_timezone_rounding("hour")
-  tz_times %>% check_timezone_rounding("day")
 
 })
 
-test_that("timestamp rounding takes place in local time, units week and larger", {
+test_that("timestamp rounding takes place in local time", {
 
-  # for larger units we use a slightly different timezone test
-  # because lubridate does something peculiar on the month/quarter/year
-  # tests that we might not want to emulate
+  # a less strict test than tz_times
   year_of_dates_tz <- tibble::tibble(
     utc_time = as.POSIXct(month_boundaries, tz = "UTC"),
     syd_time = as.POSIXct(month_boundaries, tz = "Australia/Sydney"),
@@ -2871,7 +2872,11 @@ test_that("timestamp rounding takes place in local time, units week and larger",
     kat_time = as.POSIXct(month_boundaries, tz = "Asia/Kathmandu")
   )
 
-  year_of_dates_tz %>% check_timezone_rounding("week")
+  year_of_dates_tz %>% check_timezone_rounding(".001 second")
+  year_of_dates_tz %>% check_timezone_rounding("second")
+  year_of_dates_tz %>% check_timezone_rounding("minute")
+  year_of_dates_tz %>% check_timezone_rounding("hour")
+  year_of_dates_tz %>% check_timezone_rounding("day")
   year_of_dates_tz %>% check_timezone_rounding("month")
   year_of_dates_tz %>% check_timezone_rounding("quarter")
   year_of_dates_tz %>% check_timezone_rounding("year")
