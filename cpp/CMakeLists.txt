@@ -980,10 +980,9 @@ endif()
 
 if(ARROW_JNI)
   add_subdirectory(src/jni)
-endif()
-
-if(ARROW_DATASET)
-  add_subdirectory(../java/dataset/src/main/cpp ./java/jni)
+  if(ARROW_DATASET)
+  	add_subdirectory(../java/dataset/src/main/cpp ./java/jni)
+	endif()
 endif()
 
 
