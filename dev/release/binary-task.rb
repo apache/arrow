@@ -1457,6 +1457,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       ["almalinux", "9"],
       ["almalinux", "8"],
       ["amazon-linux", "2"],
+      ["centos", "9-stream"],
       ["centos", "8-stream"],
       ["centos", "7"],
     ]

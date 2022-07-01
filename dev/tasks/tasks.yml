@@ -657,6 +657,7 @@ tasks:
 {% for target in ["almalinux-9",
                   "almalinux-8",
                   "amazon-linux-2",
+                  "centos-9-stream",
                   "centos-8-stream",
                   "centos-7"] %}
   {% set is_rhel7_based = (target in ["amazon-linux-2", "centos-7"]) %}
