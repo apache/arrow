@@ -2823,7 +2823,7 @@ test_that("temporal round/floor/ceil period unit maxima are enforced", {
 
 })
 
-check_timezone_rounding <- function(unit) {
+check_timezone_rounding <- function(data, unit) {
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2844,16 +2844,37 @@ check_timezone_rounding <- function(unit) {
         kat_ceiling = ceiling_date(kat_time, unit = unit)
       ) %>%
       collect(),
-    tz_times
+    data
   )
 }
 
-test_that("timestamp rounding takes place in local time", {
+test_that("timestamp rounding takes place in local time, units day and smaller", {
 
-  check_timezone_rounding(".001 second")
-  check_timezone_rounding("second")
-  check_timezone_rounding("minute")
-  check_timezone_rounding("hour")
-  check_timezone_rounding("day")
+  tz_times %>% check_timezone_rounding(".001 second")
+  tz_times %>% check_timezone_rounding("second")
+  tz_times %>% check_timezone_rounding("minute")
+  tz_times %>% check_timezone_rounding("hour")
+  tz_times %>% check_timezone_rounding("day")
 
 })
+
+test_that("timestamp rounding takes place in local time, units week and larger", {
+
+  # for larger units we use a slightly different timezone test
+  # because lubridate does something peculiar on the month/quarter/year
+  # tests that we might not want to emulate
+  year_of_dates_tz <- tibble::tibble(
+    utc_time = as.POSIXct(month_boundaries, tz = "UTC"),
+    syd_time = as.POSIXct(month_boundaries, tz = "Australia/Sydney"),
+    adl_time = as.POSIXct(month_boundaries, tz = "Australia/Adelaide"),
+    mar_time = as.POSIXct(month_boundaries, tz = "Pacific/Marquesas"),
+    kat_time = as.POSIXct(month_boundaries, tz = "Asia/Kathmandu")
+  )
+
+  year_of_dates_tz %>% check_timezone_rounding("week")
+  year_of_dates_tz %>% check_timezone_rounding("month")
+  year_of_dates_tz %>% check_timezone_rounding("quarter")
+  year_of_dates_tz %>% check_timezone_rounding("year")
+
+})
+
