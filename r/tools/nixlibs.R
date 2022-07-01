@@ -64,9 +64,13 @@ download_binary <- function(lib) {
   libfile <- tempfile()
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
-    cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", lib))
+    if (!quietly) {
+      cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", lib))
+    }
   } else {
-    cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, lib))
+    if (!quietly) {
+      cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, lib))
+    }
     libfile <- NULL
   }
   libfile
@@ -124,6 +128,7 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
     # We only host x86 linux binaries today
     is_gcc4 <- any(grepl("^g\\+\\+.*[^\\d.]4(\\.\\d){2}", compiler_version))
     if (is_gcc4) {
+      cat("*** Some features are not available with gcc 4\n")
       return("centos-7")
     } else {
       errs <- compile_test_program(test_program)
@@ -131,6 +136,7 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
     }
   } else {
     # No binary available for arch
+    cat(sprintf("*** Building on %s %s\n", os, arch))
     NULL
   }
 }
@@ -154,24 +160,24 @@ compile_test_program <- function(code) {
 }
 
 determine_binary_from_stderr <- function(errs) {
-  # TODO: also check compiler, standard library?
+  # TODO: also check standard library?
   if (is.null(attr(errs, "status"))) {
     # There was no error in compiling, so we found libcurl and openssl > 1.0.2,
     # and openssl is < 3.0
+    cat("*** Found libcurl and openssl >= 1.0.2\n")
     return("ubuntu-18.04")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
+    cat("*** Found libcurl and openssl >= 3.0.0\n")
     return("ubuntu-22.04")
   } else {
     if (any(grepl("#include <curl/curl.h>", errs, fixed = TRUE))) {
-      # TODO: print messages if !quietly
-      # TODO: check for apt/yum/etc. and message the right thing
-      # Message: libcurl not found
+      cat("*** libcurl not found\n")
     }
     if (any(grepl("#include <openssl/opensslv.h>", errs, fixed = TRUE))) {
-      # Message: openssl not found
+      cat("*** openssl not found\n")
     }
     if (any(grepl("OpenSSL version too old", errs, fixed = TRUE))) {
-      # Message: openssl found but too old
+      cat("*** openssl found but version >= 1.0.2 is required for some features\n")
     }
     return(NULL)
   }
@@ -456,6 +462,10 @@ ensure_cmake <- function() {
       "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
       "/bin/cmake"
     )
+  } else {
+    # Show which one we found
+    # Full source builds will always show "cmake" in the logs
+    cat(sprintf("**** cmake: %s\n", cmake))
   }
   cmake
 }
@@ -619,12 +629,17 @@ with_cloud_support <- function(env_var_list) {
     }
 
     # Check the features
+    # This duplicates what we do with the test program above when we check
+    # capabilities for using binaries. We could consider consolidating this
+    # logic, though these use cmake in order to match exactly what we do in the
+    # libarrow build, and maybe that increases the fidelity.
     if (isTRUE(cmake_gcc_version(env_var_list) < "4.9")) {
       print_warning("not available for gcc < 4.9")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
     } else if (!cmake_find_package("CURL", NULL, env_var_list)) {
       # curl on macos should be installed, so no need to alter this for macos
+      # TODO: check for apt/yum/etc. and message the right thing?
       print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
@@ -701,10 +716,8 @@ if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
       cat(paste0(
-        # TODO: change this message
         "*** Building libarrow from source\n",
-        "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
-        "    See install vignette for details:\n",
+        "    For build options and troubleshooting, see the install vignette:\n",
         "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
       ))
       build_libarrow(src_dir, dst_dir)

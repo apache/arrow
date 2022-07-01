@@ -31,38 +31,73 @@ test_that("identify_binary() based on LIBARROW_BINARY", {
 })
 
 test_that("select_binary() based on system", {
-  expect_null(select_binary("darwin")) # Not built today
-  expect_null(select_binary("linux", arch = "aarch64")) # Not built today
+  expect_output(
+    expect_null(select_binary("darwin", "x86_64")), # Not built today
+    "Building on darwin x86_64"
+  )
+  expect_output(
+    expect_null(select_binary("linux", arch = "aarch64")), # Not built today
+    "Building on linux aarch64"
+  )
   gcc48 <- c(
     "g++-4.8 (Ubuntu 4.8.4-2ubuntu1~14.04.3) 4.8.4",
     "Copyright (C) 2013 Free Software Foundation, Inc.",
     "This is free software; see the source for copying conditions.  There is NO",
     "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
   )
-  expect_identical(
-    select_binary("linux", "x86_64", compiler_version = gcc48),
-    "centos-7"
+  expect_output(
+    expect_identical(
+      select_binary("linux", "x86_64", compiler_version = gcc48),
+      "centos-7"
+    ),
+    "Some features are not available with gcc 4"
   )
 })
 
 test_that("compile_test_program()", {
   expect_null(attr(compile_test_program("int a;"), "status"))
-  expect_true(any(grepl("<wrong/NOTAHEADER.h>", compile_test_program("#include <wrong/NOTAHEADER.h>"))))
+  fail <- compile_test_program("#include <wrong/NOTAHEADER.h>")
+  expect_true(attr(fail, "status") > 0)
+  expect_true(any(grepl("<wrong/NOTAHEADER.h>", fail)))
 })
 
 test_that("determine_binary_from_stderr", {
-  expect_identical(determine_binary_from_stderr(compile_test_program("int a;")), "ubuntu-18.04")
-  expect_identical(determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 3")), "ubuntu-22.04")
+  expect_output(
+    expect_identical(
+      determine_binary_from_stderr(compile_test_program("int a;")),
+      "ubuntu-18.04"
+    ),
+    "Found libcurl and openssl >= 1.0.2"
+  )
+  expect_output(
+    expect_identical(
+      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 3")),
+      "ubuntu-22.04"
+    ),
+    "Found libcurl and openssl >= 3.0.0"
+  )
+  expect_output(
+    expect_null(
+      determine_binary_from_stderr(compile_test_program("#error OpenSSL version too old"))
+    ),
+    "openssl found but version >= 1.0.2 is required for some features"
+  )
 })
 
 test_that("select_binary() with test program", {
-  expect_identical(
-    select_binary("linux", "x86_64", "clang", "int a;"),
-    "ubuntu-18.04"
+  expect_output(
+    expect_identical(
+      select_binary("linux", "x86_64", "clang", "int a;"),
+      "ubuntu-18.04"
+    ),
+    "Found libcurl and openssl >= 1.0.2"
   )
-  expect_identical(
-    select_binary("linux", "x86_64", "clang", "#error Using OpenSSL version 3"),
-    "ubuntu-22.04"
+  expect_output(
+    expect_identical(
+      select_binary("linux", "x86_64", "clang", "#error Using OpenSSL version 3"),
+      "ubuntu-22.04"
+    ),
+    "Found libcurl and openssl >= 3.0.0"
   )
 })
 
@@ -73,5 +108,5 @@ test_that("check_allowlist", {
   expect_true(check_allowlist("centos", tf))
   expect_false(check_allowlist("redhat", tf)) # remote allowlist doesn't have this
   expect_true(check_allowlist("redhat", tempfile())) # remote allowlist doesn't exist, so we fall back to the default list, which contains redhat
-  expect_false(check_allowlist("debian", tf))
+  expect_false(check_allowlist("debian", tempfile()))
 })
