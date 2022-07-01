@@ -333,15 +333,22 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       ARROW_ASSIGN_OR_RAISE(auto input, FromProto(aggregate.input(), ext_set));
 
       int group_size = aggregate.groupings_size();
+      if (group_size > 1) {
+        return Status::Invalid("Grouping sets not supported.");
+      }
       std::vector<FieldRef> keys;
-      for (int group_id = 0; group_id < group_size; group_id++) {
-        auto group = aggregate.groupings(group_id);
-        for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
-          const auto& expr = FromProto(group.grouping_expressions(exp_id), ext_set);
-          const auto& field_ref = expr->field_ref();
-          keys.emplace_back(std::move(*field_ref));
+      auto group = aggregate.groupings(0);
+      keys.reserve(group.grouping_expressions_size());
+      for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
+        const auto& expr = FromProto(group.grouping_expressions(exp_id), ext_set);
+        const auto& field_ref = expr->field_ref();
+        if(field_ref) {
+          keys.emplace_back(std::move(*field_ref)); 
+        } else {
+          return Status::Invalid("Only accept a direct reference as the grouping expression for aggregates");
         }
       }
+      
       // DCHECK_EQ(measure_size, group_size);
       // denotes how many unique aggregation functions are used
       // measure_id refers to the corresponding function in the
