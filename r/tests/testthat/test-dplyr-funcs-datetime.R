@@ -2436,7 +2436,7 @@ test_that("timestamp round/floor/ceiling accepts period unit abbreviation", {
 
     # check synonyms
     base <- call_binding("round_date", Expression$scalar(easy_date), unit)
-    for(syn in synonyms) {
+    for (syn in synonyms) {
       expect_equal(
         call_binding("round_date", Expression$scalar(easy_date), syn),
         base
@@ -2466,8 +2466,8 @@ test_that("temporal round/floor/ceiling accepts periods with multiple units", {
     )
   }
 
-  for(multiplier in c(1, 2, 10)) {
-    for(unit in c("second", "minute", "day", "year")) {
+  for (multiplier in c(1, 2, 10)) {
+    for (unit in c("second", "minute", "day", "year")) {
       check_multiple_unit_period(unit, multiplier)
     }
   }
@@ -2552,7 +2552,7 @@ test_that("timestamp round/floor/ceil works for units of 1 day or less", {
 test_that("date round/floor/ceil works for units: month/quarter/year", {
 
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for(r in nrow(year_of_dates)) {
+  for (r in nrow(year_of_dates)) {
     year_of_dates[r, ] %>% check_date_rounding("month", ignore_attr = TRUE)
     year_of_dates[r, ] %>% check_date_rounding("quarter", ignore_attr = TRUE)
     year_of_dates[r, ] %>% check_date_rounding("year", ignore_attr = TRUE)
@@ -2666,7 +2666,7 @@ check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) 
 test_that("date round/floor/ceil works for week units (standard week_start)", {
 
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for(r in 1:nrow(fortnight)) {
+  for (r in seq_len(nrow(fortnight))) {
     fortnight[r, ] %>% check_date_week_rounding(week_start = 1) # Monday
     fortnight[r, ] %>% check_date_week_rounding(week_start = 7) # Sunday
   }
@@ -2675,7 +2675,7 @@ test_that("date round/floor/ceil works for week units (standard week_start)", {
 test_that("date round/floor/ceil works for week units (non-standard week_start)", {
 
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for(r in 1:nrow(fortnight)) {
+  for (r in seq_len(nrow(fortnight))) {
     fortnight[r, ] %>% check_date_week_rounding(week_start = 1) # Tuesday
     fortnight[r, ] %>% check_date_week_rounding(week_start = 2) # Wednedsday
     fortnight[r, ] %>% check_date_week_rounding(week_start = 3) # Thursday
@@ -2706,7 +2706,7 @@ check_boundary_with_unit <- function(unit, ...) {
 
   # dates
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for(r in nrow(boundary_times)) {
+  for (r in seq_len(nrow(boundary_times))) {
     expect_equal(
       boundary_times[r, ] %>%
         arrow_table() %>%
