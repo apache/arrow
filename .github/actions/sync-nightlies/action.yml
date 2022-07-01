@@ -45,7 +45,8 @@ inputs:
     description: 'The remote key'
     required: true
   remote_host_key:
-    description: 'The host key fot Stricthostkeychecking'
+    description: 'The host key for StrictHostKeyChecking'
+
     required: true
 
 runs:
@@ -55,7 +56,8 @@ runs:
       shell: bash
       env:
           SWITCHES: "${{ inputs.switches }}"
-          LOCAL_PATH: "${{ github.workspace}}/${{ inputs.local_path }}"
+          LOCAL_PATH: "${{ github.workspace }}/${{ inputs.local_path }}"
+
           SSH_KEY: "${{ inputs.remote_key }}"
           PORT: "${{ inputs.remote_port }}"
           USER: "${{ inputs.remote_user }}"
@@ -78,15 +80,16 @@ runs:
         RSH="ssh -o UserKnownHostsFile=.ssh/known_hosts -p $PORT"
         DSN="$USER@$HOST"
 
-        # It is important to append '/*' to the source path otherwise
+        # It is important to append '/' to the source path otherwise
         # the entire source dir will be created as a sub dir in the destination
         if [ "${{ inputs.upload }}" = true ]
         then
-          SOURCE=$LOCAL_PATH/*
+          SOURCE=$LOCAL_PATH/
           DEST=$DSN:$REMOTE_PATH
         else
-          SOURCE=$DSN:$REMOTE_PATH/*
+          SOURCE=$DSN:$REMOTE_PATH/
           DEST=$LOCAL_PATH
         fi
+
 
         rsync $SWITCHES --rsh="$RSH" $SOURCE $DEST
