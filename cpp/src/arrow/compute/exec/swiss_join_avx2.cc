@@ -26,8 +26,8 @@ namespace compute {
 #if defined(ARROW_HAVE_AVX2)
 
 template <class PROCESS_8_VALUES_FN>
-int RowArrayAccessor::Visit_avx2(const KeyEncoder::KeyRowArray& rows, int column_id,
-                                 int num_rows, const uint32_t* row_ids,
+int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int num_rows,
+                                 const uint32_t* row_ids,
                                  PROCESS_8_VALUES_FN process_8_values_fn) {
   // Number of rows processed together in a single iteration of the loop (single
   // call to the provided processing lambda).
@@ -158,7 +158,7 @@ int RowArrayAccessor::Visit_avx2(const KeyEncoder::KeyRowArray& rows, int column
 }
 
 template <class PROCESS_8_VALUES_FN>
-int RowArrayAccessor::VisitNulls_avx2(const KeyEncoder::KeyRowArray& rows, int column_id,
+int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
                                       int num_rows, const uint32_t* row_ids,
                                       PROCESS_8_VALUES_FN process_8_values_fn) {
   // Number of rows processed together in a single iteration of the loop (single

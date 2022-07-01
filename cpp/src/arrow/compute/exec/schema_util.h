@@ -24,9 +24,11 @@
 
 #include "arrow/compute/light_array.h"  // for KeyColumnMetadata
 #include "arrow/type.h"                 // for DataType, FieldRef, Field and Schema
-#include "arrow/util/mutex.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 
 // Identifiers for all different row schemas that are used in a join

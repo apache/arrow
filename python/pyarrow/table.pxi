@@ -4700,31 +4700,31 @@ cdef class Table(_PandasConvertible):
 
         Full outer join:
 
-        >>> t1.join(t2, 'id', join_type="full outer")
+        >>> t1.join(t2, 'id', join_type="full outer").combine_chunks()
         pyarrow.Table
         id: int64
         year: int64
         n_legs: int64
         animal: string
         ----
-        id: [[3,1,2],[4]]
-        year: [[2019,2020,2022],[null]]
-        n_legs: [[5,null,null],[100]]
-        animal: [["Brittle stars",null,null],["Centipede"]]
+        id: [[3,1,2,4]]
+        year: [[2019,2020,2022,null]]
+        n_legs: [[5,null,null,100]]
+        animal: [["Brittle stars",null,null,"Centipede"]]
 
         Right outer join:
 
-        >>> t1.join(t2, 'id', join_type="right outer")
+        >>> t1.join(t2, 'id', join_type="right outer").combine_chunks()
         pyarrow.Table
         year: int64
         id: int64
         n_legs: int64
         animal: string
         ----
-        year: [[2019],[null]]
-        id: [[3],[4]]
-        n_legs: [[5],[100]]
-        animal: [["Brittle stars"],["Centipede"]]
+        year: [[2019,null]]
+        id: [[3,4]]
+        n_legs: [[5,100]]
+        animal: [["Brittle stars","Centipede"]]
 
         Right anti join
 

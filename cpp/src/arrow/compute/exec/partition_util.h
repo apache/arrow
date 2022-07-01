@@ -119,7 +119,8 @@ class PartitionLocks {
   void ReleasePartitionLock(int prtn_id);
 
   template <typename IS_PRTN_EMPTY_FN, typename PROCESS_PRTN_FN>
-  Status ForEachPartition(int* temp_unprocessed_prtns, IS_PRTN_EMPTY_FN is_prtn_empty_fn,
+  Status ForEachPartition(size_t thread_id, int* temp_unprocessed_prtns,
+                          IS_PRTN_EMPTY_FN is_prtn_empty_fn,
                           PROCESS_PRTN_FN process_prtn_fn) {
     int num_unprocessed_partitions = 0;
     for (int i = 0; i < num_prtns_; ++i) {
@@ -131,7 +132,7 @@ class PartitionLocks {
     while (num_unprocessed_partitions > 0) {
       int locked_prtn_id;
       int locked_prtn_id_pos;
-      AcquirePartitionLock(num_unprocessed_partitions, temp_unprocessed_prtns,
+      AcquirePartitionLock(thread_id, num_unprocessed_partitions, temp_unprocessed_prtns,
                            /*limit_retries=*/false, /*max_retries=*/-1, &locked_prtn_id,
                            &locked_prtn_id_pos);
       {

@@ -560,7 +560,8 @@ struct BloomFilterPushdownContext {
         }
       }
       ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(keys)));
-      RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes.data(),
+      std::vector<KeyColumnArray> temp_column_arrays;
+      RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes.data(), temp_column_arrays,
                                          ctx_->cpu_info()->hardware_flags(), stack, 0,
                                          key_batch.length));
 
@@ -1172,8 +1173,11 @@ Status BloomFilterPushdownContext::BuildBloomFilter_exec_task(size_t thread_inde
   for (int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength) {
     int64_t length = std::min(static_cast<int64_t>(key_batch.length - i),
                               static_cast<int64_t>(util::MiniBatch::kMiniBatchLength));
-    RETURN_NOT_OK(Hashing32::HashBatch(
-        key_batch, hashes, ctx_->cpu_info()->hardware_flags(), stack, i, length));
+
+    std::vector<KeyColumnArray> temp_column_arrays;
+    RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes, temp_column_arrays,
+                                       ctx_->cpu_info()->hardware_flags(), stack, i,
+                                       length));
     RETURN_NOT_OK(build_.builder_->PushNextBatch(thread_index, length, hashes));
   }
   return Status::OK();

@@ -23,17 +23,19 @@
 #include <mutex>
 #include "arrow/array/util.h"  // MakeArrayFromScalar
 #include "arrow/compute/exec/hash_join.h"
-#include "arrow/compute/exec/key_compare.h"
-#include "arrow/compute/exec/key_encode.h"
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/row/compare_internal.h"
+#include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 namespace compute {
 
-int RowArrayAccessor::VarbinaryColumnId(const KeyEncoder::KeyRowMetadata& row_metadata,
+int RowArrayAccessor::VarbinaryColumnId(const RowTableMetadata& row_metadata,
                                         int column_id) {
   ARROW_DCHECK(row_metadata.num_cols() > static_cast<uint32_t>(column_id));
   ARROW_DCHECK(!row_metadata.is_fixed_length);
@@ -48,9 +50,8 @@ int RowArrayAccessor::VarbinaryColumnId(const KeyEncoder::KeyRowMetadata& row_me
   return varbinary_column_id;
 }
 
-int RowArrayAccessor::NumRowsToSkip(const KeyEncoder::KeyRowArray& rows, int column_id,
-                                    int num_rows, const uint32_t* row_ids,
-                                    int num_tail_bytes_to_skip) {
+int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
+                                    const uint32_t* row_ids, int num_tail_bytes_to_skip) {
   uint32_t num_bytes_skipped = 0;
   int num_rows_left = num_rows;
 
@@ -99,9 +100,8 @@ int RowArrayAccessor::NumRowsToSkip(const KeyEncoder::KeyRowArray& rows, int col
 }
 
 template <class PROCESS_VALUE_FN>
-void RowArrayAccessor::Visit(const KeyEncoder::KeyRowArray& rows, int column_id,
-                             int num_rows, const uint32_t* row_ids,
-                             PROCESS_VALUE_FN process_value_fn) {
+void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_rows,
+                             const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
   bool is_fixed_length_column =
       rows.metadata().column_metadatas[column_id].is_fixed_length;
 
@@ -177,8 +177,8 @@ void RowArrayAccessor::Visit(const KeyEncoder::KeyRowArray& rows, int column_id,
 }
 
 template <class PROCESS_VALUE_FN>
-void RowArrayAccessor::VisitNulls(const KeyEncoder::KeyRowArray& rows, int column_id,
-                                  int num_rows, const uint32_t* row_ids,
+void RowArrayAccessor::VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
+                                  const uint32_t* row_ids,
                                   PROCESS_VALUE_FN process_value_fn) {
   const uint8_t* null_masks = rows.null_masks();
   uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
@@ -190,8 +190,7 @@ void RowArrayAccessor::VisitNulls(const KeyEncoder::KeyRowArray& rows, int colum
   }
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool,
-                              const KeyEncoder::KeyRowMetadata& row_metadata) {
+Status RowArray::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata) {
   if (is_initialized_) {
     return Status::OK();
   }
@@ -208,7 +207,7 @@ Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
   }
   std::vector<KeyColumnMetadata> column_metadatas;
   RETURN_NOT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
-  KeyEncoder::KeyRowMetadata row_metadata;
+  RowTableMetadata row_metadata;
   row_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
                                         sizeof(uint64_t));
 
@@ -240,7 +239,7 @@ void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
       batch, begin_row_id, end_row_id - begin_row_id, &temp_column_arrays);
   ARROW_DCHECK(status.ok());
 
-  KeyEncoder::KeyEncoderContext ctx;
+  LightContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
   KeyCompare::CompareColumnsToRows(
@@ -436,7 +435,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   ARROW_DCHECK(!sources.empty());
 
   ARROW_DCHECK(sources[0]->is_initialized_);
-  const KeyEncoder::KeyRowMetadata& metadata = sources[0]->rows_.metadata();
+  const RowTableMetadata& metadata = sources[0]->rows_.metadata();
   ARROW_DCHECK(!target->is_initialized_);
   RETURN_NOT_OK(target->InitIfNeeded(pool, metadata));
 
@@ -506,8 +505,7 @@ void RowArrayMerge::MergeSingle(RowArray* target, const RowArray& source,
   CopyNulls(&target->rows_, source.rows_, first_target_row_id, source_rows_permutation);
 }
 
-void RowArrayMerge::CopyFixedLength(KeyEncoder::KeyRowArray* target,
-                                    const KeyEncoder::KeyRowArray& source,
+void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& source,
                                     int64_t first_target_row_id,
                                     const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
@@ -541,8 +539,7 @@ void RowArrayMerge::CopyFixedLength(KeyEncoder::KeyRowArray* target,
   }
 }
 
-void RowArrayMerge::CopyVaryingLength(KeyEncoder::KeyRowArray* target,
-                                      const KeyEncoder::KeyRowArray& source,
+void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& source,
                                       int64_t first_target_row_id,
                                       int64_t first_target_row_offset,
                                       const int64_t* source_rows_permutation) {
@@ -592,8 +589,7 @@ void RowArrayMerge::CopyVaryingLength(KeyEncoder::KeyRowArray* target,
   }
 }
 
-void RowArrayMerge::CopyNulls(KeyEncoder::KeyRowArray* target,
-                              const KeyEncoder::KeyRowArray& source,
+void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                               int64_t first_target_row_id,
                               const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
@@ -960,9 +956,9 @@ void SwissTableWithKeys::Hash(Input* input, uint32_t* hashes, int64_t hardware_f
   ARROW_DCHECK(input->selection_maybe_null == nullptr);
 
   Status status =
-      Hashing32::HashBatch(*input->batch, input->batch_start_row,
-                           input->batch_end_row - input->batch_start_row, hashes,
-                           *input->temp_column_arrays, hardware_flags, input->temp_stack);
+      Hashing32::HashBatch(*input->batch, hashes, *input->temp_column_arrays,
+                           hardware_flags, input->temp_stack, input->batch_start_row,
+                           input->batch_end_row - input->batch_start_row);
   ARROW_DCHECK(status.ok());
 }
 
@@ -1175,13 +1171,13 @@ Status SwissTableForJoinBuild::Init(SwissTableForJoin* target, int dop, int64_t 
 
   prtn_states_.resize(num_prtns_);
   thread_states_.resize(dop_);
-  prtn_locks_.Init(num_prtns_);
+  prtn_locks_.Init(dop_, num_prtns_);
 
-  KeyEncoder::KeyRowMetadata key_row_metadata;
+  RowTableMetadata key_row_metadata;
   key_row_metadata.FromColumnMetadataVector(key_types,
                                             /*row_alignment=*/sizeof(uint64_t),
                                             /*string_alignment=*/sizeof(uint64_t));
-  KeyEncoder::KeyRowMetadata payload_row_metadata;
+  RowTableMetadata payload_row_metadata;
   payload_row_metadata.FromColumnMetadataVector(payload_types,
                                                 /*row_alignment=*/sizeof(uint64_t),
                                                 /*string_alignment=*/sizeof(uint64_t));
@@ -1212,10 +1208,9 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
   // Compute hash
   //
   locals.batch_hashes.resize(key_batch.length);
-  RETURN_NOT_OK(
-      Hashing32::HashBatch(key_batch, /*start_row=*/0, static_cast<int>(key_batch.length),
-                           locals.batch_hashes.data(), locals.temp_column_arrays,
-                           hardware_flags_, temp_stack));
+  RETURN_NOT_OK(Hashing32::HashBatch(
+      key_batch, locals.batch_hashes.data(), locals.temp_column_arrays, hardware_flags_,
+      temp_stack, /*start_row=*/0, static_cast<int>(key_batch.length)));
 
   // Partition on hash
   //
@@ -1235,14 +1230,16 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
     PartitionSort::Eval(
         static_cast<int>(locals.batch_hashes.size()), num_prtns_,
         locals.batch_prtn_ranges.data(),
-        [this, &locals](int i) {
+        [this, &locals](int64_t i) {
           // SwissTable uses the highest bits of the hash for block index.
           // We want each partition to correspond to a range of block indices,
           // so we also partition on the highest bits of the hash.
           //
           return locals.batch_hashes[i] >> (31 - log_num_prtns_) >> 1;
         },
-        [&locals](int i, int pos) { locals.batch_prtn_row_ids[pos] = i; });
+        [&locals](int64_t i, int pos) {
+          locals.batch_prtn_row_ids[pos] = static_cast<uint16_t>(i);
+        });
   }
 
   // Update hashes, shifting left to get rid of the bits that were already used
@@ -1259,7 +1256,7 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
   locals.temp_prtn_ids.resize(num_prtns_);
 
   RETURN_NOT_OK(prtn_locks_.ForEachPartition(
-      locals.temp_prtn_ids.data(),
+      thread_id, locals.temp_prtn_ids.data(),
       /*is_prtn_empty_fn=*/
       [&](int prtn_id) {
         return locals.batch_prtn_ranges[prtn_id + 1] == locals.batch_prtn_ranges[prtn_id];
@@ -1510,7 +1507,7 @@ void SwissTableForJoinBuild::FinishPrtnMerge(util::TempVectorStack* temp_stack) 
   // (it is lazily evaluated but since we will be accessing it from multiple
   // threads we need to make sure that the value gets calculated here).
   //
-  KeyEncoder::KeyEncoderContext ctx;
+  LightContext ctx;
   ctx.hardware_flags = hardware_flags_;
   ctx.stack = temp_stack;
   std::ignore = target_->map_.keys()->rows_.has_any_nulls(&ctx);
@@ -2044,103 +2041,20 @@ Status JoinProbeProcessor::OnFinished() {
   return Status::OK();
 }
 
-class ExecBatchQueue {
- public:
-  void Init(int dop);
-  bool Append(int64_t thread_id, ExecBatch* batch);
-  void CloseAll();
-  int64_t num_shared_rows() const { return num_shared_rows_; }
-  int64_t num_shared_batches() const { return num_shared_batches_; }
-  ExecBatch* shared_batch(int64_t batch_id);
-
- private:
-  struct ThreadLocalState {
-    ThreadLocalState() {}
-    ThreadLocalState(const ThreadLocalState&) {}
-    std::mutex mutex_;
-    // Protected by mutex:
-    bool is_closed_;
-    std::vector<ExecBatch> queue_;
-    int64_t num_rows_;
-    // Not protected by mutex:
-    std::vector<ExecBatch> queue_shared_;
-  };
-  std::vector<ThreadLocalState> thread_states_;
-  int64_t num_shared_rows_;
-  int64_t num_shared_batches_;
-};
-
-void ExecBatchQueue::Init(int dop) {
-  num_shared_rows_ = 0;
-  num_shared_batches_ = 0;
-  thread_states_.resize(dop);
-  for (int i = 0; i < dop; ++i) {
-    std::lock_guard<std::mutex> lock(thread_states_[i].mutex_);
-    thread_states_[i].is_closed_ = false;
-    thread_states_[i].num_rows_ = 0;
-  }
-}
-
-bool ExecBatchQueue::Append(int64_t thread_id, ExecBatch* batch) {
-  int64_t num_rows = batch->length;
-  std::lock_guard<std::mutex> lock(thread_states_[thread_id].mutex_);
-  if (thread_states_[thread_id].is_closed_) {
-    return false;
-  }
-  thread_states_[thread_id].queue_.push_back(*batch);
-  thread_states_[thread_id].num_rows_ += num_rows;
-  return true;
-}
-
-void ExecBatchQueue::CloseAll() {
-  for (size_t i = 0; i < thread_states_.size(); ++i) {
-    std::vector<ExecBatch> queue_copy;
-    int64_t num_rows;
-    {
-      std::lock_guard<std::mutex> lock(thread_states_[i].mutex_);
-      if (thread_states_[i].is_closed_) {
-        continue;
-      }
-      thread_states_[i].is_closed_ = true;
-      queue_copy = std::move(thread_states_[i].queue_);
-      num_rows = thread_states_[i].num_rows_;
-    }
-    num_shared_batches_ += queue_copy.size();
-    num_shared_rows_ += num_rows;
-    thread_states_[i].queue_shared_ = std::move(queue_copy);
-  }
-}
-
-ExecBatch* ExecBatchQueue::shared_batch(int64_t batch_id) {
-  for (size_t i = 0; i < thread_states_.size(); ++i) {
-    int64_t queue_size = static_cast<int64_t>(thread_states_[i].queue_shared_.size());
-    if (batch_id < queue_size) {
-      return &(thread_states_[i].queue_shared_[batch_id]);
-    }
-    batch_id -= queue_size;
-  }
-  // We should never get here
-  //
-  ARROW_DCHECK(false);
-  return nullptr;
-}
-
 class SwissJoin : public HashJoinImpl {
  public:
-  Status Init(ExecContext* ctx, JoinType join_type, bool use_sync_execution,
-              size_t num_threads, const HashJoinProjectionMaps* proj_map_left,
+  Status Init(ExecContext* ctx, JoinType join_type, size_t num_threads,
+              const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
               std::vector<JoinKeyCmp> key_cmp, Expression filter,
               OutputBatchCallback output_batch_callback,
-              FinishedCallback finished_callback,
-              TaskScheduler::ScheduleImpl schedule_task_callback) override {
-    num_threads_ = static_cast<int>(std::max(num_threads, static_cast<size_t>(1)));
+              FinishedCallback finished_callback, TaskScheduler* scheduler) override {
+    START_COMPUTE_SPAN(span_, "SwissJoinImpl",
+                       {{"detail", filter.ToString()},
+                        {"join.kind", ToString(join_type)},
+                        {"join.threads", static_cast<uint32_t>(num_threads)}});
 
-    START_SPAN(span_, "HashJoinBasicImpl",
-               {{"detail", filter.ToString()},
-                {"join.kind", ToString(join_type)},
-                {"join.threads", static_cast<uint32_t>(num_threads)}});
-
+    num_threads_ = static_cast<int>(num_threads);
     ctx_ = ctx;
     hardware_flags_ = ctx->cpu_info()->hardware_flags();
     pool_ = ctx->memory_pool();
@@ -2154,12 +2068,12 @@ class SwissJoin : public HashJoinImpl {
     schema_[1] = proj_map_right;
     output_batch_callback_ = output_batch_callback;
     finished_callback_ = finished_callback;
+    scheduler_ = scheduler;
     hash_table_ready_.store(false);
     cancelled_.store(false);
     {
       std::lock_guard<std::mutex> lock(state_mutex_);
       left_side_finished_ = false;
-      left_queue_finished_ = false;
       right_side_finished_ = false;
       error_status_ = Status::OK();
     }
@@ -2181,17 +2095,13 @@ class SwissJoin : public HashJoinImpl {
 
     probe_processor_.Init(proj_map_left->num_cols(HashJoinProjection::KEY), join_type_,
                           &hash_table_, materialize, &key_cmp_, output_batch_callback_);
-    batch_queue_[0].Init(num_threads_);
-    batch_queue_[1].Init(num_threads_);
 
-    RETURN_NOT_OK(InitScheduler(use_sync_execution, num_threads, schedule_task_callback));
+    InitTaskGroups();
 
     return Status::OK();
   }
 
-  Status InitScheduler(bool use_sync_execution, size_t num_threads,
-                       TaskScheduler::ScheduleImpl schedule_task_callback) {
-    scheduler_ = TaskScheduler::Make();
+  void InitTaskGroups() {
     task_group_build_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return BuildTask(thread_index, task_id);
@@ -2202,90 +2112,49 @@ class SwissJoin : public HashJoinImpl {
           return MergeTask(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status { return MergeFinished(thread_index); });
-    task_group_queued_ = scheduler_->RegisterTaskGroup(
-        [this](size_t thread_index, int64_t task_id) -> Status {
-          return QueueTask(thread_index, task_id);
-        },
-        [this](size_t thread_index) -> Status { return QueueFinished(thread_index); });
     task_group_scan_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
           return ScanTask(thread_index, task_id);
         },
         [this](size_t thread_index) -> Status { return ScanFinished(thread_index); });
-    scheduler_->RegisterEnd();
-    RETURN_NOT_OK(scheduler_->StartScheduling(
-        0 /*thread index*/, std::move(schedule_task_callback),
-        static_cast<int>(2 * num_threads) /*concurrent tasks*/, use_sync_execution));
-    return Status::OK();
   }
 
-  Status InputReceived(size_t thread_index, int side, ExecBatch batch) override {
+  Status ProbeSingleBatch(size_t thread_index, ExecBatch batch) override {
     if (IsCancelled()) {
       return status();
     }
-    EVENT(span_, "InputReceived");
 
-    ExecBatch keypayload_batch;
-    ARROW_ASSIGN_OR_RAISE(keypayload_batch, KeyPayloadFromInput(side, &batch));
-
-    if (side == 1) {
-      // Build side
-      //
-      bool result = batch_queue_[side].Append(static_cast<int64_t>(thread_index),
-                                              &keypayload_batch);
-      ARROW_DCHECK(result);
-      return Status::OK();
-    }
-
-    // Probe side
-    //
-    ARROW_DCHECK(side == 0);
     if (!local_states_[thread_index].hash_table_ready) {
       local_states_[thread_index].hash_table_ready = hash_table_ready_.load();
     }
-    if (!local_states_[thread_index].hash_table_ready) {
-      if (!batch_queue_[side].Append(static_cast<int64_t>(thread_index),
-                                     &keypayload_batch)) {
-        local_states_[thread_index].hash_table_ready = true;
-      } else {
-        return Status::OK();
-      }
-    }
+    ARROW_DCHECK(local_states_[thread_index].hash_table_ready);
+
+    ExecBatch keypayload_batch;
+    ARROW_ASSIGN_OR_RAISE(keypayload_batch, KeyPayloadFromInput(/*side=*/0, &batch));
+
     return CancelIfNotOK(probe_processor_.OnNextBatch(
         thread_index, keypayload_batch, &local_states_[thread_index].temp_stack,
         &local_states_[thread_index].temp_column_arrays));
   }
 
-  Status InputFinished(size_t thread_id, int side) override {
+  Status ProbingFinished(size_t thread_index) override {
     if (IsCancelled()) {
       return status();
     }
-    EVENT(span_, "InputFinished", {{"side", side}});
 
-    if (side == 0) {
-      bool proceed;
-      {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        proceed = !left_side_finished_ && left_queue_finished_;
-        left_side_finished_ = true;
-      }
-      if (proceed) {
-        RETURN_NOT_OK(
-            CancelIfNotOK(OnLeftSideAndQueueFinished(static_cast<int64_t>(thread_id))));
-      }
-    } else {
-      bool proceed;
-      {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        proceed = !right_side_finished_;
-        right_side_finished_ = true;
-      }
-      if (proceed) {
-        RETURN_NOT_OK(
-            CancelIfNotOK(OnRightSideFinished(static_cast<int64_t>(thread_id))));
-      }
+    return CancelIfNotOK(ScanHashTableAsync(static_cast<int64_t>(thread_index)));
+  }
+
+  Status BuildHashTable(size_t thread_id, AccumulationQueue batches,
+                        BuildFinishedCallback on_finished) override {
+    if (IsCancelled()) {
+      return status();
     }
-    return Status::OK();
+
+    build_side_batches_ = std::move(batches);
+    build_finished_callback_ = on_finished;
+
+    return CancelIfNotOK(BuildHashTableAsync(static_cast<int64_t>(thread_id)));
   }
 
   void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) override {
@@ -2296,21 +2165,14 @@ class SwissJoin : public HashJoinImpl {
   }
 
  private:
-  Status OnRightSideFinished(int64_t thread_id) {
-    return CancelIfNotOK(BuildHashTableAsync(thread_id));
-  }
-
   Status BuildHashTableAsync(int64_t thread_id) {
     // Initialize build class instance
     //
-    ExecBatchQueue& batches = batch_queue_[1];
     const HashJoinProjectionMaps* schema = schema_[1];
     bool reject_duplicate_keys =
         join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI;
     bool no_payload =
         reject_duplicate_keys || schema->num_cols(HashJoinProjection::PAYLOAD) == 0;
-
-    batches.CloseAll();
 
     std::vector<KeyColumnMetadata> key_types;
     for (int i = 0; i < schema->num_cols(HashJoinProjection::KEY); ++i) {
@@ -2327,13 +2189,15 @@ class SwissJoin : public HashJoinImpl {
       payload_types.push_back(metadata);
     }
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.Init(
-        &hash_table_, num_threads_, batches.num_shared_rows(), reject_duplicate_keys,
-        no_payload, key_types, payload_types, pool_, hardware_flags_)));
+        &hash_table_, num_threads_, build_side_batches_.row_count(),
+        reject_duplicate_keys, no_payload, key_types, payload_types, pool_,
+        hardware_flags_)));
 
     // Process all input batches
     //
-    return CancelIfNotOK(scheduler_->StartTaskGroup(
-        static_cast<size_t>(thread_id), task_group_build_, batches.num_shared_batches()));
+    return CancelIfNotOK(scheduler_->StartTaskGroup(static_cast<size_t>(thread_id),
+                                                    task_group_build_,
+                                                    build_side_batches_.batch_count()));
   }
 
   Status BuildTask(size_t thread_id, int64_t batch_id) {
@@ -2341,12 +2205,14 @@ class SwissJoin : public HashJoinImpl {
       return Status::OK();
     }
 
-    ExecBatchQueue& batches = batch_queue_[1];
     const HashJoinProjectionMaps* schema = schema_[1];
     bool no_payload = hash_table_build_.no_payload();
 
-    ExecBatch* input_batch = batches.shared_batch(batch_id);
-    if (!input_batch || input_batch->length == 0) {
+    ExecBatch input_batch;
+    ARROW_ASSIGN_OR_RAISE(
+        input_batch, KeyPayloadFromInput(/*side=*/1, &build_side_batches_[batch_id]));
+
+    if (input_batch.length == 0) {
       return Status::OK();
     }
 
@@ -2359,18 +2225,18 @@ class SwissJoin : public HashJoinImpl {
     // batch instead to avoid this operation, which involves increasing
     // shared pointer ref counts.
     //
-    ExecBatch key_batch({}, input_batch->length);
+    ExecBatch key_batch({}, input_batch.length);
     key_batch.values.resize(schema->num_cols(HashJoinProjection::KEY));
     for (size_t icol = 0; icol < key_batch.values.size(); ++icol) {
-      key_batch.values[icol] = input_batch->values[icol];
+      key_batch.values[icol] = input_batch.values[icol];
     }
-    ExecBatch payload_batch({}, input_batch->length);
+    ExecBatch payload_batch({}, input_batch.length);
 
     if (!no_payload) {
       payload_batch.values.resize(schema->num_cols(HashJoinProjection::PAYLOAD));
       for (size_t icol = 0; icol < payload_batch.values.size(); ++icol) {
         payload_batch.values[icol] =
-            input_batch->values[schema->num_cols(HashJoinProjection::KEY) + icol];
+            input_batch.values[schema->num_cols(HashJoinProjection::KEY) + icol];
       }
     }
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
@@ -2379,13 +2245,16 @@ class SwissJoin : public HashJoinImpl {
 
     // Release input batch
     //
-    input_batch->values.clear();
+    input_batch.values.clear();
 
     return Status::OK();
   }
 
   Status BuildFinished(size_t thread_id) {
     RETURN_NOT_OK(status());
+
+    build_side_batches_.Clear();
+
     // On a single thread prepare for merging partitions of the resulting hash
     // table.
     //
@@ -2419,59 +2288,8 @@ class SwissJoin : public HashJoinImpl {
                                                 hash_table_.key_to_payload() == nullptr);
     }
     hash_table_ready_.store(true);
-    batch_queue_[0].CloseAll();
-    return ProcessLeftSideQueueAsync(thread_id);
-  }
 
-  Status ProcessLeftSideQueueAsync(int64_t thread_id) {
-    if (IsCancelled()) {
-      return status();
-    }
-
-    ExecBatchQueue& batches = batch_queue_[0];
-    int64_t num_tasks = batches.num_shared_batches();
-
-    return CancelIfNotOK(scheduler_->StartTaskGroup(static_cast<size_t>(thread_id),
-                                                    task_group_queued_, num_tasks));
-  }
-
-  Status QueueTask(size_t thread_id, int64_t batch_id) {
-    if (IsCancelled()) {
-      return Status::OK();
-    }
-
-    ExecBatchQueue& batches = batch_queue_[0];
-    ExecBatch* input_batch = batches.shared_batch(batch_id);
-    RETURN_NOT_OK(CancelIfNotOK(
-        probe_processor_.OnNextBatch(static_cast<int64_t>(thread_id), *input_batch,
-                                     &local_states_[thread_id].temp_stack,
-                                     &local_states_[thread_id].temp_column_arrays)));
-    // Release input batch
-    //
-    input_batch->values.clear();
-    return Status::OK();
-  }
-
-  Status QueueFinished(size_t thread_id) {
-    if (IsCancelled()) {
-      return status();
-    }
-
-    bool proceed;
-    {
-      std::lock_guard<std::mutex> lock(state_mutex_);
-      proceed = left_side_finished_ && !left_queue_finished_;
-      left_queue_finished_ = true;
-    }
-    if (proceed) {
-      RETURN_NOT_OK(
-          CancelIfNotOK(OnLeftSideAndQueueFinished(static_cast<int64_t>(thread_id))));
-    }
-    return Status::OK();
-  }
-
-  Status OnLeftSideAndQueueFinished(int64_t thread_id) {
-    return CancelIfNotOK(ScanHashTableAsync(thread_id));
+    return build_finished_callback_(thread_id);
   }
 
   Status ScanHashTableAsync(int64_t thread_id) {
@@ -2673,14 +2491,14 @@ class SwissJoin : public HashJoinImpl {
   const HashJoinProjectionMaps* schema_[2];
 
   // Task scheduling
-  std::unique_ptr<TaskScheduler> scheduler_;
+  TaskScheduler* scheduler_;
   int task_group_build_;
   int task_group_merge_;
-  int task_group_queued_;
   int task_group_scan_;
 
   // Callbacks
   OutputBatchCallback output_batch_callback_;
+  BuildFinishedCallback build_finished_callback_;
   FinishedCallback finished_callback_;
 
   struct ThreadLocalState {
@@ -2695,7 +2513,7 @@ class SwissJoin : public HashJoinImpl {
   SwissTableForJoin hash_table_;
   JoinProbeProcessor probe_processor_;
   SwissTableForJoinBuild hash_table_build_;
-  ExecBatchQueue batch_queue_[2];
+  AccumulationQueue build_side_batches_;
 
   // Atomic state flags.
   // These flags are kept outside of mutex, since they can be queried for every
@@ -2714,7 +2532,6 @@ class SwissJoin : public HashJoinImpl {
   // Mutex protected state flags.
   //
   bool left_side_finished_;
-  bool left_queue_finished_;
   bool right_side_finished_;
   Status error_status_;
 };

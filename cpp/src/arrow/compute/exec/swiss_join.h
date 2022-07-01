@@ -18,13 +18,14 @@
 #pragma once
 
 #include <cstdint>
-#include "arrow/compute/exec/key_encode.h"
 #include "arrow/compute/exec/key_map.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/partition_util.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/compute/exec/task_util.h"
+#include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/light_array.h"
+#include "arrow/compute/row/encode_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -34,8 +35,7 @@ class RowArrayAccessor {
   // Find the index of this varbinary column within the sequence of all
   // varbinary columns encoded in rows.
   //
-  static int VarbinaryColumnId(const KeyEncoder::KeyRowMetadata& row_metadata,
-                               int column_id);
+  static int VarbinaryColumnId(const RowTableMetadata& row_metadata, int column_id);
 
   // Calculate how many rows to skip from the tail of the
   // sequence of selected rows, such that the total size of skipped rows is at
@@ -44,9 +44,8 @@ class RowArrayAccessor {
   // without checking buffer bounds (useful with SIMD or fixed size memory loads
   // and stores).
   //
-  static int NumRowsToSkip(const KeyEncoder::KeyRowArray& rows, int column_id,
-                           int num_rows, const uint32_t* row_ids,
-                           int num_tail_bytes_to_skip);
+  static int NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
+                           const uint32_t* row_ids, int num_tail_bytes_to_skip);
 
   // The supplied lambda will be called for each row in the given list of rows.
   // The arguments given to it will be:
@@ -58,7 +57,7 @@ class RowArrayAccessor {
   // has to be processed separately.
   //
   template <class PROCESS_VALUE_FN>
-  static void Visit(const KeyEncoder::KeyRowArray& rows, int column_id, int num_rows,
+  static void Visit(const RowTableImpl& rows, int column_id, int num_rows,
                     const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
 
   // The supplied lambda will be called for each row in the given list of rows.
@@ -67,7 +66,7 @@ class RowArrayAccessor {
   // - byte 0xFF if the null is set for the row or 0x00 otherwise.
   //
   template <class PROCESS_VALUE_FN>
-  static void VisitNulls(const KeyEncoder::KeyRowArray& rows, int column_id, int num_rows,
+  static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
                          const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
 
  private:
@@ -78,7 +77,7 @@ class RowArrayAccessor {
   // to 7 rows at the end may be skipped).
   //
   template <class PROCESS_8_VALUES_FN>
-  static int Visit_avx2(const KeyEncoder::KeyRowArray& rows, int column_id, int num_rows,
+  static int Visit_avx2(const RowTableImpl& rows, int column_id, int num_rows,
                         const uint32_t* row_ids, PROCESS_8_VALUES_FN process_8_values_fn);
 
   // This is equivalent to VisitNulls method, but processing 8 rows at a time in
@@ -86,8 +85,8 @@ class RowArrayAccessor {
   // requested (up to 7 rows at the end may be skipped).
   //
   template <class PROCESS_8_VALUES_FN>
-  static int VisitNulls_avx2(const KeyEncoder::KeyRowArray& rows, int column_id,
-                             int num_rows, const uint32_t* row_ids,
+  static int VisitNulls_avx2(const RowTableImpl& rows, int column_id, int num_rows,
+                             const uint32_t* row_ids,
                              PROCESS_8_VALUES_FN process_8_values_fn);
 #endif
 };
@@ -102,7 +101,7 @@ struct RowArray {
   RowArray() : is_initialized_(false) {}
 
   Status InitIfNeeded(MemoryPool* pool, const ExecBatch& batch);
-  Status InitIfNeeded(MemoryPool* pool, const KeyEncoder::KeyRowMetadata& row_metadata);
+  Status InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata);
 
   Status AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch, int begin_row_id,
                               int end_row_id, int num_row_ids, const uint16_t* row_ids,
@@ -127,9 +126,9 @@ struct RowArray {
   int64_t num_rows() const { return is_initialized_ ? rows_.length() : 0; }
 
   bool is_initialized_;
-  KeyEncoder encoder_;
-  KeyEncoder::KeyRowArray rows_;
-  KeyEncoder::KeyRowArray rows_temp_;
+  RowTableEncoder encoder_;
+  RowTableImpl rows_;
+  RowTableImpl rows_temp_;
 };
 
 // Implements concatenating multiple row arrays into a single one, using
@@ -183,8 +182,7 @@ class RowArrayMerge {
   // This implementation is for fixed length rows.
   // Null information needs to be handled separately.
   //
-  static void CopyFixedLength(KeyEncoder::KeyRowArray* target,
-                              const KeyEncoder::KeyRowArray& source,
+  static void CopyFixedLength(RowTableImpl* target, const RowTableImpl& source,
                               int64_t first_target_row_id,
                               const int64_t* source_rows_permutation);
 
@@ -192,8 +190,7 @@ class RowArrayMerge {
   // This implementation is for varying length rows.
   // Null information needs to be handled separately.
   //
-  static void CopyVaryingLength(KeyEncoder::KeyRowArray* target,
-                                const KeyEncoder::KeyRowArray& source,
+  static void CopyVaryingLength(RowTableImpl* target, const RowTableImpl& source,
                                 int64_t first_target_row_id,
                                 int64_t first_target_row_offset,
                                 const int64_t* source_rows_permutation);
@@ -201,8 +198,7 @@ class RowArrayMerge {
   // Copy null information from rows from source array to a region of the target
   // array.
   //
-  static void CopyNulls(KeyEncoder::KeyRowArray* target,
-                        const KeyEncoder::KeyRowArray& source,
+  static void CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                         int64_t first_target_row_id,
                         const int64_t* source_rows_permutation);
 };
