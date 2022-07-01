@@ -557,16 +557,18 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
   void TestFragmentEquals() {
     auto options = std::make_shared<ScanOptions>();
-    auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
-    auto other_reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
-    auto full_schema = schema({field("f64", float64()), field("part", int64())});
+    auto test_schema = schema({field("f64", float64())});
+    auto reader = this->GetRecordBatchReader(test_schema);
+    auto other_reader = this->GetRecordBatchReader(test_schema);
     auto source = this->GetFileSource(reader.get());
     auto other_source = this->GetFileSource(other_reader.get());
 
     auto fragment = this->MakeFragment(*source);
     auto other = this->MakeFragment(*other_source);
 
-    fragment->Equals(*other);
+    EXPECT_EQ(fragment->Equals(*other), false);
+    // TODO: Extend the test cases for Fragment
+    // when ARROW-16855 is merged.
   }
 
  protected:
