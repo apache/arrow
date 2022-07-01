@@ -23,6 +23,8 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
@@ -32,6 +34,8 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
@@ -261,7 +265,9 @@ jobs:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    # Build may take 1h+ without cache and installing Google Cloud
+    # Storage Testbench may take 20m+ without cache.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -276,13 +282,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
-      # With GCS on,
-      # * MinGW 32 build OOMs (maybe turn off unity build?)
-      # * MinGW 64 fails to compile the GCS filesystem tests, some conflict
-      #   with boost. First error says:
-      # D:/a/_temp/msys64/mingw64/include/boost/asio/detail/socket_types.hpp:24:4: error: #error WinSock.h has already been included
-      # TODO(ARROW-16906)
-      # ARROW_GCS: ON
+      ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
@@ -304,7 +304,9 @@ jobs:
       CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
-      CMAKE_UNITY_BUILD: ON
+      # We can't use unity build because we don't have enough memory on
+      # GitHub Actions.
+      # CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -348,6 +350,16 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
+      - name: Cache Python packages
+        uses: actions/cache@v2
+        with:
+          path: "d:/a/_temp/msys64/mingw${{ matrix.mingw-n-bits }}/lib/python*/site-packages"
+          key: cpp-gcs-testbench-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('ci/scripts/install_gcs_testbench.sh') }}
+          restore-keys: cpp-gcs-testbench-mingw${{ matrix.mingw-n-bits }}-
+      - name: Install Google Cloud Storage Testbench
+        shell: msys2 {0}
+        run: |
+          ci/scripts/install_gcs_testbench.sh default
       - name: Test
         shell: msys2 {0}
         run: |

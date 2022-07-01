@@ -15,4 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/debian:buster
+FROM quay.io/centos/centos:stream9
+
+ARG DEBUG
+
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
+  dnf install -y ${quiet} \
+    rpmdevtools && \
+  dnf clean ${quiet} all

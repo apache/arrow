@@ -63,11 +63,12 @@ parquet_glib = declare_dependency(link_with: libparquet_glib,
                                   dependencies: dependencies)
 
 pkgconfig.generate(libparquet_glib,
+                   description: 'C API for Apache Parquet based on GLib',
                    filebase: project_name,
                    name: 'Apache Parquet GLib',
-                   description: 'C API for Apache Parquet based on GLib',
-                   version: version,
-                   requires: ['parquet', 'arrow-glib'])
+                   requires: ['parquet', 'arrow-glib'],
+                   variables: pkgconfig_variables,
+                   version: version)
 
 if have_gi
   parquet_glib_gir = \

@@ -19,6 +19,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/plan.h"
@@ -26,6 +27,7 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 
 namespace arrow {
@@ -66,6 +68,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       ARROW_ASSIGN_OR_RAISE(auto base_schema, FromProto(read.base_schema(), ext_set));
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
+      scan_options->use_threads = true;
 
       if (read.has_filter()) {
         ARROW_ASSIGN_OR_RAISE(scan_options->filter, FromProto(read.filter(), ext_set));

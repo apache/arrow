@@ -55,7 +55,7 @@ export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
   # Install the built wheels
-  pip install --force-reinstall ${source_dir}/python/repaired_wheels/*.whl
+  pip install ${source_dir}/python/repaired_wheels/*.whl
 fi
 
 if [ "${CHECK_IMPORTS}" == "ON" ]; then

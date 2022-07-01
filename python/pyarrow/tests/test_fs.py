@@ -1107,15 +1107,25 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs2 = S3FileSystem(role_arn='role')
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
     fs = S3FileSystem(anonymous=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
-    fs = S3FileSystem(background_writes=True,
-                      default_metadata={"ACL": "authenticated-read",
-                                        "Content-Type": "text/plain"})
+    fs = S3FileSystem(background_writes=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(background_writes=True,
+                       default_metadata={"ACL": "authenticated-read",
+                                         "Content-Type": "text/plain"})
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
 
     fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
     assert isinstance(fs, S3FileSystem)
