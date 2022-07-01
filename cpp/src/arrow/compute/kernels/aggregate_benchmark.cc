@@ -320,8 +320,8 @@ static void BenchmarkGroupBy(benchmark::State& state,
   c_aggregates.reserve(aggregates.size());
   int idx = 0;
   for (const auto& b_agg : aggregates) {
-    c_aggregates[idx] = {b_agg.function, b_agg.options, "agg_" + std::to_string(idx),
-                         b_agg.function};
+    c_aggregates[idx] = {b_agg.function, std::move(b_agg.options),
+                         "agg_" + std::to_string(idx), b_agg.function};
   }
   for (auto _ : state) {
     ABORT_NOT_OK(GroupBy(arguments, keys, c_aggregates).status());
