@@ -89,6 +89,10 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
+bool FileSource::Equals(const FileSource& other) const {
+  return true;
+}
+
 Future<util::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
     const std::shared_ptr<ScanOptions>&) {
@@ -133,6 +137,11 @@ Future<util::optional<int64_t>> FileFragment::CountRows(
   }
   auto self = checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), options);
+}
+
+bool FileFragment::Equals(const FileFragment& other) const {
+  source_;
+  return true;
 }
 
 struct FileSystemDataset::FragmentSubtrees {

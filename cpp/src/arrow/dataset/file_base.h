@@ -114,6 +114,9 @@ class ARROW_DS_EXPORT FileSource {
   Result<std::shared_ptr<io::InputStream>> OpenCompressed(
       util::optional<Compression::type> compression = util::nullopt) const;
 
+  /// \brief equality comparison with another FileSource
+  bool Equals(const FileSource& other) const;
+
  private:
   static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
     return Status::Invalid("Called Open() on an uninitialized FileSource");
@@ -192,6 +195,8 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
+
+  bool Equals(const FileFragment& other) const;
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
