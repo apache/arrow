@@ -2882,4 +2882,3 @@ test_that("timestamp rounding takes place in local time", {
   year_of_dates_tz %>% check_timezone_rounding("year")
 
 })
-
