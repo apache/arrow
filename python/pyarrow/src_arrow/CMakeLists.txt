@@ -36,7 +36,8 @@ endif()
 get_filename_component(PYARROW_SOURCE_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
 get_filename_component(ARROW_SOURCE ${PYTHON_SOURCE_DIR} DIRECTORY)
-set(ARROW_SOURCE_DIR "${ARROW_SOURCE}/cpp")
+set(ARROW_CPP_SOURCE_DIR "${ARROW_SOURCE}/cpp")
+set(ARROW_SOURCE_DIR "${ARROW_CPP_SOURCE_DIR}")
 
 # normalize ARROW_HOME path
 cmake_path(CONVERT "$ENV{ARROW_HOME}" TO_CMAKE_PATH_LIST ARROW_HOME)
@@ -174,14 +175,14 @@ if(CMAKE_VERSION VERSION_LESS 3.18)
 else()
   include(CheckLinkerFlag)
   check_linker_flag(CXX
-                    "-Wl,--version-script=${ARROW_SOURCE_DIR}/src/arrow/symbols.map"
+                    "-Wl,--version-script=${ARROW_CPP_SOURCE_DIR}/src/arrow/symbols.map"
                     CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
 endif()
 
 # Need to set ARROW_VERSION_SCRIPT_FLAGS for add_arrow_lib
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(ARROW_VERSION_SCRIPT_FLAGS
-      "-Wl,--version-script=${ARROW_SOURCE_DIR}/src/arrow/symbols.map")
+      "-Wl,--version-script=${ARROW_CPP_SOURCE_DIR}/src/arrow/symbols.map")
 endif()
 
 #
@@ -251,7 +252,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
 
   find_package(ArrowFlight REQUIRED)
   find_package(gRPC CONFIG REQUIRED)
-  include_directories("${ARROW_SOURCE_DIR}/src" "${ARROW_SOURCE_DIR}/build/src")
+  include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/build/src")
 
   # Using arrow_flight_shared, see example
   # https://github.com/apache/arrow/blob/7a0f00c16e084d194ae53d209b33b809cfc8f2d5/cpp/examples/arrow/CMakeLists.txt
@@ -263,19 +264,19 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   set(FLIGHT_PROTO "${ARROW_SOURCE}/format/Flight.proto")
 
   set(FLIGHT_GENERATED_PROTO_FILES
-      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.cc"
-      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.h"
-      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.cc"
-      "${ARROW_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.h")
+      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.cc"
+      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.h"
+      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.cc"
+      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.h")
 
   set(PROTO_DEPENDS ${FLIGHT_PROTO} gRPC::grpc_cpp_plugin)
 
   add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                            "--cpp_out=${${ARROW_SOURCE_DIR}/build/src/arrow/flight/}" "${FLIGHT_PROTO}"
+                            "--cpp_out=${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/" "${FLIGHT_PROTO}"
                     DEPENDS ${PROTO_DEPENDS} ARGS
                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                            "--grpc_out=${${ARROW_SOURCE_DIR}/build/src/arrow/flight/}"
+                            "--grpc_out=${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/"
                             "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
                             "${FLIGHT_PROTO}")
 
@@ -331,7 +332,7 @@ if(ARROW_BUILD_TESTS)
   enable_testing()
 
   # Set necessary paths for cmake to find GTest
-  set(GTEST_ROOT ${ARROW_SOURCE_DIR}/build/googletest_ep-prefix)
+  set(GTEST_ROOT ${ARROW_CPP_SOURCE_DIR}/build/googletest_ep-prefix)
   set(GTEST_INCLUDE_DIR "${GTEST_ROOT}/include")
   set(GTEST_LIBRARY ${GTEST_ROOT}/lib)
   set(GTEST_MAIN_LIBRARY ${GTEST_ROOT}/lib)
@@ -459,7 +460,7 @@ if(ARROW_BUILD_TESTS)
     add_test(${TEST_NAME} ${TEST_PATH})
   else()
     add_test(${TEST_NAME}
-            ${ARROW_SOURCE_DIR}/build-support/run-test.sh
+            ${ARROW_CPP_SOURCE_DIR}/build-support/run-test.sh
             ${CMAKE_BINARY_DIR}
             test
             ${TEST_PATH})
