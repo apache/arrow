@@ -830,18 +830,3 @@ test_that("as_record_batch() works for data.frame()", {
     record_batch(col1 = Array$create(1, type = float64()), col2 = "two")
   )
 })
-
-test_that("ARROW-14989: num_rows method not susceptible to integer overflow", {
-  skip_on_cran()
-
-  test_array1 <- Array$create(raw(.Machine$integer.max))
-  test_array2 <- Array$create(raw(1))
-  big_chunked <- chunked_array(test_array1, test_array2)
-
-  small_table <- record_batch(col = test_array1)
-  expect_type(small_table$num_rows, "integer")
-
-  big_table <- record_batch(col = big_chunked)
-  expect_type(big_table$num_rows, "double")
-
-})
