@@ -80,21 +80,21 @@ test_that("filter() on timestamp columns", {
     df1[5:10, c("ts")],
   )
 
-  # Now with bare string date
-  skip("Implement more aggressive implicit casting for scalars (ARROW-11402)")
+  # Now with Date
   expect_equal(
     ds %>%
-      filter(ts >= "2015-05-04") %>%
+      filter(ts >= as.Date("2015-05-04")) %>%
       filter(part == 1) %>%
       select(ts) %>%
       collect(),
     df1[5:10, c("ts")],
   )
 
-  # Now with Date
+  # Now with bare string date
+  skip("Implement more aggressive implicit casting for scalars (ARROW-11402)")
   expect_equal(
     ds %>%
-      filter(ts >= as.Date("2015-05-04")) %>%
+      filter(ts >= "2015-05-04") %>%
       filter(part == 1) %>%
       select(ts) %>%
       collect(),
