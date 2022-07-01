@@ -59,6 +59,10 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
 
    cumulative_sum
    cumulative_sum_checked
+   cumulative_product
+   cumulative_product_checked
+   cumulative_min
+   cumulative_max
 
 Arithmetic Functions
 --------------------
@@ -518,6 +522,9 @@ Compute Options
    CountOptions
    CountOptions
    CumulativeSumOptions
+   CumulativeMaxOptions
+   CumulativeMinOptions
+   CumulativeProductOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
    ElementWiseAggregateOptions

@@ -1562,19 +1562,51 @@ numeric type. By default these functions do not detect overflow. They are also
 available in an overflow-checking variant, suffixed ``_checked``, which returns
 an ``Invalid`` :class:`Status` when overflow is detected.
 
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| Function name          | Arity | Input types | Output type | Options class                  | Notes |
-+========================+=======+=============+=============+================================+=======+
-| cumulative_sum         | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_sum_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
++----------------------------+-------+-------------+-------------+------------------------------------+-------+
+| Function name              | Arity | Input types | Output type | Options class                      | Notes |
++============================+=======+=============+=============+====================================+=======+
+| cumulative_sum             | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions`     | \(1)  |
++----------------------------+-------+-------------+-------------+------------------------------------+-------+
+| cumulative_sum_checked     | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions`     | \(1)  |
++----------------------------+-------+-------------+-------------+------------------------------------+-------+
+| cumulative_product         | Unary | Numeric     | Numeric     | :struct:`CumulativeProductOptions` | \(2)  |
++----------------------------+-------+-------------+-------------+------------------------------------+-------+
+| cumulative_product_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeProductOptions` | \(2)  |
++----------------------------+-------+-------------+-------------+------------------------------------+-------+
+| cumulative_min             | Unary | Numeric     | Numeric     | :struct:`CumulativeMinOptions`     | \(3)  |
++----------------------------+-------+-------------+-------------+------------------------------------+-------+
+| cumulative_max             | Unary | Numeric     | Numeric     | :struct:`CumulativeMaxOptions`     | \(4)  |
++----------------------------+-------+-------------+-------------+------------------------------------+-------+
 
 * \(1) CumulativeSumOptions has two optional parameters. The first parameter
   :member:`CumulativeSumOptions::start` is a starting value for the running
   sum. It has a default value of 0. Specified values of ``start`` must have the
   same type as the input. The second parameter 
   :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
+  false (the default), the first encountered null is propagated. When set to
+  true, each null in the input produces a corresponding null in the output.
+
+* \(2) CumulativeProductOptions has two optional parameters. The first parameter
+  :member:`CumulativeProductOptions::start` is a starting value for the running
+  product. It has a default value of 1. Specified values of ``start`` must have
+  the same type as the input. The second parameter 
+  :member:`CumulativeProductOptions::skip_nulls` is a boolean. When set to
+  false (the default), the first encountered null is propagated. When set to
+  true, each null in the input produces a corresponding null in the output.
+
+* \(3) CumulativeMinOptions has two optional parameters. The first parameter
+  :member:`CumulativeMinOptions::start` is a starting value for the running
+  minimum. It's default value will be maximum value of the input type. Specified
+  values of ``start`` must have the same type as the input. The second parameter 
+  :member:`CumulativeMinOptions::skip_nulls` is a boolean. When set to
+  false (the default), the first encountered null is propagated. When set to
+  true, each null in the input produces a corresponding null in the output.
+
+* \(4) CumulativeMaxOptions has two optional parameters. The first parameter
+  :member:`CumulativeMaxOptions::start` is a starting value for the running
+  maximum. It's default value will be minimum value of the input type. Specified
+  values of ``start`` must have the same type as the input. The second parameter 
+  :member:`CumulativeMaxOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to
   true, each null in the input produces a corresponding null in the output.
 
