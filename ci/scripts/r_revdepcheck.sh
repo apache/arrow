@@ -102,8 +102,6 @@ SCRIPT="
     num_workers = 2,
     env = c(
         ARROW_R_DEV = '$ARROW_R_DEV',
-        LIBARROW_DOWNLOAD = TRUE,
-        LIBARROW_MINIMAL = FALSE,
         revdepcheck::revdep_env_vars()
     ))
 
