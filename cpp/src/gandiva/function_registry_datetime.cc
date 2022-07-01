@@ -166,9 +166,9 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("to_utc_timestamp", {}, DataTypeVector{timestamp(), utf8()},
                      timestamp(), kResultNullIfNull, "to_utc_timezone_timestamp",
                      NativeFunction::kNeedsContext),
-      
-      NativeFunction("from_utc_timestamp", {}, DataTypeVector{timestamp(), utf8()}, timestamp(),
-                     kResultNullIfNull, "from_utc_timezone_timestamp",
+
+      NativeFunction("from_utc_timestamp", {}, DataTypeVector{timestamp(), utf8()},
+                     timestamp(), kResultNullIfNull, "from_utc_timezone_timestamp",
                      NativeFunction::kNeedsContext),
 
       DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),

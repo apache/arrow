@@ -998,7 +998,7 @@ TEST(TestTime, TestToUtcTimezone) {
   auto context_ptr = reinterpret_cast<int64_t>(&context);
   gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
   gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
-  
+
   //2012-02-28 15:30:00 Asia/Kolkata
   gdv_timestamp ts = 55800000;
   gdv_timestamp ts2 = to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
@@ -1019,7 +1019,6 @@ TEST(TestTime, TestToUtcTimezone) {
   ts = 1331712000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
   EXPECT_EQ(ts2, 1331737200000);
-
 }
 
 TEST(TestTime, TestFromUtcTimezone) {
@@ -1029,7 +1028,8 @@ TEST(TestTime, TestFromUtcTimezone) {
   gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
 
   gdv_timestamp ts = 36000000;
-  gdv_timestamp ts2 = from_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
+  gdv_timestamp ts2 = from_utc_timezone_timestamp(context_ptr, ts,
+                                                  "Asia/Kolkata", len_ist);
   EXPECT_EQ(ts2, 55800000);
 
   ts = -1800000;

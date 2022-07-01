@@ -724,7 +724,7 @@ TEST_F(TestProjector, TestToTimestampFromInt) {
 TEST_F(TestProjector, TestToUtcTimestamp) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", arrow::utf8());
-  
+
   auto schema = arrow::schema({f0, f1});
 
   //output fields
@@ -750,10 +750,10 @@ TEST_F(TestProjector, TestToUtcTimestamp) {
   auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
 
-  auto array1 = MakeArrowArrayUtf8({"Asia/Kolkata", "Asia/Kolkata", 
+  auto array1 = MakeArrowArrayUtf8({"Asia/Kolkata", "Asia/Kolkata",
                                     "America/Los_Angeles", "America/Los_Angeles"},
                                    {true, true, true, true});
-  
+
   //expected output
   std::vector<int64_t> exp_output_data = {MillisSince(epoch, 1970, 1, 1, 0, 30, 0, 0),
                                           MillisSince(epoch, 2001, 1, 4, 21, 30, 0, 0),
@@ -761,7 +761,7 @@ TEST_F(TestProjector, TestToUtcTimestamp) {
                                           MillisSince(epoch, 2018, 3, 11, 9, 0, 0, 0)};
   auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), exp_output_data, validity);
-  
+
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -771,15 +771,14 @@ TEST_F(TestProjector, TestToUtcTimestamp) {
   EXPECT_TRUE(status.ok());
 
   // Validate results
-  
-  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestFromUtcTimestamp) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", arrow::utf8());
-  
+
   auto schema = arrow::schema({f0, f1});
 
   //output fields
@@ -800,16 +799,16 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
                                   MillisSince(epoch, 2001, 1, 4, 21, 30, 0, 0),
                                   MillisSince(epoch, 2018, 3, 12, 8, 0, 0, 0),
                                   MillisSince(epoch, 2018, 3, 11, 9, 0, 0, 0)};
-  
+
   int64_t num_records = f0_data.size();
   std::vector<bool> validity(num_records, true);
   auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
 
-  auto array1 = MakeArrowArrayUtf8({"Asia/Kolkata", "Asia/Kolkata", 
+  auto array1 = MakeArrowArrayUtf8({"Asia/Kolkata", "Asia/Kolkata",
                                     "America/Los_Angeles", "America/Los_Angeles"},
                                    {true, true, true, true});
-  
+
   //expected output
   std::vector<int64_t> exp_output_data = {MillisSince(epoch, 1970, 1, 1, 6, 0, 0, 0),
                                           MillisSince(epoch, 2001, 1, 5, 3, 0, 0, 0),
@@ -817,7 +816,7 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
                                           MillisSince(epoch, 2018, 3, 11, 1, 0, 0, 0)};
   auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), exp_output_data, validity);
-  
+
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -828,7 +827,5 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
-
 }
-
 }  // namespace gandiva

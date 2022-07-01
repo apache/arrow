@@ -613,11 +613,11 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
 }
 
 GANDIVA_EXPORT
-gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds, 
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
                                         const char* timezone, gdv_int32 length) {
   using arrow_vendored::date::time_zone;
 
-  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp 
+  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp
                                   {std::chrono::milliseconds{time_miliseconds}};
   try {
     const time_zone* local_tz = arrow_vendored::date::locate_zone
@@ -631,17 +631,18 @@ gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_mili
 }
 
 GANDIVA_EXPORT
-gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context, gdv_timestamp time_miliseconds, 
-                                          const char* timezone, gdv_int32 length) {
+gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context, gdv_timestamp
+                                          time_miliseconds, const char* timezone,
+                                          gdv_int32 length) {
   using arrow_vendored::date::time_zone;
   using arrow_vendored::date::zoned_time;
 
-  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp 
+  arrow_vendored::date::sys_time <std::chrono::milliseconds> tp
                                   {std::chrono::milliseconds{time_miliseconds}};
-  const zoned_time<std::chrono::milliseconds, const time_zone*> utc_tz = 
+  const zoned_time<std::chrono::milliseconds, const time_zone*> utc_tz =
         arrow_vendored::date::make_zoned(std::string("Etc/UTC"), tp);
   try {
-    const zoned_time<std::chrono::milliseconds, const time_zone*> local_tz = 
+    const zoned_time<std::chrono::milliseconds, const time_zone*> local_tz =
         arrow_vendored::date::make_zoned(std::string(timezone, length), utc_tz);
     gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count()*1000;
     return time_miliseconds + static_cast<gdv_timestamp>(offset);
@@ -1014,7 +1015,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("to_utc_timezone_timestamp",
                                   types->i64_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(to_utc_timezone_timestamp));
-  
+
   // from_utc_timezone_timestamp
   args = {
       types->i64_type(),     // context
