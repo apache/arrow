@@ -985,7 +985,6 @@ if(ARROW_JNI)
 	endif()
 endif()
 
-
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
 endif()
