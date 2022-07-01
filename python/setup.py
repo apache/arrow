@@ -93,7 +93,7 @@ class build_ext(_build_ext):
         _build_ext.build_extensions(self)
 
     def run(self):
-        self._run_cmake_cpyarrow()
+        self._run_cmake_arrow_python()
         self._run_cmake()
         _build_ext.run(self)
 
@@ -228,7 +228,7 @@ class build_ext(_build_ext):
         '_hdfsio',
         'gandiva']
 
-    def _run_cmake_cpyarrow(self):
+    def _run_cmake_arrow_python(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
