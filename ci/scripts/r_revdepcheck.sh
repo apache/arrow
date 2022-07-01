@@ -72,7 +72,7 @@ apt install -y libxml2-dev \
 
 
 
-pushd ${source_dir}
+pushd /revdep
 
 printenv
 
@@ -81,7 +81,7 @@ printenv
 export AWS_EC2_METADATA_DISABLED=TRUE
 
 # Set crancache dir so we can cache it
-export CRANCACHE_DIR="/arrow/.crancache"
+export CRANCACHE_DIR="/revdep/.crancache"
 
 # Don't use system boost to prevent issues with missing components 
 export EXTRA_CMAKE_FLAGS='-DBoost_SOURCE=BUNDLED'
@@ -96,6 +96,7 @@ SCRIPT="
 
     # actually run revdepcheck
     revdepcheck::revdep_check(
+    pkg = "${source_dir}",
     quiet = FALSE,
     timeout = as.difftime(120, units = 'mins'),
     num_workers = 2,

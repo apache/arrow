@@ -1389,7 +1389,10 @@ services:
       LIBARROW_MINIMAL: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: "true"
-    volumes: *ubuntu-volumes
+    volumes: 
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
+      - ./revdep:/revdep:delegated
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
 

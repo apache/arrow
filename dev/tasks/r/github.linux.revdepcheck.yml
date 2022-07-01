@@ -34,6 +34,13 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
+      - name: Cache Docker Volumes
+        uses: actions/cache@v3
+        with:
+          path: |
+            .docker
+            revdep
+          key: revdep-check
       - name: Docker Run
         shell: bash
         run: archery docker run r-revdepcheck
