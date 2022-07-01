@@ -58,7 +58,7 @@ test_that("compile_test_program()", {
   expect_null(attr(compile_test_program("int a;"), "status"))
   fail <- compile_test_program("#include <wrong/NOTAHEADER.h>")
   expect_true(attr(fail, "status") > 0)
-  expect_true(any(grepl("<wrong/NOTAHEADER.h>", fail)))
+  expect_true(header_not_found("wrong/NOTAHEADER", fail))
 })
 
 test_that("determine_binary_from_stderr", {

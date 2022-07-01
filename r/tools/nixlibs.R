@@ -170,17 +170,22 @@ determine_binary_from_stderr <- function(errs) {
     cat("*** Found libcurl and openssl >= 3.0.0\n")
     return("ubuntu-22.04")
   } else {
-    if (any(grepl("#include <curl/curl.h>", errs, fixed = TRUE))) {
+    if (header_not_found("curl/curl", errs)) {
       cat("*** libcurl not found\n")
     }
-    if (any(grepl("#include <openssl/opensslv.h>", errs, fixed = TRUE))) {
+    if (header_not_found("openssl/opensslv", errs)) {
       cat("*** openssl not found\n")
     }
-    if (any(grepl("OpenSSL version too old", errs, fixed = TRUE))) {
+    if (any(grepl("OpenSSL version too old", errs))) {
       cat("*** openssl found but version >= 1.0.2 is required for some features\n")
     }
     return(NULL)
   }
+}
+
+header_not_found <- function(header, errs) {
+  regex <- sprintf("[Ee]rror.*%s\\.h", header)
+  any(grepl(regex, errs))
 }
 
 compiler_version_string <- function(compiler = R_CMD_config("CXX11")) {
