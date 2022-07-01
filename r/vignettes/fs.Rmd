@@ -10,10 +10,13 @@ vignette: >
 The Arrow C++ library includes a generic filesystem interface and specific
 implementations for some cloud storage systems. This setup allows various
 parts of the project to be able to read and write data with different storage
-backends. In the `arrow` R package, support has been enabled for AWS S3.
-This vignette provides an overview of working with S3 data using Arrow.
+backends. In the `arrow` R package, support has been enabled for AWS S3 and
+Google Cloud Storage (GCS). This vignette provides an overview of working with 
+S3 and GCS data using Arrow.
 
-> In Windows and macOS binary packages, S3 support is included. On Linux when 
+<!-- TODO: where do we currently package GCS support? -->
+
+> In Windows and macOS binary packages, S3 and GCS support are included. On Linux when 
 installing from source, S3 support is not enabled by default, and it has 
 additional system requirements. See `vignette("install", package = "arrow")` 
 for details.
@@ -30,6 +33,8 @@ s3://[access_key:secret_key@]bucket/path[?region=]
 ```
 
 For example, one of the NYC taxi data files used in `vignette("dataset", package = "arrow")` is found at
+
+<!-- TODO: Create example GCS dataset -->
 
 ```
 s3://ursa-labs-taxi-data/2019/06/data.parquet
@@ -95,6 +100,8 @@ june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
 
 ## Authentication
 
+### S3 Authentication
+
 To access private S3 buckets, you need typically need two secret parameters:
 a `access_key`, which is like a user id, and `secret_key`, which is like a token
 or password. There are a few options for passing these credentials:
@@ -109,6 +116,10 @@ or password. There are a few options for passing these credentials:
 
 - Use an [AccessRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
 for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()` or `s3_bucket()`.
+
+### GCS Authentication
+
+<!-- TODO -->
 
 ## Using a proxy server
 
