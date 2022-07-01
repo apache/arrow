@@ -81,7 +81,7 @@ printenv
 export AWS_EC2_METADATA_DISABLED=TRUE
 
 # Set crancache dir so we can cache it
-export CRANCACHE_DIR="/revdep/.crancache"
+export CRANCACHE_DIR="${source_dir}/revdep/.crancache"
 
 # Don't use system boost to prevent issues with missing components 
 export EXTRA_CMAKE_FLAGS='-DBoost_SOURCE=BUNDLED'

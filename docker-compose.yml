@@ -1386,10 +1386,7 @@ services:
     shm_size: *shm-size
     environment:
       ARROW_R_DEV: "true"
-    volumes: 
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
-      - ./revdep:/revdep:delegated
+    volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
 
