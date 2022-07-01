@@ -90,7 +90,9 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
 }
 
 bool FileSource::Equals(const FileSource& other) const {
-  return true;
+  if (filesystem_ == NULLPTR) return false;
+  return file_info_.Equals(other.file_info_) && filesystem_->Equals(other.filesystem_) &&
+         buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
 }
 
 Future<util::optional<int64_t>> FileFormat::CountRows(
@@ -140,8 +142,7 @@ Future<util::optional<int64_t>> FileFragment::CountRows(
 }
 
 bool FileFragment::Equals(const FileFragment& other) const {
-  source_;
-  return true;
+  return source_.Equals(other.source_) && format_->Equals(*other.format_);
 }
 
 struct FileSystemDataset::FragmentSubtrees {
