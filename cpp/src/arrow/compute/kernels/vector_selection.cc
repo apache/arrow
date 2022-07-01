@@ -99,24 +99,34 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
   const uint8_t* filter_is_valid = filter_data.buffers[0].data;
   const uint8_t* filter_selection = filter_data.buffers[1].data;
 
-  if (null_selection == FilterOptions::EMIT_NULL) {
+  if (filter_is_valid == NULLPTR) {
     rle_util::VisitMergedRuns(
         values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
         [&](int64_t, int64_t, int64_t filter_index) {
-          if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index) ||
-              bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+          if (bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
             output_size++;
           }
         });
-  } else {
-    rle_util::VisitMergedRuns(
-        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
-        [&](int64_t, int64_t, int64_t filter_index) {
-          if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index) &&
-              bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
-            output_size++;
-          }
-        });
+  } else { // filter has validity bitmap
+    if (null_selection == FilterOptions::EMIT_NULL) {
+      rle_util::VisitMergedRuns(
+          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
+          [&](int64_t, int64_t, int64_t filter_index) {
+            if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index) ||
+                bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+              output_size++;
+            }
+          });
+    } else {
+      rle_util::VisitMergedRuns(
+          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
+          [&](int64_t, int64_t, int64_t filter_index) {
+            if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index) &&
+                bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+              output_size++;
+            }
+          });
+    }
   }
   return output_size;
 }
@@ -890,7 +900,16 @@ class PrimitiveRLEFilterImpl {
     };
 
     int64_t accumulated_run_length = 0;
-    if (null_selection_ == FilterOptions::DROP) {
+    if (filter_is_valid_ == NULLPTR) {
+      rle_util::VisitMergedRuns(
+          values_run_length_, filter_run_length_, input_logical_length_,
+          [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+            if (bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+              accumulated_run_length += run_length;
+              WriteValue(value_index, accumulated_run_length);
+            }
+          });
+    } else if (null_selection_ == FilterOptions::DROP) {
       rle_util::VisitMergedRuns(
           values_run_length_, filter_run_length_, input_logical_length_,
           [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
