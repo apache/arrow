@@ -252,7 +252,7 @@ jobs:
         env:
           ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
-          LIBARROW_BINARY: "${{ matrix.config.env_var }}"
+          LIBARROW_BINARY: '${{ matrix.config.env_var }}'
         shell: Rscript {0}
         run: |
           {{  macros.github_test_r_src_pkg()|indent(8) }}
