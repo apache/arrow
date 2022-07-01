@@ -246,6 +246,9 @@ class build_ext(_build_ext):
         build_include = pjoin(saved_cwd, 'build/dist/include')
         build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
 
+        # The directory containing Arrow C++ build
+        arrow_build_dir = os.environ.get('ARROW_BUILD_DIR', 'build')
+
         if self.inplace:
             # a bit hacky
             build_lib = saved_cwd
@@ -264,6 +267,7 @@ class build_ext(_build_ext):
                 '-DCMAKE_INSTALL_PREFIX=' +
                 str(pjoin(saved_cwd, 'build/dist')),
                 '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type.lower()),
+                '-DARROW_BUILD_DIR=' + str(arrow_build_dir),
             ]
 
             # Check for specific options
@@ -294,7 +298,6 @@ class build_ext(_build_ext):
                 pass
 
             print(f"moving {build_temp} to {build_lib}")
-            # shutil.move(build_temp, pjoin(build_lib, "pyarrow"))
             # a bit hacky
             for libname in os.listdir(build_temp):
                 if "libarrow_python" in libname:

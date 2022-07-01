@@ -264,19 +264,20 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   set(FLIGHT_PROTO "${ARROW_SOURCE}/format/Flight.proto")
 
   set(FLIGHT_GENERATED_PROTO_FILES
-      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.cc"
-      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.pb.h"
-      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.cc"
-      "${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/Flight.grpc.pb.h")
+      "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/src/arrow/flight/Flight.pb.cc"
+      "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/src/arrow/flight/Flight.pb.h"
+      "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/src/arrow/flight/Flight.grpc.pb.cc"
+      "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/src/arrow/flight/Flight.grpc.pb.h")
 
   set(PROTO_DEPENDS ${FLIGHT_PROTO} gRPC::grpc_cpp_plugin)
 
   add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                            "--cpp_out=${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/" "${FLIGHT_PROTO}"
+                            "--cpp_out=${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/src/arrow/flight/"
+                            "${FLIGHT_PROTO}"
                     DEPENDS ${PROTO_DEPENDS} ARGS
                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                            "--grpc_out=${ARROW_CPP_SOURCE_DIR}/build/src/arrow/flight/"
+                            "--grpc_out=${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/src/arrow/flight/"
                             "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
                             "${FLIGHT_PROTO}")
 
@@ -332,7 +333,7 @@ if(ARROW_BUILD_TESTS)
   enable_testing()
 
   # Set necessary paths for cmake to find GTest
-  set(GTEST_ROOT ${ARROW_CPP_SOURCE_DIR}/build/googletest_ep-prefix)
+  set(GTEST_ROOT ${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/googletest_ep-prefix)
   set(GTEST_INCLUDE_DIR "${GTEST_ROOT}/include")
   set(GTEST_LIBRARY ${GTEST_ROOT}/lib)
   set(GTEST_MAIN_LIBRARY ${GTEST_ROOT}/lib)
