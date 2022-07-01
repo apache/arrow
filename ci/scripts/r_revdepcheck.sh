@@ -70,6 +70,8 @@ apt install -y libxml2-dev \
   libgeos-dev \
   libproj-dev
 
+
+
 pushd ${source_dir}
 
 printenv
@@ -81,8 +83,8 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 # Set crancache dir so we can cache it
 export CRANCACHE_DIR="/arrow/.crancache"
 
-# Use bundled boost to prevent issues with missing components 
-export Boost_SOURCE=BUNDLED
+# Don't use system boost to prevent issues with missing components 
+export EXTRA_CMAKE_FLAGS='-DBoost_SOURCE=BUNDLED'
 
 SCRIPT="
     # We can't use RSPM binaries because we need source packages
