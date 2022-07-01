@@ -2361,17 +2361,18 @@ easy_date <- as.POSIXct("2022-10-11 12:00:00", tz = "UTC")
 easy_df <- tibble::tibble(datetime = easy_date)
 
 # dates near month boundaries over the course of 1 year
+month_boundaries <- c(
+  "2021-01-01 00:01:00", "2021-02-01 00:01:00", "2021-03-01 00:01:00",
+  "2021-04-01 00:01:00", "2021-05-01 00:01:00", "2021-06-01 00:01:00",
+  "2021-07-01 00:01:00", "2021-08-01 00:01:00", "2021-09-01 00:01:00",
+  "2021-10-01 00:01:00", "2021-11-01 00:01:00", "2021-12-01 00:01:00",
+  "2021-01-31 23:59:00", "2021-02-28 23:59:00", "2021-03-31 23:59:00",
+  "2021-04-30 23:59:00", "2021-05-31 23:59:00", "2021-06-30 23:59:00",
+  "2021-07-31 23:59:00", "2021-08-31 23:59:00", "2021-09-30 23:59:00",
+  "2021-10-31 23:59:00", "2021-11-30 23:59:00", "2021-12-31 23:59:00"
+)
 year_of_dates <- tibble::tibble(
-  datetime = as.POSIXct(c(
-    "2021-01-01 00:01:00", "2021-02-01 00:01:00", "2021-03-01 00:01:00",
-    "2021-04-01 00:01:00", "2021-05-01 00:01:00", "2021-06-01 00:01:00",
-    "2021-07-01 00:01:00", "2021-08-01 00:01:00", "2021-09-01 00:01:00",
-    "2021-10-01 00:01:00", "2021-11-01 00:01:00", "2021-12-01 00:01:00",
-    "2021-01-31 23:59:00", "2021-02-28 23:59:00", "2021-03-31 23:59:00",
-    "2021-04-30 23:59:00", "2021-05-31 23:59:00", "2021-06-30 23:59:00",
-    "2021-07-31 23:59:00", "2021-08-31 23:59:00", "2021-09-30 23:59:00",
-    "2021-10-31 23:59:00", "2021-11-30 23:59:00", "2021-12-31 23:59:00"
-  ), tz = "UTC"),
+  datetime = as.POSIXct(month_boundaries, tz = "UTC"),
   date = as.Date(datetime)
 )
 
@@ -2411,8 +2412,21 @@ boundary_times <- tibble::tibble(
   date = as.Date(datetime)
 )
 
-# TODO: add test case to check rounding takes place in local time
-
+# test case to check rounding takes place in local time
+datestrings <- c(
+  "1970-01-01T00:00:59.123456789", "2000-02-29T23:23:23.999999999",
+  "1899-01-01T00:59:20.001001001", "2033-05-18T03:33:20.000000000",
+  "2020-01-01T01:05:05.001", "2019-12-31T02:10:10.002",
+  "2019-12-30T03:15:15.003", "2009-12-31T04:20:20.004132",
+  "2010-01-01T05:25:25.005321", "2010-01-03T06:30:30.006163",
+  "2010-01-04T07:35:35", "2006-01-01T08:40:40", "2005-12-31T09:45:45",
+  "2008-12-28T00:00:00", "2008-12-29T00:00:00", "2012-01-01 01:02:03"
+)
+tz_times <- tibble::tibble(
+  utc_time = as.POSIXct(datestrings, tz = "UTC"),
+  syd_time = as.POSIXct(datestrings, tz = "Australia/Sydney"),
+  adl_time = as.POSIXct(datestrings, tz = "Australia/Adelaide")
+)
 
 
 test_that("timestamp round/floor/ceiling works for a minimal test", {
@@ -2774,7 +2788,7 @@ check_boundary_with_unit <- function(unit, ...) {
 
 }
 
-test_that("timestamps adhere to change_on_boundary", {
+test_that("ceiling_date() applies change_on_boundary correctly", {
   check_boundary_with_unit(".001 second")
   check_boundary_with_unit("second")
   check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
@@ -2804,5 +2818,34 @@ test_that("temporal round/floor/ceil period unit maxima are enforced", {
     call_binding("round_date", Expression$scalar(Sys.Date()), "25 hours"),
     "Rounding with hour > 24 is not supported"
   )
+
+})
+
+check_timezone_rounding <- function(unit) {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        utc_floored = floor_date(utc_time, unit = unit),
+        utc_rounded = round_date(utc_time, unit = unit),
+        utc_ceiling = ceiling_date(utc_time, unit = unit),
+        syd_floored = floor_date(syd_time, unit = unit),
+        syd_rounded = round_date(syd_time, unit = unit),
+        syd_ceiling = ceiling_date(syd_time, unit = unit),
+        adl_floored = floor_date(adl_time, unit = unit),
+        adl_rounded = round_date(adl_time, unit = unit),
+        adl_ceiling = ceiling_date(adl_time, unit = unit)
+      ) %>%
+      collect(),
+    tz_times
+  )
+}
+
+test_that("timestamp rounding takes place in local time", {
+
+  check_timezone_rounding(".001 second")
+  check_timezone_rounding("second")
+  check_timezone_rounding("minute")
+  check_timezone_rounding("hour")
+  check_timezone_rounding("day")
 
 })
