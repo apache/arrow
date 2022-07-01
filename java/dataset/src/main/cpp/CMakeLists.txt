@@ -29,7 +29,7 @@ add_custom_target(arrow_dataset_jni)
 
 set(JNI_HEADERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
-add_subdirectory(../../../../java/dataset ./java)
+add_subdirectory(../../../../dataset ./java)
 
 set(ARROW_BUILD_STATIC OFF)
 

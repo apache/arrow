@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "jni/dataset/jni_util.h"
+#include "./jni_util.h"
 
 #include <memory>
 #include <mutex>
