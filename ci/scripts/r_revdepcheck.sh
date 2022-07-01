@@ -71,8 +71,8 @@ apt install -y libxml2-dev \
   libproj-dev
 
 
-
-pushd /revdep
+# We have to be in source_dir so that cpp source detection works
+pushd $source_dir
 
 printenv
 
@@ -96,7 +96,6 @@ SCRIPT="
 
     # actually run revdepcheck
     revdepcheck::revdep_check(
-    pkg = '$source_dir',
     quiet = FALSE,
     timeout = as.difftime(120, units = 'mins'),
     num_workers = 2,
