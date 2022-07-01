@@ -108,20 +108,18 @@ test_that("filter() on date32 columns", {
   df <- data.frame(date = as.Date(c("2020-02-02", "2020-02-03")))
   write_parquet(df, file.path(tmp, "file.parquet"))
 
-  # Also with timestamp scalar
   expect_equal(
     open_dataset(tmp) %>%
-      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
+      filter(date > as.Date("2020-02-02")) %>%
       collect() %>%
       nrow(),
     1L
   )
 
-  # string processing requires RE2 library (not available on Windows with R 3.6)
-  skip_if_not_available("re2")
+  # Also with timestamp scalar
   expect_equal(
     open_dataset(tmp) %>%
-      filter(date > as.Date("2020-02-02")) %>%
+      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
       collect() %>%
       nrow(),
     1L
