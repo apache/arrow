@@ -50,7 +50,7 @@ build_ok <- !env_is("LIBARROW_BUILD", "false")
 # Check if we're doing an offline build.
 # (Note that cmake will still be downloaded if necessary
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
-download_ok <- !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://github.com", tempfile())
+download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://raw.githubusercontent.com/apache/arrow/master/r/DESCRIPTION", tempfile())
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
@@ -79,15 +79,15 @@ download_binary <- function(lib) {
 # Function to figure out which flavor of binary we should download, if at all.
 # LIBARROW_BINARY controls the behavior. If unset, it will determine a course
 # of action based on the current system. Other values you can set it to:
-# * "FALSE" (not case-sensitive), to
+# * "FALSE" (not case-sensitive), to skip this option altogether
 # * "TRUE" (not case-sensitive), to try to discover your current OS, or
-# * some other string: a "distro-version" that corresponds to a binary that is
-#   available, to override what this function may determine by default.
-#   Possible values (also the potential return values of this function,
-#   along with `NULL`) are:
+# * Some other string: a "distro-version" that corresponds to a binary that is
+#   available, to override what this function may discover by default.
+#   Possible values are:
 #    * "centos-7" (gcc 4.8, no AWS/GCS support)
 #    * "ubuntu-18.04" (gcc 8, openssl 1)
 #    * "ubuntu-22.04" (openssl 3)
+#   These string values, along with `NULL`, are the potential return values of #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
   lib <- tolower(lib)
   if (identical(lib, "")) {
@@ -131,8 +131,18 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
       cat("*** Some features are not available with gcc 4\n")
       return("centos-7")
     } else {
-      errs <- compile_test_program(test_program)
-      determine_binary_from_stderr(errs)
+      tryCatch(
+        # Somehow the test program system2 call errors on the sanitizer builds
+        # so globally handle the possibility that this could fail
+        {
+          errs <- compile_test_program(test_program)
+          determine_binary_from_stderr(errs)
+        },
+        error = function(e) {
+          cat("*** Unable to find libcurl and openssl\n")
+          NULL
+        }
+      )
     }
   } else {
     # No binary available for arch

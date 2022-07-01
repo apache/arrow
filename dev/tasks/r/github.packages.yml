@@ -212,20 +212,23 @@ jobs:
 
   test-linux-binary:
     needs: [source, linux-cpp]
-    name: Test binary {{ '${{ matrix.image }}' }}
+    name: Test binary {{ '${{ matrix.config.image }}' }}
     runs-on: ubuntu-latest
-    container: {{ '${{ matrix.image }}' }}
+    container: {{ '${{ matrix.config.image }}' }}
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - "rhub/ubuntu-gcc-release" # ubuntu-20.04 (focal)
-          - "rstudio/r-base:4.1-bionic"
-          - "rstudio/r-base:4.2-centos7"
-          - "rocker/r-ver:3.6.3" # for debian:buster (10)
-          - "rocker/r-ver" # ubuntu-20.04
-          - "rhub/fedora-clang-devel" # tests distro-map.csv, mapped to ubuntu-18.04
-          - "rocker/r-ubuntu:22.04" # tests openssl3 compatibility
+        config:
+          # If env_var is "", we're testing that we're automatically choosing
+          # a binary on this OS. If env_var is TRUE, we're on an OS that
+          # is not in the allowlist, so we have to opt-in to use the binary
+          - {image: "rhub/ubuntu-gcc-release", env_var: ""} # ubuntu-20.04 (focal)
+          - {image: "rstudio/r-base:4.1-bionic", env_var: ""}
+          - {image: "rstudio/r-base:4.2-centos7", env_var: ""}
+          - {image: "rocker/r-ver:3.6.3", env_var: "TRUE"} # debian:buster (10)
+          - {image: "rocker/r-ver", env_var: ""} # ubuntu-20.04
+          - {image: "rhub/fedora-clang-devel", env_var: "TRUE"}
+          - {image: "rocker/r-ubuntu:22.04", env_var: ""} # openssl3
     steps:
       - name: Install system requirements
         shell: bash
@@ -247,9 +250,9 @@ jobs:
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
       - name: Install arrow from our repo
         env:
-          ARROW_R_DEV: TRUE
+          ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
-          LIBARROW_BINARY: "TRUE"
+          LIBARROW_BINARY: "${{ matrix.config.env_var }}"
         shell: Rscript {0}
         run: |
           {{  macros.github_test_r_src_pkg()|indent(8) }}
