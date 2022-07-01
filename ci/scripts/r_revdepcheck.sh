@@ -81,6 +81,9 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 # Set crancache dir so we can cache it
 export CRANCACHE_DIR="/arrow/.crancache"
 
+# Use bundled boost to prevent issues with missing components 
+export Boost_SOURCE=BUNDLED
+
 SCRIPT="
     # We can't use RSPM binaries because we need source packages
     options('repos' = c(CRAN = 'https://packagemanager.rstudio.com/all/latest'))
