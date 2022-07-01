@@ -118,25 +118,25 @@ const std::shared_ptr<const arrow::KeyValueMetadata>& ColumnMetadata::metadata_m
 }
 
 ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::CatalogName(
-    std::string& catalog_name) {
+    const std::string& catalog_name) {
   metadata_map_->Append(ColumnMetadata::kCatalogName, catalog_name);
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::SchemaName(
-    std::string& schema_name) {
+    const std::string& schema_name) {
   metadata_map_->Append(ColumnMetadata::kSchemaName, schema_name);
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::TableName(
-    std::string& table_name) {
+    const std::string& table_name) {
   metadata_map_->Append(ColumnMetadata::kTableName, table_name);
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder& ColumnMetadata::ColumnMetadataBuilder::TypeName(
-    std::string& type_name) {
+    const std::string& type_name) {
   metadata_map_->Append(ColumnMetadata::kTypeName, type_name);
   return *this;
 }

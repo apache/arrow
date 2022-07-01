@@ -231,7 +231,7 @@ class FlightService extends FlightServiceImplBase {
     executors.submit(() -> {
       try {
         producer.acceptPut(makeContext(responseObserver), fs, ackStream).run();
-      } catch (Exception ex) {
+      } catch (Throwable ex) {
         ackStream.onError(ex);
       } finally {
         // ARROW-6136: Close the stream if and only if acceptPut hasn't closed it itself

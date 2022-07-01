@@ -18,7 +18,7 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
+#include <iosfwd>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -69,6 +69,54 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// - false: if read-write
     /// - true: if read only
     FLIGHT_SQL_SERVER_READ_ONLY = 3,
+
+    /// Retrieves a boolean value indicating whether the Flight SQL Server
+    /// supports executing SQL queries.
+    ///
+    /// Note that the absence of this info (as opposed to a false
+    /// value) does not necessarily mean that SQL is not supported, as
+    /// this property was not originally defined.
+    FLIGHT_SQL_SERVER_SQL = 4,
+
+    /// Retrieves a boolean value indicating whether the Flight SQL Server
+    /// supports executing Substrait plans.
+    FLIGHT_SQL_SERVER_SUBSTRAIT = 5,
+
+    /// Retrieves a string value indicating the minimum supported
+    /// Substrait version, or null if Substrait is not supported.
+    FLIGHT_SQL_SERVER_SUBSTRAIT_MIN_VERSION = 6,
+
+    /// Retrieves a string value indicating the maximum supported
+    /// Substrait version, or null if Substrait is not supported.
+    FLIGHT_SQL_SERVER_SUBSTRAIT_MAX_VERSION = 7,
+
+    /// Retrieves an int32 indicating whether the Flight SQL Server
+    /// supports the BeginTransaction, EndTransaction, BeginSavepoint,
+    /// and EndSavepoint actions.
+    ///
+    /// Even if this is not supported, the database may still support
+    /// explicit "BEGIN TRANSACTION"/"COMMIT" SQL statements (see
+    /// SQL_TRANSACTIONS_SUPPORTED); this property is only about
+    /// whether the server implements the Flight SQL API endpoints.
+    ///
+    /// The possible values are listed in `SqlSupportedTransaction`.
+    FLIGHT_SQL_SERVER_TRANSACTION = 8,
+
+    /// Retrieves a boolean value indicating whether the Flight SQL Server
+    /// supports explicit query cancellation (the CancelQuery action).
+    FLIGHT_SQL_SERVER_CANCEL = 9,
+
+    /// Retrieves an int32 value indicating the timeout (in milliseconds) for
+    /// prepared statement handles.
+    ///
+    /// If 0, there is no timeout.
+    FLIGHT_SQL_SERVER_STATEMENT_TIMEOUT = 100,
+
+    /// Retrieves an int32 value indicating the timeout (in milliseconds) for
+    /// transactions, since transactions are not tied to a connection.
+    ///
+    /// If 0, there is no timeout.
+    FLIGHT_SQL_SERVER_TRANSACTION_TIMEOUT = 101,
 
     /// @}
 
@@ -795,6 +843,16 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// @}
   };
 
+  /// The level of support for Flight SQL transaction RPCs.
+  enum SqlSupportedTransaction {
+    /// Unknown/not indicated/no supoprt
+    SQL_SUPPORTED_TRANSACTION_NONE = 0,
+    /// Transactions, but not savepoints.
+    SQL_SUPPORTED_TRANSACTION_TRANSACTION = 1,
+    /// Transactions and savepoints.
+    SQL_SUPPORTED_TRANSACTION_SAVEPOINT = 2,
+  };
+
   /// Indicate whether something (e.g. an identifier) is case-sensitive.
   enum SqlSupportedCaseSensitivity {
     SQL_CASE_SENSITIVITY_UNKNOWN = 0,
@@ -844,6 +902,25 @@ struct ARROW_FLIGHT_SQL_EXPORT TableRef {
   /// \brief The table name.
   std::string table;
 };
+
+/// \brief A Substrait plan to be executed, along with associated metadata.
+struct ARROW_FLIGHT_SQL_EXPORT SubstraitPlan {
+  /// \brief The serialized plan.
+  std::string plan;
+  /// \brief The Substrait release, e.g. "0.12.0".
+  std::string version;
+};
+
+/// \brief The result of cancelling a query.
+enum class CancelResult : int8_t {
+  kUnspecified,
+  kCancelled,
+  kCancelling,
+  kNotCancellable,
+};
+
+ARROW_FLIGHT_SQL_EXPORT
+std::ostream& operator<<(std::ostream& os, CancelResult result);
 
 /// @}
 
