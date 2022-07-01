@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# - Find Arrow Python (python/pyarrrow/src_arrow/api.h, libarrow_python.a, libarrow_python.so)
+# - Find Arrow Python (arrow/python/api.h, libarrow_python.a, libarrow_python.so)
 #
 # This module requires Arrow from which it uses
 #  arrow_find_package()
