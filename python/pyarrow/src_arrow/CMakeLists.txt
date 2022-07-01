@@ -228,7 +228,7 @@ add_arrow_lib(arrow_python
               DEPENDENCIES
               ${ARROW_PYTHON_DEPENDENCIES}
               SHARED_LINK_FLAGS
-              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in line 95
+              ${ARROW_VERSION_SCRIPT_FLAGS}
               SHARED_LINK_LIBS
               ${ARROW_PYTHON_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
@@ -295,7 +295,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
                 DEPENDENCIES
                 flight_grpc_gen
                 SHARED_LINK_FLAGS
-                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in line 95
+                ${ARROW_VERSION_SCRIPT_FLAGS}
                 SHARED_LINK_LIBS
                 arrow_python_shared
                 arrow_flight_shared
