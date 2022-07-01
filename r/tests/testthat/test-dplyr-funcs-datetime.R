@@ -2557,17 +2557,60 @@ test_that("timestamp round/floor/ceil works for units of 1 day or less", {
 
 })
 
+test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
+
+  year_of_dates %>% check_timestamp_rounding("month", ignore_attr = TRUE)
+  year_of_dates %>% check_timestamp_rounding("quarter", ignore_attr = TRUE)
+  year_of_dates %>% check_timestamp_rounding("year", ignore_attr = TRUE)
+
+})
+
+# check helper invoked when we need to avoid the lubridate rounding bug
+check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...) {
+
+  # directly compare arrow to lubridate for floor and ceiling
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_floored = floor_date(date, unit),
+        date_ceiling = ceiling_date(date, unit)
+      ) %>%
+      collect(),
+    data,
+    ignore_attr = ignore_attr,
+    ...
+  )
+
+  # The rounding tests for dates is run against Arrow timestamp behaviour
+  # because of a lubridate bug specific to Date objects with week and
+  # higher-unit rounding:
+  # https://github.com/tidyverse/lubridate/issues/1051
+  out <- data %>%
+    arrow_table() %>%
+    mutate(
+      out_date = date %>% round_date(unit), # Date
+      out_time = datetime %>% round_date(unit) # POSIXct
+    ) %>%
+    collect()
+
+  expect_equal(
+    out$out_date,
+    as.Date(out$out_time)
+  )
+}
+
+
 test_that("date round/floor/ceil works for units: month/quarter/year", {
 
-  # these tests are also affected by lubridate-1051
+  # these test cases are affected by lubridate-1051 so we bypass
+  # lubridate::round_date() for Date objects with large rounding units
   # https://github.com/tidyverse/lubridate/issues/1051
-  skip("ignore lubridate bug case")
 
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
   for (r in nrow(year_of_dates)) {
-    year_of_dates[r, ] %>% check_date_rounding("month", ignore_attr = TRUE)
-    #year_of_dates[r, ] %>% check_date_rounding("quarter", ignore_attr = TRUE)
-    #year_of_dates[r, ] %>% check_date_rounding("year", ignore_attr = TRUE)
+    year_of_dates[r, ] %>% check_date_rounding_1051_bypass("month", ignore_attr = TRUE)
+    year_of_dates[r, ] %>% check_date_rounding_1051_bypass("quarter", ignore_attr = TRUE)
+    year_of_dates[r, ] %>% check_date_rounding_1051_bypass("year", ignore_attr = TRUE)
   }
 
 })
@@ -2577,15 +2620,6 @@ test_that("date round/floor/ceil works for units: month/quarter/year", {
 # misinterpreted as 64-bit temporal array" bug (ARROW-16142). The easiest
 # solution is to never use an arrow array of length greater than 1.
 # https://issues.apache.org/jira/browse/ARROW-16142
-
-
-test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
-
-  year_of_dates %>% check_timestamp_rounding("month", ignore_attr = TRUE)
-  year_of_dates %>% check_timestamp_rounding("quarter", ignore_attr = TRUE)
-  year_of_dates %>% check_timestamp_rounding("year", ignore_attr = TRUE)
-
-})
 
 
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
@@ -2658,8 +2692,7 @@ check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) 
     ...
   )
 
-  # The round-to-week tests for dates is run against Arrow timestamp behaviour
-  # because of a lubridate bug specific to Date objects with week-unit rounding:
+  # use the bypass method to avoid the lubridate-1051 bug for week units
   # https://github.com/tidyverse/lubridate/issues/1051
   out <- data %>%
     arrow_table() %>%
@@ -2741,14 +2774,13 @@ check_boundary_with_unit <- function(unit, ...) {
 
 }
 
-test_that("timestamp change_on_boundary", {
+test_that("timestamps adhere to change_on_boundary", {
   check_boundary_with_unit(".001 second")
   check_boundary_with_unit("second")
   check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
   check_boundary_with_unit("hour")
   check_boundary_with_unit("day")
 })
-
 
 
 # In lubridate, an error is thrown when 60 sec/60 min/24 hour thresholds are
