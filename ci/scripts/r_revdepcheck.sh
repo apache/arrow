@@ -96,7 +96,7 @@ SCRIPT="
 
     # actually run revdepcheck
     revdepcheck::revdep_check(
-    pkg = "${source_dir}",
+    pkg = '$source_dir',
     quiet = FALSE,
     timeout = as.difftime(120, units = 'mins'),
     num_workers = 2,
