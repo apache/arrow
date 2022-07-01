@@ -2424,8 +2424,10 @@ datestrings <- c(
 )
 tz_times <- tibble::tibble(
   utc_time = as.POSIXct(datestrings, tz = "UTC"),
-  syd_time = as.POSIXct(datestrings, tz = "Australia/Sydney"),
-  adl_time = as.POSIXct(datestrings, tz = "Australia/Adelaide")
+  syd_time = as.POSIXct(datestrings, tz = "Australia/Sydney"),   # UTC +10   (UTC +11 with DST)
+  adl_time = as.POSIXct(datestrings, tz = "Australia/Adelaide"), # UTC +9:30 (UTC +10:30 with DST)
+  mar_time = as.POSIXct(datestrings, tz = "Pacific/Marquesas"),  # UTC -9:30 (no DST)
+  kat_time = as.POSIXct(datestrings, tz = "Asia/Kathmandu")      # UTC +5:45 (no DST)
 )
 
 
@@ -2598,6 +2600,7 @@ check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...)
   # The rounding tests for dates is run against Arrow timestamp behaviour
   # because of a lubridate bug specific to Date objects with week and
   # higher-unit rounding (see lubridate issue 1051)
+  # https://github.com/tidyverse/lubridate/issues/1051
   out <- data %>%
     arrow_table() %>%
     mutate(
@@ -2617,6 +2620,7 @@ test_that("date round/floor/ceil works for units: month/quarter/year", {
 
   # these test cases are affected by lubridate issue 1051 so we bypass
   # lubridate::round_date() for Date objects with large rounding units
+  # https://github.com/tidyverse/lubridate/issues/1051
 
   # these tests are run one row at a time to avoid ARROW-16412 (see note)
   for (r in nrow(year_of_dates)) {
@@ -2831,7 +2835,13 @@ check_timezone_rounding <- function(unit) {
         syd_ceiling = ceiling_date(syd_time, unit = unit),
         adl_floored = floor_date(adl_time, unit = unit),
         adl_rounded = round_date(adl_time, unit = unit),
-        adl_ceiling = ceiling_date(adl_time, unit = unit)
+        adl_ceiling = ceiling_date(adl_time, unit = unit),
+        mar_floored = floor_date(mar_time, unit = unit),
+        mar_rounded = round_date(mar_time, unit = unit),
+        mar_ceiling = ceiling_date(mar_time, unit = unit),
+        kat_floored = floor_date(kat_time, unit = unit),
+        kat_rounded = round_date(kat_time, unit = unit),
+        kat_ceiling = ceiling_date(kat_time, unit = unit)
       ) %>%
       collect(),
     tz_times
