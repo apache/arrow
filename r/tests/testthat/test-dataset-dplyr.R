@@ -91,8 +91,6 @@ test_that("filter() on timestamp columns", {
     df1[5:10, c("ts")],
   )
 
-  # string processing requires RE2 library (not available on Windows with R 3.6)
-  skip_if_not_available("re2")
   # Now with Date
   expect_equal(
     ds %>%
@@ -102,7 +100,6 @@ test_that("filter() on timestamp columns", {
       collect(),
     df1[5:10, c("ts")],
   )
-
 })
 
 test_that("filter() on date32 columns", {
