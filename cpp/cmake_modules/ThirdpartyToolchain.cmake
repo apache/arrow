@@ -3737,30 +3737,60 @@ macro(build_grpc)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   set(GRPC_GPR_ABSL_LIBRARIES
-      absl::bad_optional_access
-      absl::base
-      absl::cord
-      absl::debugging_internal
-      absl::demangle_internal
-      absl::graphcycles_internal
+      # We need a flattened list of Abseil libraries for the static linking case,
+      # because our method for creating arrow_bundled_dependencies.a doesn't walk
+      # the dependency tree of targets.
+      #
+      # This list should be updated when we change Abseil / gRPC versions. It can
+      # be generated with:
+      # pkg-config --libs --static grpc \
+      #   | tr " " "\n" \
+      #   | grep ^-labsl_ \
+      #   | sed 's/^-labsl_/absl::/'
+      absl::raw_hash_set
+      absl::hashtablez_sampler
       absl::hash
-      absl::int128
-      absl::malloc_internal
+      absl::city
+      absl::low_level_hash
+      absl::random_distributions
+      absl::random_seed_sequences
       absl::random_internal_pool_urbg
       absl::random_internal_randen
-      absl::raw_logging_internal
-      absl::spinlock_wait
-      absl::stacktrace
-      absl::status
+      absl::random_internal_randen_hwaes
+      absl::random_internal_randen_hwaes_impl
+      absl::random_internal_randen_slow
+      absl::random_internal_platform
+      absl::random_internal_seed_material
+      absl::random_seed_gen_exception
       absl::statusor
+      absl::status
+      absl::cord
+      absl::cordz_info
+      absl::cord_internal
+      absl::cordz_functions
+      absl::exponential_biased
+      absl::cordz_handle
+      absl::bad_optional_access
+      absl::str_format_internal
+      absl::synchronization
+      absl::graphcycles_internal
+      absl::stacktrace
+      absl::symbolize
+      absl::debugging_internal
+      absl::demangle_internal
+      absl::malloc_internal
+      absl::time
+      absl::civil_time
       absl::strings
       absl::strings_internal
-      absl::str_format_internal
-      absl::symbolize
-      absl::synchronization
+      absl::base
+      absl::spinlock_wait
+      absl::int128
       absl::throw_delegate
-      absl::time
-      absl::time_zone)
+      absl::time_zone
+      absl::bad_variant_access
+      absl::raw_logging_internal
+      absl::log_severity)
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
