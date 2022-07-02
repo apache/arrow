@@ -351,7 +351,6 @@ find_local_source <- function() {
   # We'll take the first of these that exists
   # The first case probably occurs if we're in the arrow git repo
   # The second probably occurs if we're installing the arrow R package
-  print(paste0("### current wd: ", getwd()))
   cpp_dir_options <- c(
     file.path(Sys.getenv("ARROW_SOURCE_HOME", ".."), "cpp"),
     "tools/cpp"
