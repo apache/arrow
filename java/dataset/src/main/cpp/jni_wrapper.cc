@@ -46,26 +46,41 @@ jint JNI_VERSION = JNI_VERSION_1_6;
 
 class JniPendingException : public std::runtime_error {
  public:
-  explicit JniPendingException(const std::string& arg) : runtime_error(arg) {}
+  explicit JniPendingException(const std::string& arg, jthrowable cause)
+      : runtime_error(arg), cause_(cause) {}
+
+  const jthrowable GetCause() const { return cause_; }
+  const bool HasCause() const { return cause_ != nullptr; }
+
+ private:
+  jthrowable cause_;
 };
 
-void ThrowPendingException(const std::string& message) {
-  throw JniPendingException(message);
+void ThrowPendingException(const std::string& message, jthrowable cause = nullptr) {
+  throw JniPendingException(message, cause);
 }
 
-template <typename T>
-T JniGetOrThrow(arrow::Result<T> result) {
-  if (!result.status().ok()) {
-    ThrowPendingException(result.status().message());
+void ThrowIfError(const arrow::Status& status) {
+  const std::shared_ptr<arrow::StatusDetail>& detail = status.detail();
+  const std::shared_ptr<const arrow::dataset::jni::JavaErrorDetail>& maybe_java =
+      std::dynamic_pointer_cast<const arrow::dataset::jni::JavaErrorDetail>(detail);
+  if (maybe_java != nullptr) {
+    ThrowPendingException(status.message(), maybe_java->GetCause());
+    return;
   }
-  return std::move(result).ValueOrDie();
-}
-
-void JniAssertOkOrThrow(arrow::Status status) {
   if (!status.ok()) {
     ThrowPendingException(status.message());
   }
 }
+
+template <typename T>
+T JniGetOrThrow(arrow::Result<T> result) {
+  const arrow::Status& status = result.status();
+  ThrowIfError(status);
+  return std::move(result).ValueOrDie();
+}
+
+void JniAssertOkOrThrow(arrow::Status status) { ThrowIfError(status); }
 
 void JniThrow(std::string message) { ThrowPendingException(message); }
 
@@ -172,6 +187,10 @@ using arrow::dataset::jni::ReservationListener;
 #define JNI_METHOD_END(fallback_expr)                 \
   }                                                   \
   catch (JniPendingException & e) {                   \
+    if (e.HasCause()) {                               \
+      env->Throw(e.GetCause());                       \
+      return fallback_expr;                           \
+    }                                                 \
     env->ThrowNew(runtime_exception_class, e.what()); \
     return fallback_expr;                             \
   }
