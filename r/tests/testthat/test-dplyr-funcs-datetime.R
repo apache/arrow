@@ -2877,6 +2877,7 @@ test_that("timestamp rounding takes place in local time", {
   year_of_dates_tz %>% check_timezone_rounding("minute")
   year_of_dates_tz %>% check_timezone_rounding("hour")
   year_of_dates_tz %>% check_timezone_rounding("day")
+  year_of_dates_tz %>% check_timezone_rounding("week")
   year_of_dates_tz %>% check_timezone_rounding("month")
   year_of_dates_tz %>% check_timezone_rounding("quarter")
   year_of_dates_tz %>% check_timezone_rounding("year")
