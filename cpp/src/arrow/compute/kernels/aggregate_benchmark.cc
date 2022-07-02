@@ -308,8 +308,24 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 
 using arrow::compute::internal::GroupBy;
 
-static void BenchmarkGroupBy(benchmark::State& state, std::vector<Aggregate> aggregates,
+// The internal function GroupBy simulates an aggregate node and
+// doesn't need a target or name.  This helper class allows us to
+// just specify the fields we need and make up a dummy target / name.
+struct BenchmarkAggregate {
+  std::string function;
+  std::shared_ptr<FunctionOptions> options;
+};
+
+static void BenchmarkGroupBy(benchmark::State& state,
+                             std::vector<BenchmarkAggregate> bench_aggregates,
                              std::vector<Datum> arguments, std::vector<Datum> keys) {
+  std::vector<Aggregate> aggregates;
+  aggregates.reserve(bench_aggregates.size());
+  int idx = 0;
+  for (const auto& b_agg : bench_aggregates) {
+    aggregates.push_back({b_agg.function, std::move(b_agg.options),
+                          "agg_" + std::to_string(idx++), b_agg.function});
+  }
   for (auto _ : state) {
     ABORT_NOT_OK(GroupBy(arguments, keys, aggregates).status());
   }
