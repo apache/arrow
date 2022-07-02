@@ -342,14 +342,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
         const auto& expr = FromProto(group.grouping_expressions(exp_id), ext_set);
         const auto& field_ref = expr->field_ref();
-        if(field_ref) {
-          keys.emplace_back(std::move(*field_ref)); 
+        if (field_ref) {
+          keys.emplace_back(std::move(*field_ref));
         } else {
-          return Status::Invalid("Only accept a direct reference as the grouping expression for aggregates");
+          return Status::Invalid(
+              "Only accept a direct reference as the grouping expression for aggregates");
         }
       }
-      
-      // DCHECK_EQ(measure_size, group_size);
+
       // denotes how many unique aggregation functions are used
       // measure_id refers to the corresponding function in the
       // extensionsion
@@ -362,13 +362,28 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           const auto& agg_func = agg_measure.measure();
           int func_reference = agg_func.function_reference();
           ARROW_ASSIGN_OR_RAISE(auto func_record, ext_set.DecodeFunction(func_reference));
-          // TODO: Implement function options in Substrait
+          // aggreagte function name
           auto func_name = std::string(func_record.id.name);
+          // aggregate output column name
           std::string agg_col_name =
               func_name + "(" + std::to_string(func_reference) + ")";
-          // TODO: figure out the targets
-          aggregates.emplace_back(
-              compute::Aggregate{func_name, nullptr, /*target*/ "", agg_col_name});
+          // aggregate target
+          std::vector<FieldRef> field_refs;
+          field_refs.reserve(agg_func.args_size());
+          for (const auto& sub_expr : agg_func.args()) {
+            ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(sub_expr, ext_set));
+            const auto& field_ref = field_expr.field_ref();
+            if (!field_ref) {
+              return Status::Invalid(
+                  "Only accept a direct reference as the aggregate expression.");
+            }
+            field_refs.push_back(*field_ref);
+          }
+          // TODO: Implement function options in Substrait
+          // For now setting FunctionOptions to nullptr
+          auto target = FieldRef(field_refs);
+          aggregates.emplace_back(compute::Aggregate{
+              std::move(func_name), NULLPTR, std::move(target), std::move(agg_col_name)});
         } else {
           return Status::Invalid("substrait::AggregateFunction not provided");
         }
