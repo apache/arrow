@@ -29,12 +29,12 @@ on.exit(unlink(getOption(".arrow.cleanup")))
 
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 
-try_download <- function(from_url, to_file) {
+try_download <- function(from_url, to_file, hush = quietly) {
   status <- try(
     suppressWarnings(
-      download.file(from_url, to_file, quiet = quietly)
+      download.file(from_url, to_file, quiet = hush)
     ),
-    silent = quietly
+    silent = hush
   )
   # Return whether the download was successful
   !inherits(status, "try-error") && status == 0
@@ -50,7 +50,7 @@ build_ok <- !env_is("LIBARROW_BUILD", "false")
 # Check if we're doing an offline build.
 # (Note that cmake will still be downloaded if necessary
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
-download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://raw.githubusercontent.com/apache/arrow/master/r/DESCRIPTION", tempfile())
+download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true") && try_download("https://raw.githubusercontent.com/apache/arrow/master/r/DESCRIPTION", tempfile(), hush = TRUE)
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
@@ -65,11 +65,11 @@ download_binary <- function(lib) {
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
     if (!quietly) {
-      cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", lib))
+      cat(sprintf("*** Successfully retrieved C++ binaries (%s)\n", lib))
     }
   } else {
     if (!quietly) {
-      cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, lib))
+      cat(sprintf("*** No libarrow binary found for version %s (%s)\n", VERSION, lib))
     }
     libfile <- NULL
   }

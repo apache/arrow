@@ -57,7 +57,7 @@ install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linu
 ```
 
 Note that the User Agent header must be specified as in the example above.
-Please check [the RStudio Package Manager: Admin Guide ](https://docs.rstudio.com/rspm/admin/serving-binaries/#using-linux-binary-packages) for more details.
+Please check [the RStudio Package Manager: Admin Guide](https://docs.rstudio.com/rspm/admin/serving-binaries/#using-linux-binary-packages) for more details.
 
 For other Linux distributions, to get the relevant URL, you can visit
 [the RSPM site](https://packagemanager.rstudio.com/client/#/repos/1/overview),
@@ -76,47 +76,16 @@ conda install -c conda-forge --strict-channel-priority r-arrow
 knitr::include_graphics("./r_source_libarrow_binary.png")
 ```
 
-Another way of achieving faster installation with all key features enabled is to use our self-hosted libarrow binaries.  You can do this by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
+Another way of achieving faster installation with all key features enabled is to use static libarrow binaries we host. These are used automatically on many Linux distributions (x86_64 architecture only), according to the [allowlist](https://github.com/apache/arrow/blob/master/r/tools/nixlibs-allowlist.txt). If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN` environment variable before you call `install.packages()`:
 
 ```{r, eval = FALSE}
 Sys.setenv("NOT_CRAN" = TRUE)
 install.packages("arrow")
 ```
 
-This installs the source version of the R package, but during the installation process will check for compatible libarrow binaries that we host and use those if available.  If no binary is available or can't be found, then this option falls back onto method 2 below, but results in a more fully-featured build than default.
+This installs the source version of the R package, but during the installation process will check for compatible libarrow binaries that we host and use those if available. If no binary is available or can't be found, then this option falls back onto method 2 below (full source build), but setting the environment variable results in a more fully-featured build than default.
 
-# Installing libarrow dependencies
-
-When you install libarrow, its dependencies will be automatically downloaded.
-The environment variable `ARROW_DEPENDENCY_SOURCE` controls whether the libarrow
-installation also downloads or installs all dependencies (when set to `BUNDLED`),
-uses only system-installed dependencies (when set to `SYSTEM`) or checks
-system-installed dependencies first and only installs dependencies which aren't
-already present (when set to `AUTO`).
-
-These dependencies vary by platform; however, if you wish to install these
-yourself prior to libarrow installation, we recommend that you take a look at
-the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/master/ci/docker)
-(the ones ending in "cpp" are for building Arrow's C++ libaries aka libarrow)
-corresponds most closely to your setup.  This will contain the most up-to-date
-information about dependencies and minimum versions.
-
-## Dependencies for S3 and GCS support
-
-The arrow package allows you to work with data in AWS S3 or in other cloud
-storage system that emulate S3, as well as Google Cloud Storage.
-However, support for working with S3 and GCS is not
-enabled in the default build, and it has additional system requirements. To
-enable it, set the environment variable `LIBARROW_MINIMAL=false` or
-`NOT_CRAN=true` to choose the full-featured build, or more selectively set
-`ARROW_S3=ON` and/or `ARROW_GCS=ON`.
-You also need the following system dependencies:
-
-* `gcc` >= 4.9 or `clang` >= 3.3; note that the default compiler on CentOS 7 is gcc 4.8.5, which is not sufficient
-* CURL: install `libcurl-devel` (rpm) or `libcurl4-openssl-dev` (deb)
-* OpenSSL >= 1.0.2: install `openssl-devel` (rpm) or `libssl-dev` (deb)
-
-The prebuilt libarrow binaries come with S3 and GCS support enabled, so you will need to meet these system requirements in order to use them--the package will not install without them (and will error with a message that explains this).If you're building everything from source, the install script will check for the presence of these dependencies and turn off S3 and GCS support in the build if the prerequisites are not met--installation will succeed but without S3 or GCS functionality. If afterwards you install the missing system requirements, you'll need to reinstall the package in order to enable S3 and GCS support.
+Except for the those built for gcc 4.8 (default on CentOS 7), the binaries include support for AWS S3 and Google Cloud Storage (GCS). These features require libcurl and openssl libraries installed separately; see below on how to install them. If you don't have these installed, the libarrow binary won't be used, and you will fall back to the full source build.
 
 # Installing a release version (the less easy way)
 
@@ -126,12 +95,13 @@ The prebuilt libarrow binaries come with S3 and GCS support enabled, so you will
 knitr::include_graphics("./r_source_libarrow_source.png")
 ```
 
-Generally compiling and installing R packages with C++ dependencies, requires
+Generally, compiling and installing R packages with C++ dependencies requires
 either installing system packages, which you may not have privileges to do, or
 building the C++ dependencies separately, which introduces all sorts of
-additional ways for things to go wrong, which is why we recommend method 1 above.
+additional ways for things to go wrong.
 
-However, if you wish to fine-tune or customise your Linux installation, the
+The full source build of arrow, compiling both C++ and R bindings, does handle most of the dependency management for you, but it is much slower.
+However, if using binaries isn't an option for you, or you wish to fine-tune or customize your Linux installation, the
 instructions in this section explain how to do that.
 
 ### Basic configuration for building from source with fully featured installation
@@ -156,8 +126,8 @@ and alternative memory allocators.
 Sys.setenv("LIBARROW_MINIMAL" = FALSE)
 ```
 
-By default this variable is unset; if set to `TRUE` a trimmed-down version of
-arrow is installed with many features disabled.
+By default this variable is unset, which builds many commonly used features such as Parquet support but disables some features that are more costly to build, like S3 and GCS support. If set to `TRUE`, a trimmed-down version of
+arrow is installed with all optional features disabled.
 
 Note that in this guide, you will have seen us mention the environment variable
 `NOT_CRAN` - this is a convenience variable, which when set to `TRUE`,
@@ -181,6 +151,41 @@ install.packages("arrow")
 
 The section below discusses environment variables you can set before calling
 `install.packages("arrow")` to build from source and customise your configuration.
+
+### Handling libarrow dependencies
+
+When you build libarrow from source, its dependencies will be automatically downloaded.
+The environment variable `ARROW_DEPENDENCY_SOURCE` controls whether the libarrow
+installation also downloads or installs all dependencies (when set to `BUNDLED`),
+uses only system-installed dependencies (when set to `SYSTEM`) or checks
+system-installed dependencies first and only installs dependencies which aren't
+already present (when set to `AUTO`, the default).
+
+These dependencies vary by platform; however, if you wish to install these
+yourself prior to libarrow installation, we recommend that you take a look at
+the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/master/ci/docker)
+(the ones ending in "cpp" are for building Arrow's C++ libaries, aka libarrow)
+corresponds most closely to your setup.  This will contain the most up-to-date
+information about dependencies and minimum versions.
+
+If downloading dependencies at build time is not an option, as when building on a system that is disconnected or behind a firewall, there are a few options. See "Offline builds" below.
+
+#### Dependencies for S3 and GCS support
+
+The arrow package allows you to work with data in AWS S3 or in other cloud
+storage system that emulate S3, as well as Google Cloud Storage.
+However, support for working with S3 and GCS is not
+enabled in the default source build, and it has additional system requirements. To
+enable it, set the environment variable `LIBARROW_MINIMAL=false` or
+`NOT_CRAN=true` to choose the full-featured build, or more selectively set
+`ARROW_S3=ON` and/or `ARROW_GCS=ON`.
+You also need the following system dependencies:
+
+* `gcc` >= 4.9 or `clang` >= 3.3; note that the default compiler on CentOS 7 is gcc 4.8.5, which is not sufficient
+* CURL: install `libcurl-devel` (rpm) or `libcurl4-openssl-dev` (deb)
+* OpenSSL >= 1.0.2: install `openssl-devel` (rpm) or `libssl-dev` (deb)
+
+The prebuilt libarrow binaries come with S3 and GCS support enabled, so you will need to meet these system requirements in order to use them. If you're building everything from source, the install script will check for the presence of these dependencies and turn off S3 and GCS support in the build if the prerequisites are not met--installation will succeed but without S3 or GCS functionality. If afterwards you install the missing system requirements, you'll need to reinstall the package in order to enable S3 and GCS support.
 
 ### Advanced configuration for building from source
 
@@ -219,7 +224,7 @@ the bundled build script.  All boolean variables are case-insensitive.
 | Name | Description | Default |
 | --- | --- | :-: |
 | `LIBARROW_BUILD` | Allow building from source | `true` |
-| `LIBARROW_BINARY` | Try to install `libarrow` binary instead of building from source | `true` |
+| `LIBARROW_BINARY` | Try to install `libarrow` binary instead of building from source | (unset) |
 | `LIBARROW_MINIMAL` | Build with minimal features enabled | (unset) |
 | `NOT_CRAN` | Set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false` | `false` |
 | `ARROW_R_DEV` | More verbose messaging and regenerates some code | `false` |
@@ -229,8 +234,13 @@ the bundled build script.  All boolean variables are case-insensitive.
 
 See below for more in-depth explanations of these environment variables.
 
-* `LIBARROW_BINARY` : If set to `true`, the script will try to download a binary
-  C++ library built for your operating system.  You may also set it to some other string,  a related "distro-version" that has binaries built that work for your OS.  See the [distro map](https://raw.githubusercontent.com/ursa-labs/arrow-r-nightly/master/linux/distro-map.csv) for compatible binaries and OSs.  If no binary is found, installation will fall back to building C++  dependencies from source.
+* `LIBARROW_BINARY` : By default on many distributions, or if explicitly set to
+  `true`, the script will determine whether there is a prebuilt libarrow that
+  will work with your system. You can set it to `false` to skip this option
+  altogether, or you can specify a string "distro-version" that corresponds to
+  a binary that is available, to override what this function may discover by
+  default. Possible values are: "centos-7" (gcc 4.8, no AWS/GCS support);
+  "ubuntu-18.04" (gcc 8, openssl 1); "ubuntu-22.04" (openssl 3).
 * `LIBARROW_BUILD` : If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working arrow R package if a prebuilt binary is found.
@@ -452,23 +462,9 @@ instead of downloading the prebuilt binary.
 That should guarantee that the compiler settings match.
 
 If a prebuilt libarrow binary wasn't found for your operating system but you think it should have been,
-check the logs for a message that says `*** Unable to identify current OS/version`,
-or a message that says `*** No C++ binaries found for` an invalid OS.
-If you see either, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) and share the console output.
 You may also set the environment variable `ARROW_R_DEV=TRUE` for additional
 debug messages.
-
-A workaround would be to set the environment variable `LIBARROW_BINARY`
-to a `distribution-version` that exists in the Ursa Labs repository.
-Setting `LIBARROW_BINARY` is also an option when there's not an exact match
-for your OS but a similar version would work,
-such as if you're on `ubuntu-18.10` and there's only a binary for `ubuntu-18.04`.
-
-If that workaround works for you, and you believe that it should work for everyone else too,
-you may propose [adding an entry to this lookup table](https://github.com/ursa-labs/arrow-r-nightly/edit/master/linux/distro-map.csv).
-This table is checked during the installation process
-and tells the script to use binaries built on a different operating system/version
-because they're known to work.
 
 ## Building libarrow from source
 
