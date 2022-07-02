@@ -58,7 +58,7 @@ have_gi = dependency('gobject-introspection-1.0', required: false).found()
 if have_gi
   pkgconfig_variables += ['girdir=@0@'.format(gir_dir)]
 endif
-generate_vapi = have_gi and get_option('vala')
+generate_vapi = have_gi and get_option('vapi')
 if generate_vapi
   pkgconfig_variables += ['vapidir=@0@'.format(vapi_dir)]
   add_languages('vala')

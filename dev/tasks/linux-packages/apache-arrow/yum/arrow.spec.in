@@ -197,7 +197,14 @@ cd cpp
 cd -
 
 cd c_glib
-pip3 install meson
+%if (%{rhel} >= 8 || "%{_arch}" != "aarch64")
+  pip3 install meson
+%else
+  # Meson 0.57.0 or later requires Ninja 1.8.2 or later but EPEL for
+  # Amazon Linux 2 aarch64 provides Ninja 1.7.2. We can remove
+  # '<0.57.0' once we drop support for Amazon Linux 2.
+  pip3 install 'meson<0.57.0'
+%endif
 meson setup build \
   --default-library=both \
   --libdir=%{_libdir} \
@@ -205,16 +212,17 @@ meson setup build \
   -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true \
-  -Dvala=true
+  -Dvapi=true
+
 LD_LIBRARY_PATH=$PWD/../cpp/%{arrow_cmake_builddir}/$cpp_build_type \
-  ninja -C build %{?_smp_mflags}
+  meson compile -C build %{?_smp_mflags}
 cd -
 
 %install
 cpp_build_type=release
 
 cd c_glib
-DESTDIR=%{buildroot} ninja -C build install
+DESTDIR=%{buildroot} meson install -C build
 cd -
 
 cd cpp

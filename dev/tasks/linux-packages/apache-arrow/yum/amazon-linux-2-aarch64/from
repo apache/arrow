@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,22 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-option('arrow_cpp_build_dir',
-       type: 'string',
-       value: '',
-       description: 'Use this option to build with not installed Arrow C++')
-
-option('arrow_cpp_build_type',
-       type: 'string',
-       value: 'release',
-       description: '-DCMAKE_BUILD_TYPE option value for Arrow C++')
-
-option('gtk_doc',
-       type: 'boolean',
-       value: false,
-       description: 'Build document by GTK-Doc')
-
-option('vapi',
-       type: 'boolean',
-       value: false,
-       description: 'Build Vala API')
+arm64v8/amazonlinux:2
