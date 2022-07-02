@@ -150,6 +150,30 @@ test_that("strptime", {
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
   )
+
+  tz <- "Pacific/Marquesas"
+  times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "hour")
+  times <- c(as.POSIXct("1999-12-31T12:34:56.01", tz = "UTC"))
+
+  # The following formats are currently not supported by strptime: %q %Op
+  formats <- c("%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
+               "%S", "%q", "%M", "%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z")
+  base_format <- c("%Y-%m-%d")
+
+  for (fmt in formats) {
+    fmt <- paste(base_format, fmt)
+    test_df <- tibble::tibble(x = strftime(times, format = fmt))
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+          mutate(x = strptime(x, format = fmt)) %>%
+          collect(),
+      test_df %>%
+        mutate(x = strptime(x, format = fmt)) %>%
+        mutate(x = as.POSIXct(x)) %>%
+        collect()
+    )
+  }
 })
 
 test_that("strptime returns NA when format doesn't match the data", {
