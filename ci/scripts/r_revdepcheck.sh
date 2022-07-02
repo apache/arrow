@@ -76,12 +76,15 @@ pushd $source_dir
 
 printenv
 
+# copy over cpp source
+make sync-cpp
+
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
 # Set crancache dir so we can cache it
-export CRANCACHE_DIR="${source_dir}/revdep/.crancache"
+export CRANCACHE_DIR="${1}/.crancache"
 
 # Don't use system boost to prevent issues with missing components 
 export EXTRA_CMAKE_FLAGS='-DBoost_SOURCE=BUNDLED'
