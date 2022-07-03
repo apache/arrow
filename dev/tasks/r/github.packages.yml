@@ -233,7 +233,9 @@ jobs:
           - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
     steps:
       # Get the arrow checkout just for the docker config scripts
-      {{ macros.github_checkout_arrow()|indent }}
+      # Don't need submodules for this (hence false arg to macro): they fail on
+      # actions/checkout for some reason in this context
+      {{ macros.github_checkout_arrow(1, false)|indent }}
       - name: Install system requirements
         env:
           ARROW_R_DEV: "TRUE" # To install curl/openssl
