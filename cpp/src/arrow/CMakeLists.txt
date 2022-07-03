@@ -582,6 +582,33 @@ add_arrow_lib(arrow
               ${ARROW_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
+# The following block includes a code for MSYS2 but GDB on MSYS2 doesn't
+# auto load our plugin. GDB's auto load may not be supported on MSYS2...
+# So it's disabled for now.
+if(ARROW_BUILD_SHARED AND NOT WIN32)
+  configure_file(libarrow_gdb.py.in "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py" @ONLY)
+  set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL FALSE)
+  if(WIN32)
+    find_program(cygpath "cygpath")
+    if(cygpath)
+      execute_process(COMMAND cygpath "${CMAKE_INSTALL_FULL_BINDIR}"
+                      OUTPUT_VARIABLE MSYS2_CMAKE_INSTALL_FULL_BINDIR
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
+          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_CMAKE_INSTALL_FULL_BINDIR}")
+      set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
+    endif()
+  else()
+    set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
+        "${ARROW_GDB_AUTO_LOAD_DIR}/${CMAKE_INSTALL_FULL_LIBDIR}")
+    set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
+  endif()
+  if(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py"
+            DESTINATION "${ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR}"
+            RENAME "$<TARGET_FILE_NAME:arrow_shared>-gdb.py")
+  endif()
+endif()
 
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
@@ -657,11 +684,11 @@ arrow_install_all_headers("arrow")
 
 config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
-        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+        DESTINATION "${ARROW_CMAKE_DIR}")
 
 # For backward compatibility for find_package(arrow)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
-        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+        DESTINATION "${ARROW_CMAKE_DIR}")
 
 #
 # Unit tests

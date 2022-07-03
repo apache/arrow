@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+%define __python /usr/bin/python3
+
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
 %define is_amazon_linux (%{_amzn} != 0)
 
@@ -300,6 +302,8 @@ Libraries and header files for Apache Arrow C++.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/arrow/gdb/
+%{_datadir}/gdb/auto-load/
 %{_includedir}/arrow/
 %exclude %{_includedir}/arrow/dataset/
 %if %{use_flight}

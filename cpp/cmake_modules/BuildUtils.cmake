@@ -425,13 +425,13 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(TARGETS_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Targets.cmake")
     install(EXPORT ${LIB_NAME}_targets
             FILE "${TARGETS_CMAKE}"
-            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+            DESTINATION "${ARROW_CMAKE_DIR}")
 
     set(CONFIG_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Config.cmake")
     set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
     configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
-                                  INSTALL_DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
-    install(FILES "${BUILT_CONFIG_CMAKE}" DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+                                  INSTALL_DESTINATION "${ARROW_CMAKE_DIR}")
+    install(FILES "${BUILT_CONFIG_CMAKE}" DESTINATION "${ARROW_CMAKE_DIR}")
 
     set(CONFIG_VERSION_CMAKE "${ARG_CMAKE_PACKAGE_NAME}ConfigVersion.cmake")
     set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
@@ -439,8 +439,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       "${BUILT_CONFIG_VERSION_CMAKE}"
       VERSION ${${PROJECT_NAME}_VERSION}
       COMPATIBILITY AnyNewerVersion)
-    install(FILES "${BUILT_CONFIG_VERSION_CMAKE}"
-            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+    install(FILES "${BUILT_CONFIG_VERSION_CMAKE}" DESTINATION "${ARROW_CMAKE_DIR}")
   endif()
 
   if(ARG_PKG_CONFIG_NAME)
@@ -907,7 +906,7 @@ endfunction()
 
 function(ARROW_INSTALL_CMAKE_FIND_MODULE MODULE)
   install(FILES "${ARROW_SOURCE_DIR}/cmake_modules/Find${MODULE}.cmake"
-          DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+          DESTINATION "${ARROW_CMAKE_DIR}")
 endfunction()
 
 # Implementations of lisp "car" and "cdr" functions
