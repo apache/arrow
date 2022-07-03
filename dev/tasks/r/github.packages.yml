@@ -219,32 +219,29 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # If env_var is "", we're testing that we're automatically choosing
+          # If env_var is unset, we're testing that we're automatically choosing
           # a binary on this OS. If env_var is TRUE, we're on an OS that
           # is not in the allowlist, so we have to opt-in to use the binary
-          - {image: "rhub/ubuntu-gcc-release", env_var: ""} # ubuntu-20.04 (focal)
-          - {image: "rstudio/r-base:4.1-bionic", env_var: ""}
-          - {image: "rstudio/r-base:4.2-centos7", env_var: ""}
-          - {image: "rocker/r-ver:3.6.3", env_var: "TRUE"} # debian:buster (10)
-          - {image: "rocker/r-ver", env_var: ""} # ubuntu-20.04
+          - {image: "rhub/debian-clang-devel", env_var: "TRUE"}
           - {image: "rhub/fedora-clang-devel", env_var: "TRUE"}
-          - {image: "rocker/r-ubuntu:22.04", env_var: ""} # openssl3
+          - {image: "rhub/ubuntu-gcc-release"} # ubuntu-20.04 (focal)
+          - {image: "rocker/r-ubuntu:22.04"} # openssl3
+          - {image: "rocker/r-ver"} # ubuntu-20.04
+          - {image: "rocker/r-ver:3.6.3", env_var: "TRUE"} # debian:buster (10)
+          - {image: "rstudio/r-base:4.1-bionic"}
+          - {image: "rstudio/r-base:4.2-centos7"}
+          - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
     steps:
+      # Get the arrow checkout just for the docker config scripts
+      {{ macros.github_checkout_arrow()|indent }}
       - name: Install system requirements
+        env:
+          ARROW_R_DEV: "TRUE" # To install curl/openssl
+          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
-          if [ "`which dnf`" ]; then
-            dnf install -y libcurl-devel openssl-devel
-          elif [ "`which yum`" ]; then
-            yum install -y libcurl-devel openssl-devel
-          elif [ "`which zypper`" ]; then
-            zypper install -y libcurl-devel libopenssl-devel
-          else
-            apt-get update
-            apt-get install -y libcurl4-openssl-dev libssl-dev
-          fi
-
-          # Add R-devel to PATH
+          cd arrow && ARROW_SOURCE_HOME=$(pwd) ./ci/scripts/r_docker_configure.sh
+          # Add R-devel to PATH, for rhub images
           echo "/opt/R-devel/bin" >> $GITHUB_PATH
 
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
