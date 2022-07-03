@@ -2414,13 +2414,13 @@ boundary_times <- tibble::tibble(
 
 # test case to check rounding takes place in local time
 datestrings <- c(
-  "1970-01-01T00:00:59.123456789", "2000-02-29T23:23:23.999999999",
-  "1899-01-01T00:59:20.001001001", "2033-05-18T03:33:20.000000000",
-  "2020-01-01T01:05:05.001", "2019-12-31T02:10:10.002",
-  "2019-12-30T03:15:15.003", "2009-12-31T04:20:20.004132",
-  "2010-01-01T05:25:25.005321", "2010-01-03T06:30:30.006163",
-  "2010-01-04T07:35:35", "2006-01-01T08:40:40", "2005-12-31T09:45:45",
-  "2008-12-28T00:00:00", "2008-12-29T00:00:00", "2012-01-01 01:02:03"
+  "1970-01-01 00:00:59.123456789", "2000-02-29 23:23:23.999999999",
+  "1899-01-01 00:59:20.001001001", "2033-05-18 03:33:20.000000000",
+  "2020-01-01 01:05:05.001", "2019-12-31 02:10:10.002",
+  "2019-12-30 03:15:15.003", "2009-12-31 04:20:20.004132",
+  "2010-01-01 05:25:25.005321", "2010-01-03 06:30:30.006163",
+  "2010-01-04 07:35:35", "2006-01-01 08:40:40", "2005-12-31 09:45:45",
+  "2008-12-28 00:00:00", "2008-12-29 00:00:00", "2012-01-01 01:02:03"
 )
 tz_times <- tibble::tibble(
   utc_time = as.POSIXct(datestrings, tz = "UTC"),
@@ -2685,7 +2685,7 @@ test_that("timestamp round/floor/ceil works for week units (standard week_start)
 test_that("timestamp round/floor/ceil works for week units (non-standard week_start)", {
 
   fortnight %>% check_timestamp_week_rounding(week_start = 1) # Tuesday
-  fortnight %>% check_timestamp_week_rounding(week_start = 2) # Wednedsday
+  fortnight %>% check_timestamp_week_rounding(week_start = 2) # Wednesday
   fortnight %>% check_timestamp_week_rounding(week_start = 3) # Thursday
   fortnight %>% check_timestamp_week_rounding(week_start = 4) # Friday
   fortnight %>% check_timestamp_week_rounding(week_start = 5) # Saturday
@@ -2850,36 +2850,14 @@ check_timezone_rounding <- function(data, unit) {
 
 test_that("timestamp rounding takes place in local time", {
 
-  # lubridate does not always return the correct results
-  # for some of our test cases in tz_times, esp on windows
-  skip_on_os("windows")
-
   tz_times %>% check_timezone_rounding(".001 second")
   tz_times %>% check_timezone_rounding("second")
   tz_times %>% check_timezone_rounding("minute")
   tz_times %>% check_timezone_rounding("hour")
-
-})
-
-test_that("timestamp rounding takes place in local time", {
-
-  # a less strict test than tz_times
-  year_of_dates_tz <- tibble::tibble(
-    utc_time = as.POSIXct(month_boundaries, tz = "UTC"),
-    syd_time = as.POSIXct(month_boundaries, tz = "Australia/Sydney"),
-    adl_time = as.POSIXct(month_boundaries, tz = "Australia/Adelaide"),
-    mar_time = as.POSIXct(month_boundaries, tz = "Pacific/Marquesas"),
-    kat_time = as.POSIXct(month_boundaries, tz = "Asia/Kathmandu")
-  )
-
-  year_of_dates_tz %>% check_timezone_rounding(".001 second")
-  year_of_dates_tz %>% check_timezone_rounding("second")
-  year_of_dates_tz %>% check_timezone_rounding("minute")
-  year_of_dates_tz %>% check_timezone_rounding("hour")
-  year_of_dates_tz %>% check_timezone_rounding("day")
-  year_of_dates_tz %>% check_timezone_rounding("week")
-  year_of_dates_tz %>% check_timezone_rounding("month")
-  year_of_dates_tz %>% check_timezone_rounding("quarter")
-  year_of_dates_tz %>% check_timezone_rounding("year")
+  tz_times %>% check_timezone_rounding("day")
+  tz_times %>% check_timezone_rounding("week")
+  tz_times %>% check_timezone_rounding("month")
+  tz_times %>% check_timezone_rounding("quarter")
+  tz_times %>% check_timezone_rounding("year")
 
 })
