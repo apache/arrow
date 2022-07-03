@@ -117,16 +117,8 @@ def register_udf_declarations(plan, extid_registry, func_registry, udf_decls=Non
         udf_arg_types = udf_decl["input_types"]
         register_function(extid_registry, None, udf_name, udf_name)
         def udf(ctx, *args):
-            try:
-                r = udf_func(*args)
-                with open("bblah", "w") as f:
-                    f.write(str((ctx,args,r)))
-                return r
-            except:
-                import sys
-                with open("bblah", "w") as f:
-                    f.write(str((ctx,args,sys.exc_info())))
-                raise
+            return udf_func(*args)
+
         pc.register_scalar_function(
             udf,
             udf_name,
