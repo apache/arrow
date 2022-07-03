@@ -91,7 +91,8 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 }
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
-                                             const ExtensionIdRegistry* registry) {
+                                             const ExtensionIdRegistry* registry,
+                                             bool exclude_functions) {
   if (registry == NULLPTR) {
     registry = default_extension_id_registry();
   }
@@ -121,6 +122,9 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
       }
 
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
+        if (exclude_functions) {
+          break;
+        }
         const auto& fn = ext.extension_function();
         util::string_view uri = uris[fn.extension_uri_reference()];
         function_ids[fn.function_anchor()] = Id{uri, fn.name()};

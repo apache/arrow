@@ -101,13 +101,12 @@ DeclarationFactory MakeWriteDeclarationFactory(
   return [&write_options_factory](
              compute::Declaration input,
              std::vector<std::string> names) -> Result<compute::Declaration> {
-    std::shared_ptr<dataset::WriteNodeOptions> options = write_options_factory();
+    std::shared_ptr<compute::ExecNodeOptions> options = write_options_factory();
     if (options == NULLPTR) {
       return Status::Invalid("write options factory is exhausted");
     }
     compute::Declaration projected = ProjectByNamesDeclaration(input, names);
-    return compute::Declaration::Sequence(
-        {std::move(projected), {"write", std::move(*options)}});
+    return compute::Declaration::Sequence({std::move(projected), {"write", options}});
   };
 }
 
@@ -202,6 +201,48 @@ Result<compute::ExecPlan> DeserializePlan(
   ARROW_ASSIGN_OR_RAISE(auto declarations, DeserializePlans(buf, single_write_options,
                                                             registry, ext_set_out));
   return MakeSingleDeclarationPlan(declarations);
+}
+
+Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
+    const Buffer& buf, const ExtensionIdRegistry* registry) {
+  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
+
+  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan, registry, true));
+
+  std::vector<UdfDeclaration> decls;
+  /*
+  for (const auto& ext : plan.extensions()) {
+    switch (ext.mapping_type_case()) {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
+        const auto& fn = ext.extension_function();
+        if (fn.has_udf()) {
+          const auto& udf = fn.udf();
+          const auto& in_types = udf.input_types();
+          int size = in_types.size();
+          std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types;
+          for (int i=0; i<size; i++) {
+            ARROW_ASSIGN_OR_RAISE(auto input_type, FromProto(in_types.Get(i), ext_set));
+            input_types.push_back(std::move(input_type));
+          }
+          ARROW_ASSIGN_OR_RAISE(auto output_type, FromProto(udf.output_type(), ext_set));
+          decls.push_back(std::move(UdfDeclaration{
+            fn.name(),
+            udf.code(),
+            udf.summary(),
+            udf.description(),
+            std::move(input_types),
+            std::move(output_type),
+          }));
+        }
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+  }
+  */
+  return decls;
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,

@@ -331,6 +331,22 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     return Status::OK();
   }
 
+  Status Init(compute::ExecNode* node) {
+    if (node == nullptr) {
+      return Status::Invalid("internal error - null node");
+    }
+    auto schema = node->inputs()[0]->output_schema();
+    if (schema.get() == nullptr) {
+      return Status::Invalid("internal error - null schema");
+    }
+    if (schema_.get() == nullptr) {
+      schema_ = schema;
+    } else if (schema_.get() != schema.get()) {
+      return Status::Invalid("internal error - inconsistent schemata");
+    }
+    return Status::OK();
+  }
+
   Status Consume(compute::ExecBatch batch) override {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(schema_));
@@ -432,9 +448,15 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
           custom_metadata, std::move(dataset_writer), write_options);
 
   ARROW_ASSIGN_OR_RAISE(
-      auto node,
-      compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
-                            compute::ConsumingSinkNodeOptions{std::move(consumer)}));
+      auto node, compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
+                                       compute::ConsumingSinkNodeOptions{consumer}));
+
+  // this is a workaround specific for Arrow Substrait code paths
+  // Arrow Substrait creates ExecNodeOptions instances within a Declaration
+  // at this stage, schemata have not yet been created since nodes haven't
+  // thus, the ConsumingSinkNodeOptions passed to consumer has a null schema
+  // the following call to Init fills in the schema using the node just created
+  ARROW_RETURN_NOT_OK(consumer->Init(node));
 
   return node;
 }

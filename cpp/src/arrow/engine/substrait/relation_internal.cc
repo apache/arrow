@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/engine/substrait/relation_internal.h"
-
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/dataset/file_base.h"
@@ -50,6 +49,69 @@ Status CheckRelCommon(const RelMessage& rel) {
     return Status::NotImplemented("substrait AdvancedExtensions");
   }
   return Status::OK();
+}
+
+Result<FieldRef> FromProto(const substrait::Expression& expr, const std::string& what) {
+  int32_t index;
+  switch (expr.rex_type_case()) {
+    case substrait::Expression::RexTypeCase::kSelection: {
+      const auto& selection = expr.selection();
+      switch (selection.root_type_case()) {
+        case substrait::Expression_FieldReference::RootTypeCase::kRootReference: {
+          break;
+        }
+        default: {
+          return Status::NotImplemented(
+              std::string("substrait::Expression with non-root-reference for ") + what);
+        }
+      }
+      switch (selection.reference_type_case()) {
+        case substrait::Expression_FieldReference::ReferenceTypeCase::kDirectReference: {
+          const auto& direct_reference = selection.direct_reference();
+          switch (direct_reference.reference_type_case()) {
+            case substrait::Expression_ReferenceSegment::ReferenceTypeCase::
+                kStructField: {
+              break;
+            }
+            default: {
+              return Status::NotImplemented(
+                  std::string("substrait::Expression with non-struct-field for ") + what);
+            }
+          }
+          const auto& struct_field = direct_reference.struct_field();
+          if (struct_field.has_child()) {
+            return Status::NotImplemented(
+                std::string("substrait::Expression with non-flat struct-field for ") +
+                what);
+          }
+          index = struct_field.field();
+          break;
+        }
+        default: {
+          return Status::NotImplemented(
+              std::string("substrait::Expression with non-direct reference for ") + what);
+        }
+      }
+      break;
+    }
+    default: {
+      return Status::NotImplemented(
+          std::string("substrait::Expression with non-selection for ") + what);
+    }
+  }
+  return FieldRef(FieldPath({index}));
+}
+
+Result<std::vector<FieldRef>> FromProto(
+    const google::protobuf::RepeatedPtrField<substrait::Expression>& exprs,
+    const std::string& what) {
+  std::vector<FieldRef> fields;
+  int size = exprs.size();
+  for (int i = 0; i < size; i++) {
+    ARROW_ASSIGN_OR_RAISE(FieldRef field, FromProto(exprs[i], what));
+    fields.push_back(field);
+  }
+  return fields;
 }
 
 Result<compute::Declaration> FromProto(const substrait::Rel& rel,
@@ -108,6 +170,8 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         } else {
           path = item.uri_path_glob();
         }
+
+        util::string_view uri_file{item.uri_file()};
 
         if (item.format() ==
             substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET) {

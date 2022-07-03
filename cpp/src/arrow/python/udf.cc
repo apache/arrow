@@ -104,7 +104,8 @@ struct PythonUdf {
 }  // namespace
 
 Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback wrapper,
-                              const ScalarUdfOptions& options) {
+                              const ScalarUdfOptions& options,
+                              compute::FunctionRegistry* registry) {
   if (!PyCallable_Check(user_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
@@ -124,7 +125,9 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
   RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));
-  auto registry = compute::GetFunctionRegistry();
+  if (registry == NULLPTR) {
+    registry = compute::GetFunctionRegistry();
+  }
   RETURN_NOT_OK(registry->AddFunction(std::move(scalar_func)));
   return Status::OK();
 }

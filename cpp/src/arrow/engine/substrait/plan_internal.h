@@ -49,7 +49,8 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
-    const ExtensionIdRegistry* registry = default_extension_id_registry());
+    const ExtensionIdRegistry* registry = default_extension_id_registry(),
+    bool exclude_functions = false);
 
 }  // namespace engine
 }  // namespace arrow

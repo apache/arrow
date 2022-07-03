@@ -22,6 +22,7 @@ import pytest
 import pyarrow as pa
 from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid
+from pyarrow.substrait import make_extension_id_registry
 
 try:
     import pyarrow.substrait as substrait
@@ -74,7 +75,9 @@ def test_run_serialized_query(tmpdir):
 
     buf = pa._substrait._parse_json_plan(query)
 
-    reader = substrait.run_query(buf)
+    extid_registry = substrait.make_extension_id_registry()
+    func_registry = substrait.make_function_registry()
+    reader = substrait.run_query(buf, extid_registry, func_registry)
     res_tb = reader.read_all()
 
     assert table.select(["foo"]) == res_tb.select(["foo"])
@@ -88,6 +91,8 @@ def test_invalid_plan():
     }
     """
     buf = pa._substrait._parse_json_plan(tobytes(query))
+    extid_registry = substrait.make_extension_id_registry()
+    func_registry = substrait.make_function_registry()
     exec_message = "Empty substrait plan is passed."
     with pytest.raises(ArrowInvalid, match=exec_message):
-        substrait.run_query(buf)
+        substrait.run_query(buf, extid_registry, func_registry)

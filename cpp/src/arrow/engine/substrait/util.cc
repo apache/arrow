@@ -127,6 +127,13 @@ Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_j
   return engine::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
+Result<std::vector<compute::Declaration>> DeserializePlans(
+    const Buffer& buffer, const ExtensionIdRegistry* registry) {
+  return engine::DeserializePlans(
+      buffer, []() { return std::make_shared<compute::NullSinkNodeConsumer>(); },
+      registry);
+}
+
 std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
   return nested_extension_id_registry(default_extension_id_registry());
 }

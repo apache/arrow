@@ -477,10 +477,11 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
 
 
 cdef class FunctionRegistry(_Weakrefable):
-    cdef CFunctionRegistry* registry
-
-    def __init__(self):
-        self.registry = GetFunctionRegistry()
+    def __init__(self, registry=None):
+        if registry is None:
+            self.registry = GetFunctionRegistry()
+        else:
+            self.registry = pyarrow_unwrap_function_registry(registry)
 
     def list_functions(self):
         """
@@ -511,6 +512,13 @@ cdef FunctionRegistry _global_func_registry = FunctionRegistry()
 
 def function_registry():
     return _global_func_registry
+
+
+def make_function_registry():
+    up_registry = MakeFunctionRegistry()
+    c_registry = up_registry.get()
+    up_registry.release()
+    return FunctionRegistry(pyarrow_wrap_function_registry(c_registry))
 
 
 def get_function(name):
@@ -2515,7 +2523,7 @@ def _get_scalar_udf_context(memory_pool, batch_length):
 
 
 def register_scalar_function(func, function_name, function_doc, in_types,
-                             out_type):
+                             out_type, func_registry=None):
     """
     Register a user-defined scalar function.
 
@@ -2556,6 +2564,8 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         arity.
     out_type : DataType
         Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
 
     Examples
     --------
@@ -2593,6 +2603,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         PyObject* c_function
         shared_ptr[CDataType] c_out_type
         CScalarUdfOptions c_options
+        CFunctionRegistry* c_func_registry
 
     if callable(func):
         c_function = <PyObject*>func
@@ -2601,7 +2612,11 @@ def register_scalar_function(func, function_name, function_doc, in_types,
 
     c_func_name = tobytes(function_name)
 
-    func_spec = inspect.getfullargspec(func)
+    try:
+        func_spec = inspect.getfullargspec(func)
+        is_varargs = func_spec.varargs is not None
+    except:
+        is_varargs = True
     num_args = -1
     if isinstance(in_types, dict):
         for in_type in in_types.values():
@@ -2613,7 +2628,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         raise TypeError(
             "in_types must be a dictionary of DataType")
 
-    c_arity = CArity(num_args, func_spec.varargs)
+    c_arity = CArity(num_args, is_varargs)
 
     if "summary" not in function_doc:
         raise ValueError("Function doc must contain a summary")
@@ -2634,5 +2649,11 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     c_options.input_types = c_in_types
     c_options.output_type = c_out_type
 
+    if func_registry is None:
+        c_func_registry = NULL
+    else:
+        c_func_registry = (<FunctionRegistry>func_registry).registry
+
     check_status(RegisterScalarFunction(c_function,
-                                        <function[CallbackUdf]> &_scalar_udf_callback, c_options))
+                                        <function[CallbackUdf]> &_scalar_udf_callback,
+                                        c_options, c_func_registry))

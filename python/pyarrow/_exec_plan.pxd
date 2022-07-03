@@ -15,14 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._substrait import (  # noqa
-    make_function_registry,
-    make_extension_id_registry,
-    _get_udf_code,
-    get_udf_declarations,
-    register_function,
-    register_udf_declarations,
-    run_query_as,
-    run_query,
-    _parse_json_plan,
-)
+# cython: language_level = 3
+
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
+
+cdef is_supported_execplan_output_type(output_type)
+
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=*, CFunctionRegistry* c_func_registry=*)

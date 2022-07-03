@@ -115,6 +115,22 @@ ARROW_ENGINE_EXPORT Result<compute::ExecPlan> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
 
+/// Factory function type for generating the write options of a node consuming the batches
+/// produced by each toplevel Substrait relation when deserializing a Substrait Plan.
+using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOptions>()>;
+
+struct ARROW_ENGINE_EXPORT UdfDeclaration {
+  std::string name;
+  std::string code;
+  std::string summary;
+  std::string description;
+  std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types;
+  std::pair<std::shared_ptr<DataType>, bool> output_type;
+};
+
+ARROW_ENGINE_EXPORT Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
+    const Buffer& buf, const ExtensionIdRegistry* registry);
+
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Type
