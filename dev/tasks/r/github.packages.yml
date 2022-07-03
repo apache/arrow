@@ -242,19 +242,25 @@ jobs:
           DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
+          # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
+          echo "${RPREFIX}/bin" >> $GITHUB_PATH
           cd arrow && ARROW_SOURCE_HOME=$(pwd) ./ci/scripts/r_docker_configure.sh
-          # Add R-devel to PATH, for rhub images
-          echo "/opt/R-devel/bin" >> $GITHUB_PATH
-
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
       - name: Install arrow from our repo
         env:
           ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: {{ '${{ matrix.config.env_var }}' }}
-        shell: Rscript {0}
+          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
+        shell: bash
         run: |
+          if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+            # enable the devtoolset version to use it
+            source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
+          fi
+          Rscript -e '
           {{  macros.github_test_r_src_pkg()|indent(8) }}
+          '
 
   test-source:
     needs: source
