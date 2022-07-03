@@ -222,6 +222,8 @@ jobs:
           # If env_var is unset, we're testing that we're automatically choosing
           # a binary on this OS. If env_var is TRUE, we're on an OS that
           # is not in the allowlist, so we have to opt-in to use the binary
+          # Other env vars used in r_docker_configure.sh can be added here
+          # (like devtoolset) and wired up in the later steps.
           - {image: "rhub/debian-clang-devel", env_var: "TRUE"}
           - {image: "rhub/fedora-clang-devel", env_var: "TRUE"}
           - {image: "rhub/ubuntu-gcc-release"} # ubuntu-20.04 (focal)
@@ -238,12 +240,13 @@ jobs:
       {{ macros.github_checkout_arrow(1, false)|indent }}
       - name: Install system requirements
         env:
-          ARROW_R_DEV: "TRUE" # To install curl/openssl
+          ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh
           DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
           # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
           echo "${RPREFIX}/bin" >> $GITHUB_PATH
+          export PATH="${RPREFIX}/bin:${PATH}"
           cd arrow && ARROW_SOURCE_HOME=$(pwd) ./ci/scripts/r_docker_configure.sh
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
       - name: Install arrow from our repo
