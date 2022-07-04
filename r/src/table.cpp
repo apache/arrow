@@ -29,7 +29,7 @@ int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
 
 // [[arrow::export]]
 r_vec_size Table__num_rows(const std::shared_ptr<arrow::Table>& x) {
-  return x->num_rows();
+  return r_vec_size(x->num_rows());
 }
 
 // [[arrow::export]]
