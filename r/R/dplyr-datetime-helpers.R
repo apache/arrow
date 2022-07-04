@@ -105,7 +105,12 @@ binding_as_date <- function(x,
                             tryFormats = "%Y-%m-%d",
                             origin = "1970-01-01") {
   if (is.null(format) && length(tryFormats) > 1) {
-    abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+    abort(
+      paste(
+        "`as.Date()` with multiple `tryFormats` is not supported in Arrow,",
+        "consider using the specialised parsing functions"
+      )
+    )
   }
 
   if (call_binding("is.Date", x)) {
