@@ -61,14 +61,18 @@ jobs:
         shell: bash
         env: 
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
-        run: >          
-          `vcpkg fetch nuget | tail -n 1`
-          sources add
+        run: |
+          `vcpkg fetch nuget | tail -n 1` \
+          sources add \
+          -source "https://nuget.pkg.github.com/ursacomputing/index.json" \
+          -storepasswordincleartext \
+          -name "GitHub" \
+          -username "ursacomputing" \
+          -password "$GITHUB_TOKEN" \
+
+          `vcpkg fetch nuget | tail -n 1` \
+          setapikey "$GITHUB_TOKEN" \
           -source "https://nuget.pkg.github.com/ursacomputing/index.json"
-          -storepasswordincleartext
-          -name "GitHub"
-          -username "ursacomputing"
-          -password "$GITHUB_TOKEN"
       - name: Install Dependencies with vcpkg and Build Arrow C++
         shell: cmd
         run: |

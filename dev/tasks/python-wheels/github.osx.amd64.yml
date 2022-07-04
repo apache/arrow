@@ -74,14 +74,18 @@ jobs:
         shell: bash
         env: 
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
-        run: >          
-          mono `vcpkg fetch nuget | tail -n 1`
-          sources add
+        run: |          
+          mono `vcpkg fetch nuget | tail -n 1` \
+          sources add \
+          -source "https://nuget.pkg.github.com/ursacomputing/index.json" \
+          -storepasswordincleartext \
+          -name "GitHub" \
+          -username "ursacomputing" \
+          -password "$GITHUB_TOKEN" \
+          
+          mono `vcpkg fetch nuget | tail -n 1` \
+          setapikey "$GITHUB_TOKEN" \
           -source "https://nuget.pkg.github.com/ursacomputing/index.json"
-          -storepasswordincleartext
-          -name "GitHub"
-          -username "ursacomputing"
-          -password "$GITHUB_TOKEN"
       # workaround for https://github.com/apache/arrow/pull/11569#issuecomment-979592053
       - name: Install OpenSSL
         run: vcpkg install openssl
