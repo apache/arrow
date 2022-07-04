@@ -121,7 +121,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     # Override the detected repo url / remote, branch and sha - this aims to
     # make release procedure a bit simpler.
-    # Note, that the target resivion's crossbow templates must be
+    # Note, that the target revision's crossbow templates must be
     # compatible with the locally checked out version of crossbow (which is
     # in case of the release procedure), because the templates still
     # contain some business logic (dependency installation, deployments)
@@ -153,6 +153,49 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     else:
         queue.push()
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
+
+
+@crossbow.command()
+@click.option('--base-branch', '-b', default="master",
+              help='Set base branch for the PR.')
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set GitHub remote explicitly, which is going to be used '
+                   'for the PR. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/raulcd/arrow.')
+@click.option('--head-branch', '-h', default=None,
+              help='Give the branch name explicitly, e.g. release-9.0.0-rc0')
+@click.option('--pr-title', '-t', default=None,
+              help='Set title for the PR.')
+@click.option('--pr-body', '-d', default=None,
+              help='Set body for the PR.')
+@click.option('--create-pr', is_flag=True, default=False,
+              help='Create Github Pull Request')
+@click.option('--rc', '-c', default=None,
+              help='Relase Candidate number.')
+@click.option('--version', '-r', default=None,
+              help='Release version.')
+@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+              help='OAuth token to create PR and comments in the arrow repo')
+@click.pass_obj
+def verify_release_candidate(obj, base_branch, arrow_remote, head_branch,
+                             pr_title, pr_body, create_pr, rc, version,
+                             arrow_token):
+    # The verify-release-candidate command will create a PR (or find one)
+    # and add the verify-rc* comment to trigger the verify tasks
+
+    # Redefine Arrow repo to use the correct arrow remote.
+    arrow = Repo(path=obj['arrow'].path, remote_url=arrow_remote)
+    response = arrow.github_pr(title=pr_title, head=head_branch,
+                               base=base_branch, body=pr_body,
+                               github_token=arrow_token,
+                               create=create_pr)
+    command = "@github-actions crossbow submit"
+    job_groups = ("--group verify-rc-source --group verify-rc-binaries" +
+                  " --group verify-rc-wheels")
+
+    response.create_comment(
+        f"{command} {job_groups} --param release={version} --param rc={rc}")
 
 
 @crossbow.command()
