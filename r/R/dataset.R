@@ -442,6 +442,6 @@ stop_if_no_datasets <- function() {
 #' Add filename to the dataset
 #'
 #' @export
-add_filenames <- function(){
+add_filenames <- function() {
   Expression$field_ref("__filename")
 }
