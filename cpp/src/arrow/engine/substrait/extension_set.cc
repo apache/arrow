@@ -443,9 +443,9 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     // ARROW-15535.
     for (util::string_view name : {
              "add",
-             "equal",
-             "is_not_distinct_from",
-             "hash_count",
+             "equal",                 // added to support join operator
+             "is_not_distinct_from",  // added to support join operator
+             "count",                 // added to support aggregation operator
          }) {
       DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
     }
