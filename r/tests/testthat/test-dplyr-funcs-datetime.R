@@ -1562,8 +1562,7 @@ test_that("`as.Date()` and `as_date()`", {
         date_char_ymd = as.Date(
           character_ymd_var,
           tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        ),
-        .keep = "used"
+        )
       ) %>%
       collect(),
     regexp = "consider using the lubridate specialised parsing functions"
@@ -1577,8 +1576,7 @@ test_that("`as.Date()` and `as_date()`", {
         date_char_ymd = as.Date(
           character_ymd_var,
           tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        ),
-        .keep = "used"
+        )
       ) %>%
       collect(),
     regexp = "consider using the lubridate specialised parsing functions"
