@@ -209,8 +209,8 @@ INSTANTIATE_TEST_SUITE_P(
                           "[null, false]", {1, 2}, 5)),
                        ::testing::Values("[true, true, true, true, true, true, true, true, true]",
                                          "[false, false, false, false, false, false, false, false, false]",
-                                         "true, false, true, false, true, false, true, false, true",
-                                         "true, true, false, false, false, false, false, true, true, true")));
+                                         "[true, false, true, false, true, false, true, false, true]",
+                                         "[true, true, false, false, false, false, false, true, true, true]")));
 
 
 }  // namespace compute
