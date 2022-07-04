@@ -21,7 +21,7 @@ them in an additional directory.
 ## Usage
 The secrets have to be set by INFRA, except `secrets.NIGHTLIES_RSYNC_HOST_KEY`
 which should contain the result of `ssh-keyscan -H nightlies.apache.org 2>
-/dev/null`. This requires apache/arrow to be checked out in `arrow`.
+/dev/null`. This example requires apache/arrow to be checked out in `arrow`.
 
 ```yaml
       - name: Sync from Remote
