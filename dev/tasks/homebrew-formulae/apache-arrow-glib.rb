@@ -54,7 +54,7 @@ class ApacheArrowGlib < Formula
 
   def install
     mkdir "build" do
-      system "meson", *std_meson_args, "-Dvala=true", "../c_glib"
+      system "meson", *std_meson_args, "-Dvapi=true", "../c_glib"
       system "ninja", "-v"
       system "ninja", "install", "-v"
     end
