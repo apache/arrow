@@ -194,6 +194,12 @@ endif()
 # cmake options
 include(DefineOptions)
 
+if(ARROW_BUILD_SHARED AND NOT ARROW_POSITION_INDEPENDENT_CODE)
+  message(WARNING "Can't disable position-independent code to build shared libraries, enabling"
+  )
+  set(ARROW_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 # Needed for linting targets, etc.
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
   find_package(PythonInterp)
