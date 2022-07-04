@@ -2954,5 +2954,16 @@ test_that("timestamp rounding takes place in local time", {
   tz_times %>% check_timezone_rounding_for_consistency("quarter")
   tz_times %>% check_timezone_rounding_for_consistency("year")
 
+  tz_times %>% check_timezone_rounding_for_consistency("7 seconds")
+  tz_times %>% check_timezone_rounding_for_consistency("7 minutes")
+  tz_times %>% check_timezone_rounding_for_consistency("7 hours")
+  tz_times %>% check_timezone_rounding_for_consistency("7 months")
+  tz_times %>% check_timezone_rounding_for_consistency("7 years")
+
+  tz_times %>% check_timezone_rounding_for_consistency("13 seconds")
+  tz_times %>% check_timezone_rounding_for_consistency("13 minutes")
+  tz_times %>% check_timezone_rounding_for_consistency("13 hours")
+  tz_times %>% check_timezone_rounding_for_consistency("13 months")
+  tz_times %>% check_timezone_rounding_for_consistency("13 years")
 
 })
