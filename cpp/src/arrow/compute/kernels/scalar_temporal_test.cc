@@ -2696,6 +2696,8 @@ TEST_F(ScalarTemporalTest, TestCeilTemporalMultipleSinceGreaterUnitZoned) {
     "2024-12-31 13:30:00", "2024-12-31 13:30:00", "2024-12-31 13:30:00", "2009-12-31 13:30:00",
     "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2024-12-31 13:30:00", null])";
 
+  // Australia/Broken_Hill timezone is defined as UTC+9:30 and UTC+10:30 during DST.
+  // DST runs from first Sunday in October to first Sunday in April.
   auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
   CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
   CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond, &round_to_15_microseconds);
@@ -3135,6 +3137,8 @@ TEST_F(ScalarTemporalTest, TestFloorTemporalMultipleSinceGreaterUnitZoned) {
     "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00", "1994-12-31 13:30:00",
     "1994-12-31 13:30:00", "1994-12-31 13:30:00", "1994-12-31 13:30:00", "2009-12-31 13:30:00", null])";
 
+  // Australia/Broken_Hill timezone is defined as UTC+9:30 and UTC+10:30 during DST.
+  // DST runs from first Sunday in October to first Sunday in April.
   auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
   CheckScalarUnary(op, unit, times, unit, floor_15_nanosecond, &round_to_15_nanoseconds);
   CheckScalarUnary(op, unit, times, unit, floor_15_microsecond,
@@ -3595,6 +3599,9 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnitZoned) {
     "2024-12-31 13:30:00", "2024-12-31 13:30:00", "2024-12-31 13:30:00", "2009-12-31 13:30:00",
     "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00",
     "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00", null])";
+
+  // Australia/Broken_Hill timezone is defined as UTC+9:30 and UTC+10:30 during DST.
+  // DST runs from first Sunday in October to first Sunday in April.
   auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
   CheckScalarUnary(op, unit, times, unit, round_15_nanosecond, &round_to_15_nanoseconds);
   CheckScalarUnary(op, unit, times, unit, round_15_microsecond,
