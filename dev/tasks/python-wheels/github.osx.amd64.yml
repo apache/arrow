@@ -73,7 +73,7 @@ jobs:
       - name: Setup NuGet Credentials
         shell: bash
         env: 
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: >          
           mono `vcpkg fetch nuget | tail -n 1`
           sources add
