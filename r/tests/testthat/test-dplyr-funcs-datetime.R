@@ -1589,10 +1589,10 @@ test_that("`as.Date()` and `as_date()`", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var), .keep = "used") %>%
+        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var)) %>%
         collect(),
       test_df %>%
-        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var), .keep = "used") %>%
+        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var)) %>%
         collect()
     )
   )
@@ -1602,10 +1602,10 @@ test_that("`as.Date()` and `as_date()`", {
     expect_equal(
       test_df %>%
         arrow_table() %>%
-        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var), .keep = "used") %>%
+        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var)) %>%
         collect(),
       test_df %>%
-        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var), .keep = "used") %>%
+        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var)) %>%
         collect()
     )
   )
