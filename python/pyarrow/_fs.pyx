@@ -335,6 +335,44 @@ cdef class FileSelector(_Weakrefable):
         If true, an empty selection is returned.
     recursive : bool, default False
         Whether to recurse into subdirectories.
+
+    Examples
+    --------
+    Generate a file:
+
+    >>> from pyarrow import fs
+    >>> local = fs.LocalFileSystem()
+    >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
+    ...     stream.write(b'data')
+    ...
+    4
+
+    Create new directory and subdirectory with copied data:
+
+    >>> # directory
+    >>> local.create_dir('/tmp/alphabet')
+    >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/alphabet/fileinfo.dat')
+    >>> # subdirectory
+    >>> local.create_dir('/tmp/alphabet/aeiou')
+    >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/alphabet/aeiou/fileinfo_copy.dat')
+
+    List the contents of a directory and subdirectories:
+
+    >>> selector_1 = fs.FileSelector('/tmp/alphabet', recursive=True)
+    >>> local.get_file_info(selector_1)
+    [<FileInfo for '/tmp/alphabet/aeiou': type=FileType.Directory>, <FileInfo for '/tmp/alphabet/aeiou/fileinfo_copy.dat'...
+
+    List only the contents of the base directory:
+
+    >>> selector_2 = fs.FileSelector('/tmp/alphabet')
+    >>> local.get_file_info(selector_2)
+    [<FileInfo for '/tmp/alphabet/aeiou': type=FileType.Directory>, <FileInfo for '/tmp/alphabet/fileinfo.dat'...
+
+    Return empty selection if the directory doesn't exist:
+
+    >>> selector_not_found = fs.FileSelector('/tmp/missing', recursive=True, allow_not_found=True)
+    >>> local.get_file_info(selector_not_found)
+    []
     """
 
     def __init__(self, base_dir, bint allow_not_found=False,
