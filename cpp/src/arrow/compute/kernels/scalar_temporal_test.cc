@@ -2620,7 +2620,7 @@ TEST_F(ScalarTemporalTest, TestCeilTemporalMultipleSinceGreaterUnitZoned) {
   RoundTemporalOptions round_to_15_years =
       RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* ceil_15_nanosecond =
@@ -3059,7 +3059,7 @@ TEST_F(ScalarTemporalTest, TestFloorTemporalMultipleSinceGreaterUnitZoned) {
   RoundTemporalOptions round_to_15_years =
       RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* floor_15_nanosecond =
@@ -3520,7 +3520,7 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnitZoned) {
   RoundTemporalOptions round_to_15_years =
       RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* round_15_nanosecond =
