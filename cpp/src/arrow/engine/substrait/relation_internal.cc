@@ -369,15 +369,19 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
               func_name + "(" + std::to_string(func_reference) + ")";
           // aggregate target
           std::vector<FieldRef> field_refs;
-          field_refs.reserve(agg_func.args_size());
-          for (const auto& sub_expr : agg_func.args()) {
-            ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(sub_expr, ext_set));
-            const auto& field_ref = field_expr.field_ref();
-            if (!field_ref) {
-              return Status::Invalid(
-                  "Only accept a direct reference as the aggregate expression.");
+          if (agg_func.arg_size() > 0) {
+            field_refs.reserve(agg_func.args_size());
+            for (const auto& sub_expr : agg_func.args()) {
+              ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(sub_expr, ext_set));
+              const auto& field_ref = field_expr.field_ref();
+              if (!field_ref) {
+                return Status::Invalid(
+                    "Only accept a direct reference as the aggregate expression.");
+              }
+              field_refs.push_back(*field_ref);
             }
-            field_refs.push_back(*field_ref);
+          } else {
+            return Status::Invalid("Aggregate function doesn't contain arguments");
           }
           // TODO: Implement function options in Substrait
           // For now setting FunctionOptions to nullptr
