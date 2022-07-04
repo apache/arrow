@@ -349,7 +349,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
               "Only accept a direct reference as the grouping expression for aggregates");
         }
       }
-
       // denotes how many unique aggregation functions are used
       // measure_id refers to the corresponding function in the
       // extensionsion
