@@ -220,7 +220,6 @@ struct RunLengthEncodeGenerator<NullType> {
   }
 };
 
-
 template <typename ArrowType, bool has_validity_buffer>
 struct RunLengthDecodeExec
     : public EncodeDecodeCommonExec<ArrowType, has_validity_buffer> {
