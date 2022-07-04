@@ -124,7 +124,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     cos = ,
     sin = ,
     tan = {
-      eval_array_expression(paste0("base::", .Generic), x)
+      eval_array_expression(.Generic, x)
     },
     log = eval_array_expression("logb_checked", x, base),
     log10 = eval_array_expression("log10_checked", x),

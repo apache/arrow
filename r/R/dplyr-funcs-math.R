@@ -68,7 +68,7 @@ register_bindings_math <- function() {
     )
   })
 
-  register_binding("base::trunc", function(x, ...) {
+  register_binding("trunc", function(x, ...) {
     # accepts and ignores ... for consistency with base::trunc()
     build_expr("trunc", x)
   })
