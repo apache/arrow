@@ -82,6 +82,11 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
+    bool Equals(const Partitioning& other) const override {
+      // TODO: implement Equals
+      return false;
+    }
+
     Result<compute::Expression> Parse(const std::string& path) const override {
       return compute::literal(true);
     }

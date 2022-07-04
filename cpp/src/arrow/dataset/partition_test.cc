@@ -891,6 +891,11 @@ class RangePartitioning : public Partitioning {
 
   std::string type_name() const override { return "range"; }
 
+  bool Equals(const Partitioning& other) const override {
+    // TODO: implement Equals
+    return false;
+  }
+
   Result<compute::Expression> Parse(const std::string& path) const override {
     std::vector<compute::Expression> ranges;
 
