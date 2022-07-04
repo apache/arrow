@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: 'Sync nightlies'
+name: 'Sync Nightlies'
 description: 'Sync files to and from nightlies.apache.org'
 inputs:
   upload:
