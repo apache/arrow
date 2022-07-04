@@ -1732,7 +1732,15 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [],
+              "args": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                }
+              }
+            }],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
               "invocation": "AGGREGATION_INVOCATION_ALL",
