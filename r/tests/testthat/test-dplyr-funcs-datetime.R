@@ -1566,7 +1566,7 @@ test_that("`as.Date()` and `as_date()`", {
         .keep = "used"
       ) %>%
       collect(),
-    regexp = "consider using the specialised parsing functions"
+    regexp = "consider using the lubridate specialised parsing functions"
   )
 
   # record batch test
@@ -1581,7 +1581,7 @@ test_that("`as.Date()` and `as_date()`", {
         .keep = "used"
       ) %>%
       collect(),
-    regexp = "consider using the specialised parsing functions"
+    regexp = "consider using the lubridate specialised parsing functions"
   )
 
   # strptime does not support a partial format - Arrow returns NA, while

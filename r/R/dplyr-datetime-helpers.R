@@ -108,7 +108,7 @@ binding_as_date <- function(x,
     abort(
       paste(
         "`as.Date()` with multiple `tryFormats` is not supported in Arrow,",
-        "consider using the specialised parsing functions in lubridate, such as, `ymd()`"
+        "consider using the lubridate specialised parsing functions such as, `ymd()`, `ymd()`, etc."
       )
     )
   }
