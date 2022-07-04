@@ -330,10 +330,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       if (!aggregate.has_input()) {
         return Status::Invalid("substrait::AggregateRel with no input relation");
       }
+
       ARROW_ASSIGN_OR_RAISE(auto input, FromProto(aggregate.input(), ext_set));
 
-      int group_size = aggregate.groupings_size();
-      if (group_size > 1) {
+      if (aggregate.groupings_size() > 1) {
         return Status::Invalid("Grouping sets not supported.");
       }
       std::vector<FieldRef> keys;
@@ -358,7 +358,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       for (int measure_id = 0; measure_id < measure_size; measure_id++) {
         const auto& agg_measure = aggregate.measures(measure_id);
         if (agg_measure.has_measure()) {
+          if (agg_measure.has_filter()) {
+            return Status::Invalid("Aggregate filters are not supported.");
+          }
           const auto& agg_func = agg_measure.measure();
+          if (agg_func.args_size() != 1) {
+            return Status::Invalid("Aggregate function must be a unary function.");
+          }
           int func_reference = agg_func.function_reference();
           ARROW_ASSIGN_OR_RAISE(auto func_record, ext_set.DecodeFunction(func_reference));
           // aggreagte function name
@@ -367,9 +373,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           std::string agg_col_name =
               func_name + "(" + std::to_string(func_reference) + ")";
           // aggregate target
-          if (agg_func.args_size() != 1) {
-            return Status::Invalid("Aggregate function must be a unary function.");
-          }
           ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(agg_func.args(0), ext_set));
           auto target = field_expr.field_ref();
           if (!target) {
