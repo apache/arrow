@@ -409,6 +409,60 @@ class ScalarTemporalTest : public ::testing::Test {
       RoundTemporalOptions(15, CalendarUnit::QUARTER);
   RoundTemporalOptions round_to_15_years = RoundTemporalOptions(15, CalendarUnit::YEAR);
 
+  RoundTemporalOptions round_to_1_nanoseconds_2 =
+      RoundTemporalOptions(1, CalendarUnit::NANOSECOND, true, true, false);
+  RoundTemporalOptions round_to_1_microseconds_2 =
+      RoundTemporalOptions(1, CalendarUnit::MICROSECOND, true, true, false);
+  RoundTemporalOptions round_to_1_milliseconds_2 =
+      RoundTemporalOptions(1, CalendarUnit::MILLISECOND, true, true, false);
+  RoundTemporalOptions round_to_1_seconds_2 =
+      RoundTemporalOptions(1, CalendarUnit::SECOND, true, true, false);
+  RoundTemporalOptions round_to_1_minutes_2 =
+      RoundTemporalOptions(1, CalendarUnit::MINUTE, true, true, false);
+  RoundTemporalOptions round_to_1_hours_2 =
+      RoundTemporalOptions(1, CalendarUnit::HOUR, true, true, false);
+  RoundTemporalOptions round_to_1_days_2 =
+      RoundTemporalOptions(1, CalendarUnit::DAY, true, true, false);
+  RoundTemporalOptions round_to_1_weeks_2 =
+      RoundTemporalOptions(1, CalendarUnit::WEEK, true, true, false);
+  RoundTemporalOptions round_to_1_weeks_sunday_2 =
+      RoundTemporalOptions(1, CalendarUnit::WEEK, false, true, false);
+  RoundTemporalOptions round_to_1_months_2 =
+      RoundTemporalOptions(1, CalendarUnit::MONTH, true, true, false);
+  RoundTemporalOptions round_to_1_quarters_2 =
+      RoundTemporalOptions(1, CalendarUnit::QUARTER, true, true, false);
+  RoundTemporalOptions round_to_1_years_2 =
+      RoundTemporalOptions(1, CalendarUnit::YEAR, true, true, false);
+
+  RoundTemporalOptions round_to_15_nanoseconds_2 =
+      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
+  RoundTemporalOptions round_to_15_microseconds_2 =
+      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, true);
+  RoundTemporalOptions round_to_15_milliseconds_2 =
+      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, true);
+  RoundTemporalOptions round_to_13_seconds_2 =
+      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, true);
+  RoundTemporalOptions round_to_13_minutes_2 =
+      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, true);
+  RoundTemporalOptions round_to_15_hours_2 =
+      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, true);
+  RoundTemporalOptions round_to_15_days_2 =
+      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, true);
+  RoundTemporalOptions round_to_15_weeks_2 =
+      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
+  RoundTemporalOptions round_to_15_weeks_sunday_2 =
+      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
+  RoundTemporalOptions round_to_5_months_2 =
+      RoundTemporalOptions(5, CalendarUnit::MONTH, true, true, true);
+  RoundTemporalOptions round_to_15_months_2 =
+      RoundTemporalOptions(15, CalendarUnit::MONTH, true, true, true);
+  RoundTemporalOptions round_to_3_quarters_2 =
+      RoundTemporalOptions(3, CalendarUnit::QUARTER, true, true, true);
+  RoundTemporalOptions round_to_15_quarters_2 =
+      RoundTemporalOptions(15, CalendarUnit::QUARTER, true, true, true);
+  RoundTemporalOptions round_to_15_years_2 =
+      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
+
  protected:
   void SetUp() override {
 #ifdef _WIN32
@@ -2231,55 +2285,6 @@ TEST_F(ScalarTemporalTest, TestCeilTemporal) {
 
 TEST_F(ScalarTemporalTest, TestCeilTemporalStrictCeil) {
   std::string op = "ceil_temporal";
-  RoundTemporalOptions round_to_1_nanoseconds =
-      RoundTemporalOptions(1, CalendarUnit::NANOSECOND, true, true, false);
-  RoundTemporalOptions round_to_1_microseconds =
-      RoundTemporalOptions(1, CalendarUnit::MICROSECOND, true, true, false);
-  RoundTemporalOptions round_to_1_milliseconds =
-      RoundTemporalOptions(1, CalendarUnit::MILLISECOND, true, true, false);
-  RoundTemporalOptions round_to_1_seconds =
-      RoundTemporalOptions(1, CalendarUnit::SECOND, true, true, false);
-  RoundTemporalOptions round_to_1_minutes =
-      RoundTemporalOptions(1, CalendarUnit::MINUTE, true, true, false);
-  RoundTemporalOptions round_to_1_hours =
-      RoundTemporalOptions(1, CalendarUnit::HOUR, true, true, false);
-  RoundTemporalOptions round_to_1_days =
-      RoundTemporalOptions(1, CalendarUnit::DAY, true, true, false);
-  RoundTemporalOptions round_to_1_weeks =
-      RoundTemporalOptions(1, CalendarUnit::WEEK, true, true, false);
-  RoundTemporalOptions round_to_1_weeks_sunday =
-      RoundTemporalOptions(1, CalendarUnit::WEEK, false, true, false);
-  RoundTemporalOptions round_to_1_months =
-      RoundTemporalOptions(1, CalendarUnit::MONTH, true, true, false);
-  RoundTemporalOptions round_to_1_quarters =
-      RoundTemporalOptions(1, CalendarUnit::QUARTER, true, true, false);
-  RoundTemporalOptions round_to_1_years =
-      RoundTemporalOptions(1, CalendarUnit::YEAR, true, true, false);
-
-  RoundTemporalOptions round_to_15_nanoseconds =
-      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, false);
-  RoundTemporalOptions round_to_15_microseconds =
-      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, false);
-  RoundTemporalOptions round_to_15_milliseconds =
-      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, false);
-  RoundTemporalOptions round_to_13_seconds =
-      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, false);
-  RoundTemporalOptions round_to_13_minutes =
-      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, false);
-  RoundTemporalOptions round_to_15_hours =
-      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, false);
-  RoundTemporalOptions round_to_15_days =
-      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, false);
-  RoundTemporalOptions round_to_15_weeks =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, false);
-  RoundTemporalOptions round_to_15_weeks_sunday =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, false);
-  RoundTemporalOptions round_to_15_months =
-      RoundTemporalOptions(15, CalendarUnit::MONTH, true, true, false);
-  RoundTemporalOptions round_to_15_quarters =
-      RoundTemporalOptions(15, CalendarUnit::QUARTER, true, true, false);
-  RoundTemporalOptions round_to_15_years =
-      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, false);
 
   const char* ceil_1_nanosecond =
       R"(["1970-01-01 00:00:59.123456790", "2000-02-29 23:23:24.000000000",
@@ -2440,24 +2445,25 @@ TEST_F(ScalarTemporalTest, TestCeilTemporalStrictCeil) {
           "2025-01-01", null])";
 
   auto unit = timestamp(TimeUnit::NANO, "UTC");
-  CheckScalarUnary(op, unit, times, unit, ceil_1_nanosecond, &round_to_1_nanoseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_microsecond, &round_to_1_microseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_millisecond, &round_to_1_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_second, &round_to_1_seconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_minute, &round_to_1_minutes);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_hour, &round_to_1_hours);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_day, &round_to_1_days);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks_sunday, &round_to_1_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_months, &round_to_1_months);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters);
-  CheckScalarUnary(op, unit, times, unit, ceil_1_years, &round_to_1_years);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_nanosecond, &round_to_1_nanoseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_microsecond, &round_to_1_microseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_millisecond, &round_to_1_milliseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_second, &round_to_1_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_minute, &round_to_1_minutes_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_hour, &round_to_1_hours_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_day, &round_to_1_days_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks, &round_to_1_weeks_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_weeks_sunday,
+                   &round_to_1_weeks_sunday_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_months, &round_to_1_months_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_quarters, &round_to_1_quarters_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_1_years, &round_to_1_years_2);
 
   CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
   CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond, &round_to_15_microseconds);
   CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond, &round_to_15_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_13_second, &round_to_13_seconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_13_minute, &round_to_13_minutes);
+  CheckScalarUnary(op, unit, times, unit, ceil_13_second, &round_to_13_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_13_minute, &round_to_13_minutes_2);
   CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
   CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
   CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
@@ -2470,30 +2476,6 @@ TEST_F(ScalarTemporalTest, TestCeilTemporalStrictCeil) {
 
 TEST_F(ScalarTemporalTest, TestCeilTemporalMultipleSinceGreaterUnit) {
   std::string op = "ceil_temporal";
-  RoundTemporalOptions round_to_15_nanoseconds =
-      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_microseconds =
-      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_milliseconds =
-      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, true);
-  RoundTemporalOptions round_to_13_seconds =
-      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, true);
-  RoundTemporalOptions round_to_13_minutes =
-      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, true);
-  RoundTemporalOptions round_to_15_hours =
-      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, true);
-  RoundTemporalOptions round_to_15_days =
-      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, true);
-  RoundTemporalOptions round_to_15_weeks =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
-  RoundTemporalOptions round_to_15_weeks_sunday =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
-  RoundTemporalOptions round_to_15_months =
-      RoundTemporalOptions(15, CalendarUnit::MONTH, true, true, true);
-  RoundTemporalOptions round_to_15_quarters =
-      RoundTemporalOptions(15, CalendarUnit::QUARTER, true, true, true);
-  RoundTemporalOptions round_to_15_years =
-      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
   // Data for tests below was generaed via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
@@ -2578,47 +2560,25 @@ TEST_F(ScalarTemporalTest, TestCeilTemporalMultipleSinceGreaterUnit) {
           "2010-01-01", "2010-01-01", "2010-01-01", "2025-01-01", null])";
 
   auto unit = timestamp(TimeUnit::NANO, "UTC");
-  CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond, &round_to_15_microseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond, &round_to_15_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_13_second, &round_to_13_seconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond,
+                   &round_to_15_microseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond,
+                   &round_to_15_milliseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_13_second, &round_to_13_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_13_minute, &round_to_13_minutes_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks_2);
   CheckScalarUnary(op, unit, times, unit, ceil_15_weeks_sunday,
-                   &round_to_15_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
+                   &round_to_15_weeks_sunday_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_months, &round_to_15_months_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_quarters, &round_to_15_quarters_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years_2);
 }
 
 TEST_F(ScalarTemporalTest, TestCeilTemporalMultipleSinceGreaterUnitZoned) {
   std::string op = "ceil_temporal";
-  RoundTemporalOptions round_to_15_nanoseconds =
-      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_microseconds =
-      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_milliseconds =
-      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, true);
-  RoundTemporalOptions round_to_13_seconds =
-      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, true);
-  RoundTemporalOptions round_to_13_minutes =
-      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, true);
-  RoundTemporalOptions round_to_15_hours =
-      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, true);
-  RoundTemporalOptions round_to_15_days =
-      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, true);
-  RoundTemporalOptions round_to_15_weeks =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
-  RoundTemporalOptions round_to_15_weeks_sunday =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
-  RoundTemporalOptions round_to_5_months =
-      RoundTemporalOptions(5, CalendarUnit::MONTH, true, true, true);
-  RoundTemporalOptions round_to_3_quarters =
-      RoundTemporalOptions(3, CalendarUnit::QUARTER, true, true, true);
-  RoundTemporalOptions round_to_15_years =
-      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
   // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
@@ -2699,21 +2659,23 @@ TEST_F(ScalarTemporalTest, TestCeilTemporalMultipleSinceGreaterUnitZoned) {
   // Australia/Broken_Hill timezone is defined as UTC+9:30 and UTC+10:30 during DST.
   // DST runs from first Sunday in October to first Sunday in April.
   auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
-  CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond, &round_to_15_microseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond, &round_to_15_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_13_second, &round_to_13_seconds);
-  CheckScalarUnary(op, unit, times, unit, ceil_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_nanosecond, &round_to_15_nanoseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_microsecond,
+                   &round_to_15_microseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond,
+                   &round_to_15_milliseconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_13_second, &round_to_13_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_13_minute, &round_to_13_minutes_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days_2);
   // TODO - check ceil_15_weeks correctness
-  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_weeks, &round_to_15_weeks_2);
   // TODO - check ceil_15_weeks_sunday correctness
   CheckScalarUnary(op, unit, times, unit, ceil_15_weeks_sunday,
-                   &round_to_15_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, ceil_5_months, &round_to_5_months);
-  CheckScalarUnary(op, unit, times, unit, ceil_3_quarters, &round_to_3_quarters);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
+                   &round_to_15_weeks_sunday_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_5_months, &round_to_5_months_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_3_quarters, &round_to_3_quarters_2);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years_2);
 }
 
 TEST_F(ScalarTemporalTest, TestFloorTemporal) {
@@ -2909,31 +2871,6 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
 
 TEST_F(ScalarTemporalTest, TestFloorTemporalMultipleSinceGreaterUnit) {
   std::string op = "floor_temporal";
-  RoundTemporalOptions round_to_15_nanoseconds =
-      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_microseconds =
-      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_milliseconds =
-      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, true);
-  RoundTemporalOptions round_to_13_seconds =
-      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, true);
-  RoundTemporalOptions round_to_13_minutes =
-      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, true);
-  RoundTemporalOptions round_to_15_hours =
-      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, true);
-  RoundTemporalOptions round_to_15_days =
-      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, true);
-  RoundTemporalOptions round_to_15_weeks =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
-  RoundTemporalOptions round_to_15_weeks_sunday =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
-  RoundTemporalOptions round_to_15_months =
-      RoundTemporalOptions(15, CalendarUnit::MONTH, true, true, true);
-  RoundTemporalOptions round_to_15_quarters =
-      RoundTemporalOptions(15, CalendarUnit::QUARTER, true, true, true);
-  RoundTemporalOptions round_to_15_years =
-      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
-
   // Data for tests below was generaed via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
@@ -3017,50 +2954,26 @@ TEST_F(ScalarTemporalTest, TestFloorTemporalMultipleSinceGreaterUnit) {
           "1995-01-01", "1995-01-01", "1995-01-01", "2010-01-01", null])";
 
   auto unit = timestamp(TimeUnit::NANO, "UTC");
-  CheckScalarUnary(op, unit, times, unit, floor_15_nanosecond, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_15_nanosecond,
+                   &round_to_15_nanoseconds_2);
   CheckScalarUnary(op, unit, times, unit, floor_15_microsecond,
-                   &round_to_15_microseconds);
+                   &round_to_15_microseconds_2);
   CheckScalarUnary(op, unit, times, unit, floor_15_millisecond,
-                   &round_to_15_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, floor_13_second, &round_to_13_seconds);
-  CheckScalarUnary(op, unit, times, unit, floor_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days);
-  CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks);
+                   &round_to_15_milliseconds_2);
+  CheckScalarUnary(op, unit, times, unit, floor_13_second, &round_to_13_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, floor_13_minute, &round_to_13_minutes_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks_2);
   CheckScalarUnary(op, unit, times, unit, floor_15_weeks_sunday,
-                   &round_to_15_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months);
-  CheckScalarUnary(op, unit, times, unit, floor_15_quarters, &round_to_15_quarters);
-  CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
+                   &round_to_15_weeks_sunday_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_months, &round_to_15_months_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_quarters, &round_to_15_quarters_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years_2);
 }
 
 TEST_F(ScalarTemporalTest, TestFloorTemporalMultipleSinceGreaterUnitZoned) {
   std::string op = "floor_temporal";
-  RoundTemporalOptions round_to_15_nanoseconds =
-      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_microseconds =
-      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_milliseconds =
-      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, true);
-  RoundTemporalOptions round_to_13_seconds =
-      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, true);
-  RoundTemporalOptions round_to_13_minutes =
-      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, true);
-  RoundTemporalOptions round_to_15_hours =
-      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, true);
-  RoundTemporalOptions round_to_15_days =
-      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, true);
-  RoundTemporalOptions round_to_15_weeks =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
-  RoundTemporalOptions round_to_15_weeks_sunday =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
-  RoundTemporalOptions round_to_5_months =
-      RoundTemporalOptions(5, CalendarUnit::MONTH, true, true, true);
-  RoundTemporalOptions round_to_3_quarters =
-      RoundTemporalOptions(3, CalendarUnit::QUARTER, true, true, true);
-  RoundTemporalOptions round_to_15_years =
-      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
-
   // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
@@ -3140,23 +3053,24 @@ TEST_F(ScalarTemporalTest, TestFloorTemporalMultipleSinceGreaterUnitZoned) {
   // Australia/Broken_Hill timezone is defined as UTC+9:30 and UTC+10:30 during DST.
   // DST runs from first Sunday in October to first Sunday in April.
   auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
-  CheckScalarUnary(op, unit, times, unit, floor_15_nanosecond, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, floor_15_nanosecond,
+                   &round_to_15_nanoseconds_2);
   CheckScalarUnary(op, unit, times, unit, floor_15_microsecond,
-                   &round_to_15_microseconds);
+                   &round_to_15_microseconds_2);
   CheckScalarUnary(op, unit, times, unit, floor_15_millisecond,
-                   &round_to_15_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, floor_13_second, &round_to_13_seconds);
-  CheckScalarUnary(op, unit, times, unit, floor_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days);
+                   &round_to_15_milliseconds_2);
+  CheckScalarUnary(op, unit, times, unit, floor_13_second, &round_to_13_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, floor_13_minute, &round_to_13_minutes_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days_2);
   // TODO - check floor_15_weeks correctness
-  CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, floor_15_weeks, &round_to_15_weeks_2);
   // TODO - check floor_15_weeks_sunday correctness
   CheckScalarUnary(op, unit, times, unit, floor_15_weeks_sunday,
-                   &round_to_15_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, floor_5_months, &round_to_5_months);
-  CheckScalarUnary(op, unit, times, unit, floor_3_quarters, &round_to_3_quarters);
-  CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
+                   &round_to_15_weeks_sunday_2);
+  CheckScalarUnary(op, unit, times, unit, floor_5_months, &round_to_5_months_2);
+  CheckScalarUnary(op, unit, times, unit, floor_3_quarters, &round_to_3_quarters_2);
+  CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years_2);
 }
 
 TEST_F(ScalarTemporalTest, TestRoundTemporal) {
@@ -3373,30 +3287,6 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
 
 TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnit) {
   std::string op = "round_temporal";
-  RoundTemporalOptions round_to_15_nanoseconds =
-      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_microseconds =
-      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_milliseconds =
-      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, true);
-  RoundTemporalOptions round_to_13_seconds =
-      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, true);
-  RoundTemporalOptions round_to_13_minutes =
-      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, true);
-  RoundTemporalOptions round_to_15_hours =
-      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, true);
-  RoundTemporalOptions round_to_15_days =
-      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, true);
-  RoundTemporalOptions round_to_15_weeks =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
-  RoundTemporalOptions round_to_15_weeks_sunday =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
-  RoundTemporalOptions round_to_5_months =
-      RoundTemporalOptions(5, CalendarUnit::MONTH, true, true, true);
-  RoundTemporalOptions round_to_15_quarters =
-      RoundTemporalOptions(15, CalendarUnit::QUARTER, true, true, true);
-  RoundTemporalOptions round_to_15_years =
-      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
   // Data for tests below was generaed via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
@@ -3480,49 +3370,26 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnit) {
           "2010-01-01", "2010-01-01", "2010-01-01", "2010-01-01",
           "2010-01-01", "2010-01-01", "2010-01-01", "2010-01-01", null])";
   auto unit = timestamp(TimeUnit::NANO, "UTC");
-  CheckScalarUnary(op, unit, times, unit, round_15_nanosecond, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, round_15_nanosecond,
+                   &round_to_15_nanoseconds_2);
   CheckScalarUnary(op, unit, times, unit, round_15_microsecond,
-                   &round_to_15_microseconds);
+                   &round_to_15_microseconds_2);
   CheckScalarUnary(op, unit, times, unit, round_15_millisecond,
-                   &round_to_15_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, round_13_second, &round_to_13_seconds);
-  CheckScalarUnary(op, unit, times, unit, round_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, round_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, round_15_day, &round_to_15_days);
-  CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks);
+                   &round_to_15_milliseconds_2);
+  CheckScalarUnary(op, unit, times, unit, round_13_second, &round_to_13_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, round_13_minute, &round_to_13_minutes_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_hour, &round_to_15_hours_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_day, &round_to_15_days_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks_2);
   CheckScalarUnary(op, unit, times, unit, round_15_weeks_sunday,
-                   &round_to_15_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, round_5_months, &round_to_5_months);
-  CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
-  CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
+                   &round_to_15_weeks_sunday_2);
+  CheckScalarUnary(op, unit, times, unit, round_5_months, &round_to_5_months_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years_2);
 }
 
 TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnitZoned) {
   std::string op = "round_temporal";
-  RoundTemporalOptions round_to_15_nanoseconds =
-      RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_microseconds =
-      RoundTemporalOptions(15, CalendarUnit::MICROSECOND, true, true, true);
-  RoundTemporalOptions round_to_15_milliseconds =
-      RoundTemporalOptions(15, CalendarUnit::MILLISECOND, true, true, true);
-  RoundTemporalOptions round_to_13_seconds =
-      RoundTemporalOptions(13, CalendarUnit::SECOND, true, true, true);
-  RoundTemporalOptions round_to_13_minutes =
-      RoundTemporalOptions(13, CalendarUnit::MINUTE, true, true, true);
-  RoundTemporalOptions round_to_15_hours =
-      RoundTemporalOptions(15, CalendarUnit::HOUR, true, true, true);
-  RoundTemporalOptions round_to_15_days =
-      RoundTemporalOptions(15, CalendarUnit::DAY, true, true, true);
-  RoundTemporalOptions round_to_15_weeks =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, true, true, true);
-  RoundTemporalOptions round_to_15_weeks_sunday =
-      RoundTemporalOptions(15, CalendarUnit::WEEK, false, true, true);
-  RoundTemporalOptions round_to_5_months =
-      RoundTemporalOptions(5, CalendarUnit::MONTH, true, true, true);
-  RoundTemporalOptions round_to_3_quarters =
-      RoundTemporalOptions(3, CalendarUnit::QUARTER, true, true, true);
-  RoundTemporalOptions round_to_15_years =
-      RoundTemporalOptions(15, CalendarUnit::YEAR, true, true, true);
 
   // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
@@ -3603,23 +3470,24 @@ TEST_F(ScalarTemporalTest, TestRoundTemporalMultipleSinceGreaterUnitZoned) {
   // Australia/Broken_Hill timezone is defined as UTC+9:30 and UTC+10:30 during DST.
   // DST runs from first Sunday in October to first Sunday in April.
   auto unit = timestamp(TimeUnit::NANO, "Australia/Broken_Hill");
-  CheckScalarUnary(op, unit, times, unit, round_15_nanosecond, &round_to_15_nanoseconds);
+  CheckScalarUnary(op, unit, times, unit, round_15_nanosecond,
+                   &round_to_15_nanoseconds_2);
   CheckScalarUnary(op, unit, times, unit, round_15_microsecond,
-                   &round_to_15_microseconds);
+                   &round_to_15_microseconds_2);
   CheckScalarUnary(op, unit, times, unit, round_15_millisecond,
-                   &round_to_15_milliseconds);
-  CheckScalarUnary(op, unit, times, unit, round_13_second, &round_to_13_seconds);
-  CheckScalarUnary(op, unit, times, unit, round_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, round_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, round_15_day, &round_to_15_days);
+                   &round_to_15_milliseconds_2);
+  CheckScalarUnary(op, unit, times, unit, round_13_second, &round_to_13_seconds_2);
+  CheckScalarUnary(op, unit, times, unit, round_13_minute, &round_to_13_minutes_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_hour, &round_to_15_hours_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_day, &round_to_15_days_2);
   // TODO - check round_15_weeks correctness
-  CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks);
+  CheckScalarUnary(op, unit, times, unit, round_15_weeks, &round_to_15_weeks_2);
   // TODO - check round_15_weeks_sunday correctness
   CheckScalarUnary(op, unit, times, unit, round_15_weeks_sunday,
-                   &round_to_15_weeks_sunday);
-  CheckScalarUnary(op, unit, times, unit, round_5_months, &round_to_5_months);
-  CheckScalarUnary(op, unit, times, unit, round_3_quarters, &round_to_3_quarters);
-  CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
+                   &round_to_15_weeks_sunday_2);
+  CheckScalarUnary(op, unit, times, unit, round_5_months, &round_to_5_months_2);
+  CheckScalarUnary(op, unit, times, unit, round_3_quarters, &round_to_3_quarters_2);
+  CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years_2);
 }
 
 TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalKolkata) {
