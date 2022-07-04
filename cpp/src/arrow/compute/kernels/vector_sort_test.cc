@@ -352,17 +352,32 @@ TEST(ArraySortIndicesFunction, Array) {
   expected = ArrayFromJSON(uint64(), "[2, 4, 6, 1, 0, 3, 5]");
   ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
 
-  // Dictionary Array
-  auto dict_arr = DictArrayFromJSON(dictionary(uint64(), utf8()), "[0, null, 1, 0, 2, 3]",
-                                    "[ \"b\", null, \"c\", \"a\"]");
-  expected = ArrayFromJSON(uint64(), "[5, 0, 3, 4, 1, 2]");
-  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {dict_arr}));
-  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+TEST(ArraySortIndicesFunction, DictionaryArray) {
+  // Dictionary Array (["b", null, null, null, "b", "c", "a"])
+  std::vector<std::string> expected_str = {
+      "[8, 0, 5, 1, 6, 7, 2, 3, 4]",  // SortOrder::Ascending NullPlacement::AtEnd
+      "[2, 3, 4, 8, 0, 5, 1, 6, 7]",  // SortOrder::Ascending NullPlacement::AtStart
+      "[1, 6, 7, 0, 5, 8, 2, 3, 4]",  // SortOrder::Descending NullPlacement::AtEnd
+      "[2, 3, 4, 1, 6, 7, 0, 5, 8]"   // SortOrder::Descending NullPlacement::AtStart
+  };
 
-  expected = ArrayFromJSON(uint64(), "[1, 2, 4, 0, 3, 5]");
-  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {dict_arr}, &options));
-  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+  for (auto index_type : {uint8(), uint16(), uint32(), uint64()}) {
+    int i = 0;
+    auto dict_arr = DictArrayFromJSON(dictionary(index_type, utf8()),
+                                      "[0, 4, null, 1, null, 0, 4, 2, 3]",
+                                      "[ \"b\", null, \"c\", \"a\", \"c\"]");
+    for (auto order : AllOrders()) {
+      for (auto null_placement : AllNullPlacements()) {
+        ArraySortOptions options{order, null_placement};
+        auto expected = ArrayFromJSON(uint64(), expected_str[i++]);
+        ASSERT_OK_AND_ASSIGN(auto actual,
+                             CallFunction("array_sort_indices", {dict_arr}, &options));
+        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+      }
+    }
+  }
 }
 
 TEST(ArraySortIndicesFunction, ChunkedArray) {

@@ -144,9 +144,10 @@ class ArrayCompareSorter {
   using GetView = GetViewType<ArrowType>;
 
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  // `offset` is used when this is called on a chunk of a chunked array
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     const auto p = PartitionNulls<ArrayType, StablePartitioner>(
@@ -177,10 +178,10 @@ class ArrayCompareSorter {
 template <>
 class ArrayCompareSorter<DictionaryType> {
   struct DictionaryInternal {
-    NullPartitionResult p;
+    NullPartitionResult* p;
     const std::shared_ptr<Array>& values;
     const std::shared_ptr<Array>& indices;
-    const UInt64Array& indices_values;
+    const UInt64Array& values_rank;
     const ArraySortOptions& options;
     int64_t offset;
 
@@ -201,41 +202,31 @@ class ArrayCompareSorter<DictionaryType> {
       using GetView = GetViewType<IndexType>;
       const auto& indices_array = checked_cast<const ArrayType&>(*indices);
 
-      std::vector<uint64_t> sort_order(indices_values.length());
-      uint64_t cur = 0;
-      auto cur_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(cur));
-      auto cur_val = values->GetScalar(cur_idx);
-      for (int i = 0; i < indices_values.length(); i++) {
-        auto tmp_idx = GetViewType<UInt64Type>::LogicalValue(indices_values.GetView(i));
-        auto tmp_val = values->GetScalar(tmp_idx);
-        if (cur_val != tmp_val) {
-          cur = i;
-          cur_val = tmp_val;
-        }
-        sort_order[tmp_idx] = cur;
-      }
-
-      std::stable_sort(
-          this->p.non_nulls_begin, this->p.non_nulls_end,
-          [&](uint64_t left, uint64_t right) {
-            const auto lhs = GetView::LogicalValue(indices_array.GetView(left - offset));
-            const auto rhs = GetView::LogicalValue(indices_array.GetView(right - offset));
-            return sort_order[lhs] < sort_order[rhs];
-          });
+      std::stable_sort(this->p->non_nulls_begin, this->p->non_nulls_end,
+                       [&](uint64_t left, uint64_t right) {
+                         const auto lhs_idx =
+                             GetView::LogicalValue(indices_array.GetView(left - offset));
+                         const auto rhs_idx =
+                             GetView::LogicalValue(indices_array.GetView(right - offset));
+                         const auto lhs = GetViewType<UInt64Type>::LogicalValue(
+                             values_rank.GetView(lhs_idx - offset));
+                         const auto rhs = GetViewType<UInt64Type>::LogicalValue(
+                             values_rank.GetView(rhs_idx - offset));
+                         return lhs < rhs;
+                       });
 
       return Status::OK();
     }
 
-    Result<NullPartitionResult> Make(const std::shared_ptr<DataType>& index_type) {
-      RETURN_NOT_OK(VisitTypeInline(*index_type, this));
-      return std::move(p);
+    Status Make(const std::shared_ptr<DataType>& index_type) {
+      return VisitTypeInline(*index_type, this);
     }
   };
 
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
     const auto& values = dict_array.dictionary();
     const auto& indices = dict_array.indices();
@@ -243,13 +234,16 @@ class ArrayCompareSorter<DictionaryType> {
 
     NullPartitionResult p = PartitionNulls<DictionaryArray, StablePartitioner>(
         indices_begin, indices_end, dict_array, offset, options.null_placement);
-    auto indices_array =
-        CallFunction("array_sort_indices", {values}, &options).ValueOrDie().make_array();
 
-    const auto& indices_values = checked_cast<const UInt64Array&>(*indices_array);
-    DictionaryInternal visitor = {p, values, indices, indices_values, options, offset};
+    RankOptions rank_options(options.order, options.null_placement, RankOptions::Dense);
+    auto rank = CallFunction("rank", {values}, &rank_options).ValueOrDie().make_array();
 
-    return visitor.Make(index_type).ValueOrDie();
+    const auto& values_rank = checked_cast<const UInt64Array&>(*rank);
+
+    DictionaryInternal visitor = {&p, values, indices, values_rank, options, offset};
+    ARROW_RETURN_NOT_OK(visitor.Make(index_type));
+
+    return p;
   }
 };
 
@@ -269,9 +263,9 @@ class ArrayCountSorter {
     value_range_ = static_cast<uint32_t>(max - min) + 1;
   }
 
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) const {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options) const {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     // 32bit counter performs much better than 64bit one
@@ -287,9 +281,9 @@ class ArrayCountSorter {
   uint32_t value_range_{0};
 
   template <typename CounterType>
-  NullPartitionResult SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
-                                   const ArrayType& values, int64_t offset,
-                                   const ArraySortOptions& options) const {
+  Result<NullPartitionResult> SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
+                                           const ArrayType& values, int64_t offset,
+                                           const ArraySortOptions& options) const {
     const uint32_t value_range = value_range_;
 
     // first and last slot reserved for prefix sum (depending on sort order)
@@ -353,9 +347,10 @@ class ArrayCountSorter<BooleanType> {
  public:
   ArrayCountSorter() = default;
 
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  // `offset` is used when this is called on a chunk of a chunked array
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options) {
     const auto& values = checked_cast<const BooleanArray&>(array);
 
     std::array<int64_t, 3> counts{0, 0, 0};  // false, true, null
@@ -398,9 +393,10 @@ class ArrayCountOrCompareSorter {
   using c_type = typename ArrowType::c_type;
 
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  // `offset` is used when this is called on a chunk of a chunked array
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
@@ -438,9 +434,9 @@ class ArrayCountOrCompareSorter {
 
 class ArrayNullSorter {
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& values, int64_t offset,
-                                 const ArraySortOptions& options) {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& values, int64_t offset,
+                                         const ArraySortOptions& options) {
     return NullPartitionResult::NullsOnly(indices_begin, indices_end,
                                           options.null_placement);
   }
