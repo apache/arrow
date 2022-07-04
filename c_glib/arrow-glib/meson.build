@@ -78,9 +78,11 @@ c_headers = files(
   'array.h',
   'array-builder.h',
   'arrow-glib.h',
+  'basic-array-definition.h',
   'basic-array.h',
   'basic-data-type.h',
   'buffer.h',
+  'chunked-array-definition.h',
   'chunked-array.h',
   'codec.h',
   'composite-array.h',
@@ -122,6 +124,7 @@ c_headers += files(
 )
 
 c_headers += files(
+  'compute-definition.h',
   'compute.h',
 )
 

@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <arrow-glib/compute-definition.h>
 #include <arrow-glib/datum.h>
 #include <arrow-glib/reader.h>
 
@@ -38,17 +39,6 @@ struct _GArrowExecuteContextClass
 GARROW_AVAILABLE_IN_1_0
 GArrowExecuteContext *garrow_execute_context_new(void);
 
-
-#define GARROW_TYPE_FUNCTION_OPTIONS (garrow_function_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowFunctionOptions,
-                         garrow_function_options,
-                         GARROW,
-                         FUNCTION_OPTIONS,
-                         GObject)
-struct _GArrowFunctionOptionsClass
-{
-  GObjectClass parent_class;
-};
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
@@ -365,17 +355,6 @@ GARROW_AVAILABLE_IN_6_0
 void
 garrow_execute_plan_wait(GArrowExecutePlan *plan);
 
-
-#define GARROW_TYPE_CAST_OPTIONS (garrow_cast_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowCastOptions,
-                         garrow_cast_options,
-                         GARROW,
-                         CAST_OPTIONS,
-                         GArrowFunctionOptions)
-struct _GArrowCastOptionsClass
-{
-  GArrowFunctionOptionsClass parent_class;
-};
 
 GArrowCastOptions *garrow_cast_options_new(void);
 

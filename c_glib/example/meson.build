@@ -18,13 +18,17 @@
 # under the License.
 
 executable('build', 'build.c',
-           dependencies: [arrow_glib])
+           dependencies: [arrow_glib],
+           link_language: 'c')
 executable('extension-type', 'extension-type.c',
-           dependencies: [arrow_glib])
+           dependencies: [arrow_glib],
+           link_language: 'c')
 executable('read-file', 'read-file.c',
-           dependencies: [arrow_glib])
+           dependencies: [arrow_glib],
+           link_language: 'c')
 executable('read-stream', 'read-stream.c',
-           dependencies: [arrow_glib])
+           dependencies: [arrow_glib],
+           link_language: 'c')
 
 install_data('README.md',
              'build.c',
