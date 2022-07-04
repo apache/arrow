@@ -182,7 +182,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 };
 
 /// \brief A Fragment that is stored in a file with a known format
-class ARROW_DS_EXPORT FileFragment : public Fragment {
+class ARROW_DS_EXPORT FileFragment : public Fragment,
+                                     public util::EqualityComparable<FileFragment> {
  public:
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
