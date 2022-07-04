@@ -309,7 +309,7 @@ created above (stored in ``$ARROW_HOME``):
    $ make install
    $ popd
 
-There are a number of optional components that can can be switched ON by
+There are a number of optional components that can be switched ON by
 adding flags with ``ON``:
 
 * ``ARROW_CUDA``: Support for CUDA-enabled GPUs
