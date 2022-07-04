@@ -27,7 +27,7 @@
 
   # arithmetic functions
   "base::abs" = "abs_checked",
-  "ceiling" = "ceil",
+  "base::ceiling" = "ceil",
   "base::floor" = "floor",
   "base::log10" = "log10_checked",
   "base::log1p" = "log1p_checked",

@@ -27,7 +27,7 @@ test_that("abs()", {
     .input %>%
       transmute(
         abs = abs(x),
-        abs_base = base::abs(x)
+        abs_namespace = base::abs(x)
       ) %>%
       collect(),
     df
@@ -41,7 +41,7 @@ test_that("sign()", {
     .input %>%
       transmute(
         sign = sign(x),
-        sign2 = base::sign(x)
+        sign_namespace = base::sign(x)
       ) %>%
       collect(),
     df
@@ -55,9 +55,13 @@ test_that("ceiling(), floor(), trunc(), round()", {
     .input %>%
       mutate(
         c = ceiling(x),
+        c_namespace = base::ceiling(x),
         f = floor(x),
+        f_namespace = base::floor(x),
         t = trunc(x),
-        r = round(x)
+        t_namespace = base::trunc(x),
+        r = round(x),
+        r_namespace = base::round(x)
       ) %>%
       collect(),
     df
@@ -275,7 +279,7 @@ test_that("trig functions", {
     .input %>%
       mutate(
         y = sin(x),
-        z = base::sin(x)
+        y_namespace = base::sin(x)
       ) %>%
       collect(),
     df
@@ -285,7 +289,7 @@ test_that("trig functions", {
     .input %>%
       mutate(
         y = cos(x),
-        z = base::cos(x)
+        y_namespace = base::cos(x)
       ) %>%
       collect(),
     df
@@ -295,7 +299,7 @@ test_that("trig functions", {
     .input %>%
       mutate(
         y = tan(x),
-        z = base::tan(x)
+        y_namespace = base::tan(x)
       ) %>%
       collect(),
     df
@@ -305,7 +309,7 @@ test_that("trig functions", {
     .input %>%
       mutate(
         y = asin(x),
-        z = base::asin(x)
+        y_namespace = base::asin(x)
       ) %>%
       collect(),
     df
@@ -315,7 +319,7 @@ test_that("trig functions", {
     .input %>%
       mutate(
         y = acos(x),
-        z = base::acos(x)
+        y_namespace = base::acos(x)
       ) %>%
       collect(),
     df
