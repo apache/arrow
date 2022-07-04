@@ -33,7 +33,8 @@ struct RLETestData {
     auto input_array = ArrayFromJSON(data_type, input_json);
     return {.input = input_array->Slice(input_offset),
             .expected_values = ArrayFromJSON(data_type, expected_values_json),
-            .expected_run_lengths = std::move(expected_run_lengths)};
+            .expected_run_lengths = std::move(expected_run_lengths),
+            .string = input_json};
   }
 
   template <typename ArrowType>
@@ -47,13 +48,21 @@ struct RLETestData {
     result.input = builder.Finish().ValueOrDie();
     result.expected_values = result.input;
     result.expected_run_lengths = {1, 2, 3};
+    result.string = "Type min, max, & null values";
     return result;
   }
+
 
   std::shared_ptr<Array> input;
   std::shared_ptr<Array> expected_values;
   std::vector<int64_t> expected_run_lengths;
+  // only used for gtest output
+  std::string string;
 };
+
+std::ostream& operator<<(std::ostream& stream, const RLETestData &test_data) {
+  return stream << "RLETestData(" << *test_data.input->type() << ", " + test_data.string << ")";
+}
 
 class TestRunLengthEncode : public ::testing::TestWithParam<RLETestData> {};
 
