@@ -386,6 +386,14 @@ cdef class Dataset(_Weakrefable):
         return pyarrow_wrap_schema(self.dataset.schema())
 
     def filter(self, expression):
+        """
+        Apply a row filter to the dataset.
+
+        Parameters
+        ----------
+        expression : Expression
+            The filter that should be applied to the dataset.
+        """
         return FilteredDataset(self, expression)
 
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",

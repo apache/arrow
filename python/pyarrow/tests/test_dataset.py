@@ -4870,6 +4870,11 @@ def test_dataset_filter(tempdir, dstype):
 
     assert type(result) == ds.FilteredDataset
 
+    assert result.head(5) == pa.table({
+        "colA": [1],
+        "col2": ["a"]
+    })
+
     ds.write_dataset(result, tempdir / "filtered", format="ipc")
     filtered = ds.dataset(tempdir / "filtered", format="ipc")
     assert filtered.to_table() == pa.table({
