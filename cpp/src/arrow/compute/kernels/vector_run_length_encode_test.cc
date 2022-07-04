@@ -45,7 +45,7 @@ struct RLETestData {
     ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::min()));
     ARROW_EXPECT_OK(builder.AppendNull());
     ARROW_EXPECT_OK(builder.Append(std::numeric_limits<CType>::max()));
-    result.input = *builder.Finish();
+    result.input = builder.Finish().ValueOrDie();
     result.expected_values = result.input;
     result.expected_run_lengths = {1, 2, 3};
     result.string = "Type min, max, & null values";
