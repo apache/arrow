@@ -369,7 +369,7 @@ our ``even_filter`` with a ``pc.field("nums") > 5`` filter:
    chars: [["f","h","l"]]
 
 :class:`.Dataset` can be filtered with :meth:`.Dataset.filter` method too.
-The method will return an instance of `.FilteredDataset` which will lazily
+The method will return an instance of :class:`.FilteredDataset` which will lazily
 apply the filter as soon as actual data of the dataset is accessed:
 
    >>> dataset = ds.dataset(table)

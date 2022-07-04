@@ -70,8 +70,7 @@ Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromRecordBatchRea
   // Map the RecordBatchReader to a SourceNode
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, MakeReaderGenerator(std::move(reader), exc));
 
-  return std::shared_ptr<SourceNodeOptions>(
-      new SourceNodeOptions(schema, batch_gen));
+  return std::shared_ptr<SourceNodeOptions>(new SourceNodeOptions(schema, batch_gen));
 }
 
 }  // namespace compute
