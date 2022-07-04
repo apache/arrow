@@ -369,7 +369,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
               func_name + "(" + std::to_string(func_reference) + ")";
           // aggregate target
           std::vector<FieldRef> field_refs;
-          if (agg_func.arg_size() > 0) {
+          if (agg_func.args_size() > 0) {
             field_refs.reserve(agg_func.args_size());
             for (const auto& sub_expr : agg_func.args()) {
               ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(sub_expr, ext_set));
