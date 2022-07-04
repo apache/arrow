@@ -34,6 +34,9 @@ env:
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
+permissions:
+  contents: read
+
 jobs:
 
   light:
