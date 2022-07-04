@@ -441,12 +441,12 @@ struct MinMaxImpl : public ScalarAggregator {
     this->count += scalar.is_valid;
 
     if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
+      this->state += local;
       return Status::OK();
     }
 
     local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 
@@ -458,7 +458,7 @@ struct MinMaxImpl : public ScalarAggregator {
     this->count += arr.length() - null_count;
 
     if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
+      this->state += local;
       return Status::OK();
     }
 
@@ -469,7 +469,7 @@ struct MinMaxImpl : public ScalarAggregator {
         local.MergeOne(arr.GetView(i));
       }
     }
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 
@@ -586,7 +586,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.has_nulls = null_count > 0;
     this->count += valid_count;
     if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
+      this->state += local;
       return Status::OK();
     }
 
@@ -595,7 +595,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.max = true_count > 0;
     local.min = false_count == 0;
 
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 
@@ -605,7 +605,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.has_nulls = !scalar.is_valid;
     this->count += scalar.is_valid;
     if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
+      this->state += local;
       return Status::OK();
     }
 
@@ -614,7 +614,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.max = true_count > 0;
     local.min = false_count == 0;
 
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 };
