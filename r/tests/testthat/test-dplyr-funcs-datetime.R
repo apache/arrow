@@ -90,7 +90,7 @@ test_that("strptime", {
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, tz = "UTC")
+        x = base::strptime(x, tz = "UTC")
       ) %>%
       collect(),
     t_stamp_with_utc_tz

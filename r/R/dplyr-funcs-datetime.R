@@ -28,7 +28,7 @@ register_bindings_datetime <- function() {
 }
 
 register_bindings_datetime_utility <- function() {
-  register_binding("strptime", function(x,
+  register_binding("base::strptime", function(x,
                                         format = "%Y-%m-%d %H:%M:%S",
                                         tz = "",
                                         unit = "ms") {
@@ -75,7 +75,7 @@ register_bindings_datetime_utility <- function() {
     output
   })
 
-  register_binding("strftime", function(x,
+  register_binding("base::strftime", function(x,
                                         format = "",
                                         tz = "",
                                         usetz = FALSE) {
