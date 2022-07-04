@@ -45,6 +45,7 @@ test_df <- tibble::tibble(
   integer = 1:2
 )
 
+
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
   # lubridate defaults to "UTC" as timezone => t_stamp is in "UTC"
@@ -2258,7 +2259,6 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
       collect(),
     test_df
   )
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2283,22 +2283,26 @@ test_that("build_formats() and build_format_from_order()", {
       "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d",
       # formats from "%Y-%d-%m" format
       "%y-%d-%m", "%Y-%d-%m", "%y-%d-%B", "%Y-%d-%B", "%y-%d-%b", "%Y-%d-%b",
-      "%y%d%m", "%Y%d%m", "%y%d%B", "%Y%d%B", "%y%d%b", "%Y%d%b")
+      "%y%d%m", "%Y%d%m", "%y%d%B", "%Y%d%B", "%y%d%b", "%Y%d%b"
+    )
   )
 
   expect_equal(
     build_formats("ymd_HMS"),
-    c("%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+    c(
+      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
       "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
       "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
+      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    )
   )
 
   # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
   # or "ydm" and the formats are built accordingly
   ymd_formats <- c(
     "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d")
+    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
+  )
   expect_equal(
     build_formats("yq"),
     ymd_formats
@@ -2322,8 +2326,10 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_formats("my"),
-    c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
-      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d")
+    c(
+      "%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
+      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d"
+    )
   )
 
   # ab not supported yet
@@ -2339,16 +2345,20 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_format_from_order("ymd"),
-    c("%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d")
+    c(
+      "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
+      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
+    )
   )
 
   expect_equal(
     build_format_from_order("ymdHMS"),
-    c("%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+    c(
+      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
       "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
       "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
+      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    )
   )
 })
 
@@ -2879,8 +2889,8 @@ check_timezone_rounding_vs_lubridate <- function(data, unit) {
 # time is to test the internal consistency of the YMD HMS values returned
 # by temporal rounding functions: these should be the same regardless of
 # timezone and should always be identical to the equivalent result calculated
-# for UTC test. this test ignores subsecond resolution but avoids dependency
-# on lubridate
+# for UTC test. this test isn't useful for subsecond resolution but avoids
+# dependency on lubridate
 check_timezone_rounding_for_consistency <- function(data, unit) {
 
   shifted_times <- data %>%
@@ -2944,7 +2954,6 @@ test_that("timestamp rounding takes place in local time", {
   tz_times %>% check_timezone_rounding_vs_lubridate("quarter")
   tz_times %>% check_timezone_rounding_vs_lubridate("year")
 
-  tz_times %>% check_timezone_rounding_for_consistency(".001 second")
   tz_times %>% check_timezone_rounding_for_consistency("second")
   tz_times %>% check_timezone_rounding_for_consistency("minute")
   tz_times %>% check_timezone_rounding_for_consistency("hour")

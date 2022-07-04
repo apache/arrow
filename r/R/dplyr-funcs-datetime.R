@@ -212,7 +212,6 @@ register_bindings_datetime_components <- function() {
     hour <- Expression$create("hour", x)
     hour < 12
   })
-
   register_binding("pm", function(x) {
     !call_binding("am", x)
   })
@@ -229,7 +228,6 @@ register_bindings_datetime_components <- function() {
 
     x$type()$timezone()
   })
-
   register_binding("semester", function(x, with_year = FALSE) {
     month <- call_binding("month", x)
     semester <- call_binding("if_else", month <= 6, 1L, 2L)
