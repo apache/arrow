@@ -591,7 +591,7 @@ register_bindings_datetime_parsers <- function() {
       ymd_parser_map_factory(ymd_order))
   }
 
-  register_binding("fast_strptime", function(x,
+  register_binding("lubridate::fast_strptime", function(x,
                                              format,
                                              tz = "UTC",
                                              lt = FALSE,

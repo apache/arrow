@@ -1932,7 +1932,7 @@ test_that("lubridate's fast_strptime", {
     .input %>%
       mutate(
         date_multi_formats =
-          fast_strptime(
+          lubridate::fast_strptime(
             x,
             format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
             lt = FALSE
