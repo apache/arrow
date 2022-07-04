@@ -1458,12 +1458,13 @@ TEST(Substrait, AggregateBase) {
     }],
   })"));
 
-  ExtensionSet ext_set;
-  ASSERT_OK_AND_ASSIGN(
-      auto sink_decls,
-      DeserializePlans(
-          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  // invalid before registration
+  ExtensionSet ext_set_invalid(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set_invalid));
   auto agg_decl = sink_decls[0].inputs[0];
 
   const auto& agg_rel = agg_decl.get<compute::Declaration>();
@@ -1497,12 +1498,13 @@ TEST(Substrait, AggregateInvalidRel) {
     }],
   })"));
 
-  ExtensionSet ext_set;
-  ASSERT_RAISES(
-      Invalid,
-      DeserializePlan(
-          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  // invalid before registration
+  ExtensionSet ext_set_invalid(ext_id_reg);
+  ASSERT_RAISES(Invalid,
+                DeserializePlans(
+                    *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
 }
 
 TEST(Substrait, AggregateInvalidFunction) {
@@ -1563,12 +1565,13 @@ TEST(Substrait, AggregateInvalidFunction) {
     }],
   })"));
 
-  ExtensionSet ext_set;
-  ASSERT_RAISES(
-      Invalid,
-      DeserializePlan(
-          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  // invalid before registration
+  ExtensionSet ext_set_invalid(ext_id_reg);
+  ASSERT_RAISES(Invalid,
+                DeserializePlans(
+                    *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
 }
 
 }  // namespace engine
