@@ -18,7 +18,11 @@
 #include <signal.h>
 #include <utility>
 
+<<<<<<< HEAD
 #include "arrow/python/flight.h"
+=======
+#include "flight.h"
+>>>>>>> 04b1707d5 (Remove the need for serialization_internal.h inside python/flight.cc - part 1)
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -370,11 +374,22 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
                         int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out) {
+<<<<<<< HEAD
   ARROW_ASSIGN_OR_RAISE(auto result,
                         arrow::flight::FlightInfo::Make(*schema, descriptor, endpoints,
                                                         total_records, total_bytes));
   *out = std::unique_ptr<arrow::flight::FlightInfo>(
       new arrow::flight::FlightInfo(std::move(result)));
+=======
+
+  auto result =
+    arrow::flight::FlightInfo::Make(*schema,
+                                    descriptor,
+                                    endpoints,
+                                    total_records,
+                                    total_bytes);
+  *out = std::unique_ptr<arrow::flight::FlightInfo>(&(*result));
+>>>>>>> 04b1707d5 (Remove the need for serialization_internal.h inside python/flight.cc - part 1)
   return Status::OK();
 }
 
