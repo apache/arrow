@@ -151,6 +151,8 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
   }
 }
 
+# This tests that curl and openssl are present (bc we can include their headers)
+# and it checks for other versions/features and raises errors that we grep for
 test_for_curl_and_openssl <- "
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
@@ -159,38 +161,59 @@ test_for_curl_and_openssl <- "
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #error Using OpenSSL version 3
-#endif"
+#endif
+#ifndef __GNUC__
+#error GNU extensions not found
+#endif
+#if !( __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 27)
+#error glibc version too old
+#endif
+"
 
 compile_test_program <- function(code) {
   # Note: if we wanted to check for openssl on macOS, we'd have to set the brew
   # path as a -I directory. But since we (currently) only run this code to
   # determine whether we can download a Linux binary, it's not relevant.
-  runner <- "`R CMD config CC` `R CMD config CPPFLAGS` `R CMD config CFLAGS` -E -xc"
+  runner <- "`R CMD config CXX11` `R CMD config CPPFLAGS` `R CMD config CXX11FLAGS` `R CMD config CXX11STD` -E -xc++"
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
+# TODO(later): build "ubuntu-18.04" on centos7 with newer devtoolset (but glibc is 2.17) for broader compatibility (like manylinux2014)?
 determine_binary_from_stderr <- function(errs) {
-  # TODO: also check standard library?
   if (is.null(attr(errs, "status"))) {
-    # There was no error in compiling, so we found libcurl and openssl > 1.0.2,
-    # and openssl is < 3.0
+    # There was no error in compiling: so we found libcurl and openssl > 1.0.2,
+    # openssl is < 3.0, glibc is >= 2.27, and we're not using a strict libc++
     cat("*** Found libcurl and openssl >= 1.0.2\n")
     return("ubuntu-18.04")
+  } else if (any(grepl("GNU extensions not found", errs))) {
+    # Our binaries are all built with GNU stdlib so they fail with libc++
+    cat("*** GNU extensions not found\n")
+    return(NULL)
+  } else if (any(grepl("glibc version too old", errs))) {
+    # ubuntu-18.04 has glibc 2.27, so even if you install newer compilers
+    # (e.g. devtoolset on centos) and have curl/openssl, you run into problems
+    cat("*** Checking glibc version\n")
+    # If we're here, we're on an older OS but with a newer compiler than gcc 4.8
+    # (we already checked), so it is possible to build with more features on.
+    # We just can't use our binaries because they were built with newer glibc.
+    return(NULL)
+  } else if (header_not_found("curl/curl", errs)) {
+    # TODO: should these next 3 NULL cases return centos-7? A source build
+    # won't be able to include more features.
+    # Could check if build_ok (also for glibc?)
+    cat("*** libcurl not found\n")
+    return(NULL)
+  } else if (header_not_found("openssl/opensslv", errs)) {
+    cat("*** openssl not found\n")
+    return(NULL)
+  } else if (any(grepl("OpenSSL version too old", errs))) {
+    cat("*** openssl found but version >= 1.0.2 is required for some features\n")
+    return(NULL)
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
     cat("*** Found libcurl and openssl >= 3.0.0\n")
     return("ubuntu-22.04")
-  } else {
-    if (header_not_found("curl/curl", errs)) {
-      cat("*** libcurl not found\n")
-    }
-    if (header_not_found("openssl/opensslv", errs)) {
-      cat("*** openssl not found\n")
-    }
-    if (any(grepl("OpenSSL version too old", errs))) {
-      cat("*** openssl found but version >= 1.0.2 is required for some features\n")
-    }
-    return(NULL)
   }
+  NULL
 }
 
 header_not_found <- function(header, errs) {
