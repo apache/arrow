@@ -126,16 +126,19 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   echo ""
 fi
 
-# Create Pull Request and Crossbow comment to run Verification tasks
+# Create Pull Request and Crossbow comment to run verify source tasks
 if [ ${SOURCE_PR} -gt 0 ]; then
   archery crossbow verify-release-candidate \
-  --base-branch=${maint_branch} \
-  --arrow-remote=https://github.com/apache/arrow \
-  --head-branch=${release_candidate_branch} \
-  --pr-title="WIP: [Release] Verify ${release_candidate_branch}" \
-  --pr-body="PR to verify Release Candidate" \
-  --version=${version} --rc=${rc} \
-  --arrow-token=${ARROW_GITHUB_TOKEN} --create-pr
+    --base-branch=${maint_branch} \
+    --create-pr \
+    --github-token=${ARROW_GITHUB_API_TOKEN} \
+    --head-branch=${release_candidate_branch} \
+    --pr-body="PR to verify Release Candidate" \
+    --pr-title="WIP: [Release] Verify ${release_candidate_branch}" \
+    --remote=https://github.com/apache/arrow \
+    --rc=${rc} \
+    --verify-source \
+    --version=${version}
 fi
 
 if [ ${SOURCE_VOTE} -gt 0 ]; then
