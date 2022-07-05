@@ -50,7 +50,12 @@ class FunctionHolderRegistry {
 
   static Status Make(const std::string& name, const FunctionNode& node,
                      FunctionHolderPtr* holder) {
-    auto found = makers().find(name);
+
+    std::string data = name;
+    std::transform(data.begin(), data.end(), data.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+
+    auto found = makers().find(data);
     if (found == makers().end()) {
       return Status::Invalid("function holder not registered for function " + name);
     }
@@ -68,7 +73,7 @@ class FunctionHolderRegistry {
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
                                  {"regexp_extract", LAMBDA_MAKER(ExtractHolder)},
                                  {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
-                                 {"castINTERVALYEAR", LAMBDA_MAKER(IntervalYearsHolder)}};
+                                 {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
     return maker_map;
   }
 };
