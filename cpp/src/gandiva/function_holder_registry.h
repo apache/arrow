@@ -50,10 +50,9 @@ class FunctionHolderRegistry {
 
   static Status Make(const std::string& name, const FunctionNode& node,
                      FunctionHolderPtr* holder) {
-
     std::string data = name;
     std::transform(data.begin(), data.end(), data.begin(),
-                   [](unsigned char c){ return std::tolower(c); });
+                   [](unsigned char c) { return std::tolower(c); });
 
     auto found = makers().find(data);
     if (found == makers().end()) {
