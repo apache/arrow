@@ -87,11 +87,11 @@ jobs:
           AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
           SCCACHE_BUCKET: {{ '${{ secretsSCCACHE_BUCKET }}' }}
           SCCACHE_S3_KEY_PREFIX: 'sccache'
-
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run  {{ '${{ matrix.config.os}}' }}-cpp-static
+          archery docker run  -e AWS_SECRET_ACCESS_KEY -e AWS_ACCESS_KEY_ID -e SCCACHE_BUCKET -e SCCACHE_S3_KEY_PREFIX \
+            {{ '${{ matrix.config.os}}' }}-cpp-static
       - name: Bundle libarrow
         shell: bash
         env:
