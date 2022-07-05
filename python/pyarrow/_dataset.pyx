@@ -239,7 +239,7 @@ cdef class Dataset(_Weakrefable):
         which exposes further operations (e.g. loading all data as a
         table, counting rows).
 
-        See the `Scanner.from_dataset` method for further information.
+        See the :meth:`Scanner.from_dataset` method for further information.
 
         Parameters
         ----------
@@ -471,7 +471,14 @@ cdef class FilteredDataset(Dataset):
     def filter(self, expression):
         """Apply an additional row filter to the filtered dataset.
 
-        See :meth:`.Dataset.filter` for documentation.
+        Parameters
+        ----------
+        expression : Expression
+            The filter that should be applied to the dataset.
+
+        Returns
+        -------
+        FilteredDataset
         """
         cdef:
             FilteredDataset filtered_dataset
@@ -495,8 +502,16 @@ cdef class FilteredDataset(Dataset):
     def scanner(self, **kwargs):
         """Build a scan operation against the dataset.
 
-        See :meth:`.Dataset.scanner` for list of supported
-        arguments.
+        See :meth:`.Dataset.scanner` for additional information
+
+        Parameters
+        ----------
+        **kwargs : dict, optional
+            Arguments for :meth:`Scanner.from_dataset`.
+
+        Returns
+        -------
+        scanner : Scanner
         """
         return self._make_scanner(kwargs)
 
