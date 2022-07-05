@@ -81,7 +81,7 @@ test_that("strptime", {
     t_string %>%
       arrow_table() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "Pacific/Marquesas")
+        x = base::strptime(x, format = "%Y-%m-%d %H:%M:%S", tz = "Pacific/Marquesas")
       ) %>%
       collect(),
     t_stamp_with_pm_tz
@@ -417,7 +417,7 @@ test_that("extract quarter from timestamp", {
 test_that("extract month from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = lubridate::month(datetime)) %>%
+      mutate(x = month(datetime)) %>%
       collect(),
     test_df
   )
