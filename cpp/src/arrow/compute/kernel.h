@@ -141,6 +141,12 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
 
+/// \brief Match run-length encoded types that encode specific plain data types
+/// @param[in] encoded_type_matcher a matcher that is applied to the encoded_type field of
+/// encoding types
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunLengthEncoded(
+    std::shared_ptr<TypeMatcher> encoded_type_matcher);
+
 }  // namespace match
 
 /// \brief An object used for type-checking arguments to be passed to a kernel
