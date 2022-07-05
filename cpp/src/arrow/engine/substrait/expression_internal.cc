@@ -160,9 +160,18 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       ARROW_ASSIGN_OR_RAISE(auto decoded_function,
                             ext_set.DecodeFunction(scalar_fn.function_reference()));
 
-      std::vector<compute::Expression> arguments(scalar_fn.args_size());
-      for (int i = 0; i < scalar_fn.args_size(); ++i) {
-        ARROW_ASSIGN_OR_RAISE(arguments[i], FromProto(scalar_fn.args(i), ext_set));
+      std::vector<compute::Expression> arguments(scalar_fn.arguments_size());
+      for (int i = 0; i < scalar_fn.arguments_size(); ++i) {
+        const auto& argument = scalar_fn.arguments(i);
+        switch (argument.arg_type_case()) {
+          case substrait::FunctionArgument::kValue: {
+            ARROW_ASSIGN_OR_RAISE(arguments[i], FromProto(argument.value(), ext_set));
+            break;
+          }
+          default:
+            return Status::NotImplemented(
+                "only value arguments are currently supported for functions");
+        }
       }
 
       auto func_name = decoded_function.name.to_string();
@@ -900,9 +909,11 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
 
   auto scalar_fn = internal::make_unique<substrait::Expression::ScalarFunction>();
   scalar_fn->set_function_reference(anchor);
-  scalar_fn->mutable_args()->Reserve(static_cast<int>(arguments.size()));
+  scalar_fn->mutable_arguments()->Reserve(static_cast<int>(arguments.size()));
   for (auto& arg : arguments) {
-    scalar_fn->mutable_args()->AddAllocated(arg.release());
+    auto argument = internal::make_unique<substrait::FunctionArgument>();
+    argument->set_allocated_value(arg.release());
+    scalar_fn->mutable_arguments()->AddAllocated(argument.release());
   }
 
   out->set_allocated_scalar_function(scalar_fn.release());

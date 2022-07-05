@@ -204,7 +204,8 @@ TEST(Substrait, SupportedExtensionTypes) {
     ASSERT_OK_AND_ASSIGN(
         auto buf,
         internal::SubstraitFromJSON(
-            "Type", "{\"user_defined_type_reference\": " + std::to_string(anchor) + "}"));
+            "Type", "{\"user_defined\": { \"type_reference\": " + std::to_string(anchor) +
+                        ", \"nullability\": \"NULLABILITY_NULLABLE\" } }"));
 
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
     EXPECT_EQ(*type, *expected_type);
@@ -279,8 +280,9 @@ TEST(Substrait, NamedStruct) {
 }
 
 TEST(Substrait, NoEquivalentArrowType) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON(
-                                     "Type", R"({"user_defined_type_reference": 99})"));
+  ASSERT_OK_AND_ASSIGN(
+      auto buf,
+      internal::SubstraitFromJSON("Type", R"({"user_defined": {"type_reference": 99}})"));
   ExtensionSet empty;
   ASSERT_THAT(
       DeserializeType(*buf, empty),
@@ -650,11 +652,11 @@ TEST(Substrait, ReadRel) {
         "items": [
           {
             "uri_file": "file:///tmp/dat1.parquet",
-            "format": "FILE_FORMAT_PARQUET"
+            "parquet": {}
           },
           {
             "uri_file": "file:///tmp/dat2.parquet",
-            "format": "FILE_FORMAT_PARQUET"
+            "parquet": {}
           }
         ]
       }
@@ -879,7 +881,7 @@ Result<std::string> GetSubstraitJSON() {
             "items": [
               {
                 "uri_file": "file://FILENAME_PLACEHOLDER",
-                "format": "FILE_FORMAT_PARQUET"
+                "parquet": {}
               }
             ]
           }
@@ -1011,7 +1013,7 @@ TEST(Substrait, JoinPlanBasic) {
               "items": [
                 {
                   "uri_file": "file:///tmp/dat1.parquet",
-                  "format": "FILE_FORMAT_PARQUET"
+                  "parquet": {}
                 }
               ]
             }
@@ -1035,7 +1037,7 @@ TEST(Substrait, JoinPlanBasic) {
               "items": [
                 {
                   "uri_file": "file:///tmp/dat2.parquet",
-                  "format": "FILE_FORMAT_PARQUET"
+                  "parquet": {}
                 }
               ]
             }
@@ -1044,24 +1046,28 @@ TEST(Substrait, JoinPlanBasic) {
         "expression": {
           "scalarFunction": {
             "functionReference": 0,
-            "args": [{
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 0
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
                   }
-                },
-                "rootReference": {
                 }
               }
             }, {
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 5
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 5
+                    }
+                  },
+                  "rootReference": {
                   }
-                },
-                "rootReference": {
                 }
               }
             }]
@@ -1147,7 +1153,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
               "items": [
                 {
                   "uri_file": "file:///tmp/dat1.parquet",
-                  "format": "FILE_FORMAT_PARQUET"
+                  "parquet": {}
                 }
               ]
             }
@@ -1171,7 +1177,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
               "items": [
                 {
                   "uri_file": "file:///tmp/dat2.parquet",
-                  "format": "FILE_FORMAT_PARQUET"
+                  "parquet": {}
                 }
               ]
             }
@@ -1180,24 +1186,28 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
         "expression": {
           "scalarFunction": {
             "functionReference": 0,
-            "args": [{
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 0
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
                   }
-                },
-                "rootReference": {
                 }
               }
             }, {
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 5
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 5
+                    }
+                  },
+                  "rootReference": {
                   }
-                },
-                "rootReference": {
                 }
               }
             }]
@@ -1255,7 +1265,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
               "items": [
                 {
                   "uri_file": "file:///tmp/dat1.parquet",
-                  "format": "FILE_FORMAT_PARQUET"
+                  "parquet": {}
                 }
               ]
             }
@@ -1279,7 +1289,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
               "items": [
                 {
                   "uri_file": "file:///tmp/dat2.parquet",
-                  "format": "FILE_FORMAT_PARQUET"
+                  "parquet": {}
                 }
               ]
             }
@@ -1323,7 +1333,7 @@ TEST(Substrait, JoinPlanInvalidKeys) {
               "items": [
                 {
                   "uri_file": "file:///tmp/dat1.parquet",
-                  "format": "FILE_FORMAT_PARQUET"
+                  "parquet": {}
                 }
               ]
             }
@@ -1332,24 +1342,28 @@ TEST(Substrait, JoinPlanInvalidKeys) {
         "expression": {
           "scalarFunction": {
             "functionReference": 0,
-            "args": [{
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 0
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
                   }
-                },
-                "rootReference": {
                 }
               }
             }, {
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 5
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 5
+                    }
+                  },
+                  "rootReference": {
                   }
-                },
-                "rootReference": {
                 }
               }
             }]

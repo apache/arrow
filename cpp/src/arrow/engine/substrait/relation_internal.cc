@@ -109,17 +109,16 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
           path = item.uri_path_glob();
         }
 
-        if (item.format() ==
-            substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET) {
-          format = std::make_shared<dataset::ParquetFileFormat>();
-        } else if (util::string_view{path}.ends_with(".arrow")) {
-          format = std::make_shared<dataset::IpcFileFormat>();
-        } else if (util::string_view{path}.ends_with(".feather")) {
-          format = std::make_shared<dataset::IpcFileFormat>();
-        } else {
-          return Status::NotImplemented(
-              "substrait::ReadRel::LocalFiles::FileOrFiles::format "
-              "other than FILE_FORMAT_PARQUET");
+        switch (item.file_format_case()) {
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kParquet:
+            format = std::make_shared<dataset::ParquetFileFormat>();
+            break;
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kArrow:
+            format = std::make_shared<dataset::IpcFileFormat>();
+            break;
+          default:
+            return Status::NotImplemented(
+                "unknown substrait::ReadRel::LocalFiles::FileOrFiles::file_format");
         }
 
         if (!util::string_view{path}.starts_with("file:///")) {
