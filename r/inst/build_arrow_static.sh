@@ -47,6 +47,21 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
+# Install Sccache 
+SCCACHE_BUILD=aarch64-unknown-linux-musl
+SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-$SCCACHE_BUILD.tar.gz"
+
+# Download archive and checksum
+wget -qi $SCCACHE_URL $SCCACHE_URL.sha256
+
+SCCACHE_ARCHIVE=$(echo *$SCCACHE_BUILD.tar.gz)
+echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
+
+mkdir -p sccache
+tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --one-top-level=sccache
+SCCACHE="$(pwd)/sccache/sccache"
+
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
@@ -81,6 +96,8 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
+    -DCMAKE_C_COMPILER_LAUNCHER=$SCCACHE \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE \
     ${EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}

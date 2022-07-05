@@ -78,10 +78,16 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       {{ macros.github_install_archery()|indent }}
+
       - name: Build libarrow
         shell: bash
         env:
           UBUNTU: {{ '${{ matrix.config.version}}' }}
+          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
+          AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
+          SCCACHE_BUCKET: {{ '${{ secretsSCCACHE_BUCKET }}' }}
+          SCCACHE_S3_KEY_PREFIX: 'sccache'
+
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -116,11 +122,29 @@ jobs:
           rtools-version: 40
           r-version: "4.0"
           Ncpus: 2
+      - name: Get sccache
+        shell: bash
+        run: |
+          SCCACHE_BUILD=pc-windows-msvc
+          SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-x86_64-$SCCACHE_BUILD.tar.gz"
 
+          # Download archive and checksum
+          wget -qi $SCCACHE_URL $SCCACHE_URL.sha256
+
+          SCCACHE_ARCHIVE=$(echo *$SCCACHE_BUILD.tar.gz)
+          echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
+
+          mkdir -p sccache
+          tar -xzvf $SCCACHE_ARCHIVE --directory sccache/
+          echo "$(pwd)/sccache" >> $GITHUB_PATH
       - name: Build Arrow C++ with rtools40
         shell: bash
         env:
           ARROW_HOME: "arrow"
+          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
+          AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
+          SCCACHE_BUCKET: {{ '${{ secretsSCCACHE_BUCKET }}' }}
+          SCCACHE_S3_KEY_PREFIX: 'sccache'
         run: arrow/ci/scripts/r_windows_build.sh
 
       - name: Upload binary artifact
