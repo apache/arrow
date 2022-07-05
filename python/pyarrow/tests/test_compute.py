@@ -2606,7 +2606,8 @@ def test_cumulative_product(start, skip_nulls):
             if skip_nulls else pa.chunked_array([[1, None, None, None]])
         ]
         for i, arr in enumerate(arrays):
-            result = pc.cumulative_product(arr, start=strt, skip_nulls=skip_nulls)
+            result = pc.cumulative_product(
+                arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
             expected = pc.multiply(expected_arrays[i], strt)
             assert result.equals(expected)
@@ -2626,7 +2627,8 @@ def test_cumulative_product(start, skip_nulls):
             if skip_nulls else np.array([1, np.nan, None, None, None, None])
         ]
         for i, arr in enumerate(arrays):
-            result = pc.cumulative_product(arr, start=strt, skip_nulls=skip_nulls)
+            result = pc.cumulative_product(
+                arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
             expected = pc.multiply(expected_arrays[i], strt)
             np.testing.assert_array_almost_equal(result.to_numpy(
