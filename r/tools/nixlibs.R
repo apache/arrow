@@ -154,6 +154,15 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
 # This tests that curl and openssl are present (bc we can include their headers)
 # and it checks for other versions/features and raises errors that we grep for
 test_for_curl_and_openssl <- "
+#include <ciso646>
+#ifdef _LIBCPP_VERSION
+#error Using libc++
+#endif
+
+#if !( __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 27)
+#error glibc version too old
+#endif
+
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER < 0x10002000L
@@ -161,12 +170,6 @@ test_for_curl_and_openssl <- "
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #error Using OpenSSL version 3
-#endif
-#ifndef __GNUC__
-#error GNU extensions not found
-#endif
-#if !( __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 27)
-#error glibc version too old
 #endif
 "
 
@@ -185,9 +188,9 @@ determine_binary_from_stderr <- function(errs) {
     # openssl is < 3.0, glibc is >= 2.27, and we're not using a strict libc++
     cat("*** Found libcurl and openssl >= 1.0.2\n")
     return("ubuntu-18.04")
-  } else if (any(grepl("GNU extensions not found", errs))) {
+  } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our binaries are all built with GNU stdlib so they fail with libc++
-    cat("*** GNU extensions not found\n")
+    cat("*** Found libc++\n")
     return(NULL)
   } else if (any(grepl("glibc version too old", errs))) {
     # ubuntu-18.04 has glibc 2.27, so even if you install newer compilers
