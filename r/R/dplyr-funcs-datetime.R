@@ -28,7 +28,7 @@ register_bindings_datetime <- function() {
 }
 
 register_bindings_datetime_utility <- function() {
-  register_binding("strptime", function(x,
+  register_binding("base::strptime", function(x,
                                         format = "%Y-%m-%d %H:%M:%S",
                                         tz = "",
                                         unit = "ms") {
@@ -172,7 +172,7 @@ register_bindings_datetime_components <- function() {
     (call_binding("yday", x) - 1) %/% 7 + 1
   })
 
-  register_binding("lubridate::month", function(x,
+  register_binding("month", function(x,
                                      label = FALSE,
                                      abbr = TRUE,
                                      locale = Sys.getlocale("LC_TIME")) {
