@@ -52,7 +52,7 @@ SCCACHE_BUILD=aarch64-unknown-linux-musl
 SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-$SCCACHE_BUILD.tar.gz"
 
 # Download archive and checksum
-wget -qi $SCCACHE_URL $SCCACHE_URL.sha256
+wget $SCCACHE_URL $SCCACHE_URL.sha256
 
 SCCACHE_ARCHIVE=$(echo *$SCCACHE_BUILD.tar.gz)
 echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
