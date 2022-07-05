@@ -52,7 +52,6 @@ struct RLETestData {
     return result;
   }
 
-
   std::shared_ptr<Array> input;
   std::shared_ptr<Array> expected_values;
   std::vector<int64_t> expected_run_lengths;
@@ -60,8 +59,9 @@ struct RLETestData {
   std::string string;
 };
 
-std::ostream& operator<<(std::ostream& stream, const RLETestData &test_data) {
-  return stream << "RLETestData(" << *test_data.input->type() << ", " + test_data.string << ")";
+std::ostream& operator<<(std::ostream& stream, const RLETestData& test_data) {
+  return stream << "RLETestData(" << *test_data.input->type() << ", " + test_data.string
+                << ")";
 }
 
 class TestRunLengthEncode : public ::testing::TestWithParam<RLETestData> {};
@@ -163,7 +163,8 @@ INSTANTIATE_TEST_SUITE_P(
         RLETestData::TypeMinMaxNull<FloatType>(),
         RLETestData::TypeMinMaxNull<DoubleType>()));
 
-class TestRLEFilter : public ::testing::TestWithParam<std::tuple<RLETestData, std::string>> {};
+class TestRLEFilter
+    : public ::testing::TestWithParam<std::tuple<RLETestData, std::string>> {};
 
 TEST_P(TestRLEFilter, FilterArray) {
   RLETestData data;
@@ -174,8 +175,9 @@ TEST_P(TestRLEFilter, FilterArray) {
   ASSERT_OK_AND_ASSIGN(Datum encoded_filter, RunLengthEncode(filter));
   ASSERT_OK_AND_ASSIGN(Datum encoded_values, RunLengthEncode(data.input));
 
-  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(data.input), Datum(filter)},
-                                                 NULLPTR, NULLPTR));
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      CallFunction("filter", {Datum(data.input), Datum(filter)}, NULLPTR, NULLPTR));
   ASSERT_OK_AND_ASSIGN(
       auto encoded_result,
       CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR,
@@ -190,28 +192,29 @@ TEST_P(TestRLEFilter, FilterArray) {
 
 INSTANTIATE_TEST_SUITE_P(
     EncodeArrayTests, TestRLEFilter,
-    ::testing::Combine(::testing::Values(
-        RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255, 255]", "[1, 0, -5, 255]",
-                          {2, 3, 6, 8}),
-        RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]", "[null, 1, null, 5]",
-                          {1, 3, 5, 6}),
-        RLETestData::JSON(boolean(), "[true, true, true, false, false]", "[true, false]",
-                          {3, 5}),
-        RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
-                          "[true, false, null, false]", {3, 4, 6, 7}),
-        RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[-5, 255]", {3, 5},
-                          3),
-        RLETestData::JSON(uint32(), "[4, 5, 5, null, null, 5]", "[5, null, 5]", {1, 3, 4},
-                          2),
-        RLETestData::JSON(boolean(), "[true, true, false, false, true]", "[false, true]",
-                          {2, 3}, 2),
-        RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
-                          "[null, false]", {1, 2}, 5)),
-                       ::testing::Values("[true, true, true, true, true, true, true, true, true]",
-                                         "[false, false, false, false, false, false, false, false, false]",
-                                         "[true, false, true, false, true, false, true, false, true]",
-                                         "[true, true, false, false, false, false, false, true, true, true]")));
-
+    ::testing::Combine(
+        ::testing::Values(
+            RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255, 255]",
+                              "[1, 0, -5, 255]", {2, 3, 6, 8}),
+            RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5, 5, 9, 9]",
+                              "[null, 1, null, 5]", {1, 3, 5, 6}),
+            RLETestData::JSON(boolean(), "[true, true, true, false, false, false, false, false, true]",
+                              "[true, false]", {3, 5}),
+            RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false, null, null]",
+                              "[true, false, null, false]", {3, 4, 6, 7})/*,
+            RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[-5, 255]",
+                              {3, 5}, 3),
+            RLETestData::JSON(uint32(), "[4, 5, 5, null, null, 5]", "[5, null, 5]",
+                              {1, 3, 4}, 2),
+            RLETestData::JSON(boolean(), "[true, true, false, false, true]",
+                              "[false, true]", {2, 3}, 2),
+            RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
+                              "[null, false]", {1, 2}, 5)*/),
+        ::testing::Values(
+            "[true, true, true, true, true, true, true, true, true]",
+            "[false, false, false, false, false, false, false, false, false]",
+            "[true, false, true, false, true, false, true, false, true]",
+            "[true, true, false, false, false, false, false, true, true]")));
 
 }  // namespace compute
 }  // namespace arrow
