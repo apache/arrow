@@ -81,16 +81,14 @@ register_bindings_math <- function() {
     )
   })
   
-  register_binding("sqrt", function(x, ...) {
-    # accepts and ignores ... for consistency with base::trunc()
+  register_binding("sqrt", function(x) {
     build_expr(
       "sqrt_checked",
       x
     )
   })
   
-  register_binding("exp", function(x, ...) {
-    # accepts and ignores ... for consistency with base::trunc()
+  register_binding("exp", function(x) {
     build_expr(
       "power_checked",
       exp(1), 
