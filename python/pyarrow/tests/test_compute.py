@@ -2585,6 +2585,162 @@ def test_cumulative_sum(start, skip_nulls):
             pc.cumulative_sum([1, 2, 3], start=strt)
 
 
+@pytest.mark.parametrize('start', (1.25, 10.5, -10.5))
+@pytest.mark.parametrize('skip_nulls', (True, False))
+def test_cumulative_product(start, skip_nulls):
+    # Exact tests (e.g., integral types)
+    start_int = int(start)
+    starts = [start_int, pa.scalar(start_int, type=pa.int8()),
+              pa.scalar(start_int, type=pa.int64())]
+    for strt in starts:
+        arrays = [
+            pa.array([1, 2, 3]),
+            pa.array([1, None, 3, 4]),
+            pa.chunked_array([[1, None], [3, 4]])
+        ]
+        expected_arrays = [
+            pa.array([1, 2, 6]),
+            pa.array([1, None, 3, 12])
+            if skip_nulls else pa.array([1, None, None, None]),
+            pa.chunked_array([[1, None, 3, 12]])
+            if skip_nulls else pa.chunked_array([[1, None, None, None]])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_product(arr, start=strt, skip_nulls=skip_nulls)
+            # Add `start` offset to expected array before comparing
+            expected = pc.multiply(expected_arrays[i], strt)
+            assert result.equals(expected)
+
+    starts = [start, pa.scalar(start, type=pa.float32()),
+              pa.scalar(start, type=pa.float64())]
+    for strt in starts:
+        arrays = [
+            pa.array([1.125, 2.25, 3.03125]),
+            pa.array([1, np.nan, 2, -3, 4, 5]),
+            pa.array([1, np.nan, None, 3, None, 5])
+        ]
+        expected_arrays = [
+            np.array([1.125, 2.53125, 7.6728515625]),
+            np.array([1, np.nan, np.nan, np.nan, np.nan, np.nan]),
+            np.array([1, np.nan, None, np.nan, None, np.nan])
+            if skip_nulls else np.array([1, np.nan, None, None, None, None])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_product(arr, start=strt, skip_nulls=skip_nulls)
+            # Add `start` offset to expected array before comparing
+            expected = pc.multiply(expected_arrays[i], strt)
+            np.testing.assert_array_almost_equal(result.to_numpy(
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+
+    for strt in ['a', pa.scalar('arrow'), 1.1]:
+        with pytest.raises(pa.ArrowInvalid):
+            pc.cumulative_product([1, 2, 3], start=strt)
+
+
+@pytest.mark.parametrize('start', (1.25, 10.5, -10.5))
+@pytest.mark.parametrize('skip_nulls', (True, False))
+def test_cumulative_max(start, skip_nulls):
+    # Exact tests (e.g., integral types)
+    start_int = int(start)
+    starts = [start_int, pa.scalar(start_int, type=pa.int8()),
+              pa.scalar(start_int, type=pa.int64())]
+    for strt in starts:
+        arrays = [
+            pa.array([9, 24, 7]),
+            pa.array([7, None, 5, 74]),
+            pa.chunked_array([[7, None], [5, 74]])
+        ]
+        expected_arrays = [
+            pa.array([9, 24, 24]),
+            pa.array([7, None, 7, 74])
+            if skip_nulls else pa.array([7, None, None, None]),
+            pa.chunked_array([[7, None, 7, 74]])
+            if skip_nulls else pa.chunked_array([[7, None, None, None]])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_max(arr, start=strt, skip_nulls=skip_nulls)
+            # Add `start` offset to expected array before comparing
+            expected = pc.max(pa.array([expected_arrays[i], strt]))
+            assert result.equals(expected)
+
+    starts = [start, pa.scalar(start, type=pa.float32()),
+              pa.scalar(start, type=pa.float64())]
+    for strt in starts:
+        arrays = [
+            pa.array([9.125, 27.25, 7.03125]),
+            pa.array([1, np.nan, 2, -3, 4, 5]),
+            pa.array([1, np.nan, None, 3, None, 5])
+        ]
+        expected_arrays = [
+            np.array([9.125, 27.25, 27.25]),
+            np.array([1, np.nan, np.nan, np.nan, np.nan, np.nan]),
+            np.array([1, np.nan, None, np.nan, None, np.nan])
+            if skip_nulls else np.array([1, np.nan, None, None, None, None])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_max(arr, start=strt, skip_nulls=skip_nulls)
+            # Add `start` offset to expected array before comparing
+            expected = pc.max(pa.array([expected_arrays[i], strt]))
+            np.testing.assert_array_almost_equal(result.to_numpy(
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+
+    for strt in ['a', pa.scalar('arrow'), 1.1]:
+        with pytest.raises(pa.ArrowInvalid):
+            pc.cumulative_max([1, 2, 3], start=strt)
+
+
+@pytest.mark.parametrize('start', (1.25, 10.5, -10.5))
+@pytest.mark.parametrize('skip_nulls', (True, False))
+def test_cumulative_min(start, skip_nulls):
+    # Exact tests (e.g., integral types)
+    start_int = int(start)
+    starts = [start_int, pa.scalar(start_int, type=pa.int8()),
+              pa.scalar(start_int, type=pa.int64())]
+    for strt in starts:
+        arrays = [
+            pa.array([9, 24, 7]),
+            pa.array([7, None, 5, 74]),
+            pa.chunked_array([[7, None], [5, 74]])
+        ]
+        expected_arrays = [
+            pa.array([9, 9, 7]),
+            pa.array([7, None, 5, 5])
+            if skip_nulls else pa.array([7, None, None, None]),
+            pa.chunked_array([[7, None, 5, 5]])
+            if skip_nulls else pa.chunked_array([[7, None, None, None]])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_min(arr, start=strt, skip_nulls=skip_nulls)
+            # Add `start` offset to expected array before comparing
+            expected = pc.min(pa.array([expected_arrays[i], strt]))
+            assert result.equals(expected)
+
+    starts = [start, pa.scalar(start, type=pa.float32()),
+              pa.scalar(start, type=pa.float64())]
+    for strt in starts:
+        arrays = [
+            pa.array([9.125, 27.25, 7.03125]),
+            pa.array([1, np.nan, 2, -3, 4, 5]),
+            pa.array([1, np.nan, None, 3, None, 5])
+        ]
+        expected_arrays = [
+            np.array([9.125, 9.125, 7.03125]),
+            np.array([1, np.nan, np.nan, np.nan, np.nan, np.nan]),
+            np.array([1, np.nan, None, np.nan, None, np.nan])
+            if skip_nulls else np.array([1, np.nan, None, None, None, None])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_min(arr, start=strt, skip_nulls=skip_nulls)
+            # Add `start` offset to expected array before comparing
+            expected = pc.min(pa.array([expected_arrays[i], strt]))
+            np.testing.assert_array_almost_equal(result.to_numpy(
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+
+    for strt in ['a', pa.scalar('arrow'), 1.1]:
+        with pytest.raises(pa.ArrowInvalid):
+            pc.cumulative_min([1, 2, 3], start=strt)
+
+
 def test_make_struct():
     assert pc.make_struct(1, 'a').as_py() == {'0': 1, '1': 'a'}
 
