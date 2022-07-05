@@ -877,20 +877,7 @@ class PrimitiveRLEFilterImpl {
     out_data_ = reinterpret_cast<T*>(out_arr->child_data[0]->buffers[1]->mutable_data());
   }
 
-  /*void ExecNonNull() {
-    // Fast filter when values and filter are not null
-    ::arrow::internal::VisitSetBitRunsVoid(
-        filter_data_, filter_offset_, values_length_,
-        [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
-  }*/
-
   void Exec() {
-    /*auto WriteNotNull = [&](int64_t value_index, int64_t run_length) {
-      bit_util::SetBit(out_is_valid_, out_offset_ + out_position_);
-      // Increments out_position_
-      WriteValue(value_index, run_length);
-    };*/
-
     auto WriteMaybeNull = [&](int64_t value_index, int64_t run_length) {
       bit_util::SetBitTo(
           out_is_valid_, out_offset_ + out_position_,
