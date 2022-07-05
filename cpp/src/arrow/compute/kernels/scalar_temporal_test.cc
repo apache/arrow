@@ -2532,8 +2532,7 @@ TEST_F(ScalarTemporalTestStrictCeil, TestCeilTemporalStrictCeil) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
-       TestCeilTemporalMultipleSinceGreaterUnit) {
+TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, UTC) {
   std::string op = "ceil_temporal";
 
   // Data for tests below was generaed via lubridate with the exception
