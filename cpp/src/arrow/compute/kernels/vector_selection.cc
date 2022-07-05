@@ -107,7 +107,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
             output_size++;
           }
         });
-  } else { // filter has validity bitmap
+  } else {  // filter has validity bitmap
     if (null_selection == FilterOptions::EMIT_NULL) {
       rle_util::VisitMergedRuns(
           values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
@@ -852,8 +852,8 @@ class PrimitiveRLEFilterImpl {
                                       uint8_t, typename ArrowType::c_type>::type;
 
   PrimitiveRLEFilterImpl(const ArraySpan& values, const ArraySpan& filter,
-                      FilterOptions::NullSelectionBehavior null_selection,
-                      ArrayData* out_arr)
+                         FilterOptions::NullSelectionBehavior null_selection,
+                         ArrayData* out_arr)
       : values_is_valid_(values.child_data[0].buffers[0].data),
         values_run_length_(reinterpret_cast<const int64_t*>(values.buffers[0].data)),
         values_data_(reinterpret_cast<const T*>(values.child_data[0].buffers[1].data)),
@@ -961,14 +961,14 @@ class PrimitiveRLEFilterImpl {
   const uint8_t* values_is_valid_;
   const int64_t* values_run_length_;
   const T* values_data_;
-  //int64_t values_null_count_;
+  // int64_t values_null_count_;
   int64_t values_offset_;
   int64_t values_physical_length_;
   int64_t input_logical_length_;
   const uint8_t* filter_is_valid_;
   const uint8_t* filter_data_;
   const int64_t* filter_run_length_;
-  //int64_t filter_null_count_;
+  // int64_t filter_null_count_;
   int64_t filter_offset_;
   int64_t filter_physical_length_;
   FilterOptions::NullSelectionBehavior null_selection_;
@@ -2068,8 +2068,7 @@ Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
-  int64_t output_length =
-      GetFilterOutputSizeRLE(values, filter, null_selection);
+  int64_t output_length = GetFilterOutputSizeRLE(values, filter, null_selection);
 
   ArrayData* out_arr = result->array_data().get();
 
@@ -2088,7 +2087,8 @@ Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  const int bit_width = checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
+  const int bit_width =
+      checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
   RETURN_NOT_OK(
       PreallocateDataRLE(ctx, output_length, bit_width, allocate_validity, out_arr));
 
@@ -2109,7 +2109,8 @@ Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
       PrimitiveRLEFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
       break;
     default:
-      return Status::NotImplemented(std::string("RLEFilter of fixed bit width ") + std::to_string(bit_width));
+      return Status::NotImplemented(std::string("RLEFilter of fixed bit width ") +
+                                    std::to_string(bit_width));
   }
   return Status::OK();
 }
@@ -2599,12 +2600,13 @@ Status TakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 }
 
 struct SelectionKernelDescr {
-  InputType input;
+  InputType value_type;
+  InputType selection_type;
   ArrayKernelExec exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
-                               VectorKernel base_kernel, InputType selection_type,
+                               VectorKernel base_kernel,
                                const std::vector<SelectionKernelDescr>& descrs,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
@@ -2612,18 +2614,11 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                                default_options);
   for (auto& descr : descrs) {
     base_kernel.signature = KernelSignature::Make(
-        {std::move(descr.input), selection_type}, OutputType(FirstType));
+        {std::move(descr.value_type), std::move(descr.selection_type)},
+        OutputType(FirstType));
     base_kernel.exec = descr.exec;
     DCHECK_OK(func->AddKernel(base_kernel));
   }
-
-  base_kernel.signature =
-      KernelSignature::Make({InputType::Array(run_length_encoded(uint32())),
-                             InputType::Array(run_length_encoded(boolean()))},
-                            OutputType(FirstType));
-  base_kernel.exec = RLEFilter;
-  DCHECK_OK(func->AddKernel(base_kernel));
-
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2744,53 +2739,80 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
 void RegisterVectorSelection(FunctionRegistry* registry) {
   // Filter kernels
   std::vector<SelectionKernelDescr> filter_kernel_descrs = {
-      {InputType(match::Primitive(), ValueDescr::ARRAY), PrimitiveFilter},
-      {InputType(match::BinaryLike(), ValueDescr::ARRAY), BinaryFilter},
-      {InputType(match::LargeBinaryLike(), ValueDescr::ARRAY), BinaryFilter},
-      {InputType::Array(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>},
-      {InputType::Array(null()), NullFilter},
-      {InputType::Array(Type::DECIMAL128), FilterExec<FSBImpl>},
-      {InputType::Array(Type::DECIMAL256), FilterExec<FSBImpl>},
-      {InputType::Array(Type::DICTIONARY), DictionaryFilter},
-      {InputType::Array(Type::EXTENSION), ExtensionFilter},
-      {InputType::Array(Type::LIST), FilterExec<ListImpl<ListType>>},
-      {InputType::Array(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
-      {InputType::Array(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
-      {InputType::Array(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
-      {InputType::Array(Type::STRUCT), StructFilter},
+      {InputType(match::Primitive(), ValueDescr::ARRAY), InputType::Array(Type::BOOL),
+       PrimitiveFilter},
+      {InputType(match::BinaryLike(), ValueDescr::ARRAY), InputType::Array(Type::BOOL),
+       BinaryFilter},
+      {InputType(match::LargeBinaryLike(), ValueDescr::ARRAY),
+       InputType::Array(Type::BOOL), BinaryFilter},
+      {InputType::Array(Type::FIXED_SIZE_BINARY), InputType::Array(Type::BOOL),
+       FilterExec<FSBImpl>},
+      {InputType::Array(null()), InputType::Array(Type::BOOL), NullFilter},
+      {InputType::Array(Type::DECIMAL128), InputType::Array(Type::BOOL),
+       FilterExec<FSBImpl>},
+      {InputType::Array(Type::DECIMAL256), InputType::Array(Type::BOOL),
+       FilterExec<FSBImpl>},
+      {InputType::Array(Type::DICTIONARY), InputType::Array(Type::BOOL),
+       DictionaryFilter},
+      {InputType::Array(Type::EXTENSION), InputType::Array(Type::BOOL), ExtensionFilter},
+      {InputType::Array(Type::LIST), InputType::Array(Type::BOOL),
+       FilterExec<ListImpl<ListType>>},
+      {InputType::Array(Type::LARGE_LIST), InputType::Array(Type::BOOL),
+       FilterExec<ListImpl<LargeListType>>},
+      {InputType::Array(Type::FIXED_SIZE_LIST), InputType::Array(Type::BOOL),
+       FilterExec<FSLImpl>},
+      {InputType::Array(Type::DENSE_UNION), InputType::Array(Type::BOOL),
+       FilterExec<DenseUnionImpl>},
+      {InputType::Array(Type::STRUCT), InputType::Array(Type::BOOL), StructFilter},
       // TODO: Reuse ListType kernel for MAP
-      {InputType::Array(Type::MAP), FilterExec<ListImpl<MapType>>},
-      {InputType::Array(run_length_encoded(uint32())), RLEFilter},
+      {InputType::Array(Type::MAP), InputType::Array(Type::BOOL),
+       FilterExec<ListImpl<MapType>>},
+      {InputType(match::Primitive()),
+       InputType(run_length_encoded(boolean()), ValueDescr::ARRAY), RLEFilter},
   };
 
   VectorKernel filter_base;
   filter_base.init = FilterState::Init;
   RegisterSelectionFunction("array_filter", array_filter_doc, filter_base,
-                            /*selection_type=*/InputType::Array(boolean()),
                             filter_kernel_descrs, GetDefaultFilterOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<FilterMetaFunction>()));
 
   // Take kernels
   std::vector<SelectionKernelDescr> take_kernel_descrs = {
-      {InputType(match::Primitive(), ValueDescr::ARRAY), PrimitiveTake},
+      {InputType(match::Primitive(), ValueDescr::ARRAY),
+       InputType(match::Integer(), ValueDescr::ARRAY), PrimitiveTake},
       {InputType(match::BinaryLike(), ValueDescr::ARRAY),
+       InputType(match::Integer(), ValueDescr::ARRAY),
        TakeExec<VarBinaryImpl<BinaryType>>},
       {InputType(match::LargeBinaryLike(), ValueDescr::ARRAY),
+       InputType(match::Integer(), ValueDescr::ARRAY),
        TakeExec<VarBinaryImpl<LargeBinaryType>>},
-      {InputType::Array(Type::FIXED_SIZE_BINARY), TakeExec<FSBImpl>},
-      {InputType::Array(null()), NullTake},
-      {InputType::Array(Type::DECIMAL128), TakeExec<FSBImpl>},
-      {InputType::Array(Type::DECIMAL256), TakeExec<FSBImpl>},
-      {InputType::Array(Type::DICTIONARY), DictionaryTake},
-      {InputType::Array(Type::EXTENSION), ExtensionTake},
-      {InputType::Array(Type::LIST), TakeExec<ListImpl<ListType>>},
-      {InputType::Array(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
-      {InputType::Array(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
-      {InputType::Array(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
-      {InputType::Array(Type::STRUCT), TakeExec<StructImpl>},
+      {InputType::Array(Type::FIXED_SIZE_BINARY),
+       InputType(match::Integer(), ValueDescr::ARRAY), TakeExec<FSBImpl>},
+      {InputType::Array(null()), InputType(match::Integer(), ValueDescr::ARRAY),
+       NullTake},
+      {InputType::Array(Type::DECIMAL128), InputType(match::Integer(), ValueDescr::ARRAY),
+       TakeExec<FSBImpl>},
+      {InputType::Array(Type::DECIMAL256), InputType(match::Integer(), ValueDescr::ARRAY),
+       TakeExec<FSBImpl>},
+      {InputType::Array(Type::DICTIONARY), InputType(match::Integer(), ValueDescr::ARRAY),
+       DictionaryTake},
+      {InputType::Array(Type::EXTENSION), InputType(match::Integer(), ValueDescr::ARRAY),
+       ExtensionTake},
+      {InputType::Array(Type::LIST), InputType(match::Integer(), ValueDescr::ARRAY),
+       TakeExec<ListImpl<ListType>>},
+      {InputType::Array(Type::LARGE_LIST), InputType(match::Integer(), ValueDescr::ARRAY),
+       TakeExec<ListImpl<LargeListType>>},
+      {InputType::Array(Type::FIXED_SIZE_LIST),
+       InputType(match::Integer(), ValueDescr::ARRAY), TakeExec<FSLImpl>},
+      {InputType::Array(Type::DENSE_UNION),
+       InputType(match::Integer(), ValueDescr::ARRAY), TakeExec<DenseUnionImpl>},
+      {InputType::Array(Type::STRUCT), InputType(match::Integer(), ValueDescr::ARRAY),
+       TakeExec<StructImpl>},
       // TODO: Reuse ListType kernel for MAP
-      {InputType::Array(Type::MAP), TakeExec<ListImpl<MapType>>},
+      {InputType::Array(Type::MAP), InputType(match::Integer(), ValueDescr::ARRAY),
+       TakeExec<ListImpl<MapType>>},
   };
 
   VectorKernel take_base;
@@ -2798,7 +2820,6 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   take_base.can_execute_chunkwise = false;
   RegisterSelectionFunction(
       "array_take", array_take_doc, take_base,
-      /*selection_type=*/InputType(match::Integer(), ValueDescr::ARRAY),
       take_kernel_descrs, GetDefaultTakeOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));
