@@ -420,8 +420,9 @@ class ScalarTemporalTest : public ::testing::Test {
 
 class ScalarTemporalTestStrictCeil : public ScalarTemporalTest {
  public:
-  RoundTemporalOptions round_to_1_nanoseconds =
-      RoundTemporalOptions(1, CalendarUnit::NANOSECOND, true, true, false);
+  RoundTemporalOptions round_to_1_nanoseconds = RoundTemporalOptions(
+      1, CalendarUnit::NANOSECOND, /*week_starts_monday=*/true,
+      /*ceil_is_strictly_greater=*/true, /*calendar_based_origin=*/false);
   RoundTemporalOptions round_to_1_microseconds =
       RoundTemporalOptions(1, CalendarUnit::MICROSECOND, true, true, false);
   RoundTemporalOptions round_to_1_milliseconds =
@@ -477,30 +478,31 @@ class ScalarTemporalTestStrictCeil : public ScalarTemporalTest {
 
 class ScalarTemporalTestMultipleSinceGreaterUnit : public ScalarTemporalTest {
  public:
-  RoundTemporalOptions round_to_1_nanoseconds =
-      RoundTemporalOptions(1, CalendarUnit::NANOSECOND, true, true, false);
+  RoundTemporalOptions round_to_1_nanoseconds = RoundTemporalOptions(
+      1, CalendarUnit::NANOSECOND, /*week_starts_monday=*/true,
+      /*ceil_is_strictly_greater=*/true, /*calendar_based_origin=*/true);
   RoundTemporalOptions round_to_1_microseconds =
-      RoundTemporalOptions(1, CalendarUnit::MICROSECOND, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::MICROSECOND, true, true, true);
   RoundTemporalOptions round_to_1_milliseconds =
-      RoundTemporalOptions(1, CalendarUnit::MILLISECOND, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::MILLISECOND, true, true, true);
   RoundTemporalOptions round_to_1_seconds =
-      RoundTemporalOptions(1, CalendarUnit::SECOND, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::SECOND, true, true, true);
   RoundTemporalOptions round_to_1_minutes =
-      RoundTemporalOptions(1, CalendarUnit::MINUTE, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::MINUTE, true, true, true);
   RoundTemporalOptions round_to_1_hours =
-      RoundTemporalOptions(1, CalendarUnit::HOUR, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::HOUR, true, true, true);
   RoundTemporalOptions round_to_1_days =
-      RoundTemporalOptions(1, CalendarUnit::DAY, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::DAY, true, true, true);
   RoundTemporalOptions round_to_1_weeks =
-      RoundTemporalOptions(1, CalendarUnit::WEEK, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::WEEK, true, true, true);
   RoundTemporalOptions round_to_1_weeks_sunday =
-      RoundTemporalOptions(1, CalendarUnit::WEEK, false, true, false);
+      RoundTemporalOptions(1, CalendarUnit::WEEK, false, true, true);
   RoundTemporalOptions round_to_1_months =
-      RoundTemporalOptions(1, CalendarUnit::MONTH, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::MONTH, true, true, true);
   RoundTemporalOptions round_to_1_quarters =
-      RoundTemporalOptions(1, CalendarUnit::QUARTER, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::QUARTER, true, true, true);
   RoundTemporalOptions round_to_1_years =
-      RoundTemporalOptions(1, CalendarUnit::YEAR, true, true, false);
+      RoundTemporalOptions(1, CalendarUnit::YEAR, true, true, true);
 
   RoundTemporalOptions round_to_15_nanoseconds =
       RoundTemporalOptions(15, CalendarUnit::NANOSECOND, true, true, true);
@@ -2532,7 +2534,7 @@ TEST_F(ScalarTemporalTestStrictCeil, TestCeilTemporalStrictCeil) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, UTC) {
+TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilUTC) {
   std::string op = "ceil_temporal";
 
   // Data for tests below was generaed via lubridate with the exception
@@ -2632,7 +2634,7 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, UTC) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, Zoned) {
+TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilZoned) {
   std::string op = "ceil_temporal";
 
   // Data for tests below was generated via lubridate with the exception
@@ -2730,6 +2732,7 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, Zoned) {
 
 TEST_F(ScalarTemporalTest, TestFloorTemporal) {
   std::string op = "floor_temporal";
+
   const char* floor_1_nanosecond =
       R"(["1970-01-01 00:00:59.123456789", "2000-02-29 23:23:23.999999999",
           "1899-01-01 00:59:20.001001001", "2033-05-18 03:33:20.000000000",
@@ -2919,9 +2922,9 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
   CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
-       TestFloorTemporalMultipleSinceGreaterUnit) {
+TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorUTC) {
   std::string op = "floor_temporal";
+
   // Data for tests below was generaed via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
@@ -3021,9 +3024,9 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
   CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
-       TestFloorTemporalMultipleSinceGreaterUnitZoned) {
+TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorZoned) {
   std::string op = "floor_temporal";
+
   // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
@@ -3121,6 +3124,7 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
 
 TEST_F(ScalarTemporalTest, TestRoundTemporal) {
   std::string op = "round_temporal";
+
   const char* round_1_nanoseconds =
       R"(["1970-01-01 00:00:59.123456789", "2000-02-29 23:23:23.999999999",
           "1899-01-01 00:59:20.001001001", "2033-05-18 03:33:20.000000000",
@@ -3331,8 +3335,7 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
   CheckScalarUnary("round_temporal", unit, times, unit, round_2_hours, &round_to_2_hours);
 }
 
-TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
-       TestRoundTemporalMultipleSinceGreaterUnit) {
+TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundUTC) {
   std::string op = "round_temporal";
 
   // Data for tests below was generaed via lubridate with the exception
@@ -3433,8 +3436,7 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
   CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
 }
 
-TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit,
-       TestRoundTemporalMultipleSinceGreaterUnitZoned) {
+TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundZoned) {
   std::string op = "round_temporal";
 
   // Data for tests below was generated via lubridate with the exception
