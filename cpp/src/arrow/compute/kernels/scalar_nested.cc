@@ -81,7 +81,7 @@ Status GetListElementIndex(const ExecValue& value, T* out) {
     *out = index_array.GetValues<T>(1)[0];
   }
   if (ARROW_PREDICT_FALSE(*out < 0)) {
-    return Status::Invalid("Index ", index,
+    return Status::Invalid("Index ", *out,
                            " is out of bounds: should be greater than or equal to 0");
   }
   return Status::OK();

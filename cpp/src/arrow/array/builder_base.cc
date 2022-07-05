@@ -210,8 +210,8 @@ struct AppendScalarImpl {
 
   Status Visit(const DenseUnionType& type) { return MakeUnionArray(type); }
 
-  template <typename T, typename BuilderType = typename TypeTraits<T>::BuilderType>
-  Status AppendUnionScalar(const T& type, const Scalar& s, BuilderType* builder) {
+  Status AppendUnionScalar(const DenseUnionType& type, const Scalar& s,
+                           DenseUnionBuilder* builder) {
     const auto& scalar = checked_cast<const DenseUnionScalar&>(s);
     const auto scalar_field_index = type.child_ids()[scalar.type_code];
     RETURN_NOT_OK(builder->Append(scalar.type_code));
@@ -229,7 +229,6 @@ struct AppendScalarImpl {
     return Status::OK();
   }
 
-  template <>
   Status AppendUnionScalar(const SparseUnionType& type, const Scalar& s,
                            SparseUnionBuilder* builder) {
     // For each scalar,
