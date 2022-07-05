@@ -212,7 +212,7 @@ include(CMakePackageConfigHelpers)
 
 # Set the output directory for cmake module
 # (CMAKE_INSTALL_PREFIX = python/build/dist! should be set in setup.py!)
-set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
 add_arrow_lib(arrow_python
               CMAKE_PACKAGE_NAME
