@@ -297,6 +297,16 @@ register_bindings_datetime_conversion <- function() {
                                        tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
+
+    if (is.null(format) && length(tryFormats) > 1) {
+      abort(
+        paste(
+          "`as.Date()` with multiple `tryFormats` is not supported in Arrow,",
+          "consider using the lubridate specialised parsing functions such as, `ymd()`, `ymd()`, etc."
+        )
+      )
+    }
+
     # base::as.Date() and lubridate::as_date() differ in the way they use the
     # `tz` argument. Both cast to the desired timezone, if present. The
     # difference appears when the `tz` argument is not set: `as.Date()` uses the

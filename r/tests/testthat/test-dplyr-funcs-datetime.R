@@ -1508,16 +1508,19 @@ test_that("make_difftime()", {
 
 test_that("`as.Date()` and `as_date()`", {
   test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Pacific/Marquesas"),
-    dt_europe = ymd_hms("2010-08-03 00:50:50", tz = "Europe/London"),
-    dt_utc = ymd_hms("2010-08-03 00:50:50"),
-    date_var = as.Date("2022-02-25"),
-    difference_date = ymd_hms("2010-08-03 00:50:50", tz = "Pacific/Marquesas"),
-    character_ymd_var = "2022-02-25 00:00:01",
-    character_ydm_var = "2022/25/02 00:00:01",
-    integer_var = 32L,
-    integerish_var = 32,
-    double_var = 34.56
+    posixct_var = as.POSIXct(c("2022-02-25 00:00:01", "1987-11-24 12:34:56", NA), tz = "Pacific/Marquesas"),
+    dt_europe = ymd_hms("2010-08-03 00:50:50", "1987-11-24 12:34:56", NA, tz = "Europe/London"),
+    dt_utc = ymd_hms("2010-08-03 00:50:50", "1987-11-24 12:34:56", NA),
+    date_var = as.Date(c("2022-02-25", "1987-11-24", NA)),
+    difference_date = ymd_hms("2010-08-03 00:50:50", "1987-11-24 12:34:56", NA, tz = "Pacific/Marquesas"),
+    try_formats_string = c(NA, "2022-01-01", "2022/01/01"),
+    character_ymd_hms_var = c("2022-02-25 00:00:01", "1987-11-24 12:34:56", NA),
+    character_ydm_hms_var = c("2022/25/02 00:00:01", "1987/24/11 12:34:56", NA),
+    character_ymd_var = c("2022-02-25", "1987-11-24", NA),
+    character_ydm_var = c("2022/25/02", "1987/24/11", NA),
+    integer_var = c(21L, 32L, NA),
+    integerish_var = c(21, 32, NA),
+    double_var = c(12.34, 56.78, NA)
   )
 
   compare_dplyr_binding(
@@ -1528,8 +1531,8 @@ test_that("`as.Date()` and `as_date()`", {
         date_pv_tz1 = as.Date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc1 = as.Date(dt_utc),
         date_europe1 = as.Date(dt_europe),
-        date_char_ymd1 = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm1 = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_char_ymd_hms1 = as.Date(character_ymd_hms_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm_hms1 = as.Date(character_ydm_hms_var, format = "%Y/%d/%m %H:%M:%S"),
         date_int1 = as.Date(integer_var, origin = "1970-01-01"),
         date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
         date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
@@ -1538,8 +1541,8 @@ test_that("`as.Date()` and `as_date()`", {
         date_pv_tz2 = as_date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc2 = as_date(dt_utc),
         date_europe2 = as_date(dt_europe),
-        date_char_ymd2 = as_date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-        date_char_ydm2 = as_date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_char_ymd2 = as_date(character_ymd_hms_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm2 = as_date(character_ydm_hms_var, format = "%Y/%d/%m %H:%M:%S"),
         date_int2 = as_date(integer_var, origin = "1970-01-01"),
         date_int_origin2 = as_date(integer_var, origin = "1970-01-03"),
         date_integerish2 = as_date(integerish_var, origin = "1970-01-01")
@@ -1549,35 +1552,63 @@ test_that("`as.Date()` and `as_date()`", {
   )
 
   # we do not support multiple tryFormats
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var,
-        tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-      )) %>%
+  # this is not a simple warning, therefore we cannot use compare_dplyr_binding()
+  # with `warning = TRUE`
+  # arrow_table test
+  expect_warning(
+    test_df %>%
+      arrow_table() %>%
+      mutate(
+        date_char_ymd = as.Date(
+          character_ymd_var,
+          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+        )
+      ) %>%
       collect(),
-    test_df,
-    warning = TRUE
+    regexp = "consider using the lubridate specialised parsing functions"
   )
 
-  # strptime does not support a partial format - testing an error surfaced from
-  # C++ (hence not testing the content of the error message)
+  # record batch test
+  expect_warning(
+    test_df %>%
+      record_batch() %>%
+      mutate(
+        date_char_ymd = as.Date(
+          character_ymd_var,
+          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+        )
+      ) %>%
+      collect(),
+    regexp = "consider using the lubridate specialised parsing functions"
+  )
+
+  # strptime does not support a partial format - Arrow returns NA, while
+  # lubridate parses correctly
   # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
   expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd = as_date(character_ymd_var)) %>%
-      collect()
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var)) %>%
+        collect(),
+      test_df %>%
+        mutate(date_char_ymd_hms = as_date(character_ymd_hms_var)) %>%
+        collect()
+    )
   )
 
+  # same as above
   expect_error(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
-      collect(),
-    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
-    fixed = TRUE
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var)) %>%
+        collect(),
+      test_df %>%
+        mutate(date_char_ymd_hms = as.Date(character_ymd_hms_var)) %>%
+        collect()
+    )
   )
-
 
   # we do not support as.Date() with double/ float (error surfaced from C++)
   # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
@@ -1610,6 +1641,24 @@ test_that("`as.Date()` and `as_date()`", {
       ) %>%
       collect(),
     test_df
+  )
+})
+
+test_that("`as_date()` and `as.Date()` work with R objects", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date1 = as.Date("2022-05-10"),
+        date2 = as.Date(12, origin = "2022-05-01"),
+        date3 = as.Date("2022-10-03", tryFormats = "%Y-%m-%d"),
+        date4 = as_date("2022-05-10"),
+        date5 = as_date(12, origin = "2022-05-01"),
+        date6 = as_date("2022-10-03")
+      ) %>%
+      collect(),
+    tibble(
+      a = 1
+    )
   )
 })
 
