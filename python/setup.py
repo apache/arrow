@@ -447,7 +447,8 @@ class build_ext(_build_ext):
                 # We need to add the C PyArrow include folder, that was also deleted
                 build_cpyarrow_include = pjoin(saved_cwd, 'build/dist/include')
                 if not os.path.isdir(pjoin(build_cpyarrow_include, "arrow", "python")):
-                    self.mkpath(pjoin(build_cpyarrow_include, "arrow", "python"))
+                    self.mkpath(
+                        pjoin(build_cpyarrow_include, "arrow", "python"))
                 shutil.move(pjoin(build_cpyarrow_include, "arrow", "python"), pjoin(
                     build_lib, "pyarrow", "include", "arrow", "python"))
 
