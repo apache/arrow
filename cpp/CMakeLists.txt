@@ -987,9 +987,11 @@ if(ARROW_PARQUET)
 endif()
 
 if(ARROW_JNI)
-  add_subdirectory(src/jni)
+  if(ARROW_ORC)
+    add_subdirectory(../java/adapter/orc/src/main/cpp ./java/orc/jni)
+  endif()
   if(ARROW_DATASET)
-    add_subdirectory(../java/dataset/src/main/cpp ./java/jni)
+    add_subdirectory(../java/dataset/src/main/cpp ./java/dataset/jni)
   endif()
 endif()
 
