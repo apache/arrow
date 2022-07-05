@@ -295,16 +295,15 @@ TEST(TestCumulativeProduct, NoStartNoSkip) {
                      ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5]"}),
                      ChunkedArrayFromJSON(ty, {"[1, 2, 6, 24, 120]"}), &options);
     CheckVectorUnary("cumulative_product_checked",
-                     ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5, 6]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5]"}),
                      ChunkedArrayFromJSON(ty, {"[1, 2, 6, 24, 120]"}), &options);
 
-    CheckVectorUnary(
-        "cumulative_product", ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null]"}),
-        ChunkedArrayFromJSON(ty, {"[1, 2, null, null, null]"}), &options);
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null, null, null]"}), &options);
     CheckVectorUnary("cumulative_product_checked",
                      ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null]"}),
-                     ChunkedArrayFromJSON(ty, {"[1, 2, null, null, null]"}),
-                     &options);
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null, null, null]"}), &options);
 
     CheckVectorUnary(
         "cumulative_product", ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null]"}),
@@ -360,6 +359,49 @@ TEST(TestCumulativeSum, NoStartDoSkip) {
   }
 }
 
+TEST(TestCumulativeProduct, NoStartDoSkip) {
+  CumulativeProductOptions options(1, true);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, 3, 4, 5]"),
+                     ArrayFromJSON(ty, "[1, 2, 6, 24, 120]"), &options);
+    CheckVectorUnary("cumulative_product_checked", ArrayFromJSON(ty, "[1, 2, 3, 4, 5]"),
+                     ArrayFromJSON(ty, "[1, 2, 6, 24, 120]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[1, 2, null, 8, null]"), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ArrayFromJSON(ty, "[1, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[1, 2, null, 8, null]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[null, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[null, 2, null, 8, null]"), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ArrayFromJSON(ty, "[null, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[null, 2, null, 8, null]"), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 6, 24, 120]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 6, 24, 120]"}), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null, 8, null]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null, 8, null]"}), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 2, null, 8, null]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 2, null, 8, null]"}), &options);
+  }
+}
+
 TEST(TestCumulativeSum, HasStartNoSkip) {
   CumulativeSumOptions options(10);
   for (auto ty : NumericTypes()) {
@@ -405,6 +447,47 @@ TEST(TestCumulativeSum, HasStartNoSkip) {
   }
 }
 
+TEST(TestCumulativeProduct, HasStartNoSkip) {
+  CumulativeProductOptions options(5);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, 3, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, 30, 120]"), &options);
+    CheckVectorUnary("cumulative_product_checked", ArrayFromJSON(ty, "[1, 2, 3, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, 30, 120]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, null, null]"), &options);
+    CheckVectorUnary("cumulative_product_checked", ArrayFromJSON(ty, "[1, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, null, null]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[null, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[null, null, null, null]"), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ArrayFromJSON(ty, "[null, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[null, null, null, null]"), &options);
+
+    CheckVectorUnary("cumulative_product", ChunkedArrayFromJSON(ty, {"[1, 2]", "[3, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, 30, 120]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2]", "[3, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, 30, 120]"}), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[1, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, null, null]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, null, null]"}), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[null, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, null, null, null]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[null, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, null, null, null]"}), &options);
+  }
+}
+
 TEST(TestCumulativeSum, HasStartDoSkip) {
   CumulativeSumOptions options(10, true);
   for (auto ty : NumericTypes()) {
@@ -447,6 +530,47 @@ TEST(TestCumulativeSum, HasStartDoSkip) {
                      ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null, 6]"}),
                      ChunkedArrayFromJSON(ty, {"[null, 12, null, 16, null, 22]"}),
                      &options);
+  }
+}
+
+TEST(TestCumulativeProduct, HasStartDoSkip) {
+  CumulativeProductOptions options(5, true);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, 3, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, 30, 120]"), &options);
+    CheckVectorUnary("cumulative_product_checked", ArrayFromJSON(ty, "[1, 2, 3, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, 30, 120]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, null, 40]"), &options);
+    CheckVectorUnary("cumulative_product_checked", ArrayFromJSON(ty, "[1, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[5, 10, null, 40]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[null, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[null, 10, null, 40]"), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ArrayFromJSON(ty, "[null, 2, null, 4]"),
+                     ArrayFromJSON(ty, "[null, 10, null, 40]"), &options);
+
+    CheckVectorUnary("cumulative_product", ChunkedArrayFromJSON(ty, {"[1, 2]", "[3, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, 30, 120]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2]", "[3, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, 30, 120]"}), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[1, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, null, 40]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[5, 10, null, 40]"}), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[null, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 10, null, 40]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[null, 2]", "[null, 4]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 10, null, 40]"}), &options);
   }
 }
 
