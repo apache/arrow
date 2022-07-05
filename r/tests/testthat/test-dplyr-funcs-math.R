@@ -333,7 +333,7 @@ test_that("floor division maintains type consistency with R", {
 
 test_that("exp()", {
   df <- tibble(x = c(1:5, NA))
-  
+
   compare_dplyr_binding(
     .input %>%
       mutate(y = exp(x)) %>%
@@ -344,7 +344,7 @@ test_that("exp()", {
 
 test_that("sqrt()", {
   df <- tibble(x = c(1:5, NA))
-  
+
   compare_dplyr_binding(
     .input %>%
       mutate(y = sqrt(x)) %>%
