@@ -31,10 +31,10 @@ namespace {
 struct PythonUdf : public compute::KernelState {
   ScalarUdfWrapperCallback cb;
   std::shared_ptr<OwnedRefNoGIL> function;
-  compute::OutputType output_type;
+  std::shared_ptr<DataType> output_type;
 
   PythonUdf(ScalarUdfWrapperCallback cb, std::shared_ptr<OwnedRefNoGIL> function,
-            compute::OutputType output_type)
+            const std::shared_ptr<DataType>& output_type)
       : cb(cb), function(function), output_type(output_type) {}
 
   // function needs to be destroyed at process exit
@@ -68,9 +68,9 @@ struct PythonUdf : public compute::KernelState {
     // unwrapping the output for expected output type
     if (is_array(result.obj())) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
-      if (!output_type.type()->Equals(*val->type())) {
+      if (!output_type->Equals(*val->type())) {
         return Status::TypeError(
-            "Expected output datatype ", output_type.type()->ToString(),
+            "Expected output datatype ", output_type->ToString(),
             ", but function returned datatype ", val->type()->ToString());
       }
       out->value = std::move(val->data());
@@ -104,13 +104,13 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
     input_types.emplace_back(in_dtype);
   }
   compute::OutputType output_type(options.output_type);
+  auto udf_data = std::make_shared<PythonUdf>(
+      wrapper, std::make_shared<OwnedRefNoGIL>(user_function), options.output_type);
   compute::ScalarKernel kernel(
       compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
                                      options.arity.is_varargs),
       PythonUdfExec);
-
-  kernel.data = std::make_shared<PythonUdf>(
-      wrapper, std::make_shared<OwnedRefNoGIL>(user_function), output_type);
+  kernel.data = std::move(udf_data);
 
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;

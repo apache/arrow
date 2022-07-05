@@ -1083,10 +1083,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CScalar]] GetEncodedValue()
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
-        shared_ptr[CScalar] value
         int8_t type_code
 
+    cdef cppclass CDenseUnionScalar" arrow::DenseUnionScalar"(CUnionScalar):
+        shared_ptr[CScalar] value
+
+    cdef cppclass CSparseUnionScalar" arrow::SparseUnionScalar"(CUnionScalar):
+        vector[shared_ptr[CScalar]] value
+        int child_id
+
     cdef cppclass CExtensionScalar" arrow::ExtensionScalar"(CScalar):
+        CExtensionScalar(shared_ptr[CScalar] storage,
+                         shared_ptr[CDataType], c_bool is_valid)
         shared_ptr[CScalar] value
 
     shared_ptr[CScalar] MakeScalar[Value](Value value)
@@ -1111,6 +1119,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         @staticmethod
         CResult[shared_ptr[CTable]] UnifyTable(
             const CTable& table, CMemoryPool* pool)
+
+    shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
