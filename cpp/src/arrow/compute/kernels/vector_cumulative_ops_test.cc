@@ -34,51 +34,32 @@
 namespace arrow {
 namespace compute {
 
-TEST(TestCumulativeSum, Empty) {
-  CumulativeSumOptions options;
+void TestEmpty(std::string func, FunctionOptions* options) {
   for (auto ty : NumericTypes()) {
     auto empty_arr = ArrayFromJSON(ty, "[]");
     auto empty_chunked = ChunkedArrayFromJSON(ty, {"[]"});
-    CheckVectorUnary("cumulative_sum", empty_arr, empty_arr, &options);
-    CheckVectorUnary("cumulative_sum_checked", empty_arr, empty_arr, &options);
-
-    CheckVectorUnary("cumulative_sum", empty_chunked, empty_chunked, &options);
-    CheckVectorUnary("cumulative_sum_checked", empty_chunked, empty_chunked, &options);
+    CheckVectorUnary(func, empty_arr, empty_arr, options);
+    CheckVectorUnary(func, empty_chunked, empty_chunked, options);
   }
 }
 
-TEST(TestCumulativeSum, AllNulls) {
-  CumulativeSumOptions options;
+void TestAllNulls(std::string func, FunctionOptions* options) {
   for (auto ty : NumericTypes()) {
     auto nulls_arr = ArrayFromJSON(ty, "[null, null, null]");
     auto nulls_one_chunk = ChunkedArrayFromJSON(ty, {"[null, null, null]"});
     auto nulls_three_chunks = ChunkedArrayFromJSON(ty, {"[null]", "[null]", "[null]"});
-    CheckVectorUnary("cumulative_sum", nulls_arr, nulls_arr, &options);
-    CheckVectorUnary("cumulative_sum_checked", nulls_arr, nulls_arr, &options);
-
-    CheckVectorUnary("cumulative_sum", nulls_one_chunk, nulls_one_chunk, &options);
-    CheckVectorUnary("cumulative_sum_checked", nulls_one_chunk, nulls_one_chunk,
-                     &options);
-
-    CheckVectorUnary("cumulative_sum", nulls_three_chunks, nulls_one_chunk, &options);
-    CheckVectorUnary("cumulative_sum_checked", nulls_three_chunks, nulls_one_chunk,
-                     &options);
+    CheckVectorUnary(func, nulls_arr, nulls_arr, options);
+    CheckVectorUnary(func, nulls_one_chunk, nulls_one_chunk, options);
+    CheckVectorUnary(func, nulls_three_chunks, nulls_one_chunk, options);
   }
 }
 
 using testing::HasSubstr;
 
-TEST(TestCumulativeSum, ScalarNotSupported) {
-  CumulativeSumOptions options;
-
+void TestScalarNotSupported(std::string func, FunctionOptions* options) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented, HasSubstr("no kernel"),
-      CallFunction("cumulative_sum", {std::make_shared<Int64Scalar>(5)}, &options));
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, HasSubstr("no kernel"),
-      CallFunction("cumulative_sum_checked", {std::make_shared<Int64Scalar>(5)},
-                   &options));
+      CallFunction(func, {std::make_shared<Int64Scalar>(5)}, options));
 }
 
 template <typename ArrowType>
@@ -92,17 +73,17 @@ void CheckCumulativeSumUnsignedOverflow() {
 
   BuilderType builder;
   std::shared_ptr<Array> max_arr;
-  std::shared_ptr<Array> min_arr;
+  std::shared_ptr<Array> overflow_arr;
   ASSERT_OK(builder.Append(max));
   ASSERT_OK(builder.Finish(&max_arr));
   builder.Reset();
   ASSERT_OK(builder.Append(min));
-  ASSERT_OK(builder.Finish(&min_arr));
+  ASSERT_OK(builder.Finish(&overflow_arr));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, HasSubstr("overflow"),
       CallFunction("cumulative_sum_checked", {max_arr}, &pos_overflow));
-  CheckVectorUnary("cumulative_sum", max_arr, min_arr, &pos_overflow);
+  CheckVectorUnary("cumulative_sum", max_arr, overflow_arr, &pos_overflow);
 }
 
 template <typename ArrowType>
@@ -117,20 +98,115 @@ void CheckCumulativeSumSignedOverflow() {
   auto min = std::numeric_limits<CType>::lowest();
 
   BuilderType builder;
-  std::shared_ptr<Array> max_arr;
   std::shared_ptr<Array> min_arr;
-  ASSERT_OK(builder.Append(max));
-  ASSERT_OK(builder.Finish(&max_arr));
-  builder.Reset();
+  std::shared_ptr<Array> overflow_arr;
   ASSERT_OK(builder.Append(min));
   ASSERT_OK(builder.Finish(&min_arr));
+  builder.Reset();
+  ASSERT_OK(builder.Append(max));
+  ASSERT_OK(builder.Finish(&overflow_arr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, HasSubstr("overflow"),
       CallFunction("cumulative_sum_checked", {min_arr}, &neg_overflow));
-  CheckVectorUnary("cumulative_sum", min_arr, max_arr, &neg_overflow);
+  CheckVectorUnary("cumulative_sum", min_arr, overflow_arr, &neg_overflow);
 }
 
-TEST(TestCumulativeSum, IntegerOverflow) {
+template <typename ArrowType>
+void CheckCumulativeProductUnsignedOverflow() {
+  using CType = typename TypeTraits<ArrowType>::CType;
+  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
+
+  CumulativeProductOptions pos_overflow(2);
+  auto max = std::numeric_limits<CType>::max();
+
+  BuilderType builder;
+  std::shared_ptr<Array> max_arr;
+  std::shared_ptr<Array> overflow_arr;
+  ASSERT_OK(builder.Append(max));
+  ASSERT_OK(builder.Finish(&max_arr));
+  builder.Reset();
+  ASSERT_OK(builder.Append(max << 1));
+  ASSERT_OK(builder.Finish(&overflow_arr));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("overflow"),
+      CallFunction("cumulative_product_checked", {max_arr}, &pos_overflow));
+  CheckVectorUnary("cumulative_product", max_arr, overflow_arr, &pos_overflow);
+}
+
+template <typename ArrowType>
+void CheckCumulativeProductSignedOverflow() {
+  using CType = typename TypeTraits<ArrowType>::CType;
+  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
+
+  CheckCumulativeProductUnsignedOverflow<ArrowType>();
+
+  CumulativeProductOptions neg_overflow(2);
+  auto min = std::numeric_limits<CType>::lowest();
+
+  BuilderType builder;
+  std::shared_ptr<Array> min_arr;
+  std::shared_ptr<Array> overflow_arr;
+  ASSERT_OK(builder.Append(min));
+  ASSERT_OK(builder.Finish(&min_arr));
+  builder.Reset();
+  ASSERT_OK(builder.Append(0));
+  ASSERT_OK(builder.Finish(&overflow_arr));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("overflow"),
+      CallFunction("cumulative_product_checked", {min_arr}, &neg_overflow));
+  CheckVectorUnary("cumulative_product", min_arr, overflow_arr, &neg_overflow);
+}
+
+TEST(TestCumulativeOps, Empty) {
+  CumulativeSumOptions sum_options;
+  TestEmpty("cumulative_sum", &sum_options);
+  TestEmpty("cumulative_sum_checked", &sum_options);
+
+  CumulativeProductOptions product_options;
+  TestEmpty("cumulative_product", &product_options);
+  TestEmpty("cumulative_product_checked", &product_options);
+
+  CumulativeMinOptions min_options;
+  TestEmpty("cumulative_min", &min_options);
+
+  CumulativeMaxOptions max_options;
+  TestEmpty("cumulative_max", &max_options);
+}
+
+TEST(TestCumulativeOps, AllNulls) {
+  CumulativeSumOptions sum_options;
+  TestAllNulls("cumulative_sum", &sum_options);
+  TestAllNulls("cumulative_sum_checked", &sum_options);
+
+  CumulativeProductOptions product_options;
+  TestAllNulls("cumulative_product", &product_options);
+  TestAllNulls("cumulative_product_checked", &product_options);
+
+  CumulativeMinOptions min_options;
+  TestAllNulls("cumulative_min", &min_options);
+
+  CumulativeMaxOptions max_options;
+  TestAllNulls("cumulative_max", &max_options);
+}
+
+TEST(TestCumulativeOps, ScalarNotSupported) {
+  CumulativeSumOptions sum_options;
+  TestScalarNotSupported("cumulative_sum", &sum_options);
+  TestScalarNotSupported("cumulative_sum_checked", &sum_options);
+
+  CumulativeProductOptions product_options;
+  TestScalarNotSupported("cumulative_product", &product_options);
+  TestScalarNotSupported("cumulative_product_checked", &product_options);
+
+  CumulativeMinOptions min_options;
+  TestScalarNotSupported("cumulative_min", &min_options);
+
+  CumulativeMaxOptions max_options;
+  TestScalarNotSupported("cumulative_max", &max_options);
+}
+
+TEST(TestCumulativeOps, IntegerOverflow) {
   CheckCumulativeSumUnsignedOverflow<UInt8Type>();
   CheckCumulativeSumUnsignedOverflow<UInt16Type>();
   CheckCumulativeSumUnsignedOverflow<UInt32Type>();
@@ -139,6 +215,15 @@ TEST(TestCumulativeSum, IntegerOverflow) {
   CheckCumulativeSumSignedOverflow<Int16Type>();
   CheckCumulativeSumSignedOverflow<Int32Type>();
   CheckCumulativeSumSignedOverflow<Int64Type>();
+
+  CheckCumulativeProductUnsignedOverflow<UInt8Type>();
+  CheckCumulativeProductUnsignedOverflow<UInt16Type>();
+  CheckCumulativeProductUnsignedOverflow<UInt32Type>();
+  CheckCumulativeProductUnsignedOverflow<UInt64Type>();
+  CheckCumulativeProductSignedOverflow<Int8Type>();
+  CheckCumulativeProductSignedOverflow<Int16Type>();
+  CheckCumulativeProductSignedOverflow<Int32Type>();
+  CheckCumulativeProductSignedOverflow<Int64Type>();
 }
 
 TEST(TestCumulativeSum, NoStartNoSkip) {
@@ -182,6 +267,51 @@ TEST(TestCumulativeSum, NoStartNoSkip) {
     CheckVectorUnary("cumulative_sum_checked",
                      ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null, 6]"}),
                      ChunkedArrayFromJSON(ty, {"[null, null, null, null, null, null]"}),
+                     &options);
+  }
+}
+
+TEST(TestCumulativeProduct, NoStartNoSkip) {
+  CumulativeProductOptions options;
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, 3, 4, 5]"),
+                     ArrayFromJSON(ty, "[1, 2, 6, 24, 120]"), &options);
+    CheckVectorUnary("cumulative_product_checked", ArrayFromJSON(ty, "[1, 2, 3, 4, 5]"),
+                     ArrayFromJSON(ty, "[1, 2, 6, 24, 120]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[1, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[1, 2, null, null, null]"), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ArrayFromJSON(ty, "[1, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[1, 2, null, null, null]"), &options);
+
+    CheckVectorUnary("cumulative_product", ArrayFromJSON(ty, "[null, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[null, null, null, null, null]"), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ArrayFromJSON(ty, "[null, 2, null, 4, null]"),
+                     ArrayFromJSON(ty, "[null, null, null, null, null]"), &options);
+
+    CheckVectorUnary("cumulative_product",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 6, 24, 120]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 3]", "[4, 5, 6]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, 6, 24, 120]"}), &options);
+
+    CheckVectorUnary(
+        "cumulative_product", ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null]"}),
+        ChunkedArrayFromJSON(ty, {"[1, 2, null, null, null]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null]", "[4, null]"}),
+                     ChunkedArrayFromJSON(ty, {"[1, 2, null, null, null]"}),
+                     &options);
+
+    CheckVectorUnary(
+        "cumulative_product", ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null]"}),
+        ChunkedArrayFromJSON(ty, {"[null, null, null, null, null]"}), &options);
+    CheckVectorUnary("cumulative_product_checked",
+                     ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, null, null, null, null]"}),
                      &options);
   }
 }
