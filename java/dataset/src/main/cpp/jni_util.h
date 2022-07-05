@@ -93,8 +93,6 @@ void ReleaseNativeRef(jlong ref) {
   delete retrieved_ptr;
 }
 
-const char kJavaErrorDetailTypeId[] = "arrow::dataset::jni::JavaErrorDetail";
-
 // Indicate an exception thrown during calling Java method via JNI.
 // Not thread safe.
 class JavaErrorDetail : public StatusDetail {
@@ -102,7 +100,7 @@ class JavaErrorDetail : public StatusDetail {
   JavaErrorDetail(JavaVM* vm, jthrowable cause);
   virtual ~JavaErrorDetail();
 
-  const char* type_id() const override { return kJavaErrorDetailTypeId; }
+  const char* type_id() const override;
   std::string ToString() const override;
   jthrowable GetCause() const;
 

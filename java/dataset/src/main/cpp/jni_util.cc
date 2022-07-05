@@ -17,7 +17,6 @@
 
 #include "jni_util.h"
 
-#include <iostream>
 #include <memory>
 #include <mutex>
 
@@ -168,6 +167,7 @@ ReservationListenableMemoryPool::~ReservationListenableMemoryPool() {}
 std::string Describe(JNIEnv* env, jthrowable t) {
   jclass describer_class =
       env->FindClass("org/apache/arrow/dataset/jni/JniExceptionDescriber");
+  DCHECK_NE(describer_class, nullptr);
   jmethodID describe_method = env->GetStaticMethodID(
       describer_class, "describe", "(Ljava/lang/Throwable;)Ljava/lang/String;");
   std::string description = JStringToCString(
@@ -177,29 +177,23 @@ std::string Describe(JNIEnv* env, jthrowable t) {
 
 bool IsErrorInstanceOf(JNIEnv* env, jthrowable t, std::string class_name) {
   jclass jclass = env->FindClass(class_name.c_str());
-  if (jclass == nullptr) {
-    ARROW_LOG(WARNING) << "Could not find Java class " << class_name;
-    return false;
-  }
+  DCHECK_NE(jclass, nullptr) << "Could not find Java class " << class_name;
   return env->IsInstanceOf(t, jclass);
 }
 
 arrow::StatusCode MapJavaError(JNIEnv* env, jthrowable t) {
   StatusCode code;
-  if (IsErrorInstanceOf(env, t, "org/apache/arrow/memory/OutOfMemoryException") ==
-      JNI_TRUE) {
+  if (IsErrorInstanceOf(env, t, "org/apache/arrow/memory/OutOfMemoryException")) {
     code = StatusCode::OutOfMemory;
-  } else if (IsErrorInstanceOf(env, t, "java/lang/UnsupportedOperationException") ==
-             JNI_TRUE) {
+  } else if (IsErrorInstanceOf(env, t, "java/lang/UnsupportedOperationException")) {
     code = StatusCode::NotImplemented;
-  } else if (IsErrorInstanceOf(env, t, "java/io/NotSerializableException") == JNI_TRUE) {
+  } else if (IsErrorInstanceOf(env, t, "java/io/NotSerializableException")) {
     code = StatusCode::SerializationError;
-  } else if (IsErrorInstanceOf(env, t, "java/io/IOException") == JNI_TRUE) {
+  } else if (IsErrorInstanceOf(env, t, "java/io/IOException")) {
     code = StatusCode::IOError;
-  } else if (IsErrorInstanceOf(env, t, "java/lang/IllegalArgumentException") ==
-             JNI_TRUE) {
+  } else if (IsErrorInstanceOf(env, t, "java/lang/IllegalArgumentException")) {
     code = StatusCode::Invalid;
-  } else if (IsErrorInstanceOf(env, t, "java/lang/IllegalStateException") == JNI_TRUE) {
+  } else if (IsErrorInstanceOf(env, t, "java/lang/IllegalStateException")) {
     code = StatusCode::Invalid;
   } else {
     code = StatusCode::UnknownError;
@@ -220,6 +214,8 @@ JNIEnv* GetEnvOrAttach(JavaVM* vm) {
   return env;
 }
 
+const char kJavaErrorDetailTypeId[] = "arrow::dataset::jni::JavaErrorDetail";
+
 JavaErrorDetail::JavaErrorDetail(JavaVM* vm, jthrowable cause) : vm_(vm) {
   JNIEnv* env = GetEnvOrAttach(vm_);
   if (env == nullptr) {
@@ -237,6 +233,8 @@ JavaErrorDetail::~JavaErrorDetail() {
   env->DeleteGlobalRef(cause_);
 }
 
+const char* JavaErrorDetail::type_id() const { return kJavaErrorDetailTypeId; }
+
 jthrowable JavaErrorDetail::GetCause() const {
   JNIEnv* env = GetEnvOrAttach(vm_);
   if (env == nullptr || this->cause_ == nullptr) {
@@ -248,7 +246,7 @@ jthrowable JavaErrorDetail::GetCause() const {
 std::string JavaErrorDetail::ToString() const {
   JNIEnv* env = GetEnvOrAttach(vm_);
   if (env == nullptr) {
-    return "Java Exception, ID: " + std::to_string(reinterpret_cast<size_t>(cause_));
+    return "Java Exception, ID: " + std::to_string(reinterpret_cast<uintptr_t>(cause_));
   }
   return "Java Exception: " + Describe(env, cause_);
 }
