@@ -2907,4 +2907,125 @@ TEST_F(TestProjector, TestTranslate) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_translate, outputs.at(0));
 }
+TEST_F(TestProjector, TestENCODEFunction) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_base = field("encoder", arrow::utf8());
+
+  // Build expression
+  auto encoder = TreeExprBuilder::MakeExpression("encoder", {field0, field1}, field_base);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {encoder}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  auto array = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
+
+  auto array1 = MakeArrowArrayUtf8({"UTF-16BE", "UTF-16BE", "UTF-16BE", "UTF-16BE"},
+                                   {true, true, true, true});
+
+  auto exp_encoder =
+      MakeArrowArrayUtf8({"0041", "0042", "0043", "0044"}, {true, true, true, true});
+
+  auto in_batch0 = arrow::RecordBatch::Make(schema, num_records, {array, array1});
+
+  arrow::ArrayVector outputs0;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch0, pool_, &outputs0);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_encoder, outputs0.at(0));
+
+  std::shared_ptr<Projector> projector1;
+
+  status = Projector::Make(schema, {encoder}, TestConfiguration(), &projector1);
+
+  auto array2 = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
+
+  auto array3 = MakeArrowArrayUtf8({"UTF-16LE", "UTF-16LE", "UTF-16LE", "UTF-16LE"},
+                                   {true, true, true, true});
+
+  auto exp_encoder1 =
+      MakeArrowArrayUtf8({"4100", "4200", "4300", "4400"}, {true, true, true, true});
+
+  auto in_batch1 = arrow::RecordBatch::Make(schema, num_records, {array2, array3});
+
+  arrow::ArrayVector outputs1;
+
+  // Evaluate expression
+  status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_encoder1, outputs1.at(0));
+}
+
+TEST_F(TestProjector, TestDECODEFunction) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_base = field("decoder", arrow::utf8());
+
+  // Build expression
+  auto decoder = TreeExprBuilder::MakeExpression("decoder", {field0, field1}, field_base);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {decoder}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  auto array =
+      MakeArrowArrayUtf8({"0041", "0042", "0043", "0044"}, {true, true, true, true});
+
+  auto array1 = MakeArrowArrayUtf8({"UTF-16BE", "UTF-16BE", "UTF-16BE", "UTF-16BE"},
+                                   {true, true, true, true});
+
+  auto exp_decoder = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
+
+  auto in_batch0 = arrow::RecordBatch::Make(schema, num_records, {array, array1});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch0, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_decoder, outputs.at(0));
+
+  std::shared_ptr<Projector> projector1;
+
+  status = Projector::Make(schema, {decoder}, TestConfiguration(), &projector1);
+
+  auto array2 =
+      MakeArrowArrayUtf8({"4100", "4200", "4300", "4400"}, {true, true, true, true});
+
+  auto array3 = MakeArrowArrayUtf8({"UTF-16LE", "UTF-16LE", "UTF-16LE", "UTF-16LE"},
+                                   {true, true, true, true});
+
+  auto exp_decoder1 = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
+
+  auto in_batch1 = arrow::RecordBatch::Make(schema, num_records, {array2, array3});
+
+  arrow::ArrayVector outputs1;
+
+  // Evaluate expression
+  status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(exp_decoder1, outputs1.at(0));
+}
 }  // namespace gandiva

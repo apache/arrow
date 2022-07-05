@@ -515,7 +515,15 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("translate", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "translate_utf8_utf8_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+                     
+      NativeFunction("encoder", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_encode",
+                     NativeFunction::kNeedsContext),
+                     
+      NativeFunction("decoder", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_encode",
+                     NativeFunction::kNeedsContext)};
 
   return string_fn_registry_;
 }
