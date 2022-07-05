@@ -79,10 +79,7 @@ jobs:
           mono `vcpkg fetch nuget | tail -n 1` \
           setapikey "$GITHUB_TOKEN" \
           -source "https://nuget.pkg.github.com/ursacomputing/index.json"
-      # workaround for https://github.com/apache/arrow/pull/11569#issuecomment-979592053
-      - name: Install OpenSSL
-        run: vcpkg install openssl
-
+          
       - name: Install Packages
         run: |
           if [ "${ARROW_S3}" == "ON" ]; then
