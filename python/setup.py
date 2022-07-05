@@ -306,9 +306,10 @@ class build_ext(_build_ext):
                         os.remove(libname_path)
                     shutil.move(pjoin(build_temp, libname),
                                 pjoin(build_lib, "pyarrow"))
-            if not os.path.isdir(pjoin(build_include, "arrow")):
-                self.mkpath(pjoin(build_include, "arrow"))
-            shutil.move(pjoin(build_include, "arrow", "python"), pjoin(
+            print(f"copying include folder: {build_include} to {build_lib}")
+            if not os.path.isdir(pjoin(build_include, "arrow", "python")):
+                self.mkpath(pjoin(build_include, "arrow", "python"))
+            shutil.copytree(pjoin(build_include, "arrow", "python"), pjoin(
                 build_lib, "pyarrow", "include", "arrow", "python"))
 
     def _run_cmake(self):
@@ -442,6 +443,13 @@ class build_ext(_build_ext):
                     shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
                 shutil.move(pjoin(build_prefix, 'include'),
                             pjoin(build_lib, 'pyarrow'))
+
+                # We need to add the C PyArrow include folder, that was also deleted
+                build_cpyarrow_include = pjoin(saved_cwd, 'build/dist/include')
+                if not os.path.isdir(pjoin(build_cpyarrow_include, "arrow", "python")):
+                    self.mkpath(pjoin(build_cpyarrow_include, "arrow", "python"))
+                shutil.move(pjoin(build_cpyarrow_include, "arrow", "python"), pjoin(
+                    build_lib, "pyarrow", "include", "arrow", "python"))
 
             # Move the built C-extension to the place expected by the Python
             # build
