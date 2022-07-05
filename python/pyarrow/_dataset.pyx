@@ -478,8 +478,7 @@ cdef class FilteredDataset(Dataset):
         return filtered_dataset
 
     cdef Scanner _make_scanner(self, options):
-        scanner_options = dict(options, filter=self._filter)
-        return Scanner.from_dataset(self, **scanner_options)
+        return Scanner.from_dataset(self, filter=self._filter, **options)
 
     def scanner(self, **kwargs):
         return self._make_scanner(kwargs)
