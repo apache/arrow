@@ -315,6 +315,52 @@ TEST(TestCumulativeProduct, NoStartNoSkip) {
   }
 }
 
+TEST(TestCumulativeMinMax, NoStartNoSkip) {
+  CumulativeMinOptions min_options;
+  CumulativeMaxOptions max_options;
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[9, 9, 7, 7, 5, 5]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[9, 24, 24, 123, 123, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[9, 9, null, null, null, null]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[9, 24, null, null, null, null]"), &max_options);
+
+    CheckVectorUnary(
+        "cumulative_min", ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+        ArrayFromJSON(ty, "[null, null, null, null, null, null]"), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+        ArrayFromJSON(ty, "[null, null, null, null, null, null]"), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[9, 9, 7, 7, 5, 5]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[9, 24, 24, 123, 123, 123]"}), &max_options);
+
+    CheckVectorUnary(
+        "cumulative_min", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[9, 9, null, null, null, null]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[9, 24, null, null, null, null]"}), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, null, null, null, null, null]"}),
+                     &min_options);
+    CheckVectorUnary("cumulative_max",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, null, null, null, null, null]"}),
+                     &max_options);
+  }
+}
+
 TEST(TestCumulativeSum, NoStartDoSkip) {
   CumulativeSumOptions options(0, true);
   for (auto ty : NumericTypes()) {
@@ -399,6 +445,52 @@ TEST(TestCumulativeProduct, NoStartDoSkip) {
     CheckVectorUnary("cumulative_product_checked",
                      ChunkedArrayFromJSON(ty, {"[null, 2, null]", "[4, null]"}),
                      ChunkedArrayFromJSON(ty, {"[null, 2, null, 8, null]"}), &options);
+  }
+}
+
+TEST(TestCumulativeMinMax, NoStartDoSkip) {
+  CumulativeMinOptions min_options(true);
+  CumulativeMaxOptions max_options(true);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[9, 9, 7, 7, 5, 5]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[9, 24, 24, 123, 123, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[9, 9, null, 9, null, 9]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[9, 24, null, 123, null, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[null, 24, null, 24, null, 24]"), &min_options);
+    CheckVectorUnary("cumulative_max",
+                     ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[null, 24, null, 123, null, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[9, 9, 7, 7, 5, 5]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[9, 24, 24, 123, 123, 123]"}), &max_options);
+
+    CheckVectorUnary(
+        "cumulative_min", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[9, 9, null, 9, null, 9]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[9, 24, null, 123, null, 123]"}), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null, 24, null, 24]"}),
+                     &min_options);
+    CheckVectorUnary("cumulative_max",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null, 123, null, 123]"}),
+                     &max_options);
   }
 }
 
@@ -488,6 +580,52 @@ TEST(TestCumulativeProduct, HasStartNoSkip) {
   }
 }
 
+TEST(TestCumulativeMinMax, HasStartNoSkip) {
+  CumulativeMinOptions min_options(8, false);
+  CumulativeMaxOptions max_options(32, false);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[8, 8, 7, 7, 5, 5]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[32, 32, 32, 123, 123, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[8, 8, null, null, null, null]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[32, 32, null, null, null, null]"), &max_options);
+
+    CheckVectorUnary(
+        "cumulative_min", ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+        ArrayFromJSON(ty, "[null, null, null, null, null, null]"), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+        ArrayFromJSON(ty, "[null, null, null, null, null, null]"), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[8, 8, 7, 7, 5, 5]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[32, 32, 32, 123, 123, 123]"}), &max_options);
+
+    CheckVectorUnary(
+        "cumulative_min", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[8, 8, null, null, null, null]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[32, 32, null, null, null, null]"}), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, null, null, null, null, null]"}),
+                     &min_options);
+    CheckVectorUnary("cumulative_max",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, null, null, null, null, null]"}),
+                     &max_options);
+  }
+}
+
 TEST(TestCumulativeSum, HasStartDoSkip) {
   CumulativeSumOptions options(10, true);
   for (auto ty : NumericTypes()) {
@@ -571,6 +709,52 @@ TEST(TestCumulativeProduct, HasStartDoSkip) {
     CheckVectorUnary("cumulative_product_checked",
                      ChunkedArrayFromJSON(ty, {"[null, 2]", "[null, 4]"}),
                      ChunkedArrayFromJSON(ty, {"[null, 10, null, 40]"}), &options);
+  }
+}
+
+TEST(TestCumulativeMinMax, HasStartDoSkip) {
+  CumulativeMinOptions min_options(8, true);
+  CumulativeMaxOptions max_options(32, true);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[8, 8, 7, 7, 5, 5]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, 7, 123, 5, 74]"),
+                     ArrayFromJSON(ty, "[32, 32, 32, 123, 123, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[8, 8, null, 8, null, 8]"), &min_options);
+    CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[9, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[32, 32, null, 123, null, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[null, 8, null, 8, null, 8]"), &min_options);
+    CheckVectorUnary("cumulative_max",
+                     ArrayFromJSON(ty, "[null, 24, null, 123, null, 74]"),
+                     ArrayFromJSON(ty, "[null, 32, null, 123, null, 123]"), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[8, 8, 7, 7, 5, 5]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, 7]", "[123, 5, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[32, 32, 32, 123, 123, 123]"}), &max_options);
+
+    CheckVectorUnary(
+        "cumulative_min", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[8, 8, null, 8, null, 8]"}), &min_options);
+    CheckVectorUnary(
+        "cumulative_max", ChunkedArrayFromJSON(ty, {"[9, 24, null]", "[123, null, 74]"}),
+        ChunkedArrayFromJSON(ty, {"[32, 32, null, 123, null, 123]"}), &max_options);
+
+    CheckVectorUnary("cumulative_min",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 8, null, 8, null, 8]"}),
+                     &min_options);
+    CheckVectorUnary("cumulative_max",
+                     ChunkedArrayFromJSON(ty, {"[null, 24, null]", "[123, null, 74]"}),
+                     ChunkedArrayFromJSON(ty, {"[null, 32, null, 123, null, 123]"}),
+                     &max_options);
   }
 }
 
