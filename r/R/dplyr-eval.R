@@ -47,7 +47,7 @@ arrow_eval <- function(expr, mask) {
         class(out) <- c("arrow-try-error", class(out))
       }
       # if the expression text (i.e. the name of the function) is not in the
-      # names of the top
+      # names of the top environment (which is the function registry)
       expr_text <- rlang::quo_get_expr(expr)[[1]] %>% rlang::expr_text()
       if (!expr_text %in% names(mask$.top_env)) {
         class(out) <- c("arrow-binding-error", class(out))
