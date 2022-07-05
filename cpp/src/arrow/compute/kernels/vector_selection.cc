@@ -2767,7 +2767,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       // TODO: Reuse ListType kernel for MAP
       {InputType::Array(Type::MAP), InputType::Array(Type::BOOL),
        FilterExec<ListImpl<MapType>>},
-      {InputType(match::Primitive()),
+      {InputType(match::RunLengthEncoded(match::Primitive())),
        InputType(run_length_encoded(boolean()), ValueDescr::ARRAY), RLEFilter},
   };
 
@@ -2818,9 +2818,8 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   VectorKernel take_base;
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
-  RegisterSelectionFunction(
-      "array_take", array_take_doc, take_base,
-      take_kernel_descrs, GetDefaultTakeOptions(), registry);
+  RegisterSelectionFunction("array_take", array_take_doc, take_base, take_kernel_descrs,
+                            GetDefaultTakeOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(std::make_shared<TakeMetaFunction>()));
 
