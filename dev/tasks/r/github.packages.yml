@@ -219,18 +219,18 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # If env_var is unset, we're testing that we're automatically choosing
-          # a binary on this OS. If env_var is TRUE, we're on an OS that
-          # is not in the allowlist, so we have to opt-in to use the binary
-          # Other env vars used in r_docker_configure.sh can be added here
-          # (like devtoolset) and wired up in the later steps.
-          - {image: "rhub/debian-clang-devel", env_var: "TRUE"}
+          # If libarrow_binary is unset, we're testing that we're automatically
+          # choosing a binary on this OS. If libarrow_binary is TRUE, we're on
+          # an OS that is not in the allowlist, so we have to opt-in to use the
+          # binary. Other env vars used in r_docker_configure.sh can be added
+          # here (like devtoolset) and wired up in the later steps.
+          - {image: "rhub/debian-clang-devel", libarrow_binary: "TRUE"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
-          - {image: "rhub/fedora-clang-devel", env_var: "TRUE"}
+          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
           - {image: "rhub/ubuntu-gcc-release"} # ubuntu-20.04 (focal)
           - {image: "rocker/r-ubuntu:22.04"} # openssl3
           - {image: "rocker/r-ver"} # ubuntu-20.04
-          - {image: "rocker/r-ver:3.6.3", env_var: "TRUE"} # debian:buster (10)
+          - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
           - {image: "rstudio/r-base:4.1-bionic"}
           - {image: "rstudio/r-base:4.2-centos7"}
           # Even with devtoolset-8, binaries fail because glibc is older than
@@ -257,7 +257,7 @@ jobs:
         env:
           ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
-          LIBARROW_BINARY: {{ '${{ matrix.config.env_var }}' }}
+          LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
           DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
