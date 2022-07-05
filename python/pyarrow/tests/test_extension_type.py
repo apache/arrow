@@ -45,6 +45,14 @@ class UuidType(pa.PyExtensionType):
     def scalar_as_py(self, scalar):
         return UUID(bytes=scalar.as_py())
 
+class UuidType2(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.binary(16))
+
+    def __reduce__(self):
+        return UuidType, ()
+
 
 class ParamExtType(pa.PyExtensionType):
 
@@ -284,9 +292,11 @@ def test_ext_scalar_from_array():
     storage = pa.array(data, type=pa.binary(16))
     ty1 = UuidType()
     ty2 = ParamExtType(16)
+    ty3 = UuidType2()
 
     a = pa.ExtensionArray.from_storage(ty1, storage)
     b = pa.ExtensionArray.from_storage(ty2, storage)
+    c = pa.ExtensionArray.from_storage(ty3, storage)
 
     scalars_a = list(a)
     assert len(scalars_a) == 4
@@ -311,6 +321,21 @@ def test_ext_scalar_from_array():
         else:
             assert sa.as_py().bytes == sb.as_py()
         assert sa != sb
+
+    scalars_c = list(c)
+    assert len(scalars_c) == 4
+
+    for s, val in zip(scalars_c, data):
+        assert isinstance(s, pa.ExtensionScalar)
+        assert s.is_valid == (val is not None)
+        assert s.type == ty3
+        if val is not None:
+            assert s.value == pa.scalar(val, storage.type)
+            assert s.as_py() == val
+        else:
+            assert s.value is None
+
+    assert a.to_pylist() == [UUID(bytes=x) if x else None for x in data]
 
 
 def test_ext_scalar_from_storage():

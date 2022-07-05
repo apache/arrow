@@ -912,8 +912,12 @@ cdef class ExtensionType(BaseExtensionType):
         ----------
         scalar : pyarrow.ExtensionScalar
           The scalar to be converted to a Python object.
+
+        Returns
+        -------
+        Scalar value as a native Python object.
         """
-        return scalar.as_py() if scalar is not None else None
+        return scalar.as_py()
 
 cdef class PyExtensionType(ExtensionType):
     """
