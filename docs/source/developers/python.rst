@@ -391,6 +391,12 @@ variable to 1.
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
 
+.. note::
+
+   If you used a different directory name for building Arrow C++ (by default it is
+   named "build"), then also set `ARROW_BUILD_DIR='name_of_build_dir'`. This way
+   pyarrow can find Arrow C++ built files.
+
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
