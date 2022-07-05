@@ -719,10 +719,10 @@ class ClientBuilder {
       client_config_.region = ToAwsString(options_.region);
     }
     if (options_.request_timeout_ms != -1) {
-      client_config_.requestTimeoutMs = options_.request_timeout_ms;
+      client_config_.requestTimeoutMs = std::lround(options_.request_timeout_ms);
     }
     if (options_.connect_timeout_ms != -1) {
-      client_config_.connectTimeoutMs = options_.connect_timeout_ms;
+      client_config_.connectTimeoutMs = std::lround(options_.connect_timeout_ms);
     }
 
 
