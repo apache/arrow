@@ -72,6 +72,10 @@ fi
 # which uses a bespoke clang compiled to use libc++
 # https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
 if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
+  dnf install -y libcxx-devel
+  sed -i.bak -E -e 's/(CXX1?1? =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
+  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
+
   sed -i.bak -E -e 's/(\-std=gnu\+\+)/-std=c++/g' $(${R_BIN} RHOME)/etc/Makeconf
   rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
 

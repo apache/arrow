@@ -195,6 +195,7 @@ determine_binary_from_stderr <- function(errs) {
   } else if (any(grepl("glibc version too old", errs))) {
     # ubuntu-18.04 has glibc 2.27, so even if you install newer compilers
     # (e.g. devtoolset on centos) and have curl/openssl, you run into problems
+    # TODO(ARROW-16976): build binaries with older glibc
     cat("*** Checking glibc version\n")
     # If we're here, we're on an older OS but with a newer compiler than gcc 4.8
     # (we already checked), so it is possible to build with more features on.
