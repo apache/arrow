@@ -175,10 +175,11 @@ std::string Describe(JNIEnv* env, jthrowable t) {
   return description;
 }
 
-arrow::Result<bool> IsErrorInstanceOf(JNIEnv* env, jthrowable t, std::string class_name) {
+bool IsErrorInstanceOf(JNIEnv* env, jthrowable t, std::string class_name) {
   jclass jclass = env->FindClass(class_name.c_str());
   if (jclass == nullptr) {
-    return arrow::Status::Invalid("Class not found: " + class_name);
+    ARROW_LOG(WARNING) << "Could not find Java class " << class_name;
+    return false;
   }
   return env->IsInstanceOf(t, jclass);
 }
@@ -213,7 +214,7 @@ JNIEnv* GetEnvOrAttach(JavaVM* vm) {
     // Reattach current thread to JVM
     getEnvStat = vm->AttachCurrentThread(reinterpret_cast<void**>(&env), nullptr);
     if (getEnvStat != JNI_OK) {
-      std::cout << "Failed to attach current thread to JVM. " << std::endl;
+      ARROW_LOG(FATAL) << "Failed to attach current thread to JVM";
     }
   }
   return env;

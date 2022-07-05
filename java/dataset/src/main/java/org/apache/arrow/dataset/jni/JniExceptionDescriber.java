@@ -23,7 +23,7 @@ import java.io.StringWriter;
 /**
  * For native code to invoke to convert a java/lang/Throwable to jstring.
  */
-public class JniExceptionDescriber {
+class JniExceptionDescriber {
   private JniExceptionDescriber() {
   }
 
@@ -34,7 +34,7 @@ public class JniExceptionDescriber {
    * @param throwable the exception instance.
    * @return a String including error message and stack trace of the exception.
    */
-  public static String describe(Throwable throwable) {
+  static String describe(Throwable throwable) {
     StringWriter sw = new StringWriter();
     PrintWriter pw = new PrintWriter(sw, true);
     throwable.printStackTrace(pw);
