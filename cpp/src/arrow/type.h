@@ -1145,12 +1145,12 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 
 /// \brief Type class for run-length encoded data
 class ARROW_EXPORT EncodingType {
-public:
+ public:
   EncodingType(std::shared_ptr<DataType> encoded_type) : encoded_type_{encoded_type} {}
 
   const std::shared_ptr<DataType>& encoded_type() const { return encoded_type_; }
 
-private:
+ private:
   std::shared_ptr<DataType> encoded_type_;
 };
 
