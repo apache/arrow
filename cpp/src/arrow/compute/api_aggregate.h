@@ -184,6 +184,21 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
   std::shared_ptr<Scalar> value;
 };
 
+/// \brief Configure a grouped aggregation
+struct ARROW_EXPORT Aggregate {
+  /// the name of the aggregation function
+  std::string function;
+
+  /// options for the aggregation function
+  std::shared_ptr<FunctionOptions> options;
+
+  // fields to which aggregations will be applied
+  FieldRef target;
+
+  // output field name for aggregations
+  std::string name;
+};
+
 /// @}
 
 /// \brief Count values in an array.
@@ -392,21 +407,6 @@ Result<Datum> TDigest(const Datum& value,
 ARROW_EXPORT
 Result<Datum> Index(const Datum& value, const IndexOptions& options,
                     ExecContext* ctx = NULLPTR);
-
-/// \brief Configure a grouped aggregation
-struct ARROW_EXPORT Aggregate {
-  /// the name of the aggregation function
-  std::string function;
-
-  /// options for the aggregation function
-  std::shared_ptr<FunctionOptions> options;
-
-  // fields to which aggregations will be applied
-  FieldRef target;
-
-  // output field name for aggregations
-  std::string name;
-};
 
 }  // namespace compute
 }  // namespace arrow
