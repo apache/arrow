@@ -1359,7 +1359,8 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
     const std::shared_ptr<Schema>& physical_schema,
     const std::vector<std::vector<std::string>>& fragment_batch_strs,
     const std::vector<compute::Expression>& guarantees,
-    std::function<void(compute::ExecBatch*, const RecordBatch&)> make_exec_batch = {}) {
+    std::function<void(compute::ExecBatch*, const RecordBatch&, size_t guarantee_index)>
+        make_exec_batch = {}) {
   if (!guarantees.empty()) {
     EXPECT_EQ(fragment_batch_strs.size(), guarantees.size());
   }
@@ -1394,7 +1395,7 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
       // allow customizing the ExecBatch (e.g. to fill in placeholders for partition
       // fields)
       if (make_exec_batch) {
-        make_exec_batch(&batches.back(), *batch);
+        make_exec_batch(&batches.back(), *batch, fragment_index);
       }
 
       // scanned batches will be augmented with fragment and batch indices
@@ -1445,9 +1446,13 @@ DatasetAndBatches MakeBasicDataset() {
           equal(field_ref("c"), literal(23)),
           equal(field_ref("c"), literal(47)),
       },
-      [](compute::ExecBatch* batch, const RecordBatch&) {
+      [](compute::ExecBatch* batch, const RecordBatch&, size_t guarantee_index) {
         // a placeholder will be inserted for partition field "c"
-        batch->values.emplace_back(std::make_shared<Int32Scalar>());
+        if (guarantee_index == 0) {
+          batch->values.emplace_back(std::make_shared<Int32Scalar>(23));
+        } else {
+          batch->values.emplace_back(std::make_shared<Int32Scalar>(47));
+        }
       });
 }
 
