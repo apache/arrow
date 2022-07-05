@@ -876,12 +876,17 @@ test_integration() {
     INTEGRATION_TEST_ARGS="${INTEGRATION_TEST_ARGS} --run-flight"
   fi
 
+  # Preserve binaries for later analysis
+  mkdir -p /arrow/gha
+  cp -r $ARROW_CPP_EXE_PATH /arrow/gha
   # Flight integration test executable have runtime dependency on release/libgtest.so
-  LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
+  env SEGFAULT_SIGNALS=all \
+      LD_PRELOAD=/lib/x86_64-linux-gnu/libSegFault.so \
+      LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
     --with-cpp=${TEST_INTEGRATION_CPP} \
-    --with-java=${TEST_INTEGRATION_JAVA} \
-    --with-js=${TEST_INTEGRATION_JS} \
-    --with-go=${TEST_INTEGRATION_GO} \
+    --with-java=False \
+    --with-js=False \
+    --with-go=False \
     $INTEGRATION_TEST_ARGS
 }
 
@@ -1140,28 +1145,24 @@ test_jars() {
 : ${TEST_YUM:=${TEST_BINARIES}}
 
 # Source verification tasks
-: ${TEST_JAVA:=${TEST_SOURCE}}
-: ${TEST_CPP:=${TEST_SOURCE}}
-: ${TEST_CSHARP:=${TEST_SOURCE}}
-: ${TEST_GLIB:=${TEST_SOURCE}}
-: ${TEST_RUBY:=${TEST_SOURCE}}
-: ${TEST_PYTHON:=${TEST_SOURCE}}
-: ${TEST_JS:=${TEST_SOURCE}}
-: ${TEST_GO:=${TEST_SOURCE}}
+: ${TEST_JAVA:=}
+: ${TEST_CPP:=1}
+: ${TEST_CSHARP:=}
+: ${TEST_GLIB:=}
+: ${TEST_RUBY:=}
+: ${TEST_PYTHON:=}
+: ${TEST_JS:=}
+: ${TEST_GO:=}
 : ${TEST_INTEGRATION:=${TEST_SOURCE}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_JAVA:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
-: ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
+: ${TEST_INTEGRATION_JAVA:=}
+: ${TEST_INTEGRATION_JS:=}
+: ${TEST_INTEGRATION_GO:=}
 
 # Automatically test if its activated by a dependent
-TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
-TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
-TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
 # Execute tests in a conda enviroment
@@ -1184,7 +1185,6 @@ TEST_SUCCESS=no
 setup_tempdir
 ensure_source_directory
 test_source_distribution
-test_binary_distribution
 
 TEST_SUCCESS=yes
 
