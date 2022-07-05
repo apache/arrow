@@ -303,7 +303,7 @@ method. For example, if we wanted the above example 3D point type to return a cu
         def __reduce__(self):
             return Point3DType, ()
 
-        def scalar_as_py(self, scalar):
+        def scalar_as_py(self, scalar: ListScalar) -> Point3D:
             return Point3D(*scalar.as_py())
 
 Arrays built using this extension type now provide scalars that convert to our ``Point3D`` class::
