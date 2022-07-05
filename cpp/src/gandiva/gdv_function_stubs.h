@@ -164,6 +164,14 @@ GANDIVA_EXPORT
 int32_t gdv_fn_utf8_char_length(char c);
 
 GANDIVA_EXPORT
+const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
+                            const char* charset, int32_t charset_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_decode(int64_t context, const char* data, int32_t data_len,
+                            const char* charset, int32_t charset_len, int32_t* out_len);                             
+
+GANDIVA_EXPORT
 const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_len,
                               int32_t* out_len);
 

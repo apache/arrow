@@ -264,6 +264,356 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
   return out;
 }
 
+//converts utf8 to utf16 encoding
+GANDIVA_EXPORT
+const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
+                          const char* charset, int32_t charset_len, int32_t* out_len) { 
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+  
+  char* out = reinterpret_cast<char*>(
+    gdv_fn_context_arena_malloc(context, 32 * data_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+    "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t char_len;
+  uint32_t char_codepoint;
+  
+
+  if (memcmp(charset, "UTF-16BE", 8) == 0) {
+    char *tmp=out;
+
+    for (int32_t i = 0; i < data_len; i += char_len) {
+      
+      
+      char_len = gdv_fn_utf8_char_length(data[i]);
+
+      if (char_len == 1) {
+            
+            int32_t input = static_cast<int32_t>(data[i]);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.4X", input);
+
+            memcpy(tmp, hex_string, 4);
+            tmp+=4;
+      }else if (char_len == 2) {
+
+            const auto* in_char = (const uint8_t*)(data + i);
+
+            // Decode the multibyte character
+            bool is_valid_utf8_char =
+            arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+            // If it is an invalid utf8 character, UTF8Decode evaluates to false
+            if (!is_valid_utf8_char) {
+            gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+            *out_len = 0;
+            return "";
+            }
+
+            // int32_t input = static_cast<int32_t>(char_codepoint);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.4X", char_codepoint);
+
+            memcpy(tmp, hex_string, 4);
+            tmp+=4;
+        }else if (char_len == 3) {
+
+            const auto* in_char = (const uint8_t*)(data + i);
+
+            // Decode the multibyte character
+            bool is_valid_utf8_char =
+            arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+            // If it is an invalid utf8 character, UTF8Decode evaluates to false
+            if (!is_valid_utf8_char) {
+            gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+            *out_len = 0;
+            return "";
+            }
+
+            // int32_t input = static_cast<int32_t>(char_codepoint);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.8X", char_codepoint);
+
+            memcpy(tmp, hex_string, 8);
+            tmp+=8;
+        }else if(char_len==4) {
+
+            const auto* in_char = (const uint8_t*)(data + i);
+
+            // Decode the multibyte character
+            bool is_valid_utf8_char =
+            arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+            // If it is an invalid utf8 character, UTF8Decode evaluates to false
+            if (!is_valid_utf8_char) {
+            gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+            *out_len = 0;
+            return "";
+            }
+
+            // int32_t input = static_cast<int32_t>(char_codepoint);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.8X", char_codepoint);
+
+            memcpy(tmp, hex_string, 8);
+            tmp+=8;
+        }
+    }
+    *out_len=static_cast<int32_t>(tmp-out);
+    return out;
+  }else if (memcmp (charset, "UTF-16LE", 8) == 0) {
+    char *tmp = out;
+
+    for (int32_t i = 0; i < data_len; i += char_len) {
+      
+      
+      char_len = gdv_fn_utf8_char_length(data[i]);
+
+      if (char_len == 1) {
+            
+            int32_t input = static_cast<int32_t>(data[i]);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.4X", input);
+
+            for(int32_t xx = 0; xx < 4; xx += 4 ){
+
+                char pp = hex_string[xx];
+                hex_string[xx] = hex_string[xx+2];
+                hex_string[xx+2] = pp;
+
+                pp = hex_string[xx+1];
+                hex_string[xx+1] = hex_string[xx+3];
+                hex_string[xx+3] = pp;
+            }
+
+            memcpy(tmp, hex_string, 4);
+            tmp+=4;
+        }else if (char_len == 2) {
+
+            const auto* in_char = (const uint8_t*)(data + i);
+
+            // Decode the multibyte character
+            bool is_valid_utf8_char =
+            arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+            // If it is an invalid utf8 character, UTF8Decode evaluates to false
+            if (!is_valid_utf8_char) {
+            gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+            *out_len = 0;
+            return "";
+            }
+
+            // int32_t input = static_cast<int32_t>(char_codepoint);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.4X", char_codepoint);
+
+            for(int32_t xx = 0; xx < 4 ; xx += 4 ) {
+
+                char pp = hex_string[xx];
+                hex_string[xx] = hex_string[xx+2];
+                hex_string[xx+2] = pp;
+
+                pp = hex_string[xx+1];
+                hex_string[xx+1] = hex_string[xx+3];
+                hex_string[xx+3] = pp;
+            }
+
+            memcpy(tmp, hex_string, 4);
+            tmp+=4;
+        }else if( char_len == 3) {
+
+            const auto* in_char = (const uint8_t*)(data + i);
+
+            // Decode the multibyte character
+            bool is_valid_utf8_char =
+            arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+            // If it is an invalid utf8 character, UTF8Decode evaluates to false
+            if (!is_valid_utf8_char) {
+            gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+            *out_len = 0;
+            return "";
+            }
+
+            // int32_t input = static_cast<int32_t>(char_codepoint);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.8X", char_codepoint);
+
+            for(int32_t xx = 0 ; xx < 8 ; xx += 4) {
+
+
+                char pp = hex_string[xx];
+                hex_string[xx] = hex_string[xx+2];
+                hex_string[xx+2] = pp;
+
+                pp = hex_string[xx+1];
+                hex_string[xx+1] = hex_string[xx+3];
+                hex_string[xx+3] = pp;
+
+                // std::swap(hex_string[xx],hex_string[xx+2]);
+                // std::swap(hex_string[xx+1],hex_string[xx+3]);
+            }
+
+            memcpy(tmp, hex_string, 8);
+            tmp+=8;
+        }else if ( char_len == 4 ) {
+
+            const auto* in_char = (const uint8_t*)(data + i);
+
+            // Decode the multibyte character
+            bool is_valid_utf8_char =
+            arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+            // If it is an invalid utf8 character, UTF8Decode evaluates to false
+            if (!is_valid_utf8_char) {
+            gdv_fn_set_error_for_invalid_utf8(context, data[i]);
+            *out_len = 0;
+            return "";
+            }
+
+            // Convert the encoded codepoint to its uppercase codepoint
+            // int32_t input = static_cast<int32_t>(char_codepoint);
+
+            char hex_string[20];
+            sprintf(hex_string, "%.8X", char_codepoint);
+
+            for(int32_t xx = 0 ; xx < 8 ; xx += 4) {
+
+
+                char pp = hex_string[xx];
+                hex_string[xx] = hex_string[xx+2];
+                hex_string[xx+2] = pp;
+
+                pp = hex_string[xx+1];
+                hex_string[xx+1] = hex_string[xx+3];
+                hex_string[xx+3] = pp;
+
+                // std::swap(hex_string[xx],hex_string[xx+2]);
+                // std::swap(hex_string[xx+1],hex_string[xx+3]);
+            }
+
+            memcpy(tmp, hex_string, 8);
+            tmp+=8;
+        }
+    }
+    *out_len = static_cast<int32_t>(tmp-out);
+    return out;
+  }
+  return "";
+}
+
+//converts utf16 to utf8 encoding
+GANDIVA_EXPORT
+const char* gdv_fn_decode(int64_t context, const char* data, int32_t data_len,
+                            const char* charset,int32_t charset_len,int32_t* out_len) {
+
+  if (data_len == 0 || data_len%4!=0) {
+    *out_len = 0;
+    return "";
+  }
+   
+  char* out = reinterpret_cast<char*>(
+    gdv_fn_context_arena_malloc(context, 32 * data_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+     "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  
+  
+
+  if (memcmp(charset,"UTF-16BE",8)==0){
+
+    char *tmp=out;
+
+    for (int32_t i = 0; i < data_len; i += 2) {
+      
+      if (data[i]=='0' && data[i+1]=='0') continue;
+
+      char tt[5];
+
+      memcpy(tt, &data[i], 1);
+      memcpy(tt+1, &data[i+1], 1);
+
+      int num = 0;
+        int tim = 1;
+        for (int j = 1 ;j >= 0 ; j-- ) {
+            if(tt[j]-'0'>=0 && tt[j]-'0'<=9){
+                num+=(tim*(tt[j]-'0'));
+            }
+            else if(tt[j]>=65 && tt[j]<=70){
+                num+=(tim*(10+tt[j]-'A'));
+            }
+            else if(tt[j]>=97 && tt[j]<=102){
+                num+=(tim*(10+tt[j]-'a'));
+            }
+            tim*=16;
+        }
+
+      char p=static_cast<char>(num);
+
+      memcpy(tmp,&p,1);
+      tmp+=1;
+    }
+    *out_len=static_cast<int32_t>(tmp-out);
+    return out;
+  }
+  if(memcmp(charset,"UTF-16LE",8)==0){
+
+    char *tmp=out;
+
+    for (int32_t i = 0; i < data_len; i += 2) {
+      
+      if(data[i]=='0' && data[i+1]=='0') continue;
+
+      char tt[5];
+
+      memcpy(tt,&data[i],1);
+      memcpy(tt+1,&data[i+1],1);
+
+      int num=0;
+        int tim=1;
+        for(int j=1;j>=0;j--){
+            if(tt[j]-'0'>=0 && tt[j]-'0'<=9){
+                num+=(tim*(tt[j]-'0'));
+            }
+            else if(tt[j]>=65 && tt[j]<=70){
+                num+=(tim*(10+tt[j]-'A'));
+            }
+            else if(tt[j]>=97 && tt[j]<=102){
+                num+=(tim*(10+tt[j]-'a'));
+            }
+            tim*=16;
+        }
+
+      char p = static_cast<char>(num);
+
+      memcpy(tmp, &p, 1);
+      tmp+=1;
+    }
+    *out_len = static_cast<int32_t>(tmp-out);
+    return out;
+  }
+  return "";
+}
+
+
 // Convert an utf8 string to its corresponding uppercase string
 GANDIVA_EXPORT
 const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_len,
@@ -843,6 +1193,34 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_lower_utf8));
 
+  // gdv_fn_encode
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // data
+      types->i32_type(),      // data_len
+      types->i8_ptr_type(),   // charset
+      types->i32_type(),      // charset_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_encode",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_encode));
+
+  // gdv_fn_decode
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // data
+      types->i32_type(),      // data_len
+      types->i8_ptr_type(),   // charset
+      types->i32_type(),      // charset_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_decode",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_decode));                                
+  
   // gdv_fn_upper_utf8
   args = {
       types->i64_type(),      // context
