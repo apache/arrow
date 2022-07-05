@@ -44,6 +44,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <iostream>
 #include <random>
 #include <string>
 
@@ -105,9 +106,18 @@ class GcsTestbench : public ::testing::Environment {
         error += " (exe not found)";
         continue;
       }
+      // TODO: should I be worried about lifetime of this variable?
+      bp::ipstream output;
 
-      server_process_ = bp::child(exe_path, "-m", "testbench", "--port", port_, group_);
-      if (server_process_.valid() && server_process_.running()) break;
+      server_process_ = bp::child(exe_path, "-m", "testbench", "--port", port_, group_,
+                                  bp::std_out > output);
+      if (server_process_.valid() && server_process_.running()) {
+        // Wait for message: "* Restarting with"
+        std::string line;
+        while (std::getline(output, line)) {
+          if (line.find("* Restarting with") != std::string::npos) break;
+        }
+      };
       error += " (failed to start)";
       server_process_.terminate();
       server_process_.wait();
@@ -278,7 +288,8 @@ class GcsIntegrationTest : public ::testing::Test {
 class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest {
  public:
   void SetUp() override {
-    GcsIntegrationTest::SetUp();
+    GcsIntegrationTest::SetUp(); // Setup failure is not propagating
+    ASSERT_TRUE(Testbench()->running());
     auto bucket_name = RandomBucketName();
     gcs_fs_ = GcsFileSystem::Make(TestGcsOptions());
     ASSERT_OK(gcs_fs_->CreateDir(bucket_name, true));
