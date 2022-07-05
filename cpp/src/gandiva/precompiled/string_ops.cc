@@ -3038,9 +3038,8 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
 FORCE_INLINE
 int32_t find_in_set_utf8_utf8(int64_t context, const char* to_find, int32_t to_find_len,
                               const char* string_list, int32_t string_list_len) {
-  // Return 0 if entry len <= 0
-  if (to_find_len <= 0 || string_list_len <= 0) {
-    gdv_fn_context_set_error_msg(context, "Invalid input values.");
+  // Return 0 if entry len = 0
+  if (to_find_len == 0 || string_list_len == 0) {
     return 0;
   }
 
