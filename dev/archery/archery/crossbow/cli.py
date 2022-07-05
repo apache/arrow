@@ -202,13 +202,15 @@ def verify_release_candidate(obj, base_branch, create_pr, github_token,
     verify_flags = [verify_source, verify_binaries, verify_wheels]
     if any(verify_flags):
         command = "@github-actions crossbow submit"
-        verify_groups = ["verify-rc-source", "verify-rc-binaries", "verify-rc-wheels"]
+        verify_groups = ["verify-rc-source",
+                         "verify-rc-binaries", "verify-rc-wheels"]
         job_groups = ""
         for flag, group in zip(verify_flags, verify_groups):
             if flag:
                 job_groups += f" --group {group}"
         response.create_comment(
-            f"{command} {job_groups} --param release={version} --param rc={rc}")
+            f"{command} {job_groups} --param " +
+            f"release={version} --param rc={rc}")
 
 
 @crossbow.command()
