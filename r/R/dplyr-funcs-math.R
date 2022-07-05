@@ -80,4 +80,21 @@ register_bindings_math <- function() {
       options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
     )
   })
+  
+  register_binding("sqrt", function(x, ...) {
+    # accepts and ignores ... for consistency with base::trunc()
+    build_expr(
+      "sqrt_checked",
+      x
+    )
+  })
+  
+  register_binding("exp", function(x, ...) {
+    # accepts and ignores ... for consistency with base::trunc()
+    build_expr(
+      "power_checked",
+      exp(1), 
+      x
+    )
+  })
 }
