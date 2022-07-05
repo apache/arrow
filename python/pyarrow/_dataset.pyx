@@ -393,6 +393,10 @@ cdef class Dataset(_Weakrefable):
         ----------
         expression : Expression
             The filter that should be applied to the dataset.
+
+        Returns
+        -------
+        FilteredDataset
         """
         return FilteredDataset(self, expression)
 
@@ -465,6 +469,10 @@ cdef class FilteredDataset(Dataset):
         self._filter = None
 
     def filter(self, expression):
+        """Apply an additional row filter to the filtered dataset.
+
+        See :meth:`.Dataset.filter` for documentation.
+        """
         cdef:
             FilteredDataset filtered_dataset
 
@@ -478,9 +486,18 @@ cdef class FilteredDataset(Dataset):
         return filtered_dataset
 
     cdef Scanner _make_scanner(self, options):
+        if "filter" in options:
+            raise ValueError(
+                "Passing filter in scanner option is not valid for FilteredDataset."
+            )
         return Scanner.from_dataset(self, filter=self._filter, **options)
 
     def scanner(self, **kwargs):
+        """Build a scan operation against the dataset.
+
+        See :meth:`.Dataset.scanner` for list of supported
+        arguments.
+        """
         return self._make_scanner(kwargs)
 
 
