@@ -19,23 +19,11 @@
 
 #pragma once
 
+#include <arrow-dataset-glib/dataset-definition.h>
 #include <arrow-dataset-glib/file-format.h>
+#include <arrow-dataset-glib/scanner.h>
 
 G_BEGIN_DECLS
-
-typedef struct _GADatasetScannerBuilder GADatasetScannerBuilder;
-typedef struct _GADatasetScanner GADatasetScanner;
-
-#define GADATASET_TYPE_DATASET (gadataset_dataset_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetDataset,
-                         gadataset_dataset,
-                         GADATASET,
-                         DATASET,
-                         GObject)
-struct _GADatasetDatasetClass
-{
-  GObjectClass parent_class;
-};
 
 GARROW_AVAILABLE_IN_5_0
 GADatasetScannerBuilder *

@@ -28,6 +28,7 @@ sources = files(
 
 c_headers = files(
   'arrow-dataset-glib.h',
+  'dataset-definition.h',
   'dataset-factory.h',
   'dataset.h',
   'file-format.h',
