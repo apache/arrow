@@ -101,11 +101,9 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads
         elif isinstance(ipt, FilteredDataset):
             node_factory = "source"
             c_in_dataset = (<Dataset>ipt).unwrap()
-            c_dataset_scanner = <shared_ptr[CScanner]>(
-                (<Scanner>(<FilteredDataset>ipt)._make_scanner({})).unwrap()
-            )
-            c_recordbatchreader_in = <shared_ptr[CRecordBatchReader]>(
-                GetResultValue(deref(c_dataset_scanner).ToRecordBatchReader())
+            c_dataset_scanner = (<FilteredDataset>ipt)._make_scanner({}).unwrap()
+            c_recordbatchreader_in = GetResultValue(
+                deref(c_dataset_scanner).ToRecordBatchReader()
             )
             c_sourceopts = GetResultValue(
                 CSourceNodeOptions.FromRecordBatchReader(c_recordbatchreader_in,
