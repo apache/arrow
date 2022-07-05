@@ -2914,14 +2914,14 @@ TEST_F(TestProjector, TestENCODEFunction) {
   auto schema = arrow::schema({field0, field1});
 
   // output fields
-  auto field_base = field("encoder", arrow::utf8());
+  auto field_base = field("encode", arrow::utf8());
 
   // Build expression
-  auto encoder = TreeExprBuilder::MakeExpression("encoder", {field0, field1}, field_base);
+  auto encode = TreeExprBuilder::MakeExpression("encode", {field0, field1}, field_base);
 
   std::shared_ptr<Projector> projector;
 
-  auto status = Projector::Make(schema, {encoder}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {encode}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -2932,7 +2932,7 @@ TEST_F(TestProjector, TestENCODEFunction) {
   auto array1 = MakeArrowArrayUtf8({"UTF-16BE", "UTF-16BE", "UTF-16BE", "UTF-16BE"},
                                    {true, true, true, true});
 
-  auto exp_encoder =
+  auto exp_encode =
       MakeArrowArrayUtf8({"0041", "0042", "0043", "0044"}, {true, true, true, true});
 
   auto in_batch0 = arrow::RecordBatch::Make(schema, num_records, {array, array1});
@@ -2943,18 +2943,18 @@ TEST_F(TestProjector, TestENCODEFunction) {
   status = projector->Evaluate(*in_batch0, pool_, &outputs0);
   EXPECT_TRUE(status.ok());
 
-  EXPECT_ARROW_ARRAY_EQUALS(exp_encoder, outputs0.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_encode, outputs0.at(0));
 
   std::shared_ptr<Projector> projector1;
 
-  status = Projector::Make(schema, {encoder}, TestConfiguration(), &projector1);
+  status = Projector::Make(schema, {encode}, TestConfiguration(), &projector1);
 
   auto array2 = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
 
   auto array3 = MakeArrowArrayUtf8({"UTF-16LE", "UTF-16LE", "UTF-16LE", "UTF-16LE"},
                                    {true, true, true, true});
 
-  auto exp_encoder1 =
+  auto exp_encode1 =
       MakeArrowArrayUtf8({"4100", "4200", "4300", "4400"}, {true, true, true, true});
 
   auto in_batch1 = arrow::RecordBatch::Make(schema, num_records, {array2, array3});
@@ -2965,7 +2965,7 @@ TEST_F(TestProjector, TestENCODEFunction) {
   status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
   EXPECT_TRUE(status.ok());
 
-  EXPECT_ARROW_ARRAY_EQUALS(exp_encoder1, outputs1.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_encode1, outputs1.at(0));
 }
 
 TEST_F(TestProjector, TestDECODEFunction) {
@@ -2975,14 +2975,14 @@ TEST_F(TestProjector, TestDECODEFunction) {
   auto schema = arrow::schema({field0, field1});
 
   // output fields
-  auto field_base = field("decoder", arrow::utf8());
+  auto field_base = field("decode", arrow::utf8());
 
   // Build expression
-  auto decoder = TreeExprBuilder::MakeExpression("decoder", {field0, field1}, field_base);
+  auto decode = TreeExprBuilder::MakeExpression("decode", {field0, field1}, field_base);
 
   std::shared_ptr<Projector> projector;
 
-  auto status = Projector::Make(schema, {decoder}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {decode}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -2994,7 +2994,7 @@ TEST_F(TestProjector, TestDECODEFunction) {
   auto array1 = MakeArrowArrayUtf8({"UTF-16BE", "UTF-16BE", "UTF-16BE", "UTF-16BE"},
                                    {true, true, true, true});
 
-  auto exp_decoder = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
+  auto exp_decode = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
 
   auto in_batch0 = arrow::RecordBatch::Make(schema, num_records, {array, array1});
 
@@ -3004,11 +3004,11 @@ TEST_F(TestProjector, TestDECODEFunction) {
   status = projector->Evaluate(*in_batch0, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
-  EXPECT_ARROW_ARRAY_EQUALS(exp_decoder, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_decode, outputs.at(0));
 
   std::shared_ptr<Projector> projector1;
 
-  status = Projector::Make(schema, {decoder}, TestConfiguration(), &projector1);
+  status = Projector::Make(schema, {decode}, TestConfiguration(), &projector1);
 
   auto array2 =
       MakeArrowArrayUtf8({"4100", "4200", "4300", "4400"}, {true, true, true, true});
@@ -3016,7 +3016,7 @@ TEST_F(TestProjector, TestDECODEFunction) {
   auto array3 = MakeArrowArrayUtf8({"UTF-16LE", "UTF-16LE", "UTF-16LE", "UTF-16LE"},
                                    {true, true, true, true});
 
-  auto exp_decoder1 = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
+  auto exp_decode1 = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
 
   auto in_batch1 = arrow::RecordBatch::Make(schema, num_records, {array2, array3});
 
@@ -3026,6 +3026,6 @@ TEST_F(TestProjector, TestDECODEFunction) {
   status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
   EXPECT_TRUE(status.ok());
 
-  EXPECT_ARROW_ARRAY_EQUALS(exp_decoder1, outputs1.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_decode1, outputs1.at(0));
 }
 }  // namespace gandiva
