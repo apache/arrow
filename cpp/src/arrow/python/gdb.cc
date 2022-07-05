@@ -369,7 +369,7 @@ void TestSession() {
   ListScalar list_scalar_null{list_zero_length, list(int32()), /*is_valid=*/false};
   LargeListScalar large_list_scalar{list_value_array};
   LargeListScalar large_list_scalar_null{list_zero_length, large_list(int32()),
-      /*is_valid=*/false};
+                                         /*is_valid=*/false};
   FixedSizeListScalar fixed_size_list_scalar{list_value_array};
   FixedSizeListScalar fixed_size_list_scalar_null{
       list_value_array, fixed_size_list(int32(), 3), /*is_valid=*/false};
@@ -391,8 +391,7 @@ void TestSession() {
 
   union_values[0] = MakeNullScalar(int32());
   SparseUnionScalar sparse_union_scalar_null{union_values, 7, sparse_union_scalar_type};
-  DenseUnionScalar dense_union_scalar_null{union_values[0], 7,
-                                           dense_union_scalar_type};
+  DenseUnionScalar dense_union_scalar_null{union_values[0], 7, dense_union_scalar_type};
 
   auto extension_scalar_type = std::make_shared<UuidType>();
   ExtensionScalar extension_scalar{

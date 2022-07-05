@@ -69,9 +69,9 @@ struct PythonUdf : public compute::KernelState {
     if (is_array(result.obj())) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
       if (!output_type->Equals(*val->type())) {
-        return Status::TypeError(
-            "Expected output datatype ", output_type->ToString(),
-            ", but function returned datatype ", val->type()->ToString());
+        return Status::TypeError("Expected output datatype ", output_type->ToString(),
+                                 ", but function returned datatype ",
+                                 val->type()->ToString());
       }
       out->value = std::move(val->data());
       return Status::OK();
