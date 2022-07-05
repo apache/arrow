@@ -180,6 +180,12 @@ Status jemalloc_set_decay_ms(int ms);
 /// May return NotImplemented if mimalloc is not available.
 ARROW_EXPORT Status mimalloc_memory_pool(MemoryPool** out);
 
+ARROW_EXPORT Status jemalloc_mallctl(const char* name, void* oldp, size_t* oldlenp,
+                                     void* newp, size_t newlen);
+
+ARROW_EXPORT Status jemalloc_stats_print(void (*write_cb)(void*, const char*),
+                                         void* cbopaque, const char* opts);
+
 /// \brief Return the names of the backends supported by this Arrow build.
 ARROW_EXPORT std::vector<std::string> SupportedMemoryBackendNames();
 

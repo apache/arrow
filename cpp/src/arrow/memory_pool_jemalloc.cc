@@ -151,6 +151,26 @@ Status jemalloc_set_decay_ms(int ms) {
   return Status::OK();
 }
 
+Status jemalloc_mallctl(const char* name, void* oldp, size_t* oldlenp, void* newp,
+                        size_t newlen) {
+#ifdef ARROW_JEMALLOC
+  int res = mallctl(name, oldp, oldlenp, newp, newlen);
+  return res ? Status::UnknownError(res) : Status::OK();
+#else
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+#endif
+}
+
+Status jemalloc_stats_print(void (*write_cb)(void*, const char*), void* cbopaque,
+                            const char* opts) {
+#ifdef ARROW_JEMALLOC
+  malloc_stats_print(write_cb, cbopaque, opts);
+  return Status::OK();
+#else
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+#endif
+}
+
 #undef RETURN_IF_JEMALLOC_ERROR
 
 }  // namespace arrow
