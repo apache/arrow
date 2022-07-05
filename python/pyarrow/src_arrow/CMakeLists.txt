@@ -62,7 +62,19 @@ endif()
 
 find_package(Arrow REQUIRED)
 include(ArrowOptions)
+
+#
+# Python
+#
+# Use the first Python installation on PATH, not the newest one
+set(Python3_FIND_STRATEGY "LOCATION")
+# On Windows, use registry last, not first
+set(Python3_FIND_REGISTRY "LAST")
+# On macOS, use framework last, not first
+set(Python3_FIND_FRAMEWORK "LAST")
+
 find_package(Python3Alt 3.7 REQUIRED)
+include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
 
 # Needed due to
 # CMake Error: INSTALL(EXPORT) given unknown export "arrow_python_targets"
