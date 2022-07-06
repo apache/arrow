@@ -48,8 +48,8 @@ else
 fi
 
 # Install Sccache 
-SCCACHE_BUILD=aarch64-unknown-linux-musl
-SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-$SCCACHE_BUILD.tar.gz"
+SCCACHE_BUILD=unknown-linux-musl
+SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-x86_64-$SCCACHE_BUILD.tar.gz"
 
 # Download archive and checksum
 wget $SCCACHE_URL $SCCACHE_URL.sha256
