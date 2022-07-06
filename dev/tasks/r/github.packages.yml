@@ -120,16 +120,17 @@ jobs:
         shell: bash
         run: |
           SCCACHE_BUILD=pc-windows-msvc
-          SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-x86_64-$SCCACHE_BUILD.tar.gz"
+          SCCACHE_URL=https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-x86_64-$SCCACHE_BUILD.tar.gz
 
           # Download archive and checksum
-          wget -qi $SCCACHE_URL $SCCACHE_URL.sha256
+          curl -L $SCCACHE_URL --output sccache.tar.gz
+          curl -L $SCCACHE_URL.sha256 --output sccache.tar.gz.sha256
 
-          SCCACHE_ARCHIVE=$(echo *$SCCACHE_BUILD.tar.gz)
+          SCCACHE_ARCHIVE=sccache.tar.gz
           echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
 
           mkdir -p sccache
-          tar -xzvf $SCCACHE_ARCHIVE --directory sccache/
+          tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --strip-component=1 --directory sccache
           echo "$(pwd)/sccache" >> $GITHUB_PATH
       - uses: r-lib/actions/setup-r@v2
         with:
