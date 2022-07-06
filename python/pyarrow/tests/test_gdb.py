@@ -46,7 +46,7 @@ def environment_for_gdb():
             # Add path to libarrow_python
             path = os.environ.get(var, '')
             path_add = pa.__path__
-            env[var] = str(path) + ':' + (path_add)
+            env[var] = str(path) + ':' + str(path_add)
 
         except KeyError:
             pass
