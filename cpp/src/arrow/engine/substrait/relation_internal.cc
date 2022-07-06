@@ -334,24 +334,23 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       ARROW_ASSIGN_OR_RAISE(auto input, FromProto(aggregate.input(), ext_set));
 
       if (aggregate.groupings_size() > 1) {
-        return Status::Invalid("Grouping sets not supported.");
+        return Status::NotImplemented("Grouping sets not supported.");
       }
       std::vector<FieldRef> keys;
       auto group = aggregate.groupings(0);
       keys.reserve(group.grouping_expressions_size());
       for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
-        const auto& expr = FromProto(group.grouping_expressions(exp_id), ext_set);
-        const auto& field_ref = expr->field_ref();
+        ARROW_ASSIGN_OR_RAISE(auto expr,
+                              FromProto(group.grouping_expressions(exp_id), ext_set));
+        const auto* field_ref = expr.field_ref();
         if (field_ref) {
           keys.emplace_back(std::move(*field_ref));
         } else {
           return Status::Invalid(
-              "Only accept a direct reference as the grouping expression for aggregates");
+              "The grouping expression for an aggregate must be a direct reference.");
         }
       }
-      // denotes how many unique aggregation functions are used
-      // measure_id refers to the corresponding function in the
-      // extensionsion
+
       int measure_size = aggregate.measures_size();
       std::vector<compute::Aggregate> aggregates;
       aggregates.reserve(measure_size);
@@ -359,19 +358,16 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
         const auto& agg_measure = aggregate.measures(measure_id);
         if (agg_measure.has_measure()) {
           if (agg_measure.has_filter()) {
-            return Status::Invalid("Aggregate filters are not supported.");
+            return Status::NotImplemented("Aggregate filters are not supported.");
           }
           const auto& agg_func = agg_measure.measure();
           if (agg_func.args_size() != 1) {
-            return Status::Invalid("Aggregate function must be a unary function.");
+            return Status::NotImplemented("Aggregate function must be a unary function.");
           }
           int func_reference = agg_func.function_reference();
           ARROW_ASSIGN_OR_RAISE(auto func_record, ext_set.DecodeFunction(func_reference));
           // aggreagte function name
           auto func_name = std::string(func_record.id.name);
-          // aggregate output column name
-          std::string agg_col_name =
-              func_name + "(" + std::to_string(func_reference) + ")";
           // aggregate target
           ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(agg_func.args(0), ext_set));
           auto target = field_expr.field_ref();
@@ -382,8 +378,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           // TODO: Implement function options in Substrait
           // For now setting FunctionOptions to nullptr
           aggregates.emplace_back(compute::Aggregate{std::move(func_name), NULLPTR,
-                                                     std::move(*target),
-                                                     std::move(agg_col_name)});
+                                                     std::move(*target), std::move("")});
         } else {
           return Status::Invalid("substrait::AggregateFunction not provided");
         }

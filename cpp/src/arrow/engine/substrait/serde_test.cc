@@ -1473,7 +1473,7 @@ TEST(Substrait, AggregateBase) {
       checked_cast<const compute::AggregateNodeOptions&>(*agg_rel->options);
 
   EXPECT_EQ(agg_rel->factory_name, "aggregate");
-  EXPECT_EQ(agg_options.aggregates[0].name, "count(0)");
+  EXPECT_EQ(agg_options.aggregates[0].name, "");
   EXPECT_EQ(agg_options.aggregates[0].function, "count");
 }
 
@@ -1645,7 +1645,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   // invalid before registration
   ExtensionSet ext_set_invalid(ext_id_reg);
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(NotImplemented,
                 DeserializePlans(
                     *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
 }
@@ -1721,7 +1721,7 @@ TEST(Substrait, AggregateWithFilter) {
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   // invalid before registration
   ExtensionSet ext_set_invalid(ext_id_reg);
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(NotImplemented,
                 DeserializePlans(
                     *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
 }
