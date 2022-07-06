@@ -373,10 +373,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           auto target = field_expr.field_ref();
           if (!target) {
             return Status::Invalid(
-                "Only accept a direct reference as the aggregate expression.");
+                "The input expression to an aggregate function must be a direct "
+                "reference.");
           }
-          // TODO: Implement function options in Substrait
-          // For now setting FunctionOptions to nullptr
           aggregates.emplace_back(compute::Aggregate{std::move(func_name), NULLPTR,
                                                      std::move(*target), std::move("")});
         } else {
