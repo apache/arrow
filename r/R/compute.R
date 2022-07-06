@@ -312,12 +312,12 @@ cast_options <- function(safe = TRUE, ...) {
 #' These functions support calling R code from query engine execution
 #' (i.e., a [dplyr::mutate()] or [dplyr::filter()] on a [Table] or [Dataset]).
 #' Use [arrow_scalar_function()] to define an R function that accepts and
-#' returns R objects; use [arrow_base_scalar_function()] to define a
+#' returns R objects; use [arrow_advanced_scalar_function()] to define a
 #' lower-level function that operates directly on Arrow objects.
 #'
 #' @param name The function name to be used in the dplyr bindings
 #' @param scalar_function An object created with [arrow_scalar_function()]
-#'   or [arrow_base_scalar_function()].
+#'   or [arrow_advanced_scalar_function()].
 #' @param registry_name The function name to be used in the Arrow C++
 #'   compute function registry. This may be different from `name`.
 #' @param in_type A [DataType] of the input type or a [schema()]
@@ -342,7 +342,7 @@ cast_options <- function(safe = TRUE, ...) {
 #' @return
 #'   - `register_scalar_function()`: `NULL`, invisibly
 #'   - `arrow_scalar_function()`: returns an object of class
-#'     "arrow_base_scalar_function" that can be passed to
+#'     "arrow_advanced_scalar_function" that can be passed to
 #'     `register_scalar_function()`.
 #' @export
 #'
@@ -361,15 +361,15 @@ cast_options <- function(safe = TRUE, ...) {
 #'   Array$create(3)
 #' )
 #'
-#' # use arrow_base_scalar_function() for a lower-level interface
-#' base_fun_wrapper <- arrow_base_scalar_function(
+#' # use arrow_advanced_scalar_function() for a lower-level interface
+#' advanced_fun_wrapper <- arrow_advanced_scalar_function(
 #'   schema(x = float64(), y = float64(), z = float64()),
 #'   float64(),
 #'   function(context, args) {
 #'     args[[1]] + args[[2]] + args[[3]]
 #'   }
 #' )
-#' register_scalar_function("example_add3", base_fun_wrapper)
+#' register_scalar_function("example_add3", advanced_fun_wrapper)
 #'
 #' call_function(
 #'   "example_add3",
@@ -382,7 +382,7 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
   assert_that(
     is.string(name),
     is.string(registry_name),
-    inherits(scalar_function, "arrow_base_scalar_function")
+    inherits(scalar_function, "arrow_advanced_scalar_function")
   )
 
   # register with Arrow C++
@@ -410,12 +410,12 @@ arrow_scalar_function <- function(in_type, out_type, fun) {
     as_arrow_array(result, type = context$output_type)
   }
 
-  arrow_base_scalar_function(in_type, out_type, base_fun)
+  arrow_advanced_scalar_function(in_type, out_type, base_fun)
 }
 
 #' @rdname register_scalar_function
 #' @export
-arrow_base_scalar_function <- function(in_type, out_type, base_fun) {
+arrow_advanced_scalar_function <- function(in_type, out_type, base_fun) {
   if (is.list(in_type)) {
     in_type <- lapply(in_type, as_scalar_function_in_type)
   } else {
@@ -439,7 +439,7 @@ arrow_base_scalar_function <- function(in_type, out_type, base_fun) {
     base_fun,
     in_type = in_type,
     out_type = out_type,
-    class = "arrow_base_scalar_function"
+    class = "arrow_advanced_scalar_function"
   )
 }
 

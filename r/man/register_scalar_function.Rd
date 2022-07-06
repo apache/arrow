@@ -3,20 +3,20 @@
 \name{register_scalar_function}
 \alias{register_scalar_function}
 \alias{arrow_scalar_function}
-\alias{arrow_base_scalar_function}
+\alias{arrow_advanced_scalar_function}
 \title{Register user-defined functions}
 \usage{
 register_scalar_function(name, scalar_function, registry_name = name)
 
 arrow_scalar_function(in_type, out_type, fun)
 
-arrow_base_scalar_function(in_type, out_type, base_fun)
+arrow_advanced_scalar_function(in_type, out_type, base_fun)
 }
 \arguments{
 \item{name}{The function name to be used in the dplyr bindings}
 
 \item{scalar_function}{An object created with \code{\link[=arrow_scalar_function]{arrow_scalar_function()}}
-or \code{\link[=arrow_base_scalar_function]{arrow_base_scalar_function()}}.}
+or \code{\link[=arrow_advanced_scalar_function]{arrow_advanced_scalar_function()}}.}
 
 \item{registry_name}{The function name to be used in the Arrow C++
 compute function registry. This may be different from \code{name}.}
@@ -47,7 +47,7 @@ objects corresponding to the input arguments.}
 \itemize{
 \item \code{register_scalar_function()}: \code{NULL}, invisibly
 \item \code{arrow_scalar_function()}: returns an object of class
-"arrow_base_scalar_function" that can be passed to
+"arrow_advanced_scalar_function" that can be passed to
 \code{register_scalar_function()}.
 }
 }
@@ -55,7 +55,7 @@ objects corresponding to the input arguments.}
 These functions support calling R code from query engine execution
 (i.e., a \code{\link[dplyr:mutate]{dplyr::mutate()}} or \code{\link[dplyr:filter]{dplyr::filter()}} on a \link{Table} or \link{Dataset}).
 Use \code{\link[=arrow_scalar_function]{arrow_scalar_function()}} to define an R function that accepts and
-returns R objects; use \code{\link[=arrow_base_scalar_function]{arrow_base_scalar_function()}} to define a
+returns R objects; use \code{\link[=arrow_advanced_scalar_function]{arrow_advanced_scalar_function()}} to define a
 lower-level function that operates directly on Arrow objects.
 }
 \examples{
@@ -74,15 +74,15 @@ call_function(
   Array$create(3)
 )
 
-# use arrow_base_scalar_function() for a lower-level interface
-base_fun_wrapper <- arrow_base_scalar_function(
+# use arrow_advanced_scalar_function() for a lower-level interface
+advanced_fun_wrapper <- arrow_advanced_scalar_function(
   schema(x = float64(), y = float64(), z = float64()),
   float64(),
   function(context, args) {
     args[[1]] + args[[2]] + args[[3]]
   }
 )
-register_scalar_function("example_add3", base_fun_wrapper)
+register_scalar_function("example_add3", advanced_fun_wrapper)
 
 call_function(
   "example_add3",

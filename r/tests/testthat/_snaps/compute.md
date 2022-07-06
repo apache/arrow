@@ -1,4 +1,4 @@
-# arrow_base_scalar_function() works
+# arrow_advanced_scalar_function() works
 
     `base_fun` must accept exactly two arguments
 
