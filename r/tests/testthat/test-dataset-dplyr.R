@@ -73,7 +73,7 @@ test_that("filter() on timestamp columns", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equal(
     ds %>%
-      filter(ts >= lubridate::ymd_hms("2015-05-04 03:12:39", tz = "UTC")) %>%
+      filter(ts >= lubridate::ymd_hms("2015-05-04 03:12:39")) %>%
       filter(part == 1) %>%
       select(ts) %>%
       collect(),
