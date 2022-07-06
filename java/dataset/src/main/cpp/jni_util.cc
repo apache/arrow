@@ -28,6 +28,8 @@ namespace arrow {
 namespace dataset {
 namespace jni {
 
+jint JNI_VERSION = JNI_VERSION_1_6;
+
 class ReservationListenableMemoryPool::Impl {
  public:
   explicit Impl(arrow::MemoryPool* pool, std::shared_ptr<ReservationListener> listener,
@@ -162,11 +164,104 @@ std::shared_ptr<ReservationListener> ReservationListenableMemoryPool::get_listen
 
 ReservationListenableMemoryPool::~ReservationListenableMemoryPool() {}
 
+std::string Describe(JNIEnv* env, jthrowable t) {
+  jclass describer_class =
+      env->FindClass("org/apache/arrow/dataset/jni/JniExceptionDescriber");
+  DCHECK_NE(describer_class, nullptr);
+  jmethodID describe_method = env->GetStaticMethodID(
+      describer_class, "describe", "(Ljava/lang/Throwable;)Ljava/lang/String;");
+  std::string description = JStringToCString(
+      env, (jstring)env->CallStaticObjectMethod(describer_class, describe_method, t));
+  return description;
+}
+
+bool IsErrorInstanceOf(JNIEnv* env, jthrowable t, std::string class_name) {
+  jclass jclass = env->FindClass(class_name.c_str());
+  DCHECK_NE(jclass, nullptr) << "Could not find Java class " << class_name;
+  return env->IsInstanceOf(t, jclass);
+}
+
+arrow::StatusCode MapJavaError(JNIEnv* env, jthrowable t) {
+  StatusCode code;
+  if (IsErrorInstanceOf(env, t, "org/apache/arrow/memory/OutOfMemoryException")) {
+    code = StatusCode::OutOfMemory;
+  } else if (IsErrorInstanceOf(env, t, "java/lang/UnsupportedOperationException")) {
+    code = StatusCode::NotImplemented;
+  } else if (IsErrorInstanceOf(env, t, "java/io/NotSerializableException")) {
+    code = StatusCode::SerializationError;
+  } else if (IsErrorInstanceOf(env, t, "java/io/IOException")) {
+    code = StatusCode::IOError;
+  } else if (IsErrorInstanceOf(env, t, "java/lang/IllegalArgumentException")) {
+    code = StatusCode::Invalid;
+  } else if (IsErrorInstanceOf(env, t, "java/lang/IllegalStateException")) {
+    code = StatusCode::Invalid;
+  } else {
+    code = StatusCode::UnknownError;
+  }
+  return code;
+}
+
+JNIEnv* GetEnvOrAttach(JavaVM* vm) {
+  JNIEnv* env;
+  int getEnvStat = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
+  if (getEnvStat == JNI_EDETACHED) {
+    // Reattach current thread to JVM
+    getEnvStat = vm->AttachCurrentThread(reinterpret_cast<void**>(&env), nullptr);
+    if (getEnvStat != JNI_OK) {
+      ARROW_LOG(FATAL) << "Failed to attach current thread to JVM";
+    }
+  }
+  return env;
+}
+
+const char kJavaErrorDetailTypeId[] = "arrow::dataset::jni::JavaErrorDetail";
+
+JavaErrorDetail::JavaErrorDetail(JavaVM* vm, jthrowable cause) : vm_(vm) {
+  JNIEnv* env = GetEnvOrAttach(vm_);
+  if (env == nullptr) {
+    this->cause_ = nullptr;
+    return;
+  }
+  this->cause_ = (jthrowable)env->NewGlobalRef(cause);
+}
+
+JavaErrorDetail::~JavaErrorDetail() {
+  JNIEnv* env = GetEnvOrAttach(vm_);
+  if (env == nullptr || this->cause_ == nullptr) {
+    return;
+  }
+  env->DeleteGlobalRef(cause_);
+}
+
+const char* JavaErrorDetail::type_id() const { return kJavaErrorDetailTypeId; }
+
+jthrowable JavaErrorDetail::GetCause() const {
+  JNIEnv* env = GetEnvOrAttach(vm_);
+  if (env == nullptr || this->cause_ == nullptr) {
+    return nullptr;
+  }
+  return (jthrowable)env->NewLocalRef(cause_);
+}
+
+std::string JavaErrorDetail::ToString() const {
+  JNIEnv* env = GetEnvOrAttach(vm_);
+  if (env == nullptr) {
+    return "Java Exception, ID: " + std::to_string(reinterpret_cast<uintptr_t>(cause_));
+  }
+  return "Java Exception: " + Describe(env, cause_);
+}
+
 Status CheckException(JNIEnv* env) {
   if (env->ExceptionCheck()) {
-    env->ExceptionDescribe();
+    jthrowable t = env->ExceptionOccurred();
     env->ExceptionClear();
-    return Status::Invalid("Error during calling Java code from native code");
+    arrow::StatusCode code = MapJavaError(env, t);
+    JavaVM* vm;
+    if (env->GetJavaVM(&vm) != JNI_OK) {
+      return Status::Invalid("Error getting JavaVM object");
+    }
+    std::shared_ptr<JavaErrorDetail> detail = std::make_shared<JavaErrorDetail>(vm, t);
+    return {code, detail->ToString(), detail};
   }
   return Status::OK();
 }
