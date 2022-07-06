@@ -409,6 +409,9 @@ if(ARROW_BUILD_TESTS)
   target_include_directories(arrow_python_test_main SYSTEM
                              PUBLIC ${ARROW_PYTHON_INCLUDES})
 
+  # Link libraries to avoid include error on Linux
+  target_link_libraries(arrow_python_test_main arrow_shared)
+
   if(APPLE)
     target_link_libraries(arrow_python_test_main ${CMAKE_DL_LIBS})
     set_target_properties(arrow_python_test_main PROPERTIES LINK_FLAGS
@@ -440,18 +443,12 @@ if(ARROW_BUILD_TESTS)
   set(TEST_PATH "${CMAKE_BINARY_DIR}/${TEST_NAME}")
   add_executable(${TEST_NAME} ${SOURCES})
 
-  # With OSX and conda, we need to set the correct RPATH so that dependencies
-  # are found. The installed libraries with conda have an RPATH that matches
-  # for executables and libraries lying in $ENV{CONDA_PREFIX}/bin or
-  # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
-  # installed there.
-  if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
-    set_target_properties(${TEST_NAME}
-                          PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
-                                    INSTALL_RPATH_USE_LINK_PATH TRUE
-                                    INSTALL_RPATH
-                                    "${PYTHON_SOURCE_DIR}/pyarrow;$ENV{CONDA_PREFIX}/lib")
-  endif()
+  # We need to set the correct RPATH so that dependencies
+  set_target_properties(${TEST_NAME}
+                        PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                                  INSTALL_RPATH_USE_LINK_PATH TRUE
+                                  INSTALL_RPATH
+                                  "${PYTHON_SOURCE_DIR}/pyarrow;$ENV{CONDA_PREFIX}/lib")
 
   # Customize link libraries
   target_link_libraries(${TEST_NAME} PRIVATE "${ARROW_PYTHON_TEST_LINK_LIBS}")
