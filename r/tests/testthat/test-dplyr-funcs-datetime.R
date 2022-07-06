@@ -838,7 +838,7 @@ test_that("semester works with temporal types and integers", {
       arrow_table() %>%
       mutate(sem_month_as_char_pad = semester(month_as_char_pad)) %>%
       collect(),
-    regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[string])",
+    regexp = "NotImplemented: Function 'month' has no kernel matching input types (string)",
     fixed = TRUE
   )
 })
@@ -914,7 +914,7 @@ test_that("month() errors with double input and returns NA with int outside 1:12
       arrow_table() %>%
       mutate(month_dbl_input = month(month_as_double)) %>%
       collect(),
-    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    regexp = "Function 'month' has no kernel matching input types (double)",
     fixed = TRUE
   )
 
@@ -923,7 +923,7 @@ test_that("month() errors with double input and returns NA with int outside 1:12
       record_batch() %>%
       mutate(month_dbl_input = month(month_as_double)) %>%
       collect(),
-    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    regexp = "Function 'month' has no kernel matching input types (double)",
     fixed = TRUE
   )
 })
