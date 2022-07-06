@@ -15,42 +15,49 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
-#include "arrow/util/benchmark_util.h"
+#include "arrow/compute/exec/benchmark_util.h"
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
+#include "arrow/compute/exec/task_util.h"
+#include "arrow/util/macros.h"
+
 namespace arrow {
+namespace compute {
 
 // Generates batches from data, then benchmark rows_per_second and batches_per_second for
 // an isolated node. We do this by passing in batches through a task scheduler, and
 // calling InputFinished and InputReceived.
 
-void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
-                                   arrow::compute::ExecContext ctx,
-                                   arrow::compute::Expression expr, int32_t num_batches,
-                                   int32_t batch_size,
-                                   arrow::compute::BatchesWithSchema data,
-                                   std::string factory_name,
-                                   arrow::compute::ExecNodeOptions& options) {
+Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
+                                     arrow::compute::ExecContext ctx,
+                                     arrow::compute::Expression expr, int32_t num_batches,
+                                     int32_t batch_size,
+                                     arrow::compute::BatchesWithSchema data,
+                                     std::string factory_name,
+                                     arrow::compute::ExecNodeOptions& options) {
   for (auto _ : state) {
     state.PauseTiming();
     AsyncGenerator<util::optional<arrow::compute::ExecBatch>> sink_gen;
 
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                         arrow::compute::ExecPlan::Make(&ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
+                          arrow::compute::ExecPlan::Make(&ctx));
     // Source and sink nodes have no effect on the benchmark.
     // Used for dummy purposes as they are referenced in InputReceived and InputFinished.
-    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * source_node,
-                         MakeExecNode("source", plan.get(), {},
-                                      arrow::compute::SourceNodeOptions{
-                                          data.schema, data.gen(/*parallel=*/true,
-                                                                /*slow=*/false)}));
+    ARROW_ASSIGN_OR_RAISE(arrow::compute::ExecNode * source_node,
+                          MakeExecNode("source", plan.get(), {},
+                                       arrow::compute::SourceNodeOptions{
+                                           data.schema, data.gen(/*parallel=*/true,
+                                                                 /*slow=*/false)}));
 
-    ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * node,
-                         MakeExecNode(factory_name, plan.get(), {source_node}, options));
-    MakeExecNode("sink", plan.get(), {node}, arrow::compute::SinkNodeOptions{&sink_gen});
+    ARROW_ASSIGN_OR_RAISE(arrow::compute::ExecNode * node,
+                          MakeExecNode(factory_name, plan.get(), {source_node}, options));
+    ARROW_RETURN_NOT_OK(MakeExecNode("sink", plan.get(), {node},
+                                     arrow::compute::SinkNodeOptions{&sink_gen}));
 
     std::unique_ptr<arrow::compute::TaskScheduler> scheduler =
         arrow::compute::TaskScheduler::Make();
@@ -74,7 +81,7 @@ void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
 
     state.ResumeTiming();
     arrow::internal::ThreadPool* thread_pool = arrow::internal::GetCpuThreadPool();
-    ASSERT_OK(scheduler->StartScheduling(
+    ARROW_RETURN_NOT_OK(scheduler->StartScheduling(
         thread_indexer(),
         [&](std::function<Status(size_t)> task) -> Status {
           return thread_pool->Spawn([&, task]() {
@@ -85,9 +92,12 @@ void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
         thread_pool->GetCapacity(),
         /*use_sync_execution=*/false));
     std::unique_lock<std::mutex> lk(mutex);
-    ASSERT_OK(scheduler->StartTaskGroup(thread_indexer(), task_group_id, num_batches));
+    ARROW_RETURN_NOT_OK(
+        scheduler->StartTaskGroup(thread_indexer(), task_group_id, num_batches));
     all_tasks_finished_cv.wait(lk);
-    ASSERT_TRUE(node->finished().is_finished());
+    if (!node->finished().is_finished()) {
+      return Status::Invalid("All tasks were finsihed but the node was not finished");
+    }
   }
   state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches * batch_size),
@@ -95,19 +105,20 @@ void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
 
   state.counters["batches_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
+  return Status::OK();
 }
 
 // Generates batches from data, then benchmark rows_per_second and batches_per_second for
 // a source -> node_declarations -> sink sequence.
 
-void BenchmarkNodeOverhead(benchmark::State& state, arrow::compute::ExecContext ctx,
-                           int32_t num_batches, int32_t batch_size,
-                           arrow::compute::BatchesWithSchema data,
-                           std::vector<arrow::compute::Declaration>& node_declarations) {
+Status BenchmarkNodeOverhead(
+    benchmark::State& state, arrow::compute::ExecContext ctx, int32_t num_batches,
+    int32_t batch_size, arrow::compute::BatchesWithSchema data,
+    std::vector<arrow::compute::Declaration>& node_declarations) {
   for (auto _ : state) {
     state.PauseTiming();
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
-                         arrow::compute::ExecPlan::Make(&ctx));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::compute::ExecPlan> plan,
+                          arrow::compute::ExecPlan::Make(&ctx));
     AsyncGenerator<util::optional<arrow::compute::ExecBatch>> sink_gen;
     arrow::compute::Declaration source = arrow::compute::Declaration(
         {"source",
@@ -119,9 +130,10 @@ void BenchmarkNodeOverhead(benchmark::State& state, arrow::compute::ExecContext 
     std::vector<arrow::compute::Declaration> sequence = {source};
     sequence.insert(sequence.end(), node_declarations.begin(), node_declarations.end());
     sequence.push_back(sink);
-    ASSERT_OK(arrow::compute::Declaration::Sequence(sequence).AddToPlan(plan.get()));
+    ARROW_RETURN_NOT_OK(
+        arrow::compute::Declaration::Sequence(sequence).AddToPlan(plan.get()));
     state.ResumeTiming();
-    ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
+    ARROW_RETURN_NOT_OK(StartAndCollect(plan.get(), sink_gen).status());
   }
 
   state.counters["rows_per_second"] = benchmark::Counter(
@@ -130,7 +142,8 @@ void BenchmarkNodeOverhead(benchmark::State& state, arrow::compute::ExecContext 
 
   state.counters["batches_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
+  return Status::OK();
 }
 
-};
-
+}  // namespace compute
+}  // namespace arrow

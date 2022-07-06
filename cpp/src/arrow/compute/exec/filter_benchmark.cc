@@ -21,6 +21,7 @@
 
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/benchmark_util.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/task_util.h"
@@ -32,7 +33,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
-#include "arrow/util/benchmark_util.h"
 
 namespace arrow {
 namespace compute {
@@ -90,7 +90,8 @@ static void FilterOverhead(benchmark::State& state, std::vector<Expression> expr
   for (Expression expr : expr_vector) {
     filter_node_dec.push_back({"filter", FilterNodeOptions(expr)});
   }
-  BenchmarkNodeOverhead(state, ctx, num_batches, batch_size, data, filter_node_dec);
+  ASSERT_OK(
+      BenchmarkNodeOverhead(state, ctx, num_batches, batch_size, data, filter_node_dec));
 }
 
 static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
@@ -100,8 +101,8 @@ static void FilterOverheadIsolated(benchmark::State& state, Expression expr) {
   arrow::compute::BatchesWithSchema data = MakeRandomBatches(
       schema({field("i64", int64()), field("bool", boolean())}), num_batches, batch_size);
   FilterNodeOptions options = FilterNodeOptions{expr};
-  BenchmarkIsolatedNodeOverhead(state, ctx, expr, num_batches, batch_size, data, "filter",
-                                options);
+  ASSERT_OK(BenchmarkIsolatedNodeOverhead(state, ctx, expr, num_batches, batch_size, data,
+                                          "filter", options));
 }
 
 arrow::compute::Expression complex_expression =

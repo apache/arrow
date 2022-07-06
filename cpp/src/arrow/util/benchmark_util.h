@@ -19,18 +19,8 @@
 #include <cstdint>
 #include <string>
 
-#include "benchmark/benchmark.h"
-#include "arrow/compute/cast.h"
-#include "arrow/compute/exec.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/task_util.h"
-#include "arrow/compute/exec/test_util.h"
-#include "arrow/dataset/partition.h"
-#include "arrow/testing/future_util.h"
-#include "arrow/testing/generator.h"
-#include "arrow/type.h"
 #include "arrow/util/cpu_info.h"
+#include "benchmark/benchmark.h"
 
 namespace arrow {
 
@@ -143,18 +133,4 @@ struct RegressionArgs {
   benchmark::State& state_;
   bool size_is_bytes_;
 };
-
-void BenchmarkNodeOverhead(benchmark::State& state, arrow::compute::ExecContext ctx,
-                           int32_t num_batches, int32_t batch_size,
-                           arrow::compute::BatchesWithSchema data,
-                           std::vector<arrow::compute::Declaration>& node_declarations);
-
-void BenchmarkIsolatedNodeOverhead(benchmark::State& state,
-                                   arrow::compute::ExecContext ctx,
-                                   arrow::compute::Expression expr, int32_t num_batches,
-                                   int32_t batch_size,
-                                   arrow::compute::BatchesWithSchema data,
-                                   std::string factory_name,
-                                   arrow::compute::ExecNodeOptions& options);
-
 };  // namespace arrow
