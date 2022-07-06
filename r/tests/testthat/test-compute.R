@@ -105,3 +105,38 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     tibble::tibble(a = 1L, b = 2L)
   )
 })
+
+test_that("user-defined functions work during multi-threaded execution", {
+  skip_if_not_available("dataset")
+
+  n_rows <- 10000
+  n_partitions <- 10
+  example_df <- expand.grid(
+    part = letters[seq_len(n_partitions)],
+    value = seq_len(n_rows),
+    stringsAsFactors = FALSE
+  )
+
+  # make sure values are different for each partition
+  example_df$row_num <- seq_len(nrow(example_df))
+  example_df$value <- example_df$value + match(example_df$part, letters)
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_dataset(example_df, tf, partitioning = "part")
+
+  times_32 <- arrow_scalar_function(
+    int32(), float64(),
+    function(x) x * 32
+  )
+
+  register_scalar_function("times_32", times_32)
+
+  result <- open_dataset(tf) %>%
+    dplyr::mutate(fun_result = times_32(value)) %>%
+    dplyr::collect() %>%
+    dplyr::arrange(row_num) %>%
+    tibble::as_tibble()
+
+  expect_identical(result$fun_result, example_df$value * 32)
+})
