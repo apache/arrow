@@ -20,6 +20,7 @@
 #include "gandiva/gdv_function_stubs.h"
 
 #include <utf8proc.h>
+#include <boost/algorithm/string/predicate.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -284,7 +285,9 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
   int32_t char_len;
   uint32_t char_codepoint;
 
-  if (memcmp(charset, "UTF-16BE", 8) == 0 || memcmp(charset, "utf-16be", 8) == 0) {
+  std::string charset_str(charset, charset_len);
+
+  if (boost::iequals(charset_str, "UTF-16BE")) {
     char* tmp = out;
 
     int ind_w = 0;
@@ -349,7 +352,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
     }
     *out_len = static_cast<int32_t>(ind_w);
     return out;
-  } else if (memcmp(charset, "UTF-16LE", 8) == 0 || memcmp(charset, "utf-16le", 8) == 0) {
+  } else if (boost::iequals(charset_str, "UTF-16LE")) {
     char* tmp = out;
 
     for (int32_t i = 0; i < data_len; i += char_len) {
@@ -489,7 +492,9 @@ const char* gdv_fn_decode(int64_t context, const char* data, int32_t data_len,
     return "";
   }
 
-  if (memcmp(charset, "UTF-16BE", 8) == 0 || memcmp(charset, "utf-16be", 8) == 0) {
+  std::string charset_str(charset, charset_len);
+
+  if (boost::iequals(charset_str, "UTF-16BE")) {
     char* tmp = out;
 
     for (int32_t i = 0; i < data_len; i += 2) {
@@ -521,7 +526,7 @@ const char* gdv_fn_decode(int64_t context, const char* data, int32_t data_len,
     *out_len = static_cast<int32_t>(tmp - out);
     return out;
   }
-  if (memcmp(charset, "UTF-16LE", 8) == 0 || memcmp(charset, "utf-16le", 8) == 0) {
+  if (boost::iequals(charset_str, "UTF-16LE")) {
     char* tmp = out;
 
     for (int32_t i = 0; i < data_len; i += 2) {
