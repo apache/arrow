@@ -74,6 +74,10 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     zstd)
 
+if(DEFINED ENV{CMAKE_COMPILER_LAUNCHER})
+  set(CMAKE_C_COMPILER_LAUNCHER $ENV{CMAKE_COMPILER_LAUNCHER})
+  set(CMAKE_CXX_COMPILER_LAUNCHER $ENV{CMAKE_COMPILER_LAUNCHER})
+endif()
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
 # We renamed "BOOST" dependency name to "Boost" in 3.0.0 because
