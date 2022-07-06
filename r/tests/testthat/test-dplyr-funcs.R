@@ -36,7 +36,6 @@ test_that("register_binding_agg() works", {
   fun1 <- function() NULL
 
   expect_null(register_binding_agg("somePkg::some_fun", fun1, fake_registry))
-  names(fake_registry)
   expect_identical(fake_registry$some_fun, fun1)
   expect_identical(fake_registry$`somePkg::some_fun`, fun1)
 })
