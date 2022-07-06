@@ -94,8 +94,8 @@ Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed
       // EOF
       break;
     }
-    decompressed.resize(decompressed_size + buf->size());
-    memcpy(decompressed.data() + decompressed_size, buf->data(), buf->size());
+    decompressed.resize(static_cast<size_t>(decompressed_size + buf->size()));
+    memcpy(decompressed.data() + decompressed_size, buf->data(), static_cast<size_t>(buf->size()));
     decompressed_size += buf->size();
   }
   if (stream_pos != nullptr) {

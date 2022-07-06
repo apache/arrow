@@ -151,27 +151,30 @@ void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t r
   DCHECK(0 <= row && row < non_zero_length);
 
   const int64_t ndim = shape[1];
-  out_index->resize(ndim);
+  out_index->resize(static_cast<size_t>(ndim));
 
   switch (indices_elsize) {
     case 1:  // Int8, UInt8
       for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt8Type>({row, i}));
+        (*out_index)[static_cast<size_t>(i)] =
+            static_cast<int64_t>(coords->Value<UInt8Type>({row, i}));
       }
       break;
     case 2:  // Int16, UInt16
       for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt16Type>({row, i}));
+        (*out_index)[static_cast<size_t>(i)] =
+            static_cast<int64_t>(coords->Value<UInt16Type>({row, i}));
       }
       break;
     case 4:  // Int32, UInt32
       for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt32Type>({row, i}));
+        (*out_index)[static_cast<size_t>(i)] =
+            static_cast<int64_t>(coords->Value<UInt32Type>({row, i}));
       }
       break;
     case 8:  // Int64
       for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = coords->Value<Int64Type>({row, i});
+        (*out_index)[static_cast<size_t>(i)] = coords->Value<Int64Type>({row, i});
       }
       break;
     default:
@@ -192,8 +195,8 @@ bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
   GetCOOIndexTensorRow(coords, 0, &last_index);
   for (int64_t i = 1; i < non_zero_length; ++i) {
     GetCOOIndexTensorRow(coords, i, &index);
-    int64_t j = 0;
-    while (j < ndim) {
+    size_t j = 0;
+    while (j < static_cast<size_t>(ndim)) {
       if (last_index[j] > index[j]) {
         // last_index > index, so we can detect non-canonical here
         return false;
@@ -204,7 +207,7 @@ bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
       }
       ++j;
     }
-    if (j == ndim) {
+    if (j == static_cast<size_t>(ndim)) {
       // last_index == index, so we can detect non-canonical here
       return false;
     }
@@ -367,14 +370,14 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
     const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
     const std::vector<std::shared_ptr<Buffer>>& indptr_data,
     const std::vector<std::shared_ptr<Buffer>>& indices_data) {
-  int64_t ndim = axis_order.size();
+  size_t ndim = axis_order.size();
   std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
   std::vector<std::shared_ptr<Tensor>> indices(ndim);
 
-  for (int64_t i = 0; i < ndim - 1; ++i)
+  for (size_t i = 0; i < ndim - 1; ++i)
     indptr[i] = std::make_shared<Tensor>(indptr_type, indptr_data[i],
                                          std::vector<int64_t>({indices_shapes[i] + 1}));
-  for (int64_t i = 0; i < ndim; ++i)
+  for (size_t i = 0; i < ndim; ++i)
     indices[i] = std::make_shared<Tensor>(indices_type, indices_data[i],
                                           std::vector<int64_t>({indices_shapes[i]}));
 
@@ -405,10 +408,10 @@ SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indpt
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
 
 bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
-  for (int64_t i = 0; i < static_cast<int64_t>(indices().size()); ++i) {
+  for (size_t i = 0; i < indices().size(); ++i) {
     if (!indices()[i]->Equals(*other.indices()[i])) return false;
   }
-  for (int64_t i = 0; i < static_cast<int64_t>(indptr().size()); ++i) {
+  for (size_t i = 0; i < indptr().size(); ++i) {
     if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
   }
   return axis_order() == other.axis_order();

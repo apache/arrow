@@ -173,8 +173,8 @@ void MinimalEndToEndScan(size_t num_batches, size_t batch_size, bool async_mode)
 }
 
 static void MinimalEndToEndBench(benchmark::State& state) {
-  size_t num_batches = state.range(0);
-  size_t batch_size = state.range(1);
+  size_t num_batches = static_cast<size_t>(state.range(0));
+  size_t batch_size = static_cast<size_t>(state.range(1));
   bool async_mode = state.range(2);
 
   for (auto _ : state) {

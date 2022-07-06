@@ -114,12 +114,12 @@ void BM_AddDispatch(benchmark::State& state) {
 
 static ScalarVector MakeScalarsForIsValid(int64_t nitems) {
   std::vector<std::shared_ptr<Scalar>> scalars;
-  scalars.reserve(nitems);
+  scalars.reserve(static_cast<size_t>(nitems));
   for (int64_t i = 0; i < nitems; ++i) {
     if (i & 0x10) {
       scalars.emplace_back(MakeNullScalar(int64()));
     } else {
-      scalars.emplace_back(*MakeScalar(int64(), i));
+      scalars.emplace_back(*MakeScalar(int64(), static_cast<size_t>(i)));
     }
   }
   return scalars;

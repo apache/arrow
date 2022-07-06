@@ -243,9 +243,9 @@ struct TestSelectKWithChunkedArray : public ::testing::Test {
   // Slice `array` into multiple chunks along `offsets`
   ArrayVector Slices(const std::shared_ptr<Array>& array,
                      const std::shared_ptr<Int32Array>& offsets) {
-    ArrayVector slices(offsets->length() - 1);
+    ArrayVector slices(static_cast<size_t>(offsets->length() - 1));
     for (int64_t i = 0; i != static_cast<int64_t>(slices.size()); ++i) {
-      slices[i] =
+      slices[static_cast<size_t>(i)] =
           array->Slice(offsets->Value(i), offsets->Value(i + 1) - offsets->Value(i));
     }
     return slices;

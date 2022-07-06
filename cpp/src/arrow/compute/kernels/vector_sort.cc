@@ -470,10 +470,10 @@ class RadixRecordBatchSorter {
     // Create column sorters from right to left
     std::vector<std::unique_ptr<RecordBatchColumnSorter>> column_sorts(sort_keys.size());
     RecordBatchColumnSorter* next_column = nullptr;
-    for (int64_t i = static_cast<int64_t>(sort_keys.size() - 1); i >= 0; --i) {
-      ColumnSortFactory factory(sort_keys[i], options_, next_column);
-      ARROW_ASSIGN_OR_RAISE(column_sorts[i], factory.MakeColumnSort());
-      next_column = column_sorts[i].get();
+    for (size_t i = sort_keys.size(); i > 0; --i) {
+      ColumnSortFactory factory(sort_keys[i - 1], options_, next_column);
+      ARROW_ASSIGN_OR_RAISE(column_sorts[i - 1], factory.MakeColumnSort());
+      next_column = column_sorts[i - 1].get();
     }
 
     // Sort from left to right
@@ -855,8 +855,9 @@ class TableSorter {
 
     template <typename ArrayType>
     ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
-      return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]),
-              loc.index_in_chunk};
+      return {
+          checked_cast<const ArrayType*>(chunks[static_cast<size_t>(loc.chunk_index)]),
+          loc.index_in_chunk};
     }
 
     // Make a vector of ResolvedSortKeys for the sort keys and the given table.
@@ -937,7 +938,7 @@ class TableSorter {
   Status SortInternal() {
     // Sort each batch independently and merge to sorted indices.
     ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches, BatchesFromTable(table_));
-    const int64_t num_batches = static_cast<int64_t>(batches.size());
+    const size_t num_batches = batches.size();
     if (num_batches == 0) {
       return Status::OK();
     }
@@ -947,7 +948,7 @@ class TableSorter {
     int64_t begin_offset = 0;
     int64_t end_offset = 0;
     int64_t null_count = 0;
-    for (int64_t i = 0; i < num_batches; ++i) {
+    for (size_t i = 0; i < num_batches; ++i) {
       const auto& batch = *batches[i];
       end_offset += batch.num_rows();
       RadixRecordBatchSorter sorter(indices_begin_ + begin_offset,
@@ -1386,7 +1387,7 @@ class ArraySelecter : public TypeVisitor {
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
     ArrayType arr(array_.data());
-    std::vector<uint64_t> indices(arr.length());
+    std::vector<uint64_t> indices(static_cast<size_t>(arr.length()));
 
     uint64_t* indices_begin = indices.data();
     uint64_t* indices_end = indices_begin + indices.size();
@@ -1504,7 +1505,7 @@ class ChunkedArraySelecter : public TypeVisitor {
       chunks_holder.emplace_back(std::make_shared<ArrayType>(chunk->data()));
       ArrayType& arr = *chunks_holder[chunks_holder.size() - 1];
 
-      std::vector<uint64_t> indices(arr.length());
+      std::vector<uint64_t> indices(static_cast<size_t>(arr.length()));
       uint64_t* indices_begin = indices.data();
       uint64_t* indices_end = indices_begin + indices.size();
       std::iota(indices_begin, indices_end, 0);
@@ -1624,7 +1625,7 @@ class RecordBatchSelecter : public TypeVisitor {
     using HeapContainer =
         std::priority_queue<uint64_t, std::vector<uint64_t>, decltype(cmp)>;
 
-    std::vector<uint64_t> indices(arr.length());
+    std::vector<uint64_t> indices(static_cast<size_t>(arr.length()));
     uint64_t* indices_begin = indices.data();
     uint64_t* indices_end = indices_begin + indices.size();
     std::iota(indices_begin, indices_end, 0);
@@ -1788,7 +1789,7 @@ class TableSelecter : public TypeVisitor {
     using HeapContainer =
         std::priority_queue<uint64_t, std::vector<uint64_t>, decltype(cmp)>;
 
-    std::vector<uint64_t> indices(num_rows);
+    std::vector<uint64_t> indices(static_cast<size_t>(num_rows));
     uint64_t* indices_begin = indices.data();
     uint64_t* indices_end = indices_begin + indices.size();
     std::iota(indices_begin, indices_end, 0);

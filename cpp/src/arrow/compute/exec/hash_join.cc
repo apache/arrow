@@ -460,11 +460,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
                          std::vector<const uint8_t*>* nn_bit_vectors,
                          std::vector<int64_t>* nn_offsets,
                          std::vector<uint8_t>* nn_bit_vector_all_nulls) {
-    int num_cols = static_cast<int>(batch.values.size());
+    size_t num_cols = static_cast<size_t>(batch.values.size());
     nn_bit_vectors->resize(num_cols);
     nn_offsets->resize(num_cols);
     nn_bit_vector_all_nulls->clear();
-    for (int64_t i = 0; i < num_cols; ++i) {
+    for (size_t i = 0; i < num_cols; ++i) {
       const uint8_t* nn = nullptr;
       int64_t offset = 0;
       if (batch[i].is_array()) {
@@ -476,9 +476,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
         ARROW_DCHECK(batch[i].is_scalar());
         if (!batch[i].scalar_as<arrow::internal::PrimitiveScalarBase>().is_valid) {
           if (nn_bit_vector_all_nulls->empty()) {
-            nn_bit_vector_all_nulls->resize(bit_util::BytesForBits(batch.length));
+            nn_bit_vector_all_nulls->resize(
+                static_cast<size_t>(bit_util::BytesForBits(batch.length)));
             memset(nn_bit_vector_all_nulls->data(), 0,
-                   bit_util::BytesForBits(batch.length));
+                   static_cast<size_t>(
+                       bit_util::BytesForBits(static_cast<size_t>(batch.length))));
           }
           nn = nn_bit_vector_all_nulls->data();
         }
@@ -703,8 +705,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
     if (!hash_table_empty_) {
       int32_t num_rows = hash_table_keys_.num_rows();
-      local_state->has_match.resize(bit_util::BytesForBits(num_rows));
-      memset(local_state->has_match.data(), 0, bit_util::BytesForBits(num_rows));
+      local_state->has_match.resize(
+          static_cast<size_t>(bit_util::BytesForBits(num_rows)));
+      memset(local_state->has_match.data(), 0,
+             static_cast<size_t>(bit_util::BytesForBits(num_rows)));
     }
     local_state->is_has_match_initialized = true;
   }
@@ -715,8 +719,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     }
 
     int32_t num_rows = hash_table_keys_.num_rows();
-    has_match_.resize(bit_util::BytesForBits(num_rows));
-    memset(has_match_.data(), 0, bit_util::BytesForBits(num_rows));
+    has_match_.resize(static_cast<size_t>(bit_util::BytesForBits(num_rows)));
+    memset(has_match_.data(), 0, static_cast<size_t>(bit_util::BytesForBits(num_rows)));
 
     for (size_t tid = 0; tid < local_states_.size(); ++tid) {
       if (!local_states_[tid].is_initialized) {

@@ -271,7 +271,7 @@ class RangeDataEqualsImpl {
       auto compare_runs = [&](int64_t i, int64_t length) -> bool {
         return memcmp(left_data + (left_start_idx_ + left_.offset + i) * byte_width,
                       right_data + (right_start_idx_ + right_.offset + i) * byte_width,
-                      length * byte_width) == 0;
+                      static_cast<size_t>(length * byte_width)) == 0;
       };
       VisitValidRuns(compare_runs);
     } else {
@@ -420,7 +420,8 @@ class RangeDataEqualsImpl {
     const CType* right_values = right_.GetValues<CType>(1);
     VisitValidRuns([&](int64_t i, int64_t length) {
       return memcmp(left_values + left_start_idx_ + i,
-                    right_values + right_start_idx_ + i, length * sizeof(CType)) == 0;
+                    right_values + right_start_idx_ + i,
+                    static_cast<size_t>(length * sizeof(CType))) == 0;
     });
     return Status::OK();
   }
@@ -444,7 +445,8 @@ class RangeDataEqualsImpl {
     if (left_data != nullptr && right_data != nullptr) {
       const auto compare_ranges = [&](int64_t left_offset, int64_t right_offset,
                                       int64_t length) -> bool {
-        return memcmp(left_data + left_offset, right_data + right_offset, length) == 0;
+        return memcmp(left_data + left_offset, right_data + right_offset,
+                      static_cast<size_t>(length)) == 0;
       };
       CompareWithOffsets<typename TypeClass::offset_type>(1, compare_ranges);
     } else {

@@ -142,7 +142,7 @@ void Hashing32::HashFixedLenImp(uint32_t num_rows, uint64_t length, const uint8_
     uint32_t acc1, acc2, acc3, acc4;
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-           length - (num_stripes - 1) * kStripeSize);
+           static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     ProcessLastStripe(mask1, mask2, mask3, mask4,
                       reinterpret_cast<const uint8_t*>(last_stripe_copy), &acc1, &acc2,
                       &acc3, &acc4);
@@ -214,7 +214,7 @@ void Hashing32::HashVarLenImp(uint32_t num_rows, const T* offsets,
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     if (length > 0) {
       memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-             length - (num_stripes - 1) * kStripeSize);
+             static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     }
     if (num_stripes > 0) {
       ProcessLastStripe(mask1, mask2, mask3, mask4,
@@ -355,7 +355,7 @@ void Hashing32::HashInt(bool combine_hashes, uint32_t num_keys, uint64_t length_
 void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t num_rows,
                           uint64_t length, const uint8_t* keys, uint32_t* hashes,
                           uint32_t* hashes_temp_for_combine) {
-  if (ARROW_POPCOUNT64(length) == 1 && length <= sizeof(uint64_t)) {
+  if (bit_util::PopCount(length) == 1 && length <= sizeof(uint64_t)) {
     HashInt(combine_hashes, num_rows, length, keys, hashes);
     return;
   }
@@ -608,7 +608,7 @@ void Hashing64::HashFixedLenImp(uint32_t num_rows, uint64_t length, const uint8_
     uint64_t acc1, acc2, acc3, acc4;
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-           length - (num_stripes - 1) * kStripeSize);
+           static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     ProcessLastStripe(mask1, mask2, mask3, mask4,
                       reinterpret_cast<const uint8_t*>(last_stripe_copy), &acc1, &acc2,
                       &acc3, &acc4);
@@ -679,7 +679,7 @@ void Hashing64::HashVarLenImp(uint32_t num_rows, const T* offsets,
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     if (length > 0) {
       memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-             length - (num_stripes - 1) * kStripeSize);
+             static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     }
     if (num_stripes > 0) {
       ProcessLastStripe(mask1, mask2, mask3, mask4,
@@ -801,7 +801,7 @@ void Hashing64::HashInt(bool combine_hashes, uint32_t num_keys, uint64_t length_
 
 void Hashing64::HashFixed(bool combine_hashes, uint32_t num_rows, uint64_t length,
                           const uint8_t* keys, uint64_t* hashes) {
-  if (ARROW_POPCOUNT64(length) == 1 && length <= sizeof(uint64_t)) {
+  if (bit_util::PopCount(length) == 1 && length <= sizeof(uint64_t)) {
     HashInt(combine_hashes, num_rows, length, keys, hashes);
     return;
   }

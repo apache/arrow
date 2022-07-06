@@ -45,7 +45,7 @@ namespace arrow {
 namespace io {
 
 std::vector<uint8_t> RandomData(int64_t size) {
-  std::vector<uint8_t> buffer(size);
+  std::vector<uint8_t> buffer(static_cast<size_t>(size));
   random_bytes(size, 0, buffer.data());
   return buffer;
 }

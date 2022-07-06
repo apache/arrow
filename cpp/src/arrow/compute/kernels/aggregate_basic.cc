@@ -293,7 +293,7 @@ struct ProductImpl : public ScalarAggregator {
   Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
       const ArraySpan& data = batch[0].array;
-      this->count += data.length - data.GetNullCount();
+      this->count += static_cast<size_t>(data.length - data.GetNullCount());
       this->nulls_observed = this->nulls_observed || data.GetNullCount();
 
       if (!options.skip_nulls && this->nulls_observed) {
@@ -310,7 +310,7 @@ struct ProductImpl : public ScalarAggregator {
           [] {});
     } else {
       const Scalar& data = *batch[0].scalar;
-      this->count += data.is_valid * batch.length;
+      this->count += static_cast<size_t>(data.is_valid * batch.length);
       this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
         for (int64_t i = 0; i < batch.length; i++) {

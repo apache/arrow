@@ -913,9 +913,9 @@ class MessageDecoder::MessageDecoderImpl {
       auto data = chunk->data();
       auto data_size = chunk->size();
       auto copy_size = std::min(required_size, data_size);
-      memcpy(static_cast<uint8_t*>(out) + offset, data, copy_size);
+      memcpy(static_cast<uint8_t*>(out) + offset, data, static_cast<size_t>(copy_size));
       n_used_chunks++;
-      offset += copy_size;
+      offset += static_cast<size_t>(copy_size);
       required_size -= copy_size;
       if (required_size == 0) {
         if (data_size != copy_size) {

@@ -679,17 +679,17 @@ inline void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
 template <typename TestType>
 inline void PrimitiveTypedTest<TestType>::SetupValuesOut(int64_t num_values) {
   values_out_.clear();
-  values_out_.resize(num_values);
+  values_out_.resize(static_cast<size_t>(num_values));
   values_out_ptr_ = values_out_.data();
 }
 
 template <>
 inline void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
   values_out_.clear();
-  values_out_.resize(num_values);
+  values_out_.resize(static_cast<size_t>(num_values));
 
   bool_buffer_out_.clear();
-  bool_buffer_out_.resize(num_values);
+  bool_buffer_out_.resize(static_cast<size_t>(num_values));
   // Write once to all values so we can copy it without getting Valgrind errors
   // about uninitialised values.
   std::fill(bool_buffer_out_.begin(), bool_buffer_out_.end(), true);
@@ -699,8 +699,8 @@ inline void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) 
 template <typename TestType>
 inline void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values,
                                                        uint32_t seed) {
-  def_levels_.resize(num_values);
-  values_.resize(num_values);
+  def_levels_.resize(static_cast<size_t>(num_values));
+  values_.resize(static_cast<size_t>(num_values));
 
   InitValues<c_type>(static_cast<int>(num_values), seed, values_, buffer_);
   values_ptr_ = values_.data();
@@ -711,11 +711,11 @@ inline void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values,
 template <>
 inline void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values,
                                                           uint32_t seed) {
-  def_levels_.resize(num_values);
-  values_.resize(num_values);
+  def_levels_.resize(static_cast<size_t>(num_values));
+  values_.resize(static_cast<size_t>(num_values));
 
   InitValues<c_type>(static_cast<int>(num_values), seed, values_, buffer_);
-  bool_buffer_.resize(num_values);
+  bool_buffer_.resize(static_cast<size_t>(num_values));
   std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
   values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());
 

@@ -120,7 +120,7 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
 
   auto len = left->length();
   std::vector<int64_t> array_indices = {-1};  // sentinel for make_input
-  std::vector<int64_t> scalar_indices(len);
+  std::vector<int64_t> scalar_indices(static_cast<size_t>(len));
   std::iota(scalar_indices.begin(), scalar_indices.end(), 0);
   auto make_input = [&](const std::shared_ptr<Array>& array, int64_t index, Datum* input,
                         Datum* input_broadcast, std::string* trace) {

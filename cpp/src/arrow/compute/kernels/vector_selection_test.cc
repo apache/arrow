@@ -376,7 +376,7 @@ Comparator<CType>* GetComparator(CompareOperator op) {
 template <typename T, typename Fn, typename CType = typename TypeTraits<T>::CType>
 std::shared_ptr<Array> CompareAndFilter(const CType* data, int64_t length, Fn&& fn) {
   std::vector<CType> filtered;
-  filtered.reserve(length);
+  filtered.reserve(static_cast<size_t>(length));
   std::copy_if(data, data + length, std::back_inserter(filtered), std::forward<Fn>(fn));
   std::shared_ptr<Array> filtered_array;
   ArrayFromVector<T, CType>(filtered, &filtered_array);
@@ -1904,9 +1904,9 @@ struct TestDropNullKernelTyped : public TestDropNullKernel {
   // Slice `array` into multiple chunks along `offsets`
   ArrayVector Slices(const std::shared_ptr<Array>& array,
                      const std::shared_ptr<Int32Array>& offsets) {
-    ArrayVector slices(offsets->length() - 1);
+    ArrayVector slices(static_cast<size_t>(offsets->length() - 1));
     for (int64_t i = 0; i != static_cast<int64_t>(slices.size()); ++i) {
-      slices[i] =
+      slices[static_cast<size_t>(i)] =
           array->Slice(offsets->Value(i), offsets->Value(i + 1) - offsets->Value(i));
     }
     return slices;

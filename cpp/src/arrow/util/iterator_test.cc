@@ -433,7 +433,7 @@ TEST(ReadaheadIterator, Trace) {
   tracing->AssertValuesStartwith({1, 2, 3, 4, 5, 6, 7, 8, {}});
   // A couple more EOF values may have been emitted
   const auto& values = tracing->values();
-  ASSERT_LE(values.size(), 11);
+  ASSERT_LE(values.size(), static_cast<size_t>(11));
   for (size_t i = 9; i < values.size(); ++i) {
     ASSERT_EQ(values[i], TestInt());
   }

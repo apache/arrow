@@ -58,12 +58,12 @@ void CheckStringArray(const ArrayType& array, const std::vector<std::string>& st
   int32_t value_pos = 0;
   for (int i = 0; i < length; ++i) {
     auto j = i % base_length;
-    if (is_valid[j]) {
+    if (is_valid[static_cast<size_t>(j)]) {
       ASSERT_FALSE(array.IsNull(i));
       auto view = array.GetView(i);
       ASSERT_EQ(value_pos, array.value_offset(i));
-      ASSERT_EQ(strings[j].size(), view.size());
-      ASSERT_EQ(util::string_view(strings[j]), view);
+      ASSERT_EQ(strings[static_cast<size_t>(j)].size(), view.size());
+      ASSERT_EQ(util::string_view(strings[static_cast<size_t>(j)]), view);
       value_pos += static_cast<int32_t>(view.size());
     } else {
       ASSERT_TRUE(array.IsNull(i));
@@ -109,7 +109,7 @@ class TestStringArray : public ::testing::Test {
 
   void TestArrayIndexOperator() {
     const auto& arr = *strings_;
-    for (int64_t i = 0; i < arr.length(); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(arr.length()); ++i) {
       if (valid_bytes_[i]) {
         ASSERT_TRUE(arr[i].has_value());
         ASSERT_EQ(expected_[i], arr[i].value());

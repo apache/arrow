@@ -800,7 +800,7 @@ class TestParquetIO : public ParquetIOTestBase {
   void PrepareListTable(int64_t size, bool nullable_lists, bool nullable_elements,
                         int64_t null_count, std::shared_ptr<Table>* out) {
     std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(size * size, nullable_elements ? null_count : 0,
+    ASSERT_OK(NullableArray<TestType>(static_cast<size_t>(size * size), nullable_elements ? static_cast<size_t>(null_count) : 0,
                                       kDefaultSeed, &values));
     // Also test that slice offsets are respected
     values = values->Slice(5, values->length() - 5);
@@ -814,7 +814,7 @@ class TestParquetIO : public ParquetIOTestBase {
                               bool nullable_lists, bool nullable_elements,
                               int64_t null_count, std::shared_ptr<Table>* out) {
     std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(size * 6, nullable_elements ? null_count : 0,
+    ASSERT_OK(NullableArray<TestType>(static_cast<size_t>(size * 6), nullable_elements ? static_cast<size_t>(null_count) : 0,
                                       kDefaultSeed, &values));
     std::shared_ptr<ListArray> lists;
     ASSERT_OK(MakeListArray(values, size * 3, nullable_lists ? null_count : 0, "item",
@@ -849,7 +849,7 @@ TYPED_TEST_SUITE(TestParquetIO, TestTypes);
 
 TYPED_TEST(TestParquetIO, SingleColumnRequiredWrite) {
   std::shared_ptr<Array> values;
-  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  ASSERT_OK(NonNullArray<TypeParam>(static_cast<size_t>(SMALL_SIZE), &values));
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::REQUIRED);
@@ -3971,7 +3971,7 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   std::tie(filename, decimal_type) = GetParam();
 
   path += "/" + filename;
-  ASSERT_GT(path.size(), 0);
+  ASSERT_GT(path.size(), static_cast<size_t>(0));
 
   auto pool = ::arrow::default_memory_pool();
 

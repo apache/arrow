@@ -135,7 +135,7 @@ std::shared_ptr<Buffer> RandomArrayGenerator::NullBitmap(int64_t size,
 
   GenOpt null_gen(seed(), 0, 1, null_probability);
   std::shared_ptr<Buffer> bitmap = *AllocateEmptyBitmap(size);
-  null_gen.GenerateBitmap(bitmap->mutable_data(), size, nullptr);
+  null_gen.GenerateBitmap(bitmap->mutable_data(), static_cast<size_t>(size), nullptr);
 
   return bitmap;
 }
@@ -160,10 +160,12 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
 
   int64_t null_count = 0;
   buffers[0] = *AllocateEmptyBitmap(size);
-  null_gen.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
+  null_gen.GenerateBitmap(buffers[0]->mutable_data(), static_cast<size_t>(size),
+                          &null_count);
 
   buffers[1] = *AllocateEmptyBitmap(size);
-  value_gen.GenerateBitmap(buffers[1]->mutable_data(), size, nullptr);
+  value_gen.GenerateBitmap(buffers[1]->mutable_data(), static_cast<size_t>(size),
+                           nullptr);
 
   auto array_data = ArrayData::Make(arrow::boolean(), size, buffers, null_count);
   return std::make_shared<BooleanArray>(array_data);
@@ -184,12 +186,13 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
 
   int64_t null_count = 0;
   buffers[0] = *AllocateEmptyBitmap(size);
-  options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
+  options.GenerateBitmap(buffers[0]->mutable_data(), static_cast<size_t>(size),
+                         &null_count);
 
   buffers[1] = *AllocateBuffer(sizeof(CType) * size);
-  options.GenerateData(buffers[1]->mutable_data(), size);
+  options.GenerateData(buffers[1]->mutable_data(), static_cast<size_t>(size));
   if (std::is_same<ArrowType, Date64Type>::value) {
-    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
+    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), static_cast<size_t>(size));
   }
 
   auto array_data = ArrayData::Make(type, size, buffers, null_count);
@@ -366,7 +369,7 @@ static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int
 
   for (int64_t i = 0; i < size; ++i) {
     if (lengths->IsValid(i)) {
-      options.GenerateData(str_buffer.data(), lengths->Value(i));
+      options.GenerateData(str_buffer.data(), static_cast<size_t>(lengths->Value(i)));
       ABORT_NOT_OK(builder.Append(str_buffer.data(), lengths->Value(i)));
     } else {
       ABORT_NOT_OK(builder.AppendNull());
@@ -449,8 +452,10 @@ std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
   int64_t null_count = 0;
   auto null_bitmap = *AllocateEmptyBitmap(size);
   auto data_buffer = *AllocateBuffer(size * byte_width);
-  options.GenerateBitmap(null_bitmap->mutable_data(), size, &null_count);
-  options.GenerateData(data_buffer->mutable_data(), size * byte_width);
+  options.GenerateBitmap(null_bitmap->mutable_data(), static_cast<size_t>(size),
+                         &null_count);
+  options.GenerateData(data_buffer->mutable_data(),
+                       static_cast<size_t>(size * byte_width));
 
   auto type = fixed_size_binary(byte_width);
   return std::make_shared<FixedSizeBinaryArray>(type, size, std::move(data_buffer),
@@ -474,7 +479,7 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
 
   buffers[0] = *AllocateEmptyBitmap(size);
   uint8_t* null_bitmap = buffers[0]->mutable_data();
-  options.GenerateBitmap(null_bitmap, size, &null_count);
+  options.GenerateBitmap(null_bitmap, static_cast<size_t>(size), &null_count);
   // Make sure the first and last entry are non-null
   for (const int64_t offset : std::vector<int64_t>{0, size - 1}) {
     if (!arrow::bit_util::GetBit(null_bitmap, offset)) {
@@ -486,7 +491,7 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
   buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
   auto data =
       reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
-  options.GenerateTypedData(data, size);
+  options.GenerateTypedData(data, static_cast<size_t>(size));
   // Ensure offsets are in increasing order
   std::sort(data, data + size);
   // Ensure first and last offsets are as required
@@ -977,7 +982,7 @@ void rand_day_millis(int64_t N, std::vector<DayTimeIntervalType::DayMilliseconds
   arrow::random::pcg32_fast gen(random_seed);
   std::uniform_int_distribution<int32_t> d(std::numeric_limits<int32_t>::min(),
                                            std::numeric_limits<int32_t>::max());
-  out->resize(N, {});
+  out->resize(static_cast<size_t>(N), {});
   std::generate(out->begin(), out->end(), [&d, &gen] {
     DayTimeIntervalType::DayMilliseconds tmp;
     tmp.days = d(gen);
@@ -992,7 +997,7 @@ void rand_month_day_nanos(int64_t N,
   arrow::random::pcg32_fast gen(random_seed);
   std::uniform_int_distribution<int64_t> d(std::numeric_limits<int64_t>::min(),
                                            std::numeric_limits<int64_t>::max());
-  out->resize(N, {});
+  out->resize(static_cast<size_t>(N), {});
   std::generate(out->begin(), out->end(), [&d, &gen] {
     MonthDayNanoIntervalType::MonthDayNanos tmp;
     tmp.months = static_cast<int32_t>(d(gen));

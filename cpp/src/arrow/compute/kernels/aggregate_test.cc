@@ -3347,7 +3347,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
       if (out_array->type()->Equals(float64())) {
         const double* quantiles = out_array->data()->GetValues<double>(1);
-        for (int64_t j = 0; j < out_array->length(); ++j) {
+        for (size_t j = 0; j < static_cast<size_t>(out_array->length()); ++j) {
           const auto& numeric_scalar =
               checked_pointer_cast<DoubleScalar>(expected[j][i].scalar());
           ASSERT_TRUE((quantiles[j] == numeric_scalar->value) ||
@@ -3356,7 +3356,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
       } else {
         AssertTypeEqual(out_array->type(), type_singleton());
         const CType* quantiles = out_array->data()->GetValues<CType>(1);
-        for (int64_t j = 0; j < out_array->length(); ++j) {
+        for (size_t j = 0; j < static_cast<size_t>(out_array->length()); ++j) {
           const auto& numeric_scalar =
               checked_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
           ASSERT_EQ(quantiles[j], numeric_scalar->value);
@@ -3743,25 +3743,25 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
       const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
     // copy and sort input chunked array
     int64_t index = 0;
-    std::vector<CType> input(chunked.length() - chunked.null_count());
+    std::vector<CType> input(static_cast<size_t>(chunked.length() - chunked.null_count()));
     for (const auto& array : chunked.chunks()) {
       const CType* values = array->data()->GetValues<CType>(1);
       const auto bitmap = array->null_bitmap_data();
       for (int64_t i = 0; i < array->length(); ++i) {
         if ((!bitmap || bit_util::GetBit(bitmap, array->data()->offset + i)) &&
-            !std::isnan(static_cast<double>(values[i]))) {
-          input[index++] = values[i];
+            !std::isnan(static_cast<double>(values[static_cast<size_t>(i)]))) {
+          input[static_cast<size_t>(index++)] = values[static_cast<size_t>(i)];
         }
       }
     }
-    input.resize(index);
+    input.resize(static_cast<size_t>(index));
     std::sort(input.begin(), input.end());
 
     std::vector<std::vector<Datum>> output(quantiles.size(),
                                            std::vector<Datum>(interpolations.size()));
-    for (uint64_t i = 0; i < interpolations.size(); ++i) {
+    for (size_t i = 0; i < interpolations.size(); ++i) {
       const auto interp = interpolations[i];
-      for (uint64_t j = 0; j < quantiles.size(); ++j) {
+      for (size_t j = 0; j < quantiles.size(); ++j) {
         output[j][i] = GetQuantile(input, quantiles[j], interp);
       }
     }
@@ -3776,29 +3776,29 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
 
     switch (interp) {
       case QuantileOptions::LOWER:
-        return Datum(input[lower_index]);
+        return Datum(input[static_cast<size_t>(lower_index)]);
       case QuantileOptions::HIGHER:
-        return Datum(input[lower_index + (fraction != 0)]);
+        return Datum(input[static_cast<size_t>(lower_index + (fraction != 0))]);
       case QuantileOptions::NEAREST:
         if (fraction < 0.5) {
-          return Datum(input[lower_index]);
+          return Datum(input[static_cast<size_t>(lower_index)]);
         } else if (fraction > 0.5) {
-          return Datum(input[lower_index + 1]);
+          return Datum(input[static_cast<size_t>(lower_index + 1)]);
         } else {
-          return Datum(input[lower_index + (lower_index & 1)]);
+          return Datum(input[static_cast<size_t>(lower_index + (lower_index & 1))]);
         }
       case QuantileOptions::LINEAR:
         if (fraction == 0) {
-          return Datum(input[lower_index] * 1.0);
+          return Datum(input[static_cast<size_t>(lower_index)] * 1.0);
         } else {
-          return Datum(fraction * input[lower_index + 1] +
-                       (1 - fraction) * input[lower_index]);
+          return Datum(fraction * input[static_cast<size_t>(lower_index + 1)] +
+                       (1 - fraction) * input[static_cast<size_t>(lower_index)]);
         }
       case QuantileOptions::MIDPOINT:
         if (fraction == 0) {
-          return Datum(input[lower_index] * 1.0);
+          return Datum(input[static_cast<size_t>(lower_index)] * 1.0);
         } else {
-          return Datum(input[lower_index] / 2.0 + input[lower_index + 1] / 2.0);
+          return Datum(input[static_cast<size_t>(lower_index)] / 2.0 + input[static_cast<size_t>(lower_index + 1)] / 2.0);
         }
       default:
         return Datum(NAN);

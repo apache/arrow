@@ -114,7 +114,8 @@ struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t i) {
           ARROW_UNUSED(i);
-          auto value = util::string_view(data + cur_offset, *offsets - cur_offset);
+          auto value = util::string_view(data + cur_offset,
+                                         static_cast<size_t>(*offsets - cur_offset));
           cur_offset = *offsets++;
           return valid_func(value);
         },
@@ -146,8 +147,10 @@ struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
     VisitBitBlocksVoid(
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t i) {
-          auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
-                                         offsets[i + 1] - offsets[i]);
+          auto value = util::string_view(
+              reinterpret_cast<const char*>(data + offsets[static_cast<size_t>(i)]),
+              static_cast<size_t>(offsets[static_cast<size_t>(i) + 1] -
+                                  offsets[static_cast<size_t>(i)]));
           valid_func(value);
         },
         std::forward<NullFunc>(null_func));

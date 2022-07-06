@@ -108,9 +108,9 @@ Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
   auto array = std::static_pointer_cast<ArrayType>((swap ? lhs : rhs).make_array());
   auto value = std::static_pointer_cast<ScalarType>((swap ? rhs : lhs).scalar())->value;
 
-  std::vector<bool> bitmap(array->length());
+  std::vector<bool> bitmap(static_cast<size_t>(array->length()));
   for (int64_t i = 0; i < array->length(); i++) {
-    bitmap[i] = swap ? SlowCompare(options.op, array->Value(i), value)
+    bitmap[static_cast<size_t>(i)] = swap ? SlowCompare(options.op, array->Value(i), value)
                      : SlowCompare(options.op, value, array->Value(i));
   }
 
@@ -119,11 +119,11 @@ Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
   if (array->null_count() == 0) {
     ArrayFromVector<BooleanType>(bitmap, &result);
   } else {
-    std::vector<bool> null_bitmap(array->length());
+    std::vector<bool> null_bitmap(static_cast<size_t>(array->length()));
     auto reader =
         BitmapReader(array->null_bitmap_data(), array->offset(), array->length());
     for (int64_t i = 0; i < array->length(); i++, reader.Next()) {
-      null_bitmap[i] = reader.IsSet();
+      null_bitmap[static_cast<size_t>(i)] = reader.IsSet();
     }
     ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
   }
@@ -139,9 +139,9 @@ Datum SimpleScalarArrayCompare<StringType>(CompareOptions options, const Datum& 
   auto value = util::string_view(
       *std::static_pointer_cast<StringScalar>((swap ? rhs : lhs).scalar())->value);
 
-  std::vector<bool> bitmap(array->length());
+  std::vector<bool> bitmap(static_cast<size_t>(array->length()));
   for (int64_t i = 0; i < array->length(); i++) {
-    bitmap[i] = swap ? SlowCompare(options.op, array->GetView(i), value)
+    bitmap[static_cast<size_t>(i)] = swap ? SlowCompare(options.op, array->GetView(i), value)
                      : SlowCompare(options.op, value, array->GetView(i));
   }
 
@@ -150,11 +150,11 @@ Datum SimpleScalarArrayCompare<StringType>(CompareOptions options, const Datum& 
   if (array->null_count() == 0) {
     ArrayFromVector<BooleanType>(bitmap, &result);
   } else {
-    std::vector<bool> null_bitmap(array->length());
+    std::vector<bool> null_bitmap(static_cast<size_t>(array->length()));
     auto reader =
         BitmapReader(array->null_bitmap_data(), array->offset(), array->length());
     for (int64_t i = 0; i < array->length(); i++, reader.Next()) {
-      null_bitmap[i] = reader.IsSet();
+      null_bitmap[static_cast<size_t>(i)] = reader.IsSet();
     }
     ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
   }
@@ -173,10 +173,10 @@ std::vector<bool> NullBitmapFromArrays(const ArrayType& lhs, const ArrayType& rh
   };
 
   const int64_t length = lhs.length();
-  std::vector<bool> null_bitmap(length);
+  std::vector<bool> null_bitmap(static_cast<size_t>(length));
 
   for (int64_t i = 0; i < length; i++) {
-    null_bitmap[i] = left_lambda(i) && right_lambda(i);
+    null_bitmap[static_cast<size_t>(i)] = left_lambda(i) && right_lambda(i);
   }
 
   return null_bitmap;
@@ -191,9 +191,9 @@ Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
   auto r_array = std::static_pointer_cast<ArrayType>(rhs.make_array());
   const int64_t length = l_array->length();
 
-  std::vector<bool> bitmap(length);
+  std::vector<bool> bitmap(static_cast<size_t>(length));
   for (int64_t i = 0; i < length; i++) {
-    bitmap[i] = SlowCompare(options.op, l_array->Value(i), r_array->Value(i));
+    bitmap[static_cast<size_t>(i)] = SlowCompare(options.op, l_array->Value(i), r_array->Value(i));
   }
 
   std::shared_ptr<Array> result;
@@ -215,9 +215,9 @@ Datum SimpleArrayArrayCompare<StringType>(CompareOptions options, const Datum& l
   auto r_array = std::static_pointer_cast<StringArray>(rhs.make_array());
   const int64_t length = l_array->length();
 
-  std::vector<bool> bitmap(length);
+  std::vector<bool> bitmap(static_cast<size_t>(length));
   for (int64_t i = 0; i < length; i++) {
-    bitmap[i] = SlowCompare(options.op, l_array->GetView(i), r_array->GetView(i));
+    bitmap[static_cast<size_t>(i)] = SlowCompare(options.op, l_array->GetView(i), r_array->GetView(i));
   }
 
   std::shared_ptr<Array> result;

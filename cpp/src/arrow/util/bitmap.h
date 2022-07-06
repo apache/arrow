@@ -208,7 +208,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
       assert(
           std::all_of(offsets, offsets + N, [](int64_t offset) { return offset == 0; }));
 
-      for (int64_t word_i = 0; word_i < whole_word_count; ++word_i) {
+      for (size_t word_i = 0; word_i < static_cast<size_t>(whole_word_count); ++word_i) {
         for (size_t i = 0; i < N; ++i) {
           visited_words[i] = words[i][word_i];
         }
@@ -220,7 +220,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
       // word_i such that words[i][word_i] and words[i][word_i + 1] are lie entirely
       // within the bitmap for all i
-      for (int64_t word_i = 0; word_i < whole_word_count - 1; ++word_i) {
+      for (size_t word_i = 0; word_i < static_cast<size_t>(whole_word_count - 1);
+           ++word_i) {
         for (size_t i = 0; i < N; ++i) {
           if (offsets[i] == 0) {
             visited_words[i] = words[i][word_i];
@@ -389,7 +390,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   util::bytes_view bytes() const {
     auto byte_offset = offset_ / 8;
     auto byte_count = bit_util::CeilDiv(offset_ + length_, 8) - byte_offset;
-    return util::bytes_view(data_ + byte_offset, byte_count);
+    return util::bytes_view(data_ + byte_offset, static_cast<size_t>(byte_count));
   }
 
  private:
@@ -414,7 +415,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
                                     static_cast<int64_t>(sizeof(Word))) -
         words_addr;
     return View<Word>(reinterpret_cast<const Word*>(words_addr),
-                      word_byte_count / sizeof(Word));
+                      static_cast<size_t>(word_byte_count / sizeof(Word)));
   }
 
   /// offset of first bit relative to words<Word>().data()

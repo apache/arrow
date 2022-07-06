@@ -98,10 +98,10 @@ class ConcreteColumnBuilder : public ColumnBuilder {
   Status SetChunkUnlocked(int64_t chunk_index,
                           Result<std::shared_ptr<Array>> maybe_array) {
     // Should not insert an already built chunk
-    DCHECK_EQ(chunks_[chunk_index], nullptr);
+    DCHECK_EQ(chunks_[static_cast<size_t>(chunk_index)], nullptr);
 
     if (maybe_array.ok()) {
-      chunks_[chunk_index] = *std::move(maybe_array);
+      chunks_[static_cast<size_t>(chunk_index)] = *std::move(maybe_array);
       return Status::OK();
     } else {
       return WrapConversionError(maybe_array.status());
@@ -258,7 +258,7 @@ void InferringColumnBuilder::ScheduleConvertChunk(int64_t chunk_index) {
 Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
   std::unique_lock<std::mutex> lock(mutex_);
   std::shared_ptr<Converter> converter = converter_;
-  std::shared_ptr<BlockParser> parser = parsers_[chunk_index];
+  std::shared_ptr<BlockParser> parser = parsers_[static_cast<size_t>(chunk_index)];
   InferKind kind = infer_status_.kind();
 
   DCHECK_NE(parser, nullptr);
@@ -278,7 +278,7 @@ Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
     // Conversion succeeded, or failed definitively
     if (!infer_status_.can_loosen_type()) {
       // We won't try to reconvert anymore
-      parsers_[chunk_index].reset();
+      parsers_[static_cast<size_t>(chunk_index)].reset();
     }
     return SetChunkUnlocked(chunk_index, maybe_array);
   }
@@ -291,10 +291,10 @@ Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
   // (unfinished chunks will notice by themselves if they need reconverting)
   const auto nchunks = static_cast<int64_t>(chunks_.size());
   for (int64_t i = 0; i < nchunks; ++i) {
-    if (i != chunk_index && chunks_[i]) {
+    if (i != chunk_index && chunks_[static_cast<size_t>(i)]) {
       // We're assuming the chunk was converted using the wrong type
       // (which should be true unless the executor reorders tasks)
-      chunks_[i].reset();
+      chunks_[static_cast<size_t>(i)].reset();
       lock.unlock();
       ScheduleConvertChunk(i);
       lock.lock();

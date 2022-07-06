@@ -119,8 +119,8 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values,
   RETURN_NOT_OK(Reserve(length));
   DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
   int64_t i = 0;
-  data_builder_.UnsafeAppend<false>(length,
-                                    [&values, &i]() -> bool { return values[i++]; });
+  data_builder_.UnsafeAppend<false>(
+      length, [&values, &i]() -> bool { return values[static_cast<size_t>(i++)]; });
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
   return Status::OK();
 }
@@ -129,8 +129,8 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
   int64_t i = 0;
-  data_builder_.UnsafeAppend<false>(length,
-                                    [&values, &i]() -> bool { return values[i++]; });
+  data_builder_.UnsafeAppend<false>(
+      length, [&values, &i]() -> bool { return values[static_cast<size_t>(i++)]; });
   ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
 }

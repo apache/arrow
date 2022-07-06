@@ -79,7 +79,7 @@ void KeyValueMetadata::ToUnorderedMap(
     std::unordered_map<std::string, std::string>* out) const {
   DCHECK_NE(out, nullptr);
   const int64_t n = size();
-  out->reserve(n);
+  out->reserve(static_cast<size_t>(n));
   for (int64_t i = 0; i < n; ++i) {
     out->insert(std::make_pair(key(i), value(i)));
   }
@@ -100,8 +100,8 @@ Result<std::string> KeyValueMetadata::Get(const std::string& key) const {
 }
 
 Status KeyValueMetadata::Delete(int64_t index) {
-  keys_.erase(keys_.begin() + index);
-  values_.erase(values_.begin() + index);
+  keys_.erase(keys_.begin() + static_cast<size_t>(index));
+  values_.erase(values_.begin() + static_cast<size_t>(index));
   return Status::OK();
 }
 
@@ -111,7 +111,7 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
   indices.push_back(size);
 
   int64_t shift = 0;
-  for (int64_t i = 0; i < static_cast<int64_t>(indices.size() - 1); ++i) {
+  for (size_t i = 0; i < indices.size() - 1; ++i) {
     ++shift;
     const auto start = indices[i] + 1;
     const auto stop = indices[i + 1];
@@ -120,12 +120,14 @@ Status KeyValueMetadata::DeleteMany(std::vector<int64_t> indices) {
     DCHECK_GE(stop, 0);
     DCHECK_LE(stop, size);
     for (int64_t index = start; index < stop; ++index) {
-      keys_[index - shift] = std::move(keys_[index]);
-      values_[index - shift] = std::move(values_[index]);
+      keys_[static_cast<size_t>(index - shift)] =
+          std::move(keys_[static_cast<size_t>(index)]);
+      values_[static_cast<size_t>(index - shift)] =
+          std::move(values_[static_cast<size_t>(index)]);
     }
   }
-  keys_.resize(size - shift);
-  values_.resize(size - shift);
+  keys_.resize(static_cast<size_t>(size - shift));
+  values_.resize(static_cast<size_t>(size - shift));
   return Status::OK();
 }
 
@@ -168,22 +170,22 @@ int64_t KeyValueMetadata::size() const {
 const std::string& KeyValueMetadata::key(int64_t i) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(static_cast<size_t>(i), keys_.size());
-  return keys_[i];
+  return keys_[static_cast<size_t>(i)];
 }
 
 const std::string& KeyValueMetadata::value(int64_t i) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(static_cast<size_t>(i), values_.size());
-  return values_[i];
+  return values_[static_cast<size_t>(i)];
 }
 
 std::vector<std::pair<std::string, std::string>> KeyValueMetadata::sorted_pairs() const {
   std::vector<std::pair<std::string, std::string>> pairs;
-  pairs.reserve(size());
+  pairs.reserve(static_cast<size_t>(size()));
 
   auto indices = internal::ArgSort(keys_);
   for (const auto i : indices) {
-    pairs.emplace_back(keys_[i], values_[i]);
+    pairs.emplace_back(keys_[static_cast<size_t>(i)], values_[static_cast<size_t>(i)]);
   }
   return pairs;
 }
@@ -240,9 +242,9 @@ bool KeyValueMetadata::Equals(const KeyValueMetadata& other) const {
   auto indices = internal::ArgSort(keys_);
   auto other_indices = internal::ArgSort(other.keys_);
 
-  for (int64_t i = 0; i < size(); ++i) {
-    auto j = indices[i];
-    auto k = other_indices[i];
+  for (size_t i = 0; i < static_cast<size_t>(size()); ++i) {
+    auto j = static_cast<size_t>(indices[i]);
+    auto k = static_cast<size_t>(other_indices[i]);
     if (keys_[j] != other.keys_[k] || values_[j] != other.values_[k]) {
       return false;
     }
@@ -254,7 +256,7 @@ std::string KeyValueMetadata::ToString() const {
   std::stringstream buffer;
 
   buffer << "\n-- metadata --";
-  for (int64_t i = 0; i < size(); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(size()); ++i) {
     buffer << "\n" << keys_[i] << ": " << values_[i];
   }
 

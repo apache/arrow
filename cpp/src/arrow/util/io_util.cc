@@ -1439,7 +1439,8 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     PrefetchEntry(const MemoryRegion& region)  // NOLINT runtime/explicit
         : VirtualAddress(region.addr), NumberOfBytes(region.size) {}
   };
-  using PrefetchVirtualMemoryFunc = BOOL (*)(HANDLE, ULONG_PTR, PrefetchEntry*, ULONG);
+  using PrefetchVirtualMemoryFunc =
+      BOOL(__stdcall*)(HANDLE, ULONG_PTR, PrefetchEntry*, ULONG);
   static const auto prefetch_virtual_memory = reinterpret_cast<PrefetchVirtualMemoryFunc>(
       GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "PrefetchVirtualMemory"));
   if (prefetch_virtual_memory != nullptr) {

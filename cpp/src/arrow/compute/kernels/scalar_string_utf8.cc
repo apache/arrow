@@ -558,12 +558,12 @@ struct Utf8NormalizeBase {
     ARROW_ASSIGN_OR_RAISE(const auto n_codepoints, DecomposeIntoScratch(v));
     // Encode normalized codepoints directly into the output
     int64_t n_bytes = 0;
-    for (int64_t i = 0; i < n_codepoints; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(n_codepoints); ++i) {
       n_bytes += ::arrow::util::UTF8EncodedLength(codepoints_[i]);
     }
     RETURN_NOT_OK(data_builder->Reserve(n_bytes));
     uint8_t* out = data_builder->mutable_data() + data_builder->length();
-    for (int64_t i = 0; i < n_codepoints; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(n_codepoints); ++i) {
       out = ::arrow::util::UTF8Encode(out, codepoints_[i]);
     }
     DCHECK_EQ(out - data_builder->mutable_data(), data_builder->length() + n_bytes);

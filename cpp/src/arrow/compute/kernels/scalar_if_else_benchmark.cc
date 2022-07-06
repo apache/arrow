@@ -290,7 +290,7 @@ std::vector<CoalesceParams> g_coalesce_params = {
 
 struct CoalesceArgs : public CoalesceParams {
   explicit CoalesceArgs(benchmark::State& state) : state_(state) {
-    const auto& params = g_coalesce_params[state.range(0)];
+    const auto& params = g_coalesce_params[static_cast<size_t>(state.range(0))];
     length = params.length;
     num_arguments = params.num_arguments;
     null_probability = params.null_probability;

@@ -77,9 +77,11 @@ struct DictionaryTraits<BooleanType> {
     const auto null_index = memo_table.GetNull();
 
     // Will iterate up to 3 times.
-    for (int64_t i = start_offset; i < memo_table.size(); i++) {
-      RETURN_NOT_OK(i == null_index ? builder.AppendNull()
-                                    : builder.Append(bool_values[i]));
+    for (size_t i = static_cast<size_t>(start_offset);
+         i < static_cast<size_t>(memo_table.size()); i++) {
+      RETURN_NOT_OK(i == static_cast<size_t>(null_index)
+                        ? builder.AppendNull()
+                        : builder.Append(bool_values[i]));
     }
 
     return builder.FinishInternal(out);

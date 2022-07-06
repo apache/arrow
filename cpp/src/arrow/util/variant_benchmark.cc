@@ -46,9 +46,9 @@ using NonTrivialVariant = arrow::util::Variant<int32_t, std::string>;
 std::vector<int32_t> MakeInts(int64_t nitems) {
   auto rng = arrow::random::RandomArrayGenerator(42);
   auto array = checked_pointer_cast<Int32Array>(rng.Int32(nitems, 0, 1 << 30));
-  std::vector<int32_t> items(nitems);
+  std::vector<int32_t> items(static_cast<size_t>(nitems));
   for (int64_t i = 0; i < nitems; ++i) {
-    items[i] = array->Value(i);
+    items[static_cast<size_t>(i)] = array->Value(i);
   }
   return items;
 }
@@ -56,9 +56,9 @@ std::vector<int32_t> MakeInts(int64_t nitems) {
 std::vector<float> MakeFloats(int64_t nitems) {
   auto rng = arrow::random::RandomArrayGenerator(42);
   auto array = checked_pointer_cast<FloatArray>(rng.Float32(nitems, 0.0, 1.0));
-  std::vector<float> items(nitems);
+  std::vector<float> items(static_cast<size_t>(nitems));
   for (int64_t i = 0; i < nitems; ++i) {
-    items[i] = array->Value(i);
+    items[static_cast<size_t>(i)] = array->Value(i);
   }
   return items;
 }
@@ -67,9 +67,9 @@ std::vector<std::string> MakeStrings(int64_t nitems) {
   auto rng = arrow::random::RandomArrayGenerator(42);
   // Some std::string's will use short string optimization, but not all...
   auto array = checked_pointer_cast<StringArray>(rng.String(nitems, 5, 40));
-  std::vector<std::string> items(nitems);
+  std::vector<std::string> items(static_cast<size_t>(nitems));
   for (int64_t i = 0; i < nitems; ++i) {
-    items[i] = array->GetString(i);
+    items[static_cast<size_t>(i)] = array->GetString(i);
   }
   return items;
 }
@@ -84,11 +84,11 @@ static void ConstructTrivialVariant(benchmark::State& state) {
       // About type selection: we ensure 50% of each type, but try to avoid
       // branch mispredictions by creating runs of the same type.
       if (i & 0x10) {
-        TrivialVariant v{ints[i]};
+        TrivialVariant v{ints[static_cast<size_t>(i)]};
         const int32_t* val = &arrow::util::get<int32_t>(v);
         benchmark::DoNotOptimize(val);
       } else {
-        TrivialVariant v{floats[i]};
+        TrivialVariant v{floats[static_cast<size_t>(i)]};
         const float* val = &arrow::util::get<float>(v);
         benchmark::DoNotOptimize(val);
       }
@@ -106,11 +106,11 @@ static void ConstructNonTrivialVariant(benchmark::State& state) {
   for (auto _ : state) {
     for (int64_t i = 0; i < N; ++i) {
       if (i & 0x10) {
-        NonTrivialVariant v{ints[i]};
+        NonTrivialVariant v{ints[static_cast<size_t>(i)]};
         const int32_t* val = &arrow::util::get<int32_t>(v);
         benchmark::DoNotOptimize(val);
       } else {
-        NonTrivialVariant v{strings[i]};
+        NonTrivialVariant v{strings[static_cast<size_t>(i)]};
         const std::string* val = &arrow::util::get<std::string>(v);
         benchmark::DoNotOptimize(val);
       }
@@ -156,9 +156,9 @@ static void VisitTrivialVariant(benchmark::State& state) {
   variants.reserve(N);
   for (int64_t i = 0; i < N; ++i) {
     if (i & 0x10) {
-      variants.emplace_back(ints[i]);
+      variants.emplace_back(ints[static_cast<size_t>(i)]);
     } else {
-      variants.emplace_back(floats[i]);
+      variants.emplace_back(floats[static_cast<size_t>(i)]);
     }
   }
 
@@ -174,9 +174,9 @@ static void VisitNonTrivialVariant(benchmark::State& state) {
   variants.reserve(N);
   for (int64_t i = 0; i < N; ++i) {
     if (i & 0x10) {
-      variants.emplace_back(ints[i]);
+      variants.emplace_back(ints[static_cast<size_t>(i)]);
     } else {
-      variants.emplace_back(strings[i]);
+      variants.emplace_back(strings[static_cast<size_t>(i)]);
     }
   }
 

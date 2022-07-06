@@ -128,7 +128,7 @@ TEST_F(TestArray, TestSliceSafe) {
   auto check_data = [](const Array& arr, const std::vector<int32_t>& expected) {
     ASSERT_EQ(arr.length(), static_cast<int64_t>(expected.size()));
     const int32_t* data = arr.data()->GetValues<int32_t>(1);
-    for (int64_t i = 0; i < arr.length(); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(arr.length()); ++i) {
       ASSERT_EQ(data[i], expected[i]);
     }
   };
@@ -1096,13 +1096,13 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
 
   for (int64_t i = 0; i < size; ++i) {
     if (nullable) {
-      ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i;
+      ASSERT_EQ(valid_bytes_[static_cast<size_t>(i)] == 0, result->IsNull(i)) << i;
     } else {
       ASSERT_FALSE(result->IsNull(i));
     }
     if (!result->IsNull(i)) {
       bool actual = bit_util::GetBit(result->values()->data(), i);
-      ASSERT_EQ(draws_[i] != 0, actual) << i;
+      ASSERT_EQ(draws_[static_cast<size_t>(i)] != 0, actual) << i;
     }
   }
   AssertArraysEqual(*result, *expected);
@@ -1282,8 +1282,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestArrayDtorDealloc) {
   this->RandomData(size);
   ASSERT_OK(this->builder_->Reserve(size));
 
-  int64_t i;
-  for (i = 0; i < size; ++i) {
+  size_t i;
+  for (i = 0; i < static_cast<size_t>(size); ++i) {
     if (valid_bytes[i] > 0) {
       ASSERT_OK(this->builder_->Append(draws[i]));
     } else {
@@ -1317,7 +1317,7 @@ TYPED_TEST(TestPrimitiveBuilder, Equality) {
   const int64_t first_valid_idx = std::distance(valid_bytes.begin(), first_valid);
   // This should be true with a very high probability, but might introduce flakiness
   ASSERT_LT(first_valid_idx, size - 1);
-  this->FlipValue(&draws[first_valid_idx]);
+  this->FlipValue(&draws[static_cast<size_t>(first_valid_idx)]);
   ASSERT_OK(MakeArray(valid_bytes, draws, size, builder, &unequal_array));
 
   // test normal equality
@@ -1500,12 +1500,12 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterNullValid) {
   this->RandomData(size);
 
   ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin(),
-                                            this->draws_.begin() + size / 2,
+                                            this->draws_.begin() + static_cast<size_t>(size / 2),
                                             static_cast<uint8_t*>(nullptr)));
 
   ASSERT_GE(size / 2, this->builder_nn_->capacity());
 
-  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + size / 2,
+  ASSERT_OK(this->builder_nn_->AppendValues(this->draws_.begin() + static_cast<size_t>(size / 2),
                                             this->draws_.end(),
                                             static_cast<uint64_t*>(nullptr)));
 
@@ -1522,7 +1522,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesLazyIter) {
   auto& valid_bytes = this->valid_bytes_;
 
   auto halve = [&draws](int64_t index) {
-    return TestFixture::TestAttrs::Modify(draws[index]);
+    return TestFixture::TestAttrs::Modify(draws[static_cast<size_t>(index)]);
   };
   auto lazy_iter = internal::MakeLazyRange(halve, size);
 
@@ -1559,12 +1559,12 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIterConverted) {
 
   auto cast_values = internal::MakeLazyRange(
       [&draws_converted](int64_t index) {
-        return static_cast<T>(draws_converted[index]);
+        return static_cast<T>(draws_converted[static_cast<size_t>(index)]);
       },
       size);
   auto cast_valid = internal::MakeLazyRange(
       [&valid_bytes_converted](int64_t index) {
-        return static_cast<bool>(valid_bytes_converted[index]);
+        return static_cast<bool>(valid_bytes_converted[static_cast<size_t>(index)]);
       },
       size);
 
@@ -1615,7 +1615,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   int64_t K = 1000;
 
   for (int64_t i = 0; i < K; ++i) {
-    is_valid.push_back(this->valid_bytes_[i] != 0);
+    is_valid.push_back(this->valid_bytes_[static_cast<size_t>(i)] != 0);
   }
   ASSERT_OK(this->builder_->AppendValues(draws.data(), K, is_valid));
   ASSERT_OK(this->builder_nn_->AppendValues(draws.data(), K));
@@ -1629,8 +1629,8 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   is_valid.clear();
   std::vector<T> partial_draws;
   for (int64_t i = K; i < size; ++i) {
-    partial_draws.push_back(draws[i]);
-    is_valid.push_back(this->valid_bytes_[i] != 0);
+    partial_draws.push_back(draws[static_cast<size_t>(i)]);
+    is_valid.push_back(this->valid_bytes_[static_cast<size_t>(i)] != 0);
   }
 
   ASSERT_OK(this->builder_->AppendValues(partial_draws, is_valid));
@@ -1826,7 +1826,7 @@ void CheckSliceApproxEquals() {
 
   // Make the draws equal in the sliced segment, but unequal elsewhere (to
   // catch not using the slice offset)
-  for (int64_t i = 10; i < 30; ++i) {
+  for (size_t i = 10; i < 30; ++i) {
     draws2[i] = draws1[i];
   }
 
@@ -2058,10 +2058,10 @@ TEST_F(TestFWBinaryArray, Builder) {
 
   int64_t nbytes = length * byte_width;
 
-  std::vector<uint8_t> data(nbytes);
+  std::vector<uint8_t> data(static_cast<size_t>(nbytes));
   random_bytes(nbytes, 0, data.data());
 
-  std::vector<uint8_t> is_valid(length);
+  std::vector<uint8_t> is_valid(static_cast<size_t>(length));
   random_null_bytes(length, 0.1, is_valid.data());
 
   const uint8_t* raw_data = data.data();
@@ -2075,7 +2075,7 @@ TEST_F(TestFWBinaryArray, Builder) {
     ASSERT_EQ(length, result.length());
 
     for (int64_t i = 0; i < result.length(); ++i) {
-      if (is_valid[i]) {
+      if (is_valid[static_cast<size_t>(i)]) {
         ASSERT_EQ(0,
                   memcmp(raw_data + byte_width * i, fw_result.GetValue(i), byte_width));
       } else {
@@ -2087,7 +2087,7 @@ TEST_F(TestFWBinaryArray, Builder) {
   // Build using iterative API
   InitBuilder(byte_width);
   for (int64_t i = 0; i < length; ++i) {
-    if (is_valid[i]) {
+    if (is_valid[static_cast<size_t>(i)]) {
       ASSERT_OK(builder_->Append(raw_data + byte_width * i));
     } else {
       ASSERT_OK(builder_->AppendNull());
@@ -2112,7 +2112,7 @@ TEST_F(TestFWBinaryArray, Builder) {
   // Build from std::string
   InitBuilder(byte_width);
   for (int64_t i = 0; i < length; ++i) {
-    if (is_valid[i]) {
+    if (is_valid[static_cast<size_t>(i)]) {
       ASSERT_OK(builder_->Append(std::string(
           reinterpret_cast<const char*>(raw_data + byte_width * i), byte_width)));
     } else {
@@ -2504,7 +2504,7 @@ TEST_F(TestAdaptiveIntBuilder, TestAssertZeroPadded) {
 }
 
 TEST_F(TestAdaptiveIntBuilder, TestAppendNull) {
-  int64_t size = 1000;
+  size_t size = 1000;
   ASSERT_OK(builder_->Append(127));
   ASSERT_EQ(0, builder_->null_count());
   for (unsigned index = 1; index < size - 1; ++index) {
@@ -2740,7 +2740,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAssertZeroPadded) {
 }
 
 TEST_F(TestAdaptiveUIntBuilder, TestAppendNull) {
-  int64_t size = 1000;
+  size_t size = 1000;
   ASSERT_OK(builder_->Append(254));
   for (unsigned index = 1; index < size - 1; ++index) {
     ASSERT_OK(builder_->AppendNull());
@@ -3531,7 +3531,7 @@ TYPED_TEST(TestPrimitiveArray, IndexOperator) {
   const auto& carray = checked_cast<typename TypeParam::ArrayType&>(*array);
 
   ASSERT_EQ(this->values_.size(), carray.length());
-  for (int64_t i = 0; i < carray.length(); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(carray.length()); ++i) {
     auto res = carray[i];
     if (this->validity_[i]) {
       ASSERT_TRUE(res.has_value());

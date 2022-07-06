@@ -61,14 +61,14 @@ struct ChunkResolver {
       return {0, index};
     }
     const auto cached_chunk = cached_chunk_.load();
-    const bool cache_hit =
-        (index >= offsets_[cached_chunk] && index < offsets_[cached_chunk + 1]);
+    const bool cache_hit = (index >= offsets_[static_cast<size_t>(cached_chunk)] &&
+                            index < offsets_[static_cast<size_t>(cached_chunk) + 1]);
     if (ARROW_PREDICT_TRUE(cache_hit)) {
-      return {cached_chunk, index - offsets_[cached_chunk]};
+      return {cached_chunk, index - offsets_[static_cast<size_t>(cached_chunk)]};
     }
     auto chunk_index = Bisect(index);
     cached_chunk_.store(chunk_index);
-    return {chunk_index, index - offsets_[chunk_index]};
+    return {chunk_index, index - offsets_[static_cast<size_t>(chunk_index)]};
   }
 
  protected:
@@ -81,7 +81,7 @@ struct ChunkResolver {
     while (n > 1) {
       const int64_t m = n >> 1;
       const int64_t mid = lo + m;
-      if (static_cast<int64_t>(index) >= offsets_[mid]) {
+      if (index >= offsets_[static_cast<size_t>(mid)]) {
         lo = mid;
         n -= m;
       } else {

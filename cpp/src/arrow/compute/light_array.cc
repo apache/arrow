@@ -238,7 +238,8 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
         AllocateResizableBuffer(
             bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes, pool_));
     memset(mutable_data(kValidityBuffer), 0,
-           bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
+           static_cast<size_t>(bit_util::BytesForBits(num_rows_allocated_new) +
+                               kNumPaddingBytes));
     if (column_metadata.is_fixed_length) {
       if (column_metadata.fixed_length == 0) {
         ARROW_ASSIGN_OR_RAISE(
@@ -247,7 +248,8 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
                 bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes,
                 pool_));
         memset(mutable_data(kFixedLengthBuffer), 0,
-               bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
+               static_cast<size_t>(bit_util::BytesForBits(num_rows_allocated_new) +
+                                   kNumPaddingBytes));
       } else {
         ARROW_ASSIGN_OR_RAISE(
             buffers_[kFixedLengthBuffer],
@@ -279,14 +281,14 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
     RETURN_NOT_OK(buffers_[kValidityBuffer]->Resize(
         bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes));
     memset(mutable_data(kValidityBuffer) + bytes_for_bits_before, 0,
-           bytes_for_bits_after - bytes_for_bits_before);
+           static_cast<size_t>(bytes_for_bits_after - bytes_for_bits_before));
 
     if (column_metadata.is_fixed_length) {
       if (column_metadata.fixed_length == 0) {
         RETURN_NOT_OK(buffers_[kFixedLengthBuffer]->Resize(
             bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes));
         memset(mutable_data(kFixedLengthBuffer) + bytes_for_bits_before, 0,
-               bytes_for_bits_after - bytes_for_bits_before);
+               static_cast<size_t>(bytes_for_bits_after - bytes_for_bits_before));
       } else {
         RETURN_NOT_OK(buffers_[kFixedLengthBuffer]->Resize(
             num_rows_allocated_new * column_metadata.fixed_length + kNumPaddingBytes));
@@ -640,7 +642,7 @@ Status ExecBatchBuilder::AppendNulls(const std::shared_ptr<DataType>& type,
       int64_t offset_begin = num_rows_before / 8 + 1;
       int64_t offset_end = bit_util::BytesForBits(num_rows_after);
       if (offset_end > offset_begin) {
-        memset(dst + offset_begin, 0, offset_end - offset_begin);
+        memset(dst + offset_begin, 0, static_cast<size_t>(offset_end - offset_begin));
       }
     } else {
       memset(dst + num_rows_before * static_cast<int64_t>(column_metadata.fixed_length),
@@ -661,7 +663,7 @@ Status ExecBatchBuilder::AppendNulls(const std::shared_ptr<DataType>& type,
   int64_t offset_begin = num_rows_before / 8 + 1;
   int64_t offset_end = bit_util::BytesForBits(num_rows_after);
   if (offset_end > offset_begin) {
-    memset(dst + offset_begin, 0, offset_end - offset_begin);
+    memset(dst + offset_begin, 0, static_cast<size_t>(offset_end - offset_begin));
   }
 
   return Status::OK();

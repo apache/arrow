@@ -47,7 +47,7 @@ static inline void AssertCOOIndex(const std::shared_ptr<Tensor>& sidx, const int
                                   const std::vector<int64_t>& expected_values) {
   int64_t n = static_cast<int64_t>(expected_values.size());
   for (int64_t i = 0; i < n; ++i) {
-    ASSERT_EQ(expected_values[i], sidx->Value<Int64Type>({nth, i}));
+    ASSERT_EQ(expected_values[static_cast<size_t>(i)], sidx->Value<Int64Type>({nth, i}));
   }
 }
 
@@ -291,7 +291,7 @@ TEST_F(TestSparseCOOTensor, CreationFromZeroTensor) {
   const auto dense_size =
       std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
                       [](int64_t a, int64_t x) { return a * x; });
-  std::vector<int64_t> dense_values(dense_size, 0);
+  std::vector<int64_t> dense_values(static_cast<size_t>(dense_size), 0);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
                        Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCOOTensor> st_zero,
@@ -751,7 +751,7 @@ TEST_F(TestSparseCSRMatrix, CreationFromZeroTensor) {
   const auto dense_size =
       std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
                       [](int64_t a, int64_t x) { return a * x; });
-  std::vector<int64_t> dense_values(dense_size, 0);
+  std::vector<int64_t> dense_values(static_cast<size_t>(dense_size), 0);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
                        Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSRMatrix> st_zero,
@@ -1086,7 +1086,7 @@ TEST_F(TestSparseCSCMatrix, CreationFromZeroTensor) {
   const auto dense_size =
       std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
                       [](int64_t a, int64_t x) { return a * x; });
-  std::vector<int64_t> dense_values(dense_size, 0);
+  std::vector<int64_t> dense_values(static_cast<size_t>(dense_size), 0);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
                        Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSCMatrix> st_zero,
@@ -1466,7 +1466,7 @@ TEST_F(TestSparseCSFTensor, CreationFromZeroTensor) {
   const auto dense_size =
       std::accumulate(this->shape_.begin(), this->shape_.end(), int64_t(1),
                       [](int64_t a, int64_t x) { return a * x; });
-  std::vector<int64_t> dense_values(dense_size, 0);
+  std::vector<int64_t> dense_values(static_cast<size_t>(dense_size), 0);
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Tensor> t_zero,
                        Tensor::Make(int64(), Buffer::Wrap(dense_values), this->shape_));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseCSFTensor> st_zero,
@@ -1488,16 +1488,16 @@ class TestSparseCSFTensorForIndexValueType
       const std::vector<std::vector<typename IndexValueType::c_type>>& indptr_values,
       const std::vector<std::vector<typename IndexValueType::c_type>>& indices_values)
       const {
-    int64_t ndim = axis_order.size();
+    size_t ndim = axis_order.size();
     std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
     std::vector<std::shared_ptr<Tensor>> indices(ndim);
 
-    for (int64_t i = 0; i < ndim - 1; ++i) {
+    for (size_t i = 0; i < ndim - 1; ++i) {
       indptr[i] = std::make_shared<Tensor>(
           TypeTraits<IndexValueType>::type_singleton(), Buffer::Wrap(indptr_values[i]),
           std::vector<int64_t>({static_cast<int64_t>(indptr_values[i].size())}));
     }
-    for (int64_t i = 0; i < ndim; ++i) {
+    for (size_t i = 0; i < ndim; ++i) {
       indices[i] = std::make_shared<Tensor>(
           TypeTraits<IndexValueType>::type_singleton(), Buffer::Wrap(indices_values[i]),
           std::vector<int64_t>({static_cast<int64_t>(indices_values[i].size())}));

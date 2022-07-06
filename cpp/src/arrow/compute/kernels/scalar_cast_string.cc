@@ -222,7 +222,7 @@ Status CastBinaryToBinaryOffsets<int32_t, int64_t>(KernelContext* ctx,
       output->buffers[1],
       ctx->Allocate((output->length + output->offset + 1) * sizeof(output_offset_type)));
   memset(output->buffers[1]->mutable_data(), 0,
-         output->offset * sizeof(output_offset_type));
+         static_cast<size_t>(output->offset * sizeof(output_offset_type)));
   ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
                               output->GetMutableValues<output_offset_type>(1),
                               output->length + 1);
@@ -250,7 +250,7 @@ Status CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
                           ctx->Allocate((output->length + output->offset + 1) *
                                         sizeof(output_offset_type)));
     memset(output->buffers[1]->mutable_data(), 0,
-           output->offset * sizeof(output_offset_type));
+           static_cast<size_t>(output->offset * sizeof(output_offset_type)));
     ::arrow::internal::CastInts(input_offsets,
                                 output->GetMutableValues<output_offset_type>(1),
                                 output->length + 1);

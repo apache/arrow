@@ -1901,12 +1901,12 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     // physically non-contiguous chunks.
     for (const auto& factory : column_factories) {
       const int64_t num_chunks = num_chunk_dist(engine);
-      ArrayVector chunks(num_chunks);
+      ArrayVector chunks(static_cast<size_t>(num_chunks));
       const auto offsets =
           checked_pointer_cast<Int32Array>(rng.Offsets(num_chunks + 1, 0, length));
       for (int64_t i = 0; i < num_chunks; ++i) {
         const auto chunk_len = offsets->Value(i + 1) - offsets->Value(i);
-        chunks[i] = factory(chunk_len);
+        chunks[static_cast<size_t>(i)] = factory(chunk_len);
       }
       columns.push_back(std::make_shared<ChunkedArray>(std::move(chunks)));
       ASSERT_EQ(columns.back()->length(), length);

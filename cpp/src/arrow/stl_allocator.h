@@ -102,7 +102,7 @@ class STLMemoryPool : public MemoryPool {
 
   Status Allocate(int64_t size, uint8_t** out) override {
     try {
-      *out = alloc_.allocate(size);
+      *out = alloc_.allocate(static_cast<size_t>(size));
     } catch (std::bad_alloc& e) {
       return Status::OutOfMemory(e.what());
     }
@@ -113,18 +113,18 @@ class STLMemoryPool : public MemoryPool {
   Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
     uint8_t* old_ptr = *ptr;
     try {
-      *ptr = alloc_.allocate(new_size);
+      *ptr = alloc_.allocate(static_cast<size_t>(new_size));
     } catch (std::bad_alloc& e) {
       return Status::OutOfMemory(e.what());
     }
-    memcpy(*ptr, old_ptr, std::min(old_size, new_size));
-    alloc_.deallocate(old_ptr, old_size);
+    memcpy(*ptr, old_ptr, static_cast<size_t>(std::min(old_size, new_size)));
+    alloc_.deallocate(old_ptr, static_cast<size_t>(old_size));
     stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size) override {
-    alloc_.deallocate(buffer, size);
+    alloc_.deallocate(buffer, static_cast<size_t>(size));
     stats_.UpdateAllocatedBytes(-size);
   }
 

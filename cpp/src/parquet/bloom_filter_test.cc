@@ -168,7 +168,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
   // 1024 bytes (bitset) + 4 bytes (hash) + 4 bytes (algorithm) + 4 bytes (length)
   EXPECT_EQ(size, 1036);
 
-  std::unique_ptr<uint8_t[]> bitset(new uint8_t[size]());
+  std::unique_ptr<uint8_t[]> bitset(new uint8_t[static_cast<size_t>(size)]());
   PARQUET_ASSIGN_OR_THROW(auto buffer, handle->Read(size));
 
   ::arrow::io::BufferReader source(buffer);

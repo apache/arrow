@@ -395,7 +395,7 @@ TEST_F(TestRecordBatchReader, RangeForLoop) {
   for (auto maybe_batch : *reader_) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
-    AssertBatchesEqual(*batch, *batches_[i++]);
+    AssertBatchesEqual(*batch, *batches_[static_cast<size_t>(i++)]);
   }
   ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
 }
@@ -406,7 +406,7 @@ TEST_F(TestRecordBatchReader, BeginEndForLoop) {
   for (auto it = reader_->begin(); it != reader_->end(); ++it) {
     ASSERT_OK_AND_ASSIGN(auto batch, *it);
     ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
-    AssertBatchesEqual(*batch, *batches_[i++]);
+    AssertBatchesEqual(*batch, *batches_[static_cast<size_t>(i++)]);
   }
   ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
 }

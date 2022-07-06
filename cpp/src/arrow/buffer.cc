@@ -203,7 +203,7 @@ Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
   ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length, pool));
   auto out_data = out->mutable_data();
   for (const auto& buffer : buffers) {
-    std::memcpy(out_data, buffer->data(), buffer->size());
+    std::memcpy(out_data, buffer->data(), static_cast<size_t>(buffer->size()));
     out_data += buffer->size();
   }
   return std::move(out);

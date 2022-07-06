@@ -825,7 +825,8 @@ void EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows, const RowTableI
     non_nulls[0] |= 0xff << (bit_offset);
     if (bit_offset + num_rows > 8) {
       int bits_in_first_byte = 8 - bit_offset;
-      memset(non_nulls + 1, 0xff, bit_util::BytesForBits(num_rows - bits_in_first_byte));
+      memset(non_nulls + 1, 0xff,
+             static_cast<size_t>(bit_util::BytesForBits(num_rows - bits_in_first_byte)));
     }
     for (uint32_t row = 0; row < num_rows; ++row) {
       uint32_t null_masks_bit_id =

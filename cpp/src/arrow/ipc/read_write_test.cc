@@ -804,7 +804,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
 
   // Sparse Union
   auto union_type = sparse_union({field("f0", a0->type())}, {0});
-  std::vector<int32_t> type_ids(a0->length());
+  std::vector<int32_t> type_ids(static_cast<size_t>(a0->length()));
   std::shared_ptr<Buffer> ids_buffer;
   ASSERT_OK(CopyBufferFromVector(type_ids, default_memory_pool(), &ids_buffer));
   a1 = std::make_shared<SparseUnionArray>(union_type, a0->length(), struct_children,

@@ -491,7 +491,8 @@ class MemoryMappedFile::MemoryMap
     if (map_len_ > 0) {
       void* result;
       auto data = region_->data();
-      RETURN_NOT_OK(::arrow::internal::MemoryMapRemap(data, map_len_, new_size,
+      RETURN_NOT_OK(::arrow::internal::MemoryMapRemap(data, static_cast<size_t>(map_len_),
+                                                      static_cast<size_t>(new_size),
                                                       file_->fd(), &result));
       region_->Detach();  // avoid munmap() on destruction
       region_ = std::make_shared<Region>(shared_from_this(),

@@ -70,7 +70,7 @@ class BufferedBase {
 
   void AppendToBuffer(const void* data, int64_t nbytes) {
     DCHECK_LE(buffer_pos_ + nbytes, buffer_size_);
-    std::memcpy(buffer_data_ + buffer_pos_, data, nbytes);
+    std::memcpy(buffer_data_ + buffer_pos_, data, static_cast<size_t>(nbytes));
     buffer_pos_ += nbytes;
   }
 
@@ -380,7 +380,7 @@ class BufferedInputStream::Impl : public BufferedBase {
 
     if (nbytes > bytes_buffered_) {
       // Copy buffered bytes into out, then read rest
-      memcpy(out, buffer_data_ + buffer_pos_, bytes_buffered_);
+      memcpy(out, buffer_data_ + buffer_pos_, static_cast<size_t>(bytes_buffered_));
 
       int64_t bytes_to_read = nbytes - bytes_buffered_;
       if (raw_read_bound_ >= 0) {
@@ -397,7 +397,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       RewindBuffer();
       return bytes_read;
     } else {
-      memcpy(out, buffer_data_ + buffer_pos_, nbytes);
+      memcpy(out, buffer_data_ + buffer_pos_, static_cast<size_t>(nbytes));
       ConsumeBuffer(nbytes);
       return nbytes;
     }

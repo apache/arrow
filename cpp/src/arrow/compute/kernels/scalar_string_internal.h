@@ -365,7 +365,7 @@ struct StringSplitExec {
       // we will record the parts in reverse order
       parts.clear();
       if (max_splits > -1) {
-        parts.reserve(max_splits + 1);
+        parts.reserve(static_cast<size_t>(max_splits + 1));
       }
       while (max_splits != 0) {
         const uint8_t *separator_begin, *separator_end;

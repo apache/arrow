@@ -155,9 +155,9 @@ class ARROW_EXPORT Tensor {
   /// Return the offset of the given index on the given strides
   static int64_t CalculateValueOffset(const std::vector<int64_t>& strides,
                                       const std::vector<int64_t>& index) {
-    const int64_t n = static_cast<int64_t>(index.size());
+    const size_t n = index.size();
     int64_t offset = 0;
-    for (int64_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
       offset += index[i] * strides[i];
     }
     return offset;

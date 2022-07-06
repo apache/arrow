@@ -71,7 +71,8 @@ struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
   template <typename ArrayType>
   ResolvedChunk<ArrayType> Resolve(int64_t index) const {
     const auto loc = ::arrow::internal::ChunkResolver::Resolve(index);
-    return {checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk};
+    return {checked_cast<const ArrayType*>(chunks_[static_cast<size_t>(loc.chunk_index)]),
+            loc.index_in_chunk};
   }
 
  protected:

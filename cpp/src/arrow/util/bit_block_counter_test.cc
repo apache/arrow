@@ -39,7 +39,7 @@ class TestBitBlockCounter : public ::testing::Test {
   void Create(int64_t nbytes, int64_t offset, int64_t length) {
     ASSERT_OK_AND_ASSIGN(buf_, AllocateBuffer(nbytes));
     // Start with data zeroed out
-    std::memset(buf_->mutable_data(), 0, nbytes);
+    std::memset(buf_->mutable_data(), 0, static_cast<size_t>(nbytes));
     counter_.reset(new BitBlockCounter(buf_->data(), offset, length));
   }
 

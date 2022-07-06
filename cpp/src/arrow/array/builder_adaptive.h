@@ -50,7 +50,8 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(CommitPendingData());
     if (ARROW_PREDICT_TRUE(length > 0)) {
       ARROW_RETURN_NOT_OK(Reserve(length));
-      memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
+      memset(data_->mutable_data() + static_cast<size_t>(length_ * int_size_), 0,
+             static_cast<size_t>(int_size_ * length));
       UnsafeSetNull(length);
     }
     return Status::OK();
@@ -74,7 +75,8 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(CommitPendingData());
     if (ARROW_PREDICT_TRUE(length > 0)) {
       ARROW_RETURN_NOT_OK(Reserve(length));
-      memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
+      memset(data_->mutable_data() + static_cast<size_t>(length_ * int_size_), 0,
+             static_cast<size_t>(int_size_ * length));
       UnsafeSetNotNull(length);
     }
     return Status::OK();

@@ -327,7 +327,7 @@ Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* poo
     if (include_nulls && values_index == 0) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
-      const auto& value = values[values_index];
+      const auto& value = values[static_cast<size_t>(values_index)];
       RETURN_NOT_OK(builder.Append(value));
     }
   }
@@ -527,7 +527,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
 
   // construct individual nullable/non-nullable struct arrays
   std::shared_ptr<Array> no_nulls(new StructArray(type, list_batch->num_rows(), columns));
-  std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
+  std::vector<uint8_t> null_bytes(static_cast<size_t>(list_batch->num_rows()), 1);
   null_bytes[0] = 0;
   ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(null_bytes));
   std::shared_ptr<Array> with_nulls(
@@ -1075,38 +1075,49 @@ Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
   switch (type->id()) {
     case Type::INT8:
       FillRandomData<int8_t, uint32_t, std::uniform_int_distribution<int16_t>>(
-          reinterpret_cast<int8_t*>(buf->mutable_data()), len, -128, 127, seed);
+          reinterpret_cast<int8_t*>(buf->mutable_data()), static_cast<size_t>(len), -128,
+          127, seed);
       break;
     case Type::UINT8:
       FillRandomData<uint8_t, uint32_t, std::uniform_int_distribution<uint16_t>>(
-          reinterpret_cast<uint8_t*>(buf->mutable_data()), len, 0, 255, seed);
+          reinterpret_cast<uint8_t*>(buf->mutable_data()), static_cast<size_t>(len), 0,
+          255, seed);
       break;
     case Type::INT16:
-      FillRandomData(reinterpret_cast<int16_t*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<int16_t*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::UINT16:
-      FillRandomData(reinterpret_cast<uint16_t*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<uint16_t*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::INT32:
-      FillRandomData(reinterpret_cast<int32_t*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<int32_t*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::UINT32:
-      FillRandomData(reinterpret_cast<uint32_t*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<uint32_t*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::INT64:
-      FillRandomData(reinterpret_cast<int64_t*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<int64_t*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::UINT64:
-      FillRandomData(reinterpret_cast<uint64_t*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<uint64_t*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::HALF_FLOAT:
-      FillRandomData(reinterpret_cast<int16_t*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<int16_t*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::FLOAT:
-      FillRandomData(reinterpret_cast<float*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<float*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     case Type::DOUBLE:
-      FillRandomData(reinterpret_cast<double*>(buf->mutable_data()), len, seed);
+      FillRandomData(reinterpret_cast<double*>(buf->mutable_data()),
+                     static_cast<size_t>(len), seed);
       break;
     default:
       return Status::Invalid(type->ToString(), " is not valid data type for a tensor");

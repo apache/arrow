@@ -689,7 +689,7 @@ volatile int throw_away = 0;
 void AssertZeroPadded(const Array& array) {
   for (const auto& buffer : array.data()->buffers) {
     if (buffer) {
-      const int64_t padding = buffer->capacity() - buffer->size();
+      const size_t padding = static_cast<size_t>(buffer->capacity() - buffer->size());
       if (padding > 0) {
         std::vector<uint8_t> zeros(padding);
         ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));

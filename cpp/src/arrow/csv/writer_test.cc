@@ -283,7 +283,8 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
 
     RETURN_NOT_OK(WriteCSV(data, options, out.get()));
     ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
-    return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
+    return std::string(reinterpret_cast<const char*>(buffer->data()),
+                       static_cast<size_t>(buffer->size()));
   }
 
   Result<std::string> ToCsvStringUsingWriter(const Table& data,
@@ -303,7 +304,8 @@ class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
     RETURN_NOT_OK(writer->Close());
     EXPECT_EQ(data.num_rows(), writer->stats().num_record_batches);
     ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, out->Finish());
-    return std::string(reinterpret_cast<const char*>(buffer->data()), buffer->size());
+    return std::string(reinterpret_cast<const char*>(buffer->data()),
+                       static_cast<size_t>(buffer->size()));
   }
 };
 

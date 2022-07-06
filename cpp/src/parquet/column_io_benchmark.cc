@@ -73,8 +73,8 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
   auto values = rgen.Int64(state.range(0), 0, 1000000, 0);
   const auto& i8_values = static_cast<const ::arrow::Int64Array&>(*values);
 
-  std::vector<int16_t> definition_levels(state.range(0), 1);
-  std::vector<int16_t> repetition_levels(state.range(0), 0);
+  std::vector<int16_t> definition_levels(static_cast<size_t>(state.range(0)), 1);
+  std::vector<int16_t> repetition_levels(static_cast<size_t>(state.range(0)), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
   std::shared_ptr<WriterProperties> properties = WriterProperties::Builder()
                                                      .compression(codec)
@@ -139,9 +139,9 @@ template <Repetition::type repetition,
           Compression::type codec = Compression::UNCOMPRESSED>
 static void BM_ReadInt64Column(::benchmark::State& state) {
   format::ColumnChunk thrift_metadata;
-  std::vector<int64_t> values(state.range(0), 128);
-  std::vector<int16_t> definition_levels(state.range(0), 1);
-  std::vector<int16_t> repetition_levels(state.range(0), 0);
+  std::vector<int64_t> values(static_cast<size_t>(state.range(0)), 128);
+  std::vector<int16_t> definition_levels(static_cast<size_t>(state.range(0)), 1);
+  std::vector<int16_t> repetition_levels(static_cast<size_t>(state.range(0)), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
   std::shared_ptr<WriterProperties> properties = WriterProperties::Builder()
                                                      .compression(codec)
@@ -160,14 +160,14 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   writer->Close();
 
   PARQUET_ASSIGN_OR_THROW(auto src, stream->Finish());
-  std::vector<int64_t> values_out(state.range(1));
-  std::vector<int16_t> definition_levels_out(state.range(1));
-  std::vector<int16_t> repetition_levels_out(state.range(1));
+  std::vector<int64_t> values_out(static_cast<size_t>(state.range(1)));
+  std::vector<int16_t> definition_levels_out(static_cast<size_t>(state.range(1)));
+  std::vector<int16_t> repetition_levels_out(static_cast<size_t>(state.range(1)));
   while (state.KeepRunning()) {
     std::shared_ptr<Int64Reader> reader =
         BuildReader(src, state.range(1), codec, schema.get());
     int64_t values_read = 0;
-    for (size_t i = 0; i < values.size(); i += values_read) {
+    for (size_t i = 0; i < values.size(); i += static_cast<size_t>(values_read)) {
       reader->ReadBatch(values_out.size(), definition_levels_out.data(),
                         repetition_levels_out.data(), values_out.data(), &values_read);
     }
@@ -218,7 +218,7 @@ BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::ZSTD)
 #endif
 
 static void BM_RleEncoding(::benchmark::State& state) {
-  std::vector<int16_t> levels(state.range(0), 0);
+  std::vector<int16_t> levels(static_cast<size_t>(state.range(0)), 0);
   int64_t n = 0;
   std::generate(levels.begin(), levels.end(),
                 [&state, &n] { return (n++ % state.range(1)) == 0; });
@@ -242,7 +242,7 @@ BENCHMARK(BM_RleEncoding)->RangePair(1024, 65536, 1, 16);
 
 static void BM_RleDecoding(::benchmark::State& state) {
   LevelEncoder level_encoder;
-  std::vector<int16_t> levels(state.range(0), 0);
+  std::vector<int16_t> levels(static_cast<size_t>(state.range(0)), 0);
   int64_t n = 0;
   std::generate(levels.begin(), levels.end(),
                 [&state, &n] { return (n++ % state.range(1)) == 0; });

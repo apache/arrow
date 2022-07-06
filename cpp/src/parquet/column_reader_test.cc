@@ -478,7 +478,7 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPagesWithExposeEncoding) {
   int64_t total_indices = 0;
   int64_t indices_read = 0;
   int64_t value_size = values.size();
-  auto indices = ::arrow::internal::make_unique<int32_t[]>(value_size);
+  auto indices = ::arrow::internal::make_unique<int32_t[]>(static_cast<size_t>(value_size));
   while (total_indices < value_size && reader->HasNext()) {
     const ByteArray* tmp_dict = nullptr;
     int32_t tmp_dict_len = 0;
@@ -499,7 +499,7 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPagesWithExposeEncoding) {
   }
 
   EXPECT_EQ(total_indices, value_size);
-  for (int64_t i = 0; i < total_indices; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(total_indices); ++i) {
     EXPECT_LT(indices[i], dict_len);
     EXPECT_EQ(dict[indices[i]].len, values[i].len);
     EXPECT_EQ(memcmp(dict[indices[i]].ptr, values[i].ptr, values[i].len), 0);
@@ -511,7 +511,7 @@ TEST_F(TestPrimitiveReader, TestNonDictionaryEncodedPagesWithExposeEncoding) {
   max_def_level_ = 0;
   max_rep_level_ = 0;
   int64_t value_size = 100;
-  std::vector<int32_t> values(value_size, 0);
+  std::vector<int32_t> values(static_cast<size_t>(value_size), 0);
   NodePtr type = schema::Int32("a", Repetition::REQUIRED);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
 
@@ -531,7 +531,7 @@ TEST_F(TestPrimitiveReader, TestNonDictionaryEncodedPagesWithExposeEncoding) {
   const ByteArray* dict = nullptr;
   int32_t dict_len = 0;
   int64_t indices_read = 0;
-  auto indices = ::arrow::internal::make_unique<int32_t[]>(value_size);
+  auto indices = ::arrow::internal::make_unique<int32_t[]>(static_cast<size_t>(value_size));
   // Dictionary cannot be exposed when it's not fully dictionary encoded
   EXPECT_THROW(reader->ReadBatchWithDictionary(value_size, /*def_levels=*/nullptr,
                                                /*rep_levels=*/nullptr, indices.get(),

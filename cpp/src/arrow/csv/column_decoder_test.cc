@@ -100,7 +100,7 @@ class ColumnDecoderTest : public ::testing::Test {
 
   Result<std::shared_ptr<Array>> NextChunk() {
     EXPECT_LT(read_ptr_, static_cast<int64_t>(decoded_chunks_.size()));
-    return decoded_chunks_[read_ptr_++].result();
+    return decoded_chunks_[static_cast<size_t>(read_ptr_++)].result();
   }
 
   void AssertChunk(std::vector<std::string> chunk, std::shared_ptr<Array> expected) {

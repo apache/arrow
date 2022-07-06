@@ -115,7 +115,7 @@ Result<std::shared_ptr<ArrayData>> BooleanKeyEncoder::Decode(uint8_t** encoded_b
   ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBitmap(length, pool));
 
   uint8_t* raw_output = key_buf->mutable_data();
-  memset(raw_output, 0, bit_util::BytesForBits(length));
+  memset(raw_output, 0, static_cast<size_t>(bit_util::BytesForBits(length)));
   for (int32_t i = 0; i < length; ++i) {
     auto& encoded_ptr = encoded_bytes[i];
     bit_util::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
@@ -314,8 +314,8 @@ Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
     offsets_[0] = 0;
   }
   size_t length_before = offsets_.size() - 1;
-  offsets_.resize(length_before + batch.length + 1);
-  for (int64_t i = 0; i < batch.length; ++i) {
+  offsets_.resize(static_cast<size_t>(length_before + batch.length + 1));
+  for (size_t i = 0; i < static_cast<size_t>(batch.length); ++i) {
     offsets_[length_before + 1 + i] = 0;
   }
 
@@ -324,18 +324,18 @@ Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
   }
 
   int32_t total_length = offsets_[length_before];
-  for (int64_t i = 0; i < batch.length; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(batch.length); ++i) {
     total_length += offsets_[length_before + 1 + i];
     offsets_[length_before + 1 + i] = total_length;
   }
 
   bytes_.resize(total_length);
-  std::vector<uint8_t*> buf_ptrs(batch.length);
-  for (int64_t i = 0; i < batch.length; ++i) {
+  std::vector<uint8_t*> buf_ptrs(static_cast<size_t>(batch.length));
+  for (size_t i = 0; i < static_cast<size_t>(batch.length); ++i) {
     buf_ptrs[i] = bytes_.data() + offsets_[length_before + i];
   }
 
-  for (int i = 0; i < batch.num_values(); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(batch.num_values()); ++i) {
     RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, buf_ptrs.data()));
   }
 
@@ -345,8 +345,8 @@ Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
 Result<ExecBatch> RowEncoder::Decode(int64_t num_rows, const int32_t* row_ids) {
   ExecBatch out({}, num_rows);
 
-  std::vector<uint8_t*> buf_ptrs(num_rows);
-  for (int64_t i = 0; i < num_rows; ++i) {
+  std::vector<uint8_t*> buf_ptrs(static_cast<size_t>(num_rows));
+  for (size_t i = 0; i < static_cast<size_t>(num_rows); ++i) {
     buf_ptrs[i] = (row_ids[i] == kRowIdForNulls()) ? encoded_nulls_.data()
                                                    : bytes_.data() + offsets_[row_ids[i]];
   }

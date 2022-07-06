@@ -322,7 +322,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
-        bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
+        static_cast<size_t>(bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size()) + 1)), 255);
     statistics3->UpdateSpaced(this->values_ptr_, valid_bits.data(), 0,
                               this->values_.size(), this->values_.size(), 0);
     std::string encoded_min_spaced = statistics3->EncodeMin();
@@ -417,11 +417,11 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
       int64_t batch_num_values = i ? num_values - num_values / 2 : num_values / 2;
       int64_t batch_null_count = i ? null_count : 0;
       DCHECK(null_count <= num_values);  // avoid too much headache
-      std::vector<int16_t> definition_levels(batch_null_count, 0);
+      std::vector<int16_t> definition_levels(static_cast<size_t>(batch_null_count), 0);
       definition_levels.insert(definition_levels.end(),
-                               batch_num_values - batch_null_count, 1);
-      auto beg = this->values_.begin() + i * num_values / 2;
-      auto end = beg + batch_num_values;
+                               static_cast<size_t>(batch_num_values - batch_null_count), 1);
+      auto beg = this->values_.begin() + static_cast<size_t>(i * num_values / 2);
+      auto end = beg + static_cast<size_t>(batch_num_values);
       std::vector<c_type> batch = GetDeepCopy(std::vector<c_type>(beg, end));
       c_type* batch_values_ptr = GetValuesPointer(batch);
       column_writer->WriteBatch(batch_num_values, definition_levels.data(), nullptr,
@@ -531,10 +531,10 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
   // encoded is same as unencoded
   ASSERT_EQ(encoded_min,
             std::string(reinterpret_cast<const char*>(statistics1->min().ptr),
-                        statistics1->min().len));
+                        static_cast<size_t>(statistics1->min().len)));
   ASSERT_EQ(encoded_max,
             std::string(reinterpret_cast<const char*>(statistics1->max().ptr),
-                        statistics1->max().len));
+                        static_cast<size_t>(statistics1->max().len)));
 
   auto statistics2 =
       MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min, encoded_max,

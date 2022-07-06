@@ -116,7 +116,7 @@ ARROW_NOINLINE int64_t CopyNonNullValues(const ArraySpan& data, T* out) {
     const T* values = data.GetValues<T>(1);
     arrow::internal::VisitSetBitRunsVoid(
         data.buffers[0].data, data.offset, data.length, [&](int64_t pos, int64_t len) {
-          memcpy(out + index, values + pos, len * sizeof(T));
+          memcpy(out + index, values + pos, static_cast<size_t>(len * sizeof(T)));
           index += len;
         });
   }

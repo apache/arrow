@@ -134,7 +134,7 @@ struct TestUnionNode : public ::testing::Test {
 TEST_F(TestUnionNode, TestNonEmpty) {
   for (bool parallel : {false, true}) {
     for (int64_t num_input_nodes : {1, 2, 4, 8}) {
-      this->CheckUnionExecNode(num_input_nodes, kNumBatches, parallel);
+      this->CheckUnionExecNode(static_cast<size_t>(num_input_nodes), kNumBatches, parallel);
     }
   }
 }

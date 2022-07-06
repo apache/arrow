@@ -52,7 +52,7 @@ static const char* valid_non_ascii =
 static std::string MakeLargeString(const std::string& base, int64_t nbytes) {
   int64_t nrepeats = (nbytes + base.size() - 1) / base.size();
   std::string s;
-  s.reserve(nrepeats * nbytes);
+  s.reserve(static_cast<size_t>(nrepeats * nbytes));
   for (int64_t i = 0; i < nrepeats; ++i) {
     s += base;
   }

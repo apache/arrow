@@ -105,7 +105,7 @@ class NaiveBitmapWriter {
 
 static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   auto buffer = *AllocateBuffer(nbytes);
-  memset(buffer->mutable_data(), 0, nbytes);
+  memset(buffer->mutable_data(), 0, static_cast<size_t>(nbytes));
   random_bytes(nbytes, /*seed=*/0, buffer->mutable_data());
   return std::move(buffer);
 }

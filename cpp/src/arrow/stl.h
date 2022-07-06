@@ -181,8 +181,8 @@ struct ConversionTraits<std::vector<ValueCType>>
 
     std::vector<ValueCType> vec(array.value_length(j));
     for (int64_t i = 0; i < array.value_length(j); i++) {
-      vec[i] =
-          ConversionTraits<ValueCType>::GetEntry(value_array, array.value_offset(j) + i);
+      vec[static_cast<size_t>(i)] =
+          ConversionTraits<ValueCType>::GetEntry(value_array, static_cast<size_t>(array.value_offset(j) + i));
     }
     return vec;
   }
@@ -386,7 +386,7 @@ struct TupleSetter {
       const ArrayType& array =
           ::arrow::internal::checked_cast<const ArrayType&>(*chunked_array.chunk(i));
       for (int64_t j = 0; j < array.length(); j++) {
-        get<N - 1>(*iter++) = ConversionTraits<Element>::GetEntry(array, j);
+        get<N - 1>(*iter++) = ConversionTraits<Element>::GetEntry(array, static_cast<size_t>(j));
       }
     }
 

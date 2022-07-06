@@ -201,25 +201,25 @@ TEST(Forest, HourlyETL) {
 
     std::vector<PT> months;
     for (int64_t month = 0; month < kMonthsPerYear; month++) {
-      auto month_str = join({year_str, numbers[month + 1]});
+      auto month_str = join({year_str, numbers[static_cast<size_t>(month + 1)]});
       auto month_dir = FileInfo::Dir(month_str);
       infos.push_back(month_dir);
 
       std::vector<PT> days;
       for (int64_t day = 0; day < kDaysPerMonth; day++) {
-        auto day_str = join({month_str, numbers[day + 1]});
+        auto day_str = join({month_str, numbers[static_cast<size_t>(day + 1)]});
         auto day_dir = FileInfo::Dir(day_str);
         infos.push_back(day_dir);
 
         std::vector<PT> hours;
         for (int64_t hour = 0; hour < kHoursPerDay; hour++) {
-          auto hour_str = join({day_str, numbers[hour]});
+          auto hour_str = join({day_str, numbers[static_cast<size_t>(hour)]});
           auto hour_dir = FileInfo::Dir(hour_str);
           infos.push_back(hour_dir);
 
           std::vector<PT> files;
           for (int64_t file = 0; file < kFilesPerHour; file++) {
-            auto file_str = join({hour_str, numbers[file] + ".parquet"});
+            auto file_str = join({hour_str, numbers[static_cast<size_t>(file)] + ".parquet"});
             auto file_fd = FileInfo::File(file_str);
             infos.push_back(file_fd);
             files.emplace_back(file_str);

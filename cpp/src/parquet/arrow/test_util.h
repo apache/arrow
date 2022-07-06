@@ -140,7 +140,7 @@ static void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t
     decimals = gen.Decimal256(::arrow::decimal256(precision, 0), n);
     byte_width = ::arrow::Decimal256Type::kByteWidth;
   }
-  std::memcpy(out, decimals->data()->GetValues<uint8_t>(1, 0), byte_width * n);
+  std::memcpy(out, decimals->data()->GetValues<uint8_t>(1, 0), static_cast<size_t>(byte_width * n));
 }
 
 template <typename ArrowType, int32_t precision = ArrowType::precision>
@@ -414,7 +414,7 @@ Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
   int64_t bitmap_size = ::arrow::bit_util::BytesForBits(size);
   RETURN_NOT_OK(null_bitmap->Resize(bitmap_size));
   uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
-  memset(null_bitmap_ptr, 0, bitmap_size);
+  memset(null_bitmap_ptr, 0, static_cast<size_t>(bitmap_size));
 
   int32_t current_offset = 0;
   for (int64_t i = 0; i < size; i++) {
@@ -441,7 +441,7 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   // Allocate an offsets buffer containing only zeroes
   const int64_t offsets_nbytes = (size + 1) * sizeof(int32_t);
   ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, ::arrow::AllocateBuffer(offsets_nbytes));
-  memset(offsets_buffer->mutable_data(), 0, offsets_nbytes);
+  memset(offsets_buffer->mutable_data(), 0, static_cast<size_t>(offsets_nbytes));
 
   auto value_field =
       ::arrow::field("item", ::arrow::float64(), false /* nullable_values */);

@@ -54,7 +54,7 @@ std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
 }
 
 static void BM_PlainEncodingBoolean(benchmark::State& state) {
-  std::vector<bool> values(state.range(0), true);
+  std::vector<bool> values(static_cast<size_t>(state.range(0)), true);
   auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::PLAIN);
   auto typed_encoder = dynamic_cast<BooleanEncoder*>(encoder.get());
 
@@ -68,8 +68,8 @@ static void BM_PlainEncodingBoolean(benchmark::State& state) {
 BENCHMARK(BM_PlainEncodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainDecodingBoolean(benchmark::State& state) {
-  std::vector<bool> values(state.range(0), true);
-  bool* output = new bool[state.range(0)];
+  std::vector<bool> values(static_cast<size_t>(state.range(0)), true);
+  bool* output = new bool[static_cast<size_t>(state.range(0))];
   auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::PLAIN);
   auto typed_encoder = dynamic_cast<BooleanEncoder*>(encoder.get());
   typed_encoder->Put(values, static_cast<int>(values.size()));
@@ -89,7 +89,7 @@ static void BM_PlainDecodingBoolean(benchmark::State& state) {
 BENCHMARK(BM_PlainDecodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainEncodingInt64(benchmark::State& state) {
-  std::vector<int64_t> values(state.range(0), 64);
+  std::vector<int64_t> values(static_cast<size_t>(state.range(0)), 64);
   auto encoder = MakeTypedEncoder<Int64Type>(Encoding::PLAIN);
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
@@ -101,7 +101,7 @@ static void BM_PlainEncodingInt64(benchmark::State& state) {
 BENCHMARK(BM_PlainEncodingInt64)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainDecodingInt64(benchmark::State& state) {
-  std::vector<int64_t> values(state.range(0), 64);
+  std::vector<int64_t> values(static_cast<size_t>(state.range(0)), 64);
   auto encoder = MakeTypedEncoder<Int64Type>(Encoding::PLAIN);
   encoder->Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
@@ -118,7 +118,7 @@ static void BM_PlainDecodingInt64(benchmark::State& state) {
 BENCHMARK(BM_PlainDecodingInt64)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainEncodingDouble(benchmark::State& state) {
-  std::vector<double> values(state.range(0), 64.0);
+  std::vector<double> values(static_cast<size_t>(state.range(0)), 64.0);
   auto encoder = MakeTypedEncoder<DoubleType>(Encoding::PLAIN);
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
@@ -130,7 +130,7 @@ static void BM_PlainEncodingDouble(benchmark::State& state) {
 BENCHMARK(BM_PlainEncodingDouble)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainEncodingDoubleNaN(benchmark::State& state) {
-  std::vector<double> values(state.range(0), nan(""));
+  std::vector<double> values(static_cast<size_t>(state.range(0)), nan(""));
   auto encoder = MakeTypedEncoder<DoubleType>(Encoding::PLAIN);
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
@@ -142,7 +142,7 @@ static void BM_PlainEncodingDoubleNaN(benchmark::State& state) {
 BENCHMARK(BM_PlainEncodingDoubleNaN)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainDecodingDouble(benchmark::State& state) {
-  std::vector<double> values(state.range(0), 64.0);
+  std::vector<double> values(static_cast<size_t>(state.range(0)), 64.0);
   auto encoder = MakeTypedEncoder<DoubleType>(Encoding::PLAIN);
   encoder->Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
@@ -159,7 +159,7 @@ static void BM_PlainDecodingDouble(benchmark::State& state) {
 BENCHMARK(BM_PlainDecodingDouble)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainEncodingFloat(benchmark::State& state) {
-  std::vector<float> values(state.range(0), 64.0);
+  std::vector<float> values(static_cast<size_t>(state.range(0)), 64.0);
   auto encoder = MakeTypedEncoder<FloatType>(Encoding::PLAIN);
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
@@ -171,7 +171,7 @@ static void BM_PlainEncodingFloat(benchmark::State& state) {
 BENCHMARK(BM_PlainEncodingFloat)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainEncodingFloatNaN(benchmark::State& state) {
-  std::vector<float> values(state.range(0), nanf(""));
+  std::vector<float> values(static_cast<size_t>(state.range(0)), nanf(""));
   auto encoder = MakeTypedEncoder<FloatType>(Encoding::PLAIN);
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
@@ -183,7 +183,7 @@ static void BM_PlainEncodingFloatNaN(benchmark::State& state) {
 BENCHMARK(BM_PlainEncodingFloatNaN)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainDecodingFloat(benchmark::State& state) {
-  std::vector<float> values(state.range(0), 64.0);
+  std::vector<float> values(static_cast<size_t>(state.range(0)), 64.0);
   auto encoder = MakeTypedEncoder<FloatType>(Encoding::PLAIN);
   encoder->Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
@@ -321,9 +321,9 @@ BENCHMARK(BM_PlainDecodingSpacedDouble)->Apply(BM_PlainSpacedArgs);
 
 template <typename T, typename DecodeFunc>
 static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decode_func) {
-  std::vector<T> values(state.range(0), 64.0);
+  std::vector<T> values(static_cast<size_t>(state.range(0)), 64.0);
   const uint8_t* values_raw = reinterpret_cast<const uint8_t*>(values.data());
-  std::vector<T> output(state.range(0), 0);
+  std::vector<T> output(static_cast<size_t>(state.range(0)), 0);
 
   for (auto _ : state) {
     decode_func(values_raw, static_cast<int64_t>(values.size()),
@@ -335,9 +335,9 @@ static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decod
 
 template <typename T, typename EncodeFunc>
 static void BM_ByteStreamSplitEncode(benchmark::State& state, EncodeFunc&& encode_func) {
-  std::vector<T> values(state.range(0), 64.0);
+  std::vector<T> values(static_cast<size_t>(state.range(0)), 64.0);
   const uint8_t* values_raw = reinterpret_cast<const uint8_t*>(values.data());
-  std::vector<uint8_t> output(state.range(0) * sizeof(T), 0);
+  std::vector<uint8_t> output(static_cast<size_t>(state.range(0) * sizeof(T)), 0);
 
   for (auto _ : state) {
     encode_func(values_raw, values.size(), output.data());
@@ -498,7 +498,7 @@ static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
 
-  std::vector<T> values(state.range(0), 64);
+  std::vector<T> values(static_cast<size_t>(state.range(0)), 64);
   DecodeDict<Type>(values, state);
 }
 
@@ -508,7 +508,7 @@ static void BM_DictDecodingInt64_literals(benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
 
-  std::vector<T> values(state.range(0));
+  std::vector<T> values(static_cast<size_t>(state.range(0)));
   for (size_t i = 0; i < values.size(); ++i) {
     values[i] = i;
   }

@@ -470,51 +470,51 @@ class TestSmallStaticVector : public ::testing::Test {
     {
       IntVectorType<N> ints;
       ints.resize(2);
-      ASSERT_GE(ints.capacity(), 2);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(2));
       EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(2, 0)));
       ints.resize(3);
-      ASSERT_GE(ints.capacity(), 3);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(3));
       EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(3, 0)));
       ints.resize(8);
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(8, 0)));
       ints.resize(6);
       ints.resize(6);  // no-op
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(6, 0)));
       ints.resize(0);
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(0, 0)));
       ints.resize(5);
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(5, 0)));
       ints.resize(7);
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAreArray(std::vector<int>(7, 0)));
     }
     {
       IntVectorType<N> ints;
       ints.resize(2, IntLike(2));
-      ASSERT_GE(ints.capacity(), 2);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(2));
       EXPECT_THAT(ints, ElementsAre(2, 2));
       ints.resize(3, IntLike(3));
-      ASSERT_GE(ints.capacity(), 3);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(3));
       EXPECT_THAT(ints, ElementsAre(2, 2, 3));
       ints.resize(8, IntLike(8));
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAre(2, 2, 3, 8, 8, 8, 8, 8));
       ints.resize(6, IntLike(6));
       ints.resize(6, IntLike(6));  // no-op
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAre(2, 2, 3, 8, 8, 8));
       ints.resize(0, IntLike(0));
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAre());
       ints.resize(5, IntLike(5));
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAre(5, 5, 5, 5, 5));
       ints.resize(7, IntLike(7));
-      ASSERT_GE(ints.capacity(), 8);
+      ASSERT_GE(ints.capacity(), static_cast<size_t>(8));
       EXPECT_THAT(ints, ElementsAre(5, 5, 5, 5, 5, 7, 7));
     }
   }

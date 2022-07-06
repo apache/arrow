@@ -52,7 +52,8 @@ struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>:
   // memcpy output
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using T = typename InType::c_type;
-    std::memcpy(out->GetValues<T>(1), arr.GetValues<T>(1), arr.length * sizeof(T));
+    std::memcpy(out->GetValues<T>(1), arr.GetValues<T>(1),
+                static_cast<size_t>(arr.length * sizeof(T)));
   }
 };
 

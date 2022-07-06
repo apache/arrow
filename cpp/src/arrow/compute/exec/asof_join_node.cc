@@ -352,7 +352,7 @@ class CompositeReferenceTable {
       // On the first row of the batch, we resize the destination.
       // The destination size is dictated by the size of the LHS batch.
       row_index_t new_batch_size = lhs_latest_batch->num_rows();
-      row_index_t new_capacity = rows_.size() + new_batch_size;
+      size_t new_capacity = static_cast<size_t>(rows_.size() + new_batch_size);
       if (rows_.capacity() < new_capacity) rows_.reserve(new_capacity);
     }
     rows_.resize(rows_.size() + 1);
@@ -465,7 +465,7 @@ class CompositeReferenceTable {
                                                             col_index_t i_col) {
     Builder builder(memory_pool);
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
-    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
+    for (size_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
         builder.UnsafeAppend(

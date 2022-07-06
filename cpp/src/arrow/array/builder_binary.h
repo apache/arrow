@@ -184,9 +184,9 @@ class BaseBinaryBuilder : public ArrayBuilder {
   /// \return Status
   Status AppendValues(const std::vector<std::string>& values,
                       const uint8_t* valid_bytes = NULLPTR) {
-    std::size_t total_length = std::accumulate(
+    std::size_t total_length = static_cast<size_t>(std::accumulate(
         values.begin(), values.end(), 0ULL,
-        [](uint64_t sum, const std::string& str) { return sum + str.size(); });
+        [](uint64_t sum, const std::string& str) { return sum + str.size(); }));
     ARROW_RETURN_NOT_OK(Reserve(values.size()));
     ARROW_RETURN_NOT_OK(value_data_builder_.Reserve(total_length));
     ARROW_RETURN_NOT_OK(offsets_builder_.Reserve(values.size()));
@@ -223,9 +223,9 @@ class BaseBinaryBuilder : public ArrayBuilder {
   Status AppendValues(const char** values, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR) {
     std::size_t total_length = 0;
-    std::vector<std::size_t> value_lengths(length);
+    std::vector<std::size_t> value_lengths(static_cast<size_t>(length));
     bool have_null_value = false;
-    for (int64_t i = 0; i < length; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
       if (values[i] != NULLPTR) {
         auto value_length = strlen(values[i]);
         value_lengths[i] = value_length;
@@ -238,8 +238,8 @@ class BaseBinaryBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(ReserveData(total_length));
 
     if (valid_bytes) {
-      int64_t valid_bytes_offset = 0;
-      for (int64_t i = 0; i < length; ++i) {
+      size_t valid_bytes_offset = 0;
+      for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
         UnsafeAppendNextOffset();
         if (valid_bytes[i]) {
           if (values[i]) {
@@ -256,8 +256,8 @@ class BaseBinaryBuilder : public ArrayBuilder {
       UnsafeAppendToBitmap(valid_bytes + valid_bytes_offset, length - valid_bytes_offset);
     } else {
       if (have_null_value) {
-        std::vector<uint8_t> valid_vector(length, 0);
-        for (int64_t i = 0; i < length; ++i) {
+        std::vector<uint8_t> valid_vector(static_cast<size_t>(length), 0);
+        for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
           UnsafeAppendNextOffset();
           if (values[i]) {
             value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values[i]),
@@ -267,7 +267,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
         }
         UnsafeAppendToBitmap(valid_vector.data(), length);
       } else {
-        for (int64_t i = 0; i < length; ++i) {
+        for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
           UnsafeAppendNextOffset();
           value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(values[i]),
                                            value_lengths[i]);
@@ -373,7 +373,8 @@ class BaseBinaryBuilder : public ArrayBuilder {
   util::string_view GetView(int64_t i) const {
     offset_type value_length;
     const uint8_t* value_data = GetValue(i, &value_length);
-    return util::string_view(reinterpret_cast<const char*>(value_data), value_length);
+    return util::string_view(reinterpret_cast<const char*>(value_data),
+                             static_cast<size_t>(value_length));
   }
 
   // Cannot make this a static attribute because of linking issues

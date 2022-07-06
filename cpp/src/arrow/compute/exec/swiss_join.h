@@ -371,7 +371,8 @@ class SwissTableForJoin {
   }
   int64_t num_keys() const { return map_.keys()->num_rows(); }
   int64_t num_rows() const {
-    return no_duplicate_keys_ ? num_keys() : row_offset_for_key_[num_keys()];
+    return no_duplicate_keys_ ? num_keys()
+                              : row_offset_for_key_[static_cast<size_t>(num_keys())];
   }
 
   uint32_t payload_id_to_key_id(uint32_t payload_id) const;

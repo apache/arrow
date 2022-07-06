@@ -45,7 +45,7 @@ static Result<TableStats> MakeTable(const TableGenerationProperties& properties)
                         MakeRandomTimeSeriesTable(properties));
   size_t row_size = sizeof(double) * (table.get()->schema()->num_fields() - 2) +
                     sizeof(int64_t) + sizeof(int32_t);
-  size_t rows = table.get()->num_rows();
+  size_t rows = static_cast<size_t>(table.get()->num_rows());
   return Result<TableStats>({table, rows, rows * row_size});
 }
 

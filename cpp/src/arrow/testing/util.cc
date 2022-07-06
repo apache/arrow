@@ -67,7 +67,7 @@ void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
                      int random_seed) {
   pcg32_fast gen(random_seed);
   ::arrow::random::uniform_real_distribution<double> d(0.0, 1.0);
-  is_valid->resize(n, false);
+  is_valid->resize(static_cast<size_t>(n), false);
   std::generate(is_valid->begin(), is_valid->end(),
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }

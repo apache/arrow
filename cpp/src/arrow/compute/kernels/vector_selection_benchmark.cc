@@ -82,7 +82,7 @@ struct FilterArgs {
 
   FilterArgs(benchmark::State& state, bool filter_has_nulls)
       : size(state.range(0)), state_(state) {
-    auto params = g_filter_params[state.range(1)];
+    auto params = g_filter_params[static_cast<size_t>(state.range(1))];
     values_null_proportion = params.values_null_proportion;
     selected_proportion = params.selected_proportion;
     filter_null_proportion = filter_has_nulls ? params.filter_null_proportion : 0;

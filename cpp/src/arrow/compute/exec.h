@@ -224,7 +224,7 @@ struct ARROW_EXPORT ExecBatch {
   /// \brief Return the value at the i-th index
   template <typename index_type>
   inline const Datum& operator[](index_type i) const {
-    return values[i];
+    return values[static_cast<size_t>(i)];
   }
 
   bool Equals(const ExecBatch& other) const;
@@ -369,7 +369,7 @@ struct ARROW_EXPORT ExecSpan {
   /// \brief Return the value at the i-th index
   template <typename index_type>
   inline const ExecValue& operator[](index_type i) const {
-    return values[i];
+    return values[static_cast<size_t>(i)];
   }
 
   /// \brief A convenience for the number of values / arguments.

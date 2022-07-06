@@ -866,8 +866,8 @@ struct SchemaImporter {
 
   Status DoImport() {
     // First import children (required for reconstituting parent type)
-    child_importers_.resize(c_struct_->n_children);
-    for (int64_t i = 0; i < c_struct_->n_children; ++i) {
+    child_importers_.resize(static_cast<size_t>(c_struct_->n_children));
+    for (size_t i = 0; i < static_cast<size_t>(c_struct_->n_children); ++i) {
       DCHECK_NE(c_struct_->children[i], nullptr);
       RETURN_NOT_OK(child_importers_[i].ImportChild(this, c_struct_->children[i]));
     }
@@ -1157,7 +1157,7 @@ struct SchemaImporter {
   }
 
   Result<std::shared_ptr<Field>> MakeChildField(int64_t child_id) {
-    const auto& child = child_importers_[child_id];
+    const auto& child = child_importers_[static_cast<size_t>(child_id)];
     if (child.c_struct_->name == nullptr) {
       return Status::Invalid("Expected non-null name in imported array child");
     }
@@ -1167,7 +1167,7 @@ struct SchemaImporter {
   Result<std::vector<std::shared_ptr<Field>>> MakeChildFields() {
     std::vector<std::shared_ptr<Field>> fields(child_importers_.size());
     for (int64_t i = 0; i < static_cast<int64_t>(child_importers_.size()); ++i) {
-      ARROW_ASSIGN_OR_RAISE(fields[i], MakeChildField(i));
+      ARROW_ASSIGN_OR_RAISE(fields[static_cast<size_t>(i)], MakeChildField(i));
     }
     return fields;
   }
@@ -1340,7 +1340,7 @@ struct ArrayImporter {
                              type_->ToString());
     }
     child_importers_.reserve(fields.size());
-    for (int64_t i = 0; i < c_struct_->n_children; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(c_struct_->n_children); ++i) {
       DCHECK_NE(c_struct_->children[i], nullptr);
       child_importers_.emplace_back(fields[i]->type());
       RETURN_NOT_OK(child_importers_.back().ImportChild(this, c_struct_->children[i]));

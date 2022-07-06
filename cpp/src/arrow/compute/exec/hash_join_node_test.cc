@@ -448,7 +448,7 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
         ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> null_buf,
                              AllocateBitmap(indices.size(), ctx->memory_pool()));
         uint8_t* non_nulls = null_buf->mutable_data();
-        memset(non_nulls, 0xFF, bit_util::BytesForBits(indices.size()));
+        memset(non_nulls, 0xFF, static_cast<size_t>(bit_util::BytesForBits(indices.size())));
         if ((*result)[i]->data()->buffers.size() == 2) {
           (*result)[i] = MakeArray(
               ArrayData::Make((*result)[i]->type(), indices.size(),
@@ -519,7 +519,7 @@ std::vector<bool> NullInKey(const std::vector<JoinKeyCmp>& cmp,
   ARROW_DCHECK(cmp.size() <= key.size());
   ARROW_DCHECK(key.size() > 0);
   std::vector<bool> result;
-  result.resize(key[0]->length());
+  result.resize(static_cast<size_t>(key[0]->length()));
   for (size_t i = 0; i < result.size(); ++i) {
     result[i] = false;
   }
@@ -737,9 +737,9 @@ void HashJoinSimpleInt(JoinType join_type, const std::vector<int32_t>& l,
     if (!null_in_key_probe[i]) {
       auto range = map_build.equal_range(probe[i]);
       for (auto it = range.first; it != range.second; ++it) {
-        if (!null_in_key_build[it->second]) {
+        if (!null_in_key_build[static_cast<size_t>(it->second)]) {
           match_probe.push_back(static_cast<int32_t>(it->second));
-          match_build[it->second] = true;
+          match_build[static_cast<size_t>(it->second)] = true;
         }
       }
     }

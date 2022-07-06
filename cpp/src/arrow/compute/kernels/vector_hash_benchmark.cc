@@ -125,7 +125,7 @@ struct HashParams<StringType> {
     randint<int64_t>(params.length, 0, params.num_unique, &draws);
 
     const int64_t total_bytes = this->byte_width * params.num_unique;
-    std::vector<uint8_t> uniques(total_bytes);
+    std::vector<uint8_t> uniques(static_cast<size_t>(total_bytes));
     const uint32_t seed = 0;
     random_bytes(total_bytes, seed, uniques.data());
 
@@ -136,8 +136,8 @@ struct HashParams<StringType> {
 
     StringBuilder builder;
     for (int64_t i = 0; i < params.length; ++i) {
-      if (params.null_probability == 0 || is_valid[i]) {
-        ABORT_NOT_OK(builder.Append(uniques.data() + this->byte_width * draws[i],
+      if (params.null_probability == 0 || is_valid[static_cast<size_t>(i)]) {
+        ABORT_NOT_OK(builder.Append(uniques.data() + this->byte_width * draws[static_cast<size_t>(i)],
                                     this->byte_width));
       } else {
         ABORT_NOT_OK(builder.AppendNull());
@@ -190,7 +190,7 @@ std::vector<HashBenchCase> uint8_bench_cases = {
 // clang-format on
 
 static void UniqueUInt8(benchmark::State& state) {
-  BenchUnique(state, HashParams<UInt8Type>{uint8_bench_cases[state.range(0)]});
+  BenchUnique(state, HashParams<UInt8Type>{uint8_bench_cases[static_cast<size_t>(state.range(0))]});
 }
 
 // clang-format off
@@ -213,17 +213,17 @@ std::vector<HashBenchCase> general_bench_cases = {
 // clang-format on
 
 static void UniqueInt64(benchmark::State& state) {
-  BenchUnique(state, HashParams<Int64Type>{general_bench_cases[state.range(0)]});
+  BenchUnique(state, HashParams<Int64Type>{general_bench_cases[static_cast<size_t>(state.range(0))]});
 }
 
 static void UniqueString10bytes(benchmark::State& state) {
   // Byte strings with 10 bytes each
-  BenchUnique(state, HashParams<StringType>{general_bench_cases[state.range(0)], 10});
+  BenchUnique(state, HashParams<StringType>{general_bench_cases[static_cast<size_t>(state.range(0))], 10});
 }
 
 static void UniqueString100bytes(benchmark::State& state) {
   // Byte strings with 100 bytes each
-  BenchUnique(state, HashParams<StringType>{general_bench_cases[state.range(0)], 100});
+  BenchUnique(state, HashParams<StringType>{general_bench_cases[static_cast<size_t>(state.range(0))], 100});
 }
 
 void HashSetArgs(benchmark::internal::Benchmark* bench) {

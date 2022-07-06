@@ -57,7 +57,7 @@ std::vector<uint8_t> MakeCompressibleData(int data_size) {
 
   int64_t pos = 0;
   while (pos < data_size) {
-    data[pos] = static_cast<uint8_t>(values(engine));
+    data[static_cast<size_t>(pos)] = static_cast<uint8_t>(values(engine));
     pos += static_cast<int64_t>(offsets(engine));
   }
 
@@ -85,9 +85,9 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
     input_len -= result.bytes_read;
     compressed_size += result.bytes_written;
     if (compressed_data != nullptr && result.bytes_written > 0) {
-      compressed_data->resize(compressed_data->size() + result.bytes_written);
+      compressed_data->resize(static_cast<size_t>(compressed_data->size() + result.bytes_written));
       memcpy(compressed_data->data() + compressed_data->size() - result.bytes_written,
-             output_buffer.data(), result.bytes_written);
+             output_buffer.data(), static_cast<size_t>(result.bytes_written));
     }
     if (result.bytes_read == 0) {
       // Need to enlarge output buffer
@@ -98,9 +98,9 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
     auto result = *compressor->End(output_buffer.size(), output_buffer.data());
     compressed_size += result.bytes_written;
     if (compressed_data != nullptr && result.bytes_written > 0) {
-      compressed_data->resize(compressed_data->size() + result.bytes_written);
+      compressed_data->resize(static_cast<size_t>(compressed_data->size() + result.bytes_written));
       memcpy(compressed_data->data() + compressed_data->size() - result.bytes_written,
-             output_buffer.data(), result.bytes_written);
+             output_buffer.data(), static_cast<size_t>(result.bytes_written));
     }
     if (result.should_retry) {
       // Need to enlarge output buffer

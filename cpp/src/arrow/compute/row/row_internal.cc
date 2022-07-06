@@ -86,10 +86,10 @@ void RowTableMetadata::FromColumnMetadataVector(
   }
   std::sort(
       column_order.begin(), column_order.end(), [&cols](uint32_t left, uint32_t right) {
-        bool is_left_pow2 =
-            !cols[left].is_fixed_length || ARROW_POPCOUNT64(cols[left].fixed_length) <= 1;
+        bool is_left_pow2 = !cols[left].is_fixed_length ||
+                            bit_util::PopCount(cols[left].fixed_length) <= 1;
         bool is_right_pow2 = !cols[right].is_fixed_length ||
-                             ARROW_POPCOUNT64(cols[right].fixed_length) <= 1;
+                             bit_util::PopCount(cols[right].fixed_length) <= 1;
         bool is_left_fixedlen = cols[left].is_fixed_length;
         bool is_right_fixedlen = cols[right].is_fixed_length;
         uint32_t width_left =
@@ -125,7 +125,7 @@ void RowTableMetadata::FromColumnMetadataVector(
   for (uint32_t i = 0; i < num_cols; ++i) {
     const KeyColumnMetadata& col = cols[column_order[i]];
     if (col.is_fixed_length && col.fixed_length != 0 &&
-        ARROW_POPCOUNT64(col.fixed_length) != 1) {
+        bit_util::PopCount(col.fixed_length) != 1) {
       offset_within_row += RowTableMetadata::padding_for_alignment(offset_within_row,
                                                                    string_alignment, col);
     }
@@ -181,21 +181,24 @@ Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata& metadata) {
       auto null_masks,
       AllocateResizableBuffer(size_null_masks(kInitialRowsCapacity), pool_));
   null_masks_ = std::move(null_masks);
-  memset(null_masks_->mutable_data(), 0, size_null_masks(kInitialRowsCapacity));
+  memset(null_masks_->mutable_data(), 0,
+         static_cast<size_t>(size_null_masks(kInitialRowsCapacity)));
 
   // Offsets and rows
   if (!metadata.is_fixed_length) {
     ARROW_ASSIGN_OR_RAISE(
         auto offsets, AllocateResizableBuffer(size_offsets(kInitialRowsCapacity), pool_));
     offsets_ = std::move(offsets);
-    memset(offsets_->mutable_data(), 0, size_offsets(kInitialRowsCapacity));
+    memset(offsets_->mutable_data(), 0,
+           static_cast<size_t>(size_offsets(kInitialRowsCapacity)));
     reinterpret_cast<uint32_t*>(offsets_->mutable_data())[0] = 0;
 
     ARROW_ASSIGN_OR_RAISE(
         auto rows,
         AllocateResizableBuffer(size_rows_varying_length(kInitialBytesCapacity), pool_));
     rows_ = std::move(rows);
-    memset(rows_->mutable_data(), 0, size_rows_varying_length(kInitialBytesCapacity));
+    memset(rows_->mutable_data(), 0,
+           static_cast<size_t>(size_rows_varying_length(kInitialBytesCapacity)));
     bytes_capacity_ =
         size_rows_varying_length(kInitialBytesCapacity) - kPaddingForVectors;
   } else {
@@ -203,7 +206,8 @@ Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata& metadata) {
         auto rows,
         AllocateResizableBuffer(size_rows_fixed_length(kInitialRowsCapacity), pool_));
     rows_ = std::move(rows);
-    memset(rows_->mutable_data(), 0, size_rows_fixed_length(kInitialRowsCapacity));
+    memset(rows_->mutable_data(), 0,
+           static_cast<size_t>(size_rows_fixed_length(kInitialRowsCapacity)));
     bytes_capacity_ = size_rows_fixed_length(kInitialRowsCapacity) - kPaddingForVectors;
   }
 
@@ -267,19 +271,26 @@ Status RowTableImpl::ResizeFixedLengthBuffers(int64_t num_extra_rows) {
 
   // Null masks
   RETURN_NOT_OK(null_masks_->Resize(size_null_masks(rows_capacity_new), false));
-  memset(null_masks_->mutable_data() + size_null_masks(rows_capacity_), 0,
-         size_null_masks(rows_capacity_new) - size_null_masks(rows_capacity_));
+  memset(
+      null_masks_->mutable_data() + static_cast<size_t>(size_null_masks(rows_capacity_)),
+      0,
+      static_cast<size_t>(size_null_masks(rows_capacity_new) -
+                          size_null_masks(rows_capacity_)));
 
   // Either offsets or rows
   if (!metadata_.is_fixed_length) {
     RETURN_NOT_OK(offsets_->Resize(size_offsets(rows_capacity_new), false));
-    memset(offsets_->mutable_data() + size_offsets(rows_capacity_), 0,
-           size_offsets(rows_capacity_new) - size_offsets(rows_capacity_));
+    memset(offsets_->mutable_data() + static_cast<size_t>(size_offsets(rows_capacity_)),
+           0,
+           static_cast<size_t>(size_offsets(rows_capacity_new) -
+                               size_offsets(rows_capacity_)));
   } else {
     RETURN_NOT_OK(rows_->Resize(size_rows_fixed_length(rows_capacity_new), false));
-    memset(rows_->mutable_data() + size_rows_fixed_length(rows_capacity_), 0,
-           size_rows_fixed_length(rows_capacity_new) -
-               size_rows_fixed_length(rows_capacity_));
+    memset(rows_->mutable_data() +
+               static_cast<size_t>(size_rows_fixed_length(rows_capacity_)),
+           0,
+           static_cast<size_t>(size_rows_fixed_length(rows_capacity_new) -
+                               size_rows_fixed_length(rows_capacity_)));
     bytes_capacity_ = size_rows_fixed_length(rows_capacity_new) - kPaddingForVectors;
   }
 
@@ -302,9 +313,11 @@ Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) 
   }
 
   RETURN_NOT_OK(rows_->Resize(size_rows_varying_length(bytes_capacity_new), false));
-  memset(rows_->mutable_data() + size_rows_varying_length(bytes_capacity_), 0,
-         size_rows_varying_length(bytes_capacity_new) -
-             size_rows_varying_length(bytes_capacity_));
+  memset(rows_->mutable_data() +
+             static_cast<size_t>(size_rows_varying_length(bytes_capacity_)),
+         0,
+         static_cast<size_t>(size_rows_varying_length(bytes_capacity_new) -
+                             size_rows_varying_length(bytes_capacity_)));
 
   UpdateBufferPointers();
 
@@ -390,7 +403,7 @@ Status RowTableImpl::AppendEmpty(uint32_t num_rows_to_append,
   RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(num_extra_bytes_to_append));
   num_rows_ += num_rows_to_append;
   if (metadata_.row_alignment > 1 || metadata_.string_alignment > 1) {
-    memset(rows_->mutable_data(), 0, bytes_capacity_);
+    memset(rows_->mutable_data(), 0, static_cast<size_t>(bytes_capacity_));
   }
   return Status::OK();
 }

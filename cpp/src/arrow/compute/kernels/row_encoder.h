@@ -169,7 +169,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
           *encoded_ptr++ = kValidByte;
           util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
           encoded_ptr += sizeof(Offset);
-          memcpy(encoded_ptr, bytes.data(), bytes.size());
+          memcpy(encoded_ptr, bytes.data(), static_cast<size_t>(bytes.size()));
           encoded_ptr += bytes.size();
         }
       } else {
@@ -216,7 +216,8 @@ struct VarLengthKeyEncoder : KeyEncoder {
       auto key_length = util::SafeLoadAs<Offset>(encoded_bytes[i]);
       encoded_bytes[i] += sizeof(Offset);
 
-      memcpy(raw_keys + current_offset, encoded_bytes[i], key_length);
+      memcpy(raw_keys + current_offset, encoded_bytes[i],
+             static_cast<size_t>(key_length));
       encoded_bytes[i] += key_length;
 
       current_offset += key_length;

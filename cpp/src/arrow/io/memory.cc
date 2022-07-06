@@ -104,7 +104,7 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
     if (ARROW_PREDICT_FALSE(position_ + nbytes >= capacity_)) {
       RETURN_NOT_OK(Reserve(nbytes));
     }
-    memcpy(mutable_data_ + position_, data, nbytes);
+    memcpy(mutable_data_ + position_, data, static_cast<size_t>(nbytes));
     position_ += nbytes;
   }
   return Status::OK();
@@ -188,11 +188,11 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   Status Write(const void* data, int64_t nbytes) {
     RETURN_NOT_OK(internal::ValidateWriteRange(position_, nbytes, size_));
     if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
-      ::arrow::internal::parallel_memcopy(mutable_data_ + position_,
-                                          reinterpret_cast<const uint8_t*>(data), nbytes,
-                                          memcopy_blocksize_, memcopy_num_threads_);
+      ::arrow::internal::parallel_memcopy(
+          mutable_data_ + position_, reinterpret_cast<const uint8_t*>(data), nbytes,
+          static_cast<uintptr_t>(memcopy_blocksize_), memcopy_num_threads_);
     } else {
-      memcpy(mutable_data_ + position_, data, nbytes);
+      memcpy(mutable_data_ + position_, data, static_cast<size_t>(nbytes));
     }
     position_ += nbytes;
     return Status::OK();
@@ -332,7 +332,7 @@ Result<int64_t> BufferReader::DoReadAt(int64_t position, int64_t nbytes, void* b
   ARROW_ASSIGN_OR_RAISE(nbytes, internal::ValidateReadRange(position, nbytes, size_));
   DCHECK_GE(nbytes, 0);
   if (nbytes) {
-    memcpy(buffer, data_ + position, nbytes);
+    memcpy(buffer, data_ + position, static_cast<size_t>(nbytes));
   }
   return nbytes;
 }

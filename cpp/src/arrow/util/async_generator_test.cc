@@ -827,12 +827,12 @@ class SeqMergedGeneratorTestFixture : public ::testing::Test {
   }
 
   void EmitItem(int sub_index, int value) {
-    EXPECT_LT(sub_index, push_subs_.size());
+    EXPECT_LT(static_cast<size_t>(sub_index), push_subs_.size());
     push_subs_[sub_index].producer().Push(value);
   }
 
   void EmitErrorItem(int sub_index) {
-    EXPECT_LT(sub_index, push_subs_.size());
+    EXPECT_LT(static_cast<size_t>(sub_index), push_subs_.size());
     push_subs_[sub_index].producer().Push(Status::Invalid("XYZ"));
   }
 
@@ -847,7 +847,7 @@ class SeqMergedGeneratorTestFixture : public ::testing::Test {
   void EmitErrorSub() { push_source_.producer().Push(Status::Invalid("XYZ")); }
 
   void FinishSub(int sub_index) {
-    EXPECT_LT(sub_index, tracked_subs_.size());
+    EXPECT_LT(static_cast<size_t>(sub_index), tracked_subs_.size());
     push_subs_[sub_index].producer().Close();
   }
 
@@ -858,7 +858,7 @@ class SeqMergedGeneratorTestFixture : public ::testing::Test {
   void AssertFailed() { ASSERT_FINISHES_AND_RAISES(Invalid, finished_); }
 
   int NumItemsAskedFor(int sub_index) {
-    EXPECT_LT(sub_index, tracked_subs_.size());
+    EXPECT_LT(static_cast<size_t>(sub_index), tracked_subs_.size());
     return tracked_subs_[sub_index].num_read();
   }
 

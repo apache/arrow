@@ -395,7 +395,7 @@ void DowncastInts(const int64_t* source, int32_t* dest, int64_t length) {
 }
 
 void DowncastInts(const int64_t* source, int64_t* dest, int64_t length) {
-  memcpy(dest, source, length * sizeof(int64_t));
+  memcpy(dest, source, static_cast<size_t>(length * sizeof(int64_t)));
 }
 
 void DowncastUInts(const uint64_t* source, uint8_t* dest, int64_t length) {
@@ -411,7 +411,7 @@ void DowncastUInts(const uint64_t* source, uint32_t* dest, int64_t length) {
 }
 
 void DowncastUInts(const uint64_t* source, uint64_t* dest, int64_t length) {
-  memcpy(dest, source, length * sizeof(int64_t));
+  memcpy(dest, source, static_cast<size_t>(length * sizeof(int64_t)));
 }
 
 void UpcastInts(const int32_t* source, int64_t* dest, int64_t length) {

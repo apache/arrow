@@ -240,11 +240,11 @@ class TestSparseTensorRoundTrip : public BaseTensorTest {
 
     for (int64_t i = 0; i < ndim - 1; ++i) {
       indptr_length += bit_util::RoundUpToMultipleOf8(index_elem_size *
-                                                      sparse_index.indptr()[i]->size());
+                                                      sparse_index.indptr()[static_cast<size_t>(i)]->size());
     }
     for (int64_t i = 0; i < ndim; ++i) {
       indices_length += bit_util::RoundUpToMultipleOf8(index_elem_size *
-                                                       sparse_index.indices()[i]->size());
+                                                       sparse_index.indices()[static_cast<size_t>(i)]->size());
     }
     const int64_t data_length =
         bit_util::RoundUpToMultipleOf8(elem_size * sparse_tensor.non_zero_length());

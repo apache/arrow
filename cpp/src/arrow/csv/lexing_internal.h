@@ -119,7 +119,7 @@ class BloomFilter4B : public BaseBloomFilter {
   }
 };
 
-#if defined(ARROW_HAVE_SSE4_2)
+#if defined(ARROW_HAVE_SSE4_2) && (defined(__x86_64__) || defined(_M_X64))
 
 // SSE4.2 filter: 8 bytes at a time, using packed compare instruction
 

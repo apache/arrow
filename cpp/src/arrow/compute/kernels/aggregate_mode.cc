@@ -284,7 +284,7 @@ struct SortModer {
 
     uint64_t nan_count = 0;
     if (length > 0) {
-      values.resize(length - null_count);
+      values.resize(static_cast<size_t>(length - null_count));
       CopyNonNullValues(arr, values.data());
 
       // drop nan

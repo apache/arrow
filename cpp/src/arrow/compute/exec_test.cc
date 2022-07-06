@@ -204,7 +204,7 @@ TEST_F(TestPropagateNulls, SetAllNulls) {
     ASSERT_NE(nullptr, output.buffers[0]);
     uint8_t expected[2] = {0, 0};
     const Buffer& out_buf = *output.buffers[0];
-    ASSERT_EQ(0, std::memcmp(out_buf.data(), expected, out_buf.size()));
+    ASSERT_EQ(0, std::memcmp(out_buf.data(), expected, static_cast<size_t>(out_buf.size())));
   };
 
   // There is a null scalar
@@ -264,7 +264,7 @@ TEST_F(TestPropagateNulls, SingleValueWithNulls) {
       ASSERT_OK_AND_ASSIGN(
           preallocated_bitmap,
           AllocateBuffer(bit_util::BytesForBits(sliced->length() + out_offset)));
-      std::memset(preallocated_bitmap->mutable_data(), 0, preallocated_bitmap->size());
+      std::memset(preallocated_bitmap->mutable_data(), 0, static_cast<size_t>(preallocated_bitmap->size()));
       output.buffers[0] = preallocated_bitmap;
     } else {
       ASSERT_EQ(0, output.offset);
@@ -367,7 +367,7 @@ TEST_F(TestPropagateNulls, IntersectsNulls) {
     if (preallocate) {
       // Make the buffer one byte bigger so we can have non-zero offsets
       ASSERT_OK_AND_ASSIGN(nulls, AllocateBuffer(3));
-      std::memset(nulls->mutable_data(), 0, nulls->size());
+      std::memset(nulls->mutable_data(), 0, static_cast<size_t>(nulls->size()));
     } else {
       // non-zero output offset not permitted unless the output memory is
       // preallocated
@@ -482,7 +482,7 @@ TEST_F(TestPropagateNullsSpans, SetAllNulls) {
     PropagateNullsSpans(span, &output);
 
     uint8_t expected[2] = {0, 0};
-    ASSERT_EQ(0, std::memcmp(output.buffers[0].data, expected, output.buffers[0].size));
+    ASSERT_EQ(0, std::memcmp(output.buffers[0].data, expected, static_cast<size_t>(output.buffers[0].size)));
   };
 
   // There is a null scalar
@@ -524,7 +524,7 @@ TEST_F(TestPropagateNullsSpans, SingleValueWithNulls) {
     ASSERT_OK_AND_ASSIGN(
         preallocated_bitmap,
         AllocateBuffer(bit_util::BytesForBits(sliced->length() + out_offset)));
-    std::memset(preallocated_bitmap->mutable_data(), 0, preallocated_bitmap->size());
+    std::memset(preallocated_bitmap->mutable_data(), 0, static_cast<size_t>(preallocated_bitmap->size()));
     output.SetBuffer(0, preallocated_bitmap);
 
     ExecBatch batch(vals, vals[0].length());
@@ -566,7 +566,7 @@ TEST_F(TestPropagateNullsSpans, CasesThatUsedToBeZeroCopy) {
     output.SetBuffer(0, preallocated_mem);
     PropagateNullsSpans(ExecSpan({some_nulls, no_nulls}, length), &output);
     ASSERT_EQ(
-        0, std::memcmp(output.buffers[0].data, validity_bitmap, output.buffers[0].size));
+        0, std::memcmp(output.buffers[0].data, validity_bitmap, static_cast<size_t>(output.buffers[0].size)));
     ASSERT_EQ(output.buffers[0].owner, &preallocated_mem);
     ASSERT_EQ(9, output.GetNullCount());
   }
@@ -580,7 +580,7 @@ TEST_F(TestPropagateNullsSpans, CasesThatUsedToBeZeroCopy) {
     output.SetBuffer(0, preallocated_mem);
     PropagateNullsSpans(ExecSpan({no_nulls, no_nulls, some_nulls}, length), &output);
     ASSERT_EQ(
-        0, std::memcmp(output.buffers[0].data, validity_bitmap, output.buffers[0].size));
+        0, std::memcmp(output.buffers[0].data, validity_bitmap, static_cast<size_t>(output.buffers[0].size)));
     ASSERT_EQ(output.buffers[0].owner, &preallocated_mem);
     ASSERT_EQ(9, output.GetNullCount());
   }
@@ -619,7 +619,7 @@ TEST_F(TestPropagateNullsSpans, IntersectsNulls) {
     std::shared_ptr<Buffer> nulls;
     // Make the buffer one byte bigger so we can have non-zero offsets
     ASSERT_OK_AND_ASSIGN(nulls, AllocateBuffer(3));
-    std::memset(nulls->mutable_data(), 0, nulls->size());
+    std::memset(nulls->mutable_data(), 0, static_cast<size_t>(nulls->size()));
 
     ArraySpan output(ty.get(), length);
     output.SetBuffer(0, nulls);
@@ -804,7 +804,7 @@ Status ExecCopyArrayData(KernelContext*, const ExecSpan& batch, ExecResult* out)
   ArrayData* out_arr = out->array_data().get();
   uint8_t* dst = out_arr->buffers[1]->mutable_data() + out_arr->offset * value_size;
   const uint8_t* src = arg0.buffers[1].data + arg0.offset * value_size;
-  std::memcpy(dst, src, batch.length * value_size);
+  std::memcpy(dst, src, static_cast<size_t>(batch.length * value_size));
   return Status::OK();
 }
 
@@ -815,7 +815,7 @@ Status ExecCopyArraySpan(KernelContext*, const ExecSpan& batch, ExecResult* out)
   ArraySpan* out_arr = out->array_span();
   uint8_t* dst = out_arr->buffers[1].data + out_arr->offset * value_size;
   const uint8_t* src = arg0.buffers[1].data + arg0.offset * value_size;
-  std::memcpy(dst, src, batch.length * value_size);
+  std::memcpy(dst, src, static_cast<size_t>(batch.length * value_size));
   return Status::OK();
 }
 

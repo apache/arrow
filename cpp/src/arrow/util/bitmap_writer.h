@@ -136,7 +136,7 @@ class FirstTimeBitmapWriter {
     }
     word = bit_util::ToLittleEndian(word);
     int64_t bytes_for_word = ::arrow::bit_util::BytesForBits(number_of_bits);
-    std::memcpy(append_position, &word, bytes_for_word);
+    std::memcpy(append_position, &word, static_cast<size_t>(bytes_for_word));
     // At this point, the previous current_byte_ has been written to bitmap_.
     // The new current_byte_ is either the last relevant byte in 'word'
     // or cleared if the new position is byte aligned (i.e. a fresh byte).

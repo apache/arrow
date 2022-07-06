@@ -523,7 +523,7 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
   //
   if (!source_rows_permutation) {
     memcpy(target->mutable_data(1) + fixed_length * first_target_row_id, source.data(1),
-           fixed_length * num_source_rows);
+           static_cast<size_t>(fixed_length * num_source_rows));
   } else {
     // Row length must be a multiple of 64-bits due to enforced alignment.
     // Loop for each output row copying a fixed number of 64-bit words.
@@ -602,7 +602,8 @@ void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
   int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
   uint8_t* target_nulls = target->null_masks() + num_bytes_per_row * first_target_row_id;
   if (!source_rows_permutation) {
-    memcpy(target_nulls, source.null_masks(), num_bytes_per_row * num_source_rows);
+    memcpy(target_nulls, source.null_masks(),
+           static_cast<size_t>(num_bytes_per_row * num_source_rows));
   } else {
     for (int64_t i = 0; i < num_source_rows; ++i) {
       int64_t source_row_id = source_rows_permutation[i];
@@ -695,7 +696,7 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
     constexpr uint64_t kHighBitOfEachByte = 0x8080808080808080ULL;
     constexpr int kSlotsPerBlock = 8;
     int num_full_slots =
-        kSlotsPerBlock - static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+        kSlotsPerBlock - static_cast<int>(bit_util::PopCount(block & kHighBitOfEachByte));
     for (int local_slot_id = 0; local_slot_id < num_full_slots; ++local_slot_id) {
       // Read group id and hash for this slot.
       //
@@ -751,7 +752,7 @@ inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint64_t group_i
   }
   constexpr int kSlotsPerBlock = 8;
   int local_slot_id =
-      kSlotsPerBlock - static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+      kSlotsPerBlock - static_cast<int>(bit_util::PopCount(block & kHighBitOfEachByte));
   int64_t global_slot_id = block_id * kSlotsPerBlock + local_slot_id;
   target->insert_into_empty_slot(static_cast<uint32_t>(global_slot_id), hash,
                                  static_cast<uint32_t>(group_id));
@@ -858,7 +859,7 @@ void SwissTableWithKeys::EqualCallback(int num_keys, const uint16_t* selection_m
     auto selection_to_use_buf =
         util::TempVectorHolder<uint16_t>(in->temp_stack, num_keys);
     ARROW_DCHECK(in->temp_group_ids);
-    in->temp_group_ids->resize(in->batch->length);
+    in->temp_group_ids->resize(static_cast<size_t>(in->batch->length));
 
     if (selection_maybe_null) {
       for (int i = 0; i < num_keys; ++i) {
@@ -1051,14 +1052,15 @@ uint8_t* SwissTableForJoin::local_has_match(int64_t thread_id) {
     return nullptr;
   }
 
-  ThreadLocalState& local_state = local_states_[thread_id];
+  ThreadLocalState& local_state = local_states_[static_cast<size_t>(thread_id)];
   if (local_state.has_match.empty() && num_rows_hash_table > 0) {
-    local_state.has_match.resize(bit_util::BytesForBits(num_rows_hash_table) +
-                                 sizeof(uint64_t));
-    memset(local_state.has_match.data(), 0, bit_util::BytesForBits(num_rows_hash_table));
+    local_state.has_match.resize(static_cast<size_t>(
+        bit_util::BytesForBits(num_rows_hash_table) + sizeof(uint64_t)));
+    memset(local_state.has_match.data(), 0,
+           static_cast<size_t>(bit_util::BytesForBits(num_rows_hash_table)));
   }
 
-  return local_states_[thread_id].has_match.data();
+  return local_states_[static_cast<size_t>(thread_id)].has_match.data();
 }
 
 void SwissTableForJoin::UpdateHasMatchForKeys(int64_t thread_id, int num_ids,
@@ -1080,8 +1082,10 @@ void SwissTableForJoin::MergeHasMatch() {
     return;
   }
 
-  has_match_.resize(bit_util::BytesForBits(num_rows_hash_table) + sizeof(uint64_t));
-  memset(has_match_.data(), 0, bit_util::BytesForBits(num_rows_hash_table));
+  has_match_.resize(static_cast<size_t>(bit_util::BytesForBits(num_rows_hash_table) +
+                                        sizeof(uint64_t)));
+  memset(has_match_.data(), 0,
+         static_cast<size_t>(bit_util::BytesForBits(num_rows_hash_table)));
 
   for (size_t tid = 0; tid < local_states_.size(); ++tid) {
     if (!local_states_[tid].has_match.empty()) {
@@ -1184,11 +1188,11 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
                                              const ExecBatch* payload_batch_maybe_null,
                                              util::TempVectorStack* temp_stack) {
   ARROW_DCHECK(thread_id < dop_);
-  ThreadState& locals = thread_states_[thread_id];
+  ThreadState& locals = thread_states_[static_cast<size_t>(thread_id)];
 
   // Compute hash
   //
-  locals.batch_hashes.resize(key_batch.length);
+  locals.batch_hashes.resize(static_cast<size_t>(key_batch.length));
   RETURN_NOT_OK(Hashing32::HashBatch(
       key_batch, locals.batch_hashes.data(), locals.temp_column_arrays, hardware_flags_,
       temp_stack, /*start_row=*/0, static_cast<int>(key_batch.length)));
@@ -1216,7 +1220,8 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
           // We want each partition to correspond to a range of block indices,
           // so we also partition on the highest bits of the hash.
           //
-          return locals.batch_hashes[i] >> (31 - log_num_prtns_) >> 1;
+          return locals.batch_hashes[static_cast<size_t>(i)] >> (31 - log_num_prtns_) >>
+                 1;
         },
         [&locals](int64_t i, int pos) {
           locals.batch_prtn_row_ids[pos] = static_cast<uint16_t>(i);
@@ -1237,7 +1242,7 @@ Status SwissTableForJoinBuild::PushNextBatch(int64_t thread_id,
   locals.temp_prtn_ids.resize(num_prtns_);
 
   RETURN_NOT_OK(prtn_locks_.ForEachPartition(
-      thread_id, locals.temp_prtn_ids.data(),
+      static_cast<size_t>(thread_id), locals.temp_prtn_ids.data(),
       /*is_prtn_empty_fn=*/
       [&](int prtn_id) {
         return locals.batch_prtn_ranges[prtn_id + 1] == locals.batch_prtn_ranges[prtn_id];
@@ -1257,7 +1262,7 @@ Status SwissTableForJoinBuild::ProcessPartition(int64_t thread_id,
                                                 util::TempVectorStack* temp_stack,
                                                 int prtn_id) {
   ARROW_DCHECK(thread_id < dop_);
-  ThreadState& locals = thread_states_[thread_id];
+  ThreadState& locals = thread_states_[static_cast<size_t>(thread_id)];
 
   int num_rows_new =
       locals.batch_prtn_ranges[prtn_id + 1] - locals.batch_prtn_ranges[prtn_id];
@@ -1352,14 +1357,16 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
   //
   target_->no_duplicate_keys_ = no_duplicate_keys;
   if (!no_duplicate_keys) {
-    target_->row_offset_for_key_.resize(num_keys + 1);
+    target_->row_offset_for_key_.resize(static_cast<size_t>(num_keys + 1));
     int64_t num_rows = 0;
-    for (int i = 0; i < num_prtns_; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(num_prtns_); ++i) {
       int64_t first_key = partition_keys_first_row_id_[i];
-      target_->row_offset_for_key_[first_key] = static_cast<uint32_t>(num_rows);
+      target_->row_offset_for_key_[static_cast<size_t>(first_key)] =
+          static_cast<uint32_t>(num_rows);
       num_rows += static_cast<int64_t>(prtn_states_[i].key_ids.size());
     }
-    target_->row_offset_for_key_[num_keys] = static_cast<uint32_t>(num_rows);
+    target_->row_offset_for_key_[static_cast<size_t>(num_keys)] =
+        static_cast<uint32_t>(num_rows);
   }
 
   return Status::OK();
@@ -1431,7 +1438,7 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
       for (size_t i = 0; i < prtn_state.key_ids.size(); ++i) {
         uint32_t key_id = prtn_state.key_ids[i];
         int64_t position = --counters[key_id];
-        source_payload_ids[position] = static_cast<int64_t>(i);
+        source_payload_ids[static_cast<size_t>(position)] = static_cast<int64_t>(i);
       }
       // Add base payload id to all of the counters.
       //
@@ -1746,7 +1753,8 @@ void JoinNullFilter::Filter(const ExecBatch& key_batch, int batch_start_row,
     // Filter out nulls for this column
     //
     if (!is_output_initialized) {
-      memset(inout_bit_vector, 0xff, bit_util::BytesForBits(num_batch_rows));
+      memset(inout_bit_vector, 0xff,
+             static_cast<size_t>(bit_util::BytesForBits(num_batch_rows)));
       is_output_initialized = true;
     }
     arrow::internal::BitmapAnd(inout_bit_vector, 0, non_null_buffer, offset,
@@ -1932,7 +1940,7 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
               static_cast<uint16_t>(minibatch_start);
         }
 
-        RETURN_NOT_OK(materialize_[thread_id]->AppendProbeOnly(
+        RETURN_NOT_OK(materialize_[static_cast<size_t>(thread_id)]->AppendProbeOnly(
             keypayload_batch, num_passing_ids, materialize_batch_ids_buf.mutable_data(),
             [&](ExecBatch batch) { output_batch_fn_(thread_id, std::move(batch)); }));
       }
@@ -1970,7 +1978,7 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
         // Call materialize for resulting id tuples pointing to matching pairs
         // of rows.
         //
-        RETURN_NOT_OK(materialize_[thread_id]->Append(
+        RETURN_NOT_OK(materialize_[static_cast<size_t>(thread_id)]->Append(
             keypayload_batch, num_matches_next, materialize_batch_ids,
             materialize_key_ids, materialize_payload_ids,
             [&](ExecBatch batch) { output_batch_fn_(thread_id, std::move(batch)); }));
@@ -1995,7 +2003,7 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
               static_cast<uint16_t>(minibatch_start);
         }
 
-        RETURN_NOT_OK(materialize_[thread_id]->AppendProbeOnly(
+        RETURN_NOT_OK(materialize_[static_cast<size_t>(thread_id)]->AppendProbeOnly(
             keypayload_batch, num_passing_ids, materialize_batch_ids_buf.mutable_data(),
             [&](ExecBatch batch) { output_batch_fn_(thread_id, std::move(batch)); }));
       }
@@ -2196,7 +2204,9 @@ class SwissJoin : public HashJoinImpl {
 
     ExecBatch input_batch;
     ARROW_ASSIGN_OR_RAISE(
-        input_batch, KeyPayloadFromInput(/*side=*/1, &build_side_batches_[batch_id]));
+        input_batch,
+        KeyPayloadFromInput(/*side=*/1,
+                            &build_side_batches_[static_cast<size_t>(batch_id)]));
 
     if (input_batch.length == 0) {
       return Status::OK();
@@ -2275,7 +2285,7 @@ class SwissJoin : public HashJoinImpl {
     }
     hash_table_ready_.store(true);
 
-    return build_finished_callback_(thread_id);
+    return build_finished_callback_(static_cast<size_t>(thread_id));
   }
 
   Status StartScanHashTable(int64_t thread_id) {

@@ -453,7 +453,7 @@ Status StringDataTransform(KernelContext* ctx, const ExecSpan& batch,
     } else {
       RETURN_NOT_OK(ctx->Allocate(offset_nbytes).Value(&out_arr->buffers[1]));
       std::memcpy(out_arr->buffers[1]->mutable_data(), input.buffers[1].data,
-                  offset_nbytes);
+                  static_cast<size_t>(offset_nbytes));
     }
   } else {
     // We must allocate new space for the offsets and shift the existing offsets
@@ -1230,8 +1230,9 @@ struct PlainSubstringMatcher {
     for (size_t pos = 0; pos < pattern_length; ++pos) {
       // The prefix cannot be expanded, reset.
       while (prefix_length >= 0 &&
-             options_.pattern[pos] != options_.pattern[prefix_length]) {
-        prefix_length = prefix_table[prefix_length];
+             options_.pattern[pos] !=
+                 options_.pattern[static_cast<size_t>(prefix_length)]) {
+        prefix_length = prefix_table[static_cast<size_t>(prefix_length)];
       }
       prefix_length++;
       prefix_table[pos + 1] = prefix_length;
@@ -1245,8 +1246,9 @@ struct PlainSubstringMatcher {
     int64_t pos = 0;
     if (pattern_length == 0) return 0;
     for (const auto c : current) {
-      while ((pattern_pos >= 0) && (options_.pattern[pattern_pos] != c)) {
-        pattern_pos = prefix_table[pattern_pos];
+      while ((pattern_pos >= 0) &&
+             (options_.pattern[static_cast<size_t>(pattern_pos)] != c)) {
+        pattern_pos = prefix_table[static_cast<size_t>(pattern_pos)];
       }
       pattern_pos++;
       if (static_cast<size_t>(pattern_pos) == pattern_length) {
@@ -1341,7 +1343,8 @@ struct MatchSubstringImpl {
           for (int64_t i = 0; i < length; ++i) {
             const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
             int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(util::string_view(current_data, current_length))) {
+            if (matcher->Match(util::string_view(current_data,
+                                                 static_cast<size_t>(current_length)))) {
               bitmap_writer.Set();
             }
             bitmap_writer.Next();
@@ -1783,13 +1786,13 @@ struct CountSubstring {
   template <typename OutValue, typename... Ignored>
   OutValue Call(KernelContext*, util::string_view val, Status*) const {
     OutValue count = 0;
-    uint64_t start = 0;
+    size_t start = 0;
     const auto pattern_size = std::max<uint64_t>(1, matcher_.options_.pattern.size());
     while (start <= val.size()) {
       const int64_t index = matcher_.Find(val.substr(start));
       if (index >= 0) {
         count++;
-        start += index + pattern_size;
+        start += static_cast<size_t>(index + pattern_size);
       } else {
         break;
       }
@@ -2887,8 +2890,9 @@ struct BinaryJoinElementWise {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
-            valid_cols[col] = util::string_view(
-                reinterpret_cast<const char*>(data + offsets[row]), length);
+            valid_cols[col] =
+                util::string_view(reinterpret_cast<const char*>(data + offsets[row]),
+                                  static_cast<size_t>(length));
             if (col < batch.num_values() - 1) num_valid++;
           } else {
             valid_cols[col] = util::string_view();
@@ -2913,7 +2917,7 @@ struct BinaryJoinElementWise {
       }
       const auto separator = valid_cols.back();
       bool first = true;
-      for (int col = 0; col < batch.num_values() - 1; col++) {
+      for (size_t col = 0; col < static_cast<size_t>(batch.num_values() - 1); col++) {
         util::string_view value = valid_cols[col];
         if (!value.data()) {
           switch (options.null_handling) {
@@ -3115,7 +3119,7 @@ struct BinaryRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
                                              const int64_t num_repeats, uint8_t* output) {
     uint8_t* output_start = output;
     for (int64_t i = 0; i < num_repeats; ++i) {
-      std::memcpy(output, input, input_string_ncodeunits);
+      std::memcpy(output, input, static_cast<size_t>(input_string_ncodeunits));
       output += input_string_ncodeunits;
     }
     return output - output_start;
@@ -3128,18 +3132,18 @@ struct BinaryRepeatTransform : public StringBinaryTransformBase<Type1, Type2> {
     uint8_t* output_start = output;
     // Repeated doubling of string
     // NB: This implementation expects `num_repeats > 0`.
-    std::memcpy(output, input, input_string_ncodeunits);
+    std::memcpy(output, input, static_cast<size_t>(input_string_ncodeunits));
     output += input_string_ncodeunits;
     int64_t irep = 1;
-    for (int64_t ilen = input_string_ncodeunits; irep <= (num_repeats / 2);
-         irep *= 2, ilen *= 2) {
+    for (size_t ilen = static_cast<size_t>(input_string_ncodeunits);
+         irep <= (num_repeats / 2); irep *= 2, ilen *= 2) {
       std::memcpy(output, output_start, ilen);
       output += ilen;
     }
 
     // Epilogue remainder
     int64_t rem = (num_repeats - irep) * input_string_ncodeunits;
-    std::memcpy(output, output_start, rem);
+    std::memcpy(output, output_start, static_cast<size_t>(rem));
     output += rem;
     return output - output_start;
   }

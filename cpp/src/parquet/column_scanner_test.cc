@@ -220,7 +220,7 @@ TEST_F(TestFLBAFlatScanner, TestFLBAPrinterNext) {
     std::stringstream ss;
     scanner->PrintNext(ss, 17);
     std::string result = ss.str();
-    ASSERT_LE(17, result.size()) << i;
+    ASSERT_LE(static_cast<size_t>(17), result.size()) << i;
   }
   ASSERT_THROW(scanner->PrintNext(ss_fail, 17), ParquetException);
 }

@@ -33,7 +33,7 @@ class TestLazyIter : public ::testing::Test {
   int64_t kSize = 1000;
   void SetUp() {
     randint(kSize, 0, 1000000, &source_);
-    target_.resize(kSize);
+    target_.resize(static_cast<size_t>(kSize));
   }
 
  protected:
@@ -42,17 +42,19 @@ class TestLazyIter : public ::testing::Test {
 };
 
 TEST_F(TestLazyIter, TestIncrementCopy) {
-  auto add_one = [this](int64_t index) { return source_[index] + 1; };
+  auto add_one = [this](int64_t index)
+    { return source_[static_cast<size_t>(index)] + 1; };
   auto lazy_range = internal::MakeLazyRange(add_one, kSize);
   std::copy(lazy_range.begin(), lazy_range.end(), target_.begin());
 
   for (int64_t index = 0; index < kSize; ++index) {
-    ASSERT_EQ(source_[index] + 1, target_[index]);
+    ASSERT_EQ(source_[static_cast<size_t>(index)] + 1,
+              target_[static_cast<size_t>(index)]);
   }
 }
 
 TEST_F(TestLazyIter, TestPostIncrementCopy) {
-  auto add_one = [this](int64_t index) { return source_[index] + 1; };
+  auto add_one = [this](int64_t index) { return source_[static_cast<size_t>(index)] + 1; };
   auto lazy_range = internal::MakeLazyRange(add_one, kSize);
   auto iter = lazy_range.begin();
   auto end = lazy_range.end();

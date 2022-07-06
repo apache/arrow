@@ -279,7 +279,7 @@ TEST_F(TestPageSerde, Compression) {
       int data_size = static_cast<int>(faux_data[i].size());
 
       int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
-      buffer.resize(max_compressed_size);
+      buffer.resize(static_cast<size_t>(max_compressed_size));
 
       int64_t actual_size;
       ASSERT_OK_AND_ASSIGN(

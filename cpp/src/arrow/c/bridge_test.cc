@@ -530,7 +530,7 @@ struct ArrayExportChecker {
     if (c_export->n_children > 0) {
       ASSERT_NE(c_export->children, nullptr);
       // Recurse into children
-      for (int64_t i = 0; i < c_export->n_children; ++i) {
+      for (size_t i = 0; i < static_cast<size_t>(c_export->n_children); ++i) {
         ASSERT_NE(c_export->children[i], nullptr);
         operator()(c_export->children[i], *expected_data.child_data[i]);
       }
@@ -682,7 +682,7 @@ class TestArrayExport : public ::testing::Test {
     {
       ArrayExportGuard parent_guard(&c_export_parent);
       ASSERT_LT(child_id, c_export_parent.n_children);
-      ArrowArrayMove(c_export_parent.children[child_id], &c_export_child);
+      ArrowArrayMove(c_export_parent.children[static_cast<size_t>(child_id)], &c_export_child);
     }
     ArrayExportGuard child_guard(&c_export_child);
 
@@ -692,7 +692,7 @@ class TestArrayExport : public ::testing::Test {
     ASSERT_LT(bytes_with_child, bytes_with_parent);
     ASSERT_GT(bytes_with_child, orig_bytes);
 
-    const ArrayData& data = *arr->data()->child_data[child_id];  // non-owning reference
+    const ArrayData& data = *arr->data()->child_data[static_cast<size_t>(child_id)];  // non-owning reference
     check_func(&c_export_child, data);
 
     // Release the shared_ptr<Array>, some underlying data should be held alive
@@ -741,10 +741,10 @@ class TestArrayExport : public ::testing::Test {
       for (size_t i = 0; i < children_ids.size(); ++i) {
         const auto child_id = children_ids[i];
         ASSERT_LT(child_id, c_export_parent.n_children);
-        ArrowArrayMove(c_export_parent.children[child_id], &c_export_children[i]);
+        ArrowArrayMove(c_export_parent.children[static_cast<size_t>(child_id)], &c_export_children[i]);
         child_guards.emplace_back(&c_export_children[i]);
         // Keep non-owning pointer to the child ArrayData
-        child_data.push_back(arr->data()->child_data[child_id].get());
+        child_data.push_back(arr->data()->child_data[static_cast<size_t>(child_id)].get());
       }
     }
 
@@ -1112,7 +1112,7 @@ class SchemaStructBuilder {
 
   // Create a stable C pointer to the N last structs in nested_structs_
   struct ArrowSchema** NLastChildren(int64_t n_children, struct ArrowSchema* parent) {
-    children_arrays_.emplace_back(n_children);
+    children_arrays_.emplace_back(static_cast<size_t>(n_children));
     struct ArrowSchema** children = children_arrays_.back().data();
     int64_t nested_offset;
     // If parent is itself at the end of nested_structs_, skip it
@@ -1122,7 +1122,7 @@ class SchemaStructBuilder {
       nested_offset = static_cast<int64_t>(nested_structs_.size()) - n_children;
     }
     for (int64_t i = 0; i < n_children; ++i) {
-      children[i] = &nested_structs_[nested_offset + i];
+      children[static_cast<size_t>(i)] = &nested_structs_[static_cast<size_t>(nested_offset + i)];
     }
     return children;
   }
@@ -1765,7 +1765,7 @@ class TestArrayImport : public ::testing::Test {
 
   // Create a stable C pointer to the N last structs in nested_structs_
   struct ArrowArray** NLastChildren(int64_t n_children, struct ArrowArray* parent) {
-    children_arrays_.emplace_back(n_children);
+    children_arrays_.emplace_back(static_cast<size_t>(n_children));
     struct ArrowArray** children = children_arrays_.back().data();
     int64_t nested_offset;
     // If parent is itself at the end of nested_structs_, skip it
@@ -1775,7 +1775,7 @@ class TestArrayImport : public ::testing::Test {
       nested_offset = static_cast<int64_t>(nested_structs_.size()) - n_children;
     }
     for (int64_t i = 0; i < n_children; ++i) {
-      children[i] = &nested_structs_[nested_offset + i];
+      children[static_cast<size_t>(i)] = &nested_structs_[static_cast<size_t>(nested_offset + i)];
     }
     return children;
   }

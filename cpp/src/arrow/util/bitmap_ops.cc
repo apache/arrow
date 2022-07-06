@@ -271,8 +271,8 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
                   int64_t right_offset, int64_t length) {
   if (left_offset % 8 == 0 && right_offset % 8 == 0) {
     // byte aligned, can use memcmp
-    bool bytes_equal =
-        std::memcmp(left + left_offset / 8, right + right_offset / 8, length / 8) == 0;
+    bool bytes_equal = std::memcmp(left + left_offset / 8, right + right_offset / 8,
+                                   static_cast<size_t>(length / 8)) == 0;
     if (!bytes_equal) {
       return false;
     }

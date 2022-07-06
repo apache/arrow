@@ -23,6 +23,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 
 namespace arrow {
 namespace compute {
@@ -232,7 +233,7 @@ uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
   // Group id values for all 8 slots in the block are bit-packed and follow the status
   // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
   // that case we can extract group id using aligned 64-bit word access.
-  int num_group_id_bits = static_cast<int>(ARROW_POPCOUNT64(group_id_mask));
+  int num_group_id_bits = static_cast<int>(arrow::bit_util::PopCount(group_id_mask));
   ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
                num_group_id_bits == 32 || num_group_id_bits == 64);
 

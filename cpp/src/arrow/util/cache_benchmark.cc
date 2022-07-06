@@ -42,9 +42,9 @@ static std::vector<std::string> MakeStrings(int64_t nvalues, int64_t min_length,
   auto rng = ::arrow::random::RandomArrayGenerator(42);
   auto arr = checked_pointer_cast<StringArray>(rng.String(
       nvalues, static_cast<int32_t>(min_length), static_cast<int32_t>(max_length)));
-  std::vector<std::string> vec(nvalues);
+  std::vector<std::string> vec(static_cast<size_t>(nvalues));
   for (int64_t i = 0; i < nvalues; ++i) {
-    vec[i] = arr->GetString(i);
+    vec[static_cast<size_t>(i)] = arr->GetString(i);
   }
   return vec;
 }
@@ -97,7 +97,7 @@ struct Callable {
     if (++index_ >= static_cast<int64_t>(values_.size())) {
       index_ = 0;
     }
-    return values_[index_];
+    return values_[static_cast<size_t>(index_)];
   }
 
  private:

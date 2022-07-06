@@ -46,7 +46,8 @@ inline int SpacedCompress(const T* src, int num_values, const uint8_t* valid_bit
     if (run.length == 0) {
       break;
     }
-    std::memcpy(output + num_valid_values, src + run.position, run.length * sizeof(T));
+    std::memcpy(output + num_valid_values, src + run.position,
+                static_cast<size_t>(run.length * sizeof(T)));
     num_valid_values += static_cast<int32_t>(run.length);
   }
 
@@ -85,7 +86,8 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
     }
     idx_decode -= static_cast<int32_t>(run.length);
     assert(idx_decode >= 0);
-    std::memmove(buffer + run.position, buffer + idx_decode, run.length * sizeof(T));
+    std::memmove(buffer + run.position, buffer + idx_decode,
+                 static_cast<size_t>(run.length * sizeof(T)));
   }
 
   // Otherwise caller gave an incorrect null_count

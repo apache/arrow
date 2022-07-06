@@ -52,7 +52,7 @@ void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t 
   for (int64_t i = num_processed_elements; i < num_values; ++i) {
     uint8_t gathered_byte_data[kNumStreams];
     for (size_t b = 0; b < kNumStreams; ++b) {
-      const size_t byte_index = b * stride + i;
+      const size_t byte_index = static_cast<size_t>(b * stride + i);
       gathered_byte_data[b] = data[byte_index];
     }
     out[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
@@ -595,8 +595,8 @@ void ByteStreamSplitDecodeScalar(const uint8_t* data, int64_t num_values, int64_
 
   for (int64_t i = 0; i < num_values; ++i) {
     for (size_t b = 0; b < kNumStreams; ++b) {
-      const size_t byte_index = b * stride + i;
-      output_buffer_raw[i * kNumStreams + b] = data[byte_index];
+      const size_t byte_index = static_cast<size_t>(b * stride + i);
+      output_buffer_raw[static_cast<size_t>(i * kNumStreams + b)] = data[byte_index];
     }
   }
 }

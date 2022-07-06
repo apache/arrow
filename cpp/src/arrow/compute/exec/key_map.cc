@@ -22,13 +22,13 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
 
 using bit_util::CountLeadingZeros;
+using bit_util::PopCount;
 
 namespace compute {
 
@@ -209,8 +209,7 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
   uint32_t num_block_bytes = num_groupid_bits + 8;
   if (log_blocks_ == 0) {
     uint64_t block = *reinterpret_cast<const uint64_t*>(blocks_);
-    uint32_t empty_slot =
-        static_cast<uint32_t>(8 - ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+    uint32_t empty_slot = static_cast<uint32_t>(8 - PopCount(block & kHighBitOfEachByte));
     for (uint32_t i = 0; i < num_ids; ++i) {
       int id = ids[i];
       slot_ids[id] = empty_slot;
@@ -229,7 +228,7 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
         }
         iblock = (iblock + 1) & ((1 << log_blocks_) - 1);
       }
-      uint32_t empty_slot = static_cast<int>(8 - ARROW_POPCOUNT64(block));
+      uint32_t empty_slot = static_cast<int>(8 - PopCount(block));
       slot_ids[id] = iblock * 8 + empty_slot;
     }
   }
@@ -666,7 +665,7 @@ Status SwissTable::grow_double() {
   // Allocate new buffers
   uint8_t* blocks_new;
   RETURN_NOT_OK(pool_->Allocate(block_size_total_after, &blocks_new));
-  memset(blocks_new, 0, block_size_total_after);
+  memset(blocks_new, 0, static_cast<size_t>(block_size_total_after));
   uint8_t* hashes_new_8B;
   uint32_t* hashes_new;
   RETURN_NOT_OK(pool_->Allocate(hashes_size_total_after, &hashes_new_8B));
@@ -790,7 +789,7 @@ Status SwissTable::init(int64_t hardware_flags, MemoryPool* pool, int log_blocks
   RETURN_NOT_OK(pool_->Allocate(slot_bytes, &blocks_));
 
   // Make sure group ids are initially set to zero for all slots.
-  memset(blocks_, 0, slot_bytes);
+  memset(blocks_, 0, static_cast<size_t>(slot_bytes));
 
   // Initialize all status bytes to represent an empty slot.
   for (uint64_t i = 0; i < (static_cast<uint64_t>(1) << log_blocks_); ++i) {

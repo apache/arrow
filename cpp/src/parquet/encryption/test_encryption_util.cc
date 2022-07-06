@@ -304,13 +304,13 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
 
   // Read all the rows in the column
   ColumnData<DType> read_col_data;
-  read_col_data.values.resize(rows_should_read);
+  read_col_data.values.resize(static_cast<size_t>(rows_should_read));
   int64_t values_read;
   int64_t rows_read;
   if (expected_column_data.definition_levels.size() > 0 &&
       expected_column_data.repetition_levels.size() > 0) {
-    std::vector<int16_t> definition_levels(rows_should_read);
-    std::vector<int16_t> repetition_levels(rows_should_read);
+    std::vector<int16_t> definition_levels(static_cast<size_t>(rows_should_read));
+    std::vector<int16_t> repetition_levels(static_cast<size_t>(rows_should_read));
     rows_read = reader->ReadBatch(rows_should_read, definition_levels.data(),
                                   repetition_levels.data(), read_col_data.values.data(),
                                   &values_read);

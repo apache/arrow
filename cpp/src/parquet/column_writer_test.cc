@@ -234,7 +234,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                        bool enable_dictionary, bool enable_statistics,
                                        int64_t num_rows, int compression_level) {
     std::vector<uint8_t> valid_bits(
-        bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
+        static_cast<size_t>(bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size()) + 1)), 255);
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_compression_level(compression_level);
@@ -379,12 +379,12 @@ void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compressio
         this->values_out_ptr_ + values_read_, &values_read_recently);
 
     // Copy contents of the pointers
-    std::vector<uint8_t> data(values_read_recently * this->descr_->type_length());
+    std::vector<uint8_t> data(static_cast<size_t>(values_read_recently * this->descr_->type_length()));
     uint8_t* data_ptr = data.data();
     for (int64_t i = 0; i < values_read_recently; i++) {
       memcpy(data_ptr + this->descr_->type_length() * i,
-             this->values_out_[i + values_read_].ptr, this->descr_->type_length());
-      this->values_out_[i + values_read_].ptr =
+             this->values_out_[static_cast<size_t>(i + values_read_)].ptr, this->descr_->type_length());
+      this->values_out_[static_cast<size_t>(i + values_read_)].ptr =
           data_ptr + this->descr_->type_length() * i;
     }
     data_buffer_.emplace_back(std::move(data));
@@ -548,7 +548,7 @@ TYPED_TEST(TestPrimitiveWriter, OptionalSpaced) {
 
   this->GenerateData(SMALL_SIZE);
   std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
-  std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(SMALL_SIZE), 255);
+  std::vector<uint8_t> valid_bits(static_cast<size_t>(::arrow::bit_util::BytesForBits(SMALL_SIZE)), 255);
 
   definition_levels[SMALL_SIZE - 1] = 0;
   ::arrow::bit_util::ClearBit(valid_bits.data(), SMALL_SIZE - 1);

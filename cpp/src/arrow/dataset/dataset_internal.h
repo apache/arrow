@@ -148,7 +148,7 @@ inline RecordBatchGenerator MakeChunkedBatchGenerator(RecordBatchGenerator gen,
           return ::arrow::MakeVectorGenerator<std::shared_ptr<RecordBatch>>({batch});
         }
         std::vector<std::shared_ptr<RecordBatch>> slices;
-        slices.reserve(rows / batch_size + (rows % batch_size != 0));
+        slices.reserve(static_cast<size_t>(rows / batch_size + (rows % batch_size != 0)));
         for (int64_t i = 0; i < rows; i += batch_size) {
           slices.push_back(batch->Slice(i, batch_size));
         }

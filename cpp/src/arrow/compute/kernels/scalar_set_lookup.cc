@@ -41,11 +41,11 @@ struct SetLookupState : public KernelState {
   Status Init(const SetLookupOptions& options) {
     if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
-      memo_index_to_value_index.reserve(value_set.length);
+      memo_index_to_value_index.reserve(static_cast<size_t>(value_set.length));
       RETURN_NOT_OK(AddArrayValueSet(options, *options.value_set.array()));
     } else if (options.value_set.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
-      memo_index_to_value_index.reserve(value_set.length());
+      memo_index_to_value_index.reserve(static_cast<size_t>(value_set.length()));
       int64_t offset = 0;
       for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
         RETURN_NOT_OK(AddArrayValueSet(options, *chunk->data(), offset));
@@ -243,7 +243,8 @@ struct IndexInVisitor {
       bit_util::SetBitsTo(out_bitmap, out->offset, out->length, state.value_set_has_null);
 
       // Set all values to 0, which will be unmasked only if null is in the value_set
-      std::memset(out->GetValues<int32_t>(1), 0x00, out->length * sizeof(int32_t));
+      std::memset(out->GetValues<int32_t>(1), 0x00,
+                  static_cast<size_t>(out->length * sizeof(int32_t)));
     }
     return Status::OK();
   }

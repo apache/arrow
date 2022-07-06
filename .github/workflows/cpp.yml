@@ -197,12 +197,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - windows-2019
         include:
           - os: windows-2019
-            name: Windows 2019
+            name: Windows 2019 x64
             generator: Visual Studio 16 2019
+            cmake-args: -A x64 -DOPENSSL_ROOT_DIR="C:\Program Files\OpenSSL-Win64"
+            chocolate-force:
+            build-parquet: ON
+          - os: windows-2019
+            name: Windows 2019 x86
+            generator: Visual Studio 16 2019
+            cmake-args: -A Win32 -DOPENSSL_ROOT_DIR="C:\Program Files (x86)\OpenSSL-Win32"
+            chocolate-force: --forcex86
+            build-parquet: OFF
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -216,7 +223,7 @@ jobs:
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
       ARROW_MIMALLOC: ON
-      ARROW_PARQUET: ON
+      ARROW_PARQUET: ${{ matrix.build-parquet }}
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: OFF
@@ -227,7 +234,7 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
+      CMAKE_ARGS: ${{ matrix.cmake-args }}
       CMAKE_GENERATOR: ${{ matrix.generator }}
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
@@ -245,7 +252,7 @@ jobs:
       - name: Installed Packages
         run: choco list -l
       - name: Install Dependencies
-        run: choco install -y --no-progress openssl
+        run: choco install -y --no-progress ${{ matrix.chocolate-force }} openssl
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:

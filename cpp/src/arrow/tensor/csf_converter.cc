@@ -41,14 +41,15 @@ namespace {
 
 inline void IncrementIndex(std::vector<int64_t>& coord, const std::vector<int64_t>& shape,
                            const std::vector<int64_t>& axis_order) {
-  const int64_t ndim = shape.size();
-  const int64_t last_axis = axis_order[ndim - 1];
+  const size_t ndim = shape.size();
+  const size_t last_axis = static_cast<size_t>(axis_order[ndim - 1]);
   ++coord[last_axis];
   if (coord[last_axis] == shape[last_axis]) {
-    int64_t d = ndim - 1;
-    while (d > 0 && coord[axis_order[d]] == shape[axis_order[d]]) {
-      coord[axis_order[d]] = 0;
-      ++coord[axis_order[d - 1]];
+    size_t d = ndim - 1;
+    while (d > 0 && coord[static_cast<size_t>(axis_order[d])] ==
+                        shape[static_cast<size_t>(axis_order[d])]) {
+      coord[static_cast<size_t>(axis_order[d])] = 0;
+      ++coord[static_cast<size_t>(axis_order[d - 1])];
       --d;
     }
   }
@@ -74,7 +75,7 @@ class SparseCSFTensorConverter : private SparseTensorConverterMixin {
     const int index_elsize = index_value_type_->byte_width();
     const int value_elsize = tensor_.type()->byte_width();
 
-    const int64_t ndim = tensor_.ndim();
+    const size_t ndim = static_cast<size_t>(tensor_.ndim());
     // Axis order as ascending order of dimension size is a good heuristic but is not
     // necessarily optimal.
     std::vector<int64_t> axis_order = internal::ArgSort(tensor_.shape());
@@ -107,8 +108,8 @@ class SparseCSFTensorConverter : private SparseTensorConverterMixin {
           std::copy_n(xp, value_elsize, values);
           values += value_elsize;
 
-          for (int64_t i = 0; i < ndim; ++i) {
-            int64_t dimension = axis_order[i];
+          for (size_t i = 0; i < ndim; ++i) {
+            size_t dimension = static_cast<size_t>(axis_order[i]);
 
             tree_split = tree_split || (coord[dimension] != previous_coord[dimension]);
             if (tree_split) {
@@ -133,7 +134,7 @@ class SparseCSFTensorConverter : private SparseTensorConverterMixin {
       }
     }
 
-    for (int64_t column = 0; column < ndim - 1; ++column) {
+    for (size_t column = 0; column < ndim - 1; ++column) {
       AssignIndex(index_buffer, counts[column + 1], index_elsize);
       RETURN_NOT_OK(indptr_buffer_builders[column].Append(index_buffer, index_elsize));
     }
@@ -143,14 +144,13 @@ class SparseCSFTensorConverter : private SparseTensorConverterMixin {
 
     std::vector<std::shared_ptr<Buffer>> indptr_buffers(ndim - 1);
     std::vector<std::shared_ptr<Buffer>> indices_buffers(ndim);
-    std::vector<int64_t> indptr_shapes(counts.begin(), counts.end() - 1);
     std::vector<int64_t> indices_shapes = counts;
 
-    for (int64_t column = 0; column < ndim; ++column) {
+    for (size_t column = 0; column < ndim; ++column) {
       RETURN_NOT_OK(
           indices_buffer_builders[column].Finish(&indices_buffers[column], true));
     }
-    for (int64_t column = 0; column < ndim - 1; ++column) {
+    for (size_t column = 0; column < ndim - 1; ++column) {
       RETURN_NOT_OK(indptr_buffer_builders[column].Finish(&indptr_buffers[column], true));
     }
 
@@ -228,7 +228,7 @@ class TensorBuilderFromSparseCSFTensor : private SparseTensorConverterMixin {
 
   void ExpandValues(const int64_t dim, const int64_t dim_offset, const int64_t start,
                     const int64_t stop) {
-    const auto& cur_indices = indices_[dim];
+    const auto& cur_indices = indices_[static_cast<size_t>(dim)];
     const int indices_elsize = ElementSize(cur_indices);
     const auto* indices_data = cur_indices->raw_data() + start * indices_elsize;
 
@@ -236,24 +236,28 @@ class TensorBuilderFromSparseCSFTensor : private SparseTensorConverterMixin {
       for (auto i = start; i < stop; ++i) {
         const int64_t index =
             SparseTensorConverterMixin::GetIndexValue(indices_data, indices_elsize);
-        const int64_t offset = dim_offset + index * strides_[axis_order_[dim]];
-
+        const int64_t offset =
+            dim_offset +
+            index * strides_[static_cast<size_t>(axis_order_[static_cast<size_t>(dim)])];
         std::copy_n(raw_data_ + i * value_elsize_, value_elsize_, values_ + offset);
 
         indices_data += indices_elsize;
       }
     } else {
-      const auto& cur_indptr = indptr_[dim];
+      const auto& cur_indptr = indptr_[static_cast<size_t>(dim)];
       const int indptr_elsize = ElementSize(cur_indptr);
-      const auto* indptr_data = cur_indptr->raw_data() + start * indptr_elsize;
+      const auto* indptr_data =
+          cur_indptr->raw_data() + static_cast<size_t>(start * indptr_elsize);
 
       for (int64_t i = start; i < stop; ++i) {
         const int64_t index =
             SparseTensorConverterMixin::GetIndexValue(indices_data, indices_elsize);
-        const int64_t offset = dim_offset + index * strides_[axis_order_[dim]];
+        const int64_t offset =
+            dim_offset +
+            index * strides_[static_cast<size_t>(axis_order_[static_cast<size_t>(dim)])];
         const int64_t next_start = GetIndexValue(indptr_data, indptr_elsize);
-        const int64_t next_stop =
-            GetIndexValue(indptr_data + indptr_elsize, indptr_elsize);
+        const int64_t next_stop = GetIndexValue(
+            indptr_data + static_cast<size_t>(indptr_elsize), indptr_elsize);
 
         ExpandValues(dim + 1, offset, next_start, next_stop);
 

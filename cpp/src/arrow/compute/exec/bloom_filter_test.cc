@@ -155,7 +155,7 @@ void TestBloomSmallHashHelper(int64_t num_input_hashes, const T* input_hashes,
     int64_t num_rows_next =
         std::min(num_rows - num_rows_processed, num_input_hashes - first_row_clamped);
     memcpy(output_hashes + num_rows_processed, input_hashes + first_row_clamped,
-           num_rows_next * sizeof(T));
+           static_cast<size_t>(num_rows_next * sizeof(T)));
     first_row_clamped = 0;
     num_rows_processed += num_rows_next;
   }
@@ -262,9 +262,9 @@ void TestBloomSmall(BloomFilterBuildStrategy strategy, int64_t num_build,
   for (int64_t i = 0; i < num_build + num_probe; ++i) {
     bool found;
     if (bloom.NumHashBitsUsed() > 32) {
-      found = bloom.Find(hashes64[i]);
+      found = bloom.Find(hashes64[static_cast<size_t>(i)]);
     } else {
-      found = bloom.Find(hashes32[i]);
+      found = bloom.Find(hashes32[static_cast<size_t>(i)]);
     }
     // Every build key should be found
     if (i < num_build) {
@@ -290,7 +290,7 @@ void TestBloomLargeHashHelper(int64_t hardware_flags, int64_t block,
   constexpr int mini_batch_size = 1024;
   uint64_t keys[mini_batch_size];
   int64_t ikey = first_row / block * block;
-  uint64_t key = first_in_block[first_row / block];
+  uint64_t key = first_in_block[static_cast<size_t>(first_row / block)];
   while (ikey < first_row) {
     key += prime;
     ++ikey;
@@ -332,11 +332,11 @@ void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool u
   int64_t num_probe = 4 * num_build;
   const int64_t block = 1024;
   std::vector<uint64_t> first_in_block;
-  first_in_block.resize(bit_util::CeilDiv(num_build + num_probe, block));
+  first_in_block.resize(static_cast<size_t>(bit_util::CeilDiv(num_build + num_probe, block)));
   uint64_t current = prime;
   for (int64_t i = 0; i < num_build + num_probe; ++i) {
     if (i % block == 0) {
-      first_in_block[i / block] = current;
+      first_in_block[static_cast<size_t>(i / block)] = current;
     }
     current += prime;
   }
@@ -379,7 +379,7 @@ void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool u
   std::vector<uint8_t> result_bit_vector;
   hashes32.resize(block);
   hashes64.resize(block);
-  result_bit_vector.resize(bit_util::BytesForBits(block));
+  result_bit_vector.resize(static_cast<size_t>(bit_util::BytesForBits(block)));
 
   // Verify no false negatives and measure false positives.
   // Measure FPR and performance.
@@ -405,14 +405,14 @@ void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool u
     uint64_t num_negatives = 0ULL;
     for (int iword = 0; iword < next_batch_size / 64; ++iword) {
       uint64_t word = reinterpret_cast<const uint64_t*>(result_bit_vector.data())[iword];
-      num_negatives += ARROW_POPCOUNT64(~word);
+      num_negatives += bit_util::PopCount(~word);
     }
     if (next_batch_size % 64 > 0) {
       uint64_t word = reinterpret_cast<const uint64_t*>(
           result_bit_vector.data())[next_batch_size / 64];
       uint64_t mask = (1ULL << (next_batch_size % 64)) - 1;
       word |= ~mask;
-      num_negatives += ARROW_POPCOUNT64(~word);
+      num_negatives += bit_util::PopCount(~word);
     }
     if (i < num_build) {
       num_negatives_build += num_negatives;

@@ -742,7 +742,8 @@ class PrimitiveFilterImpl {
   }
 
   void WriteValueSegment(int64_t in_start, int64_t length) {
-    std::memcpy(out_data_ + out_position_, values_data_ + in_start, length * sizeof(T));
+    std::memcpy(out_data_ + out_position_, values_data_ + in_start,
+                static_cast<size_t>(length * sizeof(T)));
     out_position_ += length;
   }
 
@@ -1916,11 +1917,11 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
   // Instead of filtering each column with the boolean filter
   // (which would be slow if the table has a large number of columns: ARROW-10569),
   // convert each filter chunk to indices, and take() the column.
-  const int64_t num_chunks = static_cast<int64_t>(inputs.back().size());
+  const size_t num_chunks = inputs.back().size();
   std::vector<ArrayVector> out_columns(num_columns);
   int64_t out_num_rows = 0;
 
-  for (int64_t i = 0; i < num_chunks; ++i) {
+  for (size_t i = 0; i < num_chunks; ++i) {
     const ArrayData& filter_chunk = *inputs.back()[i]->data();
     ARROW_ASSIGN_OR_RAISE(
         const auto indices,

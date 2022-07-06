@@ -480,7 +480,7 @@ void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;
   std::default_random_engine gen(random_seed);
   std::uniform_int_distribution<T> d(lower, upper);
-  out->resize(N, static_cast<T>(0));
+  out->resize(static_cast<size_t>(N), static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
 }
 
@@ -489,7 +489,7 @@ void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
                  std::vector<U>* out) {
   std::default_random_engine gen(seed);
   ::arrow::random::uniform_real_distribution<T> d(min_value, max_value);
-  out->resize(n, static_cast<T>(0));
+  out->resize(static_cast<size_t>(n), static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
 }
 

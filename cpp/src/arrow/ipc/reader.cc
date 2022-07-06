@@ -2176,7 +2176,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
     const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
     io::RandomAccessFile* file) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCSF();
-  const auto ndim = static_cast<int64_t>(shape.size());
+  const auto ndim = shape.size();
   auto* indptr_buffers = sparse_index->indptrBuffers();
   auto* indices_buffers = sparse_index->indicesBuffers();
   std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);
@@ -2384,14 +2384,14 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
           &indices_size, &indptr_type, &indices_type));
       ARROW_CHECK_EQ(indptr_type, indices_type);
 
-      const int64_t ndim = shape.size();
+      const auto ndim = shape.size();
       std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);
       std::vector<std::shared_ptr<Buffer>> indices_data(ndim);
 
-      for (int64_t i = 0; i < ndim - 1; ++i) {
+      for (size_t i = 0; i < ndim - 1; ++i) {
         indptr_data[i] = payload.body_buffers[i];
       }
-      for (int64_t i = 0; i < ndim; ++i) {
+      for (size_t i = 0; i < ndim; ++i) {
         indices_data[i] = payload.body_buffers[i + ndim - 1];
       }
 

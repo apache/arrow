@@ -162,12 +162,15 @@ class ARROW_EXPORT Buffer {
   /// \brief View buffer contents as a util::string_view
   /// \return util::string_view
   explicit operator util::string_view() const {
-    return util::string_view(reinterpret_cast<const char*>(data_), size_);
+    return util::string_view(reinterpret_cast<const char*>(data_),
+                             static_cast<size_t>(size_));
   }
 
   /// \brief View buffer contents as a util::bytes_view
   /// \return util::bytes_view
-  explicit operator util::bytes_view() const { return util::bytes_view(data_, size_); }
+  explicit operator util::bytes_view() const {
+    return util::bytes_view(data_, static_cast<size_t>(size_));
+  }
 
   /// \brief Return a pointer to the buffer's data
   ///

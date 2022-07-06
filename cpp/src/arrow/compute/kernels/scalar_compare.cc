@@ -639,7 +639,7 @@ struct BinaryScalarMinMax {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
-    for (int64_t row = 0; row < batch.length; row++) {
+    for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
       util::optional<string_view> result;
       auto visit_value = [&](string_view value) {
         result = !result ? value : Op::Call(*result, value);
@@ -661,8 +661,8 @@ struct BinaryScalarMinMax {
             const auto offsets = array.GetValues<offset_type>(1);
             const auto data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
-            visit_value(
-                string_view(reinterpret_cast<const char*>(data + offsets[row]), length));
+            visit_value(string_view(reinterpret_cast<const char*>(data + offsets[row]),
+                                    static_cast<size_t>(length)));
           } else if (!options.skip_nulls) {
             result = util::nullopt;
             break;

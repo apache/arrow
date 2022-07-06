@@ -28,7 +28,7 @@ static constexpr uint32_t kDelta = 100;
 static constexpr uint32_t kBufferSize = 500;
 
 static void BenchmarkTDigest(benchmark::State& state) {
-  const size_t items = state.range(0);
+  const size_t items = static_cast<size_t>(state.range(0));
   std::vector<double> values;
   random_real(items, 0x11223344, -12345678.0, 12345678.0, &values);
 

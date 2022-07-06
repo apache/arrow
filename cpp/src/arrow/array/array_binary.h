@@ -72,7 +72,7 @@ class BaseBinaryArray : public FlatArray {
     i += data_->offset;
     const offset_type pos = raw_value_offsets_[i];
     return util::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
-                             raw_value_offsets_[i + 1] - pos);
+                             static_cast<size_t>(raw_value_offsets_[i + 1] - pos));
   }
 
   util::optional<util::string_view> operator[](int64_t i) const {

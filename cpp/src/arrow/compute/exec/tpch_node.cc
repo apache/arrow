@@ -300,7 +300,7 @@ Status TpchPseudotext::EnsureInitialized(random::pcg32_fast& rng) {
       generated_offset_ += memcpy_size;
       last_one = generated_offset_ == kTextBytes;
     }
-    std::memcpy(out + offset, temp_buff, memcpy_size);
+    std::memcpy(out + offset, temp_buff, static_cast<size_t>(memcpy_size));
     if (last_one) done_.store(true);
   }
   return Status::OK();
@@ -639,7 +639,8 @@ class PartAndPartSupplierGenerator {
       random::pcg64_fast seed_rng(seed);
       for (ThreadLocalData& tld : thread_local_data_) {
         constexpr int kMaxNumDistinctStrings = 5;
-        tld.string_indices.resize(kMaxNumDistinctStrings * batch_size_);
+        tld.string_indices.resize(
+            static_cast<size_t>(kMaxNumDistinctStrings * batch_size_));
         tld.rng.seed(kSeedDist(seed_rng));
       }
       part_rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 200000);
@@ -873,9 +874,9 @@ class PartAndPartSupplierGenerator {
                             AllocateBuffer((tld.part_to_generate + 1) * sizeof(int32_t)));
       int32_t* offsets = reinterpret_cast<int32_t*>(offset_buff->mutable_data());
       offsets[0] = 0;
-      for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
+      for (size_t irow = 0; irow < static_cast<size_t>(tld.part_to_generate); irow++) {
         size_t string_length = 0;
-        for (int ipart = 0; ipart < 5; ipart++) {
+        for (size_t ipart = 0; ipart < 5; ipart++) {
           uint8_t name_part_index = static_cast<uint8_t>(dist(tld.rng));
           tld.string_indices[irow * 5 + ipart] = name_part_index;
           string_length += std::strlen(NameParts[name_part_index]);
@@ -887,9 +888,9 @@ class PartAndPartSupplierGenerator {
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> string_buffer,
                             AllocateBuffer(offsets[tld.part_to_generate] + 1));
       char* strings = reinterpret_cast<char*>(string_buffer->mutable_data());
-      for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
+      for (size_t irow = 0; irow < static_cast<size_t>(tld.part_to_generate); irow++) {
         char* row = strings + offsets[irow];
-        for (int ipart = 0; ipart < 5; ipart++) {
+        for (size_t ipart = 0; ipart < 5; ipart++) {
           uint8_t name_part_index = tld.string_indices[irow * 5 + ipart];
           const char* part = NameParts[name_part_index];
           size_t length = std::strlen(part);
@@ -969,9 +970,9 @@ class PartAndPartSupplierGenerator {
                             AllocateBuffer((tld.part_to_generate + 1) * sizeof(int32_t)));
       int32_t* offsets = reinterpret_cast<int32_t*>(offset_buff->mutable_data());
       offsets[0] = 0;
-      for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
+      for (size_t irow = 0; irow < static_cast<size_t>(tld.part_to_generate); irow++) {
         size_t string_length = 0;
-        for (int ipart = 0; ipart < 3; ipart++) {
+        for (size_t ipart = 0; ipart < 3; ipart++) {
           uint8_t name_part_index = static_cast<uint8_t>(dists[ipart](tld.rng));
           tld.string_indices[irow * 3 + ipart] = name_part_index;
           string_length += std::strlen(types[ipart][name_part_index]);
@@ -981,9 +982,9 @@ class PartAndPartSupplierGenerator {
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> string_buffer,
                             AllocateBuffer(offsets[tld.part_to_generate]));
       char* strings = reinterpret_cast<char*>(string_buffer->mutable_data());
-      for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
+      for (size_t irow = 0; irow < static_cast<size_t>(tld.part_to_generate); irow++) {
         char* row = strings + offsets[irow];
-        for (int ipart = 0; ipart < 3; ipart++) {
+        for (size_t ipart = 0; ipart < 3; ipart++) {
           uint8_t name_part_index = tld.string_indices[irow * 3 + ipart];
           const char* part = types[ipart][name_part_index];
           size_t length = std::strlen(part);
@@ -1006,7 +1007,9 @@ class PartAndPartSupplierGenerator {
       RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_SIZE));
       int32_t* p_size = reinterpret_cast<int32_t*>(
           tld.part[PART::P_SIZE].array()->buffers[1]->mutable_data());
-      for (int64_t i = 0; i < tld.part_to_generate; i++) p_size[i] = dist(tld.rng);
+      for (size_t i = 0; i < static_cast<size_t>(tld.part_to_generate); i++) {
+        p_size[i] = dist(tld.rng);
+      }
     }
     return Status::OK();
   }
@@ -1047,7 +1050,7 @@ class PartAndPartSupplierGenerator {
           tld.part[PART::P_PARTKEY].array()->buffers[1]->data());
       Decimal128* p_retailprice = reinterpret_cast<Decimal128*>(
           tld.part[PART::P_RETAILPRICE].array()->buffers[1]->mutable_data());
-      for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
+      for (size_t irow = 0; irow < static_cast<size_t>(tld.part_to_generate); irow++) {
         int32_t partkey = p_partkey[irow];
         int64_t retail_price =
             (90000 + ((partkey / 10) % 20001) + 100 * (partkey % 1000));
@@ -1062,7 +1065,8 @@ class PartAndPartSupplierGenerator {
     if (tld.part[PART::P_COMMENT].kind() == Datum::NONE) {
       ARROW_ASSIGN_OR_RAISE(
           tld.part[PART::P_COMMENT],
-          g_text.GenerateComments(tld.part_to_generate, 5, 22, tld.rng));
+          g_text.GenerateComments(static_cast<size_t>(tld.part_to_generate), 5, 22,
+                                  tld.rng));
     }
     return Status::OK();
   }
@@ -1078,7 +1082,7 @@ class PartAndPartSupplierGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     tld.generated_partsupp.reset();
     int64_t num_batches = PartsuppBatchesToGenerate(thread_index);
-    tld.partsupp.resize(num_batches);
+    tld.partsupp.resize(static_cast<size_t>(num_batches));
     for (std::vector<Datum>& batch : tld.partsupp) {
       batch.resize(PARTSUPP::kNumCols);
       std::fill(batch.begin(), batch.end(), Datum());
@@ -1088,11 +1092,11 @@ class PartAndPartSupplierGenerator {
 
   Status AllocatePartSuppBatch(size_t thread_index, size_t ibatch, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    int32_t byte_width = kPartsuppTypes[column]->byte_width();
+    int32_t byte_width = kPartsuppTypes[static_cast<size_t>(column)]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateResizableBuffer(batch_size_ * byte_width));
     ArrayData ad(kPartsuppTypes[column], batch_size_, {nullptr, std::move(buff)});
-    tld.partsupp[ibatch][column] = std::move(ad);
+    tld.partsupp[ibatch][static_cast<size_t>(column)] = std::move(ad);
     return Status::OK();
   }
 
@@ -1100,9 +1104,10 @@ class PartAndPartSupplierGenerator {
                                size_t new_size) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     int32_t byte_width = kPartsuppTypes[column]->byte_width();
-    tld.partsupp[ibatch][column].array()->length = static_cast<int64_t>(new_size);
+    tld.partsupp[ibatch][static_cast<size_t>(column)].array()->length =
+        static_cast<int64_t>(new_size);
     ResizableBuffer* buff = checked_cast<ResizableBuffer*>(
-        tld.partsupp[ibatch][column].array()->buffers[1].get());
+        tld.partsupp[ibatch][static_cast<size_t>(column)].array()->buffers[1].get());
     return buff->Resize(static_cast<int64_t>(new_size * byte_width),
                         /*shrink_to_fit=*/false);
   }
@@ -1128,7 +1133,7 @@ class PartAndPartSupplierGenerator {
                                            ->mutable_data());
         int64_t next_run = std::min(batch_size_, ps_to_generate - irow);
 
-        int64_t batch_offset = 0;
+        size_t batch_offset = 0;
         for (int64_t irun = 0; irun < next_run;) {
           for (; ipartsupp < kPartSuppRowsPerPart && irun < next_run; ipartsupp++, irun++)
             ps_partkey[batch_offset++] = p_partkey[ipart];
@@ -1138,8 +1143,8 @@ class PartAndPartSupplierGenerator {
             ipart++;
           }
         }
-        RETURN_NOT_OK(
-            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_PARTKEY, next_run));
+        RETURN_NOT_OK(SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_PARTKEY,
+                                            static_cast<size_t>(next_run)));
         irow += next_run;
       }
     }
@@ -1156,7 +1161,7 @@ class PartAndPartSupplierGenerator {
 
       size_t ibatch = 0;
       int64_t ipartsupp = 0;
-      int64_t ipart = 0;
+      size_t ipart = 0;
       int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
       const int32_t S = static_cast<int32_t>(scale_factor_ * 10000);
       for (int64_t irow = 0; irow < ps_to_generate; ibatch++) {
@@ -1183,8 +1188,8 @@ class PartAndPartSupplierGenerator {
             ipart++;
           }
         }
-        RETURN_NOT_OK(
-            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_SUPPKEY, next_run));
+        RETURN_NOT_OK(SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_SUPPKEY,
+                                            static_cast<size_t>(next_run)));
         irow += next_run;
       }
     }
@@ -1197,7 +1202,7 @@ class PartAndPartSupplierGenerator {
       tld.generated_partsupp[PARTSUPP::PS_AVAILQTY] = true;
       std::uniform_int_distribution<int32_t> dist(1, 9999);
       int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
-      int64_t ibatch = 0;
+      size_t ibatch = 0;
       for (int64_t irow = 0; irow < ps_to_generate; ibatch++) {
         RETURN_NOT_OK(AllocatePartSuppBatch(thread_index, ibatch, PARTSUPP::PS_AVAILQTY));
         int32_t* ps_availqty =
@@ -1206,10 +1211,12 @@ class PartAndPartSupplierGenerator {
                                            ->buffers[1]
                                            ->mutable_data());
         int64_t next_run = std::min(batch_size_, ps_to_generate - irow);
-        for (int64_t irun = 0; irun < next_run; irun++) ps_availqty[irun] = dist(tld.rng);
+        for (size_t irun = 0; irun < static_cast<size_t>(next_run); irun++) {
+          ps_availqty[irun] = dist(tld.rng);
+        }
 
-        RETURN_NOT_OK(
-            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_AVAILQTY, next_run));
+        RETURN_NOT_OK(SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_AVAILQTY,
+                                            static_cast<size_t>(next_run)));
         irow += next_run;
       }
     }
@@ -1222,7 +1229,7 @@ class PartAndPartSupplierGenerator {
       tld.generated_partsupp[PARTSUPP::PS_SUPPLYCOST] = true;
       std::uniform_int_distribution<int64_t> dist(100, 100000);
       int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
-      int64_t ibatch = 0;
+      size_t ibatch = 0;
       for (int64_t irow = 0; irow < ps_to_generate; ibatch++) {
         RETURN_NOT_OK(
             AllocatePartSuppBatch(thread_index, ibatch, PARTSUPP::PS_SUPPLYCOST));
@@ -1232,11 +1239,12 @@ class PartAndPartSupplierGenerator {
                                               ->buffers[1]
                                               ->mutable_data());
         int64_t next_run = std::min(batch_size_, ps_to_generate - irow);
-        for (int64_t irun = 0; irun < next_run; irun++)
+        for (size_t irun = 0; irun < static_cast<size_t>(next_run); irun++) {
           ps_supplycost[irun] = {dist(tld.rng)};
+        }
 
         RETURN_NOT_OK(SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_SUPPLYCOST,
-                                            next_run));
+                                            static_cast<size_t>(next_run)));
         irow += next_run;
       }
     }
@@ -1251,8 +1259,9 @@ class PartAndPartSupplierGenerator {
       int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
       for (size_t ibatch = 0; ibatch < tld.partsupp.size(); ibatch++) {
         int64_t num_rows = std::min(batch_size_, ps_to_generate - irow);
-        ARROW_ASSIGN_OR_RAISE(tld.partsupp[ibatch][PARTSUPP::PS_COMMENT],
-                              g_text.GenerateComments(num_rows, 49, 198, tld.rng));
+        ARROW_ASSIGN_OR_RAISE(
+            tld.partsupp[ibatch][PARTSUPP::PS_COMMENT],
+            g_text.GenerateComments(static_cast<size_t>(num_rows), 49, 198, tld.rng));
         irow += num_rows;
       }
     }
@@ -1299,7 +1308,7 @@ class OrdersAndLineItemGenerator {
       thread_local_data_.resize(num_threads);
       random::pcg64_fast seed_rng(seed);
       for (ThreadLocalData& tld : thread_local_data_) {
-        tld.items_per_order.resize(batch_size_);
+        tld.items_per_order.resize(static_cast<size_t>(batch_size_));
         tld.rng.seed(kSeedDist(seed_rng));
       }
       orders_rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 150000 * 10);
@@ -1604,7 +1613,7 @@ class OrdersAndLineItemGenerator {
       char* o_orderstatus = reinterpret_cast<char*>(
           tld.orders[ORDERS::O_ORDERSTATUS].array()->buffers[1]->mutable_data());
 
-      size_t batch_offset = tld.first_batch_offset;
+      size_t batch_offset = static_cast<size_t>(tld.first_batch_offset);
       size_t ibatch = 0;
       size_t iorder = 0;
       int32_t iline = 0;
@@ -1649,7 +1658,7 @@ class OrdersAndLineItemGenerator {
       RETURN_NOT_OK(L_DISCOUNT(thread_index));
       RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_TOTALPRICE));
 
-      size_t batch_offset = tld.first_batch_offset;
+      size_t batch_offset = static_cast<size_t>(tld.first_batch_offset);
       size_t ibatch = 0;
       size_t iorder = 0;
       int32_t iline = 0;
@@ -1745,7 +1754,8 @@ class OrdersAndLineItemGenerator {
       RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_SHIPPRIORITY));
       int32_t* o_shippriority = reinterpret_cast<int32_t*>(
           tld.orders[ORDERS::O_SHIPPRIORITY].array()->buffers[1]->mutable_data());
-      std::memset(o_shippriority, 0, tld.orders_to_generate * sizeof(int32_t));
+      std::memset(o_shippriority, 0,
+                  static_cast<size_t>(tld.orders_to_generate * sizeof(int32_t)));
     }
     return Status::OK();
   }
@@ -1755,7 +1765,8 @@ class OrdersAndLineItemGenerator {
     if (tld.orders[ORDERS::O_COMMENT].kind() == Datum::NONE) {
       ARROW_ASSIGN_OR_RAISE(
           tld.orders[ORDERS::O_COMMENT],
-          g_text.GenerateComments(tld.orders_to_generate, 19, 78, tld.rng));
+          g_text.GenerateComments(static_cast<size_t>(tld.orders_to_generate), 19, 78,
+                                  tld.rng));
     }
     return Status::OK();
   }
@@ -1773,7 +1784,7 @@ class OrdersAndLineItemGenerator {
     int64_t num_batches =
         (tld.first_batch_offset + tld.lineitem_to_generate + batch_size_ - 1) /
         batch_size_;
-    tld.lineitem.resize(num_batches);
+    tld.lineitem.resize(static_cast<size_t>(num_batches));
     for (std::vector<Datum>& batch : tld.lineitem) {
       batch.resize(LINEITEM::kNumCols);
       std::fill(batch.begin(), batch.end(), Datum());
@@ -1793,7 +1804,7 @@ class OrdersAndLineItemGenerator {
       tld.lineitem[ibatch][column] = std::move(ad);
       out_batch_offset = 0;
     }
-    if (ibatch == 0) out_batch_offset = tld.first_batch_offset;
+    if (ibatch == 0) out_batch_offset = static_cast<size_t>(tld.first_batch_offset);
 
     return Status::OK();
   }
@@ -2350,16 +2361,17 @@ class OrdersAndLineItemGenerator {
         // bump the length
         size_t batch_offset = 0;
         if (tld.lineitem[ibatch][LINEITEM::L_COMMENT].kind() == Datum::NONE) {
-          ARROW_ASSIGN_OR_RAISE(tld.lineitem[ibatch][LINEITEM::L_COMMENT],
-                                g_text.GenerateComments(batch_size_, 10, 43, tld.rng));
+          ARROW_ASSIGN_OR_RAISE(
+              tld.lineitem[ibatch][LINEITEM::L_COMMENT],
+              g_text.GenerateComments(static_cast<size_t>(batch_size_), 10, 43, tld.rng));
           batch_offset = 0;
         }
-        if (irow == 0) batch_offset = tld.first_batch_offset;
+        if (irow == 0) batch_offset = static_cast<size_t>(tld.first_batch_offset);
 
         int64_t remaining_in_batch = static_cast<int64_t>(batch_size_ - batch_offset);
         int64_t next_run = std::min(tld.lineitem_to_generate - irow, remaining_in_batch);
 
-        batch_offset += next_run;
+        batch_offset += static_cast<size_t>(next_run);
         irow += next_run;
         tld.lineitem[ibatch][LINEITEM::L_COMMENT].array()->length = batch_offset;
       }
@@ -2610,7 +2622,7 @@ class SupplierGenerator : public TpchTableGenerator {
       Decimal128* s_acctbal = reinterpret_cast<Decimal128*>(
           tld.batch[SUPPLIER::S_ACCTBAL].array()->buffers[1]->mutable_data());
       std::uniform_int_distribution<int64_t> dist(-99999, 999999);
-      for (int64_t irow = 0; irow < tld.to_generate; irow++)
+      for (size_t irow = 0; irow < static_cast<size_t>(tld.to_generate); irow++)
         s_acctbal[irow] = {dist(tld.rng)};
     }
     return Status::OK();
@@ -2620,7 +2632,8 @@ class SupplierGenerator : public TpchTableGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.batch[SUPPLIER::S_COMMENT].kind() == Datum::NONE) {
       ARROW_ASSIGN_OR_RAISE(tld.batch[SUPPLIER::S_COMMENT],
-                            g_text.GenerateComments(tld.to_generate, 25, 100, tld.rng));
+                            g_text.GenerateComments(static_cast<size_t>(tld.to_generate),
+                                                    25, 100, tld.rng));
       ModifyComments(thread_index, "Recommends", good_rows_);
       ModifyComments(thread_index, "Complaints", bad_rows_);
     }
@@ -3032,7 +3045,8 @@ class CustomerGenerator : public TpchTableGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.batch[CUSTOMER::C_COMMENT].kind() == Datum::NONE) {
       ARROW_ASSIGN_OR_RAISE(tld.batch[CUSTOMER::C_COMMENT],
-                            g_text.GenerateComments(tld.to_generate, 29, 116, tld.rng));
+                            g_text.GenerateComments(static_cast<size_t>(tld.to_generate),
+                                                    29, 116, tld.rng));
     }
     return Status::OK();
   }

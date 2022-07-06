@@ -434,7 +434,7 @@ struct IfElseFunctor<Type,
         /*CopyArrayData*/
         [&](const ArraySpan& valid_array, ArraySpan* out_array) {
           std::memcpy(out_array->GetValues<T>(1), valid_array.GetValues<T>(1),
-                      valid_array.length * sizeof(T));
+                      static_cast<size_t>(valid_array.length * sizeof(T)));
         },
         /*BroadcastScalar*/
         [&](const Scalar& scalar, ArraySpan* out_array) {
@@ -450,13 +450,14 @@ struct IfElseFunctor<Type,
     T* out_values = out->array_span()->GetValues<T>(1);
 
     // copy right data to out_buff
-    std::memcpy(out_values, right.GetValues<T>(1), right.length * sizeof(T));
+    std::memcpy(out_values, right.GetValues<T>(1),
+                static_cast<size_t>(right.length * sizeof(T)));
 
     // selectively copy values from left data
     const T* left_data = left.GetValues<T>(1);
     RunIfElseLoop(cond, [&](int64_t data_offset, int64_t num_elems) {
       std::memcpy(out_values + data_offset, left_data + data_offset,
-                  num_elems * sizeof(T));
+                  static_cast<size_t>(num_elems * sizeof(T)));
     });
 
     return Status::OK();
@@ -468,7 +469,8 @@ struct IfElseFunctor<Type,
     T* out_values = out->array_span()->GetValues<T>(1);
 
     // copy right data to out_buff
-    std::memcpy(out_values, right.GetValues<T>(1), right.length * sizeof(T));
+    std::memcpy(out_values, right.GetValues<T>(1),
+                static_cast<size_t>(right.length * sizeof(T)));
 
     // selectively copy values from left data
     T left_data = internal::UnboxScalar<Type>::Unbox(left);
@@ -488,7 +490,7 @@ struct IfElseFunctor<Type,
 
     // copy left data to out_buff
     const T* left_data = left.GetValues<T>(1);
-    std::memcpy(out_values, left_data, left.length * sizeof(T));
+    std::memcpy(out_values, left_data, static_cast<size_t>(left.length * sizeof(T)));
 
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
 
@@ -839,7 +841,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
         [&](const ArraySpan& valid_array, ArraySpan* out_array) {
           std::memcpy(out_array->buffers[1].data + out_array->offset * byte_width,
                       valid_array.buffers[1].data + valid_array.offset * byte_width,
-                      valid_array.length * byte_width);
+                      static_cast<size_t>(valid_array.length * byte_width));
         },
         /*BroadcastScalar*/
         [&](const Scalar& scalar, ArraySpan* out_array) {
@@ -861,14 +863,15 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
 
     // copy right data to out_buff
     const uint8_t* right_data = right.buffers[1].data + right.offset * byte_width;
-    std::memcpy(out_values, right_data, right.length * byte_width);
+    std::memcpy(out_values, right_data, static_cast<size_t>(right.length * byte_width));
 
     // selectively copy values from left data
     const uint8_t* left_data = left.buffers[1].data + left.offset * byte_width;
 
     RunIfElseLoop(cond, [&](int64_t data_offset, int64_t num_elems) {
       std::memcpy(out_values + data_offset * byte_width,
-                  left_data + data_offset * byte_width, num_elems * byte_width);
+                  left_data + data_offset * byte_width,
+                  static_cast<size_t>(num_elems * byte_width));
     });
 
     return Status::OK();
@@ -884,7 +887,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
 
     // copy right data to out_buff
     const uint8_t* right_data = right.buffers[1].data + right.offset * byte_width;
-    std::memcpy(out_values, right_data, right.length * byte_width);
+    std::memcpy(out_values, right_data, static_cast<size_t>(right.length * byte_width));
 
     // selectively copy values from left data
     const uint8_t* left_data = UnboxBinaryScalar(left);
@@ -910,7 +913,7 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
 
     // copy left data to out_buff
     const uint8_t* left_data = left.buffers[1].data + left.offset * byte_width;
-    std::memcpy(out_values, left_data, left.length * byte_width);
+    std::memcpy(out_values, left_data, static_cast<size_t>(left.length * byte_width));
 
     const uint8_t* right_data = UnboxBinaryScalar(right);
 
@@ -1512,7 +1515,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   // Allocate a temporary bitmap to determine which elements still need setting.
   ARROW_ASSIGN_OR_RAISE(auto mask_buffer, ctx->AllocateBitmap(batch.length));
   uint8_t* mask = mask_buffer->mutable_data();
-  std::memset(mask, 0xFF, mask_buffer->size());
+  std::memset(mask, 0xFF, static_cast<size_t>(mask_buffer->size()));
 
   // Then iterate through each argument in turn and set elements.
   for (int i = 0; i < batch.num_values() - (have_else_arg ? 2 : 1); i++) {
@@ -1584,7 +1587,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
           bit_util::SetBitsTo(out_values, out_offset + offset, block.length, false);
         } else {
           std::memset(out_values + (out_offset + offset) * byte_width, 0x00,
-                      byte_width * block.length);
+                      static_cast<size_t>(byte_width * block.length));
         }
       } else if (!block.NoneSet()) {
         for (int64_t j = 0; j < block.length; ++j) {
@@ -1593,7 +1596,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
             bit_util::ClearBit(out_values, out_offset + offset + j);
           } else {
             std::memset(out_values + (out_offset + offset + j) * byte_width, 0x00,
-                        byte_width);
+                        static_cast<size_t>(byte_width));
           }
         }
       }
@@ -1671,15 +1674,14 @@ static Status ExecVarWidthArrayCaseWhenImpl(
 
   for (int64_t row = 0; row < batch.length; row++) {
     int64_t selected = have_else_arg ? (batch.num_values() - 1) : -1;
-    for (int64_t arg = 0; static_cast<size_t>(arg) < conds_array.child_data.size();
-         arg++) {
+    for (size_t arg = 0; arg < conds_array.child_data.size(); arg++) {
       const ArraySpan& cond_array = conds_array.child_data[arg];
       if ((cond_array.buffers[0].data == nullptr ||
            bit_util::GetBit(cond_array.buffers[0].data,
                             conds_array.offset + cond_array.offset + row)) &&
           bit_util::GetBit(cond_array.buffers[1].data,
                            conds_array.offset + cond_array.offset + row)) {
-        selected = arg + 1;
+        selected = static_cast<int64_t>(arg + 1);
         break;
       }
     }
@@ -1981,7 +1983,7 @@ void InitializeNullSlots(const DataType& type, uint8_t* out_valid, uint8_t* out_
         bit_util::SetBitsTo(out_values, out_offset + offset, run.length, false);
       } else {
         std::memset(out_values + (out_offset + offset) * byte_width, 0,
-                    byte_width * run.length);
+                    static_cast<size_t>(byte_width * run.length));
       }
     }
     offset += run.length;
@@ -2486,7 +2488,7 @@ Status ExecArrayChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
         if (index < 0 || (index + 1) >= batch.num_values()) {
           return Status::IndexError("choose: index ", index, " out of range");
         }
-        const auto& source = batch.values[index + 1];
+        const auto& source = batch.values[static_cast<size_t>(index) + 1];
         CopyOneValue<Type>(source, row, out_valid, out_values, out_offset + row);
         row++;
         return Status::OK();
@@ -2539,7 +2541,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
       if (index < 0 || (index + 1) >= batch.num_values()) {
         return Status::IndexError("choose: index ", index, " out of range");
       }
-      const ExecValue& source = batch.values[index + 1];
+      const ExecValue& source = batch.values[static_cast<size_t>(index) + 1];
       if (source.is_scalar()) {
         ARROW_ASSIGN_OR_RAISE(
             std::shared_ptr<Array> temp_array,
@@ -2582,7 +2584,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
           if (index < 0 || static_cast<size_t>(index + 1) >= batch.values.size()) {
             return Status::IndexError("choose: index ", index, " out of range");
           }
-          const auto& source = batch.values[index + 1];
+          const auto& source = batch.values[static_cast<size_t>(index) + 1];
           return CopyValue(source, &builder, row++);
         },
         [&]() {

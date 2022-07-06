@@ -845,7 +845,7 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
 
   for (int r = 0; r < reader->metadata()->num_row_groups(); ++r) {
     auto group_reader = reader->RowGroup(r);
-    int col = 0;
+    size_t col = 0;
     for (auto i : columns) {
       std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);
       size_t value_byte_size = GetTypeByteSize(col_reader->descr()->physical_type());
@@ -857,7 +857,7 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
             ScanAllValues(column_batch_size, def_levels.data(), rep_levels.data(),
                           values.data(), &values_read, col_reader.get());
         if (col_reader->descr()->max_repetition_level() > 0) {
-          for (int64_t i = 0; i < levels_read; i++) {
+          for (size_t i = 0; i < static_cast<size_t>(levels_read); i++) {
             if (rep_levels[i] == 0) {
               total_rows[col]++;
             }

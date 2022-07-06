@@ -149,8 +149,8 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
                  int64_t size, Builder* builder, std::shared_ptr<Array>* out) {
   // Append the first 1000
   for (int64_t i = 0; i < size; ++i) {
-    if (valid_bytes[i] > 0) {
-      RETURN_NOT_OK(builder->Append(values[i]));
+    if (valid_bytes[static_cast<size_t>(i)] > 0) {
+      RETURN_NOT_OK(builder->Append(values[static_cast<size_t>(i)]));
     } else {
       RETURN_NOT_OK(builder->AppendNull());
     }

@@ -708,7 +708,8 @@ class HandlerBase : public BlockParser,
   template <typename Handler>
   Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
-    rj::MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
+    rj::MemoryStream ms(reinterpret_cast<const char*>(json->data()),
+                        static_cast<size_t>(json->size()));
     using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
     return DoParse(handler, InputStream(ms));
   }

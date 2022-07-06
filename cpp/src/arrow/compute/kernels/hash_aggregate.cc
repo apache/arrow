@@ -766,7 +766,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 
     // XXX this uses naive summation; we should switch to pairwise summation as was
     // done for the scalar aggregate kernel in ARROW-11567
-    std::vector<SumType> sums(num_groups_);
+    std::vector<SumType> sums(static_cast<size_t>(num_groups_));
     VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, typename TypeTraits<Type>::CType value) {
@@ -775,7 +775,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
         },
         [&](uint32_t g) { bit_util::ClearBit(no_nulls, g); });
 
-    for (int64_t i = 0; i < num_groups_; i++) {
+    for (size_t i = 0; i < static_cast<size_t>(num_groups_); i++) {
       means[i] = ToDouble(sums[i]) / counts[i];
     }
 
@@ -814,7 +814,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       return Status::OK();
     }
 
-    std::vector<IntegerVarStd<Type>> var_std(num_groups_);
+    std::vector<IntegerVarStd<Type>> var_std(static_cast<size_t>(num_groups_));
 
     ARROW_ASSIGN_OR_RAISE(auto mapping,
                           AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
@@ -829,7 +829,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 
       // reset state
       var_std.clear();
-      var_std.resize(num_groups_);
+      var_std.resize(static_cast<size_t>(num_groups_));
       GroupedVarStdImpl<Type> state;
       RETURN_NOT_OK(state.InitInternal(ctx_, decimal_scale_, &options_));
       RETURN_NOT_OK(state.Resize(num_groups_));
@@ -877,7 +877,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
         }
       }
 
-      for (int64_t i = 0; i < num_groups_; i++) {
+      for (size_t i = 0; i < static_cast<size_t>(num_groups_); i++) {
         if (var_std[i].count == 0) continue;
 
         other_counts[i] = var_std[i].count;
@@ -1032,7 +1032,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
 
   Status Resize(int64_t new_num_groups) override {
     const int64_t added_groups = new_num_groups - tdigests_.size();
-    tdigests_.reserve(new_num_groups);
+    tdigests_.reserve(static_cast<size_t>(new_num_groups));
     for (int64_t i = 0; i < added_groups; i++) {
       tdigests_.emplace_back(options_.delta, options_.buffer_size);
     }
@@ -1076,7 +1076,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     const uint8_t* other_no_nulls = no_nulls_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
-    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+    for (size_t other_g = 0; other_g < static_cast<size_t>(group_id_mapping.length);
+         ++other_g, ++g) {
       tdigests_[*g].Merge(other->tdigests_[other_g]);
       counts[*g] += other_counts[other_g];
       bit_util::SetBitTo(
@@ -1097,11 +1098,12 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     int64_t null_count = 0;
 
     double* results = reinterpret_cast<double*>(values->mutable_data());
-    for (int64_t i = 0; static_cast<size_t>(i) < tdigests_.size(); ++i) {
+    for (size_t i = 0; i < tdigests_.size(); ++i) {
       if (!tdigests_[i].is_empty() && counts[i] >= options_.min_count &&
           (options_.skip_nulls || bit_util::GetBit(no_nulls_.data(), i))) {
-        for (int64_t j = 0; j < slot_length; j++) {
-          results[i * slot_length + j] = tdigests_[i].Quantile(options_.q[j]);
+        for (size_t j = 0; j < static_cast<size_t>(slot_length); j++) {
+          results[static_cast<size_t>(i * slot_length + j)] =
+              tdigests_[i].Quantile(options_.q[j]);
         }
         continue;
       }
@@ -1363,8 +1365,8 @@ struct GroupedMinMaxImpl<Type,
     auto added_groups = new_num_groups - num_groups_;
     DCHECK_GE(added_groups, 0);
     num_groups_ = new_num_groups;
-    mins_.resize(new_num_groups);
-    maxes_.resize(new_num_groups);
+    mins_.resize(static_cast<size_t>(new_num_groups));
+    maxes_.resize(static_cast<size_t>(new_num_groups));
     RETURN_NOT_OK(has_values_.Append(added_groups, false));
     RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
     return Status::OK();
@@ -2084,7 +2086,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     auto added_groups = new_num_groups - num_groups_;
     DCHECK_GE(added_groups, 0);
     num_groups_ = new_num_groups;
-    ones_.resize(new_num_groups);
+    ones_.resize(static_cast<size_t>(new_num_groups));
     RETURN_NOT_OK(has_one_.Append(added_groups, false));
     return Status::OK();
   }

@@ -213,7 +213,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     // Function applied to null values cast to string.
     auto null_function = [&]() {
       // For nulls, the configured null value string is copied into the output.
-      memcpy(output + *offsets, null_string_->data(), null_string_->size());
+      memcpy(output + *offsets, null_string_->data(),
+             static_cast<size_t>(null_string_->size()));
       CopyEndChars(output + *offsets + null_string_->size(), end_chars_.c_str(),
                    end_chars_.size());
       *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
@@ -283,7 +284,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
   Status UpdateRowLengths(int64_t* row_lengths) override {
     const StringArray& input = *casted_array_;
 
-    row_needs_escaping_.resize(casted_array_->length(), false);
+    row_needs_escaping_.resize(static_cast<size_t>(casted_array_->length()), false);
 
     if (NoQuoteInArray(input)) {
       // fast path if no quote
@@ -341,7 +342,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
         },
         [&]() {
           // For nulls, the configured null value string is copied into the output.
-          memcpy(output + *offsets, null_string_->data(), null_string_->size());
+          memcpy(output + *offsets, null_string_->data(),
+                 static_cast<size_t>(null_string_->size()));
           CopyEndChars(output + *offsets + null_string_->size(), end_chars_.c_str(),
                        end_chars_.size());
           *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
@@ -357,7 +359,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
   static bool NoQuoteInArray(const StringArray& array) {
     const uint8_t* data = array.raw_data() + array.value_offset(0);
     const int64_t buffer_size = array.total_values_length();
-    return std::memchr(data, '"', buffer_size) == nullptr;
+    return std::memchr(data, '"', static_cast<size_t>(buffer_size)) == nullptr;
   }
 
   // Older version of GCC don't support custom allocators
@@ -566,7 +568,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
-    offsets_.resize(batch.num_rows());
+    offsets_.resize(static_cast<size_t>(batch.num_rows()));
     std::fill(offsets_.begin(), offsets_.end(), 0);
 
     // Calculate relative offsets for each row (excluding delimiters)

@@ -446,7 +446,7 @@ void KeyCompare::CompareColumnsToRows(
     ARROW_DCHECK(out_num_rows == nullptr);
     ARROW_DCHECK(out_sel_left_maybe_same == nullptr);
     memcpy(out_match_bitvector_maybe_null, match_bitvector,
-           bit_util::BytesForBits(num_rows_to_compare));
+           static_cast<size_t>(bit_util::BytesForBits(num_rows_to_compare)));
   } else {
     if (sel_left_maybe_null) {
       int out_num_rows_int;

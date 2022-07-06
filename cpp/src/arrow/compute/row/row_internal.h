@@ -23,6 +23,7 @@
 #include "arrow/compute/light_array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -81,7 +82,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// Rounding up offset to the nearest multiple of alignment value.
   /// Alignment must be a power of 2.
   static inline uint32_t padding_for_alignment(uint32_t offset, int required_alignment) {
-    ARROW_DCHECK(ARROW_POPCOUNT64(required_alignment) == 1);
+    ARROW_DCHECK(bit_util::PopCount(static_cast<unsigned int>(required_alignment)) == 1);
     return static_cast<uint32_t>((-static_cast<int32_t>(offset)) &
                                  (required_alignment - 1));
   }
@@ -91,7 +92,7 @@ struct ARROW_EXPORT RowTableMetadata {
   static inline uint32_t padding_for_alignment(uint32_t offset, int string_alignment,
                                                const KeyColumnMetadata& col_metadata) {
     if (!col_metadata.is_fixed_length ||
-        ARROW_POPCOUNT64(col_metadata.fixed_length) <= 1) {
+        bit_util::PopCount(col_metadata.fixed_length) <= 1) {
       return 0;
     } else {
       return padding_for_alignment(offset, string_alignment);

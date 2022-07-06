@@ -112,7 +112,7 @@ constexpr int64_t kAlternatingOrNa = -1;
 template <typename T>
 std::vector<T> RandomVector(int64_t true_percentage, int64_t vector_size,
                             const std::array<T, 2>& sample_values, int seed = 500) {
-  std::vector<T> values(vector_size, {});
+  std::vector<T> values(static_cast<size_t>(vector_size), {});
   if (true_percentage == kAlternatingOrNa) {
     int n = {0};
     std::generate(values.begin(), values.end(), [&n] { return n++ % 2; });

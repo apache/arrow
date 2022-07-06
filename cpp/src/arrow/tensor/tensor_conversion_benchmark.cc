@@ -48,15 +48,15 @@ class TensorConversionFixture : public benchmark::Fixture {
 
     switch (contiguous_type) {
       case STRIDED:
-        values_.resize(2 * n);
+        values_.resize(static_cast<size_t>(2 * n));
         for (int64_t i = 0; i < 100; ++i) {
-          values_[2 * i * m] = static_cast<c_value_type>(i);
+          values_[static_cast<size_t>(2 * i * m)] = static_cast<c_value_type>(i);
         }
         break;
       default:
-        values_.resize(n);
+        values_.resize(static_cast<size_t>(n));
         for (int64_t i = 0; i < 100; ++i) {
-          values_[i * m] = static_cast<c_value_type>(i);
+          values_[static_cast<size_t>(i * m)] = static_cast<c_value_type>(i);
         }
         break;
     }
@@ -110,15 +110,15 @@ class MatrixConversionFixture : public benchmark::Fixture {
 
     switch (contiguous_type) {
       case STRIDED:
-        values_.resize(2 * n);
+        values_.resize(static_cast<size_t>(2 * n));
         for (int64_t i = 0; i < 100; ++i) {
-          values_[2 * i * m] = static_cast<c_value_type>(i);
+          values_[static_cast<size_t>(2 * i * m)] = static_cast<c_value_type>(i);
         }
         break;
       default:
-        values_.resize(n);
+        values_.resize(static_cast<size_t>(n));
         for (int64_t i = 0; i < 100; ++i) {
-          values_[i * m] = static_cast<c_value_type>(i);
+          values_[static_cast<size_t>(i * m)] = static_cast<c_value_type>(i);
         }
         break;
     }

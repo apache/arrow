@@ -31,8 +31,9 @@ template <typename T, typename Cmp = std::less<T>>
 std::vector<int64_t> ArgSort(const std::vector<T>& values, Cmp&& cmp = {}) {
   std::vector<int64_t> indices(values.size());
   std::iota(indices.begin(), indices.end(), 0);
-  std::sort(indices.begin(), indices.end(),
-            [&](int64_t i, int64_t j) -> bool { return cmp(values[i], values[j]); });
+  std::sort(indices.begin(), indices.end(), [&](int64_t i, int64_t j) -> bool {
+    return cmp(values[static_cast<size_t>(i)], values[static_cast<size_t>(j)]);
+  });
   return indices;
 }
 
@@ -54,21 +55,21 @@ size_t Permute(const std::vector<int64_t>& indices, std::vector<T>* values) {
     // position in which an element belongs WRT sort
     auto sort_into = static_cast<int64_t>(cycle_start - sorted.begin());
 
-    if (indices[sort_into] == sort_into) {
+    if (indices[static_cast<size_t>(sort_into)] == sort_into) {
       // trivial cycle
-      sorted[sort_into] = true;
+      sorted[static_cast<size_t>(sort_into)] = true;
       continue;
     }
 
     // resolve this cycle
     const auto end = sort_into;
-    for (int64_t take_from = indices[sort_into]; take_from != end;
-         take_from = indices[sort_into]) {
-      std::swap(values->at(sort_into), values->at(take_from));
-      sorted[sort_into] = true;
+    for (int64_t take_from = indices[static_cast<size_t>(sort_into)]; take_from != end;
+         take_from = indices[static_cast<size_t>(sort_into)]) {
+      std::swap(values->at(static_cast<size_t>(sort_into)), values->at(static_cast<size_t>(take_from)));
+      sorted[static_cast<size_t>(sort_into)] = true;
       sort_into = take_from;
     }
-    sorted[sort_into] = true;
+    sorted[static_cast<size_t>(sort_into)] = true;
   }
 
   return cycle_count;

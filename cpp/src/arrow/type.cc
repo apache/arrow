@@ -952,7 +952,8 @@ std::string NullType::ToString() const { return name(); }
 // FieldRef
 
 size_t FieldPath::hash() const {
-  return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
+  return static_cast<size_t>(
+      internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int)));
 }
 
 std::string FieldPath::ToString() const {

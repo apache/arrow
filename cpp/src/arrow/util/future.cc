@@ -214,7 +214,8 @@ bool FutureImpl::TryAddCallback(const std::function<Callback()>& callback_factor
 
 Future<> AllComplete(const std::vector<Future<>>& futures) {
   struct State {
-    explicit State(int64_t n_futures) : mutex(), n_remaining(n_futures) {}
+    explicit State(int64_t n_futures)
+        : mutex(), n_remaining(static_cast<size_t>(n_futures)) {}
 
     std::mutex mutex;
     std::atomic<size_t> n_remaining;

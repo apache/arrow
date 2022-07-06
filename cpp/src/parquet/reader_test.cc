@@ -309,7 +309,7 @@ TEST_F(TestAllTypesPlain, DebugPrintWorks) {
   printer.DebugPrint(ss, columns);
 
   std::string result = ss.str();
-  ASSERT_GT(result.size(), 0);
+  ASSERT_GT(result.size(), static_cast<size_t>(0));
 }
 
 TEST_F(TestAllTypesPlain, ColumnSelection) {
@@ -323,7 +323,7 @@ TEST_F(TestAllTypesPlain, ColumnSelection) {
   printer.DebugPrint(ss, columns);
 
   std::string result = ss.str();
-  ASSERT_GT(result.size(), 0);
+  ASSERT_GT(result.size(), static_cast<size_t>(0));
 }
 
 TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {

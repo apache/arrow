@@ -196,7 +196,7 @@ static void BenchmarkStreamingWrites(benchmark::State& state,
                                      const std::valarray<int64_t>& sizes,
                                      io::OutputStream* stream,
                                      BackgroundReader* reader = nullptr) {
-  const std::string datastr(sizes.max(), 'x');
+  const std::string datastr(static_cast<size_t>(sizes.max()), 'x');
   const void* data = datastr.data();
   const int64_t sum_sizes = sizes.sum();
 

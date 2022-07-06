@@ -523,8 +523,7 @@ TEST(allocator, MemoryTracking) {
 
 TEST(allocator, TestOOM) {
   allocator<uint8_t> alloc;
-  size_t max_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
-                                        std::numeric_limits<size_t>::max());
+  size_t max_alloc = std::numeric_limits<size_t>::max();
   ASSERT_THROW(alloc.allocate(max_alloc), std::bad_alloc);
 }
 

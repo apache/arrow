@@ -83,7 +83,7 @@ class TypedChunkedArrayBuilder
       std::shared_ptr<Array> converted;
       RETURN_NOT_OK(self->converter_->Convert(unconverted, &converted));
       std::unique_lock<std::mutex> lock(self->mutex_);
-      self->chunks_[block_index] = std::move(converted);
+      self->chunks_[static_cast<size_t>(block_index)] = std::move(converted);
       return Status::OK();
     });
   }
@@ -107,8 +107,8 @@ class InferringChunkedArrayBuilder
       unconverted_.resize(chunks_.size(), nullptr);
       unconverted_fields_.resize(chunks_.size(), nullptr);
     }
-    unconverted_[block_index] = unconverted;
-    unconverted_fields_[block_index] = unconverted_field;
+    unconverted_[static_cast<size_t>(block_index)] = unconverted;
+    unconverted_fields_[static_cast<size_t>(block_index)] = unconverted_field;
     lock.unlock();
     ScheduleConvertChunk(block_index);
   }
@@ -217,8 +217,8 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
     DCHECK_EQ(unconverted->type_id(), Type::LIST);
     const auto& list_array = checked_cast<const ListArray&>(*unconverted);
 
-    null_bitmap_chunks_[block_index] = unconverted->null_bitmap();
-    offset_chunks_[block_index] = list_array.value_offsets();
+    null_bitmap_chunks_[static_cast<size_t>(block_index)] = unconverted->null_bitmap();
+    offset_chunks_[static_cast<size_t>(block_index)] = list_array.value_offsets();
 
     value_builder_->Insert(block_index, list_array.list_type()->value_field(),
                            list_array.values());
@@ -248,13 +248,14 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
   Status InsertNull(int64_t block_index, int64_t length) {
     value_builder_->Insert(block_index, value_field_, std::make_shared<NullArray>(0));
 
-    ARROW_ASSIGN_OR_RAISE(null_bitmap_chunks_[block_index],
+    ARROW_ASSIGN_OR_RAISE(null_bitmap_chunks_[static_cast<size_t>(block_index)],
                           AllocateEmptyBitmap(length, pool_));
 
     int64_t offsets_length = (length + 1) * sizeof(int32_t);
-    ARROW_ASSIGN_OR_RAISE(offset_chunks_[block_index],
+    ARROW_ASSIGN_OR_RAISE(offset_chunks_[static_cast<size_t>(block_index)],
                           AllocateBuffer(offsets_length, pool_));
-    std::memset(offset_chunks_[block_index]->mutable_data(), 0, offsets_length);
+    std::memset(offset_chunks_[static_cast<size_t>(block_index)]->mutable_data(), 0,
+                static_cast<size_t>(offsets_length));
 
     return Status::OK();
   }
@@ -290,15 +291,17 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
       chunk_lengths_.resize(null_bitmap_chunks_.size(), -1);
       child_absent_.resize(null_bitmap_chunks_.size(), std::vector<bool>(0));
     }
-    null_bitmap_chunks_[block_index] = unconverted->null_bitmap();
-    chunk_lengths_[block_index] = unconverted->length();
+    null_bitmap_chunks_[static_cast<size_t>(block_index)] = unconverted->null_bitmap();
+    chunk_lengths_[static_cast<size_t>(block_index)] = unconverted->length();
 
     if (unconverted->type_id() == Type::NA) {
       auto maybe_buffer = AllocateBitmap(unconverted->length(), pool_);
       if (maybe_buffer.ok()) {
-        null_bitmap_chunks_[block_index] = *std::move(maybe_buffer);
-        std::memset(null_bitmap_chunks_[block_index]->mutable_data(), 0,
-                    null_bitmap_chunks_[block_index]->size());
+        null_bitmap_chunks_[static_cast<size_t>(block_index)] = *std::move(maybe_buffer);
+        std::memset(null_bitmap_chunks_[static_cast<size_t>(block_index)]->mutable_data(),
+                    0,
+                    static_cast<size_t>(
+                        null_bitmap_chunks_[static_cast<size_t>(block_index)]->size()));
       } else {
         Status st = maybe_buffer.status();
         task_group_->Append([st] { return st; });
@@ -412,8 +415,9 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
       child_builders_[it->second]->Insert(block_index, unconverted_field,
                                           unconverted.field(i));
 
-      child_absent_[block_index].resize(child_builders_.size(), true);
-      child_absent_[block_index][it->second] = false;
+      child_absent_[static_cast<size_t>(block_index)].resize(child_builders_.size(),
+                                                             true);
+      child_absent_[static_cast<size_t>(block_index)][it->second] = false;
     }
 
     return Status::OK();

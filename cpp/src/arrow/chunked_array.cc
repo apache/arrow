@@ -154,7 +154,7 @@ Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
     return Status::IndexError("index with value of ", index,
                               " is out-of-bounds for chunked array of length ", length_);
   }
-  return chunks_[loc.chunk_index]->GetScalar(loc.index_in_chunk);
+  return chunks_[static_cast<size_t>(loc.chunk_index)]->GetScalar(loc.index_in_chunk);
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {

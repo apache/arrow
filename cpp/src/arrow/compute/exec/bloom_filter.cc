@@ -108,7 +108,7 @@ Status BlockedBloomFilter::CreateEmpty(int64_t num_rows_to_insert, MemoryPool* p
   int64_t buffer_size = num_blocks_ * sizeof(uint64_t);
   ARROW_ASSIGN_OR_RAISE(buf_, AllocateBuffer(buffer_size, pool));
   blocks_ = reinterpret_cast<uint64_t*>(buf_->mutable_data());
-  memset(blocks_, 0, buffer_size);
+  memset(blocks_, 0, static_cast<size_t>(buffer_size));
 
   return Status::OK();
 }
@@ -287,7 +287,8 @@ bool BlockedBloomFilter::IsSameAs(const BlockedBloomFilter* other) const {
   if (log_num_blocks_ != other->log_num_blocks_ || num_blocks_ != other->num_blocks_) {
     return false;
   }
-  if (memcmp(blocks_, other->blocks_, num_blocks_ * sizeof(uint64_t)) != 0) {
+  if (memcmp(blocks_, other->blocks_,
+             static_cast<size_t>(num_blocks_ * sizeof(uint64_t))) != 0) {
     return false;
   }
   return true;
@@ -377,7 +378,7 @@ void BloomFilterBuilder_Parallel::PushNextBatchImp(size_t thread_id, int64_t num
 
   ThreadLocalState& local_state = thread_local_states_[thread_id];
   local_state.partition_ranges.resize(num_prtns + 1);
-  local_state.partitioned_hashes_64.resize(num_rows);
+  local_state.partitioned_hashes_64.resize(static_cast<size_t>(num_rows));
   local_state.unprocessed_partition_ids.resize(num_prtns);
   uint16_t* partition_ranges = local_state.partition_ranges.data();
   uint64_t* partitioned_hashes = local_state.partitioned_hashes_64.data();

@@ -66,7 +66,7 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
 
     int task_group_id = scheduler->RegisterTaskGroup(
         [&](size_t thread_id, int64_t task_id) {
-          node->InputReceived(source_node, data.batches[task_id]);
+          node->InputReceived(source_node, data.batches[static_cast<size_t>(task_id)]);
           return Status::OK();
         },
         [&](size_t thread_id) {

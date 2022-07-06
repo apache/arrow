@@ -84,10 +84,11 @@ std::vector<double> ExactQuantile(std::vector<double> values,
     const int64_t lower_index = static_cast<int64_t>(index);
     const double fraction = index - lower_index;
     if (fraction == 0) {
-      output.push_back(values[lower_index]);
+      output.push_back(values[static_cast<size_t>(lower_index)]);
     } else {
       const double lerp =
-          fraction * values[lower_index + 1] + (1 - fraction) * values[lower_index];
+          fraction * values[static_cast<size_t>(lower_index + 1)] +
+          (1 - fraction) * values[static_cast<size_t>(lower_index)];
       output.push_back(lerp);
     }
   }

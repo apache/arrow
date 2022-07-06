@@ -65,7 +65,7 @@ void CheckCodecRoundtrip(std::unique_ptr<Codec>& c1, std::unique_ptr<Codec>& c2,
   int64_t actual_size;
   ASSERT_OK_AND_ASSIGN(actual_size, c1->Compress(data.size(), data.data(),
                                                  max_compressed_len, compressed.data()));
-  compressed.resize(actual_size);
+  compressed.resize(static_cast<size_t>(actual_size));
 
   // decompress with c2
   int64_t actual_decompressed_size;
@@ -88,7 +88,7 @@ void CheckCodecRoundtrip(std::unique_ptr<Codec>& c1, std::unique_ptr<Codec>& c2,
         actual_size2,
         c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
     ASSERT_EQ(actual_size2, actual_size);
-    compressed.resize(actual_size2);
+    compressed.resize(static_cast<size_t>(actual_size2));
 
     // decompress with c1
     int64_t actual_decompressed_size2;
@@ -173,12 +173,12 @@ void CheckStreamingCompressor(Codec* codec, const std::vector<uint8_t>& data) {
 void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) {
   // Create compressed data
   int64_t max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
-  std::vector<uint8_t> compressed(max_compressed_len);
+  std::vector<uint8_t> compressed(static_cast<size_t>(max_compressed_len));
   int64_t compressed_size;
   ASSERT_OK_AND_ASSIGN(
       compressed_size,
       codec->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
-  compressed.resize(compressed_size);
+  compressed.resize(static_cast<size_t>(compressed_size));
 
   // Run streaming decompression
   std::shared_ptr<Decompressor> decompressor;
@@ -213,7 +213,7 @@ void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) 
   ASSERT_EQ(remaining, 0);
 
   // Check the decompressed data
-  decompressed.resize(decompressed_size);
+  decompressed.resize(static_cast<size_t>(decompressed_size));
   ASSERT_EQ(data.size(), decompressed_size);
   ASSERT_EQ(data, decompressed);
 }
@@ -265,7 +265,7 @@ void CheckStreamingRoundtrip(std::shared_ptr<Compressor> compressor,
       }
     } while (result.should_retry);
 
-    compressed.resize(compressed_size);
+    compressed.resize(static_cast<size_t>(compressed_size));
   }
 
   // Then decompress...
@@ -296,7 +296,7 @@ void CheckStreamingRoundtrip(std::shared_ptr<Compressor> compressor,
       remaining -= result.bytes_read;
     }
     ASSERT_EQ(remaining, 0);
-    decompressed.resize(decompressed_size);
+    decompressed.resize(static_cast<size_t>(decompressed_size));
   }
 
   ASSERT_EQ(data.size(), decompressed.size());
@@ -436,14 +436,14 @@ TEST_P(CodecTest, OutputBufferIsSmall) {
 
   std::vector<uint8_t> data = MakeRandomData(10);
   auto max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
-  std::vector<uint8_t> compressed(max_compressed_len);
+  std::vector<uint8_t> compressed(static_cast<size_t>(max_compressed_len));
   std::vector<uint8_t> decompressed(data.size() - 1);
 
   int64_t actual_size;
   ASSERT_OK_AND_ASSIGN(
       actual_size,
       codec->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
-  compressed.resize(actual_size);
+  compressed.resize(static_cast<size_t>(actual_size));
 
   std::stringstream ss;
   ss << "Invalid: Output buffer size (" << decompressed.size() << ") must be "
