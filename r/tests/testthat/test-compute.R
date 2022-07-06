@@ -23,12 +23,18 @@ test_that("list_compute_functions() works", {
 
 test_that("arrow_base_scalar_function() works", {
   # check in/out type as schema/data type
-  fun <- arrow_base_scalar_function(schema(.y = int32()), int64(), function(x, y) y[[1]])
+  fun <- arrow_base_scalar_function(
+    schema(.y = int32()), int64(),
+    function(kernel_context, args) args[[1]]
+  )
   expect_equal(attr(fun, "in_type")[[1]], schema(.y = int32()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as data type/data type
-  fun <- arrow_base_scalar_function(int32(), int64(), function(x, y) y[[1]])
+  fun <- arrow_base_scalar_function(
+    int32(), int64(),
+    function(kernel_context, args) args[[1]]
+  )
   expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
 
@@ -36,7 +42,7 @@ test_that("arrow_base_scalar_function() works", {
   fun <- arrow_base_scalar_function(
     field("a_name", int32()),
     int64(),
-    function(x, y) y[[1]]
+    function(kernel_context, args) args[[1]]
   )
   expect_equal(attr(fun, "in_type")[[1]], schema(a_name = int32()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
@@ -45,7 +51,7 @@ test_that("arrow_base_scalar_function() works", {
   fun <- arrow_base_scalar_function(
     list(int32(), int64()),
     list(int64(), int32()),
-    function(x, y) y[[1]]
+    function(kernel_context, args) args[[1]]
   )
 
   expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
@@ -76,33 +82,31 @@ test_that("arrow_scalar_function() returns a base scalar function", {
 test_that("register_scalar_function() adds a compute function to the registry", {
   skip_if_not_available("dataset")
 
-  fun <- arrow_base_scalar_function(
-    int32(), int64(),
-    function(context, args) {
-      args[[1]] + 1L
-    }
+  times_32 <- arrow_scalar_function(
+    int32(), float64(),
+    function(x) x * 32.0
   )
 
-  register_scalar_function("my_test_scalar_function", fun)
+  register_scalar_function("times_32", times_32)
 
-  expect_true("my_test_scalar_function" %in% names(arrow:::.cache$functions))
-  expect_true("my_test_scalar_function" %in% list_compute_functions())
+  expect_true("times_32" %in% names(arrow:::.cache$functions))
+  expect_true("times_32" %in% list_compute_functions())
 
   expect_equal(
-    call_function("my_test_scalar_function", Array$create(1L, int32())),
-    Array$create(2L, int64())
+    call_function("times_32", Array$create(1L, int32())),
+    Array$create(32L, float64())
   )
 
   expect_equal(
-    call_function("my_test_scalar_function", Scalar$create(1L, int32())),
-    Scalar$create(2L, int64())
+    call_function("times_32", Scalar$create(1L, int32())),
+    Scalar$create(32L, float64())
   )
 
   expect_identical(
     record_batch(a = 1L) %>%
-      dplyr::mutate(b = my_test_scalar_function(a)) %>%
+      dplyr::mutate(b = times_32(a)) %>%
       dplyr::collect(),
-    tibble::tibble(a = 1L, b = 2L)
+    tibble::tibble(a = 1L, b = 32.0)
   )
 })
 
@@ -117,7 +121,7 @@ test_that("user-defined functions work during multi-threaded execution", {
     stringsAsFactors = FALSE
   )
 
-  # make sure values are different for each partition
+  # make sure values are different for each partition and
   example_df$row_num <- seq_len(nrow(example_df))
   example_df$value <- example_df$value + match(example_df$part, letters)
 
@@ -127,7 +131,7 @@ test_that("user-defined functions work during multi-threaded execution", {
 
   times_32 <- arrow_scalar_function(
     int32(), float64(),
-    function(x) x * 32
+    function(x) x * 32.0
   )
 
   register_scalar_function("times_32", times_32)
