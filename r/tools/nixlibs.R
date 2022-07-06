@@ -87,7 +87,8 @@ download_binary <- function(lib) {
 #    * "centos-7" (gcc 4.8, no AWS/GCS support)
 #    * "ubuntu-18.04" (gcc 8, openssl 1)
 #    * "ubuntu-22.04" (openssl 3)
-#   These string values, along with `NULL`, are the potential return values of #   this function.
+#   These string values, along with `NULL`, are the potential return values of
+#   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
   lib <- tolower(lib)
   if (identical(lib, "")) {
@@ -181,7 +182,7 @@ compile_test_program <- function(code) {
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
-# TODO(later): build "ubuntu-18.04" on centos7 with newer devtoolset (but glibc is 2.17) for broader compatibility (like manylinux2014)?
+# TODO(ARROW-16976): build "ubuntu-18.04" on centos7 with newer devtoolset (but glibc is 2.17) for broader compatibility (like manylinux2014)?
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
     # There was no error in compiling: so we found libcurl and openssl > 1.0.2,
@@ -202,7 +203,7 @@ determine_binary_from_stderr <- function(errs) {
     # We just can't use our binaries because they were built with newer glibc.
     return(NULL)
   } else if (header_not_found("curl/curl", errs)) {
-    # TODO: should these next 3 NULL cases return centos-7? A source build
+    # TODO(ARROW-16985): should these next 3 NULL cases return centos-7? A source build
     # won't be able to include more features.
     # Could check if build_ok (also for glibc?)
     cat("*** libcurl not found\n")
