@@ -59,6 +59,7 @@ echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --sta
 
 mkdir -p sccache
 tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory sccache/
+chmod u+x sccache/sccache
 export PATH=$(pwd)/sccache:$PATH
 
 
