@@ -17,6 +17,8 @@
 
 skip_if_not_available("gcs")
 
+source_file("helper-filesystems.R")
+
 test_that("FileSystem$from_uri with gs://", {
   fs_and_path <- FileSystem$from_uri("gs://my/test/bucket/")
   expect_r6_class(fs_and_path$fs, "GcsFileSystem")
@@ -58,3 +60,33 @@ test_that("GcsFileSystem$create() input validation", {
     'Invalid options for GcsFileSystem: "role_arn"'
   )
 })
+
+if (process_is_running("testbench")) {
+  testbench_port <- Sys.getenv("TESTBENCH_PORT", "9001")
+
+  fs <- GcsFileSystem$create(
+    endpoint_override = sprintf("localhost:%s", testbench_port),
+    retry_limit_seconds = 1,
+    scheme = "http",
+    anonymous = TRUE # Will fail to resolve host name if anonymous isn't TRUE
+  )
+
+  now <- as.character(as.numeric(Sys.time()))
+  fs$CreateDir(now)
+  # Clean up when we're all done
+  on.exit(fs$DeleteDir(now))
+
+  gcs_path <- function(...) {
+    paste(now, ..., sep = "/")
+  }
+  gcs_uri <- function(...) {
+    template <- "gs://anonymous@%s?scheme=http&endpoint_override=localhost%s%s&retry_limit_seconds=1"
+    sprintf(template, gcs_path(...), "%3A", testbench_port)
+  }
+
+  test_filesystem("gcs", fs, gcs_path, gcs_uri)
+} else {
+  test_that("GCSFileSystem tests with testbench", {
+    skip("testbench is not running")
+  })
+}
