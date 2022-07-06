@@ -897,20 +897,6 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
       ARROW_ASSIGN_OR_RAISE(auto item_orc_type, GetOrcType(*item_arrow_type));
       return liborc::createMapType(std::move(key_orc_type), std::move(item_orc_type));
     }
-    case Type::type::DENSE_UNION:
-    case Type::type::SPARSE_UNION: {
-      ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createUnionType();
-      std::vector<std::shared_ptr<Field>> arrow_fields =
-          checked_cast<const UnionType&>(type).fields();
-      for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
-           it != arrow_fields.end(); ++it) {
-        std::string field_name = (*it)->name();
-        std::shared_ptr<DataType> arrow_child_type = (*it)->type();
-        ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
-        out_type->addUnionChild(std::move(orc_subtype));
-      }
-      return std::move(out_type);
-    }
     default: {
       return Status::NotImplemented("Unknown or unsupported Arrow type: ",
                                     type.ToString());
