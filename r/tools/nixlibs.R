@@ -43,6 +43,7 @@ try_download <- function(from_url, to_file, hush = quietly) {
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
+# The default will build from source as a fallback if a binary is not found or shouldn't be used
 # Set LIBARROW_BUILD=FALSE to ensure that we use a previously built libarrow
 # and don't fall back to a full source build
 build_ok <- !env_is("LIBARROW_BUILD", "false")
