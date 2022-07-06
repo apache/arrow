@@ -24,7 +24,7 @@ the **Format Version** and the **Library Version**. Each Library
 Version has a corresponding Format Version, and multiple versions of
 the library may have the same format version. For example, library
 versions 2.0.0 and 3.0.0 may both track format version 1.0.0. See
-:doc:`status` for details about supported features in each library.
+:doc:`../status` for details about supported features in each library.
 
 For library versions prior to 1.0.0, major releases may contain API
 changes. From 1.0.0 onward, we follow `Semantic Versioning
