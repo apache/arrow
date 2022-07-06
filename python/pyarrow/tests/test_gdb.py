@@ -17,6 +17,8 @@
 
 from functools import lru_cache
 import os
+import os.path
+from os.path import join as pjoin
 import re
 import shutil
 import subprocess
@@ -43,7 +45,11 @@ def environment_for_gdb():
     env = {}
     for var in ['PATH', 'LD_LIBRARY_PATH']:
         try:
-            env[var] = os.environ[var]
+            # Add path to libarrow_python
+            path = os.environ.get(var, '')
+            path_add = pjoin(os.getcwd(), 'pyarrow')
+            env[var] =  str(path + ':' + path_add)
+
         except KeyError:
             pass
     return env
