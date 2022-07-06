@@ -427,7 +427,8 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
           value_offsets_[i] = arr.offset;
         } else {
           // Fill as zero-length array
-          internal::FillZeroLengthArray(carr.type().get(), &span->values[i].array);
+          ::arrow::internal::FillZeroLengthArray(carr.type().get(),
+                                                 &span->values[i].array);
           span->values[i].scalar = nullptr;
         }
         have_chunked_arrays_ = true;

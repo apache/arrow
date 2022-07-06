@@ -465,7 +465,6 @@ struct ARROW_EXPORT MapScalar : public BaseListScalar {
 
 struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
   using TypeClass = FixedSizeListType;
-  using BaseListScalar::BaseListScalar;
 
   FixedSizeListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
                       bool is_valid = true);

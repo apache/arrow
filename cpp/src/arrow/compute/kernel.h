@@ -316,7 +316,7 @@ class ARROW_EXPORT OutputType {
   std::shared_ptr<DataType> type_;
 
   // For COMPUTED resolution
-  Resolver resolver_;
+  Resolver resolver_ = NULLPTR;
 };
 
 /// \brief Holds the input types and output type of the kernel.
