@@ -542,6 +542,24 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
+    def github_pr(self, title, head, base="master", body=None,
+                  github_token=None, create=False):
+        github_token = github_token or self.github_token
+        repo = self.as_github_repo(github_token=github_token)
+        if create:
+            return repo.create_pull(title=title, base=base, head=head,
+                                    body=body)
+        else:
+            # Retrieve open PR for base and head.
+            # There should be a single open one with that title.
+            for pull in repo.pull_requests(state="open", head=head,
+                                           base=base):
+                if title in pull.title:
+                    return pull
+            raise CrossbowError(
+                f"Pull request with Title: {title} not found"
+            )
+
 
 class Queue(Repo):
 

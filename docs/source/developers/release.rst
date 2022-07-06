@@ -62,6 +62,7 @@ generated properly.
 
     - Have the build requirements for cpp and c_glib installed.
     - Set the JIRA_USERNAME and JIRA_PASSWORD environment variables
+    - Set the ARROW_GITHUB_API_TOKEN environment variable to automatically create the verify release Pull Request.
     - Install ``en_US.UTF-8`` locale. You can confirm available locales by ``locale -a``.
     - Install Python 3 as python
     - Create dev/release/.env from dev/release/.env.example. See the comments in dev/release/.env.example how to set each variable.
@@ -150,13 +151,15 @@ Create the Release Candidate branch from the updated maintenance branch
     
     # Push the release tag (for RC1 or later the --force flag is required)
     git push -u apache apache-arrow-<version>
+    # Push the release candidate branch in order to trigger verification jobs later
+    git push -u apache release-<version>-rc<rc-number>
 
 Build source and binaries and submit them
 -----------------------------------------
 
 .. code-block::
 
-    # Build the source release tarball
+    # Build the source release tarball and create Pull Request with verification tasks
     dev/release/02-source.sh <version> <rc-number>
     
     # Submit binary tasks using crossbow, the command will output the crossbow build id
@@ -187,17 +190,6 @@ Verify the Release
 
 .. code-block::
 
-    # Automatically verify the Release Candidate
-    #
-    # 1. Push the Release Candidate's branch to the fork
-    git push --set-upstream origin release-<version>-rc<rc-number>
-    # 2. Open a pull request from the Release Candidate's branch to the maintenance branch
-    #    https://github.com/apache/arrow/compare/maint-<version>...<fork-github-username>:release-<version>-rc<rc-number>
-    # 3. Create a comment for the pull request to trigger the automatized crossbow verification tasks
-    #    @github-actions crossbow submit --group verify-rc-source --group verify-rc-binaries --group verify-rc-wheels --param release=<version> --param rc=<rc-number>
-    #
-    # See https://github.com/apache/arrow/pull/10126 as an example.
-    
     # Once the automatic verification has passed merge the Release Candidate's branch to the maintenance branch
     git checkout maint-<version>
     git merge release-<version>-rc<rc-number>
