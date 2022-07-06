@@ -30,7 +30,7 @@ The Arrow Python bindings (also named "PyArrow") have first-class integration
 with NumPy, pandas, and built-in Python objects. They are based on the C++
 implementation of Arrow.
 
-Here will we detail the usage of the Python API for Arrow and the leaf
+Here we will detail the usage of the Python API for Arrow and the leaf
 libraries that add additional functionality such as reading Apache Parquet
 files into Arrow structures.
 
