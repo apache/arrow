@@ -910,8 +910,8 @@ cdef class ExtensionType(BaseExtensionType):
 
         Parameters
         ----------
-        scalar : pyarrow.ExtensionScalar
-          The scalar to be converted to a Python object.
+        scalar : pyarrow.Scalar
+          Not-None Scalar of storage type to be converted to a Python object.
 
         Returns
         -------
