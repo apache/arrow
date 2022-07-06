@@ -45,6 +45,7 @@ class UuidType(pa.PyExtensionType):
     def scalar_as_py(self, scalar):
         return UUID(bytes=scalar.as_py())
 
+
 class UuidType2(pa.PyExtensionType):
 
     def __init__(self):
