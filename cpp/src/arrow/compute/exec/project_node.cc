@@ -82,7 +82,7 @@ class ProjectNode : public MapNode {
     for (size_t i = 0; i < exprs_.size(); ++i) {
       util::tracing::Span span;
       START_COMPUTE_SPAN(span, "Project",
-                         {{"project.type", exprs_[i].type().ToString()},
+                         {{"project.type", exprs_[i].type()->ToString()},
                           {"project.length", target.length},
                           {"project.expression", exprs_[i].ToString()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,

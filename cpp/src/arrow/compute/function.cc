@@ -224,10 +224,10 @@ Result<Datum> ExecuteInternal(const Function& func, std::vector<Datum> args,
 
   util::tracing::Span span;
 
-  START_COMPUTE_SPAN(span, name(),
-                     {{"function.name", name()},
+  START_COMPUTE_SPAN(span, func.name(),
+                     {{"function.name", func.name()},
                       {"function.options", options ? options->ToString() : "<NULLPTR>"},
-                      {"function.kind", kind()}});
+                      {"function.kind", func.kind()}});
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
