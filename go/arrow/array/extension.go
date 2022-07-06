@@ -240,8 +240,6 @@ func (b *ExtensionBuilder) NewExtensionArray() ExtensionArray {
 	storage := b.Builder.NewArray()
 	defer storage.Release()
 
-	// data := NewData(b.dt, storage.Len(), storage.Data().Buffers(), storage.Data().Children(), storage.Data().NullN(), 0)
-	// defer data.Release()
 	storage.Data().(*Data).dtype = b.dt
 	return NewExtensionData(storage.Data())
 }
