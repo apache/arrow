@@ -45,7 +45,6 @@ else
 fi
 
 export MINGW_ARCH
-export EXTRA_CMAKE_FLAGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
