@@ -17,9 +17,12 @@
 
 name: Upload R Nightly builds
 # This workflow downloads the (nightly) binaries created in crossbow and uploads them
-# to nightlies.apache.org. Due to authorization requirements, this upload can't be done
-
+# to nightlies.apache.org. Due to authorization requirements, this upload can't be done 
 # from the crossbow repository.
+
+# This removes all permissions from the token
+permissions:
+  contents: none
 
 on:
   workflow_dispatch:
@@ -28,6 +31,11 @@ on:
         description: Job prefix to use.
         required: false
         default: ''
+      keep:
+        description: Number of versions to keep.
+        required: false
+        default: 14
+
   schedule:
     #Crossbow packaging runs at 0 8 * * *
     - cron: '0 14 * * *'
@@ -78,10 +86,28 @@ jobs:
             echo "No files found. Stopping upload."
             exit 1
           fi
+      - name: Cache Repo
+        uses: actions/cache@v3
+        with:
+          path: repo
+          key: r-nightly-${{ github.run_id }}
+          restore-keys: r-nightly-
+      - name: Sync from Remote
+        uses: ./arrow/.github/actions/sync-nightlies
+        with:
+          switches: -avzh --update --delete --progress
+          local_path: repo
+          remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/r
+          remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
+          remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
+          remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
+          remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
+          remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
+      - run: tree repo
       - name: Build Repository
         shell: Rscript {0}
         run: |
-          # folder that we rsync to nightlies.apache.org
+          # folder that we sync to nightlies.apache.org
           repo_root <- "repo"
           # The binaries are in a nested dir
           # so we need to find the correct path.
@@ -101,18 +127,37 @@ jobs:
           # strip superfluous nested dirs
           new_paths <- sub(art_path, ".", new_paths)
           dirs <- dirname(new_paths)
-          dir_result <- sapply(dirs, dir.create, recursive = TRUE)
+          sapply(dirs, dir.create, recursive = TRUE, showWarnings = FALSE)
 
-          if (!all(dir_result)) {
-            stop("There was an issue while creating the folders!")
-          }
-
-          copy_result <- file.copy(current_path, new_paths)
+          # overwrite allows us to "force push" a new version with the same name
+          copy_result <- file.copy(current_path, new_paths, overwrite = TRUE)
 
           if (!all(copy_result)) {
             stop("There was an issue while copying the files!")
           }
+      - name: Prune Repository
+        shell: bash
+        env:
+          KEEP: ${{ github.event.inputs.keep || 14 }}
+        run: |   
+          prune() {
+            # list files  | retain $KEEP newest files | delete everything else
+            ls -t $1/arrow* | tail -n +$((KEEP + 1)) | xargs --no-run-if-empty rm 
+          }
 
+          # find leaf sub dirs
+          repo_dirs=$(find repo -type d -links 2)
+
+          # We want to retain $keep (14) versions of each pkg/lib so we call
+          # prune on each leaf dir and not on repo/.
+          for dir in ${repo_dirs[@]}; do
+            prune $dir
+          done
+      - name: Update Repository Index
+        shell: Rscript {0}
+        run: |
+          # folder that we sync to nightlies.apache.org
+          repo_root <- "repo"
           tools::write_PACKAGES(file.path(repo_root, "src/contrib"), type = "source", verbose = TRUE)
 
           repo_dirs <- list.dirs(repo_root)
@@ -125,14 +170,16 @@ jobs:
             tools::write_PACKAGES(dir, type = ifelse(on_win, "win.binary", "mac.binary"), verbose = TRUE )
           }
       - name: Show repo contents
-        run: ls -R repo
-      - name: Upload Files
-        uses: burnett01/rsync-deployments@5.2
+        run: tree repo
+      - name: Sync to Remote
+        uses: ./arrow/.github/actions/sync-nightlies
         with:
-          switches: -avzr
-          path: repo/*
+          upload: true
+          switches: -avzh --update --delete --progress
+          local_path: repo
           remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/r
           remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
           remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
           remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
+          remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
