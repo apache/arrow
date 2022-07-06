@@ -63,19 +63,21 @@ test_that("arrow_advanced_scalar_function() works", {
   expect_snapshot_error(arrow_advanced_scalar_function(int32(), int32(), NULL))
 })
 
-test_that("arrow_scalar_function() returns a base scalar function", {
-  base_fun <- arrow_scalar_function(
-    list(float64(), float64()),
+test_that("arrow_scalar_function() returns an advanced scalar function", {
+  times_32_wrapper <- arrow_scalar_function(
     float64(),
-    function(x, y) {
-      x + y
+    float64(),
+    function(x) {
+      x * 32
     }
   )
 
-  expect_s3_class(base_fun, "arrow_advanced_scalar_function")
+  dummy_kernel_context <- list()
+
+  expect_s3_class(times_32_wrapper, "arrow_advanced_scalar_function")
   expect_equal(
-    base_fun(list(), list(Scalar$create(2), Array$create(3))),
-    Array$create(5)
+    times_32_wrapper(dummy_kernel_context, list(Scalar$create(2))),
+    Array$create(2 * 32)
   )
 })
 
