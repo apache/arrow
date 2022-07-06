@@ -61,7 +61,7 @@ jobs:
           repository: ursacomputing/crossbow
           ref: master
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           cache: 'pip'
           python-version: 3.8

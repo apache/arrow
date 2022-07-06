@@ -55,7 +55,7 @@ on:
 
 {%- macro github_install_archery() -%}
   - name: Set up Python
-    uses: actions/setup-python@v3
+    uses: actions/setup-python@v4
     with:
       cache: 'pip'
       python-version: 3.8
@@ -66,7 +66,7 @@ on:
 
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python
-    uses: actions/setup-python@v2
+    uses: actions/setup-python@v4
     with:
       python-version: 3.8
   - name: Setup Crossbow
