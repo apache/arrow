@@ -227,11 +227,12 @@ jobs:
           - {image: "rhub/debian-clang-devel", libarrow_binary: "TRUE"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
-          - {image: "rhub/ubuntu-gcc-release"} # ubuntu-20.04 (focal)
+          - {image: "rhub/ubuntu-gcc-release"} # currently ubuntu-20.04 (focal)
           - {image: "rocker/r-ubuntu:22.04"} # openssl3
-          - {image: "rocker/r-ver"} # ubuntu-20.04
+          - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
+          - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
           - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
-          - {image: "rstudio/r-base:4.1-bionic"}
+          - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
           - {image: "rstudio/r-base:4.2-centos7"}
           # Even with devtoolset-8, binaries fail because glibc is older than
           # what we build with on ubuntu-18.04 (uncomment to see the error)
