@@ -120,6 +120,13 @@ register_bindings_utils <- function() {
   register_binding("::", function(lhs, rhs) {
     lhs_name <- as.character(substitute(lhs))
     rhs_name <- as.character(substitute(rhs))
-    nse_funcs[[paste0(lhs_name, "::", rhs_name)]]
+
+    binding_name <- paste0(lhs_name, "::", rhs_name)
+
+    if (!is.null(nse_funcs[[binding_name]])) {
+      nse_funcs[[binding_name]]
+    } else {
+      asNamespace(lhs_name)[[rhs_name]]
+    }
   })
 }
