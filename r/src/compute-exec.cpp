@@ -214,7 +214,7 @@ void ExecPlan_Write(
     const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
     arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
     uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
-    uint64_t max_rows_per_group) {
+    uint64_t max_rows_per_group, bool on_old_windows) {
   arrow::dataset::internal::Initialize();
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
@@ -237,8 +237,27 @@ void ExecPlan_Write(
                      ds::WriteNodeOptions{std::move(opts), std::move(kv)});
 
   StopIfNotOk(plan->Validate());
+
+#if !defined(HAS_SAFE_CALL_INTO_R)
   StopIfNotOk(plan->StartProducing());
   StopIfNotOk(plan->finished().status());
+#else
+  if (on_old_windows) {
+    StopIfNotOk(plan->StartProducing());
+    StopIfNotOk(plan->finished().status());
+  } else {
+    const auto& io_context = arrow::io::default_io_context();
+    auto result = RunWithCapturedR<bool>([&]() {
+      return DeferNotOk(io_context.executor()->Submit([&]() -> arrow::Result<bool> {
+        RETURN_NOT_OK(plan->StartProducing());
+        RETURN_NOT_OK(plan->finished().status());
+        return true;
+      }));
+    });
+
+    StopIfNotOk(result.status());
+  }
+#endif
 }
 
 #endif

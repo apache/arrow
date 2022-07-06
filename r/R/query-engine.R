@@ -273,7 +273,8 @@ ExecPlan <- R6Class("ExecPlan",
         self,
         node,
         prepare_key_value_metadata(node$final_metadata()),
-        ...
+        ...,
+        on_old_windows = on_old_windows()
       )
     },
     Stop = function() ExecPlan_StopProducing(self)

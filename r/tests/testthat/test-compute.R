@@ -125,9 +125,10 @@ test_that("user-defined functions work during multi-threaded execution", {
   example_df$row_num <- seq_len(nrow(example_df))
   example_df$value <- example_df$value + match(example_df$part, letters)
 
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  write_dataset(example_df, tf, partitioning = "part")
+  tf_dataset <- tempfile()
+  tf_dest <- tempfile()
+  on.exit(unlink(c(tf_dataset, tf_dest)))
+  write_dataset(example_df, tf_dataset, partitioning = "part")
 
   times_32 <- arrow_scalar_function(
     int32(), float64(),
@@ -136,11 +137,22 @@ test_that("user-defined functions work during multi-threaded execution", {
 
   register_scalar_function("times_32", times_32)
 
-  result <- open_dataset(tf) %>%
+  # check a regular collect()
+  result <- open_dataset(tf_dataset) %>%
     dplyr::mutate(fun_result = times_32(value)) %>%
     dplyr::collect() %>%
-    dplyr::arrange(row_num) %>%
-    tibble::as_tibble()
+    dplyr::arrange(row_num)
 
   expect_identical(result$fun_result, example_df$value * 32)
+
+  # check a write_dataset()
+  open_dataset(tf_dataset) %>%
+    dplyr::mutate(fun_result = times_32(value)) %>%
+    write_dataset(tf_dest)
+
+  result2 <- dplyr::collect(open_dataset(tf_dest)) %>%
+    dplyr::arrange(row_num) %>%
+    dplyr::collect()
+
+  expect_identical(result2$fun_result, example_df$value * 32)
 })
