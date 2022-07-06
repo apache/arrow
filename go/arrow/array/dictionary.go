@@ -388,7 +388,6 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String))
 	case arrow.NULL:
 	default:
-		debug.Assert(false, "unimplemented dictionary value type")
 		err = fmt.Errorf("unimplemented dictionary value type, %s", dt)
 	}
 
@@ -1580,16 +1579,19 @@ func UnifyChunkedDicts(alloc memory.Allocator, chnkd *arrow.Chunked) (*arrow.Chu
 	chunksData := make([]*Data, len(chnkd.Chunks()))
 	for i, c := range chnkd.Chunks() {
 		c.Data().Retain()
-		defer c.Data().Release()
 		chunksData[i] = c.Data().(*Data)
 	}
 	changed, err := unifyRecursive(alloc, chnkd.DataType(), chunksData)
-	if err != nil {
-		return nil, err
-	}
-	if !changed {
-		chnkd.Retain()
-		return chnkd, nil
+	if err != nil || !changed {
+		for _, c := range chunksData {
+			c.Release()
+		}
+		if err == nil {
+			chnkd.Retain()
+		} else {
+			chnkd = nil
+		}
+		return chnkd, err
 	}
 
 	chunks := make([]arrow.Array, len(chunksData))
