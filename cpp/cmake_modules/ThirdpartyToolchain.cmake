@@ -95,6 +95,12 @@ if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
 endif()
 
+# For backward compatibility. We use "RE2_ROOT" if "re2_ROOT"
+# isn't specified and "RE2_ROOT" is specified.
+if("${re2_ROOT}" STREQUAL "" AND NOT "${RE2_ROOT}" STREQUAL "")
+  set(re2_ROOT ${RE2_ROOT})
+endif()
+
 # For backward compatibility. We use "Lz4_SOURCE" if "lz4_SOURCE"
 # isn't specified and "lz4_SOURCE" is specified.
 # We renamed "Lz4" dependency name to "lz4" in 9.0.0 because
@@ -1119,10 +1125,24 @@ macro(build_snappy)
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
-  resolve_dependency(Snappy PC_PACKAGE_NAMES snappy)
+  resolve_dependency(Snappy
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     snappy)
   if(${Snappy_SOURCE} STREQUAL "SYSTEM" AND NOT snappy_PC_FOUND)
-    get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION)
-    string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")
+    get_target_property(SNAPPY_TYPE Snappy::snappy TYPE)
+    if(NOT SNAPPY_TYPE STREQUAL "INTERFACE_LIBRARY")
+      get_target_property(SNAPPY_LIB Snappy::snappy
+                          IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+      if(NOT SNAPPY_LIB)
+        get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION_RELEASE)
+      endif()
+      if(NOT SNAPPY_LIB)
+        get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION)
+      endif()
+      string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")
+    endif()
   endif()
 endif()
 

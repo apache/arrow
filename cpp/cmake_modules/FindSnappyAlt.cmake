@@ -15,6 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(find_package_args)
+if(SnappyAlt_FIND_VERSION)
+  list(APPEND find_package_args ${SnappyAlt_FIND_VERSION})
+endif()
+if(SnappyAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(Snappy ${find_package_args})
+if(Snappy_FOUND)
+  set(SnappyAlt_FOUND TRUE)
+  return()
+endif()
+
 if(ARROW_SNAPPY_USE_SHARED)
   set(SNAPPY_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
@@ -52,9 +65,9 @@ else()
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
+find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
-if(Snappy_FOUND)
+if(SnappyAlt_FOUND)
   add_library(Snappy::snappy UNKNOWN IMPORTED)
   set_target_properties(Snappy::snappy
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
