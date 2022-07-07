@@ -382,17 +382,16 @@ register_user_defined_function <- function(scalar_function, name) {
     inherits(scalar_function, "arrow_advanced_scalar_function")
   )
 
-  # register with Arrow C++
+  # register with Arrow C++ function registry (enables its use in
+  # call_function() and Expression$create())
   RegisterScalarUDF(name, scalar_function)
 
-  # register with dplyr bindings
+  # register with dplyr binding (enables its use in mutate(), filter(), etc.)
   register_binding(
     name,
-    function(...) build_expr(name, ...)
+    function(...) build_expr(name, ...),
+    update_cache = TRUE
   )
-
-  # recreate dplyr binding cache
-  create_binding_cache()
 
   invisible(NULL)
 }

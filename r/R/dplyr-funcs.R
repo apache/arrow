@@ -50,6 +50,9 @@ NULL
 #'   - `fun`: string function name
 #'   - `data`: `Expression` (these are all currently a single field)
 #'   - `options`: list of function options, as passed to call_function
+#' @param update_cache Update .cache$functions at the time of registration.
+#'   the default is FALSE because the majority of usage is to register
+#'   bindings at package load, after which we create the cache once.
 #' @param registry An environment in which the functions should be
 #'   assigned.
 #'
@@ -57,7 +60,7 @@ NULL
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = nse_funcs) {
+register_binding <- function(fun_name, fun, registry = nse_funcs, update_cache = FALSE) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
   previous_fun <- registry[[unqualified_name]]
@@ -78,6 +81,12 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
     registry[[fun_name]] <- fun
   } else {
     registry[[unqualified_name]] <- fun
+  }
+
+  if (update_cache) {
+    fun_cache <- .cache$functions
+    fun_cache[[name]] <- fun
+    .cache$functions <- fun_cache
   }
 
   invisible(previous_fun)
