@@ -106,8 +106,7 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   Status Accept(ScalarVisitor* visitor) const;
 
   /// \brief EXPERIMENTAL Enable obtaining shared_ptr<Scalar> from a const
-  /// Scalar& context. Implementation depends on enable_shared_from_this, but
-  /// we may change this in the future
+  /// Scalar& context.
   std::shared_ptr<Scalar> GetSharedPtr() const {
     return const_cast<Scalar*>(this)->shared_from_this();
   }
@@ -490,6 +489,8 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 struct ARROW_EXPORT UnionScalar : public Scalar {
   int8_t type_code;
 
+  virtual const std::shared_ptr<Scalar>& child_value() const = 0;
+
  protected:
   UnionScalar(std::shared_ptr<DataType> type, int8_t type_code, bool is_valid)
       : Scalar(std::move(type), is_valid), type_code(type_code) {}
@@ -509,6 +510,10 @@ struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
 
   SparseUnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type);
 
+  const std::shared_ptr<Scalar>& child_value() const override {
+    return this->value[this->child_id];
+  }
+
   /// \brief Construct a SparseUnionScalar from a single value, versus having
   /// to construct a vector of scalars
   static std::shared_ptr<Scalar> FromValue(std::shared_ptr<Scalar> value, int field_index,
@@ -522,6 +527,8 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
   // scalar
   using ValueType = std::shared_ptr<Scalar>;
   ValueType value;
+
+  const std::shared_ptr<Scalar>& child_value() const override { return this->value; }
 
   DenseUnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
       : UnionScalar(std::move(type), type_code, value->is_valid),

@@ -1798,7 +1798,7 @@ TEST(Cast, UnsupportedTargetType) {
   const auto to_type = dense_union({field("a", int32())});
 
   // Try through concrete API
-  const char* expected_message = "Unsupported cast from int32 to dense_union";
+  const char* expected_message = "Unsupported cast to dense_union<a: int32=0> from int32";
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_message),
                                   Cast(*arr, to_type));
 

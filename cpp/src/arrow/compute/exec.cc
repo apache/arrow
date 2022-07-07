@@ -321,6 +321,21 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
 // ----------------------------------------------------------------------
 // ExecSpanIterator; to eventually replace ExecBatchIterator
 
+namespace {
+
+void PromoteExecSpanScalars(ExecSpan* span) {
+  // In the "all scalar" case, we "promote" the scalars to ArraySpans of
+  // length 1, since the kernel implementations do not handle the all
+  // scalar case
+  for (int i = 0; i < span->num_values(); ++i) {
+    ExecValue* value = &span->values[i];
+    if (value->is_scalar()) {
+      value->array.FillFromScalar(*value->scalar);
+      value->scalar = nullptr;
+    }
+  }
+}
+
 bool CheckIfAllScalar(const ExecBatch& batch) {
   for (const Datum& value : batch.values) {
     if (!value.is_scalar()) {
@@ -330,6 +345,8 @@ bool CheckIfAllScalar(const ExecBatch& batch) {
   }
   return batch.num_values() > 0;
 }
+
+}  // namespace
 
 Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize) {
   if (batch.num_values() > 0) {
@@ -385,19 +402,6 @@ int64_t ExecSpanIterator::GetNextChunkSpan(int64_t iteration_size, ExecSpan* spa
         std::min(current_chunk->length() - value_positions_[i], iteration_size);
   }
   return iteration_size;
-}
-
-void PromoteExecSpanScalars(ExecSpan* span) {
-  // In the "all scalar" case, we "promote" the scalars to ArraySpans of
-  // length 1, since the kernel implementations do not handle the all
-  // scalar case
-  for (int i = 0; i < span->num_values(); ++i) {
-    ExecValue* value = &span->values[i];
-    if (value->is_scalar()) {
-      value->array.FillFromScalar(*value->scalar);
-      value->scalar = nullptr;
-    }
-  }
 }
 
 bool ExecSpanIterator::Next(ExecSpan* span) {
@@ -996,6 +1000,8 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   ExecSpanIterator span_iterator_;
 };
 
+namespace {
+
 Status CheckCanExecuteChunked(const VectorKernel* kernel) {
   if (kernel->exec_chunked == nullptr) {
     return Status::Invalid(
@@ -1010,6 +1016,8 @@ Status CheckCanExecuteChunked(const VectorKernel* kernel) {
   }
   return Status::OK();
 }
+
+}  // namespace
 
 class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
  public:

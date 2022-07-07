@@ -66,25 +66,6 @@ void InitCastTable() {
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
 
-// Private version of GetCastFunction with better error reporting
-// if the input type is known.
-Result<std::shared_ptr<CastFunction>> GetCastFunctionInternal(
-    const TypeHolder& to_type, const DataType* from_type = nullptr) {
-  internal::EnsureInitCastTable();
-  auto it = internal::g_cast_table.find(static_cast<int>(to_type.id()));
-  if (it == internal::g_cast_table.end()) {
-    if (from_type != nullptr) {
-      return Status::NotImplemented("Unsupported cast from ", *from_type, " to ",
-                                    *to_type,
-                                    " (no available cast function for target type)");
-    } else {
-      return Status::NotImplemented("Unsupported cast to ", *to_type,
-                                    " (no available cast function for target type)");
-    }
-  }
-  return it->second;
-}
-
 const FunctionDoc cast_doc{"Cast values to another data type",
                            ("Behavior when values wouldn't fit in the target type\n"
                             "can be controlled through CastOptions."),
@@ -116,10 +97,13 @@ class CastMetaFunction : public MetaFunction {
     if (args[0].type()->Equals(*cast_options->to_type)) {
       return args[0];
     }
-    ARROW_ASSIGN_OR_RAISE(
-        std::shared_ptr<CastFunction> cast_func,
-        GetCastFunctionInternal(cast_options->to_type, args[0].type().get()));
-    return cast_func->Execute(args, options, ctx);
+    Result<std::shared_ptr<CastFunction>> result =
+        GetCastFunction(*cast_options->to_type);
+    if (!result.ok()) {
+      Status s = result.status();
+      return s.WithMessage(s.message(), " from ", *args[0].type());
+    }
+    return (*result)->Execute(args, options, ctx);
   }
 };
 
@@ -201,8 +185,13 @@ Result<const Kernel*> CastFunction::DispatchExact(
   return candidate_kernels[0];
 }
 
-Result<std::shared_ptr<CastFunction>> GetCastFunction(const TypeHolder& to_type) {
-  return internal::GetCastFunctionInternal(to_type);
+Result<std::shared_ptr<CastFunction>> GetCastFunction(const DataType& to_type) {
+  internal::EnsureInitCastTable();
+  auto it = internal::g_cast_table.find(static_cast<int>(to_type.id()));
+  if (it == internal::g_cast_table.end()) {
+    return Status::NotImplemented("Unsupported cast to ", to_type);
+  }
+  return it->second;
 }
 
 }  // namespace internal

@@ -36,8 +36,8 @@ namespace compute {
 
 TEST(TypeMatcher, SameTypeId) {
   std::shared_ptr<TypeMatcher> matcher = match::SameTypeId(Type::DECIMAL);
-  ASSERT_TRUE(matcher->Matches(decimal(12, 2)));
-  ASSERT_FALSE(matcher->Matches(int8()));
+  ASSERT_TRUE(matcher->Matches(*decimal(12, 2)));
+  ASSERT_FALSE(matcher->Matches(*int8()));
 
   ASSERT_EQ("Type::DECIMAL128", matcher->ToString());
 
@@ -50,11 +50,11 @@ TEST(TypeMatcher, TimestampTypeUnit) {
   auto matcher = match::TimestampTypeUnit(TimeUnit::MILLI);
   auto matcher2 = match::Time32TypeUnit(TimeUnit::MILLI);
 
-  ASSERT_TRUE(matcher->Matches(timestamp(TimeUnit::MILLI)));
-  ASSERT_TRUE(matcher->Matches(timestamp(TimeUnit::MILLI, "utc")));
-  ASSERT_FALSE(matcher->Matches(timestamp(TimeUnit::SECOND)));
-  ASSERT_FALSE(matcher->Matches(time32(TimeUnit::MILLI)));
-  ASSERT_TRUE(matcher2->Matches(time32(TimeUnit::MILLI)));
+  ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI)));
+  ASSERT_TRUE(matcher->Matches(*timestamp(TimeUnit::MILLI, "utc")));
+  ASSERT_FALSE(matcher->Matches(*timestamp(TimeUnit::SECOND)));
+  ASSERT_FALSE(matcher->Matches(*time32(TimeUnit::MILLI)));
+  ASSERT_TRUE(matcher2->Matches(*time32(TimeUnit::MILLI)));
 
   // Check ToString representation
   ASSERT_EQ("timestamp(s)", match::TimestampTypeUnit(TimeUnit::SECOND)->ToString());
@@ -91,8 +91,8 @@ TEST(InputType, Constructors) {
   InputType ty2(Type::DECIMAL);
   ASSERT_EQ(InputType::USE_TYPE_MATCHER, ty2.kind());
   ASSERT_EQ("Type::DECIMAL128", ty2.ToString());
-  ASSERT_TRUE(ty2.type_matcher().Matches(decimal(12, 2)));
-  ASSERT_FALSE(ty2.type_matcher().Matches(int16()));
+  ASSERT_TRUE(ty2.type_matcher().Matches(*decimal(12, 2)));
+  ASSERT_FALSE(ty2.type_matcher().Matches(*int16()));
 
   // Implicit construction in a vector
   std::vector<InputType> types = {int8(), InputType(Type::DECIMAL)};
@@ -170,12 +170,12 @@ TEST(InputType, Hash) {
 TEST(InputType, Matches) {
   InputType input1 = int8();
 
-  ASSERT_TRUE(input1.Matches(int8()));
-  ASSERT_TRUE(input1.Matches(int8()));
-  ASSERT_FALSE(input1.Matches(int16()));
+  ASSERT_TRUE(input1.Matches(*int8()));
+  ASSERT_TRUE(input1.Matches(*int8()));
+  ASSERT_FALSE(input1.Matches(*int16()));
 
   InputType input2(Type::DECIMAL);
-  ASSERT_TRUE(input2.Matches(decimal(12, 2)));
+  ASSERT_TRUE(input2.Matches(*decimal(12, 2)));
 
   auto ty2 = decimal(12, 2);
   auto ty3 = float64();
@@ -184,7 +184,7 @@ TEST(InputType, Matches) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Scalar> scalar2, arr2->GetScalar(0));
   ASSERT_TRUE(input2.Matches(Datum(arr2)));
   ASSERT_TRUE(input2.Matches(Datum(scalar2)));
-  ASSERT_FALSE(input2.Matches(ty3));
+  ASSERT_FALSE(input2.Matches(*ty3));
   ASSERT_FALSE(input2.Matches(arr3));
 }
 
@@ -289,8 +289,8 @@ TEST(KernelSignature, Basics) {
   KernelSignature sig(in_types, out_type);
   ASSERT_EQ(2, sig.in_types().size());
   ASSERT_TRUE(sig.in_types()[0].type()->Equals(*int8()));
-  ASSERT_TRUE(sig.in_types()[0].Matches(int8()));
-  ASSERT_TRUE(sig.in_types()[1].Matches(decimal(12, 2)));
+  ASSERT_TRUE(sig.in_types()[0].Matches(*int8()));
+  ASSERT_TRUE(sig.in_types()[1].Matches(*decimal(12, 2)));
 }
 
 TEST(KernelSignature, Equals) {

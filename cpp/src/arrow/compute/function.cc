@@ -189,9 +189,7 @@ Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) co
 
 namespace {
 
-/// \brief Check that each Datum is of a "value" type, which means either
-/// SCALAR, ARRAY, or CHUNKED_ARRAY.
-Status CheckAllValues(const std::vector<Datum>& values) {
+Status CheckAllArrayOrScalar(const std::vector<Datum>& values) {
   for (const auto& value : values) {
     if (!value.is_value()) {
       return Status::Invalid("Tried executing function with non-value type: ",
@@ -231,7 +229,7 @@ Result<Datum> ExecuteInternal(const Function& func, std::vector<Datum> args,
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
-  RETURN_NOT_OK(CheckAllValues(args));
+  RETURN_NOT_OK(CheckAllArrayOrScalar(args));
   std::vector<TypeHolder> in_types(args.size());
   for (size_t i = 0; i != args.size(); ++i) {
     in_types[i] = args[i].type().get();
@@ -279,7 +277,11 @@ Result<Datum> ExecuteInternal(const Function& func, std::vector<Datum> args,
     int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
     input.length = inferred_length;
     if (func.kind() == Function::SCALAR) {
-      DCHECK(passed_length == -1 || passed_length == inferred_length);
+      if (passed_length != -1 && passed_length != inferred_length) {
+        return Status::Invalid(
+            "Passed batch length for execution did not match actual"
+            " length of values for scalar function execution");
+      }
     } else if (func.kind() == Function::VECTOR) {
       auto vkernel = static_cast<const VectorKernel*>(kernel);
       if (!(all_same_length || !vkernel->can_execute_chunkwise)) {

@@ -72,7 +72,7 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
   auto double_type = float64();
   CastOptions cast_options;
   cast_options.to_type = double_type;
-  ASSERT_OK_AND_ASSIGN(auto cast_function, internal::GetCastFunction(double_type));
+  ASSERT_OK_AND_ASSIGN(auto cast_function, internal::GetCastFunction(*double_type));
   ASSERT_OK_AND_ASSIGN(auto cast_kernel,
                        cast_function->DispatchExact({int_array->type()}));
   const auto& exec = static_cast<const ScalarKernel*>(cast_kernel)->exec;

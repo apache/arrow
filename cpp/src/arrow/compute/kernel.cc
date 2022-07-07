@@ -87,9 +87,7 @@ class SameTypeIdMatcher : public TypeMatcher {
  public:
   explicit SameTypeIdMatcher(Type::type accepted_id) : accepted_id_(accepted_id) {}
 
-  bool Matches(const TypeHolder& type) const override {
-    return type.id() == accepted_id_;
-  }
+  bool Matches(const DataType& type) const override { return type.id() == accepted_id_; }
 
   std::string ToString() const override {
     std::stringstream ss;
@@ -124,11 +122,11 @@ class TimeUnitMatcher : public TypeMatcher {
   explicit TimeUnitMatcher(TimeUnit::type accepted_unit)
       : accepted_unit_(accepted_unit) {}
 
-  bool Matches(const TypeHolder& type) const override {
+  bool Matches(const DataType& type) const override {
     if (type.id() != ArrowType::type_id) {
       return false;
     }
-    const auto& time_type = checked_cast<const ArrowType&>(*type.type);
+    const auto& time_type = checked_cast<const ArrowType&>(type);
     return time_type.unit() == accepted_unit_;
   }
 
@@ -179,7 +177,7 @@ class IntegerMatcher : public TypeMatcher {
  public:
   IntegerMatcher() {}
 
-  bool Matches(const TypeHolder& type) const override { return is_integer(type.id()); }
+  bool Matches(const DataType& type) const override { return is_integer(type.id()); }
 
   bool Equals(const TypeMatcher& other) const override {
     if (this == &other) {
@@ -198,7 +196,7 @@ class PrimitiveMatcher : public TypeMatcher {
  public:
   PrimitiveMatcher() {}
 
-  bool Matches(const TypeHolder& type) const override { return is_primitive(type.id()); }
+  bool Matches(const DataType& type) const override { return is_primitive(type.id()); }
 
   bool Equals(const TypeMatcher& other) const override {
     if (this == &other) {
@@ -217,9 +215,7 @@ class BinaryLikeMatcher : public TypeMatcher {
  public:
   BinaryLikeMatcher() {}
 
-  bool Matches(const TypeHolder& type) const override {
-    return is_binary_like(type.id());
-  }
+  bool Matches(const DataType& type) const override { return is_binary_like(type.id()); }
 
   bool Equals(const TypeMatcher& other) const override {
     if (this == &other) {
@@ -239,7 +235,7 @@ class LargeBinaryLikeMatcher : public TypeMatcher {
  public:
   LargeBinaryLikeMatcher() {}
 
-  bool Matches(const TypeHolder& type) const override {
+  bool Matches(const DataType& type) const override {
     return is_large_binary_like(type.id());
   }
 
@@ -257,7 +253,7 @@ class FixedSizeBinaryLikeMatcher : public TypeMatcher {
  public:
   FixedSizeBinaryLikeMatcher() {}
 
-  bool Matches(const TypeHolder& type) const override {
+  bool Matches(const DataType& type) const override {
     return is_fixed_size_binary(type.id());
   }
 
@@ -335,10 +331,10 @@ bool InputType::Equals(const InputType& other) const {
   }
 }
 
-bool InputType::Matches(const TypeHolder& type) const {
+bool InputType::Matches(const DataType& type) const {
   switch (kind_) {
     case InputType::EXACT_TYPE:
-      return type_->Equals(*type.type);
+      return type_->Equals(type);
     case InputType::USE_TYPE_MATCHER:
       return type_matcher_->Matches(type);
     default:
@@ -357,7 +353,7 @@ bool InputType::Matches(const Datum& value) const {
       DCHECK(false);
       return false;
   }
-  return Matches(value.type().get());
+  return Matches(*value.type());
 }
 
 const std::shared_ptr<DataType>& InputType::type() const {
@@ -437,7 +433,7 @@ bool KernelSignature::Equals(const KernelSignature& other) const {
 bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const {
   if (is_varargs_) {
     for (size_t i = 0; i < types.size(); ++i) {
-      if (!in_types_[std::min(i, in_types_.size() - 1)].Matches(types[i])) {
+      if (!in_types_[std::min(i, in_types_.size() - 1)].Matches(*types[i])) {
         return false;
       }
     }
@@ -446,7 +442,7 @@ bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const 
       return false;
     }
     for (size_t i = 0; i < in_types_.size(); ++i) {
-      if (!in_types_[i].Matches(types[i])) {
+      if (!in_types_[i].Matches(*types[i])) {
         return false;
       }
     }

@@ -282,9 +282,9 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
     return exec_context->func_registry()->GetFunction(call.function_name);
   }
   // XXX this special case is strange; why not make "cast" a ScalarFunction?
-  const auto& to_type =
+  const TypeHolder& to_type =
       ::arrow::internal::checked_cast<const compute::CastOptions&>(*call.options).to_type;
-  return GetCastFunction(to_type);
+  return GetCastFunction(*to_type);
 }
 
 /// Modify an Expression with pre-order and post-order visitation.

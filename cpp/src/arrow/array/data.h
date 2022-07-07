@@ -269,7 +269,7 @@ struct ARROW_EXPORT ArraySpan {
   // 16 bytes of scratch space to enable this ArraySpan to be a view onto
   // scalar values including binary scalars (where we need to create a buffer
   // that looks like two 32-bit or 64-bit offsets)
-  uint8_t scratch_space[16];
+  alignas(64) uint8_t scratch_space[16];
 
   ArraySpan() = default;
 
@@ -293,12 +293,6 @@ struct ARROW_EXPORT ArraySpan {
     this->buffers[index].data = const_cast<uint8_t*>(buffer->data());
     this->buffers[index].size = buffer->size();
     this->buffers[index].owner = &buffer;
-  }
-
-  void ClearBuffer(int index) {
-    this->buffers[index].data = NULLPTR;
-    this->buffers[index].size = 0;
-    this->buffers[index].owner = NULLPTR;
   }
 
   const ArraySpan& dictionary() const { return child_data[0]; }

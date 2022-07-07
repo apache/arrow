@@ -1373,15 +1373,6 @@ TEST(TestDictionaryScalar, Cast) {
   }
 }
 
-const Scalar& GetUnionValue(const Scalar& value) {
-  if (value.type->id() == Type::DENSE_UNION) {
-    return *checked_cast<const DenseUnionScalar&>(value).value;
-  } else {
-    const auto& union_scalar = checked_cast<const SparseUnionScalar&>(value);
-    return *union_scalar.value[union_scalar.child_id];
-  }
-}
-
 void CheckGetValidUnionScalar(const Array& arr, int64_t index, const Scalar& expected,
                               const Scalar& expected_value) {
   ASSERT_OK_AND_ASSIGN(auto scalar, arr.GetScalar(index));
@@ -1389,7 +1380,8 @@ void CheckGetValidUnionScalar(const Array& arr, int64_t index, const Scalar& exp
   ASSERT_TRUE(scalar->Equals(expected));
 
   ASSERT_TRUE(scalar->is_valid);
-  ASSERT_TRUE(GetUnionValue(*scalar).Equals(expected_value));
+  ASSERT_TRUE(
+      checked_cast<const UnionScalar&>(*scalar).child_value()->Equals(expected_value));
 }
 
 void CheckGetNullUnionScalar(const Array& arr, int64_t index) {
@@ -1397,7 +1389,7 @@ void CheckGetNullUnionScalar(const Array& arr, int64_t index) {
   ASSERT_TRUE(scalar->Equals(MakeNullScalar(arr.type())));
 
   ASSERT_FALSE(scalar->is_valid);
-  ASSERT_FALSE(GetUnionValue(*scalar).is_valid);
+  ASSERT_FALSE(checked_cast<const UnionScalar&>(*scalar).child_value()->is_valid);
 }
 
 std::shared_ptr<Scalar> MakeUnionScalar(const SparseUnionType& type,

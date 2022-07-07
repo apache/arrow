@@ -65,7 +65,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts();
 std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts();
 
 ARROW_EXPORT
-Result<std::shared_ptr<CastFunction>> GetCastFunction(const TypeHolder& to_type);
+Result<std::shared_ptr<CastFunction>> GetCastFunction(const DataType& to_type);
 
 }  // namespace internal
 }  // namespace compute

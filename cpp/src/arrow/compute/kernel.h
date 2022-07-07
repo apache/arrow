@@ -101,7 +101,7 @@ struct ARROW_EXPORT TypeMatcher {
   virtual ~TypeMatcher() = default;
 
   /// \brief Return true if this matcher accepts the data type.
-  virtual bool Matches(const TypeHolder& type) const = 0;
+  virtual bool Matches(const DataType& type) const = 0;
 
   /// \brief A human-interpretable string representation of what the type
   /// matcher checks for, usable when printing KernelSignature or formatting
@@ -142,11 +142,6 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
 
 }  // namespace match
-
-/// \brief Shape qualifier for value types. In certain instances
-/// (e.g. "map_lookup" kernel), an argument may only be a scalar, where in
-/// other kernels arguments can be arrays or scalars
-enum class ArgShape { ANY, ARRAY, SCALAR };
 
 /// \brief An object used for type-checking arguments to be passed to a kernel
 /// and stored in a KernelSignature. The type-checking rule can be supplied
@@ -213,7 +208,7 @@ class ARROW_EXPORT InputType {
   bool Matches(const Datum& value) const;
 
   /// \brief Return true if the type matches this InputType
-  bool Matches(const TypeHolder& type) const;
+  bool Matches(const DataType& type) const;
 
   /// \brief The type matching rule that this InputType uses.
   Kind kind() const { return kind_; }
