@@ -108,6 +108,12 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       pid_minio <- sys::exec_background('minio', c('server', minio_dir))
       on.exit(tools::pskill(pid_minio), add = TRUE)
     }
+
+    if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('testbench')) {
+      message('Running testbench for GCS tests (if build supports them)')
+      pid_minio <- sys::exec_background('python', c('-m', 'testbench', '--port', '9001'))
+      on.exit(tools::pskill(pid_minio), add = TRUE)
+    }
   }
 
   if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {
