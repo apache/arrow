@@ -19,6 +19,8 @@
 
 # arrow 8.0.0.9000
 
+* The `arrow.dev_repo` for nightly builds of the R package and prebuilt
+  ibarrow binaries is now https://nightlies.apache.org/arrow/r.
 * `lubridate::parse_date_time()` datetime parser:
   * `orders` with year, month, day, hours, minutes, and seconds components are supported.
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).

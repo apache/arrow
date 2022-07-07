@@ -284,7 +284,7 @@ from the Ursa Labs repository:
 
 ```r
 Sys.setenv(NOT_CRAN = TRUE)
-install.packages("arrow", repos = c(arrow = "https://arrow-r-nightly.s3.amazonaws.com", getOption("repos")))
+install.packages("arrow", repos = c(arrow = "https://nightlies.apache.org/arrow/r", getOption("repos")))
 ```
 
 or for conda users via:
