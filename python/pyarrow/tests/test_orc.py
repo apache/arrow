@@ -639,7 +639,7 @@ def test_orc_writer_with_arrays_with_unsupported_types():
     from pyarrow import orc
 
     buffer_output_stream = pa.BufferOutputStream()
-    a = pa.array([1, None, 3, None], datatype=pa.uint8())
+    a = pa.array([1, None, 3, None], type=pa.uint8())
     table = pa.table({"uint8": a})
     with pytest.raises(pa.ArrowNotImplementedError):
         orc.write_table(table, buffer_output_stream)
