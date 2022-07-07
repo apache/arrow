@@ -893,7 +893,7 @@ class PrimitiveRLEFilterImpl {
           [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
             if (bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
               accumulated_run_length += run_length;
-              WriteValue(value_index, accumulated_run_length);
+              WriteMaybeNull(value_index, accumulated_run_length);
             }
           });
     } else if (null_selection_ == FilterOptions::DROP) {
@@ -931,11 +931,6 @@ class PrimitiveRLEFilterImpl {
   void WriteValue(int64_t in_position, int64_t run_length) {
     out_run_length_[out_position_] = run_length;
     out_data_[out_position_++] = values_data_[in_position];
-  }
-
-  void WriteValueSegment(int64_t in_start, int64_t length) {
-    std::memcpy(out_data_ + out_position_, values_data_ + in_start, length * sizeof(T));
-    out_position_ += length;
   }
 
   void WriteNull(int64_t run_length) {
