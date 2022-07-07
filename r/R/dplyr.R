@@ -154,6 +154,9 @@ print.arrow_dplyr_query <- function(x, ...) {
       sep = ""
     )
   }
+
+  show_arrow_query(x)
+
   cat("See $.data for the source Arrow object\n")
   invisible(x)
 }
@@ -217,6 +220,15 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
     x <- restore_dplyr_features(out, x)
   }
   x
+}
+
+show_arrow_query <- function(.data) {
+  adq <- arrow:::as_adq(.data)
+  plan <- arrow:::ExecPlan$create()
+  final_node <- plan$Build(.data)
+  cat("* ExecPlan\n")
+  cat(plan$ToString())
+  invisible(.data)
 }
 
 ensure_group_vars <- function(x) {
