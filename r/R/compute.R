@@ -399,7 +399,7 @@ register_user_defined_function <- function(scalar_function, name) {
 #' @rdname register_user_defined_function
 #' @export
 arrow_scalar_function <- function(fun, in_type, out_type) {
-  fun <- rlang::as_function(fun)
+  fun <- as_function(fun)
 
   # create a small wrapper that converts Scalar/Array arguments to R vectors
   # and converts the result back to an Array
@@ -429,7 +429,7 @@ arrow_advanced_scalar_function <- function(advanced_fun, in_type, out_type) {
 
   out_type <- rep_len(out_type, length(in_type))
 
-  advanced_fun <- rlang::as_function(advanced_fun)
+  advanced_fun <- as_function(advanced_fun)
   if (length(formals(advanced_fun)) != 2) {
     abort("`advanced_fun` must accept exactly two arguments")
   }
