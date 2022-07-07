@@ -82,3 +82,4 @@ pacman \
 
 "$(dirname $0)/ccache_setup.sh"
 echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+echo "PIP_CACHE_DIR=$(pip cache dir)" >> $GITHUB_ENV
