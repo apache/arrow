@@ -45,7 +45,7 @@ recent version of the library without building from source.
 ### Linux
 
 On Linux, you can download a .zip file containing libarrow from the
-[nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin).
+[nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/).
 
 The directory names correspond to the OS the binaries where built on: 
 - "centos-7" (gcc 4.8, no AWS/GCS support)
@@ -69,7 +69,7 @@ brew install apache-arrow --HEAD
 ### Windows
 
 On Windows, you can download a .zip file containing libarrow from the 
-[nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/windows).
+[nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/windows/).
 
 Version numbers in that repository correspond to dates.
 

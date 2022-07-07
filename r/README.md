@@ -75,7 +75,7 @@ and thus are only available in R >= 4.0.
 ### Installing a development version
 
 Development versions of the package (binary and source) are built
-nightly and hosted at <https://nightlies.apache.org/arrow/r>. To
+nightly and hosted at <https://nightlies.apache.org/arrow/r/>. To
 install from there:
 
 ``` r
