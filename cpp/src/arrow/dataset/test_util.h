@@ -567,8 +567,6 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto other = this->MakeFragment(*other_source);
 
     EXPECT_EQ(fragment->Equals(*other), false);
-    // TODO: Extend the test cases for Fragment
-    // when ARROW-16855 is merged.
   }
 
  protected:

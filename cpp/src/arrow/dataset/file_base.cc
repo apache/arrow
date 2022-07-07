@@ -90,7 +90,7 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
 }
 
 bool FileSource::Equals(const FileSource& other) const {
-  if (filesystem_ == NULLPTR) return false;
+  if (filesystem_ == NULLPTR) return false; // TODO: remove
   return file_info_.Equals(other.file_info_) && filesystem_->Equals(other.filesystem_) &&
          buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
 }
