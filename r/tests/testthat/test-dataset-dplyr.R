@@ -119,7 +119,7 @@ test_that("filter() on date32 columns", {
   # Also with timestamp scalar
   expect_equal(
     open_dataset(tmp) %>%
-      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00", tz = "UTC")) %>%
+      filter(date > lubridate::ymd_hms("2020-02-02 00:00:00")) %>%
       collect() %>%
       nrow(),
     1L
