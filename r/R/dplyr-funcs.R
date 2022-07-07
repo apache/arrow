@@ -132,12 +132,8 @@ register_bindings_utils <- function() {
 
     fun_name <- paste0(lhs_name, "::", rhs_name)
 
-    # if we do not have a binding for pkg::name, then fall back on to the
+    # if we do not have a binding for pkg::fun, then fall back on to the
     # regular pkg::fun function
-    if (!is.null(nse_funcs[[fun_name]])) {
-      nse_funcs[[fun_name]]
-    } else {
-      asNamespace(lhs_name)[[rhs_name]]
-    }
+    nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
   })
 }
