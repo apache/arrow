@@ -19,8 +19,9 @@
 #include <cstdint>
 #include <string>
 
-#include "arrow/util/cpu_info.h"
 #include "benchmark/benchmark.h"
+
+#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 
@@ -133,4 +134,5 @@ struct RegressionArgs {
   benchmark::State& state_;
   bool size_is_bytes_;
 };
-};  // namespace arrow
+
+}  // namespace arrow
