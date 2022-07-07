@@ -318,8 +318,6 @@ cast_options <- function(safe = TRUE, ...) {
 #' @param name The function name to be used in the dplyr bindings
 #' @param scalar_function An object created with [arrow_scalar_function()]
 #'   or [arrow_advanced_scalar_function()].
-#' @param registry_name The function name to be used in the Arrow C++
-#'   compute function registry. This may be different from `name`.
 #' @param in_type A [DataType] of the input type or a [schema()]
 #'   for functions with more than one argument. This signature will be used
 #'   to determine if this function is appropriate for a given set of arguments.

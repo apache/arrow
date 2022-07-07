@@ -39,9 +39,6 @@ function will be called with exactly two arguments: \code{kernel_context},
 which is a \code{list()} of objects giving information about the
 execution context and \code{args}, which is a list of \link{Array} or \link{Scalar}
 objects corresponding to the input arguments.}
-
-\item{registry_name}{The function name to be used in the Arrow C++
-compute function registry. This may be different from \code{name}.}
 }
 \value{
 \itemize{
