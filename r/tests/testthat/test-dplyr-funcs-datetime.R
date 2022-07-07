@@ -90,7 +90,7 @@ test_that("strptime", {
     t_string %>%
       Table$create() %>%
       mutate(
-        x = base::strptime(x, tz = "UTC")
+        x = strptime(x, tz = "UTC")
       ) %>%
       collect(),
     t_stamp_with_utc_tz
@@ -196,7 +196,7 @@ test_that("strftime", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = base::strftime(datetime, format = formats)) %>%
+      mutate(x = strftime(datetime, format = formats)) %>%
       collect(),
     times
   )
@@ -280,7 +280,7 @@ test_that("format_ISO8601", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = lubridate::format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
+      mutate(x = format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
       collect(),
     times
   )
@@ -340,10 +340,14 @@ test_that("is.* functions from lubridate", {
   # make sure all true and at least one false value is considered
   compare_dplyr_binding(
     .input %>%
-      mutate(
-        x = lubridate::is.POSIXct(datetime),
-        y = is.POSIXct(integer)
-      ) %>%
+      mutate(x = is.POSIXct(datetime), y = is.POSIXct(integer)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = is.Date(date), y = is.Date(integer)) %>%
       collect(),
     test_df
   )
@@ -351,17 +355,7 @@ test_that("is.* functions from lubridate", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        x = lubridate::is.Date(date),
-        y = is.Date(integer)
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        x = lubridate::is.instant(datetime),
+        x = is.instant(datetime),
         y = is.instant(date),
         z = is.instant(integer)
       ) %>%
@@ -372,7 +366,7 @@ test_that("is.* functions from lubridate", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        x = lubridate::is.timepoint(datetime),
+        x = is.timepoint(datetime),
         y = is.instant(date),
         z = is.timepoint(integer)
       ) %>%
@@ -430,7 +424,7 @@ test_that("extract month from timestamp", {
   compare_dplyr_binding(
     .input %>%
       # R returns ordered factor whereas Arrow returns character
-      mutate(x = as.character(lubridate::month(datetime, label = TRUE))) %>%
+      mutate(x = as.character(month(datetime, label = TRUE))) %>%
       collect(),
     test_df,
     ignore_attr = TRUE
@@ -475,7 +469,7 @@ test_that("extract week from timestamp", {
 test_that("extract day from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = lubridate::day(datetime)) %>%
+      mutate(x = day(datetime)) %>%
       collect(),
     test_df
   )
@@ -484,7 +478,7 @@ test_that("extract day from timestamp", {
 test_that("extract wday from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = lubridate::wday(datetime)) %>%
+      mutate(x = wday(datetime)) %>%
       collect(),
     test_df
   )
@@ -824,7 +818,7 @@ test_that("semester works with temporal types and integers", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        sem_wo_year = lubridate::semester(dates),
+        sem_wo_year = semester(dates),
         sem_w_year = semester(dates, with_year = TRUE)
       ) %>%
       collect(),
@@ -1026,7 +1020,7 @@ test_that("make_date & make_datetime", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(composed_date = lubridate::make_date(year, month, day)) %>%
+      mutate(composed_date = make_date(year, month, day)) %>%
       collect(),
     test_df
   )
@@ -1040,10 +1034,7 @@ test_that("make_date & make_datetime", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(
-        composed_datetime =
-          lubridate::make_datetime(year, month, day, hour, min, sec)
-      ) %>%
+      mutate(composed_datetime = make_datetime(year, month, day, hour, min, sec)) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
@@ -1077,7 +1068,7 @@ test_that("ISO_datetime & ISOdate", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(composed_date = base::ISOdate(year, month, day)) %>%
+      mutate(composed_date = ISOdate(year, month, day)) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
@@ -1099,8 +1090,7 @@ test_that("ISO_datetime & ISOdate", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        composed_datetime =
-          base::ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")
+        composed_datetime = ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")
       ) %>%
       collect(),
     test_df,
@@ -1122,7 +1112,7 @@ test_that("ISO_datetime & ISOdate", {
   )
 })
 
-test_that("difftime works", {
+test_that("difftime works correctly", {
   test_df <- tibble(
     time1 = as.POSIXct(
       c("2021-02-20", "2021-07-31 0:0:0", "2021-10-30", "2021-01-31 0:0:0")
@@ -1136,7 +1126,7 @@ test_that("difftime works", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        secs2 = base::difftime(time1, time2, units = "secs")
+        secs2 = difftime(time1, time2, units = "secs")
       ) %>%
       collect(),
     test_df,
@@ -1208,7 +1198,7 @@ test_that("as.difftime()", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(hms_difftime = base::as.difftime(hms_string, units = "secs")) %>%
+      mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
       collect(),
     test_df
   )
@@ -1278,11 +1268,11 @@ test_that("`decimal_date()` and `date_decimal()`", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        decimal_date_from_POSIXct = lubridate::decimal_date(b),
+        decimal_date_from_POSIXct = decimal_date(b),
         decimal_date_from_r_POSIXct_obj = decimal_date(as.POSIXct("2022-03-25 15:37:01")),
         decimal_date_from_r_date_obj = decimal_date(as.Date("2022-03-25")),
         decimal_date_from_date = decimal_date(c),
-        date_from_decimal = lubridate::date_decimal(a),
+        date_from_decimal = date_decimal(a),
         date_from_decimal_r_obj = date_decimal(2022.178)
       ) %>%
       collect(),
@@ -1303,12 +1293,12 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        dminutes = lubridate::dminutes(x),
-        dhours = lubridate::dhours(x),
-        ddays = lubridate::ddays(x),
-        dweeks = lubridate::dweeks(x),
-        dmonths = lubridate::dmonths(x),
-        dyears = lubridate::dyears(x)
+        dminutes = dminutes(x),
+        dhours = dhours(x),
+        ddays = ddays(x),
+        dweeks = dweeks(x),
+        dmonths = dmonths(x),
+        dyears = dyears(x)
       ) %>%
       collect(),
     example_d,
@@ -1321,7 +1311,7 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
         dhours = dhours(x),
         ddays = ddays(x),
         new_date_1 = date_to_add + ddays,
-        new_date_2 = date_to_add + ddays - lubridate::dhours(3),
+        new_date_2 = date_to_add + ddays - dhours(3),
         new_duration = dhours - ddays
       ) %>%
       collect(),
@@ -1366,8 +1356,8 @@ test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", 
   compare_dplyr_binding(
     .input %>%
       mutate(
-        dseconds = lubridate::dseconds(x),
-        dmilliseconds = lubridate::dmilliseconds(x),
+        dseconds = dseconds(x),
+        dmilliseconds = dmilliseconds(x),
         dmicroseconds = dmicroseconds(x),
         dnanoseconds = dnanoseconds(x),
       ) %>%
@@ -1529,7 +1519,7 @@ test_that("`as.Date()` and `as_date()`", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        date_dv1 = base::as.Date(date_var),
+        date_dv1 = as.Date(date_var),
         date_pv1 = as.Date(posixct_var),
         date_pv_tz1 = as.Date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc1 = as.Date(dt_utc),
@@ -1539,7 +1529,7 @@ test_that("`as.Date()` and `as_date()`", {
         date_int1 = as.Date(integer_var, origin = "1970-01-01"),
         date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
         date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
-        date_dv2 = lubridate::as_date(date_var),
+        date_dv2 = as_date(date_var),
         date_pv2 = as_date(posixct_var),
         date_pv_tz2 = as_date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc2 = as_date(dt_utc),
@@ -1675,21 +1665,6 @@ test_that("`as_datetime()`", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        ddate = lubridate::as_datetime(date),
-        dchar_date_no_tz = lubridate::as_datetime(char_date),
-        dchar_date_with_tz = lubridate::as_datetime(char_date, tz = "Pacific/Marquesas"),
-        dint_date = lubridate::as_datetime(int_date, origin = "1970-01-02"),
-        dintegerish_date = lubridate::as_datetime(integerish_date, origin = "1970-01-02"),
-        dintegerish_date2 = lubridate::as_datetime(integerish_date, origin = "1970-01-01"),
-        .keep = "used"
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
         ddate = as_datetime(date),
         dchar_date_no_tz = as_datetime(char_date),
         dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
@@ -1721,7 +1696,7 @@ test_that("parse_date_time() works with year, month, and date components", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        parsed_date_ymd = lubridate::parse_date_time(string_ymd, orders = "ymd"),
+        parsed_date_ymd = parse_date_time(string_ymd, orders = "ymd"),
         parsed_date_dmy = parse_date_time(string_dmy, orders = "dmy"),
         parsed_date_mdy = parse_date_time(string_mdy, orders = "mdy")
       ) %>%
@@ -1809,8 +1784,8 @@ test_that("year, month, day date/time parsers", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        ymd_date = lubridate::ymd(ymd_string),
-        ydm_date = lubridate::ydm(ydm_string),
+        ymd_date = ymd(ymd_string),
+        ydm_date = ydm(ydm_string),
         mdy_date = mdy(mdy_string),
         myd_date = myd(myd_string),
         dmy_date = dmy(dmy_string),
@@ -1823,8 +1798,8 @@ test_that("year, month, day date/time parsers", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        ymd_date = lubridate::ymd(ymd_string, tz = "Pacific/Marquesas"),
-        ydm_date = lubridate::ydm(ydm_string, tz = "Pacific/Marquesas"),
+        ymd_date = ymd(ymd_string, tz = "Pacific/Marquesas"),
+        ydm_date = ydm(ydm_string, tz = "Pacific/Marquesas"),
         mdy_date = mdy(mdy_string, tz = "Pacific/Marquesas"),
         myd_date = myd(myd_string, tz = "Pacific/Marquesas"),
         dmy_date = dmy(dmy_string, tz = "Pacific/Marquesas"),
@@ -1932,7 +1907,7 @@ test_that("lubridate's fast_strptime", {
     .input %>%
       mutate(
         date_multi_formats =
-          lubridate::fast_strptime(
+          fast_strptime(
             x,
             format = c("%Y-%m-%d %H:%M:%S", "%m-%d-%Y %H:%M:%S"),
             lt = FALSE
