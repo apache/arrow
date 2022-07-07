@@ -171,7 +171,7 @@ endif()
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
+# compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 if(ARROW_GGDB_DEBUG)
   set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
   set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
@@ -187,6 +187,39 @@ endif()
 
 set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+
+set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
+set(C_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
+set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
+set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
+
+string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+# Set compile flags based on the build type.
+message(STATUS "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
+)
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
+
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELEASE}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELEASE}")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_GEN}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_GEN}")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_BUILD}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
+else()
+  message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+endif()
+
+message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 
 #
 # Linker flags
