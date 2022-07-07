@@ -4247,7 +4247,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatch.cpp
-int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
+r_vec_size RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
 extern "C" SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
@@ -4842,7 +4842,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
-int Table__num_rows(const std::shared_ptr<arrow::Table>& x);
+r_vec_size Table__num_rows(const std::shared_ptr<arrow::Table>& x);
 extern "C" SEXP _arrow_Table__num_rows(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
