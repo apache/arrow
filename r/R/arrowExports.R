@@ -416,6 +416,10 @@ ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }
 
+ExecPlan_ToString <- function(plan) {
+  .Call(`_arrow_ExecPlan_ToString`, plan)
+}
+
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
 }

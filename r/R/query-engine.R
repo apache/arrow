@@ -259,6 +259,7 @@ ExecPlan <- R6Class("ExecPlan",
         ...
       )
     },
+    ToString = function() ExecPlan_ToString(self),
     Stop = function() ExecPlan_StopProducing(self)
   )
 )
