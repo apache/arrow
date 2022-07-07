@@ -73,9 +73,6 @@ Streaming Execution Operators
 Execution Plan Expressions
 --------------------------
 
-.. doxygenclass:: arrow::FieldRef
-   :members:
-
 .. doxygengroup:: expression-core
    :content-only:
    :members:

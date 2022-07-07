@@ -443,7 +443,7 @@ values printed by the Python script have been properly changed by the Java code:
     ]
 
 We can also use the C Stream Interface to exchange
-:py:class:`pyarrow.RecordBatchReader`s between Java and Python.  We'll
+:py:class:`pyarrow.RecordBatchReader` between Java and Python.  We'll
 use this Java class as a demo, which lets you read an Arrow IPC file
 via Java's implementation, or write data to a JSON file:
 
