@@ -106,9 +106,11 @@ Helpers for looking up fields
 
 .. doxygenclass:: arrow::FieldPath
    :members:
+   :undoc-members:
 
 .. doxygenclass:: arrow::FieldRef
    :members:
+   :undoc-members:
 
 
 Utilities
