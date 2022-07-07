@@ -110,14 +110,17 @@ class GcsTestbench : public ::testing::Environment {
       bp::ipstream output;
 
       server_process_ = bp::child(exe_path, "-m", "testbench", "--port", port_, group_,
-                                  bp::std_out > output);
-      if (server_process_.valid() && server_process_.running()) {
-        // Wait for message: "* Restarting with"
+                                  bp::std_err > output);
+      // Wait for message: "* Restarting with"
+      auto testbench_is_running = [&output](bp::child& process) {
         std::string line;
-        while (std::getline(output, line)) {
-          if (line.find("* Restarting with") != std::string::npos) break;
+        while (process.valid() && process.running() && std::getline(output, line)) {
+          if (line.find("* Restarting with") != std::string::npos) return true;
         }
+        return false;
       };
+
+      if (testbench_is_running(server_process_)) break;
       error += " (failed to start)";
       server_process_.terminate();
       server_process_.wait();
@@ -288,7 +291,7 @@ class GcsIntegrationTest : public ::testing::Test {
 class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest {
  public:
   void SetUp() override {
-    GcsIntegrationTest::SetUp(); // Setup failure is not propagating
+    GcsIntegrationTest::SetUp();  // Setup failure is not propagating
     ASSERT_TRUE(Testbench()->running());
     auto bucket_name = RandomBucketName();
     gcs_fs_ = GcsFileSystem::Make(TestGcsOptions());
