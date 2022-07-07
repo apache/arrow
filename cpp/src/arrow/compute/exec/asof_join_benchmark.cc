@@ -44,22 +44,21 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/csv/api.h"
 #include "arrow/csv/writer.h"
+#include "src/arrow/util/io_util.h"
 
-/*
-#include <arrow/api.h>
-#include <arrow/dataset/api.h>
-#include <arrow/dataset/plan.h>
-#include <arrow/filesystem/api.h>
-#include <arrow/io/api.h>
-#include <arrow/ipc/reader.h>
-#include <arrow/ipc/writer.h>
-*/
 namespace arrow {
 namespace compute {
 
 static const char* time_col = "time";
 static const char* key_col = "id";
 static bool createdBenchmarkFiles = false;
+static std::shared_ptr<arrow::internal::TemporaryDir> temp_dir = arrow::internal::TemporaryDir::Make("benchmark_data/").ValueOrDie();
+
+struct ReaderNodeTableProperties {
+        ExecNode *execNode;
+        int64_t total_rows;
+        int64_t total_bytes;
+};
 
 // requires export PYTHONPATH=/path/to/bamboo-streaming
 // calls generate_benchmark_files to create tables (feather files) varying in frequency,
@@ -73,30 +72,26 @@ static void DoSetup() {
   }
 }
 
-static void DoTeardown() { system("rm -rf benchmark_data/"); }
-
 static std::vector<std::string> generateRightHandTables(std::string freq, int width_index,
                                                         int num_tables,
                                                         int num_ids_index,
-                                                        int bs_idx = -1) {
+                                                        int bs_idx) {
   auto const generate_file_name = [](std::string freq, std::string is_wide,
                                      std::string num_ids, std::string num, std::string batch_size) {
-    return batch_size + freq + "_" + is_wide + "_" + num_ids + num + ".feather";
+    return freq + "_" + is_wide + "_" + num_ids + "_" + batch_size + num + ".feather";
   };
 
   std::string width_table[] = {"5_cols", "20_cols", "100_cols", "500_cols", "1000_cols"};   // 0 - 7
   std::string num_ids_table[] = {"100_ids", "500_ids", "1000_ids", "5000_ids", "10000_ids"};  // 0 - 5
   std::string bs_table[] = {"100_bs", "500_bs", "1000_bs"};
 
-  std::string wide_string = width_table[width_index];
-  std::string ids = num_ids_table[num_ids_index];
-
-  std::string batch_size = (bs_idx > -1) ? bs_table[bs_idx] : "";
-
   std::vector<std::string> right_hand_tables;
+  right_hand_tables.reserve(num_tables);
+  
   for (int j = 1; j <= num_tables; j++) {
     right_hand_tables.push_back(
-        generate_file_name(freq, wide_string, ids, std::to_string(j), batch_size));
+        generate_file_name(freq, width_table[width_index], num_ids_table[num_ids_index],
+          std::to_string(j), bs_table[bs_idx]));
   }
   return right_hand_tables;
 }
@@ -142,36 +137,7 @@ std::shared_ptr<arrow::Schema> get_resultant_join_schema(std::shared_ptr<arrow::
   return value.ValueOrDie();
 };
 
-/*
-arrow::compute::ExecNode* make_arrow_ipc_writer_node(
-    std::shared_ptr<arrow::compute::ExecPlan> &plan,
-    std::shared_ptr<arrow::fs::FileSystem> &fs,
-    const std::string &pathname,
-    arrow::compute::ExecNode *input)
-{      
-    auto format=std::make_shared<arrow::dataset::IpcFileFormat>();
-    auto partitioning_schema=arrow::schema({});
-    auto partitioning=std::make_shared<arrow::dataset::HivePartitioning>(partitioning_schema);
-    arrow::dataset::FileSystemDatasetWriteOptions write_options;
-    write_options.file_write_options=format->DefaultWriteOptions();
-    write_options.filesystem=fs;
-    write_options.base_dir=pathname; // writing to a path is required
-    fs->DeleteDirContents(write_options.base_dir);
-    fs->CreateDir(write_options.base_dir);
-    write_options.partitioning=partitioning;
-    write_options.basename_template="D{i}.feather";
-    //TODO: figure out how the backpressure stuff works in the arrow API -- otherwise memory can blow up here
-    //auto bpt=make_shared<arrow::util::AsyncToggle>();
-    //auto bp=make_shared<arrow::util::BackpressureOptions>(bpt,2,4);
-    arrow::dataset::WriteNodeOptions write_node_options(write_options,input->output_schema()/*,bpt);
-    return *arrow::compute::MakeExecNode(
-        "write",       // registered type
-        plan.get(),    // execution plan
-        {input}, // inputs
-        write_node_options); //options
-}*/
-
-static std::tuple<arrow::compute::ExecNode*, int64_t, int, size_t>
+static ReaderNodeTableProperties
 make_arrow_ipc_reader_node(std::shared_ptr<arrow::compute::ExecPlan>& plan,
                            std::shared_ptr<arrow::fs::FileSystem>& fs,
                            const std::string& filename) {
@@ -198,7 +164,7 @@ make_arrow_ipc_reader_node(std::shared_ptr<arrow::compute::ExecPlan>& plan,
               arrow::compute::SourceNodeOptions(
                   std::make_shared<arrow::Schema>(*schema),  // options, )
                   batch_gen)),
-          rows, in_reader->num_record_batches(), row_size * rows};
+          rows, row_size * rows};
 }
 
 static void TableJoinOverhead(benchmark::State& state, std::string left_table,
@@ -206,12 +172,12 @@ static void TableJoinOverhead(benchmark::State& state, std::string left_table,
                               std::string factory_name, ExecNodeOptions& options, std::string output_file_name) {
   const std::string data_directory = "./benchmark_data/";
   DoSetup();
-  ExecContext ctx(default_memory_pool(), nullptr);
+  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   // std::cout << "beginning test for " << left_table << " and " << right_tables[0] << " "
   // << factory_name << std::endl; std::cout << "starting with " <<
   // ctx.memory_pool()->bytes_allocated() << std::endl;
-  int64_t rows;
-  int64_t bytes;
+  int64_t rows = 0;
+  int64_t bytes = 0;
   for (auto _ : state) {
     state.PauseTiming();
 
@@ -219,45 +185,34 @@ static void TableJoinOverhead(benchmark::State& state, std::string left_table,
                          ExecPlan::Make(&ctx));
     std::shared_ptr<arrow::fs::FileSystem> fs =
         std::make_shared<arrow::fs::LocalFileSystem>();
-    arrow::compute::ExecNode* left_table_source;
-    int64_t left_table_rows;
-    int left_table_batches;
-    size_t left_table_bytes;
-    std::tie(left_table_source, left_table_rows, left_table_batches, left_table_bytes) =
+    ReaderNodeTableProperties left_table_properties =
         make_arrow_ipc_reader_node(plan, fs, data_directory + left_table);
-    std::vector<ExecNode*> inputs = {left_table_source};
+    std::vector<ExecNode*> inputs = {left_table_properties.execNode};
     int right_hand_rows = 0;
     int64_t right_hand_bytes = 0;
     std::vector<std::shared_ptr<arrow::Schema>> schemas;
     for (std::string right_table : right_tables) {
-      arrow::compute::ExecNode* right_table_source;
-      int64_t right_table_rows;
-      int right_table_batches;
-      size_t right_table_bytes;
-      std::tie(right_table_source, right_table_rows, right_table_batches, right_table_bytes) =
+      ReaderNodeTableProperties right_tables_properties =
           make_arrow_ipc_reader_node(plan, fs, data_directory + right_table);
-      inputs.push_back(right_table_source);
-      schemas.push_back(right_table_source->output_schema());
-      right_hand_rows += right_table_rows;
-      right_hand_bytes += right_table_bytes;
+      inputs.push_back(right_tables_properties.execNode);
+      schemas.push_back(right_tables_properties.execNode->output_schema());
+      right_hand_rows += right_tables_properties.total_rows;
+      right_hand_bytes += right_tables_properties.total_bytes;
     }
-
-
-    rows = left_table_rows + right_hand_rows;
-    bytes = left_table_bytes + right_hand_bytes;
+    rows = left_table_properties.total_rows + right_hand_rows;
+    bytes = left_table_properties.total_bytes + right_hand_bytes;
     ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * join_node,
                          MakeExecNode(factory_name, plan.get(), inputs, options));
-    arrow::dataset::FileSystemDatasetWriteOptions write_options;
-    std::string root_path = "";
-    arrow::dataset::WriteNodeOptions write_node_options{write_options};
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     MakeExecNode("sink", plan.get(), {join_node}, SinkNodeOptions{&sink_gen});
     state.ResumeTiming();
     // std::cout << "starting and collecting with " <<
     // ctx.memory_pool()->bytes_allocated() << std::endl;
     ASSERT_FINISHES_OK_AND_ASSIGN(auto j, StartAndCollect(plan.get(), sink_gen));
+    // ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
+    
     state.PauseTiming();
-    auto sch = get_resultant_join_schema(left_table_source->output_schema(), schemas);
+    auto sch = get_resultant_join_schema(left_table_properties.execNode->output_schema(), schemas);
     std::cout << "outputting" << std::endl;
     ASSERT_OK_AND_ASSIGN(auto table, TableFromExecBatches(sch, j));
     ASSERT_OK_AND_ASSIGN(auto outstream, arrow::io::FileOutputStream::Open(output_file_name));
@@ -266,6 +221,7 @@ static void TableJoinOverhead(benchmark::State& state, std::string left_table,
     arrow::csv::WriteCSV(
       *table, arrow::csv::WriteOptions::Defaults(), outstream.get()
     );
+
     // std::cout << "finishing with " << ctx.memory_pool()->bytes_allocated() <<
     // std::endl;
   }
@@ -293,11 +249,469 @@ static void HashJoinOverhead(benchmark::State& state, std::string left_table,
 
 // this generates the set of right hand tables to test on.
 void SetArgs(benchmark::internal::Benchmark* bench) { bench->UseRealTime(); }
-BENCHMARK_CAPTURE(AsOfJoinOverhead, asof,
-        "a.feather",
-        {"b.feather"})->Apply(SetArgs);
-BENCHMARK_CAPTURE(HashJoinOverhead, asof,
-        "a.feather",
-        {"b.feather"})->Apply(SetArgs);
+/*
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+*/
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+/*
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 1000_bs | 1_join | 30m | 20_cols | 500_ids | 500_bs |,
+        "30m_20_cols_500_ids_1000_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 1))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 500_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 1))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 500_bs | 1_join | 30m | 20_cols | 500_ids | 1000_bs |,
+        "30m_20_cols_500_ids_500_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 2))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 1000_bs | 1_join | 30m | 20_cols | 500_ids | 500_bs |,
+        "30m_20_cols_500_ids_1000_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 1))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 31_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 31, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 1000_bs | 1_join | 30m | 20_cols | 500_ids | 1000_bs |,
+        "30m_20_cols_500_ids_1000_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 2))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 11_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 11, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 500_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_500_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 100_bs | 500_ids |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 21_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 21, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 21_join | 30m | 20_cols | 100_bs | 500_ids |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 21, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 100_bs | 500_ids |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 11_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 11, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 500_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_500_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 1000_bs | 1_join | 30m | 20_cols | 500_ids | 1000_bs |,
+        "30m_20_cols_500_ids_1000_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 2))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 500_bs | 1_join | 30m | 20_cols | 500_ids | 500_bs |,
+        "30m_20_cols_500_ids_500_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 1))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 1000_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 2))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 11_join | 30m | 20_cols | 100_bs | 500_ids |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 11, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 31_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 31, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 1d | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "1d_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 1000_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 2))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 31_join | 30m | 20_cols | 100_bs | 500_ids |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 31, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 1m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 500_bs | 1_join | 30m | 20_cols | 500_ids | 1000_bs |,
+        "30m_20_cols_500_ids_500_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 2))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 1000_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 2, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 500_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 1))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 500_cols | 500_ids | 100_bs | 1_join | 30m | 100_cols | 500_ids | 100_bs |,
+        "30m_500_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 2, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 5000_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_5000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 21_join | 5m | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("5m", 1, 21, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 100_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_100_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 1000_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_1000_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 5000_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 3, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 10000_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 4, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 500_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 3, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 1000_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 4, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 1000_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_1000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 5m | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "5m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 100_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_100_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 500_bs | 1_join | 30m | 20_cols | 500_ids | 500_bs |,
+        "30m_20_cols_500_ids_500_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 1))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 10000_ids | 100_bs | 1_join | 30m | 20_cols | 100_ids | 100_bs |,
+        "30m_20_cols_10000_ids_100_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 0, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 1000_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_1000_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 20_cols | 500_ids | 1000_bs | 1_join | 30m | 20_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_1000_bs0.feather",
+        generateRightHandTables("30m", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(AsOfJoinOverhead, | 30m | 20_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 1m | 20_cols | 500_ids | 100_bs | 1_join | 1d | 20_cols | 500_ids | 100_bs |,
+        "1m_20_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("1d", 1, 1, 1, 0))->Apply(SetArgs);
+BENCHMARK_CAPTURE(HashJoinOverhead, | 30m | 5_cols | 500_ids | 100_bs | 1_join | 30m | 5_cols | 500_ids | 100_bs |,
+        "30m_5_cols_500_ids_100_bs0.feather",
+        generateRightHandTables("30m", 0, 1, 1, 0))->Apply(SetArgs);
+*/
+
 }  // namespace compute
 }  // namespace arrow
