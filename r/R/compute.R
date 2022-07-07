@@ -352,7 +352,7 @@ cast_options <- function(safe = TRUE, ...) {
 #'   schema(x = float64(), y = float64(), z = float64()),
 #'   float64()
 #' )
-#' register_scalar_function("example_add3", fun_wrapper)
+#' register_user_defined_function("example_add3", fun_wrapper)
 #'
 #' call_function(
 #'   "example_add3",
@@ -369,7 +369,7 @@ cast_options <- function(safe = TRUE, ...) {
 #'     args[[1]] + args[[2]] + args[[3]]
 #'   }
 #' )
-#' register_scalar_function("example_add3", advanced_fun_wrapper)
+#' register_user_defined_function("example_add3", advanced_fun_wrapper)
 #'
 #' call_function(
 #'   "example_add3",
@@ -378,7 +378,7 @@ cast_options <- function(safe = TRUE, ...) {
 #'   Array$create(3)
 #' )
 #'
-register_scalar_function <- function(name, scalar_function, registry_name = name) {
+register_user_defined_function <- function(name, scalar_function, registry_name = name) {
   assert_that(
     is.string(name),
     is.string(registry_name),
@@ -400,7 +400,7 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
   invisible(NULL)
 }
 
-#' @rdname register_scalar_function
+#' @rdname register_user_defined_function
 #' @export
 arrow_scalar_function <- function(fun, in_type, out_type) {
   fun <- rlang::as_function(fun)
@@ -413,7 +413,7 @@ arrow_scalar_function <- function(fun, in_type, out_type) {
   arrow_advanced_scalar_function(base_fun, in_type, out_type)
 }
 
-#' @rdname register_scalar_function
+#' @rdname register_user_defined_function
 #' @export
 arrow_advanced_scalar_function <- function(fun, in_type, out_type) {
   if (is.list(in_type)) {

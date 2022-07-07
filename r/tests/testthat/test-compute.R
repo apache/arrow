@@ -79,7 +79,7 @@ test_that("arrow_scalar_function() returns an advanced scalar function", {
   )
 })
 
-test_that("register_scalar_function() adds a compute function to the registry", {
+test_that("register_user_defined_function() adds a compute function to the registry", {
   skip_if_not_available("dataset")
 
   times_32 <- arrow_scalar_function(
@@ -87,7 +87,7 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     int32(), float64()
   )
 
-  register_scalar_function("times_32", times_32)
+  register_user_defined_function("times_32", times_32)
 
   expect_true("times_32" %in% names(arrow:::.cache$functions))
   expect_true("times_32" %in% list_compute_functions())
@@ -135,7 +135,7 @@ test_that("user-defined functions work during multi-threaded execution", {
     int32(), float64()
   )
 
-  register_scalar_function("times_32", times_32)
+  register_user_defined_function("times_32", times_32)
 
   # check a regular collect()
   result <- open_dataset(tf_dataset) %>%
