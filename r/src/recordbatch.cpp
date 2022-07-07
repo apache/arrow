@@ -307,7 +307,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
 }
 
 // [[arrow::export]]
-int64_t RecordBatch__ReferencedBufferSize(
+r_vec_size RecordBatch__ReferencedBufferSize(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
-  return ValueOrStop(arrow::util::ReferencedBufferSize(*batch));
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*batch)));
 }

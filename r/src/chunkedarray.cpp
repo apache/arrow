@@ -144,7 +144,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
 }
 
 // [[arrow::export]]
-int64_t ChunkedArray__ReferencedBufferSize(
+r_vec_size ChunkedArray__ReferencedBufferSize(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return ValueOrStop(arrow::util::ReferencedBufferSize(*chunked_array));
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*chunked_array)));
 }
