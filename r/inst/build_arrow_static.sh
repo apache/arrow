@@ -61,7 +61,6 @@ mkdir -p sccache
 tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory sccache/
 chmod u+x sccache/sccache
 export PATH=$(pwd)/sccache:$PATH
-export CMAKE_COMPILER_LAUNCHER=sccache
 
 echo "=== sccache stats before the build ==="
 sccache --show-stats
