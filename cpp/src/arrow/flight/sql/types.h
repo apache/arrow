@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/flight/sql/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/variant.h"
@@ -43,7 +44,7 @@ using SqlInfoResult =
 using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
 
 /// \brief Options to be set in the SqlInfo.
-struct SqlInfoOptions {
+struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
   /// \brief Predefined info values for GetSqlInfo.
   enum SqlInfo {
     /// \name Server Information
@@ -835,7 +836,7 @@ struct SqlInfoOptions {
 };
 
 /// \brief A SQL %table reference, optionally containing table's catalog and db_schema.
-struct TableRef {
+struct ARROW_FLIGHT_SQL_EXPORT TableRef {
   /// \brief The table's catalog.
   util::optional<std::string> catalog;
   /// \brief The table's database schema.

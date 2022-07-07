@@ -18,13 +18,16 @@
 // Interfaces to use for defining Flight RPC servers. API should be considered
 // experimental for now
 
+// Platform-specific defines
+#include "arrow/flight/platform.h"
+
 #include "arrow/flight/sql/server.h"
 
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/flight/sql/FlightSql.pb.h"
+#include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/sql/sql_info_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
