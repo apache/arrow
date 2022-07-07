@@ -25,6 +25,18 @@ endif()
 find_package(Snappy ${find_package_args})
 if(Snappy_FOUND)
   set(SnappyAlt_FOUND TRUE)
+  if(ARROW_SNAPPY_USE_SHARED)
+    set(Snappy_TARGET Snappy::snappy)
+  else()
+    if(TARGET Snappy::snappy-static)
+      # The official SnappyTargets.cmake uses Snappy::snappy-static for
+      # static version.
+      set(Snappy_TARGET Snappy::snappy-static)
+    else()
+      # The Conan's Snappy package always uses Snappy::snappy.
+      set(Snappy_TARGET Snappy::snappy)
+    endif()
+  endif()
   return()
 endif()
 
@@ -68,8 +80,15 @@ endif()
 find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
 if(SnappyAlt_FOUND)
-  add_library(Snappy::snappy UNKNOWN IMPORTED)
-  set_target_properties(Snappy::snappy
+  if(ARROW_SNAPPY_USE_SHARED)
+    set(Snappy_TARGET Snappy::snappy)
+    set(Snappy_TARGET_TYPE SHARED)
+  else()
+    set(Snappy_TARGET Snappy::snappy-static)
+    set(Snappy_TARGET_TYPE STATIC)
+  endif()
+  add_library(${Snappy_TARGET} ${Snappy_TARGET_TYPE} IMPORTED)
+  set_target_properties(${Snappy_TARGET_TYPE}
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
 endif()

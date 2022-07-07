@@ -1113,15 +1113,16 @@ macro(build_snappy)
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
 
-  add_library(Snappy::snappy STATIC IMPORTED)
-  set_target_properties(Snappy::snappy
+  set(Snappy_TARGET Snappy::snappy-static)
+  add_library(${Snappy_TARGET} STATIC IMPORTED)
+  set_target_properties(${Snappy_TARGET}
                         PROPERTIES IMPORTED_LOCATION "${SNAPPY_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${SNAPPY_PREFIX}/include")
   add_dependencies(toolchain snappy_ep)
-  add_dependencies(Snappy::snappy snappy_ep)
+  add_dependencies(${Snappy_TARGET} snappy_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS Snappy::snappy)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${Snappy_TARGET})
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
@@ -1131,15 +1132,15 @@ if(ARROW_WITH_SNAPPY)
                      PC_PACKAGE_NAMES
                      snappy)
   if(${Snappy_SOURCE} STREQUAL "SYSTEM" AND NOT snappy_PC_FOUND)
-    get_target_property(SNAPPY_TYPE Snappy::snappy TYPE)
+    get_target_property(SNAPPY_TYPE ${Snappy_TARGET} TYPE)
     if(NOT SNAPPY_TYPE STREQUAL "INTERFACE_LIBRARY")
-      get_target_property(SNAPPY_LIB Snappy::snappy
+      get_target_property(SNAPPY_LIB ${Snappy_TARGET}
                           IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
       if(NOT SNAPPY_LIB)
-        get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION_RELEASE)
+        get_target_property(SNAPPY_LIB ${Snappy_TARGET} IMPORTED_LOCATION_RELEASE)
       endif()
       if(NOT SNAPPY_LIB)
-        get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION)
+        get_target_property(SNAPPY_LIB ${Snappy_TARGET} IMPORTED_LOCATION)
       endif()
       string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")
     endif()
