@@ -72,7 +72,7 @@ struct GroupedAggregator : KernelState {
 
   virtual Status Resize(int64_t new_num_groups) = 0;
 
-  virtual Status Consume(const ExecBatch& batch) = 0;
+  virtual Status Consume(const ExecSpan& batch) = 0;
 
   virtual Status Merge(GroupedAggregator&& other, const ArrayData& group_id_mapping) = 0;
 
@@ -92,7 +92,7 @@ Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
 Status HashAggregateResize(KernelContext* ctx, int64_t num_groups) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Resize(num_groups);
 }
-Status HashAggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
+Status HashAggregateConsume(KernelContext* ctx, const ExecSpan& batch) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch);
 }
 Status HashAggregateMerge(KernelContext* ctx, KernelState&& other,
@@ -167,17 +167,17 @@ struct GroupedValueTraits<BooleanType> {
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
 typename arrow::internal::call_traits::enable_if_return<ConsumeValue, void>::type
-VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
+VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
                    ConsumeNull&& null_func) {
-  auto g = batch[1].array()->GetValues<uint32_t>(1);
+  auto g = batch[1].array.GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     VisitArrayValuesInline<Type>(
-        *batch[0].array(),
+        batch[0].array,
         [&](typename TypeTraits<Type>::CType val) { valid_func(*g++, val); },
         [&]() { null_func(*g++); });
     return;
   }
-  const auto& input = *batch[0].scalar();
+  const Scalar& input = *batch[0].scalar;
   if (input.is_valid) {
     const auto val = UnboxScalar<Type>::Unbox(input);
     for (int64_t i = 0; i < batch.length; i++) {
@@ -192,16 +192,16 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
 
 template <typename Type, typename ConsumeValue, typename ConsumeNull>
 typename arrow::internal::call_traits::enable_if_return<ConsumeValue, Status>::type
-VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
+VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
                    ConsumeNull&& null_func) {
-  auto g = batch[1].array()->GetValues<uint32_t>(1);
+  auto g = batch[1].array.GetValues<uint32_t>(1);
   if (batch[0].is_array()) {
     return VisitArrayValuesInline<Type>(
-        *batch[0].array(),
+        batch[0].array,
         [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
         [&]() { return null_func(*g++); });
   }
-  const auto& input = *batch[0].scalar();
+  const Scalar& input = *batch[0].scalar;
   if (input.is_valid) {
     const auto val = UnboxScalar<Type>::Unbox(input);
     for (int64_t i = 0; i < batch.length; i++) {
@@ -216,7 +216,7 @@ VisitGroupedValues(const ExecBatch& batch, ConsumeValue&& valid_func,
 }
 
 template <typename Type, typename ConsumeValue>
-void VisitGroupedValuesNonNull(const ExecBatch& batch, ConsumeValue&& valid_func) {
+void VisitGroupedValuesNonNull(const ExecSpan& batch, ConsumeValue&& valid_func) {
   VisitGroupedValues<Type>(batch, std::forward<ConsumeValue>(valid_func),
                            [](uint32_t) {});
 }
@@ -251,20 +251,20 @@ struct GroupedCountImpl : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto g_begin = batch[1].array()->GetValues<uint32_t>(1);
+    auto g_begin = batch[1].array.GetValues<uint32_t>(1);
 
     if (options_.mode == CountOptions::ALL) {
       for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
         counts[*g_begin] += 1;
       }
     } else if (batch[0].is_array()) {
-      const auto& input = batch[0].array();
+      const ArraySpan& input = batch[0].array;
       if (options_.mode == CountOptions::ONLY_VALID) {
-        if (input->type->id() != arrow::Type::NA) {
+        if (input.type->id() != arrow::Type::NA) {
           arrow::internal::VisitSetBitRunsVoid(
-              input->buffers[0], input->offset, input->length,
+              input.buffers[0].data, input.offset, input.length,
               [&](int64_t offset, int64_t length) {
                 auto g = g_begin + offset;
                 for (int64_t i = 0; i < length; ++i, ++g) {
@@ -273,19 +273,19 @@ struct GroupedCountImpl : public GroupedAggregator {
               });
         }
       } else {  // ONLY_NULL
-        if (input->type->id() == arrow::Type::NA) {
+        if (input.type->id() == arrow::Type::NA) {
           for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
             counts[*g_begin] += 1;
           }
-        } else if (input->MayHaveNulls()) {
-          auto end = input->offset + input->length;
-          for (int64_t i = input->offset; i < end; ++i, ++g_begin) {
-            counts[*g_begin] += !bit_util::GetBit(input->buffers[0]->data(), i);
+        } else if (input.MayHaveNulls()) {
+          auto end = input.offset + input.length;
+          for (int64_t i = input.offset; i < end; ++i, ++g_begin) {
+            counts[*g_begin] += !bit_util::GetBit(input.buffers[0].data, i);
           }
         }
       }
     } else {
-      const auto& input = *batch[0].scalar();
+      const Scalar& input = *batch[0].scalar;
       if (options_.mode == CountOptions::ONLY_VALID) {
         for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
           counts[*g_begin] += input.is_valid;
@@ -339,7 +339,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
@@ -457,7 +457,7 @@ struct GroupedNullImpl : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+  Status Consume(const ExecSpan& batch) override { return Status::OK(); }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
@@ -747,13 +747,13 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     return value.ToDouble(decimal_scale_);
   }
 
-  Status Consume(const ExecBatch& batch) override { return ConsumeImpl(batch); }
+  Status Consume(const ExecSpan& batch) override { return ConsumeImpl(batch); }
 
   // float/double/int64/decimal: calculate `m2` (sum((X-mean)^2)) with
   // `two pass algorithm` (see aggregate_var_std.cc)
   template <typename T = Type>
   enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4), Status> ConsumeImpl(
-      const ExecBatch& batch) {
+      const ExecSpan& batch) {
     using SumType = typename internal::GetSumType<T>::SumType;
 
     GroupedVarStdImpl<Type> state;
@@ -799,14 +799,14 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   // aggregate_var_std.cc)
   template <typename T = Type>
   enable_if_t<is_integer_type<T>::value && (sizeof(CType) <= 4), Status> ConsumeImpl(
-      const ExecBatch& batch) {
+      const ExecSpan& batch) {
     // max number of elements that sum will not overflow int64 (2Gi int32 elements)
     // for uint32:    0 <= sum < 2^63 (int64 >= 0)
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
-    const auto g = batch[1].array()->GetValues<uint32_t>(1);
-    if (batch[0].is_scalar() && !batch[0].scalar()->is_valid) {
+    const auto g = batch[1].array.GetValues<uint32_t>(1);
+    if (batch[0].is_scalar() && !batch[0].scalar->is_valid) {
       uint8_t* no_nulls = no_nulls_.mutable_data();
       for (int64_t i = 0; i < batch.length; i++) {
         bit_util::ClearBit(no_nulls, g[i]);
@@ -839,7 +839,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       uint8_t* other_no_nulls = state.no_nulls_.mutable_data();
 
       if (batch[0].is_array()) {
-        const auto& array = *batch[0].array();
+        const ArraySpan& array = batch[0].array;
         const CType* values = array.GetValues<CType>(1);
         auto visit_values = [&](int64_t pos, int64_t len) {
           for (int64_t i = 0; i < len; ++i) {
@@ -851,7 +851,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
 
         if (array.MayHaveNulls()) {
           arrow::internal::BitRunReader reader(
-              array.buffers[0]->data(), array.offset + start_index,
+              array.buffers[0].data, array.offset + start_index,
               std::min(max_length, batch.length - start_index));
           int64_t position = 0;
           while (true) {
@@ -870,7 +870,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
           visit_values(0, array.length);
         }
       } else {
-        const auto value = UnboxScalar<Type>::Unbox(*batch[0].scalar());
+        const auto value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
         for (int64_t i = 0; i < std::min(max_length, batch.length - start_index); ++i) {
           const int64_t index = start_index + i;
           var_std[g[index]].ConsumeOne(value);
@@ -1052,7 +1052,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
     return value.ToDouble(decimal_scale_);
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     int64_t* counts = counts_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
     VisitGroupedValues<Type>(
@@ -1263,7 +1263,7 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     auto raw_mins = mins_.mutable_data();
     auto raw_maxes = maxes_.mutable_data();
 
@@ -1370,7 +1370,7 @@ struct GroupedMinMaxImpl<Type,
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, util::string_view val) {
@@ -1518,7 +1518,7 @@ struct GroupedNullMinMaxImpl final : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+  Status Consume(const ExecSpan& batch) override { return Status::OK(); }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
@@ -1663,18 +1663,18 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
     return counts_.Append(added_groups, 0);
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     uint8_t* reduced = reduced_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
     int64_t* counts = counts_.mutable_data();
-    auto g = batch[1].array()->GetValues<uint32_t>(1);
+    auto g = batch[1].array.GetValues<uint32_t>(1);
 
     if (batch[0].is_array()) {
-      const auto& input = *batch[0].array();
-      const uint8_t* bitmap = input.buffers[1]->data();
+      const ArraySpan& input = batch[0].array;
+      const uint8_t* bitmap = input.buffers[1].data;
       if (input.MayHaveNulls()) {
         arrow::internal::VisitBitBlocksVoid(
-            input.buffers[0]->data(), input.offset, input.length,
+            input.buffers[0].data, input.offset, input.length,
             [&](int64_t position) {
               counts[*g]++;
               Impl::UpdateGroupWith(reduced, *g, bit_util::GetBit(bitmap, position));
@@ -1694,7 +1694,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             });
       }
     } else {
-      const auto& input = *batch[0].scalar();
+      const Scalar& input = *batch[0].scalar;
       if (input.is_valid) {
         const bool value = UnboxScalar<BooleanType>::Unbox(input);
         for (int64_t i = 0; i < batch.length; i++) {
@@ -1828,7 +1828,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     ARROW_ASSIGN_OR_RAISE(std::ignore, grouper_->Consume(batch));
     return Status::OK();
   }
@@ -1839,8 +1839,8 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
 
     // Get (value, group_id) pairs, then translate the group IDs and consume them
     // ourselves
-    ARROW_ASSIGN_OR_RAISE(auto uniques, other->grouper_->GetUniques());
-    ARROW_ASSIGN_OR_RAISE(auto remapped_g,
+    ARROW_ASSIGN_OR_RAISE(ExecBatch uniques, other->grouper_->GetUniques());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> remapped_g,
                           AllocateBuffer(uniques.length * sizeof(uint32_t), pool_));
 
     const auto* g_mapping = group_id_mapping.GetValues<uint32_t>(1);
@@ -1850,10 +1850,10 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     for (int64_t i = 0; i < uniques.length; i++) {
       g[i] = g_mapping[other_g[i]];
     }
-    uniques.values[1] =
-        ArrayData::Make(uint32(), uniques.length, {nullptr, std::move(remapped_g)});
 
-    return Consume(std::move(uniques));
+    ExecSpan uniques_span(uniques);
+    uniques_span.values[1].array.SetBuffer(1, remapped_g);
+    return Consume(uniques_span);
   }
 
   Result<Datum> Finalize() override {
@@ -1990,7 +1990,7 @@ struct GroupedOneImpl final : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     auto raw_ones_ = ones_.mutable_data();
 
     return VisitGroupedValues<Type>(
@@ -2049,7 +2049,7 @@ struct GroupedNullOneImpl : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+  Status Consume(const ExecSpan& batch) override { return Status::OK(); }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
@@ -2089,7 +2089,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     return VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, util::string_view val) -> Status {
@@ -2292,17 +2292,17 @@ struct GroupedListImpl final : public GroupedAggregator {
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
-    const auto& values_array_data = batch[0].array();
-    int64_t num_values = values_array_data->length;
+  Status Consume(const ExecSpan& batch) override {
+    const ArraySpan& values_array_data = batch[0].array;
+    const ArraySpan& groups_array_data = batch[1].array;
 
-    const auto& groups_array_data = batch[1].array();
-    const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
-    DCHECK_EQ(groups_array_data->offset, 0);
+    int64_t num_values = values_array_data.length;
+    const auto* groups = groups_array_data.GetValues<uint32_t>(1, 0);
+    DCHECK_EQ(groups_array_data.offset, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
 
-    int64_t offset = values_array_data->offset;
-    const uint8_t* values = values_array_data->buffers[1]->data();
+    int64_t offset = values_array_data.offset;
+    const uint8_t* values = values_array_data.buffers[1].data;
     RETURN_NOT_OK(GetSet::AppendBuffers(&values_, values, offset, num_values));
 
     if (batch[0].null_count() > 0) {
@@ -2310,7 +2310,7 @@ struct GroupedListImpl final : public GroupedAggregator {
         has_nulls_ = true;
         RETURN_NOT_OK(values_bitmap_.Append(num_args_, true));
       }
-      const uint8_t* values_bitmap = values_array_data->buffers[0]->data();
+      const uint8_t* values_bitmap = values_array_data.buffers[0].data;
       RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
           &values_bitmap_, values_bitmap, offset, num_values));
     } else if (has_nulls_) {
@@ -2399,20 +2399,20 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     return Status::OK();
   }
 
-  Status Consume(const ExecBatch& batch) override {
-    const auto& values_array_data = batch[0].array();
-    int64_t num_values = values_array_data->length;
-    int64_t offset = values_array_data->offset;
+  Status Consume(const ExecSpan& batch) override {
+    const ArraySpan& values_array_data = batch[0].array;
+    int64_t num_values = values_array_data.length;
+    int64_t offset = values_array_data.offset;
 
-    const auto& groups_array_data = batch[1].array();
-    const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
-    DCHECK_EQ(groups_array_data->offset, 0);
+    const ArraySpan& groups_array_data = batch[1].array;
+    const uint32_t* groups = groups_array_data.GetValues<uint32_t>(1, 0);
+    DCHECK_EQ(groups_array_data.offset, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
 
     if (batch[0].null_count() == 0) {
       RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
     } else {
-      const uint8_t* values_bitmap = values_array_data->buffers[0]->data();
+      const uint8_t* values_bitmap = values_array_data.buffers[0].data;
       RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
           &values_bitmap_, values_bitmap, offset, num_values));
     }
@@ -2553,9 +2553,9 @@ struct GroupedNullListImpl : public GroupedAggregator {
     return counts_.Append(added_groups, 0);
   }
 
-  Status Consume(const ExecBatch& batch) override {
+  Status Consume(const ExecSpan& batch) override {
     int64_t* counts = counts_.mutable_data();
-    const auto* g_begin = batch[1].array()->GetValues<uint32_t>(1);
+    const auto* g_begin = batch[1].array.GetValues<uint32_t>(1);
     for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
       counts[*g_begin] += 1;
     }

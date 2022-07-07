@@ -446,8 +446,7 @@ struct MapLookupFunctor {
         const int32_t item_size = offsets[map_index + 1] - offsets[map_index];
 
         // Adjust the keys view to just the map slot that we are about to search
-        map_keys.SetOffset(item_offset);
-        map_keys.length = item_size;
+        map_keys.SetSlice(item_offset, item_size);
 
         bool found_at_least_one_key = false;
         RETURN_NOT_OK(FindMatchingIndices(map_keys, query_key, [&](int64_t key_index) {
@@ -477,8 +476,7 @@ struct MapLookupFunctor {
         const int32_t item_size = offsets[map_index + 1] - offsets[map_index];
 
         // Adjust the keys view to just the map slot that we are about to search
-        map_keys.SetOffset(item_offset);
-        map_keys.length = item_size;
+        map_keys.SetSlice(item_offset, item_size);
 
         ARROW_ASSIGN_OR_RAISE(
             int64_t item_index,

@@ -39,39 +39,6 @@ static constexpr int64_t kDefaultMaxChunksize = std::numeric_limits<int64_t>::ma
 
 namespace detail {
 
-/// \brief Break std::vector<Datum> into a sequence of ExecBatch for kernel
-/// execution
-class ARROW_EXPORT ExecBatchIterator {
- public:
-  /// \brief Construct iterator and do basic argument validation
-  ///
-  /// \param[in] args the Datum argument, must be all array-like or scalar
-  /// \param[in] max_chunksize the maximum length of each ExecBatch. Depending
-  /// on the chunk layout of ChunkedArray.
-  static Result<std::unique_ptr<ExecBatchIterator>> Make(
-      std::vector<Datum> args, int64_t max_chunksize = kDefaultMaxChunksize);
-
-  /// \brief Compute the next batch. Always returns at least one batch. Return
-  /// false if the iterator is exhausted
-  bool Next(ExecBatch* batch);
-
-  int64_t length() const { return length_; }
-
-  int64_t position() const { return position_; }
-
-  int64_t max_chunksize() const { return max_chunksize_; }
-
- private:
-  ExecBatchIterator(std::vector<Datum> args, int64_t length, int64_t max_chunksize);
-
-  std::vector<Datum> args_;
-  std::vector<int> chunk_indexes_;
-  std::vector<int64_t> chunk_positions_;
-  int64_t position_;
-  int64_t length_;
-  int64_t max_chunksize_;
-};
-
 /// \brief Break std::vector<Datum> into a sequence of non-owning
 /// ExecSpan for kernel execution. The lifetime of the Datum vector
 /// must be longer than the lifetime of this object

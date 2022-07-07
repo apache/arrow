@@ -416,31 +416,6 @@ struct Moder<InType, enable_if_decimal<InType>> {
   SortModer<InType> impl;
 };
 
-template <typename T>
-Status ScalarMode(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
-  using CType = typename TypeTraits<T>::CType;
-
-  const ModeOptions& options = ModeState::Get(ctx);
-  if ((!options.skip_nulls && !scalar.is_valid) ||
-      (static_cast<uint32_t>(scalar.is_valid) < options.min_count)) {
-    return PrepareOutput<T>(/*n=*/0, ctx, *out->type(), out).status();
-  }
-
-  if (scalar.is_valid) {
-    bool called = false;
-    return Finalize<T>(ctx, *out->type(), out, [&]() {
-      if (!called) {
-        called = true;
-        return std::pair<CType, uint64_t>(UnboxScalar<T>::Unbox(scalar), 1);
-      }
-      return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
-    });
-  }
-  return Finalize<T>(ctx, *out->type(), out, []() {
-    return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
-  });
-}
-
 Status CheckOptions(KernelContext* ctx) {
   if (ctx->state() == nullptr) {
     return Status::Invalid("Mode requires ModeOptions");
@@ -456,9 +431,6 @@ template <typename OutTypeUnused, typename InType>
 struct ModeExecutor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckOptions(ctx));
-    if (batch[0].is_scalar()) {
-      return ScalarMode<InType>(ctx, *batch[0].scalar, out);
-    }
     return Moder<InType>().impl.Exec(ctx, batch, out);
   }
 };
