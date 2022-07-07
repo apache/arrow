@@ -156,3 +156,26 @@ test_that("user-defined functions work during multi-threaded execution", {
 
   expect_identical(result2$fun_result, example_df$value * 32)
 })
+
+test_that("user-defined error when called from an unsupported context", {
+  skip_if_not_available("dataset")
+
+  times_32_wrapper <- arrow_scalar_function(
+    function(x) x * 32.0,
+    int32(), float64()
+  )
+
+  register_user_defined_function(times_32_wrapper, "times_32")
+
+  stream_plan_with_udf <- function() {
+    rbr <- record_batch(a = 1:1000) %>%
+      dplyr::mutate(b = times_32(a)) %>%
+      as_record_batch_reader()
+    rbr$read_table()
+  }
+
+  expect_error(
+    stream_plan_with_udf(),
+    "Call to R \\(.*?\\) from a non-R thread from an unsupported context"
+  )
+})

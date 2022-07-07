@@ -52,11 +52,11 @@ test_that("SafeCallIntoR errors from the non-R thread", {
 
   expect_error(
     TestSafeCallIntoR(function() "string one!", opt = "async_without_executor"),
-    "Call to R from a non-R thread"
+    "Call to R \\(unspecified\\) from a non-R thread"
   )
 
   expect_error(
     TestSafeCallIntoR(function() stop("an error!"), opt = "async_without_executor"),
-    "Call to R from a non-R thread"
+    "Call to R \\(unspecified\\) from a non-R thread"
   )
 })
