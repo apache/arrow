@@ -171,23 +171,22 @@ endif()
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT MSVC)
-  if(ARROW_GGDB_DEBUG)
-    set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
-    set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-    set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-    set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-    set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-  else()
-    set(C_FLAGS_DEBUG "-g -O0")
-    set(C_FLAGS_FASTDEBUG "-g -O1")
-    set(CXX_FLAGS_DEBUG "-g -O0")
-    set(CXX_FLAGS_FASTDEBUG "-g -O1")
-  endif()
-
-  set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
-  set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
+if(ARROW_GGDB_DEBUG)
+  set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
+  set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
+  set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
+  set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
+  set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
+else()
+  set(C_FLAGS_DEBUG "-g -O0")
+  set(C_FLAGS_FASTDEBUG "-g -O1")
+  set(CXX_FLAGS_DEBUG "-g -O0")
+  set(CXX_FLAGS_FASTDEBUG "-g -O1")
 endif()
+
+set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
+set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 #
 # Linker flags
