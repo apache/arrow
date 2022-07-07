@@ -64,6 +64,7 @@ add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_topk_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_replace_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_rle_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Aggregate kernels
