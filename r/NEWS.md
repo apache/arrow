@@ -78,7 +78,7 @@
   * `strptime()` returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
 * Timezone operations are supported on Windows if the
-  [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
+  [tzdb package](https://cran.r-project.org/package=tzdb) is also
   installed.
 
 ## Extensibility
