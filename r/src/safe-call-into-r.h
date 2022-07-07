@@ -100,7 +100,8 @@ MainRThread& GetMainRThread();
 // a SEXP (use cpp11::as_cpp<T> to convert it to a C++ type inside
 // `fun`).
 template <typename T>
-arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun, std::string reason = "unspecified") {
+arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
+                                    std::string reason = "unspecified") {
   MainRThread& main_r_thread = GetMainRThread();
   if (main_r_thread.IsMainThread()) {
     // If we're on the main thread, run the task immediately and let
@@ -131,16 +132,20 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun, s
 }
 
 template <typename T>
-arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun, std::string reason = "unspecified") {
+arrow::Result<T> SafeCallIntoR(std::function<T(void)> fun,
+                               std::string reason = "unspecified") {
   arrow::Future<T> future = SafeCallIntoRAsync<T>(std::move(fun), reason);
   return future.result();
 }
 
-static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun, std::string reason = "unspecified") {
-  arrow::Future<bool> future = SafeCallIntoRAsync<bool>([&fun]() {
-    fun();
-    return true;
-  }, reason);
+static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun,
+                                              std::string reason = "unspecified") {
+  arrow::Future<bool> future = SafeCallIntoRAsync<bool>(
+      [&fun]() {
+        fun();
+        return true;
+      },
+      reason);
   return future.status();
 }
 
