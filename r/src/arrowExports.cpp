@@ -2062,7 +2062,7 @@ extern "C" SEXP _arrow_dataset___Scanner__TakeRows(SEXP scanner_sexp, SEXP indic
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-int64_t dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner);
+r_vec_size dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner);
 extern "C" SEXP _arrow_dataset___Scanner__CountRows(SEXP scanner_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
@@ -4247,7 +4247,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatch.cpp
-int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
+r_vec_size RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
 extern "C" SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
@@ -4842,7 +4842,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
-int Table__num_rows(const std::shared_ptr<arrow::Table>& x);
+r_vec_size Table__num_rows(const std::shared_ptr<arrow::Table>& x);
 extern "C" SEXP _arrow_Table__num_rows(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
