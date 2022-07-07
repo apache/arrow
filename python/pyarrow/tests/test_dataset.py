@@ -2506,6 +2506,7 @@ def s3_example_simple(s3_server):
     host, port, access_key, secret_key = s3_server['connection']
     uri = (
         "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        "&allow_bucket_creation=True"
         .format(access_key, secret_key, host, port)
     )
 
@@ -2568,9 +2569,10 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_server):
     host, port, access_key, secret_key = s3_server['connection']
     bucket = 'theirbucket'
     path = 'nested/folder/data.parquet'
-    uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}".format(
-        access_key, secret_key, bucket, path, host, port
-    )
+    uri = "s3://{}:{}@{}/{}?scheme=http&endpoint_override={}:{}"\
+        "&allow_bucket_creation=true".format(
+            access_key, secret_key, bucket, path, host, port
+        )
 
     fs, path = FileSystem.from_uri(uri)
     assert path == 'theirbucket/nested/folder/data.parquet'
@@ -4544,9 +4546,38 @@ def test_write_dataset_s3_put_only(s3_server):
     ).to_table()
     assert result.equals(table)
 
+    # Passing create_dir is fine if the bucket already exists
+    ds.write_dataset(
+        table, "existing-bucket", filesystem=fs,
+        format="feather", create_dir=True, partitioning=part,
+        existing_data_behavior='overwrite_or_ignore'
+    )
+    # check roundtrip
+    result = ds.dataset(
+        "existing-bucket", filesystem=fs, format="ipc", partitioning="hive"
+    ).to_table()
+    assert result.equals(table)
+
+    # Error enforced by filesystem
+    with pytest.raises(OSError,
+                       match="Bucket 'non-existing-bucket' not found"):
+        ds.write_dataset(
+            table, "non-existing-bucket", filesystem=fs,
+            format="feather", create_dir=True,
+            existing_data_behavior='overwrite_or_ignore'
+        )
+
+    # Error enforced by minio / S3 service
+    fs = S3FileSystem(
+        access_key='limited',
+        secret_key='limited123',
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http',
+        allow_bucket_creation=True,
+    )
     with pytest.raises(OSError, match="Access Denied"):
         ds.write_dataset(
-            table, "existing-bucket", filesystem=fs,
+            table, "non-existing-bucket", filesystem=fs,
             format="feather", create_dir=True,
             existing_data_behavior='overwrite_or_ignore'
         )

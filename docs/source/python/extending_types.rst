@@ -286,6 +286,36 @@ are available).
 The same ``__arrow_ext_class__`` specialization can be used with custom types defined
 by subclassing :class:`ExtensionType`.
 
+Custom scalar conversion
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want scalars of your custom extension type to convert to a custom type when
+:meth:`ExtensionScalar.as_py()` is called, you can override the :meth:`ExtensionType.scalar_as_py()`
+method. For example, if we wanted the above example 3D point type to return a custom
+3D point class instead of a list, we would implement::
+
+    Point3D = namedtuple("Point3D", ["x", "y", "z"])
+
+    class Point3DType(pa.PyExtensionType):
+        def __init__(self):
+            pa.PyExtensionType.__init__(self, pa.list_(pa.float32(), 3))
+
+        def __reduce__(self):
+            return Point3DType, ()
+
+        def scalar_as_py(self, scalar: pa.ListScalar) -> Point3D:
+            return Point3D(*scalar.as_py())
+
+Arrays built using this extension type now provide scalars that convert to our ``Point3D`` class::
+
+    >>> storage = pa.array([[1, 2, 3], [4, 5, 6]], pa.list_(pa.float32(), 3))
+    >>> arr = pa.ExtensionArray.from_storage(Point3DType(), storage)
+    >>> arr[0].as_py()
+    Point3D(x=1.0, y=2.0, z=3.0)
+
+    >>> arr.to_pylist()
+    [Point3D(x=1.0, y=2.0, z=3.0), Point3D(x=4.0, y=5.0, z=6.0)]
+
 
 Conversion to pandas
 ~~~~~~~~~~~~~~~~~~~~

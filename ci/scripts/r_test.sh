@@ -26,6 +26,9 @@ pushd ${source_dir}
 
 printenv
 
+# Run the nixlibs.R test suite, which is not included in the installed package
+ ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+
 # Before release, we always copy the relevant parts of the cpp source into the
 # package. In some CI checks, we will use this version of the source:
 # this is done by setting ARROW_SOURCE_HOME to something other than "/arrow"
@@ -33,7 +36,7 @@ printenv
 # In the other CI checks the files are synced but ignored.
 make sync-cpp
 
-if [ "$ARROW_R_FORCE_TESTS" = "true"]; then
+if [ "$ARROW_R_FORCE_TESTS" = "true" ]; then
   export ARROW_R_DEV=TRUE
   export NOT_CRAN=true
   export ARROW_LARGE_MEMORY_TESTS=TRUE

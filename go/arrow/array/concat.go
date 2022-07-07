@@ -17,6 +17,7 @@
 package array
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/bits"
@@ -25,7 +26,6 @@ import (
 	"github.com/apache/arrow/go/v9/arrow/bitutil"
 	"github.com/apache/arrow/go/v9/arrow/internal/debug"
 	"github.com/apache/arrow/go/v9/arrow/memory"
-	"golang.org/x/xerrors"
 )
 
 // Concatenate creates a new arrow.Array which is the concatenation of the
@@ -33,10 +33,16 @@ import (
 //
 // The passed in arrays still need to be released manually, and will not be
 // released by this function.
-func Concatenate(arrs []arrow.Array, mem memory.Allocator) (arrow.Array, error) {
+func Concatenate(arrs []arrow.Array, mem memory.Allocator) (result arrow.Array, err error) {
 	if len(arrs) == 0 {
-		return nil, xerrors.New("array/concat: must pass at least one array")
+		return nil, errors.New("array/concat: must pass at least one array")
 	}
+
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			err = fmt.Errorf("arrow/concat: unknown error: %v", pErr)
+		}
+	}()
 
 	// gather Data of inputs
 	data := make([]arrow.ArrayData, len(arrs))
@@ -202,7 +208,7 @@ func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buff
 		valuesRanges[i].len = int(expand[len(src)]) - valuesRanges[i].offset
 
 		if nextOffset > math.MaxInt32-int32(valuesRanges[i].len) {
-			return nil, nil, xerrors.New("offset overflow while concatenating arrays")
+			return nil, nil, errors.New("offset overflow while concatenating arrays")
 		}
 
 		// adjust each offset by the difference between our last ending point and our starting point
@@ -347,7 +353,7 @@ func concatBitmaps(bitmaps []bitmap, mem memory.Allocator) (*memory.Buffer, erro
 
 	for _, bm := range bitmaps {
 		if outlen, overflow = addOvf(outlen, bm.rng.len); overflow {
-			return nil, xerrors.New("length overflow when concatenating arrays")
+			return nil, errors.New("length overflow when concatenating arrays")
 		}
 	}
 

@@ -317,9 +317,7 @@ cdef class ChunkedArray(_PandasConvertible):
           [
             false,
             false,
-            false
-          ],
-          [
+            false,
             false,
             true,
             false
@@ -490,7 +488,7 @@ cdef class ChunkedArray(_PandasConvertible):
             return values
         return values.astype(dtype)
 
-    def cast(self, object target_type, safe=True):
+    def cast(self, object target_type=None, safe=None, options=None):
         """
         Cast array values to another data type
 
@@ -498,10 +496,12 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        target_type : DataType
+        target_type : DataType, None
             Type to cast array to.
         safe : boolean, default True
             Whether to check for conversion errors such as overflow.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
@@ -520,7 +520,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs_seconds.type
         DurationType(duration[s])
         """
-        return _pc().cast(self, target_type, safe=safe)
+        return _pc().cast(self, target_type, safe=safe, options=options)
 
     def dictionary_encode(self, null_encoding='mask'):
         """
@@ -3323,7 +3323,7 @@ cdef class Table(_PandasConvertible):
 
         Examples
         --------
-        >>> import pyarrow as pa  
+        >>> import pyarrow as pa
         >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> names=["n_legs", "animals"]
@@ -3354,7 +3354,7 @@ cdef class Table(_PandasConvertible):
 
         return result
 
-    def cast(self, Schema target_schema, bint safe=True):
+    def cast(self, Schema target_schema, safe=None, options=None):
         """
         Cast table values to another schema.
 
@@ -3364,6 +3364,8 @@ cdef class Table(_PandasConvertible):
             Schema to cast to, the names and order of fields must match.
         safe : bool, default True
             Check for overflows or other unsafe conversions.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
@@ -3407,7 +3409,7 @@ cdef class Table(_PandasConvertible):
                              .format(self.schema.names, target_schema.names))
 
         for column, field in zip(self.itercolumns(), target_schema):
-            casted = column.cast(field.type, safe=safe)
+            casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
         return Table.from_arrays(newcols, schema=target_schema)
@@ -4124,7 +4126,7 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> for i in table.itercolumns():
         ...     print(i.null_count)
-        ... 
+        ...
         2
         1
         """
@@ -4648,7 +4650,7 @@ cdef class Table(_PandasConvertible):
             of the join operation left side.
         right_keys : str or list[str], default None
             The columns from the right_table that should be used as keys
-            on the join operation right side. 
+            on the join operation right side.
             When ``None`` use the same key names as the left table.
         join_type : str, default "left outer"
             The kind of join that should be performed, one of

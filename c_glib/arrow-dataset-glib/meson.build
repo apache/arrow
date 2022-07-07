@@ -28,6 +28,7 @@ sources = files(
 
 c_headers = files(
   'arrow-dataset-glib.h',
+  'dataset-definition.h',
   'dataset-factory.h',
   'dataset.h',
   'file-format.h',
@@ -78,11 +79,12 @@ arrow_dataset_glib = declare_dependency(link_with: libarrow_dataset_glib,
                                         sources: enums_header)
 
 pkgconfig.generate(libarrow_dataset_glib,
+                   description: 'C API for Apache Arrow Dataset based on GLib',
                    filebase: 'arrow-dataset-glib',
                    name: 'Apache Arrow Dataset GLib',
-                   description: 'C API for Apache Arrow Dataset based on GLib',
-                   version: version,
-                   requires: ['arrow-glib', 'arrow-dataset'])
+                   requires: ['arrow-glib', 'arrow-dataset'],
+                   variables: pkgconfig_variables,
+                   version: version)
 
 if have_gi
   dataset_glib_gir = \

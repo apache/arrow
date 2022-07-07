@@ -87,6 +87,7 @@ groups:
     - conda-linux-gcc-py*-cpu-r*
     - conda-osx-clang-py*-r*
     - conda-win-vs2017-py*-r*
+    - r-binary-packages
 
   ruby:
     - test-*ruby*
@@ -177,7 +178,7 @@ groups:
     - nuget
     - wheel-*
     - python-sdist
-    - r-nightly-packages
+    - r-binary-packages
 
   nightly-release:
     - verify-rc-source-*
@@ -206,6 +207,7 @@ tasks:
       flags: >-
         -e ARROW_CONAN_PARQUET=True
         -e ARROW_CONAN_WITH_LZ4=True
+        -e ARROW_CONAN_WITH_JEMALLOC=True
       image: conan
 
   ########################### Python Minimal ############################
@@ -468,9 +470,9 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-# enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-{% for macos_version, macos_codename, arrow_s3 in [("10.9", "mavericks", "OFF"),
-                                                   ("10.13", "high-sierra", "ON")] %}
+# enable S3 and GCS support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
+{% for macos_version, macos_codename, arrow_s3, arrow_gcs in [("10.9", "mavericks", "OFF", "OFF"),
+                                                              ("10.13", "high-sierra", "ON", "ON")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -480,6 +482,7 @@ tasks:
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
       arrow_s3: "{{ arrow_s3 }}"
+      arrow_gcs: "{{ arrow_gcs }}"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
@@ -546,12 +549,10 @@ tasks:
 
 {############################## Linux PKGS ####################################}
 
-{% for target in ["debian-buster",
-                  "debian-bullseye",
+{% for target in ["debian-bullseye",
                   "debian-bookworm",
                   "ubuntu-bionic",
                   "ubuntu-focal",
-                  "ubuntu-impish",
                   "ubuntu-jammy"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
@@ -656,50 +657,52 @@ tasks:
 {% for target in ["almalinux-9",
                   "almalinux-8",
                   "amazon-linux-2",
+                  "centos-9-stream",
                   "centos-8-stream",
                   "centos-7"] %}
   {% set is_rhel7_based = (target in ["amazon-linux-2", "centos-7"]) %}
-  {% for architecture in ["amd64", "arm64"] %}
-    {% if not (is_rhel7_based and architecture == "arm64") %}
+  {% for architecture
+       in ["amd64", "arm64"]
+       if not (target == "centos-7" and architecture == "arm64") %}
   {{ target }}-{{ architecture }}:
-      {% if architecture == "amd64" %}
+    {% if architecture == "amd64" %}
     ci: github
     template: linux-packages/github.linux.amd64.yml
-      {% else %}
+    {% else %}
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
-      {% endif %}
+    {% endif %}
     params:
-      {% if architecture == "amd64" %}
+    {% if architecture == "amd64" %}
       target: "{{ target }}"
-      {% else %}
+    {% else %}
       target: "{{ target }}-aarch64"
-      {% endif %}
+    {% endif %}
       task_namespace: "yum"
       upload_extensions:
         - .rpm
     artifacts:
-      {% if architecture == "amd64" %}
+    {% if architecture == "amd64" %}
       - apache-arrow-release-{no_rc_version}-1.[a-z0-9]+.noarch.rpm
       - apache-arrow-release-{no_rc_version}-1.[a-z0-9]+.src.rpm
-      {% endif %}
+    {% endif %}
       - arrow-dataset-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-dataset-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - arrow[0-9]+-dataset-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -707,18 +710,18 @@ tasks:
       - arrow[0-9]+-flight-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - arrow-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - arrow[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - arrow[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - arrow[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - arrow[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if target != "amazon-linux-2" %}
+    {% if target != "amazon-linux-2" %}
       - arrow-python-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
         {% if not is_rhel7_based %}
       - arrow-python-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -727,11 +730,11 @@ tasks:
       - arrow[0-9]+-python-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
         {% endif %}
       - arrow[0-9]+-python-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
-      {% if architecture == "amd64" %}
+    {% endif %}
+    {% if architecture == "amd64" %}
       - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
-      {% endif %}
-      {% if not is_rhel7_based and architecture == "amd64" %}
+    {% endif %}
+    {% if not is_rhel7_based and architecture == "amd64" %}
       - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -739,34 +742,33 @@ tasks:
       - gandiva[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - gandiva[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - parquet-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - parquet-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - parquet-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - parquet[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - parquet[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - parquet[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
+    {% endif %}
       - parquet[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - plasma-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
+    {% if not is_rhel7_based %}
       - plasma[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
-      - plasma[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
-      - plasma[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
-      - plasma[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% if not is_rhel7_based %}
-      - plasma-store-server-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      {% endif %}
-      - plasma-store-server-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
+      - plasma[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - plasma[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
+      - plasma[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% if not is_rhel7_based %}
+      - plasma-store-server-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+    {% endif %}
+      - plasma-store-server-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
   {% endfor %}
 {% endfor %}
 
@@ -929,7 +931,7 @@ tasks:
       - Apache.Arrow.{no_rc_version}.snupkg
 
   ######################## R packages & binaries ##############################
-  r-nightly-packages:
+  r-binary-packages:
     ci: github
     template: r/github.packages.yml
     artifacts:
@@ -1291,19 +1293,19 @@ tasks:
     template: r/github.devdocs.yml
 
   test-r-depsource-bundled:
-      ci: azure
-      template: r/azure.linux.yml
-      params:
-        r_org: rocker
-        r_image: r-base
-        r_tag: latest
-        flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
+      r_tag: latest
+      flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
 
   test-r-depsource-system:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM'
+      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
 
   test-r-offline-minimal:
@@ -1560,13 +1562,6 @@ tasks:
       image: conda-python-spark
       fetch_depth: 0
 {% endfor %}
-
-  # Remove the "skipped-" prefix in ARROW-8475
-  skipped-test-conda-cpp-hiveserver2:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      image: conda-cpp-hiveserver2
 
 {% for kind in ["static", "static-system-dependency"] %}
   example-cpp-minimal-build-{{ kind }}:

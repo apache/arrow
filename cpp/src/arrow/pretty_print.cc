@@ -183,13 +183,13 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
   Status WritePrimitiveValues(const ArrayType& array) {
-    StringFormatter<T> formatter{array.type()};
+    StringFormatter<T> formatter{array.type().get()};
     return WritePrimitiveValues(array, &formatter);
   }
 
   Status WriteValidityBitmap(const Array& array);
 
-  Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields, int64_t offset,
+  Status PrintChildren(const std::vector<const Array*>& fields, int64_t offset,
                        int64_t length) {
     for (size_t i = 0; i < fields.size(); ++i) {
       Write("\n");  // Always want newline before child array description
@@ -198,12 +198,14 @@ class ArrayPrinter : public PrettyPrinter {
       ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << "\n";
       Write(ss.str());
 
-      std::shared_ptr<Array> field = fields[i];
-      if (offset != 0) {
-        field = field->Slice(offset, length);
-      }
       // Indent();
-      RETURN_NOT_OK(PrettyPrint(*field, ChildOptions(true), sink_));
+      const Array* field = fields[i];
+      if (offset != 0) {
+        RETURN_NOT_OK(
+            PrettyPrint(*field->Slice(offset, length), ChildOptions(true), sink_));
+      } else {
+        RETURN_NOT_OK(PrettyPrint(*field, ChildOptions(true), sink_));
+      }
     }
     return Status::OK();
   }
@@ -219,7 +221,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   Status WriteDataValues(const HalfFloatArray& array) {
     // XXX do not know how to format half floats yet
-    StringFormatter<Int16Type> formatter{array.type()};
+    StringFormatter<Int16Type> formatter{array.type().get()};
     return WritePrimitiveValues(array, &formatter);
   }
 
@@ -326,10 +328,10 @@ class ArrayPrinter : public PrettyPrinter {
 
   Status Visit(const StructArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
-    std::vector<std::shared_ptr<Array>> children;
+    std::vector<const Array*> children;
     children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
-      children.emplace_back(array.field(i));
+      children.emplace_back(array.field(i).get());
     }
     return PrintChildren(children, 0, array.length());
   }
@@ -354,10 +356,10 @@ class ArrayPrinter : public PrettyPrinter {
     }
 
     // Print the children without any offset, because the type ids are absolute
-    std::vector<std::shared_ptr<Array>> children;
+    std::vector<const Array*> children;
     children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
-      children.emplace_back(array.field(i));
+      children.emplace_back(array.field(i).get());
     }
     return PrintChildren(children, 0, array.length() + array.offset());
   }

@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
@@ -75,5 +76,12 @@ ARROW_EXPORT
 util::optional<std::string> Replace(util::string_view s, util::string_view token,
                                     util::string_view replacement);
 
+/// \brief Get boolean value from string
+///
+/// If "1", "true" (case-insensitive), returns true
+/// If "0", "false" (case-insensitive), returns false
+/// Otherwise, returns Status::Invalid
+ARROW_EXPORT
+arrow::Result<bool> ParseBoolean(util::string_view value);
 }  // namespace internal
 }  // namespace arrow

@@ -109,6 +109,9 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
 
+  define_option(ARROW_POSITION_INDEPENDENT_CODE
+                "Whether to create position-independent target" ON)
+
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
@@ -247,8 +250,6 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
-  define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
-
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
@@ -344,6 +345,10 @@ if(ARROW_DEFINE_OPTIONS)
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_JEMALLOC_USE_SHARED
+                "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"

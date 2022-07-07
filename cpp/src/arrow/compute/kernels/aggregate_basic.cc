@@ -141,7 +141,7 @@ struct CountDistinctImpl : public ScalarAggregator {
         int y;
         return memo_table_->GetOrInsert(arg, &y);
       };
-      RETURN_NOT_OK(VisitArrayDataInline<Type>(arr, visit_value, visit_null));
+      RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
       this->non_nulls += memo_table_->size();
       this->has_nulls = arr.GetNullCount() > 0;
     } else {

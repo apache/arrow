@@ -68,7 +68,7 @@ using Return = decltype(std::declval<Appender>()(util::string_view{}));
 template <>
 class StringFormatter<BooleanType> {
  public:
-  explicit StringFormatter(const std::shared_ptr<DataType>& = NULLPTR) {}
+  explicit StringFormatter(const DataType* = NULLPTR) {}
 
   using value_type = bool;
 
@@ -156,7 +156,7 @@ constexpr size_t Digits10(Int value) {
 template <typename ARROW_TYPE>
 class IntToStringFormatterMixin {
  public:
-  explicit IntToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
+  explicit IntToStringFormatterMixin(const DataType* = NULLPTR) {}
 
   using value_type = typename ARROW_TYPE::c_type;
 
@@ -244,7 +244,7 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
 
   static constexpr int buffer_size = 50;
 
-  explicit FloatToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
+  explicit FloatToStringFormatterMixin(const DataType* = NULLPTR) {}
 
   FloatToStringFormatterMixin(int flags, const char* inf_symbol, const char* nan_symbol,
                               char exp_character, int decimal_in_shortest_low,
@@ -374,7 +374,7 @@ class StringFormatter<DurationType> : public IntToStringFormatterMixin<DurationT
 
 class DateToStringFormatterMixin {
  public:
-  explicit DateToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
+  explicit DateToStringFormatterMixin(const DataType* = NULLPTR) {}
 
  protected:
   template <typename Appender>
@@ -432,7 +432,7 @@ class StringFormatter<TimestampType> {
  public:
   using value_type = int64_t;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>& type)
+  explicit StringFormatter(const DataType* type)
       : unit_(checked_cast<const TimestampType&>(*type).unit()) {}
 
   template <typename Duration, typename Appender>
@@ -486,7 +486,7 @@ class StringFormatter<T, enable_if_time<T>> {
  public:
   using value_type = typename T::c_type;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>& type)
+  explicit StringFormatter(const DataType* type)
       : unit_(checked_cast<const T&>(*type).unit()) {}
 
   template <typename Duration, typename Appender>
@@ -519,7 +519,7 @@ class StringFormatter<MonthIntervalType> {
  public:
   using value_type = MonthIntervalType::c_type;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>&) {}
+  explicit StringFormatter(const DataType*) {}
 
   template <typename Appender>
   Return<Appender> operator()(value_type interval, Appender&& append) {
@@ -542,7 +542,7 @@ class StringFormatter<DayTimeIntervalType> {
  public:
   using value_type = DayTimeIntervalType::DayMilliseconds;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>&) {}
+  explicit StringFormatter(const DataType*) {}
 
   template <typename Appender>
   Return<Appender> operator()(value_type interval, Appender&& append) {
@@ -570,7 +570,7 @@ class StringFormatter<MonthDayNanoIntervalType> {
  public:
   using value_type = MonthDayNanoIntervalType::MonthDayNanos;
 
-  explicit StringFormatter(const std::shared_ptr<DataType>&) {}
+  explicit StringFormatter(const DataType*) {}
 
   template <typename Appender>
   Return<Appender> operator()(value_type interval, Appender&& append) {

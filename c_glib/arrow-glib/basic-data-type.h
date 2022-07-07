@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <arrow-glib/basic-array-definition.h>
+#include <arrow-glib/chunked-array-definition.h>
 #include <arrow-glib/decimal.h>
 #include <arrow-glib/type.h>
 #include <arrow-glib/version.h>
@@ -619,15 +621,10 @@ GARROW_AVAILABLE_IN_3_0
 gchar *
 garrow_extension_data_type_get_extension_name(GArrowExtensionDataType *data_type);
 
-typedef struct _GArrowArray GArrowArray;
-typedef struct _GArrowExtensionArray GArrowExtensionArray;
-
 GARROW_AVAILABLE_IN_3_0
 GArrowExtensionArray *
 garrow_extension_data_type_wrap_array(GArrowExtensionDataType *data_type,
                                       GArrowArray *storage);
-
-typedef struct _GArrowChunkedArray GArrowChunkedArray;
 
 GARROW_AVAILABLE_IN_3_0
 GArrowChunkedArray *

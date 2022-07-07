@@ -21,6 +21,9 @@
 
 namespace arrow {
 
+using compute::ExecResult;
+using compute::ExecSpan;
+
 namespace py {
 
 namespace {
@@ -45,37 +48,25 @@ struct PythonUdf {
     }
   }
 
-  Status operator()(compute::KernelContext* ctx, const compute::ExecBatch& batch,
-                    Datum* out) {
+  Status operator()(compute::KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return SafeCallIntoPython([&]() -> Status { return Execute(ctx, batch, out); });
   }
 
-  Status Execute(compute::KernelContext* ctx, const compute::ExecBatch& batch,
-                 Datum* out) {
-    const auto num_args = batch.values.size();
-    ScalarUdfContext udf_context{ctx->memory_pool(), static_cast<int64_t>(batch.length)};
+  Status Execute(compute::KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const int num_args = batch.num_values();
+    ScalarUdfContext udf_context{ctx->memory_pool(), batch.length};
 
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
-    for (size_t arg_id = 0; arg_id < num_args; arg_id++) {
-      switch (batch[arg_id].kind()) {
-        case Datum::SCALAR: {
-          auto c_data = batch[arg_id].scalar();
-          PyObject* data = wrap_scalar(c_data);
-          PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
-          break;
-        }
-        case Datum::ARRAY: {
-          auto c_data = batch[arg_id].make_array();
-          PyObject* data = wrap_array(c_data);
-          PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
-          break;
-        }
-        default:
-          auto datum = batch[arg_id];
-          return Status::NotImplemented(
-              "User-defined-functions are not supported for the datum kind ",
-              ToString(batch[arg_id].kind()));
+    for (int arg_id = 0; arg_id < num_args; arg_id++) {
+      if (batch[arg_id].is_scalar()) {
+        std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->Copy();
+        PyObject* data = wrap_scalar(c_data);
+        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
+      } else {
+        std::shared_ptr<Array> c_data = batch[arg_id].array.ToArray();
+        PyObject* data = wrap_array(c_data);
+        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
       }
     }
 
@@ -83,14 +74,24 @@ struct PythonUdf {
     RETURN_NOT_OK(CheckPyError());
     // unwrapping the output for expected output type
     if (is_scalar(result.obj())) {
-      ARROW_ASSIGN_OR_RAISE(auto val, unwrap_scalar(result.obj()));
+      if (out->is_array_data()) {
+        return Status::TypeError(
+            "UDF executor expected an array result but a "
+            "scalar was returned");
+      }
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val, unwrap_scalar(result.obj()));
       RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type));
-      *out = Datum(val);
+      out->value = val;
       return Status::OK();
     } else if (is_array(result.obj())) {
-      ARROW_ASSIGN_OR_RAISE(auto val, unwrap_array(result.obj()));
+      if (out->is_scalar()) {
+        return Status::TypeError(
+            "UDF executor expected a scalar result but an "
+            "array was returned");
+      }
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
       RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type()));
-      *out = Datum(val);
+      out->value = std::move(val->data());
       return Status::OK();
     } else {
       return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,

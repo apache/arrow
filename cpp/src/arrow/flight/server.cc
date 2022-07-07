@@ -127,10 +127,7 @@ struct FlightServerBase::Impl {
     }
     auto instance = running_instance_.load();
     if (instance != nullptr) {
-      auto status = instance->transport_->Shutdown();
-      if (!status.ok()) {
-        ARROW_LOG(WARNING) << "Error shutting down server: " << status.ToString();
-      }
+      ARROW_WARN_NOT_OK(instance->transport_->Shutdown(), "Error shutting down server");
     }
   }
 };

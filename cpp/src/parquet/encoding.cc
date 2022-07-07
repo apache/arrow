@@ -152,7 +152,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         array.value_offset(array.length()) - array.value_offset(0);
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
-    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::arrow::util::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
@@ -615,7 +615,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    PARQUET_THROW_NOT_OK(::arrow::VisitArrayDataInline<typename ArrayType::TypeClass>(
+    PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::arrow::util::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
@@ -2757,6 +2757,11 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       return std::unique_ptr<Decoder>(new DeltaByteArrayDecoder(descr));
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
+  } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
+    if (type_num == Type::BYTE_ARRAY) {
+      return std::unique_ptr<Decoder>(new DeltaLengthByteArrayDecoder(descr));
+    }
+    throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }

@@ -59,7 +59,7 @@ x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
   CCACHE_COMPRESSLEVEL: 6
-  CCACHE_MAXSIZE: 500M
+  CCACHE_MAXSIZE: 1G
   CCACHE_DIR: /ccache
 
 # CPU/memory limit presets to pass to Docker.
@@ -100,7 +100,6 @@ x-hierarchy:
   - conda:
     - conda-cpp:
       - conda-integration
-      - conda-cpp-hiveserver2
       - conda-cpp-valgrind
       - conda-python:
         - conda-python-pandas:
@@ -355,7 +354,7 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     command: *cpp-command
-  
+
   ubuntu-cpp-static:
     # Usage:
     #   docker-compose build ubuntu-cpp-static
@@ -401,19 +400,21 @@ services:
       cache_from:
         - ${REPO}:centos-7-cpp-static
     shm_size: *shm-size
-    volumes: 
+    volumes:
       - .:/arrow:delegated
     environment:
       <<: *ccache
-      ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
+      ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
-      ARROW_MIMALLOC: "ON"
+      # Turn off features that aren't supported on CentOS 7 gcc 4.8
+      ARROW_GCS: "OFF"
+      ARROW_MIMALLOC: "OFF"
+      ARROW_S3: "OFF"
     command: >
       /bin/bash -c "
-        if grep -q -i -e 'centos.* 7' /etc/os-release; then export ARROW_S3=OFF ARROW_MIMALLOC=OFF; fi &&
         cd /arrow && r/inst/build_arrow_static.sh"
-        
+
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
@@ -945,17 +946,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2017:
-    # The windows images must be built locally and pushed to a remote registry:
-    # export REPO=ghcr.io/ursacomputing/arrow
-    # PYTHON=3.7 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
-    # PYTHON=3.8 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
-    # PYTHON=3.9 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
-    # PYTHON=3.10 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
-    # PYTHON=3.7 archery docker push python-wheel-windows-vs2017
-    # PYTHON=3.8 archery docker push python-wheel-windows-vs2017
-    # PYTHON=3.9 archery docker push python-wheel-windows-vs2017
-    # PYTHON=3.10 archery docker push python-wheel-windows-vs2017
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         vcpkg: ${VCPKG}
@@ -965,8 +956,8 @@ services:
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - mcr.microsoft.com/windows/servercore:ltsc2019
-      #   - ${REPO}:wheel-windows-vs2017
+      #   - abrarov/msvc-2017:2.11.0
+      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     volumes:
       - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind
@@ -1687,7 +1678,7 @@ services:
       POSTGRES_PASSWORD: postgres
 
   impala:
-    # required for the hiveserver and hdfs tests
+    # required for the hdfs tests
     image: ibisproject/impala:latest
     hostname: impala
     links:
@@ -1709,28 +1700,6 @@ services:
       - 25000:25000
       - 25010:25010
       - 25020:25020
-
-  conda-cpp-hiveserver2:
-    # Usage:
-    #   docker-compose build conda-cpp
-    #   docker-compose build conda-cpp-hiveserver2
-    #   docker-compose run conda-cpp-hiveserver2
-    image: ${REPO}:${ARCH}-conda-cpp
-    links:
-      - impala:impala
-    environment:
-      <<: *ccache
-      ARROW_FLIGHT: "OFF"
-      ARROW_FLIGHT_SQL: "OFF"
-      ARROW_GANDIVA: "OFF"
-      ARROW_PLASMA: "OFF"
-      ARROW_HIVESERVER2: "ON"
-      ARROW_HIVESERVER2_TEST_HOST: impala
-    shm_size: *shm-size
-    volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build"]
 
   conda-python-hdfs:
     # Usage:

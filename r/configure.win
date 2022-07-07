@@ -31,6 +31,9 @@ AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-man
           -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
           -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
           -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
+# pkg-config --libs libcurl
+GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
+          -lz -lws2_32"
 
 function configure_release() {
   VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
@@ -64,11 +67,11 @@ function configure_release() {
             -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
-  # S3 and re2 support only for Rtools40 (i.e. R >= 4.0)
+  # S3, GCS, and re2 support only for Rtools40 (i.e. R >= 4.0)
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
-    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3"
-    PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS}"
+    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_R_WITH_GCS"
+    PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}"
   else
     # It seems that order matters
     PKG_LIBS="${PKG_LIBS} -lws2_32"
@@ -102,6 +105,10 @@ function configure_dev() {
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+  fi
+
+  if [ $(cmake_option ARROW_GCS) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS"
   fi
 
   if [ $(cmake_option ARROW_JSON) -eq 1 ]; then

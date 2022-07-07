@@ -21,8 +21,11 @@
 
 #include "arrow/filesystem/filesystem.h"  // IWYU pragma: export
 #include "arrow/filesystem/hdfs.h"        // IWYU pragma: export
-#include "arrow/filesystem/localfs.h"     // IWYU pragma: export
-#include "arrow/filesystem/mockfs.h"      // IWYU pragma: export
+#ifdef ARROW_GCS
+#include "arrow/filesystem/gcsfs.h"  // IWYU pragma: export
+#endif
+#include "arrow/filesystem/localfs.h"  // IWYU pragma: export
+#include "arrow/filesystem/mockfs.h"   // IWYU pragma: export
 #ifdef ARROW_S3
 #include "arrow/filesystem/s3fs.h"  // IWYU pragma: export
 #endif

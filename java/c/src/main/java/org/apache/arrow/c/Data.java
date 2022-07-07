@@ -26,6 +26,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
@@ -160,6 +161,16 @@ public final class Data {
         exportVector(allocator, vector, provider, out);
       }
     }
+  }
+
+  /**
+   * Export a reader as an ArrowArrayStream using the C Stream Interface.
+   * @param allocator Buffer allocator for allocating C data inteface fields
+   * @param reader Reader to export
+   * @param out C struct to export the stream
+   */
+  public static void exportArrayStream(BufferAllocator allocator, ArrowReader reader, ArrowArrayStream out) {
+    new ArrayStreamExporter(allocator).export(out, reader);
   }
 
   /**
@@ -313,5 +324,15 @@ public final class Data {
       importIntoVectorSchemaRoot(allocator, array, vsr, provider);
     }
     return vsr;
+  }
+
+  /**
+   * Import an ArrowArrayStream as an {@link ArrowReader}.
+   * @param allocator Buffer allocator for allocating the output data.
+   * @param stream C stream interface struct to import.
+   * @return Imported reader
+   */
+  public static ArrowReader importArrayStream(BufferAllocator allocator, ArrowArrayStream stream) {
+    return new ArrowArrayStreamReader(allocator, stream);
   }
 }

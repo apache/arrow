@@ -227,6 +227,30 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
   return out;
 }
 
+BatchesWithSchema MakeBatchesFromString(
+    const std::shared_ptr<Schema>& schema,
+    const std::vector<util::string_view>& json_strings, int multiplicity) {
+  BatchesWithSchema out_batches{{}, schema};
+
+  std::vector<ValueDescr> descrs;
+  for (auto&& field : schema->fields()) {
+    descrs.emplace_back(field->type());
+  }
+
+  for (auto&& s : json_strings) {
+    out_batches.batches.push_back(ExecBatchFromJSON(descrs, s));
+  }
+
+  size_t batch_count = out_batches.batches.size();
+  for (int repeat = 1; repeat < multiplicity; ++repeat) {
+    for (size_t i = 0; i < batch_count; ++i) {
+      out_batches.batches.push_back(out_batches.batches[i]);
+    }
+  }
+
+  return out_batches;
+}
+
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {
   std::vector<SortKey> sort_keys;
   for (auto&& f : tab->schema()->fields()) {
@@ -313,10 +337,12 @@ bool operator==(const Declaration& l, const Declaration& r) {
       if (l_agg->options == nullptr || r_agg->options == nullptr) return false;
 
       if (!l_agg->options->Equals(*r_agg->options)) return false;
+
+      if (l_agg->target != r_agg->target) return false;
+      if (l_agg->name != r_agg->name) return false;
     }
 
-    return l_opts->targets == r_opts->targets && l_opts->names == r_opts->names &&
-           l_opts->keys == r_opts->keys;
+    return l_opts->keys == r_opts->keys;
   }
 
   if (l.factory_name == "order_by_sink") {
@@ -376,23 +402,13 @@ static inline void PrintToImpl(const std::string& factory_name,
 
     *os << "aggregates={";
     for (const auto& agg : o->aggregates) {
-      *os << agg.function << "<";
+      *os << "function=" << agg.function << "<";
       if (agg.options) PrintTo(*agg.options, os);
       *os << ">,";
+      *os << "target=" << agg.target.ToString() << ",";
+      *os << "name=" << agg.name;
     }
     *os << "},";
-
-    *os << "targets={";
-    for (const auto& target : o->targets) {
-      *os << target.ToString() << ",";
-    }
-    *os << "},";
-
-    *os << "names={";
-    for (const auto& name : o->names) {
-      *os << name << ",";
-    }
-    *os << "}";
 
     if (!o->keys.empty()) {
       *os << ",keys={";

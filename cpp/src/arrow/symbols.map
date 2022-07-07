@@ -33,6 +33,8 @@
     # Also export C-level helpers
     arrow_*;
     pyarrow_*;
+    # ARROW-14771: export Protobuf symbol table
+    descriptor_table_Flight_2eproto;
 
   # Symbols marked as 'local' are not exported by the DSO and thus may not
   # be used by client applications.  Everything except the above falls here.

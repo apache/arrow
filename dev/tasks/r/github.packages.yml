@@ -18,7 +18,7 @@
 {% import 'macros.jinja' as macros with context %}
 
 # This allows us to set a custom version via param:
-# crossbow submit --param custom_version=8.5.3 r-nightly-packages
+# crossbow submit --param custom_version=8.5.3 r-binary-packages
 # if the param is unset defaults to the usual Ymd naming scheme
 {% set package_version = custom_version|default("\\2.\'\"$(date +%Y%m%d)\"\'") %}
 # We need this as boolean and string
@@ -44,7 +44,7 @@ jobs:
       - name: Save Version
         id: save-version
         shell: bash
-        run: | 
+        run: |
           echo "::set-output name=pkg_version::$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)"
 
       - uses: r-lib/actions/setup-r@v2
@@ -99,7 +99,7 @@ jobs:
           cd arrow/r/libarrow/dist
           # These files were created by the docker user so we have to sudo to get them
           sudo -E zip -r $PKG_FILE lib/ include/
-          
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
@@ -131,7 +131,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: r-lib__libarrow__bin__windows
-          path: build/arrow-*.zip 
+          path: build/arrow-*.zip
 
   r-packages:
     needs: [source, windows-cpp]
@@ -158,6 +158,8 @@ jobs:
       - name: Build Binary
         id: build
         shell: Rscript {0}
+        env:
+          ARROW_R_DEV: TRUE
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -166,18 +168,10 @@ jobs:
             type = "binary",
             repos = c("https://nightlies.apache.org/arrow/r", "https://cloud.r-project.org")
           )
+
+          cat("Remove old arrow version.\n")
           remove.packages("arrow")
 
-          # Setup local repo
-          dev_repo <- paste0(
-            ifelse(on_windows, "file:", "file://"),
-            getwd(),
-            "/repo")
-          
-          # This is necessary to use the local folder as a repo in both
-          # install_arrow & tools/*libs.R
-          options(arrow.dev_repo = dev_repo)
-          
           # Build
           Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
           INSTALL_opts <- "--build"
@@ -186,11 +180,12 @@ jobs:
             INSTALL_opts <- c(INSTALL_opts, "--strip")
           }
 
-         
+          cat("Install arrow from dev repo.\n")
           install.packages(
             "arrow",
             type = "source",
-            repos = dev_repo,
+            # The sub is necessary to prevent an error on windows.
+            repos = sub("file://", "file:", getOption("arrow.dev_repo")),,
             INSTALL_opts = INSTALL_opts
           )
 
@@ -200,7 +195,7 @@ jobs:
 
           # encode contrib.url for artifact name
           cmd <- paste0(
-            "::set-output name=path::", 
+            "::set-output name=path::",
             gsub(
               "/", "__",
               contrib.url("", type = "binary")
@@ -217,51 +212,63 @@ jobs:
 
   test-linux-binary:
     needs: [source, linux-cpp]
-    name: Test binary {{ '${{ matrix.image }}' }}
+    name: Test binary {{ '${{ matrix.config.image }}' }}
     runs-on: ubuntu-latest
-    container: {{ '${{ matrix.image }}' }}
+    container: {{ '${{ matrix.config.image }}' }}
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - "rhub/ubuntu-gcc-release" # ubuntu-20.04 (focal)
-          - "rstudio/r-base:4.1-bionic"
-          - "rstudio/r-base:4.2-centos7"
-          - "rocker/r-ver:3.6.3" # for debian:buster (10)
-          - "rocker/r-ver" # ubuntu-20.04
-          - "rhub/fedora-clang-devel" # tests distro-map.csv, mapped to ubuntu-18.04
-          - "rocker/r-ubuntu:22.04" # tests openssl3 compatibility
+        config:
+          # If libarrow_binary is unset, we're testing that we're automatically
+          # choosing a binary on this OS. If libarrow_binary is TRUE, we're on
+          # an OS that is not in the allowlist, so we have to opt-in to use the
+          # binary. Other env vars used in r_docker_configure.sh can be added
+          # here (like devtoolset) and wired up in the later steps.
+          - {image: "rhub/debian-clang-devel", libarrow_binary: "TRUE"}
+          # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
+          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
+          - {image: "rhub/ubuntu-gcc-release"} # currently ubuntu-20.04 (focal)
+          - {image: "rocker/r-ubuntu:22.04"} # openssl3
+          - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
+          - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
+          - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
+          - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
+          - {image: "rstudio/r-base:4.2-centos7"}
+          # Even with devtoolset-8, binaries fail because glibc is older than
+          # what we build with on ubuntu-18.04 (uncomment to see the error)
+          # TODO(ARROW-16976): build binaries with older glibc
+          # - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
     steps:
+      # Get the arrow checkout just for the docker config scripts
+      # Don't need submodules for this (hence false arg to macro): they fail on
+      # actions/checkout for some reason in this context
+      {{ macros.github_checkout_arrow(1, false)|indent }}
       - name: Install system requirements
+        env:
+          ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh
+          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
-          if [ "`which dnf`" ]; then
-            dnf install -y libcurl-devel openssl-devel
-          elif [ "`which yum`" ]; then
-            yum install -y libcurl-devel openssl-devel
-          elif [ "`which zypper`" ]; then
-            zypper install -y libcurl-devel libopenssl-devel
-          else
-            apt-get update
-            apt-get install -y libcurl4-openssl-dev libssl-dev
-          fi
-
-          # Add R-devel to PATH
-          echo "/opt/R-devel/bin" >> $GITHUB_PATH
+          # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
+          echo "${RPREFIX}/bin" >> $GITHUB_PATH
+          export PATH="${RPREFIX}/bin:${PATH}"
+          cd arrow && ARROW_SOURCE_HOME=$(pwd) ./ci/scripts/r_docker_configure.sh
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
-      - name: Set dev repo
-        shell: bash
-        run: |
-          # It is important to use pwd here as this happens inside a container so the 
-          # normal github.workspace path is wrong.
-          echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
       - name: Install arrow from our repo
         env:
+          ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
-          LIBARROW_BINARY: "TRUE"
-        shell: Rscript {0}
+          LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
+          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
+        shell: bash
         run: |
+          if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+            # enable the devtoolset version to use it
+            source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
+          fi
+          Rscript -e '
           {{  macros.github_test_r_src_pkg()|indent(8) }}
+          '
 
   test-source:
     needs: source
@@ -273,10 +280,6 @@ jobs:
         with:
           install-r: false
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
-      - name: Set dev repo
-        shell: bash
-        run: |
-          echo "options(arrow.dev_repo = 'file://$(pwd)/repo')" >> ~/.Rprofile
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
@@ -300,9 +303,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      - name: Download Artifacts 
+      - name: Download Artifacts
         uses: actions/download-artifact@v3
-        with: 
+        with:
           path: artifacts
       - name: Install R
         uses: r-lib/actions/setup-r@v2
@@ -317,4 +320,3 @@ jobs:
           file.copy(file.path("artifacts", file_paths), new_names)
 
       {{ macros.github_upload_releases("binaries/r-*")|indent }}
-          

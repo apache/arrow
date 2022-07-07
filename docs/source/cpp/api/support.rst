@@ -76,7 +76,7 @@ introduced API).
 Runtime Configuration
 =====================
 
-.. doxygenstruct:: arrow::ArrowGlobalOptions
+.. doxygenstruct:: arrow::GlobalOptions
    :members:
 
 

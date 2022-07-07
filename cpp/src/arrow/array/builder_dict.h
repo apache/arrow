@@ -366,10 +366,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset, int64_t length) final {
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset, int64_t length) final {
     // Visit the indices and insert the unpacked values.
     const auto& dict_ty = internal::checked_cast<const DictionaryType&>(*array.type);
-    const typename TypeTraits<T>::ArrayType dict(array.dictionary);
+    // See if possible to avoid using ToArrayData here
+    const typename TypeTraits<T>::ArrayType dict(array.dictionary().ToArrayData());
     ARROW_RETURN_NOT_OK(Reserve(length));
     switch (dict_ty.index_type()->id()) {
       case Type::UINT8:
@@ -490,10 +491,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
  protected:
   template <typename c_type>
   Status AppendArraySliceImpl(const typename TypeTraits<T>::ArrayType& dict,
-                              const ArrayData& array, int64_t offset, int64_t length) {
+                              const ArraySpan& array, int64_t offset, int64_t length) {
     const c_type* values = array.GetValues<c_type>(1) + offset;
     return VisitBitBlocks(
-        array.buffers[0], array.offset + offset, length,
+        array.buffers[0].data, array.offset + offset, length,
         [&](const int64_t position) {
           const int64_t index = static_cast<int64_t>(values[position]);
           if (dict.IsValid(index)) {

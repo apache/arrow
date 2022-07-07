@@ -71,44 +71,6 @@ index 1289eed36a..b010a69f13 100644
  )
  
  vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
-diff --git a/ports/aws-sdk-cpp/fix-find-crypto.patch b/ports/aws-sdk-cpp/fix-find-crypto.patch
-new file mode 100644
-index 0000000000..aafc631e93
---- /dev/null
-+++ b/ports/aws-sdk-cpp/fix-find-crypto.patch
-@@ -0,0 +1,20 @@
-+diff --git a/cmake/setup_cmake_find_module.cmake b/cmake/setup_cmake_find_module.cmake
-+index f5f147a0f..4561b8c39 100644
-+--- a/cmake/setup_cmake_find_module.cmake
-++++ b/cmake/setup_cmake_find_module.cmake
-+@@ -30,15 +30,6 @@ file(WRITE
-+     "set(AWSSDK_INSTALL_BINDIR ${BINARY_DIRECTORY})\n"
-+     "set(AWSSDK_INSTALL_INCLUDEDIR ${INCLUDE_DIRECTORY})\n"
-+     "set(AWSSDK_INSTALL_ARCHIVEDIR ${ARCHIVE_DIRECTORY})\n"
-+-    "if (NOT LibCrypto_INCLUDE_DIR)\n"
-+-    "    set(LibCrypto_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR} CACHE INTERNAL \"The OpenSSL include directory\")\n"
-+-    "endif()\n"
-+-    "if (NOT LibCrypto_STATIC_LIBRARY)\n"
-+-    "    set(LibCrypto_STATIC_LIBRARY ${OPENSSL_CRYPTO_LIBRARY} CACHE INTERNAL \"The OpenSSL crypto static library\")\n"
-+-    "endif()\n"
-+-    "if (NOT LibCrypto_SHARED_LIBRARY)\n"
-+-    "    set(LibCrypto_SHARED_LIBRARY ${OPENSSL_CRYPTO_LIBRARY} CACHE INTERNAL \"The OpenSSL crypto shared library\")\n"
-+-    "endif()\n"
-+     )
-+
-+ if (NOT SIMPLE_INSTALL)
-diff --git a/ports/aws-sdk-cpp/portfile.cmake b/ports/aws-sdk-cpp/portfile.cmake
-index b520a17ae3..ea9e770cf5 100644
---- a/ports/aws-sdk-cpp/portfile.cmake
-+++ b/ports/aws-sdk-cpp/portfile.cmake
-@@ -8,6 +8,7 @@ vcpkg_from_github(
-     PATCHES
-         patch-relocatable-rpath.patch
-         fix-aws-root.patch
-+        fix-find-crypto.patch
- )
- 
- string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
 index f81d0c491d..e5ea9cef57 100644
 --- a/ports/curl/portfile.cmake

@@ -804,8 +804,13 @@ class ColumnReaderImplBase {
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
-        case Encoding::DELTA_LENGTH_BYTE_ARRAY:
-          ParquetException::NYI("Unsupported encoding");
+        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
+          auto decoder =
+              MakeTypedDecoder<DType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_);
+          current_decoder_ = decoder.get();
+          decoders_[static_cast<int>(encoding)] = std::move(decoder);
+          break;
+        }
 
         default:
           throw ParquetException("Unknown encoding type.");

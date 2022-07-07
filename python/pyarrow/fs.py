@@ -46,6 +46,11 @@ except ImportError:
     _not_imported.append("HadoopFileSystem")
 
 try:
+    from pyarrow._gcsfs import GcsFileSystem  # noqa
+except ImportError:
+    _not_imported.append("GcsFileSystem")
+
+try:
     from pyarrow._s3fs import (  # noqa
         S3FileSystem, S3LogLevel, initialize_s3, finalize_s3,
         resolve_s3_region)

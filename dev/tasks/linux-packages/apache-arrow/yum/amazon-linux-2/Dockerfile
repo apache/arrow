@@ -18,8 +18,6 @@
 ARG FROM=amazonlinux:2
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 ARG DEBUG
 
 RUN \
@@ -39,6 +37,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    jemalloc-devel \
     json-devel \
     lz4-devel \
     make \

@@ -916,7 +916,7 @@ template <typename ScalarType, typename T = typename ScalarType::TypeClass,
           // undefined
           typename Value = typename Formatter::value_type>
 Status CastImpl(const ScalarType& from, StringScalar* to) {
-  to->value = FormatToBuffer(Formatter{from.type}, from);
+  to->value = FormatToBuffer(Formatter{from.type.get()}, from);
   return Status::OK();
 }
 

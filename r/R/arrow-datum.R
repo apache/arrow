@@ -123,7 +123,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
       x,
       options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
     ),
-    sqrt = eval_array_expression("power_checked", x, 0.5),
+    sqrt = eval_array_expression("sqrt_checked", x),
     exp = eval_array_expression("power_checked", exp(1), x),
     signif = ,
     expm1 = ,

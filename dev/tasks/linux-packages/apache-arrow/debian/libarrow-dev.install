@@ -5,6 +5,7 @@ usr/lib/*/cmake/arrow/ArrowTargets*.cmake
 usr/lib/*/cmake/arrow/Find*Alt.cmake
 usr/lib/*/cmake/arrow/FindArrow.cmake
 usr/lib/*/cmake/arrow/FindBrotli.cmake
+usr/lib/*/cmake/arrow/Findjemalloc.cmake
 usr/lib/*/cmake/arrow/Find[STuz]*.cmake
 usr/lib/*/cmake/arrow/arrow-config.cmake
 usr/lib/*/libarrow.a
@@ -16,3 +17,5 @@ usr/lib/*/pkgconfig/arrow-filesystem.pc
 usr/lib/*/pkgconfig/arrow-json.pc
 usr/lib/*/pkgconfig/arrow-orc.pc
 usr/lib/*/pkgconfig/arrow.pc
+usr/share/arrow/gdb/
+usr/share/gdb/auto-load/

@@ -54,6 +54,13 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
     cdef cppclass CDecimal256" arrow::Decimal256":
         c_string ToString(int32_t scale) const
 
+cdef extern from "arrow/util/optional.h" namespace "arrow::util" nogil:
+    cdef cppclass c_optional"arrow::util::optional"[T]:
+        c_bool has_value()
+        T value()
+        c_optional(T&)
+        c_optional& operator=[U](U&)
+
 
 cdef extern from "arrow/config.h" namespace "arrow" nogil:
     cdef cppclass CBuildInfo" arrow::BuildInfo":
@@ -862,6 +869,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CRecordBatchReader" arrow::RecordBatchReader":
         shared_ptr[CSchema] schema()
+        CStatus Close()
         CStatus ReadNext(shared_ptr[CRecordBatch]* batch)
         CResult[shared_ptr[CTable]] ToTable()
 
@@ -1883,6 +1891,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CResult[CDatum] Execute(const vector[CDatum]& args,
                                 const CFunctionOptions* options,
                                 CExecContext* ctx) const
+        CResult[CDatum] Execute(const CExecBatch& args,
+                                const CFunctionOptions* options,
+                                CExecContext* ctx) const
 
     cdef cppclass CScalarFunction" arrow::compute::ScalarFunction"(CFunction):
         vector[const CScalarKernel*] kernels() const
@@ -2329,10 +2340,25 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRandomOptions(CRandomOptions)
 
         @staticmethod
-        CRandomOptions FromSystemRandom(int64_t length)
+        CRandomOptions FromSystemRandom()
 
         @staticmethod
-        CRandomOptions FromSeed(int64_t length, uint64_t seed)
+        CRandomOptions FromSeed(uint64_t seed)
+
+    cdef enum CRankOptionsTiebreaker \
+            "arrow::compute::RankOptions::Tiebreaker":
+        CRankOptionsTiebreaker_Min "arrow::compute::RankOptions::Min"
+        CRankOptionsTiebreaker_Max "arrow::compute::RankOptions::Max"
+        CRankOptionsTiebreaker_First "arrow::compute::RankOptions::First"
+        CRankOptionsTiebreaker_Dense "arrow::compute::RankOptions::Dense"
+
+    cdef cppclass CRankOptions \
+            "arrow::compute::RankOptions"(CFunctionOptions):
+        CRankOptions(vector[CSortKey] sort_keys, CNullPlacement,
+                     CRankOptionsTiebreaker tiebreaker)
+        vector[CSortKey] sort_keys
+        CNullPlacement null_placement
+        CRankOptionsTiebreaker tiebreaker
 
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
@@ -2381,11 +2407,11 @@ cdef extern from * namespace "arrow::compute":
             const CBuffer& buffer)
 
 
-cdef extern from "arrow/compute/api_aggregate.h" namespace \
+cdef extern from "arrow/compute/exec/aggregate.h" namespace \
         "arrow::compute::internal" nogil:
-    cdef cppclass CAggregate "arrow::compute::internal::Aggregate":
+    cdef cppclass CAggregate "arrow::compute::Aggregate":
         c_string function
-        const CFunctionOptions* options
+        shared_ptr[CFunctionOptions] options
 
     CResult[CDatum] GroupBy(const vector[CDatum]& arguments,
                             const vector[CDatum]& keys,
@@ -2529,7 +2555,8 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         const shared_ptr[CSchema]& output_schema() const
 
     cdef cppclass CExecBatch "arrow::compute::ExecBatch":
-        pass
+        vector[CDatum] values
+        int64_t length
 
     shared_ptr[CRecordBatchReader] MakeGeneratorReader(
         shared_ptr[CSchema] schema,

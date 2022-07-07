@@ -117,7 +117,7 @@ transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
   has_null <- map_lgl(dots, quo_is_null)
   .data <- dplyr::mutate(.data, !!!dots, .keep = "none")
-  if (is_empty(dots) | any(has_null)) {
+  if (is_empty(dots) || any(has_null)) {
     return(.data)
   }
 

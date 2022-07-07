@@ -50,7 +50,8 @@ class FilterNode : public MapNode {
 
     auto filter_expression = filter_options.filter_expression;
     if (!filter_expression.IsBound()) {
-      ARROW_ASSIGN_OR_RAISE(filter_expression, filter_expression.Bind(*schema));
+      ARROW_ASSIGN_OR_RAISE(filter_expression,
+                            filter_expression.Bind(*schema, plan->exec_context()));
     }
 
     if (filter_expression.type()->id() != Type::BOOL) {

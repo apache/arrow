@@ -103,4 +103,5 @@ ENV ARROW_BUILD_TESTS=ON \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
+    xsimd_SOURCE=BUNDLED \
     zstd_SOURCE=BUNDLED
