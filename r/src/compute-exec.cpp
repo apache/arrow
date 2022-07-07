@@ -125,6 +125,11 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
   return node->output_schema();
 }
 
+// [[arrow::export]]
+std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
+  return plan->ToString();
+}
+
 #if defined(ARROW_R_WITH_DATASET)
 
 #include <arrow/dataset/file_base.h>

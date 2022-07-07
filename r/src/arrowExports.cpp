@@ -898,6 +898,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
+std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan);
+extern "C" SEXP _arrow_ExecPlan_ToString(SEXP plan_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	return cpp11::as_sexp(ExecPlan_ToString(plan));
+END_CPP11
+}
+// compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, std::vector<std::string> materialized_field_names);
 extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
@@ -5242,6 +5250,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 5}, 
 		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
+		{ "_arrow_ExecPlan_ToString", (DL_FUNC) &_arrow_ExecPlan_ToString, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 14}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
