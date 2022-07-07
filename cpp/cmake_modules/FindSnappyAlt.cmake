@@ -88,7 +88,7 @@ if(SnappyAlt_FOUND)
     set(Snappy_TARGET_TYPE STATIC)
   endif()
   add_library(${Snappy_TARGET} ${Snappy_TARGET_TYPE} IMPORTED)
-  set_target_properties(${Snappy_TARGET_TYPE}
+  set_target_properties(${Snappy_TARGET}
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
 endif()
