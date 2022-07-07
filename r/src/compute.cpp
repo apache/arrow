@@ -695,15 +695,45 @@ class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
 
 // [[arrow::export]]
 void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
-  const arrow::compute::FunctionDoc dummy_function_doc{
-      "A user-defined R function", "returns something", {"..."}};
-
-  auto func = std::make_shared<arrow::compute::ScalarFunction>(
-      name, arrow::compute::Arity::VarArgs(), dummy_function_doc);
-
   cpp11::list in_type_r(func_sexp.attr("in_type"));
   cpp11::list out_type_r(func_sexp.attr("out_type"));
   R_xlen_t n_kernels = in_type_r.size();
+
+  if (n_kernels == 0) {
+    cpp11::stop("Can't register user-defined function with zero kernels");
+  }
+
+  // compute the Arity from the list of input kernels
+  std::vector<int64_t> n_args(n_kernels);
+  for (R_xlen_t i = 0; i < n_kernels; i++) {
+    auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
+    n_args[i] = in_types->num_fields();
+  }
+
+  int64_t min_args = *std::min_element(n_args.begin(), n_args.end());
+  int64_t max_args = *std::max_element(n_args.begin(), n_args.end());
+
+  // We can't currently handle variable numbers of arguments in a user-defined
+  // function and we don't have a mechanism for the user to specify a variable
+  // number of arguments at the end of a signature.
+  if (min_args != max_args) {
+    cpp11::stop(
+        "User-defined function with a variable number of arguments is not supported");
+  }
+
+  arrow::compute::Arity arity(min_args, false);
+
+  // The function documentation isn't currently accessible from R but is required
+  // for the C++ function constructor.
+  std::vector<std::string> dummy_argument_names(min_args);
+  for (int64_t i = 0; i < min_args; i++) {
+    dummy_argument_names[i] = "arg";
+  }
+  const arrow::compute::FunctionDoc dummy_function_doc{
+      "A user-defined R function", "returns something", std::move(dummy_argument_names)};
+
+  auto func =
+      std::make_shared<arrow::compute::ScalarFunction>(name, arity, dummy_function_doc);
 
   for (R_xlen_t i = 0; i < n_kernels; i++) {
     auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);

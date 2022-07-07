@@ -110,6 +110,28 @@ test_that("register_user_defined_function() adds a compute function to the regis
   )
 })
 
+test_that("register_user_defined_function() errors for unsupported specifications", {
+  no_kernel_wrapper <- arrow_scalar_function(
+    function(...) NULL,
+    list(),
+    list()
+  )
+  expect_error(
+    register_user_defined_function(no_kernel_wrapper, "no_kernels"),
+    "Can't register user-defined function with zero kernels"
+  )
+
+  varargs_kernel_wrapper <- arrow_scalar_function(
+    function(...) NULL,
+    list(float64(), schema(x = float64(), y = float64())),
+    list(float64())
+  )
+  expect_error(
+    register_user_defined_function(varargs_kernel_wrapper, "var_kernels"),
+    "User-defined function with a variable number of arguments is not supported"
+  )
+})
+
 test_that("user-defined functions work during multi-threaded execution", {
   skip_if_not_available("dataset")
 
