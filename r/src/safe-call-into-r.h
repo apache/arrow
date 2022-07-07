@@ -20,6 +20,7 @@
 
 #include "./arrow_types.h"
 
+#include <arrow/io/interfaces.h>
 #include <arrow/util/future.h>
 #include <arrow/util/thread_pool.h>
 
@@ -143,6 +144,9 @@ static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun) {
   return future.status();
 }
 
+// Performs an Arrow call (e.g., run an exec plan) in such a way that background threads
+// can use SafeCallIntoR(). This version is useful for Arrow calls that already
+// return a Future<>.
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
   if (!CanSafeCallIntoR()) {
@@ -166,6 +170,27 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
   GetMainRThread().ClearError();
 
   return result;
+}
+
+// Performs an Arrow call (e.g., run an exec plan) in such a way that background threads
+// can use SafeCallIntoR(). This version is useful for Arrow calls that do not already
+// return a Future<>(). If it is not possible to use RunWithCapturedR() (i.e.,
+// CanSafeCallIntoR() returns false), this will run make_arrow_call on the main
+// R thread (which will cause background threads that try to SafeCallIntoR() to
+// error).
+template <typename T>
+arrow::Result<T> RunWithCapturedRIfPossible(
+    std::function<arrow::Result<T>()> make_arrow_call) {
+  if (CanSafeCallIntoR()) {
+    // Note that the use of the io_context here is arbitrary (i.e. we could use
+    // any construct that launches a background thread).
+    const auto& io_context = arrow::io::default_io_context();
+    return RunWithCapturedR<T>([&]() {
+      return DeferNotOk(io_context.executor()->Submit(std::move(make_arrow_call)));
+    });
+  } else {
+    return make_arrow_call();
+  }
 }
 
 #endif

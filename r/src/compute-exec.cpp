@@ -22,7 +22,6 @@
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
 #include <arrow/compute/exec/options.h>
-#include <arrow/io/interfaces.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
@@ -135,20 +134,14 @@ std::shared_ptr<arrow::Table> ExecPlan_read_table(
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
     cpp11::strings metadata, int64_t head = -1) {
   auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  if (!CanSafeCallIntoR()) {
-    StopIfNotOk(prepared_plan.first->StartProducing());
-    return ValueOrStop(prepared_plan.second->ToTable());
-  } else {
-    const auto& io_context = arrow::io::default_io_context();
-    auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
-      return DeferNotOk(io_context.executor()->Submit([&]() {
-        StopIfNotOk(prepared_plan.first->StartProducing());
-        return prepared_plan.second->ToTable();
-      }));
-    });
 
-    return ValueOrStop(result);
-  }
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() -> arrow::Result<std::shared_ptr<arrow::Table>> {
+        ARROW_RETURN_NOT_OK(prepared_plan.first->StartProducing());
+        return prepared_plan.second->ToTable();
+      });
+
+  return ValueOrStop(result);
 }
 
 // [[arrow::export]]
@@ -233,22 +226,13 @@ void ExecPlan_Write(
                      ds::WriteNodeOptions{std::move(opts), std::move(kv)});
 
   StopIfNotOk(plan->Validate());
+  auto result = RunWithCapturedRIfPossible<bool>([&]() -> arrow::Result<bool> {
+    RETURN_NOT_OK(plan->StartProducing());
+    RETURN_NOT_OK(plan->finished().status());
+    return true;
+  });
 
-  if (!CanSafeCallIntoR()) {
-    StopIfNotOk(plan->StartProducing());
-    StopIfNotOk(plan->finished().status());
-  } else {
-    const auto& io_context = arrow::io::default_io_context();
-    auto result = RunWithCapturedR<bool>([&]() {
-      return DeferNotOk(io_context.executor()->Submit([&]() -> arrow::Result<bool> {
-        RETURN_NOT_OK(plan->StartProducing());
-        RETURN_NOT_OK(plan->finished().status());
-        return true;
-      }));
-    });
-
-    StopIfNotOk(result.status());
-  }
+  StopIfNotOk(result.status());
 }
 
 #endif
