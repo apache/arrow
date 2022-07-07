@@ -2401,9 +2401,31 @@ garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
                                gint8 type_code,
                                GArrowScalar *value)
 {
-  return GARROW_SPARSE_UNION_SCALAR(
-    garrow_union_scalar_new<arrow::SparseUnionScalar>(
-      GARROW_DATA_TYPE(data_type), type_code, value));
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto &arrow_type_codes =
+    std::dynamic_pointer_cast<arrow::SparseUnionType>(
+      arrow_data_type)->type_codes();
+  auto arrow_value = garrow_scalar_get_raw(value);
+  arrow::SparseUnionScalar::ValueType arrow_field_values;
+  for (int i = 0; i < arrow_data_type->num_fields(); ++i) {
+    if (arrow_type_codes[i] == type_code) {
+      arrow_field_values.emplace_back(arrow_value);
+    } else {
+      arrow_field_values.emplace_back(
+        arrow::MakeNullScalar(arrow_data_type->field(i)->type()));
+    }
+  }
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::SparseUnionScalar>(arrow_field_values,
+                                                 type_code,
+                                                 arrow_data_type));
+  auto scalar = garrow_scalar_new_raw(&arrow_scalar,
+                                      "scalar", &arrow_scalar,
+                                      "data-type", data_type,
+                                      "value", value,
+                                      NULL);
+  return GARROW_SPARSE_UNION_SCALAR(scalar);
 }
 
 
@@ -2436,9 +2458,19 @@ garrow_dense_union_scalar_new(GArrowDenseUnionDataType *data_type,
                               gint8 type_code,
                               GArrowScalar *value)
 {
-  return GARROW_DENSE_UNION_SCALAR(
-    garrow_union_scalar_new<arrow::DenseUnionScalar>(
-      GARROW_DATA_TYPE(data_type), type_code, value));
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_value = garrow_scalar_get_raw(value);
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::DenseUnionScalar>(arrow_value,
+                                                type_code,
+                                                arrow_data_type));
+  auto scalar = garrow_scalar_new_raw(&arrow_scalar,
+                                      "scalar", &arrow_scalar,
+                                      "data-type", data_type,
+                                      "value", value,
+                                      NULL);
+  return GARROW_DENSE_UNION_SCALAR(scalar);
 }
 
 

@@ -5284,12 +5284,9 @@ GArrowCastOptions *
 garrow_cast_options_new_raw(const arrow::compute::CastOptions *arrow_options)
 {
   GArrowDataType *to_data_type = NULL;
-  if (arrow_options->to_type) {
-    auto arrow_copied_options = arrow_options->Copy();
-    auto arrow_copied_cast_options =
-      static_cast<arrow::compute::CastOptions *>(arrow_copied_options.get());
-    to_data_type =
-      garrow_data_type_new_raw(&(arrow_copied_cast_options->to_type));
+  if (arrow_options->to_type.type) {
+    auto arrow_to_data_type = arrow_options->to_type.GetSharedPtr();
+    to_data_type = garrow_data_type_new_raw(&arrow_to_data_type);
   }
   auto options =
     g_object_new(GARROW_TYPE_CAST_OPTIONS,
