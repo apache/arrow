@@ -363,7 +363,6 @@ jobs:
       - name: Test
         shell: msys2 {0}
         run: |
-          python3 -c 'import numpy; print(numpy.version.version)'
           python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
           export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
           PYTHONPATH="${PYTHONHOME}"
