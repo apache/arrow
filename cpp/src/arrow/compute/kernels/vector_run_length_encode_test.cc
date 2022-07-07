@@ -52,7 +52,6 @@ struct RLETestData {
     return result;
   }
 
-
   std::shared_ptr<Array> input;
   std::shared_ptr<Array> expected_values;
   std::vector<int64_t> expected_run_lengths;
@@ -60,8 +59,9 @@ struct RLETestData {
   std::string string;
 };
 
-std::ostream& operator<<(std::ostream& stream, const RLETestData &test_data) {
-  return stream << "RLETestData(" << *test_data.input->type() << ", " + test_data.string << ")";
+std::ostream& operator<<(std::ostream& stream, const RLETestData& test_data) {
+  return stream << "RLETestData(" << *test_data.input->type() << ", " + test_data.string
+                << ")";
 }
 
 class TestRunLengthEncode : public ::testing::TestWithParam<RLETestData> {};
