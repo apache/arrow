@@ -291,8 +291,7 @@ class GcsIntegrationTest : public ::testing::Test {
 class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest {
  public:
   void SetUp() override {
-    GcsIntegrationTest::SetUp();  // Setup failure is not propagating
-    ASSERT_TRUE(Testbench()->running());
+    ASSERT_NO_FATAL_FAILURE(GcsIntegrationTest::SetUp());
     auto bucket_name = RandomBucketName();
     gcs_fs_ = GcsFileSystem::Make(TestGcsOptions());
     ASSERT_OK(gcs_fs_->CreateDir(bucket_name, true));
