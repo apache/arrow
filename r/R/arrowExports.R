@@ -408,8 +408,8 @@ ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
-ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head, on_old_windows) {
-  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head, on_old_windows)
+ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head) {
+  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head)
 }
 
 ExecPlan_StopProducing <- function(plan) {
@@ -424,8 +424,8 @@ ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
 }
 
-ExecPlan_Write <- function(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, on_old_windows) {
-  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, on_old_windows))
+ExecPlan_Write <- function(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
 }
 
 ExecNode_Filter <- function(input, filter) {
@@ -1116,12 +1116,12 @@ ipc___feather___Reader__version <- function(reader) {
   .Call(`_arrow_ipc___feather___Reader__version`, reader)
 }
 
-ipc___feather___Reader__Read <- function(reader, columns, on_old_windows) {
-  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns, on_old_windows)
+ipc___feather___Reader__Read <- function(reader, columns) {
+  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns)
 }
 
-ipc___feather___Reader__Open <- function(stream, on_old_windows) {
-  .Call(`_arrow_ipc___feather___Reader__Open`, stream, on_old_windows)
+ipc___feather___Reader__Open <- function(stream) {
+  .Call(`_arrow_ipc___feather___Reader__Open`, stream)
 }
 
 ipc___feather___Reader__schema <- function(reader) {

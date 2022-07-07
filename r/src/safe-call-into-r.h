@@ -27,11 +27,17 @@
 #include <thread>
 
 // Unwind protection was added in R 3.5 and some calls here use it
-// and crash R in older versions (ARROW-16201). We use this define
-// to make sure we don't crash on R 3.4 and lower.
+// and crash R in older versions (ARROW-16201). Crashes also occur
+// on 32-bit R builds on R 3.6 and lower.
+static inline bool CanSafeCallIntoR() {
 #if defined(HAS_UNWIND_PROTECT)
-#define HAS_SAFE_CALL_INTO_R
+  cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
+  bool on_old_windows = on_old_windows_fun();
+  return !on_old_windows;
+#else
+  return false;
 #endif
+}
 
 // The MainRThread class keeps track of the thread on which it is safe
 // to call the R API to facilitate its safe use (or erroring
@@ -139,9 +145,11 @@ static inline arrow::Status SafeCallIntoRVoid(std::function<void(void)> fun) {
 
 template <typename T>
 arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_call) {
-#if !defined(HAS_SAFE_CALL_INTO_R)
-  return arrow::Status::NotImplemented("RunWithCapturedR() without UnwindProtect");
-#else
+  if (!CanSafeCallIntoR()) {
+    return arrow::Status::NotImplemented(
+        "RunWithCapturedR() without UnwindProtect or on 32-bit Windows + R <= 3.6");
+  }
+
   if (GetMainRThread().Executor() != nullptr) {
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
@@ -158,7 +166,6 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
   GetMainRThread().ClearError();
 
   return result;
-#endif
 }
 
 #endif

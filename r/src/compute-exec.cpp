@@ -133,26 +133,22 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
 std::shared_ptr<arrow::Table> ExecPlan_read_table(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1, bool on_old_windows = false) {
+    cpp11::strings metadata, int64_t head = -1) {
   auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-#if !defined(HAS_SAFE_CALL_INTO_R)
-  StopIfNotOk(prepared_plan.first->StartProducing());
-  return ValueOrStop(prepared_plan.second->ToTable());
-#else
-  if (on_old_windows) {
+  if (!CanSafeCallIntoR()) {
     StopIfNotOk(prepared_plan.first->StartProducing());
     return ValueOrStop(prepared_plan.second->ToTable());
-  }
+  } else {
+    const auto& io_context = arrow::io::default_io_context();
+    auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
+      return DeferNotOk(io_context.executor()->Submit([&]() {
+        StopIfNotOk(prepared_plan.first->StartProducing());
+        return prepared_plan.second->ToTable();
+      }));
+    });
 
-  const auto& io_context = arrow::io::default_io_context();
-  auto result = RunWithCapturedR<std::shared_ptr<arrow::Table>>([&]() {
-    return DeferNotOk(io_context.executor()->Submit([&]() {
-      StopIfNotOk(prepared_plan.first->StartProducing());
-      return prepared_plan.second->ToTable();
-    }));
-  });
-  return ValueOrStop(result);
-#endif
+    return ValueOrStop(result);
+  }
 }
 
 // [[arrow::export]]
@@ -214,7 +210,7 @@ void ExecPlan_Write(
     const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
     arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
     uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
-    uint64_t max_rows_per_group, bool on_old_windows) {
+    uint64_t max_rows_per_group) {
   arrow::dataset::internal::Initialize();
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
@@ -238,11 +234,7 @@ void ExecPlan_Write(
 
   StopIfNotOk(plan->Validate());
 
-#if !defined(HAS_SAFE_CALL_INTO_R)
-  StopIfNotOk(plan->StartProducing());
-  StopIfNotOk(plan->finished().status());
-#else
-  if (on_old_windows) {
+  if (!CanSafeCallIntoR()) {
     StopIfNotOk(plan->StartProducing());
     StopIfNotOk(plan->finished().status());
   } else {
@@ -257,7 +249,6 @@ void ExecPlan_Write(
 
     StopIfNotOk(result.status());
   }
-#endif
 }
 
 #endif
