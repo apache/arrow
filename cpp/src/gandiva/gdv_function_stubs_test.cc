@@ -459,33 +459,27 @@ TEST(TestGdvFnStubs, TestEncode) {
   int32_t out_len = 0;
 
   const char* out_str = gdv_fn_encode(ctx_ptr, "AbcDEfGh", 8, "UTF-16BE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "00410062006300440045006600470068");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_encode(ctx_ptr, "asdfj", 5, "UTF-16BE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "0061007300640066006A");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_encode(ctx_ptr, "s;dcGS,jO!l", 11, "UTF-16BE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len),
             "0073003B0064006300470053002C006A004F0021006C");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_encode(ctx_ptr, "AbcDEfGh", 8, "UTF-16LE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "41006200630044004500660047006800");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_encode(ctx_ptr, "asdfj", 5, "UTF-16LE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "61007300640066006A00");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_encode(ctx_ptr, "s;dcGS,jO!l", 11, "UTF-16LE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len),
             "73003B0064006300470053002C006A004F0021006C00");
   EXPECT_FALSE(ctx.has_error());
@@ -507,35 +501,29 @@ TEST(TestGdvFnStubs, TestDecode) {
 
   const char* out_str = gdv_fn_decode(ctx_ptr, "00410062006300440045006600470068", 32,
                                       "UTF-16BE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "AbcDEfGh");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_decode(ctx_ptr, "0061007300640066006A", 20, "UTF-16BE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "asdfj");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_decode(ctx_ptr, "0073003B0064006300470053002C006A004F0021006C", 44,
                           "UTF-16BE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "s;dcGS,jO!l");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_decode(ctx_ptr, "41006200630044004500660047006800", 32, "UTF-16LE", 8,
                           &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "AbcDEfGh");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_decode(ctx_ptr, "61007300640066006A00", 20, "UTF-16LE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "asdfj");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_decode(ctx_ptr, "73003B0064006300470053002C006A004F0021006C00", 44,
                           "UTF-16LE", 8, &out_len);
-  ARROW_LOG(INFO) << " output: " << std::string(out_str, out_len) << " " << out_len;
   EXPECT_EQ(std::string(out_str, out_len), "s;dcGS,jO!l");
   EXPECT_FALSE(ctx.has_error());
 }

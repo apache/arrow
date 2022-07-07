@@ -284,6 +284,8 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
 
   int32_t char_len;
   uint32_t char_codepoint;
+  int32_t y = 5;
+  int32_t z = 9;
 
   std::string charset_str(charset, charset_len);
 
@@ -298,7 +300,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
       if (char_len == 1) {
         int32_t input = static_cast<int32_t>(data[i]);
 
-        auto num_bytes = snprintf(tmp + ind_w, 5, "%.4X", input);
+        auto num_bytes = snprintf(tmp + ind_w, y, "%.4X", input);
         ind_w += num_bytes;
       } else if (char_len == 2) {
         const auto* in_char = (const uint8_t*)(data + i);
@@ -314,7 +316,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
           return "";
         }
 
-        auto num_bytes = snprintf(tmp + ind_w, 5, "%.4X", char_codepoint);
+        auto num_bytes = snprintf(tmp + ind_w, y, "%.4X", char_codepoint);
         ind_w += num_bytes;
       } else if (char_len == 3) {
         const auto* in_char = (const uint8_t*)(data + i);
@@ -330,7 +332,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
           return "";
         }
 
-        auto num_bytes = snprintf(tmp + ind_w, 9, "%.8X", char_codepoint);
+        auto num_bytes = snprintf(tmp + ind_w, z, "%.8X", char_codepoint);
         ind_w += num_bytes;
       } else if (char_len == 4) {
         const auto* in_char = (const uint8_t*)(data + i);
@@ -346,7 +348,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
           return "";
         }
 
-        auto num_bytes = snprintf(tmp + ind_w, 9, "%.8X", char_codepoint);
+        auto num_bytes = snprintf(tmp + ind_w, z, "%.8X", char_codepoint);
         ind_w += num_bytes;
       }
     }
@@ -363,7 +365,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
 
         char hex_string[20];
 
-        snprintf(hex_string, 5, "%.4X", input);
+        snprintf(hex_string, y, "%.4X", input);
 
         for (int32_t xx = 0; xx < 4; xx += 4) {
           char pp = hex_string[xx];
@@ -393,7 +395,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
 
         char hex_string[20];
 
-        snprintf(hex_string, 5, "%.4X", char_codepoint);
+        snprintf(hex_string, y, "%.4X", char_codepoint);
 
         for (int32_t xx = 0; xx < 4; xx += 4) {
           char pp = hex_string[xx];
@@ -423,7 +425,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
 
         char hex_string[20];
 
-        snprintf(hex_string, 9, "%.8X", char_codepoint);
+        snprintf(hex_string, z, "%.8X", char_codepoint);
 
         for (int32_t xx = 0; xx < 8; xx += 4) {
           char pp = hex_string[xx];
@@ -453,7 +455,7 @@ const char* gdv_fn_encode(int64_t context, const char* data, int32_t data_len,
 
         char hex_string[20];
 
-        snprintf(hex_string, 9, "%.8X", char_codepoint);
+        snprintf(hex_string, z, "%.8X", char_codepoint);
 
         for (int32_t xx = 0; xx < 8; xx += 4) {
           char pp = hex_string[xx];
