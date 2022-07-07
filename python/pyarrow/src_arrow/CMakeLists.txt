@@ -263,7 +263,7 @@ endif()
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
 
   find_package(ArrowFlight REQUIRED)
-  find_package(gRPC CONFIG REQUIRED)
+  find_package(gRPC REQUIRED)
   include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/build/src")
 
   # Using arrow_flight_shared, see example
