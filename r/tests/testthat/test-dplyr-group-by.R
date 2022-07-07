@@ -156,3 +156,16 @@ test_that("group_by with .drop", {
     example_with_logical_factors
   )
 })
+
+test_that("group_by() and namespacing", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(int > base::sqrt(25)) %>%
+      summarise(mean(dbl, na.rm = TRUE)) %>%
+      # group order is different from dplyr, hence reordering
+      arrange(`int > base::sqrt(25)`) %>%
+      collect(),
+    tbl
+  )
+
+})
