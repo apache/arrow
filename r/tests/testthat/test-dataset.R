@@ -619,7 +619,7 @@ test_that("UnionDataset handles InMemoryDatasets", {
 })
 
 test_that("scalar aggregates with many batches", {
-  test_data             <- data.frame(val=1:1e7)
+  test_data <- data.frame(val=1:1e7)
   expected_result_distr <- (
     sapply(1:100, function (iter_ndx) {
       test_data                              %>%
