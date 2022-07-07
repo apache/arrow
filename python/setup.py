@@ -298,7 +298,6 @@ class build_ext(_build_ext):
                 pass
 
             print(f"moving {build_temp} to {build_lib}")
-            # a bit hacky
             for libname in os.listdir(build_temp):
                 if "libarrow_python" in libname:
                     libname_path = pjoin(build_lib, "pyarrow", libname)
@@ -306,11 +305,14 @@ class build_ext(_build_ext):
                         os.remove(libname_path)
                     shutil.move(pjoin(build_temp, libname),
                                 pjoin(build_lib, "pyarrow"))
+
             print(f"copying include folder: {build_include} to {build_lib}")
-            if not os.path.isdir(pjoin(build_include, "arrow", "python")):
-                self.mkpath(pjoin(build_include, "arrow", "python"))
-            shutil.copytree(pjoin(build_include, "arrow", "python"), pjoin(
-                build_lib, "pyarrow", "include", "arrow", "python"))
+            arrow_python_include = pjoin(build_include, "arrow", "python")
+            pyarrow_include = pjoin(
+                build_lib, "pyarrow", "include", "arrow", "python")
+            if os.path.exists(pyarrow_include):
+                shutil.rmtree(pyarrow_include)
+            shutil.copytree(arrow_python_include, pyarrow_include)
 
     def _run_cmake(self):
         # check if build_type is correctly passed / set
