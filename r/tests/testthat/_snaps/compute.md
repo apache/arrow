@@ -1,8 +1,8 @@
 # arrow_advanced_scalar_function() works
 
-    `fun` must accept exactly two arguments
+    `advanced_fun` must accept exactly two arguments
 
 ---
 
-    Can't convert `fun`, NULL, to a function.
+    Can't convert `advanced_fun`, NULL, to a function.
 

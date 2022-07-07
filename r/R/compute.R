@@ -333,26 +333,26 @@ cast_options <- function(safe = TRUE, ...) {
 #'   that can be converted to an [Array] using [as_arrow_array()]. Function
 #'   authors must take care to return an array castable to the output data
 #'   type specified by `out_type`.
-#' @param base_fun An R function or rlang-style lambda expression. This
+#' @param advanced_fun An R function or rlang-style lambda expression. This
 #'   function will be called with exactly two arguments: `kernel_context`,
 #'   which is a `list()` of objects giving information about the
 #'   execution context and `args`, which is a list of [Array] or [Scalar]
 #'   objects corresponding to the input arguments.
 #'
 #' @return
-#'   - `register_scalar_function()`: `NULL`, invisibly
+#'   - `register_user_defined_function()`: `NULL`, invisibly
 #'   - `arrow_scalar_function()`: returns an object of class
 #'     "arrow_advanced_scalar_function" that can be passed to
-#'     `register_scalar_function()`.
+#'     `register_user_defined_function()`.
 #' @export
 #'
 #' @examplesIf .Machine$sizeof.pointer >= 8
 #' fun_wrapper <- arrow_scalar_function(
-#'   function(x, y, z) x + y + z
+#'   function(x, y, z) x + y + z,
 #'   schema(x = float64(), y = float64(), z = float64()),
 #'   float64()
 #' )
-#' register_user_defined_function("example_add3", fun_wrapper)
+#' register_user_defined_function(fun_wrapper, "example_add3")
 #'
 #' call_function(
 #'   "example_add3",
@@ -363,13 +363,13 @@ cast_options <- function(safe = TRUE, ...) {
 #'
 #' # use arrow_advanced_scalar_function() for a lower-level interface
 #' advanced_fun_wrapper <- arrow_advanced_scalar_function(
-#'   schema(x = float64(), y = float64(), z = float64()),
-#'   float64(),
 #'   function(context, args) {
 #'     args[[1]] + args[[2]] + args[[3]]
-#'   }
+#'   },
+#'   schema(x = float64(), y = float64(), z = float64()),
+#'   float64()
 #' )
-#' register_user_defined_function("example_add3", advanced_fun_wrapper)
+#' register_user_defined_function(advanced_fun_wrapper, "example_add3")
 #'
 #' call_function(
 #'   "example_add3",
@@ -378,20 +378,19 @@ cast_options <- function(safe = TRUE, ...) {
 #'   Array$create(3)
 #' )
 #'
-register_user_defined_function <- function(name, scalar_function, registry_name = name) {
+register_user_defined_function <- function(scalar_function, name) {
   assert_that(
     is.string(name),
-    is.string(registry_name),
     inherits(scalar_function, "arrow_advanced_scalar_function")
   )
 
   # register with Arrow C++
-  RegisterScalarUDF(registry_name, scalar_function)
+  RegisterScalarUDF(name, scalar_function)
 
   # register with dplyr bindings
   register_binding(
     name,
-    function(...) build_expr(registry_name, ...)
+    function(...) build_expr(name, ...)
   )
 
   # recreate dplyr binding cache
@@ -404,18 +403,21 @@ register_user_defined_function <- function(name, scalar_function, registry_name 
 #' @export
 arrow_scalar_function <- function(fun, in_type, out_type) {
   fun <- rlang::as_function(fun)
-  base_fun <- function(context, args) {
+
+  # create a small wrapper that converts Scalar/Array arguments to R vectors
+  # and converts the result back to an Array
+  advanced_fun <- function(context, args) {
     args <- lapply(args, as.vector)
     result <- do.call(fun, args)
     as_arrow_array(result, type = context$output_type)
   }
 
-  arrow_advanced_scalar_function(base_fun, in_type, out_type)
+  arrow_advanced_scalar_function(advanced_fun, in_type, out_type)
 }
 
 #' @rdname register_user_defined_function
 #' @export
-arrow_advanced_scalar_function <- function(fun, in_type, out_type) {
+arrow_advanced_scalar_function <- function(advanced_fun, in_type, out_type) {
   if (is.list(in_type)) {
     in_type <- lapply(in_type, as_scalar_function_in_type)
   } else {
@@ -430,13 +432,13 @@ arrow_advanced_scalar_function <- function(fun, in_type, out_type) {
 
   out_type <- rep_len(out_type, length(in_type))
 
-  fun <- rlang::as_function(fun)
-  if (length(formals(fun)) != 2) {
-    abort("`fun` must accept exactly two arguments")
+  advanced_fun <- rlang::as_function(advanced_fun)
+  if (length(formals(advanced_fun)) != 2) {
+    abort("`advanced_fun` must accept exactly two arguments")
   }
 
   structure(
-    fun,
+    advanced_fun,
     in_type = in_type,
     out_type = out_type,
     class = "arrow_advanced_scalar_function"

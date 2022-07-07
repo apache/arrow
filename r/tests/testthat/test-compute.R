@@ -82,12 +82,12 @@ test_that("arrow_scalar_function() returns an advanced scalar function", {
 test_that("register_user_defined_function() adds a compute function to the registry", {
   skip_if_not_available("dataset")
 
-  times_32 <- arrow_scalar_function(
+  times_32_wrapper <- arrow_scalar_function(
     function(x) x * 32.0,
     int32(), float64()
   )
 
-  register_user_defined_function("times_32", times_32)
+  register_user_defined_function(times_32_wrapper, "times_32")
 
   expect_true("times_32" %in% names(arrow:::.cache$functions))
   expect_true("times_32" %in% list_compute_functions())
@@ -130,12 +130,12 @@ test_that("user-defined functions work during multi-threaded execution", {
   on.exit(unlink(c(tf_dataset, tf_dest)))
   write_dataset(example_df, tf_dataset, partitioning = "part")
 
-  times_32 <- arrow_scalar_function(
+  times_32_wrapper <- arrow_scalar_function(
     function(x) x * 32.0,
     int32(), float64()
   )
 
-  register_user_defined_function("times_32", times_32)
+  register_user_defined_function(times_32_wrapper, "times_32")
 
   # check a regular collect()
   result <- open_dataset(tf_dataset) %>%

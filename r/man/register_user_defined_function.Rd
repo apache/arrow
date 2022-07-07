@@ -6,20 +6,17 @@
 \alias{arrow_advanced_scalar_function}
 \title{Register user-defined functions}
 \usage{
-register_user_defined_function(name, scalar_function, registry_name = name)
+register_user_defined_function(scalar_function, name)
 
 arrow_scalar_function(fun, in_type, out_type)
 
-arrow_advanced_scalar_function(fun, in_type, out_type)
+arrow_advanced_scalar_function(advanced_fun, in_type, out_type)
 }
 \arguments{
-\item{name}{The function name to be used in the dplyr bindings}
-
 \item{scalar_function}{An object created with \code{\link[=arrow_scalar_function]{arrow_scalar_function()}}
 or \code{\link[=arrow_advanced_scalar_function]{arrow_advanced_scalar_function()}}.}
 
-\item{registry_name}{The function name to be used in the Arrow C++
-compute function registry. This may be different from \code{name}.}
+\item{name}{The function name to be used in the dplyr bindings}
 
 \item{fun}{An R function or rlang-style lambda expression. This function
 will be called with R objects as arguments and must return an object
@@ -37,18 +34,21 @@ If this function is appropriate for more than one signature, pass a
 a single argument (\code{types}), which is a \code{list()} of \link{DataType}s. If a
 function it must return a \link{DataType}.}
 
-\item{base_fun}{An R function or rlang-style lambda expression. This
+\item{advanced_fun}{An R function or rlang-style lambda expression. This
 function will be called with exactly two arguments: \code{kernel_context},
 which is a \code{list()} of objects giving information about the
 execution context and \code{args}, which is a list of \link{Array} or \link{Scalar}
 objects corresponding to the input arguments.}
+
+\item{registry_name}{The function name to be used in the Arrow C++
+compute function registry. This may be different from \code{name}.}
 }
 \value{
 \itemize{
-\item \code{register_scalar_function()}: \code{NULL}, invisibly
+\item \code{register_user_defined_function()}: \code{NULL}, invisibly
 \item \code{arrow_scalar_function()}: returns an object of class
 "arrow_advanced_scalar_function" that can be passed to
-\code{register_scalar_function()}.
+\code{register_user_defined_function()}.
 }
 }
 \description{
@@ -61,11 +61,11 @@ lower-level function that operates directly on Arrow objects.
 \examples{
 \dontshow{if (.Machine$sizeof.pointer >= 8) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 fun_wrapper <- arrow_scalar_function(
-  function(x, y, z) x + y + z
+  function(x, y, z) x + y + z,
   schema(x = float64(), y = float64(), z = float64()),
   float64()
 )
-register_user_defined_function("example_add3", fun_wrapper)
+register_user_defined_function(fun_wrapper, "example_add3")
 
 call_function(
   "example_add3",
@@ -76,13 +76,13 @@ call_function(
 
 # use arrow_advanced_scalar_function() for a lower-level interface
 advanced_fun_wrapper <- arrow_advanced_scalar_function(
-  schema(x = float64(), y = float64(), z = float64()),
-  float64(),
   function(context, args) {
     args[[1]] + args[[2]] + args[[3]]
-  }
+  },
+  schema(x = float64(), y = float64(), z = float64()),
+  float64()
 )
-register_user_defined_function("example_add3", advanced_fun_wrapper)
+register_user_defined_function(advanced_fun_wrapper, "example_add3")
 
 call_function(
   "example_add3",
