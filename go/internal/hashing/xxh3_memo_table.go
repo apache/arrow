@@ -372,7 +372,7 @@ func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int32) {
 
 	first := b.findOffset(0)
 	delta := b.findOffset(start)
-	sz := int(b.tbl.size) // ignore null for counting this size
+	sz := b.Size()
 	for i := start; i < sz; i++ {
 		offset := int32(b.findOffset(i) - delta)
 		out[i-start] = offset
