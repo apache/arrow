@@ -8,9 +8,9 @@
 \usage{
 register_scalar_function(name, scalar_function, registry_name = name)
 
-arrow_scalar_function(in_type, out_type, fun)
+arrow_scalar_function(fun, in_type, out_type)
 
-arrow_advanced_scalar_function(in_type, out_type, base_fun)
+arrow_advanced_scalar_function(fun, in_type, out_type)
 }
 \arguments{
 \item{name}{The function name to be used in the dplyr bindings}
@@ -21,6 +21,12 @@ or \code{\link[=arrow_advanced_scalar_function]{arrow_advanced_scalar_function()
 \item{registry_name}{The function name to be used in the Arrow C++
 compute function registry. This may be different from \code{name}.}
 
+\item{fun}{An R function or rlang-style lambda expression. This function
+will be called with R objects as arguments and must return an object
+that can be converted to an \link{Array} using \code{\link[=as_arrow_array]{as_arrow_array()}}. Function
+authors must take care to return an array castable to the output data
+type specified by \code{out_type}.}
+
 \item{in_type}{A \link{DataType} of the input type or a \code{\link[=schema]{schema()}}
 for functions with more than one argument. This signature will be used
 to determine if this function is appropriate for a given set of arguments.
@@ -30,12 +36,6 @@ If this function is appropriate for more than one signature, pass a
 \item{out_type}{A \link{DataType} of the output type or a function accepting
 a single argument (\code{types}), which is a \code{list()} of \link{DataType}s. If a
 function it must return a \link{DataType}.}
-
-\item{fun}{An R function or rlang-style lambda expression. This function
-will be called with R objects as arguments and must return an object
-that can be converted to an \link{Array} using \code{\link[=as_arrow_array]{as_arrow_array()}}. Function
-authors must take care to return an array castable to the output data
-type specified by \code{out_type}.}
 
 \item{base_fun}{An R function or rlang-style lambda expression. This
 function will be called with exactly two arguments: \code{kernel_context},
@@ -61,9 +61,9 @@ lower-level function that operates directly on Arrow objects.
 \examples{
 \dontshow{if (.Machine$sizeof.pointer >= 8) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 fun_wrapper <- arrow_scalar_function(
-  schema(x = float64(), y = float64(), z = float64()),
-  float64(),
   function(x, y, z) x + y + z
+  schema(x = float64(), y = float64(), z = float64()),
+  float64()
 )
 register_scalar_function("example_add3", fun_wrapper)
 

@@ -348,9 +348,9 @@ cast_options <- function(safe = TRUE, ...) {
 #'
 #' @examplesIf .Machine$sizeof.pointer >= 8
 #' fun_wrapper <- arrow_scalar_function(
-#'   schema(x = float64(), y = float64(), z = float64()),
-#'   float64(),
 #'   function(x, y, z) x + y + z
+#'   schema(x = float64(), y = float64(), z = float64()),
+#'   float64()
 #' )
 #' register_scalar_function("example_add3", fun_wrapper)
 #'
@@ -402,7 +402,7 @@ register_scalar_function <- function(name, scalar_function, registry_name = name
 
 #' @rdname register_scalar_function
 #' @export
-arrow_scalar_function <- function(in_type, out_type, fun) {
+arrow_scalar_function <- function(fun, in_type, out_type) {
   fun <- rlang::as_function(fun)
   base_fun <- function(context, args) {
     args <- lapply(args, as.vector)
@@ -410,12 +410,12 @@ arrow_scalar_function <- function(in_type, out_type, fun) {
     as_arrow_array(result, type = context$output_type)
   }
 
-  arrow_advanced_scalar_function(in_type, out_type, base_fun)
+  arrow_advanced_scalar_function(base_fun, in_type, out_type)
 }
 
 #' @rdname register_scalar_function
 #' @export
-arrow_advanced_scalar_function <- function(in_type, out_type, base_fun) {
+arrow_advanced_scalar_function <- function(fun, in_type, out_type) {
   if (is.list(in_type)) {
     in_type <- lapply(in_type, as_scalar_function_in_type)
   } else {
@@ -430,13 +430,13 @@ arrow_advanced_scalar_function <- function(in_type, out_type, base_fun) {
 
   out_type <- rep_len(out_type, length(in_type))
 
-  base_fun <- rlang::as_function(base_fun)
-  if (length(formals(base_fun)) != 2) {
-    abort("`base_fun` must accept exactly two arguments")
+  fun <- rlang::as_function(fun)
+  if (length(formals(fun)) != 2) {
+    abort("`fun` must accept exactly two arguments")
   }
 
   structure(
-    base_fun,
+    fun,
     in_type = in_type,
     out_type = out_type,
     class = "arrow_advanced_scalar_function"

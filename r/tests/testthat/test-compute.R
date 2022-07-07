@@ -24,34 +24,34 @@ test_that("list_compute_functions() works", {
 test_that("arrow_advanced_scalar_function() works", {
   # check in/out type as schema/data type
   fun <- arrow_advanced_scalar_function(
-    schema(.y = int32()), int64(),
-    function(kernel_context, args) args[[1]]
+    function(kernel_context, args) args[[1]],
+    schema(.y = int32()), int64()
   )
   expect_equal(attr(fun, "in_type")[[1]], schema(.y = int32()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as data type/data type
   fun <- arrow_advanced_scalar_function(
-    int32(), int64(),
-    function(kernel_context, args) args[[1]]
+    function(kernel_context, args) args[[1]],
+    int32(), int64()
   )
   expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as field/data type
   fun <- arrow_advanced_scalar_function(
+    function(kernel_context, args) args[[1]],
     field("a_name", int32()),
-    int64(),
-    function(kernel_context, args) args[[1]]
+    int64()
   )
   expect_equal(attr(fun, "in_type")[[1]], schema(a_name = int32()))
   expect_equal(attr(fun, "out_type")[[1]](), int64())
 
   # check in/out type as lists
   fun <- arrow_advanced_scalar_function(
+    function(kernel_context, args) args[[1]],
     list(int32(), int64()),
-    list(int64(), int32()),
-    function(kernel_context, args) args[[1]]
+    list(int64(), int32())
   )
 
   expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
@@ -59,17 +59,15 @@ test_that("arrow_advanced_scalar_function() works", {
   expect_equal(attr(fun, "out_type")[[1]](), int64())
   expect_equal(attr(fun, "out_type")[[2]](), int32())
 
-  expect_snapshot_error(arrow_advanced_scalar_function(int32(), int32(), identity))
-  expect_snapshot_error(arrow_advanced_scalar_function(int32(), int32(), NULL))
+  expect_snapshot_error(arrow_advanced_scalar_function(identity, int32(), int32()))
+  expect_snapshot_error(arrow_advanced_scalar_function(NULL, int32(), int32()))
 })
 
 test_that("arrow_scalar_function() returns an advanced scalar function", {
   times_32_wrapper <- arrow_scalar_function(
+    function(x) x * 32,
     float64(),
-    float64(),
-    function(x) {
-      x * 32
-    }
+    float64()
   )
 
   dummy_kernel_context <- list()
@@ -85,8 +83,8 @@ test_that("register_scalar_function() adds a compute function to the registry", 
   skip_if_not_available("dataset")
 
   times_32 <- arrow_scalar_function(
-    int32(), float64(),
-    function(x) x * 32.0
+    function(x) x * 32.0,
+    int32(), float64()
   )
 
   register_scalar_function("times_32", times_32)
@@ -133,8 +131,8 @@ test_that("user-defined functions work during multi-threaded execution", {
   write_dataset(example_df, tf_dataset, partitioning = "part")
 
   times_32 <- arrow_scalar_function(
-    int32(), float64(),
-    function(x) x * 32.0
+    function(x) x * 32.0,
+    int32(), float64()
   )
 
   register_scalar_function("times_32", times_32)
