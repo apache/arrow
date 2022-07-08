@@ -33,7 +33,9 @@
     <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>30.1.1-jre</dep.guava.version>
-    <dep.netty.version>4.1.72.Final</dep.netty.version>
+    <dep.netty-bom.version>4.1.78.Final</dep.netty-bom.version>
+    <dep.grpc-bom.version>1.47.0</dep.grpc-bom.version>
+    <dep.protobuf-bom.version>3.21.2</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.13.2.20220328</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.12.0</dep.fbs.version>
@@ -525,21 +527,6 @@
         <version>${dep.guava.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-handler</artifactId>
-        <version>${dep.netty.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-buffer</artifactId>
-        <version>${dep.netty.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-common</artifactId>
-        <version>${dep.netty.version}</version>
-      </dependency>
-      <dependency>
         <groupId>com.google.code.findbugs</groupId>
         <artifactId>jsr305</artifactId>
         <version>3.0.2</version>
@@ -575,6 +562,27 @@
         <groupId>com.fasterxml.jackson</groupId>
         <artifactId>jackson-bom</artifactId>
         <version>${dep.jackson-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${dep.netty-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-bom</artifactId>
+        <version>${dep.grpc-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-bom</artifactId>
+        <version>${dep.protobuf-bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>

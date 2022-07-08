@@ -50,12 +50,10 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-core</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
      <dependency>
        <groupId>io.grpc</groupId>
        <artifactId>grpc-stub</artifactId>
-       <version>${dep.grpc.version}</version>
      </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -72,7 +70,6 @@
      <dependency>
        <groupId>io.grpc</groupId>
        <artifactId>grpc-protobuf</artifactId>
-       <version>${dep.grpc.version}</version>
      </dependency>
      <dependency>
        <groupId>com.google.guava</groupId>
@@ -81,12 +78,10 @@
      <dependency>
        <groupId>com.google.protobuf</groupId>
        <artifactId>protobuf-java</artifactId>
-       <version>${dep.protobuf.version}</version>
      </dependency>
      <dependency>
        <groupId>io.grpc</groupId>
        <artifactId>grpc-api</artifactId>
-       <version>${dep.grpc.version}</version>
      </dependency>
   </dependencies>
 
@@ -105,10 +100,10 @@
           <artifactId>protobuf-maven-plugin</artifactId>
           <version>0.6.1</version>
           <configuration>
-            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}</protocArtifact>
             <clearOutputDirectory>false</clearOutputDirectory>
             <pluginId>grpc-java</pluginId>
-            <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+            <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}</pluginArtifact>
           </configuration>
           <executions>
             <execution>
