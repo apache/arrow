@@ -1007,4 +1007,20 @@ test_that("summarise() supports namespacing", {
       collect(),
     tbl
   )
+  compare_dplyr_binding(
+    .input %>%
+      summarise(
+        log_total = sum(base::log(int) + 1, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      summarise(
+        log_total = base::round(base::sum(base::log(int) + dbl, na.rm = TRUE))
+      ) %>%
+      collect(),
+    tbl
+  )
 })

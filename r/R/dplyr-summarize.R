@@ -166,8 +166,9 @@ register_bindings_aggregate <- function() {
     fun_name <- paste0(lhs_name, "::", rhs_name)
 
     # if we do not have a binding for pkg::fun, then fall back on to the
-    # regular pkg::fun function
-    agg_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
+    # nse_funcs (useful when we have a regular function inside an aggregating one)
+    # and then regular pkg::fun function
+    agg_funcs[[fun_name]] %||% nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
   })
 }
 
