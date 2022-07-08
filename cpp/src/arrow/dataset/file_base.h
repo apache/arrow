@@ -46,7 +46,7 @@ namespace dataset {
 
 /// \brief The path and filesystem where an actual file is located or a buffer which can
 /// be read like a file
-class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource>{
+class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
  public:
   FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)

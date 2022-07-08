@@ -557,16 +557,17 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
   void TestFragmentEquals() {
     auto options = std::make_shared<ScanOptions>();
-    auto test_schema = schema({field("f64", float64())});
-    auto reader = this->GetRecordBatchReader(test_schema);
-    auto other_reader = this->GetRecordBatchReader(test_schema);
+    auto this_schema = schema({field("f64", float64())});
+    auto other_schema = schema({field("f32", float32())});
+    auto reader = this->GetRecordBatchReader(this_schema);
+    auto other_reader = this->GetRecordBatchReader(other_schema);
     auto source = this->GetFileSource(reader.get());
     auto other_source = this->GetFileSource(other_reader.get());
 
     auto fragment = this->MakeFragment(*source);
+    EXPECT_TRUE(fragment->Equals(*fragment));
     auto other = this->MakeFragment(*other_source);
-
-    EXPECT_EQ(fragment->Equals(*other), false);
+    EXPECT_FALSE(fragment->Equals(*other));
   }
 
  protected:
