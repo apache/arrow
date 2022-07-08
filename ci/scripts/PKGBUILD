@@ -110,8 +110,8 @@ build() {
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_UNITY_BUILD=OFF \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
-    -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-    -DCMAKE_CXX_COMPILER_LAUNCHER=sccache 
+    -DCMAKE_C_COMPILER_LAUNCHER=/d/a/crossbow/crossbow/sccache/sccache.exe \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=/d/a/crossbow/crossbow/sccache/sccache.exe
 
   make -j3
   popd
