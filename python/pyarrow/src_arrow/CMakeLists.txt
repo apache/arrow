@@ -334,25 +334,25 @@ endif()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
 
+  # Static gRPC means we cannot link to shared Arrow, since then
+  # we'll violate ODR for gRPC symbols
+  if(NOT ARROW_GRPC_USE_SHARED AND NOT ARROW_BUILD_STATIC)
+    message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
+  endif()
+
   find_package(ArrowFlight REQUIRED)
   find_package(gRPC CONFIG REQUIRED)
   include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/}/${ARROW_BUILD_DIR}/src")
 
-  # # Using arrow_flight_shared, see example
-  # # https://github.com/apache/arrow/blob/7a0f00c16e084d194ae53d209b33b809cfc8f2d5/cpp/examples/arrow/CMakeLists.txt
-  # set(ARROW_GRPC_USE_SHARED ON)
-  # set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
-  #                                 -Wl,--as-needed)
-  # Static gRPC means we cannot linked to shared Arrow, since then
-  # we'll violate ODR for gRPC symbols
+  # Using example
+  # https://github.com/apache/arrow/blob/7a0f00c16e084d194ae53d209b33b809cfc8f2d5/cpp/examples/arrow/CMakeLists.txt
+
   if(ARROW_GRPC_USE_SHARED)
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_shared)
     # We don't directly use symbols from the reflection library, so
     # ensure the linker still links to it
     set(GRPC_REFLECTION_LINK_LIBS -Wl,--no-as-needed gRPC::grpc++_reflection
                                   -Wl,--as-needed)
-  elseif(NOT ARROW_BUILD_STATIC)
-    message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
   else()
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_static)
     if(APPLE)
