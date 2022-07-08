@@ -359,36 +359,6 @@ def _plasma_store_entry_point():
 
 from pyarrow.util import _deprecate_api, _deprecate_class
 
-read_message = _deprecate_api("read_message", "ipc.read_message",
-                              ipc.read_message, "0.17.0")
-
-read_record_batch = _deprecate_api("read_record_batch",
-                                   "ipc.read_record_batch",
-                                   ipc.read_record_batch, "0.17.0")
-
-read_schema = _deprecate_api("read_schema", "ipc.read_schema",
-                             ipc.read_schema, "0.17.0")
-
-read_tensor = _deprecate_api("read_tensor", "ipc.read_tensor",
-                             ipc.read_tensor, "0.17.0")
-
-write_tensor = _deprecate_api("write_tensor", "ipc.write_tensor",
-                              ipc.write_tensor, "0.17.0")
-
-get_record_batch_size = _deprecate_api("get_record_batch_size",
-                                       "ipc.get_record_batch_size",
-                                       ipc.get_record_batch_size, "0.17.0")
-
-get_tensor_size = _deprecate_api("get_tensor_size",
-                                 "ipc.get_tensor_size",
-                                 ipc.get_tensor_size, "0.17.0")
-
-open_stream = _deprecate_api("open_stream", "ipc.open_stream",
-                             ipc.open_stream, "0.17.0")
-
-open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
-                           "0.17.0")
-
 
 def _deprecate_scalar(ty, symbol):
     return _deprecate_class("{}Value".format(ty), symbol, "1.0.0")
