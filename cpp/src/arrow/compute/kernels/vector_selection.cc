@@ -840,18 +840,90 @@ class PrimitiveFilterImpl {
   int64_t out_position_;
 };
 
+template <>
+inline void PrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position) {
+  bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
+                     bit_util::GetBit(values_data_, values_offset_ + in_position));
+}
+
+template <>
+inline void PrimitiveFilterImpl<BooleanType>::WriteValueSegment(int64_t in_start,
+                                                                int64_t length) {
+  CopyBitmap(values_data_, values_offset_ + in_start, length, out_data_,
+             out_offset_ + out_position_);
+  out_position_ += length;
+}
+
+template <>
+inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
+  // Zero the bit
+  bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
+}
+
+Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& filter = batch[1].array;
+  FilterOptions::NullSelectionBehavior null_selection =
+      FilterState::Get(ctx).null_selection_behavior;
+
+  int64_t output_length = GetFilterOutputSize(filter, null_selection);
+
+  ArrayData* out_arr = out->array_data().get();
+
+  // The output precomputed null count is unknown except in the narrow
+  // condition that all the values are non-null and the filter will not cause
+  // any new nulls to be created.
+  if (values.null_count == 0 &&
+      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+    out_arr->null_count = 0;
+  } else {
+    out_arr->null_count = kUnknownNullCount;
+  }
+
+  // When neither the values nor filter is known to have any nulls, we will
+  // elect the optimized ExecNonNull path where there is no need to populate a
+  // validity bitmap.
+  bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
+
+  const int bit_width = values.type->bit_width();
+  RETURN_NOT_OK(
+      PreallocateData(ctx, output_length, bit_width, allocate_validity, out_arr));
+
+  switch (bit_width) {
+    case 1:
+      PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 8:
+      PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 16:
+      PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 32:
+      PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    case 64:
+      PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
+      break;
+    default:
+      DCHECK(false) << "Invalid values bit width";
+      break;
+  }
+  return Status::OK();
+}
+
 /// \brief The Filter implementation for primitive (fixed-width) types does not
 /// use the logical Arrow type but rather the physical C type. This way we only
 /// generate one take function for each byte width. We use the same
 /// implementation here for boolean and fixed-byte-size inputs with some
 /// template specialization.
 template <typename ArrowType>
-class PrimitiveRLEFilterImpl {
+class RLEPrimitiveFilterImpl {
  public:
   using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
                                       uint8_t, typename ArrowType::c_type>::type;
 
-  PrimitiveRLEFilterImpl(const ArraySpan& values, const ArraySpan& filter,
+  RLEPrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
                          FilterOptions::NullSelectionBehavior null_selection,
                          ArrayData* out_arr)
       : values_is_valid_(values.child_data[0].buffers[0].data),
@@ -1011,87 +1083,63 @@ class PrimitiveRLEFilterImpl {
 };
 
 template <>
-inline void PrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position) {
-  bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
-                     bit_util::GetBit(values_data_, values_offset_ + in_position));
-}
-
-template <>
-inline void PrimitiveFilterImpl<BooleanType>::WriteValueSegment(int64_t in_start,
-                                                                int64_t length) {
-  CopyBitmap(values_data_, values_offset_ + in_start, length, out_data_,
-             out_offset_ + out_position_);
-  out_position_ += length;
-}
-
-template <>
-inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
-  // Zero the bit
-  bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
-}
-
-template <>
-inline void PrimitiveRLEFilterImpl<BooleanType>::WriteValue(int64_t in_position, int64_t run_length) {
+inline void RLEPrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position, int64_t run_length) {
   out_run_length_[out_position_] = run_length;
   bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
                      bit_util::GetBit(values_data_, values_offset_ + in_position));
 }
 
 template <>
-inline void PrimitiveRLEFilterImpl<BooleanType>::WriteNull(int64_t run_length) {
+inline void RLEPrimitiveFilterImpl<BooleanType>::WriteNull(int64_t run_length) {
   out_run_length_[out_position_] = run_length;
   // Zero the bit
   bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
-Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const ArraySpan& values = batch[0].array;
-  const ArraySpan& filter = batch[1].array;
+Status RLEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+  auto values = span.values[0].array;
+  auto filter = span.values[1].array;
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
-  int64_t output_length = GetFilterOutputSize(filter, null_selection);
+  int64_t output_length = GetFilterOutputSizeRLE(values, filter, null_selection);
 
-  ArrayData* out_arr = out->array_data().get();
+  ArrayData* out_arr = result->array_data().get();
 
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
-  if (values.null_count == 0 &&
-      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+  if (!values.MayHaveNulls() &&
+      (null_selection == FilterOptions::DROP || !filter.MayHaveNulls())) {
     out_arr->null_count = 0;
   } else {
     out_arr->null_count = kUnknownNullCount;
   }
 
-  // When neither the values nor filter is known to have any nulls, we will
-  // elect the optimized ExecNonNull path where there is no need to populate a
-  // validity bitmap.
-  bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
-
-  const int bit_width = values.type->bit_width();
+  const int bit_width =
+      checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
   RETURN_NOT_OK(
-      PreallocateData(ctx, output_length, bit_width, allocate_validity, out_arr));
+      PreallocateDataRLE(ctx, output_length, bit_width, out_arr->null_count != 0, out_arr));
 
   switch (bit_width) {
     case 1:
-      PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
+      RLEPrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
       break;
     case 8:
-      PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
+      RLEPrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
       break;
     case 16:
-      PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
+      RLEPrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
       break;
     case 32:
-      PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
+      RLEPrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
       break;
     case 64:
-      PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
+      RLEPrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
       break;
     default:
-      DCHECK(false) << "Invalid values bit width";
-      break;
+      return Status::NotImplemented(std::string("RLEFilter of fixed bit width ") +
+                                    std::to_string(bit_width));
   }
   return Status::OK();
 }
@@ -2106,54 +2154,6 @@ Status StructFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   return Status::OK();
 }
 
-Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-  auto values = span.values[0].array;
-  auto filter = span.values[1].array;
-  FilterOptions::NullSelectionBehavior null_selection =
-      FilterState::Get(ctx).null_selection_behavior;
-
-  int64_t output_length = GetFilterOutputSizeRLE(values, filter, null_selection);
-
-  ArrayData* out_arr = result->array_data().get();
-
-  // The output precomputed null count is unknown except in the narrow
-  // condition that all the values are non-null and the filter will not cause
-  // any new nulls to be created.
-  if (!values.MayHaveNulls() &&
-      (null_selection == FilterOptions::DROP || !filter.MayHaveNulls())) {
-    out_arr->null_count = 0;
-  } else {
-    out_arr->null_count = kUnknownNullCount;
-  }
-
-  const int bit_width =
-      checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
-  RETURN_NOT_OK(
-      PreallocateDataRLE(ctx, output_length, bit_width, out_arr->null_count != 0, out_arr));
-
-  switch (bit_width) {
-    case 1:
-      PrimitiveRLEFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
-      break;
-    case 8:
-      PrimitiveRLEFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
-      break;
-    case 16:
-      PrimitiveRLEFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
-      break;
-    case 32:
-      PrimitiveRLEFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
-      break;
-    case 64:
-      PrimitiveRLEFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
-      break;
-    default:
-      return Status::NotImplemented(std::string("RLEFilter of fixed bit width ") +
-                                    std::to_string(bit_width));
-  }
-  return Status::OK();
-}
-
 #undef LIFT_BASE_MEMBERS
 
 // ----------------------------------------------------------------------
@@ -2807,7 +2807,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       {InputType::Array(Type::MAP), InputType::Array(Type::BOOL),
        FilterExec<ListImpl<MapType>>},
       {InputType(match::RunLengthEncoded(match::Primitive())),
-       InputType(run_length_encoded(boolean()), ValueDescr::ARRAY), RLEFilter},
+       InputType(run_length_encoded(boolean()), ValueDescr::ARRAY), RLEPrimitiveFilter},
   };
 
   VectorKernel filter_base;
