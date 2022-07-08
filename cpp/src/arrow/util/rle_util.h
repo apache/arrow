@@ -23,19 +23,39 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
+#include "arrow/array/data.h"
+
 namespace arrow {
 namespace rle_util {
 
+int64_t FindPhysicalOffset(const int64_t* accumulated_run_lengths,
+                           int64_t physical_length, int64_t logical_offset);
+
+const int64_t* AccumulatedRunLengths(const ArraySpan& span) {
+  return span.GetValues<const int64_t>(0);
+}
+
+const ArraySpan& RunsArray(const ArraySpan& span) {
+  return span.child_data[0];
+}
+
 template <typename CallbackType>
-void VisitMergedRuns(const int64_t* a, const int64_t* b, int64_t logical_length,
-                     CallbackType callback) {
+void VisitMergedRuns(const ArraySpan &a, const ArraySpan &b, CallbackType callback) {
+  int64_t a_physical_offset = rle_util::FindPhysicalOffset(AccumulatedRunLengths(a),
+                                                           RunsArray(a).length, a.offset);
+  int64_t b_physical_offset = rle_util::FindPhysicalOffset(AccumulatedRunLengths(b),
+                                                           RunsArray(b).length, b.offset);
+
+  int64_t logical_length = a.length;
+
+
   int64_t a_run_index = 0;
   int64_t b_run_index = 0;
   int64_t logical_position = 0;
 
   while (logical_position < logical_length) {
-    const int64_t a_run_end = a[a_run_index];
-    const int64_t b_run_end = b[b_run_index];
+    const int64_t a_run_end = a[a_run_index] - logical_offset;
+    const int64_t b_run_end = b[b_run_index] - logical_offset;
 
     ARROW_DCHECK_GT(a_run_end, logical_position);
     ARROW_DCHECK_GT(b_run_end, logical_position);
@@ -53,9 +73,6 @@ void VisitMergedRuns(const int64_t* a, const int64_t* b, int64_t logical_length,
     }
   }
 }
-
-int64_t FindPhysicalOffset(const int64_t* accumulated_run_lengths,
-                           int64_t physical_length, int64_t logical_offset);
 
 }  // namespace rle_util
 }  // namespace arrow

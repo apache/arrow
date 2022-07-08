@@ -101,7 +101,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
 
   if (filter_is_valid == NULLPTR) {
     rle_util::VisitMergedRuns(
-        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
+        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.offset, values.length,
         [&](int64_t, int64_t, int64_t filter_index) {
           if (bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
             output_size++;
@@ -110,7 +110,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
   } else {  // filter has validity bitmap
     if (null_selection == FilterOptions::EMIT_NULL) {
       rle_util::VisitMergedRuns(
-          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
+          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.offset, values.length,
           [&](int64_t, int64_t, int64_t filter_index) {
             if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index) ||
                 bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
@@ -119,7 +119,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
           });
     } else {
       rle_util::VisitMergedRuns(
-          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.length,
+          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.offset, values.length,
           [&](int64_t, int64_t, int64_t filter_index) {
             if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index) &&
                 bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
