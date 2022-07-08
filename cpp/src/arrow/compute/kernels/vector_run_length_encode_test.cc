@@ -166,16 +166,43 @@ INSTANTIATE_TEST_SUITE_P(
         RLETestData::TypeMinMaxNull<DoubleType>()));
 
 class TestRLEFilter
-    : public ::testing::TestWithParam<std::tuple<RLETestData, std::string>> {};
+    : public ::testing::TestWithParam<std::tuple<RLETestData, std::string, int>> {};
 
 TEST_P(TestRLEFilter, FilterArray) {
   RLETestData data;
   std::string filter_json;
-  std::tie(data, filter_json) = GetParam();
+  int offset_type;
+  std::tie(data, filter_json, offset_type) = GetParam();
   auto filter = ArrayFromJSON(boolean(), filter_json);
 
-  ASSERT_OK_AND_ASSIGN(Datum encoded_filter, RunLengthEncode(filter));
-  ASSERT_OK_AND_ASSIGN(Datum encoded_values, RunLengthEncode(data.input));
+  ASSERT_OK_AND_ASSIGN(Datum encoded_filter_datum, RunLengthEncode(filter));
+  ASSERT_OK_AND_ASSIGN(Datum encoded_values_datum, RunLengthEncode(data.input));
+
+  std::shared_ptr<ArrayData> encoded_filter = encoded_filter_datum.array();
+  std::shared_ptr<ArrayData> encoded_values = encoded_values_datum.array();
+
+  if (offset_type == 1) {
+    encoded_filter = encoded_filter->Slice(1, encoded_filter->length - 1);
+    encoded_values = encoded_values->Slice(1, encoded_values->length - 1);
+  } else if (offset_type == 2) {
+    {
+      const int64_t first_run_length = data.expected_run_lengths[0];
+      auto parent = ArrayData::Make(run_length_encoded(data.input->type()),
+                                    data.input->length() - first_run_length);
+      parent->child_data.push_back(data.expected_values->Slice(1)->data());
+      ASSERT_OK_AND_ASSIGN(
+          auto run_length_buffer,
+          AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int64_t)));
+      int64_t* run_length_buffer_data =
+          reinterpret_cast<int64_t*>(run_length_buffer->mutable_data());
+      for (size_t index = 0; index < data.expected_run_lengths.size() - 1; index++) {
+        run_length_buffer_data[index] =
+            data.expected_run_lengths[index + 1] - first_run_length;
+      }
+      parent->buffers.push_back(std::move(run_length_buffer));
+      encoded_values = parent;
+    }
+  }
 
   ASSERT_OK_AND_ASSIGN(
       auto result,
@@ -219,7 +246,10 @@ INSTANTIATE_TEST_SUITE_P(
             "[true, true, true, true, true, true, true, true, true]",
             "[false, false, false, false, false, false, false, false, false]",
             "[true, false, true, false, true, false, true, false, true]",
-            "[true, true, false, false, false, false, false, true, true]")));
+            "[true, true, false, false, false, false, false, true, true]"),
+        ::testing::Values(
+            0, 1, 2
+        )));
 
 }  // namespace compute
 }  // namespace arrow
