@@ -93,7 +93,7 @@ bool FileSource::Equals(const FileSource& other) const {
   bool match_file_system =
       (filesystem_ == nullptr && other.filesystem_ == nullptr) ||
       (filesystem_ && other.filesystem_ && filesystem_->Equals(other.filesystem_));
-  return file_info_.Equals(other.file_info_) && match_file_system &&
+  return match_file_system && file_info_.Equals(other.file_info_) &&
          buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
 }
 
