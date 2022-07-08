@@ -58,15 +58,6 @@ Parquet format, which has been deprecated? Default \code{FALSE}.}
 timestamps to a particular resolution. E.g. if microsecond or nanosecond
 data is lost when coercing to "ms", do not raise an exception. Default
 \code{FALSE}.}
-
-\item{properties}{A \code{ParquetWriterProperties} object, used instead of the
-options enumerated in this function's signature. Providing \code{properties}
-as an argument is deprecated; if you need to assemble
-\code{ParquetWriterProperties} outside of \code{write_parquet()}, use
-\code{ParquetFileWriter} instead.}
-
-\item{arrow_properties}{A \code{ParquetArrowWriterProperties} object. Like
-\code{properties}, this argument is deprecated.}
 }
 \value{
 the input \code{x} invisibly.
@@ -113,4 +104,7 @@ if (codec_is_available("gzip")) {
   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
 }
 \dontshow{\}) # examplesIf}
+}
+\seealso{
+\link{ParquetFileWriter} for a lower-level interface to Parquet writing.
 }

@@ -106,13 +106,6 @@ read_parquet <- function(file,
 #'    timestamps to a particular resolution. E.g. if microsecond or nanosecond
 #'    data is lost when coercing to "ms", do not raise an exception. Default
 #'    `FALSE`.
-#' @param properties A `ParquetWriterProperties` object, used instead of the
-#'    options enumerated in this function's signature. Providing `properties`
-#'    as an argument is deprecated; if you need to assemble
-#'    `ParquetWriterProperties` outside of `write_parquet()`, use
-#'    `ParquetFileWriter` instead.
-#' @param arrow_properties A `ParquetArrowWriterProperties` object. Like
-#'    `properties`, this argument is deprecated.
 #'
 #' @details The parameters `compression`, `compression_level`, `use_dictionary` and
 #'   `write_statistics` support various patterns:
@@ -134,7 +127,7 @@ read_parquet <- function(file,
 #' Note that "uncompressed" columns may still have dictionary encoding.
 #'
 #' @return the input `x` invisibly.
-#'
+#' @seealso [ParquetFileWriter] for a lower-level interface to Parquet writing.
 #' @examplesIf arrow_with_parquet()
 #' tf1 <- tempfile(fileext = ".parquet")
 #' write_parquet(data.frame(x = 1:5), tf1)
@@ -244,7 +237,7 @@ make_valid_parquet_version <- function(version, valid_versions = valid_parquet_v
 
   if (!is.string(version)) {
     stop(
-      '`version` must be one of ', oxford_paste(names(valid_versions), "or"),
+      "`version` must be one of ", oxford_paste(names(valid_versions), "or"),
       call. = FALSE
     )
   }
