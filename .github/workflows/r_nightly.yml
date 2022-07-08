@@ -158,7 +158,11 @@ jobs:
         run: |
           # folder that we sync to nightlies.apache.org
           repo_root <- "repo"
-          tools::write_PACKAGES(file.path(repo_root, "src/contrib"), type = "source", verbose = TRUE)
+          tools::write_PACKAGES(file.path(repo_root, "src/contrib"),
+            type = "source",
+            verbose = TRUE,
+            latestOnly = FALSE
+          )
 
           repo_dirs <- list.dirs(repo_root)
           # find dirs with binary R packages: e.g. */contrib/4.1
@@ -167,7 +171,11 @@ jobs:
 
           for (dir in pkg_dirs) {
             on_win <- grepl("windows", dir)
-            tools::write_PACKAGES(dir, type = ifelse(on_win, "win.binary", "mac.binary"), verbose = TRUE )
+            tools::write_PACKAGES(dir,
+              type = ifelse(on_win, "win.binary", "mac.binary"),
+              verbose = TRUE,
+              latestOnly = FALSE
+            )
           }
       - name: Show repo contents
         run: tree repo
