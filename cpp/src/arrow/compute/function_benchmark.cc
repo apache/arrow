@@ -19,6 +19,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/cast_internal.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
@@ -67,14 +68,13 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
   // Repeatedly invoke a trivial Cast with all dispatch outside the hot loop
   random::RandomArrayGenerator rag(kSeed);
 
-  auto int_scalars = ToScalars(rag.Int64(kScalarCount, 0, 1 << 20));
-
+  auto int_array = rag.Int64(1, 0, 1 << 20);
   auto double_type = float64();
   CastOptions cast_options;
   cast_options.to_type = double_type;
-  ASSERT_OK_AND_ASSIGN(auto cast_function, GetCastFunction(double_type));
+  ASSERT_OK_AND_ASSIGN(auto cast_function, internal::GetCastFunction(*double_type));
   ASSERT_OK_AND_ASSIGN(auto cast_kernel,
-                       cast_function->DispatchExact({int_scalars[0]->type}));
+                       cast_function->DispatchExact({int_array->type()}));
   const auto& exec = static_cast<const ScalarKernel*>(cast_kernel)->exec;
 
   ExecContext exec_context;
@@ -85,15 +85,13 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
                         .ValueOrDie();
   kernel_context.SetState(cast_state.get());
 
-  ExecSpan input;
-  input.length = 1;
+  ExecSpan input({ExecValue(*int_array->data())}, 1);
+  ExecResult result;
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result_space,
+                       MakeArrayOfNull(double_type, 1));
+  result.array_span()->SetMembers(*result_space->data());
   for (auto _ : state) {
-    ExecResult result;
-    result.value = MakeNullScalar(double_type);
-    for (const std::shared_ptr<Scalar>& int_scalar : int_scalars) {
-      input.values = {ExecValue(int_scalar.get())};
-      ABORT_NOT_OK(exec(&kernel_context, input, &result));
-    }
+    ABORT_NOT_OK(exec(&kernel_context, input, &result));
   }
 
   state.SetItemsProcessed(state.iterations() * kScalarCount);
@@ -153,31 +151,26 @@ void BM_ExecuteScalarFunctionOnScalar(benchmark::State& state) {
 
 void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
   // Execute a trivial function, with argument dispatch outside the hot path
-  const int64_t N = 10000;
-
   auto function = *GetFunctionRegistry()->GetFunction("is_valid");
-  auto kernel = *function->DispatchExact({ValueDescr::Scalar(int64())});
+  auto kernel = *function->DispatchExact({int64()});
   const auto& exec = static_cast<const ScalarKernel&>(*kernel).exec;
-
-  const auto scalars = MakeScalarsForIsValid(N);
 
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
 
-  ExecSpan input;
-  input.length = 1;
-  for (auto _ : state) {
-    int64_t total = 0;
-    for (const std::shared_ptr<Scalar>& scalar : scalars) {
-      ExecResult result;
-      result.value = MakeNullScalar(int64());
-      input.values = {scalar.get()};
-      ABORT_NOT_OK(exec(&kernel_context, input, &result));
-      total += result.scalar()->is_valid;
-    }
-    benchmark::DoNotOptimize(total);
-  }
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> input_arr, MakeArrayOfNull(int64(), 1));
+  ExecSpan input({*input_arr->data()}, 1);
 
+  ExecResult output;
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> output_arr, MakeArrayOfNull(int64(), 1));
+  output.array_span()->SetMembers(*output_arr->data());
+
+  const int64_t N = 10000;
+  for (auto _ : state) {
+    for (int i = 0; i < N; ++i) {
+      ABORT_NOT_OK(exec(&kernel_context, input, &output));
+    }
+  }
   state.SetItemsProcessed(state.iterations() * N);
 }
 

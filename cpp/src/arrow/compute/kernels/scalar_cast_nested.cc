@@ -75,21 +75,6 @@ struct CastList {
 
     auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
 
-    if (out->is_scalar()) {
-      // The scalar case is simple, as only the underlying values must be cast
-      const auto& in_scalar = checked_cast<const BaseListScalar&>(*batch[0].scalar);
-      auto out_scalar = checked_cast<BaseListScalar*>(out->scalar().get());
-
-      DCHECK(!out_scalar->is_valid);
-      if (in_scalar.is_valid) {
-        ARROW_ASSIGN_OR_RAISE(out_scalar->value, Cast(*in_scalar.value, child_type,
-                                                      options, ctx->exec_context()));
-
-        out_scalar->is_valid = true;
-      }
-      return Status::OK();
-    }
-
     const ArraySpan& in_array = batch[0].array;
     auto offsets = in_array.GetValues<src_offset_type>(1);
 
@@ -184,26 +169,6 @@ struct CastStruct {
       return Status::TypeError(
           "struct fields don't match or are in the wrong order: Input fields: ",
           in_type.ToString(), " output fields: ", out_type.ToString());
-    }
-
-    if (out->is_scalar()) {
-      const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar);
-      auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
-
-      DCHECK(!out_scalar->is_valid);
-      if (in_scalar.is_valid) {
-        out_field_index = 0;
-        for (int field_index : fields_to_select) {
-          const auto& values = in_scalar.value[field_index];
-          const auto& target_type = out->type()->field(out_field_index++)->type();
-          ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                                Cast(values, target_type, options, ctx->exec_context()));
-          DCHECK_EQ(Datum::SCALAR, cast_values.kind());
-          out_scalar->value.push_back(cast_values.scalar());
-        }
-        out_scalar->is_valid = true;
-      }
-      return Status::OK();
     }
 
     const ArraySpan& in_array = batch[0].array;

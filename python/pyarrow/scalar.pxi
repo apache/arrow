@@ -860,8 +860,14 @@ cdef class UnionScalar(Scalar):
         """
         Return underlying value as a scalar.
         """
-        cdef CUnionScalar* sp = <CUnionScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.value) if sp.is_valid else None
+        cdef CSparseUnionScalar* sp
+        cdef CDenseUnionScalar* dp
+        if self.type.id == _Type_SPARSE_UNION:
+            sp = <CSparseUnionScalar*> self.wrapped.get()
+            return Scalar.wrap(sp.value[sp.child_id]) if sp.is_valid else None
+        else:
+            dp = <CDenseUnionScalar*> self.wrapped.get()
+            return Scalar.wrap(dp.value) if dp.is_valid else None
 
     def as_py(self):
         """
@@ -919,6 +925,7 @@ cdef class ExtensionScalar(Scalar):
         """
         cdef:
             shared_ptr[CExtensionScalar] sp_scalar
+            shared_ptr[CScalar] sp_storage
             CExtensionScalar* ext_scalar
 
         if value is None:
@@ -932,12 +939,15 @@ cdef class ExtensionScalar(Scalar):
         else:
             storage = scalar(value, typ.storage_type)
 
-        sp_scalar = make_shared[CExtensionScalar](typ.sp_type)
-        ext_scalar = sp_scalar.get()
-        ext_scalar.is_valid = storage is not None and storage.is_valid
-        if ext_scalar.is_valid:
-            ext_scalar.value = pyarrow_unwrap_scalar(storage)
-        check_status(ext_scalar.Validate())
+        cdef c_bool is_valid = storage is not None and storage.is_valid
+        if is_valid:
+            sp_storage = pyarrow_unwrap_scalar(storage)
+        else:
+            sp_storage = MakeNullScalar((<DataType> typ.storage_type).sp_type)
+        sp_scalar = make_shared[CExtensionScalar](sp_storage, typ.sp_type,
+                                                  is_valid)
+        with nogil:
+            check_status(sp_scalar.get().Validate())
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 

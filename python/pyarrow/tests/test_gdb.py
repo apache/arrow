@@ -683,7 +683,7 @@ def test_scalars_stack(gdb_arrow):
         'arrow::FixedSizeBinaryScalar of size 3, value "abc"')
     check_stack_repr(
         gdb_arrow, "fixed_size_binary_scalar_null",
-        'arrow::FixedSizeBinaryScalar of size 3, null value')
+        'arrow::FixedSizeBinaryScalar of size 3, null with value "   "')
 
     check_stack_repr(
         gdb_arrow, "dict_scalar",

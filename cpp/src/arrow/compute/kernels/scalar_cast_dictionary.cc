@@ -43,40 +43,6 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
     return Status::OK();
   }
 
-  /// TODO: eliminate this code path by no longer supporting
-  /// scalar->scalar direct casting, which increases maintainability
-  if (batch[0].is_scalar()) {  // if input is scalar
-    auto in_scalar = checked_cast<const DictionaryScalar&>(*batch[0].scalar);
-
-    // if invalid scalar, return null scalar
-    if (!in_scalar.is_valid) {
-      out->value = MakeNullScalar(out_type.Copy());
-      return Status::OK();
-    }
-
-    Datum casted_index, casted_dict;
-    if (in_scalar.value.index->type->Equals(out_type.index_type())) {
-      casted_index = in_scalar.value.index;
-    } else {
-      ARROW_ASSIGN_OR_RAISE(casted_index,
-                            Cast(in_scalar.value.index, out_type.index_type(), options,
-                                 ctx->exec_context()));
-    }
-
-    if (in_scalar.value.dictionary->type()->Equals(out_type.value_type())) {
-      casted_dict = in_scalar.value.dictionary;
-    } else {
-      ARROW_ASSIGN_OR_RAISE(
-          casted_dict, Cast(in_scalar.value.dictionary, out_type.value_type(), options,
-                            ctx->exec_context()));
-    }
-
-    out->value = DictionaryScalar::Make(casted_index.scalar(), casted_dict.make_array());
-
-    return Status::OK();
-  }
-
-  // if input is array
   std::shared_ptr<ArrayData> in_array = batch[0].array.ToArrayData();
   const auto& in_type = checked_cast<const DictionaryType&>(*in_array->type);
 

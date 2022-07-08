@@ -32,44 +32,24 @@ namespace {
 
 template <typename Type, typename offset_type = typename Type::offset_type>
 Status ListValueLength(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
-
-  if (batch[0].is_array()) {
-    const ArraySpan& arr = batch[0].array;
-    ArraySpan* out_arr = out->array_span();
-    auto out_values = out_arr->GetValues<offset_type>(1);
-    const offset_type* offsets = arr.GetValues<offset_type>(1);
-    // Offsets are always well-defined and monotonic, even for null values
-    for (int64_t i = 0; i < arr.length; ++i) {
-      *out_values++ = offsets[i + 1] - offsets[i];
-    }
-  } else {
-    const auto& arg0 = batch[0].scalar_as<ScalarType>();
-    if (arg0.is_valid) {
-      checked_cast<OffsetScalarType*>(out->scalar().get())->value =
-          static_cast<offset_type>(arg0.value->length());
-    }
+  const ArraySpan& arr = batch[0].array;
+  ArraySpan* out_arr = out->array_span();
+  auto out_values = out_arr->GetValues<offset_type>(1);
+  const offset_type* offsets = arr.GetValues<offset_type>(1);
+  // Offsets are always well-defined and monotonic, even for null values
+  for (int64_t i = 0; i < arr.length; ++i) {
+    *out_values++ = offsets[i + 1] - offsets[i];
   }
-
   return Status::OK();
 }
 
 Status FixedSizeListValueLength(KernelContext* ctx, const ExecSpan& batch,
                                 ExecResult* out) {
   auto width = checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
-  if (batch[0].is_array()) {
-    const ArraySpan& arr = batch[0].array;
-    ArraySpan* out_arr = out->array_span();
-    int32_t* out_values = out_arr->GetValues<int32_t>(1);
-    std::fill(out_values, out_values + arr.length, width);
-  } else {
-    const auto& arg0 = batch[0].scalar_as<FixedSizeListScalar>();
-    if (arg0.is_valid) {
-      checked_cast<Int32Scalar*>(out->scalar().get())->value = width;
-    }
-  }
-
+  const ArraySpan& arr = batch[0].array;
+  ArraySpan* out_arr = out->array_span();
+  int32_t* out_values = out_arr->GetValues<int32_t>(1);
+  std::fill(out_values, out_values + arr.length, width);
   return Status::OK();
 }
 
@@ -80,26 +60,48 @@ const FunctionDoc list_value_length_doc{
      "Null values emit a null in the output."),
     {"lists"}};
 
-template <typename Type, typename IndexType>
-struct ListElementArray {
-  using ListArrayType = typename TypeTraits<Type>::ArrayType;
-  using IndexScalarType = typename TypeTraits<IndexType>::ScalarType;
-  using offset_type = typename Type::offset_type;
-
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto& index_scalar = batch[1].scalar_as<IndexScalarType>();
+template <typename ScalarType, typename T = typename ScalarType::ValueType>
+Status GetListElementIndex(const ExecValue& value, T* out) {
+  if (value.is_scalar()) {
+    const auto& index_scalar = value.scalar_as<ScalarType>();
     if (ARROW_PREDICT_FALSE(!index_scalar.is_valid)) {
       return Status::Invalid("Index must not be null");
     }
+    *out = index_scalar.value;
+  } else {
+    const ArraySpan& index_array = value.array;
+    if (index_array.length > 1) {
+      return Status::NotImplemented(
+          "list_element not yet implemented for arrays "
+          "of list indices");
+    }
+    if (index_array.GetNullCount() > 0) {
+      return Status::Invalid("Index must not contain nulls");
+    }
+    *out = index_array.GetValues<T>(1)[0];
+  }
+  if (ARROW_PREDICT_FALSE(*out < 0)) {
+    return Status::Invalid("Index ", *out,
+                           " is out of bounds: should be greater than or equal to 0");
+  }
+  return Status::OK();
+}
+
+template <typename Type, typename IndexType>
+struct ListElement {
+  using ListArrayType = typename TypeTraits<Type>::ArrayType;
+  using IndexScalarType = typename TypeTraits<IndexType>::ScalarType;
+  using IndexValueType = typename IndexScalarType::ValueType;
+  using offset_type = typename Type::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& list = batch[0].array;
     const ArraySpan& list_values = list.child_data[0];
     const offset_type* offsets = list.GetValues<offset_type>(1);
 
-    auto index = index_scalar.value;
-    if (ARROW_PREDICT_FALSE(index < 0)) {
-      return Status::Invalid("Index ", index,
-                             " is out of bounds: should be greater than or equal to 0");
-    }
+    IndexValueType index;
+    RETURN_NOT_OK(GetListElementIndex<IndexScalarType>(batch[1], &index));
+
     std::unique_ptr<ArrayBuilder> builder;
 
     const Type* list_type = checked_cast<const Type*>(list.type);
@@ -127,25 +129,18 @@ struct ListElementArray {
 };
 
 template <typename Type, typename IndexType>
-struct FixedSizeListElementArray {
+struct FixedSizeListElement {
   using IndexScalarType = typename TypeTraits<IndexType>::ScalarType;
+  using IndexValueType = typename IndexScalarType::ValueType;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto& index_scalar = batch[1].scalar_as<IndexScalarType>();
-    if (ARROW_PREDICT_FALSE(!index_scalar.is_valid)) {
-      return Status::Invalid("Index must not be null");
-    }
-
     auto item_size = checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
-
     const ArraySpan& list = batch[0].array;
     const ArraySpan& list_values = list.child_data[0];
 
-    auto index = index_scalar.value;
-    if (ARROW_PREDICT_FALSE(index < 0)) {
-      return Status::Invalid("Index ", index,
-                             " is out of bounds: should be greater than or equal to 0");
-    }
+    IndexValueType index;
+    RETURN_NOT_OK(GetListElementIndex<IndexScalarType>(batch[1], &index));
+
     std::unique_ptr<ArrayBuilder> builder;
 
     const Type* list_type = checked_cast<const Type*>(list.type);
@@ -170,37 +165,10 @@ struct FixedSizeListElementArray {
   }
 };
 
-template <typename, typename IndexType>
-struct ListElementScalar {
-  static Status Exec(KernelContext* /*ctx*/, const ExecSpan& batch, ExecResult* out) {
-    using IndexScalarType = typename TypeTraits<IndexType>::ScalarType;
-    const auto& index_scalar = batch[1].scalar_as<IndexScalarType>();
-    if (ARROW_PREDICT_FALSE(!index_scalar.is_valid)) {
-      return Status::Invalid("Index must not be null");
-    }
-    const auto& list_scalar = batch[0].scalar_as<BaseListScalar>();
-    if (ARROW_PREDICT_FALSE(!list_scalar.is_valid)) {
-      out->value = MakeNullScalar(
-          checked_cast<const BaseListType&>(*batch[0].type()).value_type());
-      return Status::OK();
-    }
-    auto list = list_scalar.value;
-    auto index = index_scalar.value;
-    auto len = list->length();
-    if (ARROW_PREDICT_FALSE(index < 0 ||
-                            index >= static_cast<typename IndexType::c_type>(len))) {
-      return Status::Invalid("Index ", index, " is out of bounds: should be in [0, ", len,
-                             ")");
-    }
-    ARROW_ASSIGN_OR_RAISE(out->value, list->GetScalar(index));
-    return Status::OK();
-  }
-};
-
 template <typename InListType, template <typename...> class Functor>
-void AddListElementArrayKernels(ScalarFunction* func) {
+void AddListElementKernels(ScalarFunction* func) {
   for (const auto& index_type : IntTypes()) {
-    auto inputs = {InputType::Array(InListType::type_id), InputType::Scalar(index_type)};
+    auto inputs = {InputType(InListType::type_id), InputType(index_type)};
     auto output = OutputType{ListValuesType};
     auto sig = KernelSignature::Make(std::move(inputs), std::move(output),
                                      /*is_varargs=*/false);
@@ -212,26 +180,10 @@ void AddListElementArrayKernels(ScalarFunction* func) {
   }
 }
 
-void AddListElementArrayKernels(ScalarFunction* func) {
-  AddListElementArrayKernels<ListType, ListElementArray>(func);
-  AddListElementArrayKernels<LargeListType, ListElementArray>(func);
-  AddListElementArrayKernels<FixedSizeListType, FixedSizeListElementArray>(func);
-}
-
-void AddListElementScalarKernels(ScalarFunction* func) {
-  for (const auto list_type_id : {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST}) {
-    for (const auto& index_type : IntTypes()) {
-      auto inputs = {InputType::Scalar(list_type_id), InputType::Scalar(index_type)};
-      auto output = OutputType{ListValuesType};
-      auto sig = KernelSignature::Make(std::move(inputs), std::move(output),
-                                       /*is_varargs=*/false);
-      auto scalar_exec = GenerateInteger<ListElementScalar, void>({index_type->id()});
-      ScalarKernel kernel{std::move(sig), std::move(scalar_exec)};
-      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-      DCHECK_OK(func->AddKernel(std::move(kernel)));
-    }
-  }
+void AddListElementKernels(ScalarFunction* func) {
+  AddListElementKernels<ListType, ListElement>(func);
+  AddListElementKernels<LargeListType, ListElement>(func);
+  AddListElementKernels<FixedSizeListType, FixedSizeListElement>(func);
 }
 
 const FunctionDoc list_element_doc(
@@ -242,7 +194,7 @@ const FunctionDoc list_element_doc(
     {"lists", "index"});
 
 struct StructFieldFunctor {
-  static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
 
     std::shared_ptr<Array> current = MakeArray(batch[0].array.ToArrayData());
@@ -300,43 +252,6 @@ struct StructFieldFunctor {
     return Status::OK();
   }
 
-  static Status ExecScalar(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
-    const Scalar* current = batch[0].scalar;
-    for (const auto& index : options.indices) {
-      RETURN_NOT_OK(CheckIndex(index, *current->type));
-      if (!current->is_valid) {
-        // out should already be a null scalar of the appropriate type
-        return Status::OK();
-      }
-
-      switch (current->type->id()) {
-        case Type::STRUCT: {
-          current = checked_cast<const StructScalar&>(*current).value[index].get();
-          break;
-        }
-        case Type::DENSE_UNION:
-        case Type::SPARSE_UNION: {
-          const auto& union_scalar = checked_cast<const UnionScalar&>(*current);
-          const auto& union_ty = checked_cast<const UnionType&>(*current->type);
-          if (union_scalar.type_code != union_ty.type_codes()[index]) {
-            // out should already be a null scalar of the appropriate type
-            return Status::OK();
-          }
-          current = union_scalar.value.get();
-          break;
-        }
-        default:
-          // Should have been checked in ResolveStructFieldType
-          return Status::TypeError("struct_field: cannot reference child field of type ",
-                                   *current->type);
-      }
-    }
-    // XXX: Revisit the above to see if we can avoid shared_from_this
-    out->value = current->Copy();
-    return Status::OK();
-  }
-
   static Status CheckIndex(int index, const DataType& type) {
     if (!ValidParentType(type)) {
       return Status::TypeError("struct_field: cannot subscript field of type ", type);
@@ -354,28 +269,24 @@ struct StructFieldFunctor {
   }
 };
 
-Result<ValueDescr> ResolveStructFieldType(KernelContext* ctx,
-                                          const std::vector<ValueDescr>& descrs) {
+Result<TypeHolder> ResolveStructFieldType(KernelContext* ctx,
+                                          const std::vector<TypeHolder>& types) {
   const auto& options = OptionsWrapper<StructFieldOptions>::Get(ctx);
-  const std::shared_ptr<DataType>* type = &descrs.front().type;
+  const DataType* type = types.front().type;
   for (const auto& index : options.indices) {
-    RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, **type));
-    type = &(*type)->field(index)->type();
+    RETURN_NOT_OK(StructFieldFunctor::CheckIndex(index, *type));
+    type = type->field(index)->type().get();
   }
-  return ValueDescr(*type, descrs.front().shape);
+  return type;
 }
 
 void AddStructFieldKernels(ScalarFunction* func) {
-  for (const auto shape : {ValueDescr::ARRAY, ValueDescr::SCALAR}) {
-    for (const auto in_type : {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION}) {
-      ScalarKernel kernel({InputType(in_type, shape)}, OutputType(ResolveStructFieldType),
-                          shape == ValueDescr::ARRAY ? StructFieldFunctor::ExecArray
-                                                     : StructFieldFunctor::ExecScalar,
-                          OptionsWrapper<StructFieldOptions>::Init);
-      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-      DCHECK_OK(func->AddKernel(std::move(kernel)));
-    }
+  for (const auto in_type : {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION}) {
+    ScalarKernel kernel({in_type}, ResolveStructFieldType, StructFieldFunctor::Exec,
+                        OptionsWrapper<StructFieldOptions>::Init);
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
 }
 
@@ -392,59 +303,45 @@ const FunctionDoc struct_field_doc(
      "An empty list of indices returns the argument unchanged."),
     {"values"}, "StructFieldOptions", /*options_required=*/true);
 
-Result<ValueDescr> MakeStructResolve(KernelContext* ctx,
-                                     const std::vector<ValueDescr>& descrs) {
+Result<TypeHolder> MakeStructResolve(KernelContext* ctx,
+                                     const std::vector<TypeHolder>& types) {
   auto names = OptionsWrapper<MakeStructOptions>::Get(ctx).field_names;
   auto nullable = OptionsWrapper<MakeStructOptions>::Get(ctx).field_nullability;
   auto metadata = OptionsWrapper<MakeStructOptions>::Get(ctx).field_metadata;
 
   if (names.size() == 0) {
-    names.resize(descrs.size());
-    nullable.resize(descrs.size(), true);
-    metadata.resize(descrs.size(), nullptr);
+    names.resize(types.size());
+    nullable.resize(types.size(), true);
+    metadata.resize(types.size(), nullptr);
     int i = 0;
     for (auto& name : names) {
       name = std::to_string(i++);
     }
-  } else if (names.size() != descrs.size() || nullable.size() != descrs.size() ||
-             metadata.size() != descrs.size()) {
-    return Status::Invalid("make_struct() was passed ", descrs.size(), " arguments but ",
+  } else if (names.size() != types.size() || nullable.size() != types.size() ||
+             metadata.size() != types.size()) {
+    return Status::Invalid("make_struct() was passed ", types.size(), " arguments but ",
                            names.size(), " field names, ", nullable.size(),
                            " nullability bits, and ", metadata.size(),
                            " metadata dictionaries.");
   }
 
   size_t i = 0;
-  FieldVector fields(descrs.size());
+  FieldVector fields(types.size());
 
-  ValueDescr::Shape shape = ValueDescr::SCALAR;
-  for (const ValueDescr& descr : descrs) {
-    if (descr.shape != ValueDescr::SCALAR) {
-      shape = ValueDescr::ARRAY;
-    } else {
-      switch (descr.type->id()) {
-        case Type::EXTENSION:
-        case Type::DENSE_UNION:
-        case Type::SPARSE_UNION:
-          return Status::NotImplemented("Broadcasting scalars of type ", *descr.type);
-        default:
-          break;
-      }
-    }
-
-    fields[i] =
-        field(std::move(names[i]), descr.type, nullable[i], std::move(metadata[i]));
+  for (const TypeHolder& type : types) {
+    fields[i] = field(std::move(names[i]), type.GetSharedPtr(), nullable[i],
+                      std::move(metadata[i]));
     ++i;
   }
 
-  return ValueDescr{struct_(std::move(fields)), shape};
+  return TypeHolder(struct_(std::move(fields)));
 }
 
 Status MakeStructExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ARROW_ASSIGN_OR_RAISE(auto descr, MakeStructResolve(ctx, batch.GetDescriptors()));
+  ARROW_ASSIGN_OR_RAISE(TypeHolder type, MakeStructResolve(ctx, batch.GetTypes()));
 
   for (int i = 0; i < batch.num_values(); ++i) {
-    const auto& field = checked_cast<const StructType&>(*descr.type).field(i);
+    const auto& field = checked_cast<const StructType&>(*type.type).field(i);
     if (batch[i].null_count() > 0 && !field->nullable()) {
       return Status::Invalid("Output field ", field, " (#", i,
                              ") does not allow nulls but the corresponding "
@@ -452,20 +349,9 @@ Status MakeStructExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out
     }
   }
 
-  /// TODO: remove this scalar output modality altogether
-  if (descr.shape == ValueDescr::SCALAR) {
-    ScalarVector scalars(batch.num_values());
-    for (int i = 0; i < batch.num_values(); ++i) {
-      scalars[i] = batch[i].scalar->Copy();
-    }
-    out->value =
-        std::make_shared<StructScalar>(std::move(scalars), std::move(descr.type));
-    return Status::OK();
-  }
-
   ArrayData* out_data = out->array_data().get();
   out_data->length = batch.length;
-  out_data->type = descr.type;
+  out_data->type = type.GetSharedPtr();
   out_data->child_data.resize(batch.num_values());
   for (int i = 0; i < batch.num_values(); ++i) {
     if (batch[i].is_array()) {
@@ -526,12 +412,15 @@ struct MapLookupFunctor {
     return Status::OK();
   }
 
-  static Status ExecMapArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = OptionsWrapper<MapLookupOptions>::Get(ctx);
     const UnboxedKey query_key = UnboxScalar<KeyType>::Unbox(*options.query_key);
 
     const ArraySpan& map = batch[0].array;
     const int32_t* offsets = map.GetValues<int32_t>(1);
+
+    // The struct holding the keys and values may have an offset
+    int64_t kv_offset = map.child_data[0].offset;
 
     // We create a copy of the keys array because we will adjust the
     // offset and length for the map probes below
@@ -553,7 +442,7 @@ struct MapLookupFunctor {
           continue;
         }
 
-        const int32_t item_offset = offsets[map_index];
+        const int64_t item_offset = offsets[map_index] + kv_offset;
         const int32_t item_size = offsets[map_index + 1] - offsets[map_index];
 
         // Adjust the keys view to just the map slot that we are about to search
@@ -584,7 +473,7 @@ struct MapLookupFunctor {
           continue;
         }
 
-        const int32_t item_offset = offsets[map_index];
+        const int64_t item_offset = offsets[map_index] + kv_offset;
         const int32_t item_size = offsets[map_index + 1] - offsets[map_index];
 
         // Adjust the keys view to just the map slot that we are about to search
@@ -608,77 +497,14 @@ struct MapLookupFunctor {
     }
     return Status::OK();
   }
-
-  /// TODO(ARROW-16577): use array path for scalars to avoid having to
-  /// maintain two code paths
-  static Status ExecMapScalar(KernelContext* ctx, const ExecSpan& batch,
-                              ExecResult* out) {
-    const auto& options = OptionsWrapper<MapLookupOptions>::Get(ctx);
-    UnboxedKey query_key = UnboxScalar<KeyType>::Unbox(*options.query_key);
-
-    std::shared_ptr<DataType> item_type =
-        checked_cast<const MapType&>(*batch[0].type()).item_type();
-    const auto& map_scalar = batch[0].scalar_as<MapScalar>();
-
-    if (ARROW_PREDICT_FALSE(!map_scalar.is_valid)) {
-      if (options.occurrence == MapLookupOptions::Occurrence::ALL) {
-        out->value = MakeNullScalar(list(item_type));
-      } else {
-        out->value = MakeNullScalar(item_type);
-      }
-      return Status::OK();
-    }
-
-    const auto& struct_array = checked_cast<const StructArray&>(*map_scalar.value);
-    ArraySpan map_keys(*struct_array.data()->child_data[0]);
-
-    // Keys offset and length must be adjusted to match its parent
-    map_keys.length = struct_array.length();
-    map_keys.offset = struct_array.offset();
-
-    if (options.occurrence == MapLookupOptions::Occurrence::ALL) {
-      ArraySpan map_items(*struct_array.data()->child_data[1]);
-      // Keys offset and length must be adjusted to match its parent
-      map_items.length = struct_array.length();
-      map_items.offset = struct_array.offset();
-
-      bool found_at_least_one_key = false;
-      std::unique_ptr<ArrayBuilder> builder;
-      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), item_type, &builder));
-      RETURN_NOT_OK(
-          FindMatchingIndices(map_keys, query_key, [&](int64_t index) -> Status {
-            found_at_least_one_key = true;
-            RETURN_NOT_OK(builder->AppendArraySlice(map_items, index, 1));
-            return Status::OK();
-          }));
-      if (!found_at_least_one_key) {
-        out->value = MakeNullScalar(list(item_type));
-      } else {
-        ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-        ARROW_ASSIGN_OR_RAISE(out->value, MakeScalar(list(item_type), result));
-      }
-    } else { /* occurrence == FIRST || LAST */
-      std::shared_ptr<Array> items = struct_array.field(1);
-      ARROW_ASSIGN_OR_RAISE(
-          int64_t item_index,
-          GetOneMatchingIndex(map_keys, query_key,
-                              options.occurrence == MapLookupOptions::LAST));
-      if (item_index != -1) {
-        ARROW_ASSIGN_OR_RAISE(out->value, items->GetScalar(item_index));
-      } else {
-        out->value = MakeNullScalar(item_type);
-      }
-    }
-    return Status::OK();
-  }
 };
 
-Result<ValueDescr> ResolveMapLookupType(KernelContext* ctx,
-                                        const std::vector<ValueDescr>& descrs) {
+Result<TypeHolder> ResolveMapLookupType(KernelContext* ctx,
+                                        const std::vector<TypeHolder>& types) {
   const auto& options = OptionsWrapper<MapLookupOptions>::Get(ctx);
-  std::shared_ptr<DataType> type = descrs.front().type;
-  std::shared_ptr<DataType> item_type = checked_cast<const MapType&>(*type).item_type();
-  std::shared_ptr<DataType> key_type = checked_cast<const MapType&>(*type).key_type();
+  const auto& type = checked_cast<const MapType&>(*types.front().type);
+  std::shared_ptr<DataType> item_type = type.item_type();
+  std::shared_ptr<DataType> key_type = type.key_type();
 
   if (!options.query_key) {
     return Status::Invalid("map_lookup: query_key can't be empty.");
@@ -692,9 +518,9 @@ Result<ValueDescr> ResolveMapLookupType(KernelContext* ctx,
   }
 
   if (options.occurrence == MapLookupOptions::Occurrence::ALL) {
-    return ValueDescr(list(item_type), descrs.front().shape);
+    return list(item_type);
   } else { /* occurrence == FIRST || LAST */
-    return ValueDescr(item_type, descrs.front().shape);
+    return item_type;
   }
 }
 
@@ -705,10 +531,7 @@ struct ResolveMapLookup {
 
   template <typename KeyType>
   Status Execute() {
-    if (batch[0].is_scalar()) {
-      return MapLookupFunctor<KeyType>::ExecMapScalar(ctx, batch, out);
-    }
-    return MapLookupFunctor<KeyType>::ExecMapArray(ctx, batch, out);
+    return MapLookupFunctor<KeyType>::Exec(ctx, batch, out);
   }
 
   template <typename KeyType>
@@ -780,8 +603,7 @@ void RegisterScalarNested(FunctionRegistry* registry) {
 
   auto list_element =
       std::make_shared<ScalarFunction>("list_element", Arity::Binary(), list_element_doc);
-  AddListElementArrayKernels(list_element.get());
-  AddListElementScalarKernels(list_element.get());
+  AddListElementKernels(list_element.get());
   DCHECK_OK(registry->AddFunction(std::move(list_element)));
 
   auto struct_field =

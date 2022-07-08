@@ -65,7 +65,6 @@ using arrow_vendored::date::literals::mon;
 using arrow_vendored::date::literals::sun;
 using arrow_vendored::date::literals::thu;
 using arrow_vendored::date::literals::wed;
-using internal::applicator::SimpleUnary;
 using std::chrono::duration_cast;
 using std::chrono::hours;
 using std::chrono::minutes;
@@ -332,23 +331,8 @@ struct YearMonthDayVisitValueFunction<Duration, TimestampType, BuilderType> {
 
 template <typename Duration, typename InType>
 struct YearMonthDay {
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    Scalar* out_scalar = out->scalar().get();
-    if (in.is_valid) {
-      ARROW_ASSIGN_OR_RAISE(auto year_month_day,
-                            (YearMonthDayWrapper<Duration, InType>::Get(in)));
-      ScalarVector values = {std::make_shared<Int64Scalar>(year_month_day[0]),
-                             std::make_shared<Int64Scalar>(year_month_day[1]),
-                             std::make_shared<Int64Scalar>(year_month_day[2])};
-      *checked_cast<StructScalar*>(out_scalar) =
-          StructScalar(std::move(values), YearMonthDayType());
-    } else {
-      out_scalar->is_valid = false;
-    }
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& in = batch[0].array;
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
 
     std::unique_ptr<ArrayBuilder> array_builder;
@@ -1190,23 +1174,8 @@ struct Strftime {
     return Strftime{options, tz, std::move(locale)};
   }
 
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-    TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
-
-    Scalar* output = out->scalar().get();
-    if (in.is_valid) {
-      const int64_t in_val = internal::UnboxScalar<const InType>::Unbox(in);
-      ARROW_ASSIGN_OR_RAISE(auto formatted, formatter(in_val));
-      checked_cast<StringScalar*>(output)->value =
-          Buffer::FromString(std::move(formatted));
-    } else {
-      output->is_valid = false;
-    }
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
     TimestampFormatter<Duration> formatter{self.options.format, self.tz, self.locale};
 
@@ -1273,31 +1242,8 @@ struct Strptime {
                     options.error_is_null};
   }
 
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
-
-    Scalar* output = out->scalar().get();
-    if (in.is_valid) {
-      auto s = internal::UnboxScalar<InType>::Unbox(in);
-      int64_t result;
-      if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
-        *checked_cast<TimestampScalar*>(output) =
-            TimestampScalar(result, timestamp(self.unit, self.zone));
-      } else {
-        if (self.error_is_null) {
-          output->is_valid = false;
-        } else {
-          return Status::Invalid("Failed to parse string: '", s, "' as a scalar of type ",
-                                 TimestampType(self.unit).ToString());
-        }
-      }
-    } else {
-      output->is_valid = false;
-    }
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& in = batch[0].array;
     ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
 
     ArraySpan* out_span = out->array_span();
@@ -1360,25 +1306,23 @@ struct Strptime {
   }
 };
 
-Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
-                                         const std::vector<ValueDescr>&) {
+Result<TypeHolder> ResolveStrptimeOutput(KernelContext* ctx,
+                                         const std::vector<TypeHolder>&) {
   if (!ctx->state()) {
     return Status::Invalid("strptime does not provide default StrptimeOptions");
   }
   const StrptimeOptions& options = StrptimeState::Get(ctx);
-  auto type = timestamp(options.unit, GetZone(options.format));
-  return ValueDescr(std::move(type));
+  return timestamp(options.unit, GetZone(options.format));
 }
 
 // ----------------------------------------------------------------------
 // Convert timestamps from local timestamp without a timezone to timestamps with a
 // timezone, interpreting the local timestamp as being in the specified timezone
 
-Result<ValueDescr> ResolveAssumeTimezoneOutput(KernelContext* ctx,
-                                               const std::vector<ValueDescr>& args) {
-  auto in_type = checked_cast<const TimestampType*>(args[0].type.get());
-  auto type = timestamp(in_type->unit(), AssumeTimezoneState::Get(ctx).timezone);
-  return ValueDescr(std::move(type));
+Result<TypeHolder> ResolveAssumeTimezoneOutput(KernelContext* ctx,
+                                               const std::vector<TypeHolder>& args) {
+  const auto& in_type = checked_cast<const TimestampType&>(*args[0]);
+  return timestamp(in_type.unit(), AssumeTimezoneState::Get(ctx).timezone);
 }
 
 template <typename Duration>
@@ -1528,23 +1472,8 @@ struct ISOCalendarVisitValueFunction<Duration, TimestampType, BuilderType> {
 
 template <typename Duration, typename InType>
 struct ISOCalendar {
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    Scalar* output = out->scalar().get();
-    if (in.is_valid) {
-      ARROW_ASSIGN_OR_RAISE(auto iso_calendar,
-                            (ISOCalendarWrapper<Duration, InType>::Get(in)));
-      ScalarVector values = {std::make_shared<Int64Scalar>(iso_calendar[0]),
-                             std::make_shared<Int64Scalar>(iso_calendar[1]),
-                             std::make_shared<Int64Scalar>(iso_calendar[2])};
-      *checked_cast<StructScalar*>(output) =
-          StructScalar(std::move(values), IsoCalendarType());
-    } else {
-      output->is_valid = false;
-    }
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& in = batch[0].array;
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
 
     std::unique_ptr<ArrayBuilder> array_builder;
@@ -1630,8 +1559,7 @@ struct SimpleUnaryTemporalFactory {
 
   template <typename Duration, typename InType>
   void AddKernel(InputType in_type) {
-    auto exec = SimpleUnary<Op<Duration, InType>>;
-    ScalarKernel kernel({std::move(in_type)}, out_type, std::move(exec), init);
+    ScalarKernel kernel({std::move(in_type)}, out_type, Op<Duration, InType>::Exec, init);
     kernel.null_handling = this->null_handling;
     DCHECK_OK(func->AddKernel(kernel));
   }

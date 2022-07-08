@@ -141,7 +141,7 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
     key_batch.values.emplace_back(batch->column_data(i));
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto grouper, compute::Grouper::Make(key_batch.GetDescriptors()));
+  ARROW_ASSIGN_OR_RAISE(auto grouper, compute::Grouper::Make(key_batch.GetTypes()));
 
   ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 

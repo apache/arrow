@@ -465,45 +465,44 @@ Status ArraySortIndicesChunked(KernelContext* ctx, const ExecBatch& batch, Datum
 template <template <typename...> class ExecTemplate>
 void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   // null type
-  base.signature = KernelSignature::Make({InputType::Array(null())}, uint64());
+  base.signature = KernelSignature::Make({null()}, uint64());
   base.exec = ExecTemplate<UInt64Type, NullType>::Exec;
   DCHECK_OK(func->AddKernel(base));
 
   // bool type
-  base.signature = KernelSignature::Make({InputType::Array(boolean())}, uint64());
+  base.signature = KernelSignature::Make({boolean()}, uint64());
   base.exec = ExecTemplate<UInt64Type, BooleanType>::Exec;
   DCHECK_OK(func->AddKernel(base));
 
   // duration type
-  base.signature = KernelSignature::Make({InputType::Array(Type::DURATION)}, uint64());
+  base.signature = KernelSignature::Make({Type::DURATION}, uint64());
   base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*int64());
   DCHECK_OK(func->AddKernel(base));
 
   for (const auto& ty : NumericTypes()) {
     auto physical_type = GetPhysicalType(ty);
-    base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    base.signature = KernelSignature::Make({ty}, uint64());
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : TemporalTypes()) {
     auto physical_type = GetPhysicalType(ty);
-    base.signature = KernelSignature::Make({InputType::Array(ty->id())}, uint64());
+    base.signature = KernelSignature::Make({ty->id()}, uint64());
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-    base.signature = KernelSignature::Make({InputType::Array(id)}, uint64());
+    base.signature = KernelSignature::Make({id}, uint64());
     base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     auto physical_type = GetPhysicalType(ty);
-    base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    base.signature = KernelSignature::Make({ty}, uint64());
     base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
-  base.signature =
-      KernelSignature::Make({InputType::Array(Type::FIXED_SIZE_BINARY)}, uint64());
+  base.signature = KernelSignature::Make({Type::FIXED_SIZE_BINARY}, uint64());
   base.exec = ExecTemplate<UInt64Type, FixedSizeBinaryType>::Exec;
   DCHECK_OK(func->AddKernel(base));
 }

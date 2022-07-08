@@ -44,13 +44,13 @@ BatchesWithSchema GenerateBatchesFromString(
     const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
   BatchesWithSchema out_batches{{}, schema};
 
-  std::vector<ValueDescr> descrs;
+  std::vector<TypeHolder> types;
   for (auto&& field : schema->fields()) {
-    descrs.emplace_back(field->type());
+    types.emplace_back(field->type());
   }
 
   for (auto&& s : json_strings) {
-    out_batches.batches.push_back(ExecBatchFromJSON(descrs, s));
+    out_batches.batches.push_back(ExecBatchFromJSON(types, s));
   }
 
   size_t batch_count = out_batches.batches.size();
@@ -473,7 +473,7 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
   }
 }
 
-// Generate random arrays given list of data type descriptions and null probabilities.
+// Generate random arrays given list of data types and null probabilities.
 // Make sure that all generated records are unique.
 // The actual number of generated records may be lower than desired because duplicates
 // will be removed without replacement.
@@ -485,12 +485,12 @@ std::vector<std::shared_ptr<Array>> GenRandomUniqueRecords(
       GenRandomRecords(rng, data_types.data_types, num_desired);
 
   ExecContext* ctx = default_exec_context();
-  std::vector<ValueDescr> val_descrs;
+  std::vector<TypeHolder> val_types;
   for (size_t i = 0; i < result.size(); ++i) {
-    val_descrs.push_back(ValueDescr(result[i]->type(), ValueDescr::ARRAY));
+    val_types.push_back(result[i]->type());
   }
   internal::RowEncoder encoder;
-  encoder.Init(val_descrs, ctx);
+  encoder.Init(val_types, ctx);
   ExecBatch batch({}, num_desired);
   batch.values.resize(result.size());
   for (size_t i = 0; i < result.size(); ++i) {

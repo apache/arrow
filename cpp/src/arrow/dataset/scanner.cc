@@ -129,10 +129,10 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
               "Top level projection expression call must be make_struct");
         }
         FieldVector fields;
-        for (const auto& arg : call->arguments) {
+        for (const compute::Expression& arg : call->arguments) {
           if (auto field_ref = arg.field_ref()) {
             if (field_ref->IsName()) {
-              fields.push_back(field(*field_ref->name(), arg.type()));
+              fields.push_back(field(*field_ref->name(), arg.type()->GetSharedPtr()));
               break;
             }
           }

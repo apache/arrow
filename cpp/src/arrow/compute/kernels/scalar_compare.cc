@@ -192,50 +192,50 @@ void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func
 struct CompareFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
-    if (HasDecimal(*values)) {
-      RETURN_NOT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
+    if (HasDecimal(*types)) {
+      RETURN_NOT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, types));
     }
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
-    ReplaceNullWithOtherType(values);
+    EnsureDictionaryDecoded(types);
+    ReplaceNullWithOtherType(types);
 
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
-    } else if (auto type = CommonTemporal(values->data(), values->size())) {
-      ReplaceTypes(type, values);
-    } else if (auto type = CommonBinary(values->data(), values->size())) {
-      ReplaceTypes(type, values);
+    if (auto type = CommonNumeric(*types)) {
+      ReplaceTypes(type, types);
+    } else if (auto type = CommonTemporal(types->data(), types->size())) {
+      ReplaceTypes(type, types);
+    } else if (auto type = CommonBinary(types->data(), types->size())) {
+      ReplaceTypes(type, types);
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
 struct VarArgsCompareFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
+    EnsureDictionaryDecoded(types);
 
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
-    } else if (auto type = CommonTemporal(values->data(), values->size())) {
-      ReplaceTypes(type, values);
+    if (auto type = CommonNumeric(*types)) {
+      ReplaceTypes(type, types);
+    } else if (auto type = CommonTemporal(types->data(), types->size())) {
+      ReplaceTypes(type, types);
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
@@ -376,14 +376,9 @@ struct ScalarMinMax {
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    const auto descrs = batch.GetDescriptors();
     const size_t scalar_count = static_cast<size_t>(
         std::count_if(batch.values.begin(), batch.values.end(),
                       [](const ExecValue& v) { return v.is_scalar(); }));
-    if (scalar_count == batch.values.size()) {
-      ExecScalar(batch, options, out->scalar().get());
-      return Status::OK();
-    }
 
     ArrayData* output = out->array_data().get();
 
@@ -397,7 +392,7 @@ struct ScalarMinMax {
     bool initialize_output = true;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
-                            MakeScalar(out->type()->Copy(), 0));
+                            MakeScalar(out->type()->GetSharedPtr(), 0));
       ExecScalar(batch, options, temp_scalar.get());
       if (temp_scalar->is_valid) {
         const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
@@ -486,47 +481,6 @@ struct ScalarMinMax {
   }
 };
 
-template <typename Op>
-Status ExecBinaryMinMaxScalar(KernelContext* ctx,
-                              const ElementWiseAggregateOptions& options,
-                              const ExecSpan& batch, ExecResult* out) {
-  if (batch.values.empty()) {
-    return Status::OK();
-  }
-  auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-  if (!options.skip_nulls) {
-    // any nulls in the input will produce a null output
-    for (const ExecValue& value : batch.values) {
-      if (!value.scalar->is_valid) {
-        output->is_valid = false;
-        return Status::OK();
-      }
-    }
-  }
-  const auto& first_scalar = *batch.values.front().scalar;
-  string_view result = checked_cast<const BaseBinaryScalar&>(first_scalar).view();
-  bool valid = first_scalar.is_valid;
-  for (int i = 1; i < batch.num_values(); i++) {
-    const Scalar& scalar = *batch[i].scalar;
-    if (!scalar.is_valid) {
-      DCHECK(options.skip_nulls);
-      continue;
-    } else {
-      string_view value = checked_cast<const BaseBinaryScalar&>(scalar).view();
-      result = !valid ? value : Op::Call(result, value);
-      valid = true;
-    }
-  }
-  if (valid) {
-    ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(result.size()));
-    std::copy(result.begin(), result.end(), output->value->mutable_data());
-    output->is_valid = true;
-  } else {
-    output->is_valid = false;
-  }
-  return Status::OK();
-}
-
 template <typename Type, typename Op>
 struct BinaryScalarMinMax {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
@@ -535,15 +489,6 @@ struct BinaryScalarMinMax {
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    if (batch.is_all_scalar()) {
-      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
-    }
-    return ExecContainingArrays(ctx, options, batch, out);
-  }
-
-  static Status ExecContainingArrays(KernelContext* ctx,
-                                     const ElementWiseAggregateOptions& options,
-                                     const ExecSpan& batch, ExecResult* out) {
     // Presize data to avoid reallocations, using an estimation of final size.
     int64_t estimated_final_size = EstimateOutputSize(batch);
     BuilderType builder(ctx->memory_pool());
@@ -591,7 +536,7 @@ struct BinaryScalarMinMax {
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
     out->value = std::move(string_array->data());
-    out->array_data()->type = batch[0].type()->Copy();
+    out->array_data()->type = batch[0].type()->GetSharedPtr();
     DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }
@@ -620,21 +565,12 @@ template <typename Op>
 struct FixedSizeBinaryScalarMinMax {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    if (batch.is_all_scalar()) {
-      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
-    }
-    return ExecContainingArrays(ctx, options, batch, out);
-  }
-
-  static Status ExecContainingArrays(KernelContext* ctx,
-                                     const ElementWiseAggregateOptions& options,
-                                     const ExecSpan& batch, ExecResult* out) {
     const DataType* batch_type = batch[0].type();
     const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type);
     int32_t byte_width = binary_type->byte_width();
     // Presize data to avoid reallocations.
     int64_t estimated_final_size = batch.length * byte_width;
-    FixedSizeBinaryBuilder builder(batch_type->Copy());
+    FixedSizeBinaryBuilder builder(batch_type->GetSharedPtr());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
@@ -645,13 +581,17 @@ struct FixedSizeBinaryScalarMinMax {
         result = result.empty() ? value : Op::Call(result, value);
       };
 
+      int num_valid_values = 0;
       for (int col = 0; col < batch.num_values(); col++) {
         if (batch[col].is_scalar()) {
           const Scalar& scalar = *batch[col].scalar;
           if (scalar.is_valid) {
             visit_value(UnboxScalar<FixedSizeBinaryType>::Unbox(scalar));
+            num_valid_values += 1;
           } else if (!options.skip_nulls) {
-            result = string_view();
+            // If we encounter a null, exit the loop and mark num_row_values to
+            // be 0 so we append a null
+            num_valid_values = 0;
             break;
           }
         } else {
@@ -661,14 +601,17 @@ struct FixedSizeBinaryScalarMinMax {
             const auto data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
             visit_value(string_view(
                 reinterpret_cast<const char*>(data) + row * byte_width, byte_width));
+            num_valid_values += 1;
           } else if (!options.skip_nulls) {
-            result = string_view();
+            // If we encounter a null, exit the loop and mark num_row_values to
+            // be 0 so we append a null
+            num_valid_values = 0;
             break;
           }
         }
       }
 
-      if (result.empty()) {
+      if (num_valid_values == 0) {
         builder.UnsafeAppendNull();
       } else {
         builder.UnsafeAppend(result);
@@ -678,26 +621,26 @@ struct FixedSizeBinaryScalarMinMax {
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
     out->value = std::move(string_array->data());
-    out->array_data()->type = batch[0].type()->Copy();
+    out->array_data()->type = batch[0].type()->GetSharedPtr();
     DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }
 };
 
-Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
-                                             const std::vector<ValueDescr>& args) {
-  if (args.empty()) {
+Result<TypeHolder> ResolveMinOrMaxOutputType(KernelContext*,
+                                             const std::vector<TypeHolder>& types) {
+  if (types.empty()) {
     return null();
   }
-  auto first_type = args[0].type;
-  for (size_t i = 1; i < args.size(); ++i) {
-    auto type = args[i].type;
+  auto first_type = types[0].type;
+  for (size_t i = 1; i < types.size(); ++i) {
+    auto type = types[i].type;
     if (*type != *first_type) {
       return Status::NotImplemented(
           "Different input types not supported for {min, max}_element_wise");
     }
   }
-  return ValueDescr(first_type, GetBroadcastShape(args));
+  return first_type;
 }
 
 template <typename Op>

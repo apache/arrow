@@ -211,19 +211,19 @@ class ARROW_EXPORT Function {
   virtual int num_kernels() const = 0;
 
   /// \brief Return a kernel that can execute the function given the exact
-  /// argument types (without implicit type casts or scalar->array promotions).
+  /// argument types (without implicit type casts).
   ///
   /// NB: This function is overridden in CastFunction.
-  virtual Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const;
+  virtual Result<const Kernel*> DispatchExact(const std::vector<TypeHolder>& types) const;
 
   /// \brief Return a best-match kernel that can execute the function given the argument
   /// types, after implicit casts are applied.
   ///
-  /// \param[in,out] values Argument types. An element may be modified to indicate that
-  /// the returned kernel only approximately matches the input value descriptors; callers
-  /// are responsible for casting inputs to the type and shape required by the kernel.
-  virtual Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const;
+  /// \param[in,out] values Argument types. An element may be modified to
+  /// indicate that the returned kernel only approximately matches the input
+  /// value descriptors; callers are responsible for casting inputs to the type
+  /// required by the kernel.
+  virtual Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken
@@ -255,11 +255,7 @@ class ARROW_EXPORT Function {
         doc_(std::move(doc)),
         default_options_(default_options) {}
 
-  Result<Datum> ExecuteInternal(const std::vector<Datum>& args, int64_t passed_length,
-                                const FunctionOptions* options, ExecContext* ctx) const;
-
-  Status CheckArity(const std::vector<InputType>&) const;
-  Status CheckArity(const std::vector<ValueDescr>&) const;
+  Status CheckArity(size_t num_args) const;
 
   std::string name_;
   Function::Kind kind_;
@@ -294,11 +290,11 @@ class FunctionImpl : public Function {
 
 /// \brief Look up a kernel in a function. If no Kernel is found, nullptr is returned.
 ARROW_EXPORT
-const Kernel* DispatchExactImpl(const Function* func, const std::vector<ValueDescr>&);
+const Kernel* DispatchExactImpl(const Function* func, const std::vector<TypeHolder>&);
 
 /// \brief Return an error message if no Kernel is found.
 ARROW_EXPORT
-Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>&);
+Status NoMatchingKernel(const Function* func, const std::vector<TypeHolder>&);
 
 }  // namespace detail
 
