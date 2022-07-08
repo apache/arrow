@@ -351,12 +351,12 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
-      - name: Cache Python packages
+      - name: Cache Python wheels
         uses: actions/cache@v2
         with:
-          path: "d:/a/_temp/msys64/mingw${{ matrix.mingw-n-bits }}/lib/python*/site-packages"
-          key: cpp-gcs-testbench-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('ci/scripts/install_gcs_testbench.sh') }}
-          restore-keys: cpp-gcs-testbench-mingw${{ matrix.mingw-n-bits }}-
+          path: "${{ env.PIP_CACHE_DIR }}"
+          key: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('ci/scripts/install_gcs_testbench.sh') }}
+          restore-keys: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-
       - name: Install Google Cloud Storage Testbench
         shell: msys2 {0}
         run: |
@@ -364,7 +364,7 @@ jobs:
       - name: Test
         shell: msys2 {0}
         run: |
-          python_version=$(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
+          python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
           export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
           PYTHONPATH="${PYTHONHOME}"
           PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"
