@@ -65,7 +65,8 @@ type fileBlock struct {
 	Meta   int32
 	Body   int64
 
-	r io.ReaderAt
+	r   io.ReaderAt
+	mem memory.Allocator
 }
 
 func fileBlocksToFB(b *flatbuffers.Builder, blocks []fileBlock, start startVecFunc) flatbuffers.UOffsetT {
@@ -80,12 +81,18 @@ func fileBlocksToFB(b *flatbuffers.Builder, blocks []fileBlock, start startVecFu
 
 func (blk fileBlock) NewMessage() (*Message, error) {
 	var (
-		err error
-		buf []byte
-		r   = blk.section()
+		err  error
+		buf  []byte
+		body *memory.Buffer
+		meta *memory.Buffer
+		r    = blk.section()
 	)
 
-	buf = make([]byte, blk.Meta)
+	meta = memory.NewResizableBuffer(blk.mem)
+	meta.Resize(int(blk.Meta))
+	defer meta.Release()
+
+	buf = meta.Bytes()
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not read message metadata: %w", err)
@@ -102,14 +109,18 @@ func (blk fileBlock) NewMessage() (*Message, error) {
 		prefix = 4
 	}
 
-	meta := memory.NewBufferBytes(buf[prefix:]) // drop buf-size already known from blk.Meta
+	// drop buf-size already known from blk.Meta
+	meta = memory.SliceBuffer(meta, prefix, int(blk.Meta)-prefix)
+	defer meta.Release()
 
-	buf = make([]byte, blk.Body)
+	body = memory.NewResizableBuffer(blk.mem)
+	defer body.Release()
+	body.Resize(int(blk.Body))
+	buf = body.Bytes()
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not read message body: %w", err)
 	}
-	body := memory.NewBufferBytes(buf)
 
 	return NewMessage(meta, body), nil
 }
