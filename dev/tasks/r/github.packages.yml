@@ -151,6 +151,7 @@ jobs:
           AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
           SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
           SCCACHE_S3_KEY_PREFIX: 'sccache'
+          ARROW_USE_SCCACHE: ON
         run: arrow/ci/scripts/r_windows_build.sh
 
       - name: Upload binary artifact
