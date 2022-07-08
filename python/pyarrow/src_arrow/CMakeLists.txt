@@ -264,7 +264,29 @@ if(PARQUET_REQUIRE_ENCRYPTION AND PYARROW_WITH_PARQUET_ENCRYPTION)
   list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS parquet_shared)
 endif()
 
+if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQUAL "NONE"
+                                             ))
+  set(ARROW_USE_XSIMD TRUE)
+else()
+  set(ARROW_USE_XSIMD FALSE)
+endif()
+
 if(ARROW_USE_XSIMD)
+  set(XSIMD_PREFIX "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
+  set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
+
+  if(NOT xsimd_INCLUDE_DIRS STREQUAL "")
+    add_library(xsimd INTERFACE IMPORTED)
+    if(CMAKE_VERSION VERSION_LESS 3.11)
+      set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                            "${XSIMD_INCLUDE_DIR}")
+    else()
+      target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+    endif()
+  else()
+    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
+  endif()
+
   list(APPEND ARROW_PYTHON_SHARED_PRIVATE_LINK_LIBS xsimd)
   list(APPEND ARROW_PYTHON_STATIC_LINK_LIBS xsimd)
 endif()
