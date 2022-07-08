@@ -361,7 +361,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
             return Status::NotImplemented("Aggregate filters are not supported.");
           }
           const auto& agg_func = agg_measure.measure();
-          if (agg_func.args_size() != 1) {
+          if (agg_func.arguments_size() != 1) {
             return Status::NotImplemented("Aggregate function must be a unary function.");
           }
           int func_reference = agg_func.function_reference();
@@ -369,7 +369,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           // aggreagte function name
           auto func_name = std::string(func_record.id.name);
           // aggregate target
-          ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(agg_func.args(0), ext_set));
+          auto subs_func_args = agg_func.arguments(0);
+          ARROW_ASSIGN_OR_RAISE(auto field_expr,
+                                FromProto(subs_func_args.value(), ext_set));
           auto target = field_expr.field_ref();
           if (!target) {
             return Status::Invalid(
