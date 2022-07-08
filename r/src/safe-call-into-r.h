@@ -198,4 +198,16 @@ arrow::Result<T> RunWithCapturedRIfPossible(
   }
 }
 
+// Like RunWithCapturedRIfPossible<>() but for arrow calls that don't return
+// a Result.
+arrow::Status RunWithCapturedRIfPossibleVoid(
+    std::function<arrow::Status()> make_arrow_call) {
+  auto result = RunWithCapturedRIfPossible<bool>([&]() -> arrow::Result<bool> {
+    ARROW_RETURN_NOT_OK(make_arrow_call());
+    return true;
+  });
+  ARROW_RETURN_NOT_OK(result);
+  return arrow::Status::OK();
+}
+
 #endif
