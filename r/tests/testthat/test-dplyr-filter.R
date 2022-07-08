@@ -401,7 +401,7 @@ test_that("filter() with .data pronoun", {
   )
 })
 
-test_that("filter() with namespacing", {
+test_that("filter() with namespaced functions", {
   compare_dplyr_binding(
     .input %>%
       filter(dplyr::between(dbl, 1, 2)) %>%
