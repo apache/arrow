@@ -120,8 +120,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
 
   if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
     foreach(TEST_TARGET arrow-flight-sql-test flight-sql-test-server flight-sql-test-app)
-      target_compile_definitions(${TEST_TARGET}
-                                PUBLIC ARROW_FLIGHT_STATIC ARROW_FLIGHT_SQL_STATIC)
+      target_compile_definitions(${TEST_TARGET} PUBLIC ARROW_FLIGHT_STATIC
+                                                       ARROW_FLIGHT_SQL_STATIC)
     endforeach()
   endif()
 endif()
