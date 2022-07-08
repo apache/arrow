@@ -19,6 +19,8 @@
 
 # arrow 8.0.0.9000
 
+* The `arrow.dev_repo` for nightly builds of the R package and prebuilt
+  libarrow binaries is now https://nightlies.apache.org/arrow/r/.
 * `lubridate::parse_date_time()` datetime parser:
   * `orders` with year, month, day, hours, minutes, and seconds components are supported.
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
@@ -77,7 +79,7 @@
   * `strptime()` returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
 * Timezone operations are supported on Windows if the
-  [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
+  [tzdb package](https://cran.r-project.org/package=tzdb) is also
   installed.
 
 ## Extensibility

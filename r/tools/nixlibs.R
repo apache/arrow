@@ -22,7 +22,7 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 # TESTING is set in test-nixlibs.R; it won't be set when called from configure
 test_mode <- exists("TESTING")
 
-arrow_repo <- paste0(getOption("arrow.dev_repo", "https://arrow-r-nightly.s3.amazonaws.com"), "/libarrow/")
+arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
