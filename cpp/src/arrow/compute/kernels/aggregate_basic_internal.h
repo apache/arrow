@@ -459,9 +459,7 @@ struct MinMaxImpl : public ScalarAggregator {
       for (int64_t i = 0; i < arr.length(); i++) {
         local.MergeOne(arr.GetView(i));
       }
-    }
-
-    else if (local.has_nulls && options.skip_nulls) {
+    } else if (local.has_nulls && options.skip_nulls) {
       local += ConsumeWithNulls(arr);
     }
 
