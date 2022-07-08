@@ -139,7 +139,10 @@ static void RLEFilterBaseline(benchmark::State& state, ValuesSet values,
 }
 
 static RunLengthDistribution only_single_distribition{{1}, {1}};
-static RunLengthDistribution only_1000_distribition{{1000}, {0}};
+static RunLengthDistribution only_1000_distribition{{1000}, {1}};
+static RunLengthDistribution only_100_distribition{{100}, {1}};
+static RunLengthDistribution only_10_distribition{{100}, {1}};
+static RunLengthDistribution equally_12345_distribition{{1, 2, 3, 4, 5}, {5,4,3,2,1}};
 static RunLengthDistribution equally_mixed_distribition{{1, 10, 100, 1000},
                                                         {1000, 100, 10, 1}};
 
@@ -150,12 +153,24 @@ BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", 
 
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_single_distribition);
+BENCHMARK_CAPTURE(RLEFilterBenchmark, int_10, ValuesSet(uint32(), {"1", "2", "null"}),
+                  equally_12345_distribition);
+BENCHMARK_CAPTURE(RLEFilterBenchmark, int_12345, ValuesSet(uint32(), {"1", "2", "null"}),
+                  only_10_distribition);
+BENCHMARK_CAPTURE(RLEFilterBenchmark, int_100, ValuesSet(uint32(), {"1", "2", "null"}),
+                  only_100_distribition);
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_1000, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_1000_distribition);
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
 BENCHMARK_CAPTURE(RLEFilterBaseline, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_single_distribition);
+BENCHMARK_CAPTURE(RLEFilterBaseline, int_12345, ValuesSet(uint32(), {"1", "2", "null"}),
+                  equally_12345_distribition);
+BENCHMARK_CAPTURE(RLEFilterBaseline, int_10, ValuesSet(uint32(), {"1", "2", "null"}),
+                  only_10_distribition);
+BENCHMARK_CAPTURE(RLEFilterBaseline, int_100, ValuesSet(uint32(), {"1", "2", "null"}),
+                  only_100_distribition);
 BENCHMARK_CAPTURE(RLEFilterBaseline, int_1000, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_1000_distribition);
 BENCHMARK_CAPTURE(RLEFilterBaseline, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
