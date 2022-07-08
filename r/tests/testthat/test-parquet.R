@@ -164,15 +164,15 @@ test_that("make_valid_parquet_version()", {
 test_that("make_valid_parquet_version() input validation", {
   expect_error(
     make_valid_parquet_version("0.3.14"),
-    '`version` must be one of'
+    "`version` must be one of"
   )
   expect_error(
     make_valid_parquet_version(NULL),
-    '`version` must be one of'
+    "`version` must be one of"
   )
   expect_error(
     make_valid_parquet_version(c("2", "4")),
-    '`version` must be one of'
+    "`version` must be one of"
   )
 })
 
