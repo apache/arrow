@@ -165,11 +165,13 @@ struct TemporalComponentExtractWeek
   }
 };
 
+// Since OutType should always equal InType we set OutType to InType in the
+// TemporalComponentExtractBase template parameters.
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
 struct TemporalComponentExtractRound
-    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
-  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
+    : public TemporalComponentExtractBase<Op, Duration, InType, InType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, InType, InType>;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const RoundTemporalOptions& options = RoundTemporalState::Get(ctx);
@@ -1968,6 +1970,9 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(is_dst)));
 
   // Temporal rounding functions
+  // Note: UnaryTemporalFactory will not correctly resolve OutputType(FirstType) to
+  // output type. See TemporalComponentExtractRound for more.
+
   static const auto default_round_temporal_options = RoundTemporalOptions::Defaults();
   auto floor_temporal = UnaryTemporalFactory<FloorTemporal, TemporalComponentExtractRound,
                                              TimestampType>::Make<WithDates, WithTimes,
