@@ -87,6 +87,7 @@ RUN apt-get update -y -q && \
         libradospp-dev \
         libre2-dev \
         libsnappy-dev \
+        libsqlite3-dev \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
@@ -131,7 +132,8 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
-    ARROW_FLIGHT=OFF \
+    ARROW_FLIGHT=ON \
+    ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HDFS=ON \
