@@ -268,10 +268,10 @@ else()
 endif()
 
 if(ARROW_USE_XSIMD)
-  if(EXISTS "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
-    set(XSIMD_PREFIX "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
-  else()
+  if(NOT EXISTS "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
     set(XSIMD_PREFIX "$ENV{CONDA_PREFIX}")
+  else()
+    set(XSIMD_PREFIX "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
   endif()
   set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
 
