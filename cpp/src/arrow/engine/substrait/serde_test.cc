@@ -1406,7 +1406,7 @@ TEST(Substrait, AggregateBase) {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",
-                    "format": "FILE_FORMAT_PARQUET"
+                    "parquet": {}
                   }
                 ]
               }
@@ -1426,14 +1426,16 @@ TEST(Substrait, AggregateBase) {
           "measures": [{
             "measure": {
               "functionReference": 0,
-              "args": [{
-              "selection": {
-                "directReference": {
-                  "structField": {
-                    "field": 1
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 1
+                      }
+                    }
                   }
                 }
-              }
             }],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
@@ -1530,7 +1532,7 @@ TEST(Substrait, AggregateInvalidFunction) {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",
-                    "format": "FILE_FORMAT_PARQUET"
+                    "parquet": {}
                   }
                 ]
               }
@@ -1597,7 +1599,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",
-                    "format": "FILE_FORMAT_PARQUET"
+                    "parquet": {}
                   }
                 ]
               }
@@ -1673,7 +1675,7 @@ TEST(Substrait, AggregateWithFilter) {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",
-                    "format": "FILE_FORMAT_PARQUET"
+                    "parquet": {}
                   }
                 ]
               }
