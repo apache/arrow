@@ -230,7 +230,7 @@ void ExecPlan_Write(
   arrow::Status result = RunWithCapturedRIfPossibleVoid([&]() {
     RETURN_NOT_OK(plan->StartProducing());
     RETURN_NOT_OK(plan->finished().status());
-    arrow::Status::OK();
+    return arrow::Status::OK();
   });
 
   StopIfNotOk(result);
