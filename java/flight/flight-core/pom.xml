@@ -247,7 +247,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.3.0</version><!--This verify step require an up to date maven-dependency-plugin-->
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>analyze</id>
@@ -266,7 +266,7 @@
       <plugin> <!-- add generated sources to classpath -->
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>1.9.1</version>
         <executions>
           <execution>
             <id>add-generated-sources-to-classpath</id>
@@ -302,36 +302,4 @@
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <profile>
-      <id>linux-netty-native</id>
-      <activation>
-        <os>
-          <family>linux</family>
-        </os>
-      </activation>
-      <dependencies>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-unix-common</artifactId>
-          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
-        </dependency>
-      </dependencies>
-    </profile>
-    <profile>
-      <id>mac-netty-native</id>
-      <activation>
-        <os>
-          <family>mac</family>
-        </os>
-      </activation>
-      <dependencies>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-unix-common</artifactId>
-          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
-        </dependency>
-      </dependencies>
-    </profile>
-  </profiles>
 </project>
