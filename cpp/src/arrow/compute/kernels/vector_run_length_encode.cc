@@ -294,6 +294,7 @@ struct RunLengthDecodeExec
           this->output_position++;
         }
       } else {  // !valid
+        bit_util::SetBitsTo(this->output_validity, this->output_position, run_length, false);
         this->output_position += run_length;
         output_null_count += run_length;
       }
