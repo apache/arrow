@@ -710,8 +710,8 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
     n_args[i] = in_types->num_fields();
   }
 
-  int64_t min_args = *std::min_element(n_args.begin(), n_args.end());
-  int64_t max_args = *std::max_element(n_args.begin(), n_args.end());
+  const int64_t min_args = *std::min_element(n_args.begin(), n_args.end());
+  const int64_t max_args = *std::max_element(n_args.begin(), n_args.end());
 
   // We can't currently handle variable numbers of arguments in a user-defined
   // function and we don't have a mechanism for the user to specify a variable
