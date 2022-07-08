@@ -29,9 +29,9 @@ register_bindings_datetime <- function() {
 
 register_bindings_datetime_utility <- function() {
   register_binding("base::strptime", function(x,
-                                        format = "%Y-%m-%d %H:%M:%S",
-                                        tz = "",
-                                        unit = "ms") {
+                                              format = "%Y-%m-%d %H:%M:%S",
+                                              tz = "",
+                                              unit = "ms") {
     # Arrow uses unit for time parsing, strptime() does not.
     # Arrow has no default option for strptime (format, unit),
     # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
@@ -260,18 +260,20 @@ register_bindings_datetime_conversion <- function() {
     build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
   })
 
-  register_binding("lubridate::make_date", function(year = 1970L, month = 1L, day = 1L) {
+  register_binding("lubridate::make_date", function(year = 1970L,
+                                                    month = 1L,
+                                                    day = 1L) {
     x <- call_binding("make_datetime", year, month, day)
     build_expr("cast", x, options = cast_options(to_type = date32()))
   })
 
   register_binding("base::ISOdatetime", function(year,
-                                           month,
-                                           day,
-                                           hour,
-                                           min,
-                                           sec,
-                                           tz = "UTC") {
+                                                 month,
+                                                 day,
+                                                 hour,
+                                                 min,
+                                                 sec,
+                                                 tz = "UTC") {
 
     # NAs for seconds aren't propagated (but treated as 0) in the base version
     sec <- call_binding(
@@ -285,20 +287,20 @@ register_bindings_datetime_conversion <- function() {
   })
 
   register_binding("base::ISOdate", function(year,
-                                       month,
-                                       day,
-                                       hour = 12,
-                                       min = 0,
-                                       sec = 0,
-                                       tz = "UTC") {
+                                             month,
+                                             day,
+                                             hour = 12,
+                                             min = 0,
+                                             sec = 0,
+                                             tz = "UTC") {
     call_binding("make_datetime", year, month, day, hour, min, sec, tz)
   })
 
   register_binding("base::as.Date", function(x,
-                                       format = NULL,
-                                       tryFormats = "%Y-%m-%d",
-                                       origin = "1970-01-01",
-                                       tz = "UTC") {
+                                            format = NULL,
+                                            tryFormats = "%Y-%m-%d",
+                                            origin = "1970-01-01",
+                                            tz = "UTC") {
     if (is.null(format) && length(tryFormats) > 1) {
       abort(
         paste(
@@ -347,9 +349,9 @@ register_bindings_datetime_conversion <- function() {
   })
 
   register_binding("lubridate::as_datetime", function(x,
-                                           origin = "1970-01-01",
-                                           tz = "UTC",
-                                           format = NULL) {
+                                                      origin = "1970-01-01",
+                                                      tz = "UTC",
+                                                      format = NULL) {
     if (call_binding("is.numeric", x)) {
       delta <- call_binding("difftime", origin, "1970-01-01")
       delta <- build_expr("cast", delta, options = cast_options(to_type = int64()))
@@ -382,7 +384,8 @@ register_bindings_datetime_conversion <- function() {
     y + sofar$cast(int64()) / total
   })
 
-  register_binding("lubridate::date_decimal", function(decimal, tz = "UTC") {
+  register_binding("lubridate::date_decimal", function(decimal,
+                                                       tz = "UTC") {
     y <- build_expr("floor", decimal)
 
     start <- call_binding("make_datetime", year = y, tz = tz)
@@ -402,9 +405,9 @@ register_bindings_datetime_conversion <- function() {
 
 register_bindings_duration <- function() {
   register_binding("base::difftime", function(time1,
-                                        time2,
-                                        tz,
-                                        units = "secs") {
+                                              time2,
+                                              tz,
+                                              units = "secs") {
     if (units != "secs") {
       abort("`difftime()` with units other than `secs` not supported in Arrow")
     }
@@ -443,8 +446,8 @@ register_bindings_duration <- function() {
     build_expr("cast", subtract_output, options = cast_options(to_type = duration("s")))
   })
   register_binding("base::as.difftime", function(x,
-                                           format = "%X",
-                                           units = "secs") {
+                                                 format = "%X",
+                                                 units = "secs") {
     # windows doesn't seem to like "%X"
     if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
       format <- "%H:%M:%S"
@@ -478,8 +481,8 @@ register_bindings_duration <- function() {
 
 register_bindings_duration_constructor <- function() {
   register_binding("lubridate::make_difftime", function(num = NULL,
-                                             units = "secs",
-                                             ...) {
+                                                        units = "secs",
+                                                        ...) {
     if (units != "secs") {
       abort("`make_difftime()` with units other than 'secs' not supported in Arrow")
     }
@@ -529,11 +532,11 @@ register_bindings_duration_helpers <- function() {
 
 register_bindings_datetime_parsers <- function() {
   register_binding("lubridate::parse_date_time", function(x,
-                                               orders,
-                                               tz = "UTC",
-                                               truncated = 0,
-                                               quiet = TRUE,
-                                               exact = FALSE) {
+                                                          orders,
+                                                          tz = "UTC",
+                                                          truncated = 0,
+                                                          quiet = TRUE,
+                                                          exact = FALSE) {
     if (!quiet) {
       arrow_not_supported("`quiet = FALSE`")
     }
@@ -592,10 +595,10 @@ register_bindings_datetime_parsers <- function() {
   }
 
   register_binding("lubridate::fast_strptime", function(x,
-                                             format,
-                                             tz = "UTC",
-                                             lt = FALSE,
-                                             cutoff_2000 = 68L) {
+                                                        format,
+                                                        tz = "UTC",
+                                                        lt = FALSE,
+                                                        cutoff_2000 = 68L) {
     # `lt` controls the output `lt = TRUE` returns a POSIXlt (which doesn't play
     # well with mutate, for example)
     if (lt) {
