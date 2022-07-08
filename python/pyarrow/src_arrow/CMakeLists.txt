@@ -339,7 +339,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
 
   find_package(ArrowFlight REQUIRED)
   find_package(gRPC CONFIG REQUIRED)
-  include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/build/src")
+  include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/}/${ARROW_BUILD_DIR}/src")
 
   # Using arrow_flight_shared, see example
   # https://github.com/apache/arrow/blob/7a0f00c16e084d194ae53d209b33b809cfc8f2d5/cpp/examples/arrow/CMakeLists.txt
