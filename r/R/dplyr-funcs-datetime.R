@@ -297,10 +297,10 @@ register_bindings_datetime_conversion <- function() {
   })
 
   register_binding("base::as.Date", function(x,
-                                            format = NULL,
-                                            tryFormats = "%Y-%m-%d",
-                                            origin = "1970-01-01",
-                                            tz = "UTC") {
+                                             format = NULL,
+                                             tryFormats = "%Y-%m-%d",
+                                             origin = "1970-01-01",
+                                             tz = "UTC") {
     if (is.null(format) && length(tryFormats) > 1) {
       abort(
         paste(
