@@ -459,6 +459,59 @@ test_that("quantile()", {
   )
 })
 
+test_that("quantile() with namespacing", {
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tbl %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+            q_int = as.double(
+              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+            )
+          ) %>%
+          arrange(some_grouping),
+        Table$create(tbl) %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = stats::quantile(dbl, probs = 0.5, na.rm = TRUE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+          ) %>%
+          arrange(some_grouping) %>%
+          collect()
+      ),
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
+    ),
+    classes = "arrow.quantile.approximate"
+  )
+
+  # without groups
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tbl %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+            q_int = as.double(
+              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+            )
+          ),
+        Table$create(tbl) %>%
+          summarize(
+            q_dbl = stats::quantile(dbl, probs = 0.5, na.rm = TRUE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+          ) %>%
+          collect()
+      ),
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
+    ),
+    classes = "arrow.quantile.approximate"
+  )
+})
+
 test_that("summarize() with min() and max()", {
   compare_dplyr_binding(
     .input %>%
