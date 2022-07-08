@@ -88,7 +88,6 @@ Collate:
     'dataset-partition.R'
     'dataset-scan.R'
     'dataset-write.R'
-    'deprecated.R'
     'dictionary.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'

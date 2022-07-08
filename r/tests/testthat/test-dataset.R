@@ -798,24 +798,6 @@ test_that("Scanner$ScanBatches", {
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
-
-  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-
-  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
-  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {

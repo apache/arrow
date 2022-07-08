@@ -22,6 +22,7 @@
 * `lubridate::parse_date_time()` datetime parser:
   * `orders` with year, month, day, hours, minutes, and seconds components are supported.
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+* `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed. Use the `read/write_feather()` and `read/write_ipc_stream()` functions depending on whether you're working with the Arrow IPC file or stream format, respectively.
 
 # arrow 8.0.0
 
@@ -50,7 +51,7 @@
 
 ## Enhancements to date and time support
 
-* `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")` 
+* `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")`
   instead of `timestamp(unit = "s")`.
 * For Arrow dplyr queries, added additional `{lubridate}` features and fixes:
   * New component extraction functions:
@@ -86,14 +87,14 @@
   record batches, arrays, chunked arrays, record batch readers, schemas, and
   data types. This allows other packages to define custom conversions from their
   types to Arrow objects, including extension arrays.
-* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types) 
+* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types)
   can be created and registered, allowing other packages to
   define their own array types. Extension arrays wrap regular Arrow array types and
   provide customized behavior and/or storage. See description and an example with
   `?new_extension_type`.
-* Implemented a generic extension type and as_arrow_array() methods for all objects where     
-  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a 
-  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted 
+* Implemented a generic extension type and as_arrow_array() methods for all objects where
+  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a
+  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted
   to an Arrow Array.
 
 ## Concatenation Support
