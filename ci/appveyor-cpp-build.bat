@@ -167,4 +167,3 @@ py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 @rem
 @rem Wheels are built and tested separately (see ARROW-5142).
 @rem
-
