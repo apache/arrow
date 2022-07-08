@@ -619,25 +619,27 @@ test_that("UnionDataset handles InMemoryDatasets", {
 })
 
 test_that("scalar aggregates with many batches", {
-  test_data <- data.frame(val=1:1e7)
+  test_data <- data.frame(val = 1:1e7)
   expected_result_distr <- (
-    sapply(1:100, function (iter_ndx) {
+    sapply(1:100, function(iter_ndx) {
       test_data                              %>%
         dplyr::summarise(min_val = min(val)) %>%
         dplyr::collect()                     %>%
         dplyr::pull(min_val)
-    }) %>% table()
+    }) %>%
+      table()
   )
 
-  ds_tmpfile <- tempfile('test-aggregate', fileext='.parquet')
+  ds_tmpfile <- tempfile("test-aggregate", fileext = ".parquet")
   arrow::write_parquet(test_data, ds_tmpfile)
   actual_result_distr <- (
-    sapply(1:100, function (iter_ndx) {
+    sapply(1:100, function(iter_ndx) {
       arrow::open_dataset(ds_tmpfile)        %>%
         dplyr::summarise(min_val = min(val)) %>%
         dplyr::collect()                     %>%
         dplyr::pull(min_val)
-    }) %>% table()
+    }) %>%
+      table()
   )
 
   expect_equal(actual_result_distr, expected_result_distr)
