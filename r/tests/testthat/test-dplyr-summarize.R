@@ -999,3 +999,12 @@ test_that("summarise() can handle scalars and literal values", {
     tibble(y = 2L)
   )
 })
+
+test_that("summarise() supports namespacing", {
+  compare_dplyr_binding(
+    .input %>%
+      summarize(total = base::sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+})

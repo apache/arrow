@@ -56,7 +56,7 @@ agg_fun_output_type <- function(fun, input_type, hash) {
 }
 
 register_bindings_aggregate <- function() {
-  register_binding_agg("sum", function(..., na.rm = FALSE) {
+  register_binding_agg("base::sum", function(..., na.rm = FALSE) {
     list(
       fun = "sum",
       data = ensure_one_arg(list2(...), "sum"),
@@ -158,6 +158,16 @@ register_bindings_aggregate <- function() {
       data = ensure_one_arg(list2(...), "max"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
+  })
+  register_binding_agg("::", function(lhs, rhs) {
+    lhs_name <- as.character(substitute(lhs))
+    rhs_name <- as.character(substitute(rhs))
+
+    fun_name <- paste0(lhs_name, "::", rhs_name)
+
+    # if we do not have a binding for pkg::fun, then fall back on to the
+    # regular pkg::fun function
+    agg_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
   })
 }
 
