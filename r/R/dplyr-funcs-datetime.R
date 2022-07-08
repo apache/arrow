@@ -76,9 +76,9 @@ register_bindings_datetime_utility <- function() {
   })
 
   register_binding("base::strftime", function(x,
-                                        format = "",
-                                        tz = "",
-                                        usetz = FALSE) {
+                                              format = "",
+                                              tz = "",
+                                              usetz = FALSE) {
     if (usetz) {
       format <- paste(format, "%Z")
     }
@@ -175,9 +175,9 @@ register_bindings_datetime_components <- function() {
   })
 
   register_binding("lubridate::month", function(x,
-                                     label = FALSE,
-                                     abbr = TRUE,
-                                     locale = Sys.getlocale("LC_TIME")) {
+                                                label = FALSE,
+                                                abbr = TRUE,
+                                                locale = Sys.getlocale("LC_TIME")) {
     if (call_binding("is.integer", x)) {
       x <- call_binding(
         "if_else",
@@ -243,12 +243,12 @@ register_bindings_datetime_components <- function() {
 
 register_bindings_datetime_conversion <- function() {
   register_binding("lubridate::make_datetime", function(year = 1970L,
-                                             month = 1L,
-                                             day = 1L,
-                                             hour = 0L,
-                                             min = 0L,
-                                             sec = 0,
-                                             tz = "UTC") {
+                                                        month = 1L,
+                                                        day = 1L,
+                                                        hour = 0L,
+                                                        min = 0L,
+                                                        sec = 0,
+                                                        tz = "UTC") {
 
     # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
     # Stop if tz other than 'UTC' is provided.
@@ -329,9 +329,9 @@ register_bindings_datetime_conversion <- function() {
   })
 
   register_binding("lubridate::as_date", function(x,
-                                       format = NULL,
-                                       origin = "1970-01-01",
-                                       tz = NULL) {
+                                                  format = NULL,
+                                                  origin = "1970-01-01",
+                                                  tz = NULL) {
     # base::as.Date() and lubridate::as_date() differ in the way they use the
     # `tz` argument. Both cast to the desired timezone, if present. The
     # difference appears when the `tz` argument is not set: `as.Date()` uses the
@@ -591,7 +591,8 @@ register_bindings_datetime_parsers <- function() {
   for (ymd_order in ymd_parser_vec) {
     register_binding(
       paste0("lubridate::", ymd_order),
-      ymd_parser_map_factory(ymd_order))
+      ymd_parser_map_factory(ymd_order)
+    )
   }
 
   register_binding("lubridate::fast_strptime", function(x,
