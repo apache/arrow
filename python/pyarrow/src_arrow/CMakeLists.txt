@@ -500,7 +500,11 @@ if(ARROW_BUILD_TESTS)
                              PUBLIC ${ARROW_PYTHON_INCLUDES})
 
   # Link libraries to avoid include error on Linux
-  target_link_libraries(arrow_python_test_main arrow_shared)
+  if(ARROW_TEST_LINKAGE STREQUAL shared)
+    target_link_libraries(arrow_python_test_main arrow_shared)
+  else()
+    target_link_libraries(arrow_python_test_main arrow_static)
+  endif()
 
   if(APPLE)
     target_link_libraries(arrow_python_test_main ${CMAKE_DL_LIBS})
