@@ -131,6 +131,29 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
+Testing Arrow Python (C++ code)
+-------------------------------
+If you want to run ctest for the tests that are included in the Arrow Python
+module, you will need to build Arrow with ``DARROW_BUILD_TESTS=ON``.
+
+.. note::
+
+   Currently building the C++ unit tests does not work with googletest
+   from conda-forge, so we must use the ``BUNDLED`` source for building that
+   dependency
+
+   In case you use conda add ``-DGTest_SOURCE=BUNDLED`` to the cmake flags
+   when building Arrow.
+
+After Arrow C++ and PyArrow are built, navigate to ``python/build/dist/temp``
+folder and run ctest:
+
+.. code-block::
+
+   $ pushd arrow/python/build/dist/temp
+   $ ctest
+   $ popd
+
 Benchmarking
 ------------
 
