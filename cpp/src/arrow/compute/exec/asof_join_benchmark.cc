@@ -172,8 +172,7 @@ static void TableJoinOverhead(benchmark::State& state, std::string left_table,
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     MakeExecNode("sink", plan.get(), {join_node}, SinkNodeOptions{&sink_gen});
     state.ResumeTiming();
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto execBatches,
-                                  StartAndCollect(plan.get(), sink_gen));
+    ASSERT_FINISHES_OK(StartAndCollect(plan.get(), sink_gen));
   }
   state.counters["total_rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * rows), benchmark::Counter::kIsRate);
