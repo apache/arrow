@@ -191,18 +191,24 @@ else()
   set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 endif()
 
-if(ARROW_USE_CCACHE
+if((ARROW_USE_CCACHE OR ENV{SCCACHE_BUCKET})
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+
   find_program(CCACHE_FOUND ccache)
-  if(CCACHE_FOUND)
+  find_program(SCCACHE_FOUND sccache)
+  if(SCCACHE_FOUND)
+    message(STATUS "Using sccache: ${SCCACHE_FOUND}")
+    set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_FOUND})
+  elseif(CCACHE_FOUND)
     message(STATUS "Using ccache: ${CCACHE_FOUND}")
     set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_FOUND})
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_FOUND})
     # ARROW-3985: let ccache preserve C++ comments, because some of them may be
     # meaningful to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
-  endif(CCACHE_FOUND)
+  endif()
 endif()
 
 if(ARROW_USE_PRECOMPILED_HEADERS AND ${CMAKE_VERSION} VERSION_LESS "3.16.0")
