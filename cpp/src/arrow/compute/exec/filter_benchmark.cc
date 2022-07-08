@@ -19,20 +19,11 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/compute/cast.h"
-#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/benchmark_util.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/task_util.h"
-#include "arrow/compute/exec/test_util.h"
-#include "arrow/dataset/partition.h"
 #include "arrow/record_batch.h"
-#include "arrow/testing/future_util.h"
-#include "arrow/testing/generator.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
-#include "arrow/type.h"
 
 namespace arrow {
 namespace compute {
