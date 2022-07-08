@@ -39,8 +39,8 @@ if(Snappy_FOUND)
       # The Conan's Snappy package always uses Snappy::snappy and it's
       # an INTERFACE_LIBRARY.
       get_target_property(Snappy Snappy::snappy TYPE)
-      if(Snappy_TYPE STREQUAL "STATIC_LIBRARY" OR
-          Snappy_TYPE STREQUAL "INTERFACE_LIBRARY")
+      if(Snappy_TYPE STREQUAL "STATIC_LIBRARY" OR Snappy_TYPE STREQUAL
+                                                  "INTERFACE_LIBRARY")
         set(Snappy_TARGET Snappy::snappy)
         set(SnappyAlt_FOUND TRUE)
         return()
