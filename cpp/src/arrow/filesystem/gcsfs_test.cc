@@ -48,6 +48,7 @@
 #include <iostream>
 #include <random>
 #include <string>
+#include <thread>
 
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
