@@ -24,20 +24,29 @@ if(SnappyAlt_FIND_QUIETLY)
 endif()
 find_package(Snappy ${find_package_args})
 if(Snappy_FOUND)
-  set(SnappyAlt_FOUND TRUE)
   if(ARROW_SNAPPY_USE_SHARED)
     set(Snappy_TARGET Snappy::snappy)
+    set(SnappyAlt_FOUND TRUE)
+    return()
   else()
     if(TARGET Snappy::snappy-static)
       # The official SnappyTargets.cmake uses Snappy::snappy-static for
       # static version.
       set(Snappy_TARGET Snappy::snappy-static)
+      set(SnappyAlt_FOUND TRUE)
+      return()
     else()
-      # The Conan's Snappy package always uses Snappy::snappy.
-      set(Snappy_TARGET Snappy::snappy)
+      # The Conan's Snappy package always uses Snappy::snappy and it's
+      # an INTERFACE_LIBRARY.
+      get_target_property(Snappy Snappy::snappy TYPE)
+      if(Snappy_TYPE STREQUAL "STATIC_LIBRARY" OR
+          Snappy_TYPE STREQUAL "INTERFACE_LIBRARY")
+        set(Snappy_TARGET Snappy::snappy)
+        set(SnappyAlt_FOUND TRUE)
+        return()
+      endif()
     endif()
   endif()
-  return()
 endif()
 
 if(ARROW_SNAPPY_USE_SHARED)
