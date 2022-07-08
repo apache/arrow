@@ -345,7 +345,7 @@ jobs:
 
           echo "$(pwd)/sccache" >> $GITHUB_PATH
           echo "SCCACHE_PATH=$(pwd)/sccache/sccache.exe" >> $GITHUB_ENV
-      - run: sudo apt install libcurl4-openssl-dev
+      - run: sudo apt update && sudo apt install libcurl4-openssl-dev
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
