@@ -268,19 +268,20 @@ else()
 endif()
 
 if(ARROW_USE_XSIMD)
-  set(XSIMD_PREFIX "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
-  set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
-
-  if(NOT xsimd_INCLUDE_DIRS STREQUAL "")
-    add_library(xsimd INTERFACE IMPORTED)
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                            "${XSIMD_INCLUDE_DIR}")
-    else()
-      target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
-    endif()
+  if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
+    set(XSIMD_PREFIX "$ENV{CONDA_PREFIX}")
+    set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
   else()
-    message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
+    set(XSIMD_PREFIX "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
+    set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
+  endif()
+
+  add_library(xsimd INTERFACE IMPORTED)
+  if(CMAKE_VERSION VERSION_LESS 3.11)
+    set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                          "${XSIMD_INCLUDE_DIR}")
+  else()
+    target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
   endif()
 
   list(APPEND ARROW_PYTHON_SHARED_PRIVATE_LINK_LIBS xsimd)
