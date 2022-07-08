@@ -57,7 +57,8 @@ NULL
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(qualified_name, fun, registry = nse_funcs) {
+register_binding <- function(fun_name, fun, registry = nse_funcs) {
+  qualified_name <- fun_name
   if (qualified_name == "::") {
     unqualified_name <- "::"
   } else {
