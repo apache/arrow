@@ -76,10 +76,6 @@ set(Python3_FIND_FRAMEWORK "LAST")
 find_package(Python3Alt 3.7 REQUIRED)
 include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
 
-# Needed due to
-# CMake Error: INSTALL(EXPORT) given unknown export "arrow_python_targets"
-option(ARROW_BUILD_SHARED "Link to the Arrow shared library" ON)
-
 add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
 add_custom_target(arrow_python-tests)
