@@ -51,7 +51,7 @@ test_that("all_funs() identifies namespace-qualified and unqualified functions",
   )
   expect_equal(
     arrow:::all_funs(rlang::quo(other_fun(pkg::fun()))),
-    c("other_fun","pkg::fun")
+    c("other_fun", "pkg::fun")
   )
   expect_equal(
     arrow:::all_funs(rlang::quo(other_pkg::other_fun(pkg::fun()))),
