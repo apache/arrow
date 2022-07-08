@@ -586,112 +586,97 @@ class RScalarUDFKernelState : public arrow::compute::KernelState {
   cpp11::function resolver_;
 };
 
-class RScalarUDFOutputTypeResolver : public arrow::compute::OutputType::Resolver {
- public:
-  arrow::Result<arrow::ValueDescr> operator()(
-      arrow::compute::KernelContext* context,
-      const std::vector<arrow::ValueDescr>& descr) {
-    return SafeCallIntoR<arrow::ValueDescr>(
-        [&]() -> arrow::ValueDescr {
-          auto kernel =
-              reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
-          auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
+arrow::Result<arrow::TypeHolder> ResolveScalarUDFOutputType(
+    arrow::compute::KernelContext* context,
+    const std::vector<arrow::TypeHolder>& input_types) {
+  return SafeCallIntoR<arrow::TypeHolder>(
+      [&]() -> arrow::TypeHolder {
+        auto kernel =
+            reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
+        auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
 
-          cpp11::writable::list input_types_sexp(descr.size());
-          for (size_t i = 0; i < descr.size(); i++) {
-            input_types_sexp[i] = cpp11::to_r6<arrow::DataType>(descr[i].type);
-          }
+        cpp11::writable::list input_types_sexp(input_types.size());
+        for (size_t i = 0; i < input_types.size(); i++) {
+          input_types_sexp[i] =
+              cpp11::to_r6<arrow::DataType>(input_types[i].GetSharedPtr());
+        }
 
-          cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
-          if (!Rf_inherits(output_type_sexp, "DataType")) {
-            cpp11::stop("arrow_scalar_function resolver must return a DataType");
-          }
+        cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
+        if (!Rf_inherits(output_type_sexp, "DataType")) {
+          cpp11::stop("arrow_scalar_function resolver must return a DataType");
+        }
 
-          return arrow::ValueDescr(
-              cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(output_type_sexp));
-        },
-        "resolve scalar user-defined function output data type");
+        return arrow::TypeHolder(
+            cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(output_type_sexp));
+      },
+      "resolve scalar user-defined function output data type");
+}
+
+arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
+                             const arrow::compute::ExecSpan& span,
+                             arrow::compute::ExecResult* result) {
+  if (result->is_array_span()) {
+    return arrow::Status::NotImplemented("ArraySpan result from R scalar UDF");
   }
-};
 
-class RScalarUDFCallable : public arrow::compute::ArrayKernelExec {
- public:
-  arrow::Status operator()(arrow::compute::KernelContext* context,
-                           const arrow::compute::ExecSpan& span,
-                           arrow::compute::ExecResult* result) {
-    return SafeCallIntoRVoid(
-        [&]() {
-          auto kernel =
-              reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
-          auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
+  return SafeCallIntoRVoid(
+      [&]() {
+        auto kernel =
+            reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
+        auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
 
-          cpp11::writable::list args_sexp(span.num_values());
+        cpp11::writable::list args_sexp(span.num_values());
 
-          for (int i = 0; i < span.num_values(); i++) {
-            const arrow::compute::ExecValue& exec_val = span[i];
-            if (exec_val.is_array()) {
-              std::shared_ptr<arrow::Array> array = exec_val.array.ToArray();
-              args_sexp[i] = cpp11::to_r6<arrow::Array>(array);
-            } else if (exec_val.is_scalar()) {
-              std::shared_ptr<arrow::Scalar> scalar = exec_val.scalar->Copy();
-              args_sexp[i] = cpp11::to_r6<arrow::Scalar>(scalar);
-            }
+        for (int i = 0; i < span.num_values(); i++) {
+          const arrow::compute::ExecValue& exec_val = span[i];
+          if (exec_val.is_array()) {
+            std::shared_ptr<arrow::Array> array = exec_val.array.ToArray();
+            args_sexp[i] = cpp11::to_r6<arrow::Array>(array);
+          } else if (exec_val.is_scalar()) {
+            std::shared_ptr<arrow::Scalar> scalar = exec_val.scalar->GetSharedPtr();
+            args_sexp[i] = cpp11::to_r6<arrow::Scalar>(scalar);
+          }
+        }
+
+        cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
+
+        std::shared_ptr<arrow::DataType> output_type = result->type()->GetSharedPtr();
+        cpp11::sexp output_type_sexp = cpp11::to_r6<arrow::DataType>(output_type);
+        cpp11::writable::list udf_context = {batch_length_sexp, output_type_sexp};
+        udf_context.names() = {"batch_length", "output_type"};
+
+        cpp11::sexp func_result_sexp = state->exec_func_(udf_context, args_sexp);
+
+        if (Rf_inherits(func_result_sexp, "Array")) {
+          auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(func_result_sexp);
+
+          // handle an Array result of the wrong type
+          if (!result->type()->Equals(array->type())) {
+            arrow::Datum out = ValueOrStop(arrow::compute::Cast(array, result->type()));
+            std::shared_ptr<arrow::Array> out_array = out.make_array();
+            array.swap(out_array);
           }
 
-          cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
+          result->value = std::move(array->data());
+        } else if (Rf_inherits(func_result_sexp, "Scalar")) {
+          auto scalar = cpp11::as_cpp<std::shared_ptr<arrow::Scalar>>(func_result_sexp);
 
-          std::shared_ptr<arrow::DataType> output_type = result->type()->Copy();
-          cpp11::sexp output_type_sexp = cpp11::to_r6<arrow::DataType>(output_type);
-          cpp11::writable::list udf_context = {batch_length_sexp, output_type_sexp};
-          udf_context.names() = {"batch_length", "output_type"};
-
-          cpp11::sexp func_result_sexp = state->exec_func_(udf_context, args_sexp);
-
-          if (Rf_inherits(func_result_sexp, "Array")) {
-            auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(func_result_sexp);
-
-            // handle an Array result of the wrong type
-            if (!result->type()->Equals(array->type())) {
-              arrow::Datum out =
-                  ValueOrStop(arrow::compute::Cast(array, result->type()->Copy()));
-              std::shared_ptr<arrow::Array> out_array = out.make_array();
-              array.swap(out_array);
-            }
-
-            // make sure we assign the type that the result is expecting
-            if (result->is_array_data()) {
-              result->value = std::move(array->data());
-            } else if (array->length() == 1) {
-              result->value = ValueOrStop(array->GetScalar(0));
-            } else {
-              cpp11::stop("expected Scalar return value but got Array with length != 1");
-            }
-          } else if (Rf_inherits(func_result_sexp, "Scalar")) {
-            auto scalar = cpp11::as_cpp<std::shared_ptr<arrow::Scalar>>(func_result_sexp);
-
-            // handle a Scalar result of the wrong type
-            if (!result->type()->Equals(scalar->type)) {
-              arrow::Datum out =
-                  ValueOrStop(arrow::compute::Cast(scalar, result->type()->Copy()));
-              std::shared_ptr<arrow::Scalar> out_scalar = out.scalar();
-              scalar.swap(out_scalar);
-            }
-
-            // make sure we assign the type that the result is expecting
-            if (result->is_scalar()) {
-              result->value = std::move(scalar);
-            } else {
-              auto array = ValueOrStop(arrow::MakeArrayFromScalar(
-                  *scalar, span.length, context->memory_pool()));
-              result->value = std::move(array->data());
-            }
-          } else {
-            cpp11::stop("arrow_scalar_function must return an Array or Scalar");
+          // handle a Scalar result of the wrong type
+          if (!result->type()->Equals(scalar->type)) {
+            arrow::Datum out = ValueOrStop(arrow::compute::Cast(scalar, result->type()));
+            std::shared_ptr<arrow::Scalar> out_scalar = out.scalar();
+            scalar.swap(out_scalar);
           }
-        },
-        "execute scalar user-defined function");
-  }
-};
+
+          auto array = ValueOrStop(
+              arrow::MakeArrayFromScalar(*scalar, span.length, context->memory_pool()));
+          result->value = std::move(array->data());
+        } else {
+          cpp11::stop("arrow_scalar_function must return an Array or Scalar");
+        }
+      },
+      "execute scalar user-defined function");
+}
 
 // [[arrow::export]]
 void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
@@ -744,11 +729,11 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
       compute_in_types[i] = arrow::compute::InputType(in_types->field(j)->type());
     }
 
-    arrow::compute::OutputType out_type((RScalarUDFOutputTypeResolver()));
+    arrow::compute::OutputType out_type((&ResolveScalarUDFOutputType));
 
     auto signature = std::make_shared<arrow::compute::KernelSignature>(
         std::move(compute_in_types), std::move(out_type), true);
-    arrow::compute::ScalarKernel kernel(signature, RScalarUDFCallable());
+    arrow::compute::ScalarKernel kernel(signature, &CallRScalarUDF);
     kernel.mem_allocation = arrow::compute::MemAllocation::NO_PREALLOCATE;
     kernel.null_handling = arrow::compute::NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.data = std::make_shared<RScalarUDFKernelState>(func_sexp, out_type_func);
