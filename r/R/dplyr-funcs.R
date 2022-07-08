@@ -57,23 +57,23 @@ NULL
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  if (fun_name == "::") {
-    name <- "::"
+register_binding <- function(qualified_name, fun, registry = nse_funcs) {
+  if (qualified_name == "::") {
+    unqualified_name <- "::"
   } else {
-    name <- gsub("^.*?::", "", fun_name)
+    unqualified_name <- gsub("^.*?::", "", qualified_name)
   }
 
-  previous_fun <- if (name %in% names(registry)) registry[[name]] else NULL
+  previous_fun <- if (unqualified_name %in% names(registry)) registry[[unqualified_name]] else NULL
 
   if (is.null(fun) && !is.null(previous_fun)) {
-    rm(list = c(name, fun_name), envir = registry, inherits = FALSE)
-    # register both as `pkg::fun` and as `fun` if `fun_name` is prefixed
-  } else if (grepl("::", fun_name) && fun_name != "::") {
-    registry[[name]] <- fun
-    registry[[fun_name]] <- fun
+    rm(list = c(unqualified_name, qualified_name), envir = registry, inherits = FALSE)
+    # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
+  } else if (grepl("::", qualified_name) && qualified_name != "::") {
+    registry[[unqualified_name]] <- fun
+    registry[[qualified_name]] <- fun
   } else {
-    registry[[name]] <- fun
+    registry[[unqualified_name]] <- fun
   }
 
   invisible(previous_fun)
