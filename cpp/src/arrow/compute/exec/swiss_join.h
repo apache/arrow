@@ -273,15 +273,40 @@ class SwissTableMerge {
                                     int64_t max_block_id);
 };
 
+/// \brief A vectorized hash-table mapping any number of key columns to a single key
+///
+/// Writes are assumed to be single threaded.  To build a hash table in parallel you
+/// should one instance of this type per thread.  Once all hash tables are built you can
+/// merge the tables together to get a single table.
+///
+/// Reads are thread safe and can run in parallel
+///
+/// The table assumes the caller has already computed the hashes.  This allows the hash
+/// calculation to be separated from the hash lookup.  This is useful, for example, in a
+/// hash join node when you can compute hashes as soon as a probe batch arrives (and when
+/// it is resident in cache) and then do the lookup later when the hash table has finished
+/// building.
 struct SwissTableWithKeys {
+  /// \brief Input to a swiss table
+  ///
+  /// Every column of `in_batch` will be used to compute the key.  In other words,
+  /// `in_batch` should only represent key columns and not payload columns.
+  ///
+  /// Table input can be a batch or a selection of a batch.  Table input also includes
+  /// the scracth space that the hash table will need to work with.  This allows threads
+  /// to pass in their thread local scratch space so that parallel reads do not have any
+  /// contention.
   struct Input {
+    /// \brief Select a contiguous range from a batch
     Input(const ExecBatch* in_batch, int in_batch_start_row, int in_batch_end_row,
           util::TempVectorStack* in_temp_stack,
           std::vector<KeyColumnArray>* in_temp_column_arrays);
 
+    /// \brief Select the entire batch
     Input(const ExecBatch* in_batch, util::TempVectorStack* in_temp_stack,
           std::vector<KeyColumnArray>* in_temp_column_arrays);
 
+    /// \brief Use a selection vector to select part of a batch
     Input(const ExecBatch* in_batch, int in_num_selected, const uint16_t* in_selection,
           util::TempVectorStack* in_temp_stack,
           std::vector<KeyColumnArray>* in_temp_column_arrays,
@@ -311,24 +336,50 @@ struct SwissTableWithKeys {
 
   void InitCallbacks();
 
+  /// \brief Helper method to compute hashes for an Input
+  ///
+  /// The actual work is done by the key hash utilities elsewhere and this
+  /// method simply adapts `Input` to those utilities.
   static void Hash(Input* input, uint32_t* hashes, int64_t hardware_flags);
 
-  // If input uses selection, then hashes array must have one element for every
-  // row in the whole (unfiltered and not spliced) input exec batch. Otherwise,
-  // there must be one element in hashes array for every value in the window of
-  // the exec batch specified by input.
-  //
-  // Output arrays will contain one element for every selected batch row in
-  // input (selected either by selection vector if provided or input window
-  // otherwise).
-  //
+  /// \brief Map a batch to keys
+  ///
+  /// \param[in] input The batch (or batch selection) to map
+  /// \param[in] hashes The precomputed hashses of the batch rows
+  /// \param[out] match_bitvector A bit vector indicating which rows matched
+  /// \param[out] key_ids The key ids of the matching rows
+  ///
+  /// This method is thread safe and idempotent, it will not insert new rows
+  /// into the table.
+  ///
+  /// If input uses selection, then hashes array must have one element for every
+  /// row in the whole (unfiltered and not spliced) input exec batch. Otherwise,
+  /// there must be one element in hashes array for every value in the window of
+  /// the exec batch specified by input.
+  ///
+  /// Output arrays will contain one element for every selected batch row in
+  /// input (selected either by selection vector if provided or input window
+  /// otherwise).
   void MapReadOnly(Input* input, const uint32_t* hashes, uint8_t* match_bitvector,
                    uint32_t* key_ids);
+  /// \brief Map a batch to keys, potentially inserting new rows into the table
+  ///
+  /// \param[in] input The batch (or batch selection) to map
+  /// \param[in] hashes The precomputed hashes of the batch rows
+  /// \param[out] key_ids The key ids of the matching rows, may be new keys
+  ///
+  /// New key ids may not neccesarily be a monotonically increasing sequence
+  /// of values.  The only guarantee is that they are unique for each unique
+  /// input sequence.
   Status MapWithInserts(Input* input, const uint32_t* hashes, uint32_t* key_ids);
 
+  /// \brief The swiss table backing this map
   SwissTable* swiss_table() { return &swiss_table_; }
+  /// \brief The swiss table backing this map
   const SwissTable* swiss_table() const { return &swiss_table_; }
+  /// \brief The full set of keys seen by the map so far
   RowArray* keys() { return &keys_; }
+  /// \brief The full set of keys seen by the map so far
   const RowArray* keys() const { return &keys_; }
 
  private:
@@ -346,37 +397,69 @@ struct SwissTableWithKeys {
   RowArray keys_;
 };
 
-// Enhances SwissTableWithKeys with the following structures used by hash join:
-// - storage of payloads (that unlike keys do not have to be unique)
-// - mapping from a key to all inserted payloads corresponding to it (we can
-// store multiple rows corresponding to a single key)
-// - bit-vectors for keeping track of whether each payload had a match during
-// evaluation of join.
-//
+/// \brief A hash table that supports any number of key or payload columns
+///
+/// Enhances SwissTableWithKeys with the following structures used by hash join:
+/// - storage of payloads (that unlike keys do not have to be unique)
+/// - mapping from a key to all inserted payloads corresponding to it (we can
+/// store multiple rows corresponding to a single key)
+/// - bit-vectors for keeping track of whether each payload had a match during
+/// evaluation of join.
+///
+/// Although this class is itended to be mostly used for reads (e.g. join
+/// lookups) it is not fully read-only.  It needs to keep track of which rows
+/// have been matched during the probing.  This is needed for some join types
+/// like an anti join where non-matching build rows may need to be output.
+///
+/// This is done in a thread-safe way by storing the has_match vectors in
+/// thread local variables.  After the lookup phase is done these vectors
+/// can be scanned as needed.
+///
+/// Note: This class is internal and is not meant to be used directly.
+///
+/// SwissTableForJoinBuild should be used to create instances of this class
+/// JoinProbeProcessor performs the read operation needed at probe time
 class SwissTableForJoin {
   friend class SwissTableForJoinBuild;
 
  public:
+  /// \brief Update thread local has_match vector based on key ids
   void UpdateHasMatchForKeys(int64_t thread_id, int num_rows, const uint32_t* key_ids);
+  /// \brief Merge thread local has_match vectors into a single vector
+  ///
+  /// This function is meant to be called after the lookup phase has finished and the
+  /// vector is needed for the final hash table scan.
   void MergeHasMatch();
 
+  /// \brief The backing table
   const SwissTableWithKeys* keys() const { return &map_; }
+  /// \brief The backing table
   SwissTableWithKeys* keys() { return &map_; }
   const RowArray* payloads() const { return no_payload_columns_ ? NULLPTR : &payloads_; }
   const uint32_t* key_to_payload() const {
     return no_duplicate_keys_ ? NULLPTR : row_offset_for_key_.data();
   }
+  /// \brief The merged has_match table
+  ///
+  /// Only available after MergeHasMatch has been called
   const uint8_t* has_match() const {
     return has_match_.empty() ? NULLPTR : has_match_.data();
   }
+  /// \brief The total number of keys in the backing table
   int64_t num_keys() const { return map_.keys()->num_rows(); }
+  /// \brief The total number of rows
+  ///
+  /// Note, this may be larger than the number of keys since multiple payloads
+  /// can share the same key
   int64_t num_rows() const {
     return no_duplicate_keys_ ? num_keys() : row_offset_for_key_[num_keys()];
   }
 
+  /// \brief Convert a row id to a key id
   uint32_t payload_id_to_key_id(uint32_t payload_id) const;
-  // Input payload ids must form an increasing sequence.
-  //
+  /// \brief Convert row ids to key ids
+  ///
+  /// Input payload ids must form an increasing sequence.
   void payload_ids_to_key_ids(int num_rows, const uint32_t* payload_ids,
                               uint32_t* key_ids) const;
 
@@ -403,9 +486,10 @@ class SwissTableForJoin {
   RowArray payloads_;
 };
 
-// Implements parallel build process for hash table for join from a sequence of
-// exec batches with input rows.
-//
+/// \brief Factory to create a SwissTableForJoin instance
+///
+/// This factory is meant to consume a sequence of exec batches with input rows
+/// in parallel.
 class SwissTableForJoinBuild {
  public:
   Status Init(SwissTableForJoin* target, int dop, int64_t num_rows,
@@ -423,9 +507,11 @@ class SwissTableForJoinBuild {
                        util::TempVectorStack* temp_stack);
 
   // Allocate memory and initialize counters required for parallel merging of
-  // hash table partitions.
-  // Single-threaded.
+  // hash table partitions.  This is called once all build batches have been
+  // received.
   //
+  // This task is single-threaded and is needed to prepare the multi-threaded
+  // PrtnMerge task that follows.
   Status PreparePrtnMerge();
 
   // Second phase of parallel hash table build.
@@ -521,6 +607,10 @@ class SwissTableForJoinBuild {
   std::vector<int64_t> partition_payloads_first_row_id_;
 };
 
+/// \brief Helper class which accumulates then outputs join results
+///
+/// Results are accumulated using an ExecBatchBuilder until enough rows
+/// have been accumulated to justify sending an output batch.
 class JoinResultMaterialize {
  public:
   void Init(MemoryPool* pool, const HashJoinProjectionMaps* probe_schemas,

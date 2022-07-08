@@ -40,9 +40,35 @@ namespace compute {
 /// allows us to take advantage of these resources without coupling the logic with
 /// the execution engine.
 struct LightContext {
+  static constexpr int kLogMinibatchSizeMax = 10;
+  static constexpr int kMinibatchSizeMax = 1 << kLogMinibatchSizeMax;
+
   bool has_avx2() const { return (hardware_flags & arrow::internal::CpuInfo::AVX2) > 0; }
   int64_t hardware_flags;
   util::TempVectorStack* stack;
+  MemoryPool* memory_pool;
+
+  // A deleter for a light context that owns its TempVectorStack
+  struct OwningLightContextDeleter {
+    void operator()(LightContext* ctx) const {
+      delete ctx->stack;
+      delete ctx;
+    };
+  };
+
+  // Creates a new light context with an owned temp vector stack.  Only to be
+  // used at the highest level (e.g. in ExecPlan, unit tests or benchmarks)
+  // Nodes should get their light context from the plan
+  static Result<std::unique_ptr<LightContext, OwningLightContextDeleter>> Make(
+      MemoryPool* memory_pool, int max_batches = 64,
+      int max_batch_size = kMinibatchSizeMax) {
+    std::unique_ptr<LightContext, OwningLightContextDeleter> ctx(new LightContext());
+    ctx->stack = new util::TempVectorStack();
+    ctx->hardware_flags = arrow::internal::CpuInfo::GetInstance()->hardware_flags();
+    ctx->memory_pool = memory_pool;
+    ARROW_RETURN_NOT_OK(ctx->stack->Init(memory_pool, max_batches * max_batch_size));
+    return std::move(ctx);
+  }
 };
 
 /// \brief Description of the layout of a "key" column

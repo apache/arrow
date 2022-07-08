@@ -23,6 +23,7 @@ add_arrow_compute_test(expression_test
                        SOURCES
                        expression_test.cc
                        subtree_test.cc)
+add_arrow_compute_test(swiss_join_test PREFIX "arrow-compute")
 
 add_arrow_compute_test(plan_test PREFIX "arrow-compute")
 add_arrow_compute_test(hash_join_node_test

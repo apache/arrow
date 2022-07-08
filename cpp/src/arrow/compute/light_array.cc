@@ -24,6 +24,9 @@
 namespace arrow {
 namespace compute {
 
+constexpr int LightContext::kLogMinibatchSizeMax;
+constexpr int LightContext::kMinibatchSizeMax;
+
 KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
                                const uint8_t* validity_buffer,
                                const uint8_t* fixed_length_buffer,
