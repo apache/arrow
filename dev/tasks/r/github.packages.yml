@@ -82,10 +82,10 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: ${{ matrix.config.version}}
-          SC_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          SC_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          SC_BUCKET: ${{ secrets.SCCACHE_BUCKET }}
+          UBUNTU: {{ '${{ matrix.config.version }}' }}
+          SC_KEY: {{' ${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
+          SC_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
+          SC_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
           SC_PREFIX: sccache
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
