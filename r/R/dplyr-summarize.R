@@ -63,42 +63,42 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("any", function(..., na.rm = FALSE) {
+  register_binding_agg("base::any", function(..., na.rm = FALSE) {
     list(
       fun = "any",
       data = ensure_one_arg(list2(...), "any"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("all", function(..., na.rm = FALSE) {
+  register_binding_agg("base::all", function(..., na.rm = FALSE) {
     list(
       fun = "all",
       data = ensure_one_arg(list2(...), "all"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("mean", function(x, na.rm = FALSE) {
+  register_binding_agg("base::mean", function(x, na.rm = FALSE) {
     list(
       fun = "mean",
       data = x,
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("sd", function(x, na.rm = FALSE, ddof = 1) {
+  register_binding_agg("stats::sd", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "stddev",
       data = x,
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
-  register_binding_agg("var", function(x, na.rm = FALSE, ddof = 1) {
+  register_binding_agg("stats::var", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "variance",
       data = x,
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
-  register_binding_agg("quantile", function(x, probs, na.rm = FALSE) {
+  register_binding_agg("stats::quantile", function(x, probs, na.rm = FALSE) {
     if (length(probs) != 1) {
       arrow_not_supported("quantile() with length(probs) != 1")
     }
@@ -116,7 +116,7 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, q = probs)
     )
   })
-  register_binding_agg("median", function(x, na.rm = FALSE) {
+  register_binding_agg("stats::median", function(x, na.rm = FALSE) {
     # TODO: Bind to the Arrow function that returns an exact median and remove
     # this warning (ARROW-14021)
     warn(
@@ -131,28 +131,28 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm)
     )
   })
-  register_binding_agg("n_distinct", function(..., na.rm = FALSE) {
+  register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
     list(
       fun = "count_distinct",
       data = ensure_one_arg(list2(...), "n_distinct"),
       options = list(na.rm = na.rm)
     )
   })
-  register_binding_agg("n", function() {
+  register_binding_agg("dplyr::n", function() {
     list(
       fun = "sum",
       data = Expression$scalar(1L),
       options = list()
     )
   })
-  register_binding_agg("min", function(..., na.rm = FALSE) {
+  register_binding_agg("base::min", function(..., na.rm = FALSE) {
     list(
       fun = "min",
       data = ensure_one_arg(list2(...), "min"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("max", function(..., na.rm = FALSE) {
+  register_binding_agg("base::max", function(..., na.rm = FALSE) {
     list(
       fun = "max",
       data = ensure_one_arg(list2(...), "max"),
