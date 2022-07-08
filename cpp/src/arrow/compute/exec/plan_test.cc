@@ -934,6 +934,7 @@ TEST(ExecPlanExecution, SourceGroupedSum) {
 }
 
 TEST(ExecPlanExecution, SourceMinMaxScalar) {
+  // Regression test for ARROW-16904
   for (bool parallel : { false, true }) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
 
