@@ -198,6 +198,7 @@ if((ARROW_USE_SCCACHE)
   find_program(SCCACHE_FOUND sccache)
   
   if(NOT SCCACHE_FOUND AND DEFINED ENV{SCCACHE_PATH})
+    # cmake has problems finding sccache from within mingw
     message(STATUS "Did not find sccache, using envvar fallback.")
     set(SCCACHE_FOUND $ENV{SCCACHE_PATH})
   endif()
