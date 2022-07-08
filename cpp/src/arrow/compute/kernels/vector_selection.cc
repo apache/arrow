@@ -867,7 +867,7 @@ class PrimitiveRLEFilterImpl {
         filter_physical_length_(filter.child_data[0].length),
         null_selection_(null_selection),
         out_logical_length_(out_arr->length) {
-    if (out_arr->buffers[0] != nullptr) {
+    if (out_arr->child_data[0]->buffers[0] != nullptr) {
       // May not be allocated if neither filter nor values contains nulls
       out_is_valid_ = out_arr->child_data[0]->buffers[0]->mutable_data();
     }
@@ -878,50 +878,98 @@ class PrimitiveRLEFilterImpl {
   }
 
   void Exec() {
-    auto WriteMaybeNull = [&](int64_t value_index, int64_t run_length) {
-      bit_util::SetBitTo(
-          out_is_valid_, out_offset_ + out_position_,
-          bit_util::GetBit(values_is_valid_, values_offset_ + value_index));
+    auto WriteNotNull = [&](int64_t in_position, int64_t run_length) {
+      bit_util::SetBit(out_is_valid_, out_offset_ + out_position_);
+      out_run_length_[out_position_] = run_length;
       // Increments out_position_
-      WriteValue(value_index, run_length);
+      WriteValue(in_position, run_length);
+    };
+
+    auto WriteMaybeNull = [&](int64_t in_position, int64_t run_length) {
+      bit_util::SetBitTo(out_is_valid_, out_offset_ + out_position_,
+                         bit_util::GetBit(values_is_valid_, values_offset_ + in_position));
+      out_run_length_[out_position_] = run_length;
+      // Increments out_position_
+      WriteValue(in_position, run_length);
     };
 
     int64_t accumulated_run_length = 0;
-    if (filter_is_valid_ == NULLPTR) {
-      rle_util::VisitMergedRuns(
-          values_run_length_, filter_run_length_, input_logical_length_,
-          [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-            if (bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
-              accumulated_run_length += run_length;
-              WriteMaybeNull(value_index, accumulated_run_length);
-            }
-          });
-    } else if (null_selection_ == FilterOptions::DROP) {
-      rle_util::VisitMergedRuns(
-          values_run_length_, filter_run_length_, input_logical_length_,
-          [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-            if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
-                bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
-              accumulated_run_length += run_length;
-              WriteMaybeNull(value_index, accumulated_run_length);
-            }
-          });
-    } else {  // null_selection == FilterOptions::EMIT_NULL
-      rle_util::VisitMergedRuns(
-          values_run_length_, filter_run_length_, input_logical_length_,
-          [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-            const bool is_valid =
-                bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
-            if (is_valid &&
-                bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
-              accumulated_run_length += run_length;
-              WriteMaybeNull(value_index, accumulated_run_length);
-            }
-            if (!is_valid) {
-              accumulated_run_length += run_length;
-              WriteNull(accumulated_run_length);
-            }
-          });
+    if (values_is_valid_ == NULLPTR) {
+      if (filter_is_valid_ == NULLPTR) {
+        rle_util::VisitMergedRuns(
+            values_run_length_, filter_run_length_, input_logical_length_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                accumulated_run_length += run_length;
+                WriteValue(value_index, accumulated_run_length);
+              }
+            });
+      } else if (null_selection_ == FilterOptions::DROP) {
+        rle_util::VisitMergedRuns(
+            values_run_length_, filter_run_length_, input_logical_length_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
+                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                accumulated_run_length += run_length;
+                WriteValue(value_index, accumulated_run_length);
+              }
+            });
+      } else {  // null_selection == FilterOptions::EMIT_NULL
+        rle_util::VisitMergedRuns(
+            values_run_length_, filter_run_length_, input_logical_length_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              const bool is_valid =
+                  bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
+              if (is_valid &&
+                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                accumulated_run_length += run_length;
+                WriteNotNull(value_index, accumulated_run_length);
+              }
+              if (!is_valid) {
+                accumulated_run_length += run_length;
+                bit_util::ClearBit(out_is_valid_, out_offset_ + out_position_);
+                WriteNull(accumulated_run_length);
+              }
+            });
+      }
+    } else { // values_is_valid_ exists. Input may have nulls
+      if (filter_is_valid_ == NULLPTR) {
+        rle_util::VisitMergedRuns(
+            values_run_length_, filter_run_length_, input_logical_length_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                accumulated_run_length += run_length;
+                WriteMaybeNull(value_index, accumulated_run_length);
+              }
+            });
+      } else if (null_selection_ == FilterOptions::DROP) {
+        rle_util::VisitMergedRuns(
+            values_run_length_, filter_run_length_, input_logical_length_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
+                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                accumulated_run_length += run_length;
+                WriteMaybeNull(value_index, accumulated_run_length);
+              }
+            });
+      } else {  // null_selection == FilterOptions::EMIT_NULL
+        rle_util::VisitMergedRuns(
+            values_run_length_, filter_run_length_, input_logical_length_,
+            [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
+              const bool is_valid =
+                  bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
+              if (is_valid &&
+                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                accumulated_run_length += run_length;
+                WriteMaybeNull(value_index, accumulated_run_length);
+              }
+              if (!is_valid) {
+                accumulated_run_length += run_length;
+                bit_util::ClearBit(out_is_valid_, out_offset_ + out_position_);
+                WriteNull(accumulated_run_length);
+              }
+            });
+      }
     }
     out_logical_length_ = accumulated_run_length;
   }
@@ -978,6 +1026,20 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteValueSegment(int64_t in_start
 
 template <>
 inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
+  // Zero the bit
+  bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
+}
+
+template <>
+inline void PrimitiveRLEFilterImpl<BooleanType>::WriteValue(int64_t in_position, int64_t run_length) {
+  out_run_length_[out_position_] = run_length;
+  bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
+                     bit_util::GetBit(values_data_, values_offset_ + in_position));
+}
+
+template <>
+inline void PrimitiveRLEFilterImpl<BooleanType>::WriteNull(int64_t run_length) {
+  out_run_length_[out_position_] = run_length;
   // Zero the bit
   bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
 }
@@ -2057,22 +2119,17 @@ Status RLEFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
-  if (values.null_count == 0 &&
-      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+  if (!values.MayHaveNulls() &&
+      (null_selection == FilterOptions::DROP || !filter.MayHaveNulls())) {
     out_arr->null_count = 0;
   } else {
     out_arr->null_count = kUnknownNullCount;
   }
 
-  // When neither the values nor filter is known to have any nulls, we will
-  // elect the optimized ExecNonNull path where there is no need to populate a
-  // validity bitmap.
-  bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
-
   const int bit_width =
       checked_cast<const RunLengthEncodedType*>(values.type)->encoded_type()->bit_width();
   RETURN_NOT_OK(
-      PreallocateDataRLE(ctx, output_length, bit_width, allocate_validity, out_arr));
+      PreallocateDataRLE(ctx, output_length, bit_width, out_arr->null_count != 0, out_arr));
 
   switch (bit_width) {
     case 1:

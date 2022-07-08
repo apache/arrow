@@ -187,6 +187,9 @@ TEST_P(TestRLEFilter, FilterArray) {
   auto array_filtered_plain = result.make_array();
   auto array_filtered_encoded = decoded_result.make_array();
 
+  std::cout << "array_filtered_plain: " << *array_filtered_plain << std::endl;
+  std::cout << "array_filtered_encoded: " << *array_filtered_encoded << std::endl;
+
   ASSERT_TRUE(array_filtered_encoded->Equals(array_filtered_plain));
 }
 
