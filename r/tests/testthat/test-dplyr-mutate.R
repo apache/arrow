@@ -159,7 +159,7 @@ test_that("nchar() arguments", {
     .input %>%
       select(int, verses) %>%
       mutate(
-        line_lengths = base::nchar(verses, type = "bytes"),
+        line_lengths = nchar(verses, type = "bytes"),
         longer = line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%
@@ -514,9 +514,9 @@ test_that("mutate and pmin/pmax", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        max_val_1 = base::pmax(val1, val2, val3),
+        max_val_1 = pmax(val1, val2, val3),
         max_val_2 = pmax(val1, val2, val3, na.rm = TRUE),
-        min_val_1 = base::pmin(val1, val2, val3),
+        min_val_1 = pmin(val1, val2, val3),
         min_val_2 = pmin(val1, val2, val3, na.rm = TRUE)
       ) %>%
       collect(),
