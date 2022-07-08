@@ -91,7 +91,7 @@ jobs:
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run  \
-            -e AWS_SECRET_ACCESS_KEY=$SC_KEY 
+            -e AWS_SECRET_ACCESS_KEY=$SC_KEY \
             -e AWS_ACCESS_KEY_ID=$SC_ID \
             -e SCCACHE_BUCKET=$SC_BUCKET \
             -e SCCACHE_S3_KEY_PREFIX=$SC_PREFIX \
@@ -345,7 +345,7 @@ jobs:
 
           echo "$(pwd)/sccache" >> $GITHUB_PATH
           echo "SCCACHE_PATH=$(pwd)/sccache/sccache.exe" >> $GITHUB_ENV
-      - run: sudo apt install libcurl4 openssl-dev
+      - run: sudo apt install libcurl4-openssl-dev
       - name: Install arrow from nightly repo
         env:
           # Test source build so be sure not to download a binary
