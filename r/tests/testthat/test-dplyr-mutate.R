@@ -533,3 +533,24 @@ test_that("mutate and pmin/pmax", {
     df
   )
 })
+
+test_that("mutate() and transmute() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::round(dbl) + base::log(int),
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = base::round(dbl) + base::log(int),
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
+  )
+})
