@@ -100,8 +100,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
   const uint8_t* filter_selection = filter_data.buffers[1].data;
 
   if (filter_is_valid == NULLPTR) {
-    rle_util::VisitMergedRuns(
-        values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.offset, values.length,
+    rle_util::VisitMergedRuns(values, filter,
         [&](int64_t, int64_t, int64_t filter_index) {
           if (bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
             output_size++;
@@ -109,8 +108,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
         });
   } else {  // filter has validity bitmap
     if (null_selection == FilterOptions::EMIT_NULL) {
-      rle_util::VisitMergedRuns(
-          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.offset, values.length,
+      rle_util::VisitMergedRuns(values, filter,
           [&](int64_t, int64_t, int64_t filter_index) {
             if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index) ||
                 bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
@@ -118,8 +116,7 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
             }
           });
     } else {
-      rle_util::VisitMergedRuns(
-          values.GetValues<int64_t>(0), filter.GetValues<int64_t>(0), values.offset, values.length,
+      rle_util::VisitMergedRuns(values, filter,
           [&](int64_t, int64_t, int64_t filter_index) {
             if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index) &&
                 bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
@@ -926,17 +923,12 @@ class RLEPrimitiveFilterImpl {
   RLEPrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
                          FilterOptions::NullSelectionBehavior null_selection,
                          ArrayData* out_arr)
-      : values_is_valid_(values.child_data[0].buffers[0].data),
-        values_run_lengths_(reinterpret_cast<const int64_t*>(values.buffers[0].data)),
+      : values_{values},
+        values_is_valid_(values.child_data[0].buffers[0].data),
         values_data_(reinterpret_cast<const T*>(values.child_data[0].buffers[1].data)),
-        values_offset_(values.offset),
-        values_physical_length_(values.child_data[0].length),
-        input_logical_length_(values.length),
+        filter_{filter},
         filter_is_valid_(filter.child_data[0].buffers[0].data),
         filter_data_(filter.child_data[0].buffers[1].data),
-        filter_run_lengths_(reinterpret_cast<const int64_t*>(filter.buffers[0].data)),
-        filter_offset_(filter.offset),
-        filter_physical_length_(filter.child_data[0].length),
         null_selection_(null_selection),
         out_logical_length_(out_arr->length) {
     if (out_arr->child_data[0]->buffers[0] != nullptr) {
@@ -947,20 +939,6 @@ class RLEPrimitiveFilterImpl {
     out_position_ = 0;
     out_run_length_ = out_arr->GetMutableValues<int64_t>(0, 0);
     out_data_ = reinterpret_cast<T*>(out_arr->child_data[0]->buffers[1]->mutable_data());
-
-    // physical offset from parent applied to both parent and child buffers
-    int64_t values_common_offset = rle_util::FindPhysicalOffset(values_run_lengths_,
-                                                                values_physical_length_,
-                                                                values.offset);
-    values_run_lengths_ += values_common_offset;
-    // physical offset into the values buffer
-    values_offset_ = values_common_offset + values.child_data[0].offset;
-    // physical offset from parent applied to both parent and child buffers
-    int64_t filter_common_offset = rle_util::FindPhysicalOffset(filter_run_lengths_,
-                                                                filter_physical_length_,
-                                                                filter.offset);
-    filter_run_lengths_ += filter_common_offset;
-    filter_offset_ = filter_common_offset + filter.child_data[0].offset;
   }
 
   void Exec() {
@@ -973,7 +951,7 @@ class RLEPrimitiveFilterImpl {
 
     auto WriteMaybeNull = [&](int64_t in_position, int64_t run_length) {
       bit_util::SetBitTo(out_is_valid_, out_position_,
-                         bit_util::GetBit(values_is_valid_, values_offset_ + in_position));
+                         bit_util::GetBit(values_is_valid_, in_position));
       out_run_length_[out_position_] = run_length;
       // Increments out_position_
       WriteValue(in_position, run_length);
@@ -982,32 +960,29 @@ class RLEPrimitiveFilterImpl {
     int64_t accumulated_run_length = 0;
     if (values_is_valid_ == NULLPTR) {
       if (filter_is_valid_ == NULLPTR) {
-        rle_util::VisitMergedRuns(
-            values_run_lengths_, filter_run_lengths_, input_logical_length_,
+        rle_util::VisitMergedRuns(values_, filter_,
             [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-              if (bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+              if (bit_util::GetBit(filter_data_, filter_index)) {
                 accumulated_run_length += run_length;
                 WriteValue(value_index, accumulated_run_length);
               }
             });
       } else if (null_selection_ == FilterOptions::DROP) {
-        rle_util::VisitMergedRuns(
-            values_run_lengths_, filter_run_lengths_, input_logical_length_,
+        rle_util::VisitMergedRuns(values_, filter_,
             [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-              if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+              if (bit_util::GetBit(filter_is_valid_, filter_index) &&
+                  bit_util::GetBit(filter_data_, filter_index)) {
                 accumulated_run_length += run_length;
                 WriteValue(value_index, accumulated_run_length);
               }
             });
       } else {  // null_selection == FilterOptions::EMIT_NULL
-        rle_util::VisitMergedRuns(
-            values_run_lengths_, filter_run_lengths_, input_logical_length_,
+        rle_util::VisitMergedRuns(values_, filter_,
             [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
               const bool is_valid =
-                  bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
+                  bit_util::GetBit(filter_is_valid_, filter_index);
               if (is_valid &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                  bit_util::GetBit(filter_data_, filter_index)) {
                 accumulated_run_length += run_length;
                 WriteNotNull(value_index, accumulated_run_length);
               }
@@ -1020,32 +995,29 @@ class RLEPrimitiveFilterImpl {
       }
     } else { // values_is_valid_ exists. Input may have nulls
       if (filter_is_valid_ == NULLPTR) {
-        rle_util::VisitMergedRuns(
-            values_run_lengths_, filter_run_lengths_, input_logical_length_,
+        rle_util::VisitMergedRuns(values_, filter_,
             [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-              if (bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+              if (bit_util::GetBit(filter_data_, filter_index)) {
                 accumulated_run_length += run_length;
                 WriteMaybeNull(value_index, accumulated_run_length);
               }
             });
       } else if (null_selection_ == FilterOptions::DROP) {
-        rle_util::VisitMergedRuns(
-            values_run_lengths_, filter_run_lengths_, input_logical_length_,
+        rle_util::VisitMergedRuns(values_, filter_,
             [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
-              if (bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index) &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+              if (bit_util::GetBit(filter_is_valid_, filter_index) &&
+                  bit_util::GetBit(filter_data_, filter_index)) {
                 accumulated_run_length += run_length;
                 WriteMaybeNull(value_index, accumulated_run_length);
               }
             });
       } else {  // null_selection == FilterOptions::EMIT_NULL
-        rle_util::VisitMergedRuns(
-            values_run_lengths_, filter_run_lengths_, input_logical_length_,
+        rle_util::VisitMergedRuns(values_, filter_,
             [&](int64_t run_length, int64_t value_index, int64_t filter_index) {
               const bool is_valid =
-                  bit_util::GetBit(filter_is_valid_, filter_offset_ + filter_index);
+                  bit_util::GetBit(filter_is_valid_, filter_index);
               if (is_valid &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + filter_index)) {
+                  bit_util::GetBit(filter_data_, filter_index)) {
                 accumulated_run_length += run_length;
                 WriteMaybeNull(value_index, accumulated_run_length);
               }
@@ -1064,7 +1036,7 @@ class RLEPrimitiveFilterImpl {
   // data and advance out_position
   void WriteValue(int64_t in_position, int64_t run_length) {
     out_run_length_[out_position_] = run_length;
-    out_data_[out_position_++] = values_data_[values_offset_ + in_position];
+    out_data_[out_position_++] = values_data_[in_position];
   }
 
   void WriteNull(int64_t run_length) {
@@ -1074,17 +1046,12 @@ class RLEPrimitiveFilterImpl {
   }
 
  private:
+  const ArraySpan &values_;
   const uint8_t* values_is_valid_;
-  const int64_t* values_run_lengths_;
   const T* values_data_;
-  int64_t values_offset_;
-  int64_t values_physical_length_;
-  int64_t input_logical_length_;
+  const ArraySpan& filter_;
   const uint8_t* filter_is_valid_;
   const uint8_t* filter_data_;
-  const int64_t* filter_run_lengths_;
-  int64_t filter_offset_;
-  int64_t filter_physical_length_;
   FilterOptions::NullSelectionBehavior null_selection_;
   uint8_t* out_is_valid_;
   int64_t* out_run_length_;
@@ -1097,7 +1064,7 @@ template <>
 inline void RLEPrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position, int64_t run_length) {
   out_run_length_[out_position_] = run_length;
   bit_util::SetBitTo(out_data_, out_position_++,
-                     bit_util::GetBit(values_data_, values_offset_ + in_position));
+                     bit_util::GetBit(values_data_, in_position));
 }
 
 template <>
