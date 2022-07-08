@@ -360,48 +360,6 @@ def _plasma_store_entry_point():
 from pyarrow.util import _deprecate_api, _deprecate_class
 
 
-def _deprecate_scalar(ty, symbol):
-    return _deprecate_class("{}Value".format(ty), symbol, "1.0.0")
-
-
-ArrayValue = _deprecate_class("ArrayValue", Scalar, "1.0.0")
-NullType = _deprecate_class("NullType", NullScalar, "1.0.0")
-
-BooleanValue = _deprecate_scalar("Boolean", BooleanScalar)
-Int8Value = _deprecate_scalar("Int8", Int8Scalar)
-Int16Value = _deprecate_scalar("Int16", Int16Scalar)
-Int32Value = _deprecate_scalar("Int32", Int32Scalar)
-Int64Value = _deprecate_scalar("Int64", Int64Scalar)
-UInt8Value = _deprecate_scalar("UInt8", UInt8Scalar)
-UInt16Value = _deprecate_scalar("UInt16", UInt16Scalar)
-UInt32Value = _deprecate_scalar("UInt32", UInt32Scalar)
-UInt64Value = _deprecate_scalar("UInt64", UInt64Scalar)
-HalfFloatValue = _deprecate_scalar("HalfFloat", HalfFloatScalar)
-FloatValue = _deprecate_scalar("Float", FloatScalar)
-DoubleValue = _deprecate_scalar("Double", DoubleScalar)
-ListValue = _deprecate_scalar("List", ListScalar)
-LargeListValue = _deprecate_scalar("LargeList", LargeListScalar)
-MapValue = _deprecate_scalar("Map", MapScalar)
-FixedSizeListValue = _deprecate_scalar("FixedSizeList", FixedSizeListScalar)
-BinaryValue = _deprecate_scalar("Binary", BinaryScalar)
-StringValue = _deprecate_scalar("String", StringScalar)
-LargeBinaryValue = _deprecate_scalar("LargeBinary", LargeBinaryScalar)
-LargeStringValue = _deprecate_scalar("LargeString", LargeStringScalar)
-FixedSizeBinaryValue = _deprecate_scalar("FixedSizeBinary",
-                                         FixedSizeBinaryScalar)
-Decimal128Value = _deprecate_scalar("Decimal128", Decimal128Scalar)
-Decimal256Value = _deprecate_scalar("Decimal256", Decimal256Scalar)
-UnionValue = _deprecate_scalar("Union", UnionScalar)
-StructValue = _deprecate_scalar("Struct", StructScalar)
-DictionaryValue = _deprecate_scalar("Dictionary", DictionaryScalar)
-Date32Value = _deprecate_scalar("Date32", Date32Scalar)
-Date64Value = _deprecate_scalar("Date64", Date64Scalar)
-Time32Value = _deprecate_scalar("Time32", Time32Scalar)
-Time64Value = _deprecate_scalar("Time64", Time64Scalar)
-TimestampValue = _deprecate_scalar("Timestamp", TimestampScalar)
-DurationValue = _deprecate_scalar("Duration", DurationScalar)
-
-
 # TODO: Deprecate these somehow in the pyarrow namespace
 from pyarrow.ipc import (Message, MessageReader, MetadataVersion,
                          RecordBatchFileReader, RecordBatchFileWriter,
