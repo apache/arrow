@@ -120,24 +120,45 @@ static void RLEFilterBenchmark(benchmark::State& state, ValuesSet values,
                          benchmark::Counter::kIsRate);
 }
 
+static void RLEFilterBaseline(benchmark::State& state, ValuesSet values,
+                               RunLengthDistribution& distribution) {
+  auto array = GenerateArray(values, distribution);
+  auto filter =
+      GenerateArray(ValuesSet(boolean(), {"true", "false", "null"}), distribution);
+
+  ExecContext ctx;
+
+  for (auto _ : state) {
+    CallFunction("filter", {Datum(array), Datum(filter)}, NULLPTR, &ctx)
+        .ValueOrDie();
+  }
+
+  state.counters["rows_per_second"] =
+      benchmark::Counter(static_cast<double>(state.iterations() * BENCHMARK_ARRAY_SIZE),
+                         benchmark::Counter::kIsRate);
+}
+
 static RunLengthDistribution only_single_distribition{{1}, {1}};
 static RunLengthDistribution only_1000_distribition{{1000}, {0}};
 static RunLengthDistribution equally_mixed_distribition{{1, 10, 100, 1000},
                                                         {1000, 100, 10, 1}};
 
-BENCHMARK_CAPTURE(RLEEncodeBenchmark, int_single, ValuesSet(uint32(), {"1", "2"}),
-                  only_single_distribition)
-    ->ArgName("distribution")
-    ->;
-BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_1000, ValuesSet(uint32(), {"1", "2", "null"}),
-                  only_1000_distribition);
+BENCHMARK_CAPTURE(RLEEncodeBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
+                  equally_mixed_distribition);
 BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
+
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_single_distribition);
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_1000, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_1000_distribition);
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
+                  equally_mixed_distribition);
+BENCHMARK_CAPTURE(RLEFilterBaseline, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
+                  only_single_distribition);
+BENCHMARK_CAPTURE(RLEFilterBaseline, int_1000, ValuesSet(uint32(), {"1", "2", "null"}),
+                  only_1000_distribition);
+BENCHMARK_CAPTURE(RLEFilterBaseline, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
 
 }  // namespace compute
