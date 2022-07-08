@@ -739,9 +739,9 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
     auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
     cpp11::sexp out_type_func = out_type_r[i];
 
-    std::vector<arrow::compute::InputType> compute_in_types;
+    std::vector<arrow::compute::InputType> compute_in_types(in_types->num_fields());
     for (int64_t j = 0; j < in_types->num_fields(); j++) {
-      compute_in_types.push_back(arrow::compute::InputType(in_types->field(i)->type()));
+      compute_in_types.emplace_back(arrow::compute::InputType(in_types->field(j)->type()));
     }
 
     arrow::compute::OutputType out_type((RScalarUDFOutputTypeResolver()));
