@@ -40,7 +40,7 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.0
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
@@ -88,7 +88,6 @@ Collate:
     'dataset-partition.R'
     'dataset-scan.R'
     'dataset-write.R'
-    'deprecated.R'
     'dictionary.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
