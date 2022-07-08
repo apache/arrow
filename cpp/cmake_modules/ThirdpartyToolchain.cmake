@@ -4245,7 +4245,7 @@ macro(build_orc)
   get_target_property(ORC_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
                       IMPORTED_LOCATION)
 
-  get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
   get_target_property(ORC_LZ4_ROOT lz4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
@@ -4293,7 +4293,7 @@ macro(build_orc)
   set(ORC_VENDORED 1)
   add_dependencies(orc_ep ZLIB::ZLIB)
   add_dependencies(orc_ep lz4::lz4)
-  add_dependencies(orc_ep Snappy::snappy)
+  add_dependencies(orc_ep ${Snappy_TARGET})
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   add_library(orc::liborc STATIC IMPORTED)
