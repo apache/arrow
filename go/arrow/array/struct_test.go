@@ -133,6 +133,60 @@ func TestStructArray(t *testing.T) {
 	}
 }
 
+func TestUnsafeNewStructBuilderFromFields(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		f1s    = []int32{1, 2, 3, 4}
+		f2s    = []int32{5, 6, 7, 8}
+		valids = []bool{true, true, true, true}
+
+		fields = []arrow.Field{
+			{Name: "f1", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2", Type: arrow.PrimitiveTypes.Int32},
+		}
+
+		f1Builder = array.NewInt32Builder(pool)
+		f2Builder = array.NewInt32Builder(pool)
+	)
+
+	f1Builder.Resize(len(f1s))
+	f1Builder.AppendValues(f1s, valids)
+	f2Builder.Resize(len(f2s))
+	f2Builder.AppendValues(f2s, valids)
+	var builders = []array.Builder{f1Builder, f2Builder}
+
+	sb := array.UnsafeNewStructBuilderFromFields(pool, fields, builders)
+	defer sb.Release()
+
+	arr := sb.NewArray().(*array.Struct)
+	defer arr.Release()
+
+	arr.Retain()
+	arr.Release()
+
+	if got, want := arr.DataType().ID(), arrow.STRUCT; got != want {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	f1arr := arr.Field(0).(*array.Int32)
+	if got, want := f1arr.Len(), len(f1s); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+	if got, want := f1arr.Int32Values(), f1s; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	f2arr := arr.Field(1).(*array.Int32)
+	if got, want := f2arr.Len(), len(f2s); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+	if got, want := f2arr.Int32Values(), f2s; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+}
+
 func TestStructArrayEmpty(t *testing.T) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(t, 0)

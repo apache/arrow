@@ -181,6 +181,29 @@ func NewStructBuilder(mem memory.Allocator, dtype *arrow.StructType) *StructBuil
 	return b
 }
 
+// UnsafeNewStructBuilderFromFields returns a builder, using the provided memory allocator, fields and corresponding
+// initialized builders.
+func UnsafeNewStructBuilderFromFields(mem memory.Allocator, fields []arrow.Field, builders []Builder) *StructBuilder {
+	var length int
+	for i, b := range builders {
+		if i == 0 {
+			length = b.Len()
+		} else if b.Len() != length {
+			panic("builders must have the same length")
+		}
+	}
+	builder := &StructBuilder{
+		builder: builder{refCount: 1, mem: mem},
+		dtype:   arrow.StructOf(fields...),
+		fields:  builders,
+	}
+	builder.Resize(length)
+	for i := 0; i < length; i++ {
+		builder.Append(true)
+	}
+	return builder
+}
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *StructBuilder) Release() {
