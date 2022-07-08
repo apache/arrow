@@ -943,7 +943,7 @@ class RLEPrimitiveFilterImpl {
       // May not be allocated if neither filter nor values contains nulls
       out_is_valid_ = out_arr->child_data[0]->buffers[0]->mutable_data();
     }
-    out_offset_ = out_arr->offset;
+    assert(out_arr->offset == 0);
     out_position_ = 0;
     out_run_length_ = out_arr->GetMutableValues<int64_t>(0, 0);
     out_data_ = reinterpret_cast<T*>(out_arr->child_data[0]->buffers[1]->mutable_data());
@@ -1063,21 +1063,18 @@ class RLEPrimitiveFilterImpl {
   const uint8_t* values_is_valid_;
   const int64_t* values_run_length_;
   const T* values_data_;
-  // int64_t values_null_count_;
   int64_t values_offset_;
   int64_t values_physical_length_;
   int64_t input_logical_length_;
   const uint8_t* filter_is_valid_;
   const uint8_t* filter_data_;
   const int64_t* filter_run_length_;
-  // int64_t filter_null_count_;
   int64_t filter_offset_;
   int64_t filter_physical_length_;
   FilterOptions::NullSelectionBehavior null_selection_;
   uint8_t* out_is_valid_;
   int64_t* out_run_length_;
   T* out_data_;
-  int64_t out_offset_;
   int64_t& out_logical_length_;
   int64_t out_position_;
 };
@@ -1085,7 +1082,7 @@ class RLEPrimitiveFilterImpl {
 template <>
 inline void RLEPrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position, int64_t run_length) {
   out_run_length_[out_position_] = run_length;
-  bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
+  bit_util::SetBitTo(out_data_, out_position_++,
                      bit_util::GetBit(values_data_, values_offset_ + in_position));
 }
 
@@ -1093,7 +1090,7 @@ template <>
 inline void RLEPrimitiveFilterImpl<BooleanType>::WriteNull(int64_t run_length) {
   out_run_length_[out_position_] = run_length;
   // Zero the bit
-  bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
+  bit_util::ClearBit(out_data_, out_position_++);
 }
 
 Status RLEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
