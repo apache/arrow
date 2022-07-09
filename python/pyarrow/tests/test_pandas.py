@@ -4473,3 +4473,15 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
 
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
+
+
+def test_does_not_mutate_timedelta_dtype():
+    expected = np.dtype('<m8')
+
+    assert np.dtype(np.timedelta64) == expected
+
+    df = pd.DataFrame({"a": [np.timedelta64()]})
+    t = pa.Table.from_pandas(df)
+    t.to_pandas()
+
+    assert np.dtype(np.timedelta64) == expected
