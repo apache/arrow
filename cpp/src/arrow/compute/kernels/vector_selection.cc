@@ -99,29 +99,29 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
   const uint8_t* filter_selection = filter_data.buffers[1].data;
 
   if (filter_is_valid == NULLPTR) {
-    rle_util::VisitMergedRuns(
-        values, filter, [&](int64_t, int64_t, int64_t filter_index) {
-          if (bit_util::GetBit(filter_selection, filter_index)) {
-            output_size++;
-          }
-        });
+    rle_util::VisitMergedRuns(values, filter,
+                              [&](int64_t, int64_t, int64_t filter_index) {
+                                if (bit_util::GetBit(filter_selection, filter_index)) {
+                                  output_size++;
+                                }
+                              });
   } else {  // filter has validity bitmap
     if (null_selection == FilterOptions::EMIT_NULL) {
-      rle_util::VisitMergedRuns(
-          values, filter, [&](int64_t, int64_t, int64_t filter_index) {
-            if (!bit_util::GetBit(filter_is_valid, filter_index) ||
-                bit_util::GetBit(filter_selection, filter_index)) {
-              output_size++;
-            }
-          });
+      rle_util::VisitMergedRuns(values, filter,
+                                [&](int64_t, int64_t, int64_t filter_index) {
+                                  if (!bit_util::GetBit(filter_is_valid, filter_index) ||
+                                      bit_util::GetBit(filter_selection, filter_index)) {
+                                    output_size++;
+                                  }
+                                });
     } else {
-      rle_util::VisitMergedRuns(
-          values, filter, [&](int64_t, int64_t, int64_t filter_index) {
-            if (bit_util::GetBit(filter_is_valid, filter_index) &&
-                bit_util::GetBit(filter_selection, filter_index)) {
-              output_size++;
-            }
-          });
+      rle_util::VisitMergedRuns(values, filter,
+                                [&](int64_t, int64_t, int64_t filter_index) {
+                                  if (bit_util::GetBit(filter_is_valid, filter_index) &&
+                                      bit_util::GetBit(filter_selection, filter_index)) {
+                                    output_size++;
+                                  }
+                                });
     }
   }
   return output_size;
