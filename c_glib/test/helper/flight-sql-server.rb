@@ -25,7 +25,7 @@ module Helper
     def virtual_do_get_flight_info_statement(context, command, descriptor)
       generator = FlightInfoGenerator.new
       @current_query = command.query
-      generator.page_view(@current_query)
+      generator.page_view(ArrowFlight::Ticket.new(@current_query))
     end
 
     def virtual_do_do_get_statement(context, command)
