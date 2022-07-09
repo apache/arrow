@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "lib/arrow-flight/version"
+require_relative "lib/arrow-flight-sql/version"
 
 Gem::Specification.new do |spec|
   spec.name = "red-arrow-flight-sql"
