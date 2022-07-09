@@ -72,7 +72,7 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
   virtual std::string type_name() const = 0;
 
   /// \brief determines if partiioning is exactly equal
-  virtual bool Equals(const Partitioning& other) const = 0;
+  virtual bool Equals(const Partitioning& other, bool check_metadata = false) const = 0;
 
   /// \brief If the input batch shares any fields with this partitioning,
   /// produce sub-batches which satisfy mutually exclusive Expressions.
@@ -184,7 +184,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   const ArrayVector& dictionaries() const { return dictionaries_; }
 
-  bool Equals(const Partitioning& other) const override;
+  bool Equals(const Partitioning& other, bool check_metadata = false) const override;
 
  protected:
   KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries,
@@ -316,9 +316,9 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
   std::string type_name() const override { return name_; }
 
-  bool Equals(const Partitioning& other) const override {
-    // TODO: implement Equals
-    return false;
+  bool Equals(const Partitioning& other, bool check_metadata) const override {
+    return ::arrow::internal::checked_cast<const FunctionPartitioning&>(other)
+               .type_name() == type_name();
   }
 
   Result<compute::Expression> Parse(const std::string& path) const override {

@@ -891,9 +891,8 @@ class RangePartitioning : public Partitioning {
 
   std::string type_name() const override { return "range"; }
 
-  bool Equals(const Partitioning& other) const override {
-    // TODO: implement Equals
-    return false;
+  bool Equals(const Partitioning& other, bool check_metadata) const override {
+    return checked_cast<const RangePartitioning&>(other).type_name() == type_name();
   }
 
   Result<compute::Expression> Parse(const std::string& path) const override {

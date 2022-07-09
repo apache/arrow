@@ -82,9 +82,8 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    bool Equals(const Partitioning& other) const override {
-      // TODO: implement Equals
-      return false;
+    bool Equals(const Partitioning& other, bool check_metadata) const override {
+      return checked_cast<const DefaultPartitioning&>(other).type_name() == type_name();
     }
 
     Result<compute::Expression> Parse(const std::string& path) const override {
@@ -118,6 +117,17 @@ static Result<RecordBatchVector> ApplyGroupings(
   }
 
   return out;
+}
+
+bool KeyValuePartitioning::Equals(const Partitioning& other, bool check_metadata) const {
+  const auto& kv_partion = checked_cast<const KeyValuePartitioning&>(other);
+  int64_t idx = 0;
+  for (const auto& array : dictionaries_) {
+    if (!array->Equals(kv_partion.dictionaries()[idx++])) {
+      return false;
+    }
+  }
+  return options_.segment_encoding == kv_partion.options_.segment_encoding;
 }
 
 Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
