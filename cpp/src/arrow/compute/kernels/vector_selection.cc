@@ -95,14 +95,13 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
   int64_t output_size = 0;
 
   const ArraySpan& filter_data = filter.child_data[0];
-  const int64_t filter_offset = filter_data.offset;
   const uint8_t* filter_is_valid = filter_data.buffers[0].data;
   const uint8_t* filter_selection = filter_data.buffers[1].data;
 
   if (filter_is_valid == NULLPTR) {
     rle_util::VisitMergedRuns(
         values, filter, [&](int64_t, int64_t, int64_t filter_index) {
-          if (bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+          if (bit_util::GetBit(filter_selection, filter_index)) {
             output_size++;
           }
         });
@@ -110,16 +109,16 @@ int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
     if (null_selection == FilterOptions::EMIT_NULL) {
       rle_util::VisitMergedRuns(
           values, filter, [&](int64_t, int64_t, int64_t filter_index) {
-            if (!bit_util::GetBit(filter_is_valid, filter_offset + filter_index) ||
-                bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+            if (!bit_util::GetBit(filter_is_valid, filter_index) ||
+                bit_util::GetBit(filter_selection, filter_index)) {
               output_size++;
             }
           });
     } else {
       rle_util::VisitMergedRuns(
           values, filter, [&](int64_t, int64_t, int64_t filter_index) {
-            if (bit_util::GetBit(filter_is_valid, filter_offset + filter_index) &&
-                bit_util::GetBit(filter_selection, filter_offset + filter_index)) {
+            if (bit_util::GetBit(filter_is_valid, filter_index) &&
+                bit_util::GetBit(filter_selection, filter_index)) {
               output_size++;
             }
           });

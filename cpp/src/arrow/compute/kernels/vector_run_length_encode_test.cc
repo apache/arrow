@@ -195,8 +195,8 @@ TEST_P(TestRLEFilter, FilterArray) {
     values = values->Slice(1);
   } else if (offset_type == 2) {
     std::cout << *MakeArray(encoded_values->child_data[0]) << std::endl;
-    rle_util::AddArtificialOffsetInChildArray(encoded_values.get(), 0);
-    rle_util::AddArtificialOffsetInChildArray(encoded_filter.get(), 0);
+    rle_util::AddArtificialOffsetInChildArray(encoded_values.get(), 42);
+    rle_util::AddArtificialOffsetInChildArray(encoded_filter.get(), 1337);
 
     std::cout << *MakeArray(encoded_values->child_data[0]) << std::endl;
   }
