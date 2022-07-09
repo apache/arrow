@@ -4476,7 +4476,7 @@ def test_threaded_pandas_import():
 
 
 def test_does_not_mutate_timedelta_dtype():
-    expected = np.dtype('<m8')
+    expected = np.dtype('m8')
 
     assert np.dtype(np.timedelta64) == expected
 
