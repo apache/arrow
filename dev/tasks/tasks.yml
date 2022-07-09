@@ -590,6 +590,7 @@ tasks:
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-flight-sql-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -605,6 +606,13 @@ tasks:
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight-glib900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib900_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql900_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight900-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight900_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -707,10 +715,17 @@ tasks:
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-sql-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-sql-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-sql-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-flight-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-flight-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow[0-9]+-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow[0-9]+-flight-sql-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow[0-9]+-flight-sql-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow[0-9]+-flight-sql-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow[0-9]+-flight-sql-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
       - arrow-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm

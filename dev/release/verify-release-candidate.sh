@@ -778,6 +778,9 @@ test_ruby() {
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
     modules="${modules} red-arrow-flight"
   fi
+  if [ "${ARROW_FLIGHT_SQL}" = "ON" ]; then
+    modules="${modules} red-arrow-flight-sql"
+  fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
   fi
@@ -1169,6 +1172,7 @@ if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
 : ${ARROW_CUDA:=OFF}
+: ${ARROW_FLIGHT_SQL:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GCS:=OFF}

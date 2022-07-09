@@ -63,6 +63,7 @@ dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-cuda-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-dataset-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-flight-1.0.install
+dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-flight-sql-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-gandiva-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-parquet-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-plasma-1.0.install
@@ -84,6 +85,13 @@ dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.doc-base
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.links
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib900.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-sql-dev.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-sql-glib-dev.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-sql-glib-doc.doc-base
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-sql-glib-doc.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-sql-glib-doc.links
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-sql-glib900.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-sql900.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight900.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib-doc.doc-base

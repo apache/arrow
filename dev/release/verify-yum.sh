@@ -223,6 +223,11 @@ if [ "${have_flight}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
   echo "::endgroup::"
+
+  echo "::group::Test Apache Arrow Flight SQL"
+  ${install_command} --enablerepo=epel arrow-flight-sql-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-sql-glib-doc-${package_version}
+  echo "::endgroup::"
 fi
 
 if [ "${have_python}" = "yes" ]; then
