@@ -175,6 +175,9 @@ if get_option('gtk_doc')
   if arrow_flight.found()
     subdir('doc/arrow-flight-glib')
   endif
+  if arrow_flight_sql.found()
+    subdir('doc/arrow-flight-sql-glib')
+  endif
   if gandiva.found()
     subdir('doc/gandiva-glib')
   endif
