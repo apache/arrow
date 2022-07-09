@@ -315,7 +315,7 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/ArrowTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrow.cmake
 %{_libdir}/cmake/arrow/FindBrotli.cmake
-%{_libdir}/cmake/arrow/FindSnappy.cmake
+%{_libdir}/cmake/arrow/FindSnappyAlt.cmake
 %if %{have_thrift}
 %{_libdir}/cmake/arrow/FindThrift.cmake
 %endif

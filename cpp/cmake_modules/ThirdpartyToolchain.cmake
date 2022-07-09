@@ -95,6 +95,12 @@ if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
 endif()
 
+# For backward compatibility. We use "RE2_ROOT" if "re2_ROOT"
+# isn't specified and "RE2_ROOT" is specified.
+if("${re2_ROOT}" STREQUAL "" AND NOT "${RE2_ROOT}" STREQUAL "")
+  set(re2_ROOT ${RE2_ROOT})
+endif()
+
 # For backward compatibility. We use "Lz4_SOURCE" if "lz4_SOURCE"
 # isn't specified and "lz4_SOURCE" is specified.
 # We renamed "Lz4" dependency name to "lz4" in 9.0.0 because
@@ -1107,22 +1113,37 @@ macro(build_snappy)
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
 
-  add_library(Snappy::snappy STATIC IMPORTED)
-  set_target_properties(Snappy::snappy
+  set(Snappy_TARGET Snappy::snappy-static)
+  add_library(${Snappy_TARGET} STATIC IMPORTED)
+  set_target_properties(${Snappy_TARGET}
                         PROPERTIES IMPORTED_LOCATION "${SNAPPY_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${SNAPPY_PREFIX}/include")
   add_dependencies(toolchain snappy_ep)
-  add_dependencies(Snappy::snappy snappy_ep)
+  add_dependencies(${Snappy_TARGET} snappy_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS Snappy::snappy)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${Snappy_TARGET})
 endmacro()
 
 if(ARROW_WITH_SNAPPY)
-  resolve_dependency(Snappy PC_PACKAGE_NAMES snappy)
+  resolve_dependency(Snappy
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     snappy)
   if(${Snappy_SOURCE} STREQUAL "SYSTEM" AND NOT snappy_PC_FOUND)
-    get_target_property(SNAPPY_LIB Snappy::snappy IMPORTED_LOCATION)
-    string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")
+    get_target_property(SNAPPY_TYPE ${Snappy_TARGET} TYPE)
+    if(NOT SNAPPY_TYPE STREQUAL "INTERFACE_LIBRARY")
+      get_target_property(SNAPPY_LIB ${Snappy_TARGET}
+                          IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+      if(NOT SNAPPY_LIB)
+        get_target_property(SNAPPY_LIB ${Snappy_TARGET} IMPORTED_LOCATION_RELEASE)
+      endif()
+      if(NOT SNAPPY_LIB)
+        get_target_property(SNAPPY_LIB ${Snappy_TARGET} IMPORTED_LOCATION)
+      endif()
+      string(APPEND ARROW_PC_LIBS_PRIVATE " ${SNAPPY_LIB}")
+    endif()
   endif()
 endif()
 
@@ -4224,7 +4245,8 @@ macro(build_orc)
   get_target_property(ORC_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
                       IMPORTED_LOCATION)
 
-  get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
+                      INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
   get_target_property(ORC_LZ4_ROOT lz4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
@@ -4272,7 +4294,7 @@ macro(build_orc)
   set(ORC_VENDORED 1)
   add_dependencies(orc_ep ZLIB::ZLIB)
   add_dependencies(orc_ep lz4::lz4)
-  add_dependencies(orc_ep Snappy::snappy)
+  add_dependencies(orc_ep ${Snappy_TARGET})
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   add_library(orc::liborc STATIC IMPORTED)

@@ -37,6 +37,9 @@ fi
 if [ -n "${ARROW_CONAN_WITH_LZ4:-}" ]; then
   conan_args+=(--options arrow:with_lz4=${ARROW_CONAN_WITH_LZ4})
 fi
+if [ -n "${ARROW_CONAN_WITH_SNAPPY:-}" ]; then
+  conan_args+=(--options arrow:with_snappy=${ARROW_CONAN_WITH_SNAPPY})
+fi
 
 version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \
             grep -E -o '([0-9.]*)')
