@@ -32,19 +32,17 @@ int64_t FindPhysicalOffset(const int64_t* accumulated_run_lengths,
                            int64_t physical_length, int64_t logical_offset);
 
 static const int64_t* RunEnds(const ArraySpan& span) {
-  return span.GetValues<const int64_t>(0, /*absolute_offset=*/ 0);
+  return span.GetValues<const int64_t>(0, /*absolute_offset=*/0);
 }
 
-static const ArraySpan& DataArray(const ArraySpan& span) {
-  return span.child_data[0];
-}
+static const ArraySpan& DataArray(const ArraySpan& span) { return span.child_data[0]; }
 
 template <typename CallbackType>
-void VisitMergedRuns(const ArraySpan &a, const ArraySpan &b, CallbackType callback) {
-  const int64_t a_physical_offset = rle_util::FindPhysicalOffset(RunEnds(a),
-                                                           DataArray(a).length, a.offset);
-  const int64_t b_physical_offset = rle_util::FindPhysicalOffset(RunEnds(b),
-                                                           DataArray(b).length, b.offset);
+void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callback) {
+  const int64_t a_physical_offset =
+      rle_util::FindPhysicalOffset(RunEnds(a), DataArray(a).length, a.offset);
+  const int64_t b_physical_offset =
+      rle_util::FindPhysicalOffset(RunEnds(b), DataArray(b).length, b.offset);
 
   ARROW_DCHECK_EQ(a.length, b.length);
   const int64_t logical_length = a.length;
@@ -67,7 +65,8 @@ void VisitMergedRuns(const ArraySpan &a, const ArraySpan &b, CallbackType callba
 
     // callback to code that wants to work on the data - we give it physical indices
     // including all offsets. This includes the additional offset the data array may have.
-    callback(merged_run_length, a_run_index + DataArray(a).offset, b_run_index + DataArray(b).offset);
+    callback(merged_run_length, a_run_index + DataArray(a).offset,
+             b_run_index + DataArray(b).offset);
 
     logical_position = merged_run_end;
     if (logical_position == a_run_end) {
@@ -80,7 +79,7 @@ void VisitMergedRuns(const ArraySpan &a, const ArraySpan &b, CallbackType callba
 }
 
 // TODO: this may fit better into some testing header
-void AddArtificialOffsetInChildArray(ArrayData *array, int64_t offset);
+void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset);
 
 }  // namespace rle_util
 }  // namespace arrow

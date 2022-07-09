@@ -144,9 +144,12 @@ INSTANTIATE_TEST_SUITE_P(
                           {1, 3, 5, 6}),
         RLETestData::JSON(boolean(), "[true, true, true, false, false]", "[true, false]",
                           {3, 5}),
-        RLETestData::JSON(boolean(), "[true, false, true, false, true, false, true, false, true]", "[true, false, true, false, true, false, true, false, true]",
+        RLETestData::JSON(boolean(),
+                          "[true, false, true, false, true, false, true, false, true]",
+                          "[true, false, true, false, true, false, true, false, true]",
                           {1, 2, 3, 4, 5, 6, 7, 8, 9}),
-        RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false, null, null]",
+        RLETestData::JSON(boolean(),
+                          "[true, true, true, false, null, null, false, null, null]",
                           "[true, false, null, false, null]", {3, 4, 6, 7, 9}),
         RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[-5, 255]", {3, 5},
                           3),
@@ -198,9 +201,8 @@ TEST_P(TestRLEFilter, FilterArray) {
     std::cout << *MakeArray(encoded_values->child_data[0]) << std::endl;
   }
 
-  ASSERT_OK_AND_ASSIGN(
-      auto result,
-      CallFunction("filter", {Datum(values), Datum(filter)}, NULLPTR, NULLPTR));
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("filter", {Datum(values), Datum(filter)},
+                                                 NULLPTR, NULLPTR));
   ASSERT_OK_AND_ASSIGN(
       auto encoded_result,
       CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR,
@@ -224,26 +226,32 @@ INSTANTIATE_TEST_SUITE_P(
                               "[1, 0, -5, 255]", {2, 3, 6, 8}),
             RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5, 5, 9, 9]",
                               "[null, 1, null, 5]", {1, 3, 5, 6}),
-            RLETestData::JSON(boolean(), "[true, true, true, false, false, false, false, false, true]",
-                              "[true, false]", {3, 5}),
-            RLETestData::JSON(boolean(), "[true, true, true, false, null, null, false, null, null]",
+            RLETestData::JSON(
+                boolean(), "[true, true, true, false, false, false, false, false, true]",
+                "[true, false]", {3, 5}),
+            RLETestData::JSON(boolean(),
+                              "[true, true, true, false, null, null, false, null, null]",
                               "[true, false, null, false]", {3, 4, 6, 7}),
-            RLETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255, 255, 255, 255, 4]",
+            RLETestData::JSON(int32(),
+                              "[1, 1, 0, -5, -5, -5, 255, 255, 255, 255, 255, 4]",
                               "[1, 0, -5, 255]", {2, 3, 6, 8}, 3),
-            RLETestData::JSON(uint32(), "[null, 1, 1, null, null, 5, 5, 9, 9, null, null]",
+            RLETestData::JSON(uint32(),
+                              "[null, 1, 1, null, null, 5, 5, 9, 9, null, null]",
                               "[null, 1, null, 5]", {1, 3, 5, 6}, 2),
-            RLETestData::JSON(boolean(), "[true, true, true, true, true, false, false, false, false, false, true]",
-                              "[true, false]", {3, 5}, 2),
-            RLETestData::JSON(boolean(), "[false, true, true, true, false, null, null, false, null, null]",
-                              "[true, false, null, false]", {3, 4, 6, 7}, 1)),
+            RLETestData::JSON(
+                boolean(),
+                "[true, true, true, true, true, false, false, false, false, false, true]",
+                "[true, false]", {3, 5}, 2),
+            RLETestData::JSON(
+                boolean(),
+                "[false, true, true, true, false, null, null, false, null, null]",
+                "[true, false, null, false]", {3, 4, 6, 7}, 1)),
         ::testing::Values(
             "[true, true, true, true, true, true, true, true, true]",
             "[false, false, false, false, false, false, false, false, false]",
             "[true, false, true, false, true, false, true, false, true]",
             "[true, true, false, false, false, false, false, true, true]"),
-        ::testing::Values(
-            0, 1, 2
-        )));
+        ::testing::Values(0, 1, 2)));
 
 }  // namespace compute
 }  // namespace arrow
