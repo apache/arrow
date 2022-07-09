@@ -21,6 +21,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/rle_util.h"
 
 namespace arrow {
 namespace compute {
@@ -168,12 +169,15 @@ INSTANTIATE_TEST_SUITE_P(
 class TestRLEFilter
     : public ::testing::TestWithParam<std::tuple<RLETestData, std::string, int>> {};
 
+// TODO: add this functionality in the existing selection tests once we have an RLE array
+// class
 TEST_P(TestRLEFilter, FilterArray) {
   RLETestData data;
   std::string filter_json;
   int offset_type;
   std::tie(data, filter_json, offset_type) = GetParam();
   auto filter = ArrayFromJSON(boolean(), filter_json);
+  auto values = data.input;
 
   ASSERT_OK_AND_ASSIGN(Datum encoded_filter_datum, RunLengthEncode(filter));
   ASSERT_OK_AND_ASSIGN(Datum encoded_values_datum, RunLengthEncode(data.input));
@@ -184,29 +188,19 @@ TEST_P(TestRLEFilter, FilterArray) {
   if (offset_type == 1) {
     encoded_filter = encoded_filter->Slice(1, encoded_filter->length - 1);
     encoded_values = encoded_values->Slice(1, encoded_values->length - 1);
+    filter = filter->Slice(1);
+    values = values->Slice(1);
   } else if (offset_type == 2) {
-    {
-      const int64_t first_run_length = data.expected_run_lengths[0];
-      auto parent = ArrayData::Make(run_length_encoded(data.input->type()),
-                                    data.input->length() - first_run_length);
-      parent->child_data.push_back(data.expected_values->Slice(1)->data());
-      ASSERT_OK_AND_ASSIGN(
-          auto run_length_buffer,
-          AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int64_t)));
-      int64_t* run_length_buffer_data =
-          reinterpret_cast<int64_t*>(run_length_buffer->mutable_data());
-      for (size_t index = 0; index < data.expected_run_lengths.size() - 1; index++) {
-        run_length_buffer_data[index] =
-            data.expected_run_lengths[index + 1] - first_run_length;
-      }
-      parent->buffers.push_back(std::move(run_length_buffer));
-      encoded_values = parent;
-    }
+    std::cout << *MakeArray(encoded_values->child_data[0]) << std::endl;
+    rle_util::AddArtificialOffsetInChildArray(encoded_values.get(), 0);
+    rle_util::AddArtificialOffsetInChildArray(encoded_filter.get(), 0);
+
+    std::cout << *MakeArray(encoded_values->child_data[0]) << std::endl;
   }
 
   ASSERT_OK_AND_ASSIGN(
       auto result,
-      CallFunction("filter", {Datum(data.input), Datum(filter)}, NULLPTR, NULLPTR));
+      CallFunction("filter", {Datum(values), Datum(filter)}, NULLPTR, NULLPTR));
   ASSERT_OK_AND_ASSIGN(
       auto encoded_result,
       CallFunction("filter", {Datum(encoded_values), Datum(encoded_filter)}, NULLPTR,

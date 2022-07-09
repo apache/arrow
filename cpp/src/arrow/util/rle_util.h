@@ -79,5 +79,8 @@ void VisitMergedRuns(const ArraySpan &a, const ArraySpan &b, CallbackType callba
   }
 }
 
+// TODO: this may fit better into some testing header
+void AddArtificialOffsetInChildArray(ArrayData *array, int64_t offset);
+
 }  // namespace rle_util
 }  // namespace arrow
