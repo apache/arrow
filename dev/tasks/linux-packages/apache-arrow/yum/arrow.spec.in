@@ -828,7 +828,7 @@ This package contains the libraries for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_libdir}/libarrow-flightsql--glib.so.*
+%{_libdir}/libarrow-flight-sql-glib.so.*
 %{_datadir}/gir-1.0/ArrowFlightSQL-1.0.gir
 
 %package flight-sql-glib-devel
