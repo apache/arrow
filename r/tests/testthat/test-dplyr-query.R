@@ -293,3 +293,76 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
     )
   )
 })
+
+test_that("all_sources() finds all data sources in a query", {
+  tab <- Table$create(a = 1)
+  ds <- InMemoryDataset$create(tab)
+  expect_equal(all_sources(tab), list(tab))
+  expect_equal(
+    tab %>%
+      filter(a > 0) %>%
+      summarize(a = sum(a)) %>%
+      arrange(desc(a)) %>%
+      all_sources(),
+    list(tab)
+  )
+  expect_equal(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(ds) %>%
+      all_sources(),
+    list(tab, ds)
+  )
+
+  expect_equal(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(ds) %>%
+      left_join(tab) %>%
+      all_sources(),
+    list(tab, ds, tab)
+  )
+  expect_equal(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(left_join(ds, tab)) %>%
+      left_join(tab) %>%
+      all_sources(),
+    list(tab, ds, tab, tab)
+  )
+})
+
+test_that("query_on_dataset() looks at all data sources in a query", {
+  tab <- Table$create(a = 1)
+  ds <- InMemoryDataset$create(tab)
+  expect_false(query_on_dataset(tab))
+  expect_true(query_on_dataset(ds))
+  expect_false(
+    tab %>%
+      filter(a > 0) %>%
+      summarize(a = sum(a)) %>%
+      arrange(desc(a)) %>%
+      query_on_dataset()
+  )
+  expect_true(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(ds) %>%
+      query_on_dataset()
+  )
+
+  expect_true(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(left_join(ds, tab)) %>%
+      left_join(tab) %>%
+      query_on_dataset()
+  )
+  expect_false(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(left_join(tab, tab)) %>%
+      left_join(tab) %>%
+      query_on_dataset()
+  )
+})

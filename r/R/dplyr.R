@@ -264,7 +264,9 @@ abandon_ship <- function(call, .data, msg) {
   eval.parent(call, 2)
 }
 
-query_on_dataset <- function(x) inherits(source_data(x), c("Dataset", "RecordBatchReader"))
+query_on_dataset <- function(x) {
+  any(map_lgl(all_sources(x), ~ inherits(., c("Dataset", "RecordBatchReader"))))
+}
 
 source_data <- function(x) {
   if (!inherits(x, "arrow_dplyr_query")) {
@@ -276,12 +278,21 @@ source_data <- function(x) {
   }
 }
 
-is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
-
-has_aggregation <- function(x) {
-  # TODO: update with joins (check right side data too)
-  !is.null(x$aggregations) || (is_collapsed(x) && has_aggregation(x$.data))
+all_sources <- function(x) {
+  if (is.null(x)) {
+    x
+  } else if (!inherits(x, "arrow_dplyr_query")) {
+    list(x)
+  } else {
+    c(
+      all_sources(x$.data),
+      all_sources(x$join$right_data),
+      all_sources(x$union_all$right_data)
+    )
+  }
 }
+
+is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 
 has_head_tail <- function(x) {
   !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))
