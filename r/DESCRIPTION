@@ -44,6 +44,7 @@ RoxygenNote: 7.2.0
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
+    cli,
     DBI,
     dbplyr,
     decor,
@@ -53,6 +54,7 @@ Suggests:
     hms,
     knitr,
     lubridate,
+    pillar,
     pkgload,
     reticulate,
     rmarkdown,
@@ -103,6 +105,7 @@ Collate:
     'dplyr-funcs-type.R'
     'expression.R'
     'dplyr-funcs.R'
+    'dplyr-glimpse.R'
     'dplyr-group-by.R'
     'dplyr-join.R'
     'dplyr-mutate.R'

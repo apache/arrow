@@ -119,6 +119,7 @@ ChunkedArray <- R6Class("ChunkedArray",
       assert_that(!is.na(descending))
       # TODO: after ARROW-12042 is closed, review whether this and the
       # Array$SortIndices definition can be consolidated
+      # (edit: ARROW-12042 was resolved in 7.0.0)
       call_function(
         "sort_indices",
         self,
@@ -132,7 +133,8 @@ ChunkedArray <- R6Class("ChunkedArray",
       ChunkedArray__Validate(self)
     },
     ToString = function() {
-      ChunkedArray__ToString(self)
+      typ <- paste0("<", self$type$ToString(), ">")
+      paste(typ, ChunkedArray__ToString(self), sep = "\n")
     },
     Equals = function(other, ...) {
       inherits(other, "ChunkedArray") && ChunkedArray__Equals(self, other)
