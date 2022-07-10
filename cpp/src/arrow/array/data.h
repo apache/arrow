@@ -269,7 +269,7 @@ struct ARROW_EXPORT ArraySpan {
   // 16 bytes of scratch space to enable this ArraySpan to be a view onto
   // scalar values including binary scalars (where we need to create a buffer
   // that looks like two 32-bit or 64-bit offsets)
-  alignas(64) uint8_t scratch_space[16];
+  uint64_t scratch_space[2];
 
   ArraySpan() = default;
 
