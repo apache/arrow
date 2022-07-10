@@ -86,14 +86,10 @@ glimpse.Dataset <- glimpse.ArrowTabular
 glimpse.arrow_dplyr_query <- function(x,
                                       width = getOption("pillar.width", getOption("width")),
                                       ...) {
-  source <- source_data(x)
-  # TODO(ARROW-XXXXX): this should check for RBRs in other source nodes too
-  if (inherits(source, "RecordBatchReader")) {
+  if (any(map_lgl(all_sources(x), ~ inherits(., "RecordBatchReader")))) {
     message("Cannot glimpse() data from a RecordBatchReader because it can only be read one time. Call `compute()` to evaluate the query first.")
     print(x)
-  } else if (query_on_dataset(x) && (is_collapsed(x) || has_aggregation(x) || length(x$arrange_vars))) {
-    # We allow queries that just select/filter/mutate because those stream,
-    # no arrange/summarize/join/etc. because those require full scans.
+  } else if (query_on_dataset(x) && !query_can_stream(x)) {
     # TODO: tangentially related, test that head %>% head is handled correctly
     message("This query requires a full table scan, so glimpse() may be expensive. Call `compute()` to evaluate the query first.")
     print(x)

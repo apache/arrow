@@ -366,3 +366,70 @@ test_that("query_on_dataset() looks at all data sources in a query", {
       query_on_dataset()
   )
 })
+
+test_that("query_can_stream()", {
+  tab <- Table$create(a = 1)
+  ds <- InMemoryDataset$create(tab)
+  expect_true(query_can_stream(tab))
+  expect_true(query_can_stream(ds))
+  expect_true(query_can_stream(NULL))
+  expect_true(
+    ds %>%
+      filter(a > 0) %>%
+      query_can_stream()
+  )
+  expect_false(
+    tab %>%
+      filter(a > 0) %>%
+      arrange(desc(a)) %>%
+      query_can_stream()
+  )
+  expect_false(
+    tab %>%
+      filter(a > 0) %>%
+      summarize(a = sum(a)) %>%
+      query_can_stream()
+  )
+  expect_true(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(ds) %>%
+      query_can_stream()
+  )
+  expect_false(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(summarize(ds, a = sum(a))) %>%
+      query_can_stream()
+  )
+
+  expect_true(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(left_join(ds, tab)) %>%
+      left_join(tab) %>%
+      query_can_stream()
+  )
+  expect_true(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(left_join(tab, tab)) %>%
+      left_join(tab) %>%
+      query_can_stream()
+  )
+  expect_false(
+    tab %>%
+      filter(a > 0) %>%
+      union_all(left_join(tab, tab)) %>%
+      left_join(ds) %>%
+      query_can_stream()
+  )
+  expect_false(
+    tab %>%
+      filter(a > 0) %>%
+      arrange(a) %>%
+      union_all(left_join(tab, tab)) %>%
+      left_join(tab) %>%
+      query_can_stream()
+  )
+})

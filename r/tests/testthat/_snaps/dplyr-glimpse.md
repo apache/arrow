@@ -130,19 +130,6 @@
 # glimpse() on Dataset query only shows data for streaming eval
 
     Code
-      ds %>% select(int, chr) %>% filter(int > 2) %>% mutate(twice = int * 2) %>%
-        glimpse()
-    Output
-      FileSystemDataset with 2 Parquet files (query)
-      18 rows x 3 columns
-      $ int    <int32> 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 3, 4, 5, 6, 7~
-      $ chr   <string> "j", "i", "h", "g", "f", "e", "d", "c", "b", "a", "c", "d", "e"~
-      $ twice <double> 202, 204, 206, 208, 210, 212, 214, 216, 218, 220, 6, 8, 10, 12,~
-      Call `print()` for query details
-
----
-
-    Code
       ds %>% summarize(max(int)) %>% glimpse()
     Message <simpleMessage>
       This query requires a full table scan, so glimpse() may be expensive. Call `compute()` to evaluate the query first.

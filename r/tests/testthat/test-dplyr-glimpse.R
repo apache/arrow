@@ -71,14 +71,20 @@ test_that("glimpse() on Dataset", {
 })
 
 test_that("glimpse() on Dataset query only shows data for streaming eval", {
-  expect_snapshot({
+  # Because dataset scan row order is not deterministic, we can't snapshot
+  # the whole output. Instead check for an indication that glimpse method ran
+  # instead of the regular print() method that is the fallback
+  expect_output(
     ds %>%
       select(int, chr) %>%
       filter(int > 2) %>%
       mutate(twice = int * 2) %>%
-      glimpse()
-  })
+      glimpse(),
+    "Call `print()` for query details",
+    fixed = TRUE
+  )
 
+  # This doesn't show the data and falls back to print()
   expect_snapshot({
     ds %>%
       summarize(max(int)) %>%
