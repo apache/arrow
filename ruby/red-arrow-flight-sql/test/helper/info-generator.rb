@@ -27,8 +27,7 @@ module Helper
       ArrowFlight::PathDescriptor.new(["page-view"])
     end
 
-    def page_view_endpoints(query)
-      handle = ArrowFlightSQL::StatementQueryTicket.generate_handle(query)
+    def page_view_endpoints(handle)
       locations = [
         ArrowFlight::Location.new("grpc+tcp://127.0.0.1:10000"),
         ArrowFlight::Location.new("grpc+tcp://127.0.0.1:10001"),
@@ -38,10 +37,10 @@ module Helper
       ]
     end
 
-    def page_view(query)
+    def page_view(handle)
       table = page_view_table
       descriptor = page_view_descriptor
-      endpoints = page_view_endpoints(query)
+      endpoints = page_view_endpoints(handle)
       output = Arrow::ResizableBuffer.new(0)
       table.save(output, format: :stream)
       ArrowFlight::Info.new(table.schema,

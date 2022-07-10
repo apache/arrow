@@ -15,29 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "flight-info-generator"
-
-module Helper
-  class FlightSQLServer < ArrowFlightSQL::Server
-    type_register
-
+module ArrowFlightSQL
+  class Server
     private
-    def virtual_do_get_flight_info_statement(context, command, descriptor)
-      generator = FlightInfoGenerator.new
-      @current_query = command.query
-      handle =
-        ArrowFlightSQL::StatementQueryTicket.generate_handle(@current_query)
-      generator.page_view(ArrowFlight::Ticket.new(handle))
-    end
-
-    def virtual_do_do_get_statement(context, command)
-      unless command.handle.to_s == @current_query
-        raise Arrow::Error::Invalid.new("invalid ticket")
-      end
-      generator = FlightInfoGenerator.new
-      table = generator.page_view_table
-      reader = Arrow::TableBatchReader.new(table)
-      ArrowFlight::RecordBatchStream.new(reader)
+    def generate_handle(query)
+      StatementQueryTicket.generate_handle(query)
     end
   end
 end

@@ -38,7 +38,6 @@ for module in "${modules[@]}"; do
   fi
 done
 export LD_LIBRARY_PATH
-echo $LD_LIBRARY_PATH
 
 if [ "${BUILD}" != "no" ]; then
   if [ -f "Makefile" ]; then

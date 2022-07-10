@@ -24,6 +24,14 @@ module ArrowFlightSQL
     end
 
     private
+    def post_load(repository, namespace)
+      require_libraries
+    end
+
+    def require_libraries
+      require_relative "server"
+    end
+
     def prepare_function_info_lock_gvl(function_info, klass)
       super
       function_info.lock_gvl_default = false
