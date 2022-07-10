@@ -17,8 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-package_id = 'arrow-flight-glib'
-package_name = 'Apache Arrow Flight GLib'
+package_id = 'arrow-flight-sql-glib'
+package_name = 'Apache Arrow Flight SQL GLib'
 entities_conf = configuration_data()
 entities_conf.set('PACKAGE', package_id)
 entities_conf.set('PACKAGE_BUGREPORT',
@@ -47,6 +47,10 @@ arrow_glib_doc_path = join_paths(data_dir,
                                  'gtk-doc',
                                  'html',
                                  'arrow-glib')
+arrow_flight_glib_doc_path = join_paths(data_dir,
+                                        'gtk-doc',
+                                        'html',
+                                        'arrow-flight-glib')
 doc_path = join_paths(data_dir, 'gtk-doc', 'html', package_id)
 
 source_directories = [
@@ -56,6 +60,7 @@ source_directories = [
 dependencies = [
   arrow_glib,
   arrow_flight_glib,
+  arrow_flight_sql_glib,
 ]
 ignore_headers = []
 gnome.gtkdoc(package_id,
@@ -70,7 +75,7 @@ gnome.gtkdoc(package_id,
              ],
              mkdb_args: [
                '--output-format=xml',
-               '--name-space=gad',
+               '--name-space=gaflightsql',
                '--source-suffixes=c,cpp,h',
              ],
              fixxref_args: [
@@ -78,6 +83,7 @@ gnome.gtkdoc(package_id,
                '--extra-dir=' + join_paths(glib_doc_path, 'glib'),
                '--extra-dir=' + join_paths(glib_doc_path, 'gobject'),
                '--extra-dir=' + arrow_glib_doc_path,
+               '--extra-dir=' + arrow_flight_glib_doc_path,
              ],
              html_assets: html_images,
              install: true)
