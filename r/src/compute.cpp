@@ -630,11 +630,9 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
         for (int i = 0; i < span.num_values(); i++) {
           const arrow::compute::ExecValue& exec_val = span[i];
           if (exec_val.is_array()) {
-            std::shared_ptr<arrow::Array> array = exec_val.array.ToArray();
-            args_sexp[i] = cpp11::to_r6<arrow::Array>(array);
+            args_sexp[i] = cpp11::to_r6<arrow::Array>(exec_val.array.ToArray());
           } else if (exec_val.is_scalar()) {
-            std::shared_ptr<arrow::Scalar> scalar = exec_val.scalar->GetSharedPtr();
-            args_sexp[i] = cpp11::to_r6<arrow::Scalar>(scalar);
+            args_sexp[i] = cpp11::to_r6<arrow::Scalar>(exec_val.scalar->GetSharedPtr());
           }
         }
 
