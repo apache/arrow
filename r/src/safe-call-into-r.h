@@ -68,9 +68,6 @@ class MainRThread {
   // Check if the current thread is the main R thread
   bool IsMainThread() { return initialized_ && std::this_thread::get_id() == thread_id_; }
 
-  // Check if a SafeCallIntoR call is able to execute
-  bool CanExecuteSafeCallIntoR() { return IsMainThread() || executor_ != nullptr; }
-
   // The Executor that is running on the main R thread, if it exists
   arrow::internal::Executor*& Executor() { return executor_; }
 
@@ -114,7 +111,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
     // the cpp11::unwind_exception be thrown since it will be caught
     // at the top level.
     return fun();
-  } else if (main_r_thread.CanExecuteSafeCallIntoR()) {
+  } else if (main_r_thread.Executor() != nullptr) {
     // If we are not on the main thread and have an Executor,
     // use it to run the task on the main R thread. We can't throw
     // a cpp11::unwind_exception here, so we need to propagate it back
