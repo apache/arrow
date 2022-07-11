@@ -120,6 +120,33 @@ cdef class FileInfo(_Weakrefable):
 
     >>> fs.FileInfo('/tmp/fileinfo.dat', type=fs.FileType.File)
     <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=None>
+
+    Inspect FileInfo attributes:
+
+    >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+    >>> file_info.type
+    <FileType.File: 2>
+
+    >>> file_info.is_file
+    True
+
+    >>> file_info.path
+    '/tmp/fileinfo.dat'
+
+    >>> file_info.base_name
+    'fileinfo.dat'
+
+    >>> file_info.size
+    4
+
+    >>> file_info.extension
+    'dat'
+
+    >>> file_info.mtime # doctest: +SKIP
+    datetime.datetime(2022, 6, 29, 7, 56, 10, 873922, tzinfo=datetime.timezone.utc)
+
+    >>> file_info.mtime_ns # doctest: +SKIP
+    1656489370873922073
     """
 
     def __init__(self, path, FileType type=FileType.Unknown, *,
@@ -189,7 +216,6 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.type
         <FileType.File: 2>
@@ -201,7 +227,6 @@ cdef class FileInfo(_Weakrefable):
         """
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.is_file
         True
@@ -215,7 +240,6 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.path
         '/tmp/fileinfo.dat'
@@ -231,7 +255,6 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.base_name
         'fileinfo.dat'
@@ -251,7 +274,6 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.size
         4
@@ -267,7 +289,6 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.extension
         'dat'
@@ -285,7 +306,6 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.mtime # doctest: +SKIP
         datetime.datetime(2022, 6, 29, 7, 56, 10, 873922, tzinfo=datetime.timezone.utc)
@@ -307,7 +327,6 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
         >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
         >>> file_info.mtime_ns # doctest: +SKIP
         1656489370873922073
@@ -451,14 +470,9 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass with nonempty file:
-
-        >>> getfixture('local_fs')
-        <pyarrow._fs.LocalFileSystem object at ...>
-
         Create a new FileSystem subclass from path:
 
-        >>> local_new, path = fs.LocalFileSystem().from_uri('file:///tmp/fieinfo.dat')
+        >>> local_new, path = fs.LocalFileSystem().from_uri('file:///tmp/fileinfo.dat')
         >>> local_new
         <pyarrow._fs.LocalFileSystem object at ...
         >>> path
@@ -467,7 +481,7 @@ cdef class FileSystem(_Weakrefable):
         Or from a s3 bucket:
 
         >>> fs.FileSystem.from_uri("s3://usgs-landsat/collection02/")
-        (<pyarrow._s3fs.S3FileSystem object at 0x104648a70>, 'usgs-landsat/collection02')
+        (<pyarrow._s3fs.S3FileSystem object at ...>, 'usgs-landsat/collection02')
         """
         cdef:
             c_string c_path
@@ -564,14 +578,8 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass with nonempty file::
-
-        >>> local = getfixture('local_fs')
         >>> local
         <pyarrow._fs.LocalFileSystem object at ...>
-
-        Get info for the file:
-
         >>> local.get_file_info("local.get_file_info(/tmp/fileinfo.dat)")
         <FileInfo for 'local.get_file_info(/tmp/fileinfo.dat)': type=FileType.NotFound>
         """
@@ -673,10 +681,6 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass with nonempty file:
-
-        >>> local = getfixture('local_fs')
-
         Create a directory and copy a file into it:
 
         >>> local.create_dir('/tmp/new_dir')
@@ -719,12 +723,6 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass with nonempty file::
-
-        >>> local = getfixture('local_fs')
-        >>> local
-        <pyarrow._fs.LocalFileSystem object at ...>
-
         Create a new folder and move the file:
 
         >>> local.create_dir('/tmp/other_dir')
@@ -759,14 +757,6 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass with nonempty file::
-
-        >>> local = getfixture('local_fs')
-        >>> local
-        <pyarrow._fs.LocalFileSystem object at ...>
-
-        Copy file:
-
         >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/fileinfo_copy.dat')
         >>> local.get_file_info('/tmp/fileinfo_copy.dat')
         <FileInfo for '/tmp/fileinfo_copy.dat': type=FileType.File, size=4>
@@ -788,9 +778,6 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass with nonempty file::
-
-        >>> local = getfixture('local_fs')
         >>> local.get_file_info('/tmp/fileinfo.dat')
         <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
 
@@ -837,10 +824,6 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass with nonempty file::
-
-        >>> local = getfixture('local_fs')
-
         Print the data from the file with `open_input_file()`:
 
         >>> with local.open_input_file('/tmp/fileinfo.dat') as f:
@@ -884,10 +867,6 @@ cdef class FileSystem(_Weakrefable):
 
         Examples        
         --------
-        Create a FileSystem subclass with nonempty file::
-
-        >>> local = getfixture('local_fs')
-
         Print the data from the file with `open_input_stream()`:
 
         >>> with local.open_input_stream('/tmp/fileinfo.dat') as f:
@@ -1007,11 +986,7 @@ cdef class FileSystem(_Weakrefable):
 
         Examples        
         --------
-        Create a FileSystem subclass with nonempty file::
-
-        >>> local = getfixture('local_fs')
-
-        append new data:
+        Append new data to a FileSystem subclass with nonempty file:
 
         >>> with local.open_append_stream('/tmp/fileinfo.dat') as f:
         ...     f.write(b'+newly added')
