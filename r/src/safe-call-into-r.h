@@ -32,13 +32,8 @@
 // on 32-bit R builds on R 3.6 and lower.
 static inline bool CanSafeCallIntoR() {
 #if defined(HAS_UNWIND_PROTECT)
-  // Cache value to avoid calling into R more than once to check
-  static int on_old_windows = -1;
-  if (on_old_windows == -1) {
-    cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
-    on_old_windows = on_old_windows_fun();
-  }
-
+  cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
+  bool on_old_windows = on_old_windows_fun();
   return !on_old_windows;
 #else
   return false;
