@@ -1563,7 +1563,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, PhysicalIntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
   ScalarAggregateOptions options;
-  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
   auto item_ty = default_type_instance<TypeParam>();

@@ -933,6 +933,36 @@ TEST(ExecPlanExecution, SourceGroupedSum) {
   }
 }
 
+TEST(ExecPlanExecution, SourceMinMaxScalar) {
+  // Regression test for ARROW-16904
+  for (bool parallel : {false, true}) {
+    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+
+    auto input = MakeGroupableBatches(/*multiplicity=*/parallel ? 100 : 1);
+    auto minmax_opts = std::make_shared<ScalarAggregateOptions>();
+    auto expected_result = ExecBatch::Make(
+        {ScalarFromJSON(struct_({field("min", int32()), field("max", int32())}),
+                        R"({"min": -8, "max": 12})")});
+
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+    // NOTE: Test `ScalarAggregateNode` by omitting `keys` attribute
+    ASSERT_OK(Declaration::Sequence(
+                  {{"source",
+                    SourceNodeOptions{input.schema, input.gen(parallel, /*slow=*/false)}},
+                   {"aggregate", AggregateNodeOptions{
+                                     /*aggregates=*/{{"min_max", std::move(minmax_opts),
+                                                      "i32", "min_max"}},
+                                     /*keys=*/{}}},
+                   {"sink", SinkNodeOptions{&sink_gen}}})
+                  .AddToPlan(plan.get()));
+
+    ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                Finishes(ResultWith(UnorderedElementsAreArray({*expected_result}))));
+  }
+}
+
 TEST(ExecPlanExecution, NestedSourceFilter) {
   for (bool parallel : {false, true}) {
     SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
