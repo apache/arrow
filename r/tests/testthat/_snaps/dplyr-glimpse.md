@@ -88,7 +88,7 @@
     Code
       example_data %>% as_record_batch_reader() %>% glimpse()
     Message <simpleMessage>
-      Cannot glimpse() data from a RecordBatchReader because it can only be read one time; call `as_arrow_table()` to consume it first
+      Cannot glimpse() data from a RecordBatchReader because it can only be read one time; call `as_arrow_table()` to consume it first.
     Output
       RecordBatchReader
       int: int32
