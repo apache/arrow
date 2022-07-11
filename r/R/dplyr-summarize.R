@@ -359,7 +359,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
   # the list output from the Arrow hash_tdigest kernel to flatten it into a
   # column of type float64. We do that by modifying the unevaluated expression
   # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
-  if (hash && "quantile" %in% funs_in_expr) {
+  if (hash && ("quantile" %in% funs_in_expr || "stats::quantile" %in% funs_in_expr)) {
     expr <- wrap_hash_quantile(expr)
     funs_in_expr <- all_funs(expr)
   }
@@ -475,7 +475,7 @@ wrap_hash_quantile <- function(expr) {
   if (length(expr) == 1) {
     return(expr)
   } else {
-    if (is.call(expr) && expr[[1]] == quote(quantile)) {
+    if (is.call(expr) && (expr[[1]] == quote(quantile) || expr[[1]] == quote(stats::quantile))) {
       return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
     } else {
       return(as.call(lapply(expr, wrap_hash_quantile)))

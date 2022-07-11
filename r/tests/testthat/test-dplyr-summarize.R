@@ -354,6 +354,22 @@ test_that("median()", {
   )
 })
 
+test_that("median() with namespacing", {
+  suppressWarnings(
+    compare_dplyr_binding(
+      .input %>%
+        summarize(
+          med_dbl_narmt = stats::median(dbl, na.rm = TRUE),
+          med_int_narmt = base::as.double(stats::median(int, TRUE))
+        ) %>%
+        collect(),
+      tbl,
+      warning = "median\\(\\) currently returns an approximate median in Arrow"
+    ),
+    classes = "arrow.median.approximate"
+  )
+})
+
 test_that("quantile()", {
   # The default method for stats::quantile() throws an error when na.rm = FALSE
   # and the input contains NA or NaN, whereas the Arrow tdigest kernels return
