@@ -1,4 +1,4 @@
-# show_exec_plan() and show_query()
+# show_exec_plan()
 
     Code
       tbl %>% arrow_table() %>% filter(dbl > 2, chr != "e") %>% select(chr, int, lgl) %>%

@@ -294,7 +294,7 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
   )
 })
 
-test_that("show_exec_plan() and show_query()", {
+test_that("show_exec_plan()", {
   expect_snapshot(
     tbl %>%
       arrow_table() %>%
@@ -311,5 +311,5 @@ test_that("show_exec_plan() and show_query()", {
       select(chr, int, lgl) %>%
       mutate(int_plus_ten = int + 10) %>%
       show_exec_plan()
-    )
+  )
 })
