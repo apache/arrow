@@ -110,6 +110,32 @@ test_that("register_user_defined_function() adds a compute function to the regis
   )
 })
 
+test_that("arrow_scalar_function() with bad return type errors", {
+  skip_if_not_available("dataset")
+
+  times_32_wrapper <- arrow_advanced_scalar_function(
+    function(context, args) Array$create(args[[1]], int32()),
+    int32(), float64()
+  )
+
+  register_user_defined_function(times_32_wrapper, "times_32_bad_return_type")
+  expect_error(
+    call_function("times_32_bad_return_type", Array$create(1L)),
+    "Expected return Array or Scalar with type 'double'"
+  )
+
+  times_32_wrapper <- arrow_advanced_scalar_function(
+    function(context, args) Scalar$create(args[[1]], int32()),
+    int32(), float64()
+  )
+
+  register_user_defined_function(times_32_wrapper, "times_32_bad_return_type")
+  expect_error(
+    call_function("times_32_bad_return_type", Array$create(1L)),
+    "Expected return Array or Scalar with type 'double'"
+  )
+})
+
 test_that("register_user_defined_function() can register multiple kernels", {
   skip_if_not_available("dataset")
 

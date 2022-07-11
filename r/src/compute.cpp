@@ -603,7 +603,9 @@ arrow::Result<arrow::TypeHolder> ResolveScalarUDFOutputType(
 
         cpp11::sexp output_type_sexp = state->resolver_(input_types_sexp);
         if (!Rf_inherits(output_type_sexp, "DataType")) {
-          cpp11::stop("arrow_scalar_function resolver must return a DataType");
+          cpp11::stop(
+              "Function specified as arrow_scalar_function() out_type argument must "
+              "return a DataType");
         }
 
         return arrow::TypeHolder(
@@ -648,11 +650,12 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
         if (Rf_inherits(func_result_sexp, "Array")) {
           auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(func_result_sexp);
 
-          // handle an Array result of the wrong type
+          // Error for an Array result of the wrong type
           if (!result->type()->Equals(array->type())) {
-            arrow::Datum out = ValueOrStop(arrow::compute::Cast(array, result->type()));
-            std::shared_ptr<arrow::Array> out_array = out.make_array();
-            array.swap(out_array);
+            return cpp11::stop(
+                "Expected return Array or Scalar with type '%s' from user-defined "
+                "function but got Array with type '%s'",
+                result->type()->ToString().c_str(), array->type()->ToString().c_str());
           }
 
           result->value = std::move(array->data());
@@ -661,9 +664,10 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
 
           // handle a Scalar result of the wrong type
           if (!result->type()->Equals(scalar->type)) {
-            arrow::Datum out = ValueOrStop(arrow::compute::Cast(scalar, result->type()));
-            std::shared_ptr<arrow::Scalar> out_scalar = out.scalar();
-            scalar.swap(out_scalar);
+            return cpp11::stop(
+                "Expected return Array or Scalar with type '%s' from user-defined "
+                "function but got Scalar with type '%s'",
+                result->type()->ToString().c_str(), scalar->type->ToString().c_str());
           }
 
           auto array = ValueOrStop(

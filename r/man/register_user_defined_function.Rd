@@ -14,7 +14,9 @@ arrow_advanced_scalar_function(advanced_fun, in_type, out_type)
 }
 \arguments{
 \item{scalar_function}{An object created with \code{\link[=arrow_scalar_function]{arrow_scalar_function()}}
-or \code{\link[=arrow_advanced_scalar_function]{arrow_advanced_scalar_function()}}.}
+or \code{\link[=arrow_advanced_scalar_function]{arrow_advanced_scalar_function()}}. Scalar functions must be
+stateless and return output with the same shape (i.e., the same
+number of rows) as the input.}
 
 \item{name}{The function name to be used in the dplyr bindings}
 
