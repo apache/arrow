@@ -180,7 +180,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
                                                  std::move(filesystem), std::move(files),
                                                  std::move(format), {}));
 
-      auto num_columns = base_schema->fields().size();
+      auto num_columns = static_cast<int>(base_schema->fields().size());
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(std::move(base_schema)));
 
       return DeclarationInfo{
@@ -223,15 +223,16 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       // NOTE: Substrait ProjectRels *append* columns, while Acero's project node replaces
       // them. Therefore, we need to prefix all the current columns for compatibility.
       std::vector<compute::Expression> expressions;
-      for (size_t i = 0; i < input.num_columns; i++) {
-        expressions.emplace_back(compute::field_ref(FieldRef(static_cast<int>(i))));
+      expressions.reserve(input.num_columns + project.expressions().size());
+      for (int i = 0; i < input.num_columns; i++) {
+        expressions.emplace_back(compute::field_ref(FieldRef(i)));
       }
       for (const auto& expr : project.expressions()) {
         expressions.emplace_back();
         ARROW_ASSIGN_OR_RAISE(expressions.back(), FromProto(expr, ext_set));
       }
 
-      auto num_columns = expressions.size();
+      auto num_columns = static_cast<int>(expressions.size());
       return DeclarationInfo{
           compute::Declaration::Sequence({
               std::move(input.declaration),

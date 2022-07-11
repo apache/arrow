@@ -36,7 +36,7 @@ struct DeclarationInfo {
   compute::Declaration declaration;
 
   /// The number of columns returned by the declaration.
-  size_t num_columns;
+  int num_columns;
 };
 
 ARROW_ENGINE_EXPORT
