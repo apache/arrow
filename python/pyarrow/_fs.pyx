@@ -529,8 +529,6 @@ cdef class FileSystem(_Weakrefable):
         Examples
         --------
         >>> local = fs.LocalFileSystem()
-        >>> local
-        <pyarrow._fs.LocalFileSystem object at ...>
         >>> local.type_name
         'local'
         """
@@ -673,8 +671,6 @@ cdef class FileSystem(_Weakrefable):
         Create a FileSystem subclass with nonempty file:
 
         >>> local = getfixture('local_fs')
-        >>> local
-        <pyarrow._fs.LocalFileSystem object at ...>
 
         Create a directory and copy a file into it:
 
@@ -725,10 +721,12 @@ cdef class FileSystem(_Weakrefable):
         <pyarrow._fs.LocalFileSystem object at ...>
 
         Create a new folder and move the file:
+
         >>> local.create_dir('/tmp/other_dir')
         >>> local.move('/tmp/fileinfo.dat', '/tmp/other_dir/fileinfo.dat')
 
         Inspect the file info:
+
         >>> local.get_file_info('/tmp/other_dir/fileinfo.dat')
         <FileInfo for '/tmp/other_dir/fileinfo.dat': type=FileType.File, size=4>
         >>> local.get_file_info('/tmp/fileinfo.dat')
@@ -763,6 +761,7 @@ cdef class FileSystem(_Weakrefable):
         <pyarrow._fs.LocalFileSystem object at ...>
 
         Copy file:
+
         >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/fileinfo_copy.dat')
         >>> local.get_file_info('/tmp/fileinfo_copy.dat')
         <FileInfo for '/tmp/fileinfo_copy.dat': type=FileType.File, size=4>
