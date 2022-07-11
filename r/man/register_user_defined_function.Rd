@@ -40,7 +40,10 @@ function it must return a \link{DataType}.}
 function will be called with exactly two arguments: \code{kernel_context},
 which is a \code{list()} of objects giving information about the
 execution context and \code{args}, which is a list of \link{Array} or \link{Scalar}
-objects corresponding to the input arguments.}
+objects corresponding to the input arguments. The function must return
+an Array or Scalar with the type equal to
+\code{kernel_context$output_type} and length equal to
+\code{kernel_context$batch_length}.}
 }
 \value{
 \itemize{
