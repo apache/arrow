@@ -298,7 +298,7 @@ process_data_for_parsing <- function(x, orders) {
 
   # we need to transform `x` when orders are `ym`, `my`, and `yq`
   # for `ym` and `my` orders we add a day ("01")
-  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16627
+  # TODO: revisit after ARROW-16627
   augmented_x_ym <- NULL
   if (any(orders %in% c("ym", "my", "Ym", "mY"))) {
     # add day as "-01" if there is a "-" separator and as "01" if not
