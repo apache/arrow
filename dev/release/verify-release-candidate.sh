@@ -1002,7 +1002,7 @@ test_linux_wheels() {
   fi
 
   local python_versions="3.7m 3.8 3.9 3.10"
-  local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
+  local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
     local pyver=${python/m}
