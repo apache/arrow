@@ -182,16 +182,20 @@ func NewStructBuilder(mem memory.Allocator, dtype *arrow.StructType) *StructBuil
 }
 
 // UnsafeNewStructBuilderFromFields returns a builder, using the provided memory allocator, fields and corresponding
-// initialized builders.
+// initialized builders. This method is unsafe because the caller must ensure that the fields and builders are
+// compatible and that the builder are the same length.
+//
+// Use case: Can be used by libraries that implement their own Arrow builders tree and ensure by themselves the
+// validation of fields and builders.
 func UnsafeNewStructBuilderFromFields(mem memory.Allocator, fields []arrow.Field, builders []Builder) *StructBuilder {
-	var length int
-	for i, b := range builders {
-		if i == 0 {
-			length = b.Len()
-		} else if b.Len() != length {
-			panic("builders must have the same length")
-		}
+	if len(fields) != len(builders) {
+		panic("fields and builders must be the same length")
 	}
+	if len(builders) == 0 {
+		panic("builders must not be empty")
+	}
+	length := builders[0].Len()
+
 	builder := &StructBuilder{
 		builder: builder{refCount: 1, mem: mem},
 		dtype:   arrow.StructOf(fields...),
