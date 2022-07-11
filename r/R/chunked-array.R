@@ -113,18 +113,6 @@ ChunkedArray <- R6Class("ChunkedArray",
       }
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
-    SortIndices = function(descending = FALSE) {
-      assert_that(is.logical(descending))
-      assert_that(length(descending) == 1L)
-      assert_that(!is.na(descending))
-      # TODO: after ARROW-12042 is closed, review whether this and the
-      # Array$SortIndices definition can be consolidated
-      call_function(
-        "sort_indices",
-        self,
-        options = list(names = "", orders = as.integer(descending))
-      )
-    },
     View = function(type) {
       ChunkedArray__View(self, as_type(type))
     },
