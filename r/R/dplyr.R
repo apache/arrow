@@ -154,7 +154,6 @@ print.arrow_dplyr_query <- function(x, ...) {
       sep = ""
     )
   }
-
   cat("See $.data for the source Arrow object\n")
   invisible(x)
 }
