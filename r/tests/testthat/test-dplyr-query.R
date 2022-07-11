@@ -303,12 +303,12 @@ test_that("show_exec_plan() and show_query()", {
       mutate(int_plus_ten = int + 10) %>%
       show_exec_plan(),
     regexp = paste0(
-      'ExecPlan with 3 nodes:\n2:ProjectNode{projection=[chr, int, lgl, "int_plus_ten"',
-      ': add_checked(cast(int, {to_type=double, allow_int_overflow=false, ',
-      'allow_time_truncate=false, allow_time_overflow=false, ',
-      'allow_decimal_truncate=false, allow_float_truncate=false, ',
-      'allow_invalid_utf8=false}), 10)]}\n  1:FilterNode{filter=((dbl > 2) and ',
-      '(chr != "e"))}\n    0:TableSourceNode{}'
+      "ExecPlan with 3 nodes:\n2:ProjectNode{projection=[chr, int, lgl, \"int_plus_ten\"",
+      ": add_checked(cast(int, {to_type=double, allow_int_overflow=false, ",
+      "allow_time_truncate=false, allow_time_overflow=false, ",
+      "allow_decimal_truncate=false, allow_float_truncate=false, ",
+      "allow_invalid_utf8=false}), 10)]}\n  1:FilterNode{filter=((dbl > 2) and ",
+      "(chr != \"e\"))}\n    0:TableSourceNode{}"
     ),
     fixed = TRUE
   )
@@ -321,12 +321,12 @@ test_that("show_exec_plan() and show_query()", {
       mutate(int_plus_ten = int + 10) %>%
       show_exec_plan(),
     regexp = paste0(
-      'ExecPlan with 3 nodes:\n2:ProjectNode{projection=[chr, int, lgl, "int_plus_ten"',
-      ': add_checked(cast(int, {to_type=double, allow_int_overflow=false, ',
-      'allow_time_truncate=false, allow_time_overflow=false, ',
-      'allow_decimal_truncate=false, allow_float_truncate=false, ',
-      'allow_invalid_utf8=false}), 10)]}\n  1:FilterNode{filter=((dbl > 2) and ',
-      '(chr != "e"))}\n    0:TableSourceNode{}'
+      "ExecPlan with 3 nodes:\n2:ProjectNode{projection=[chr, int, lgl, \"int_plus_ten\"",
+      ": add_checked(cast(int, {to_type=double, allow_int_overflow=false, ",
+      "allow_time_truncate=false, allow_time_overflow=false, ",
+      "allow_decimal_truncate=false, allow_float_truncate=false, ",
+      "allow_invalid_utf8=false}), 10)]}\n  1:FilterNode{filter=((dbl > 2) and ",
+      "(chr != \"e\"))}\n    0:TableSourceNode{}"
     ),
     fixed = TRUE
   )
