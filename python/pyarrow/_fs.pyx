@@ -458,11 +458,16 @@ cdef class FileSystem(_Weakrefable):
 
         Create a new FileSystem subclass from path:
 
-        >>> local_new, path = fs.LocalFileSystem().from_uri('/tmp/fileinfo.dat')
+        >>> local_new, path = fs.LocalFileSystem().from_uri('file:///tmp/fieinfo.dat')
         >>> local_new
         <pyarrow._fs.LocalFileSystem object at ...
         >>> path
         '/tmp/fileinfo.dat'
+
+        Or from a s3 bucket:
+
+        >>> fs.FileSystem.from_uri("s3://usgs-landsat/collection02/")
+        (<pyarrow._s3fs.S3FileSystem object at 0x104648a70>, 'usgs-landsat/collection02')
         """
         cdef:
             c_string c_path
