@@ -17,7 +17,7 @@ This is a function which gives more details about the \code{ExecPlan} of an
 \code{arrow_dplyr_query} object. It is similar to \code{dplyr::show_query()}.
 }
 \examples{
-#
+library(dplyr)
 mtcars \%>\%
   arrow_table() \%>\%
   filter(mpg > 20) \%>\%

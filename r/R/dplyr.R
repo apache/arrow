@@ -230,6 +230,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #' @export
 #'
 #' @examples
+#' library(dplyr)
 #' mtcars %>%
 #'   arrow_table() %>%
 #'   filter(mpg > 20) %>%
