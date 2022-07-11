@@ -82,13 +82,7 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    bool Equals(const Partitioning& other, bool check_metadata) const override {
-      if (this == &other) {
-        return true;
-      }
-      return checked_cast<const DefaultPartitioning&>(other).type_name() == type_name() &&
-             Partitioning::Equals(other);
-    }
+    bool Equals(const Partitioning& other) const override { return false; }
 
     Result<compute::Expression> Parse(const std::string& path) const override {
       return compute::literal(true);
@@ -123,7 +117,7 @@ static Result<RecordBatchVector> ApplyGroupings(
   return out;
 }
 
-bool KeyValuePartitioning::Equals(const Partitioning& other, bool check_metadata) const {
+bool KeyValuePartitioning::Equals(const Partitioning& other) const {
   if (this == &other) {
     return true;
   }
@@ -135,7 +129,7 @@ bool KeyValuePartitioning::Equals(const Partitioning& other, bool check_metadata
     }
   }
   return options_.segment_encoding == kv_partion.options_.segment_encoding &&
-         Partitioning::Equals(other, check_metadata);
+         Partitioning::Equals(other);
 }
 
 Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
@@ -404,13 +398,8 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
   return ParsePartitionSegments(segments);
 }
 
-bool DirectoryPartitioning::Equals(const Partitioning& other, bool check_metadata) const {
-  if (this == &other) {
-    return true;
-  }
-  const auto& direct_part =
-      ::arrow::internal::checked_cast<const DirectoryPartitioning&>(other);
-  return type_name() == direct_part.type_name() && KeyValuePartitioning::Equals(other);
+bool DirectoryPartitioning::Equals(const Partitioning& other) const {
+  return type_name() == other.type_name() && KeyValuePartitioning::Equals(other);
 }
 
 FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
@@ -710,12 +699,11 @@ std::shared_ptr<PartitioningFactory> FilenamePartitioning::MakeFactory(
       new FilenamePartitioningFactory(std::move(field_names), options));
 }
 
-bool FilenamePartitioning::Equals(const Partitioning& other, bool check_metadata) const {
-  if (this == &other) {
-    return true;
+bool FilenamePartitioning::Equals(const Partitioning& other) const {
+  if (type_name() != other.type_name()) {
+    return false;
   }
-  const auto& file_part = checked_cast<const FilenamePartitioning&>(other);
-  return type_name() == file_part.type_name() && KeyValuePartitioning::Equals(other);
+  return KeyValuePartitioning::Equals(other);
 }
 
 Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
@@ -794,13 +782,15 @@ Result<PartitionPathFormat> HivePartitioning::FormatValues(
   return PartitionPathFormat{fs::internal::JoinAbstractPath(std::move(segments)), ""};
 }
 
-bool HivePartitioning::Equals(const Partitioning& other, bool check_metadata) const {
+bool HivePartitioning::Equals(const Partitioning& other) const {
   if (this == &other) {
     return true;
   }
+  if (type_name() != other.type_name()) {
+    return false;
+  }
   const auto& hive_part = ::arrow::internal::checked_cast<const HivePartitioning&>(other);
-  return type_name() == hive_part.type_name() &&
-         null_fallback() == hive_part.null_fallback() &&
+  return null_fallback() == hive_part.null_fallback() &&
          options().null_fallback == hive_part.options().null_fallback &&
          KeyValuePartitioning::Equals(other);
 }

@@ -72,8 +72,8 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
   virtual std::string type_name() const = 0;
 
   /// \brief determines if partiioning is exactly equal
-  virtual bool Equals(const Partitioning& other, bool check_metadata = false) const {
-    return schema_->Equals(other.schema_, check_metadata);
+  virtual bool Equals(const Partitioning& other) const {
+    return schema_->Equals(other.schema_, false);
   }
 
   /// \brief If the input batch shares any fields with this partitioning,
@@ -186,7 +186,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   const ArrayVector& dictionaries() const { return dictionaries_; }
 
-  bool Equals(const Partitioning& other, bool check_metadata = false) const override;
+  bool Equals(const Partitioning& other) const override;
 
  protected:
   KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries,
@@ -231,7 +231,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
 
   std::string type_name() const override { return "directory"; }
 
-  bool Equals(const Partitioning& other, bool check_metadata) const override;
+  bool Equals(const Partitioning& other) const override;
 
   /// \brief Create a factory for a directory partitioning.
   ///
@@ -292,7 +292,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   static Result<util::optional<Key>> ParseKey(const std::string& segment,
                                               const HivePartitioningOptions& options);
 
-  bool Equals(const Partitioning& other, bool check_metadata) const override;
+  bool Equals(const Partitioning& other) const override;
 
   /// \brief Create a factory for a hive partitioning.
   static std::shared_ptr<PartitioningFactory> MakeFactory(
@@ -322,10 +322,7 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
   std::string type_name() const override { return name_; }
 
-  bool Equals(const Partitioning& other, bool check_metadata) const override {
-    return ::arrow::internal::checked_cast<const FunctionPartitioning&>(other)
-               .type_name() == type_name();
-  }
+  bool Equals(const Partitioning& other) const override { return false; }
 
   Result<compute::Expression> Parse(const std::string& path) const override {
     return parse_impl_(path);
@@ -369,7 +366,7 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
   static std::shared_ptr<PartitioningFactory> MakeFactory(
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 
-  bool Equals(const Partitioning& other, bool check_metadata = false) const override;
+  bool Equals(const Partitioning& other) const override;
 
  private:
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
