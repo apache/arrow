@@ -1055,5 +1055,4 @@ gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
 CAST_NULLABLE_INTERVAL_YEAR(int32)
 CAST_NULLABLE_INTERVAL_YEAR(int64)
 
-
 }  // extern "C"

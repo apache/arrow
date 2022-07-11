@@ -993,8 +993,8 @@ TEST(TestGdvFnStubs, TestTranslate) {
   EXPECT_EQ(expected, std::string(result, out_len));
 }
 
-TEST(TestTime, TestToUtcTimezone) {
-  ExecutionContext context;
+TEST(TestGdvFnStubs, TestToUtcTimezone) {
+  gandiva::ExecutionContext context;
   auto context_ptr = reinterpret_cast<int64_t>(&context);
   gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
   gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
@@ -1020,9 +1020,13 @@ TEST(TestTime, TestToUtcTimezone) {
   ts = 1331712000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
   EXPECT_EQ(ts2, 1331737200000);
+
+  //Failure case
+  ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/LA", 10);
+  EXPECT_THAT(context.get_error(), "'America/LA' is an invalid time zone name.");
 }
 
-TEST(TestTime, TestFromUtcTimezone) {
+TEST(TestGdvFnStubs, TestFromUtcTimezone) {
   ExecutionContext context;
   auto context_ptr = reinterpret_cast<int64_t>(&context);
   gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
