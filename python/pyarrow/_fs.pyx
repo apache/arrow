@@ -385,7 +385,7 @@ cdef class FileSelector(_Weakrefable):
 
     >>> selector_2 = fs.FileSelector('/tmp/alphabet')
     >>> local.get_file_info(selector_2)
-    [<FileInfo for '/tmp/alphabet/aeiou': type=FileType.Directory>, <FileInfo for '/tmp/alphabet/fileinfo.dat'...
+    [<FileInfo for '/tmp/alphabet/fileinfo.dat': type=FileType.File, size=4>, <FileInfo for '/tmp/alphabet/aeiou': ...
 
     Return empty selection if the directory doesn't exist:
 
