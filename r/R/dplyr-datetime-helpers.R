@@ -39,6 +39,7 @@ check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   "dnanoseconds" = list(1, "ns")
 )
 make_duration <- function(x, unit) {
+  # TODO(ARROW-15862): remove first cast to int64
   x <- build_expr("cast", x, options = cast_options(to_type = int64()))
   x$cast(duration(unit))
 }
@@ -104,7 +105,6 @@ binding_as_date <- function(x,
                             format = NULL,
                             tryFormats = "%Y-%m-%d",
                             origin = "1970-01-01") {
-
   if (call_binding("is.Date", x)) {
     return(x)
 
@@ -132,16 +132,15 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
   # Arrow does not support direct casting from double to date32(), but for
   # integer-like values we can go via int32()
-  # https://issues.apache.org/jira/browse/ARROW-15798
-  # TODO revisit if arrow decides to support double -> date casting
+  # TODO: revisit after ARROW-15798
   if (!call_binding("is.integer", x)) {
     x <- build_expr("cast", x, options = cast_options(to_type = int32()))
   }
 
   if (origin != "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
-    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15862
-    # (casting from int32 -> duration or double -> duration) is addressed
+    # TODO: revisit after ARROW-15862
+    # (casting from int32 -> duration or double -> duration)
     delta_in_days <- (delta_in_sec$cast(int64()) / 86400L)$cast(int32())
     x <- build_expr("+", x, delta_in_days)
   }
@@ -292,7 +291,6 @@ build_format_from_order <- function(order) {
 #'  * `augmented_x_qy`
 #' @noRd
 process_data_for_parsing <- function(x, orders) {
-
   processed_x <- x$cast(string())
 
   # make all separators (non-letters and non-numbers) into "-"
