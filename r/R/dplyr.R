@@ -219,16 +219,22 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   x
 }
 
-
 #' Show the details of an Arrow ExecPlan
 #'
-#' This is a function which gives more details about an ExecPlan. This is similar
-#' to `dplyr::show_query()`.
+#' This is a function which gives more details about the `ExecPlan` of an
+#' `arrow_dplyr_query` object. It is similar to `dplyr::show_query()`.
 #'
 #' @param x an `arrow_dplyr_query` to print the ExecPlan for.
 #'
 #' @return The argument, invisibly.
 #' @export
+#'
+#' @examples
+#' mtcars %>%
+#'   arrow_table() %>%
+#'   filter(mpg > 20) %>%
+#'   mutate(x = gear/carb) %>%
+#'   show_exec_plan()
 show_exec_plan <- function(x) {
   adq <- as_adq(x)
   plan <- ExecPlan$create()
