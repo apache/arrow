@@ -227,7 +227,6 @@ ExecPlan <- R6Class("ExecPlan",
         if (!is.null(slice_size)) {
           out <- head(out, slice_size)
           # We already have everything we need for the head, so StopProducing
-          # TODO: close ARROW-14329 since this is working now
           self$Stop()
         }
       } else if (!is.null(node$extras$tail)) {

@@ -147,6 +147,6 @@
     Output
       Table (query)
       ?? rows x 1 columns
-      $ sum(int, na.rm = TRUE) <int32> 51
+      $ `sum(int, na.rm = TRUE)` <int64> 51
       Call `print()` for query details
 

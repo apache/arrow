@@ -19,6 +19,8 @@
 glimpse.ArrowTabular <- function(x,
                                  width = getOption("pillar.width", getOption("width")),
                                  ...) {
+  # This function is inspired by pillar:::glimpse.tbl(), with some adaptations
+
   # We use cli:: and pillar:: throughout this function. We don't need to check
   # to see if they're installed because dplyr depends on pillar, which depends
   # on cli, and we're only in this function though S3 dispatch on dplyr::glimpse
@@ -26,22 +28,21 @@ glimpse.ArrowTabular <- function(x,
     abort("`width` must be finite.")
   }
 
+  # We need a couple of internal functions in pillar for formatting
+  pretty_int <- getFromNamespace("big_mark", "pillar")
+  make_shorter <- getFromNamespace("str_trunc", "pillar")
+  tickify <- getFromNamespace("tick_if_needed", "pillar")
+
   # Even though this is the ArrowTabular method, we use it for arrow_dplyr_query
-  # too, so let's make some adaptations that aren't covered by S3 methods
+  # so make some accommodations. (Others are handled by S3 method dispatch.)
   if (inherits(x, "arrow_dplyr_query")) {
-    # TODO(ARROW-16030): encapsulate this
-    schema <- implicit_schema(x)
     class_title <- paste(source_data(x)$class_title(), "(query)")
   } else {
-    schema <- x$schema
     class_title <- x$class_title()
   }
-
   cli::cat_line(class_title)
 
   dims <- dim(x)
-  # We need a couple of internal functions in pillar for formatting
-  pretty_int <- getFromNamespace("big_mark", "pillar")
   cli::cat_line(sprintf(
     "%s rows x %s columns", pretty_int(dims[1]), pretty_int(dims[2])
   ))
@@ -50,12 +51,27 @@ glimpse.ArrowTabular <- function(x,
     return(invisible(x))
   }
 
-  var_types <- map_chr(schema$fields, ~ format(pillar::new_pillar_type(.$type)))
-  # note: pillar:::tick_if_needed() is in glimplse.tbl()
-  var_headings <- paste("$", center_pad(names(x), var_types))
-
   nrows <- as.integer(width / 3)
-  df <- as.data.frame(head(x, nrows))
+  head_tab <- dplyr::compute(head(x, nrows))
+  # Take the schema from this Table because if x is arrow_dplyr_query, some
+  # output types could be a best guess (in implicit_schema()).
+  schema <- head_tab$schema
+
+  # Assemble the column names and types
+  # We use the Arrow type names here. See type_sum.DataType() below.
+  var_types <- map_chr(schema$fields, ~ format(pillar::new_pillar_type(.$type)))
+  # glimpse.tbl() left-aligns the var names (pads with whitespace to the right)
+  # and appends the types next to them. Because those type names are
+  # aggressively truncated to all be roughly the same length, this means the
+  # data glimpse that follows is also mostly aligned.
+  # However, Arrow type names are longer and variable length, and we're only
+  # truncating the nested type information inside of <...>. So, to keep the
+  # data glimpses aligned, we "justify" align the name and type: add the padding
+  # whitespace between them so that the total width is equal.
+  var_headings <- paste("$", center_pad(tickify(names(x)), var_types))
+
+  # Assemble the data glimpse
+  df <- as.data.frame(head_tab)
   formatted_data <- map_chr(df, function(.) {
     tryCatch(
       paste(pillar::format_glimpse(.), collapse = ", "),
@@ -64,17 +80,19 @@ glimpse.ArrowTabular <- function(x,
       error = function(e) conditionMessage(e)
     )
   })
-
+  # Here and elsewhere in the glimpse code, you have to use pillar::get_extent()
+  # instead of nchar() because get_extent knows how to deal with ANSI escapes
+  # etc.--it counts how much space on the terminal will be taken when printed.
   data_width <- width - pillar::get_extent(var_headings)
-  make_shorter <- getFromNamespace("str_trunc", "pillar")
   truncated_data <- make_shorter(formatted_data, data_width)
 
+  # Print the table body (var name, type, data glimpse)
   cli::cat_line(var_headings, " ", truncated_data)
+
+  # TODO: use crayon to style these footers?
   if (inherits(x, "arrow_dplyr_query")) {
     cli::cat_line("Call `print()` for query details")
   } else if (any(grepl("<...>", var_types, fixed = TRUE)) || schema$HasMetadata) {
-    # TODO: use crayon to style?
-    # TODO(ARROW-16030): this could point to the schema method
     cli::cat_line("Call `print()` for full schema details")
   }
   invisible(x)
@@ -87,11 +105,18 @@ glimpse.arrow_dplyr_query <- function(x,
                                       width = getOption("pillar.width", getOption("width")),
                                       ...) {
   if (any(map_lgl(all_sources(x), ~ inherits(., "RecordBatchReader")))) {
-    message("Cannot glimpse() data from a RecordBatchReader because it can only be read one time. Call `compute()` to evaluate the query first.")
+    msg <- paste(
+      "Cannot glimpse() data from a RecordBatchReader because it can only be",
+      "read one time. Call `compute()` to evaluate the query first."
+    )
+    message(msg)
     print(x)
   } else if (query_on_dataset(x) && !query_can_stream(x)) {
-    # TODO: tangentially related, test that head %>% head is handled correctly
-    message("This query requires a full table scan, so glimpse() may be expensive. Call `compute()` to evaluate the query first.")
+    msg <- paste(
+      "This query requires a full table scan, so glimpse() may be",
+      "expensive. Call `compute()` to evaluate the query first."
+    )
+    message(msg)
     print(x)
   } else {
     # Go for it
@@ -102,13 +127,19 @@ glimpse.arrow_dplyr_query <- function(x,
 glimpse.RecordBatchReader <- function(x,
                                       width = getOption("pillar.width", getOption("width")),
                                       ...) {
-  # TODO(ARROW-YYYYY): to_arrow() on duckdb con should hold con not RBR so it can be run more than onces (like duckdb does on the other side)
-  message("Cannot glimpse() data from a RecordBatchReader because it can only be read one time; call `as_arrow_table()` to consume it first")
+  # TODO(ARROW-17038): to_arrow() on duckdb con should hold con not RBR so it
+  # can be run more than once (like duckdb does on the other side)
+  msg <- paste(
+    "Cannot glimpse() data from a RecordBatchReader because it can only be",
+    "read one time; call `as_arrow_table()` to consume it first"
+  )
+  message(msg)
   print(x)
 }
 
 glimpse.ArrowDatum <- function(x, width, ...) {
   cli::cat_line(gsub("[ \n]+", " ", x$ToString()))
+  invisible(x)
 }
 
 type_sum.DataType <- function(x) {
