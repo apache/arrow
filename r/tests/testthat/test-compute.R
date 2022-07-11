@@ -196,8 +196,17 @@ test_that("user-defined error when called from an unsupported context", {
     rbr$read_table()
   }
 
-  expect_error(
-    stream_plan_with_udf(),
-    "Call to R \\(.*?\\) from a non-R thread from an unsupported context"
-  )
+  if (identical(tolower(Sys.info()[["sysname"]]), "windows")) {
+    expect_equal(
+      stream_plan_with_udf(),
+      record_batch(a = 1:1000) %>%
+        dplyr::mutate(b = times_32(a)) %>%
+        dplyr::collect(as_data_frame = FALSE)
+    )
+  } else {
+    expect_error(
+      stream_plan_with_udf(),
+      "Call to R \\(.*?\\) from a non-R thread from an unsupported context"
+    )
+  }
 })
