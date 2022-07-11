@@ -50,9 +50,7 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
 
   if (call_binding("is.POSIXct", x)) {
-    # the casting part might not be required once
-    # https://issues.apache.org/jira/browse/ARROW-14442 is solved
-    # TODO revisit the steps below once the PR for that issue is merged
+    # Make sure the timezone is reflected
     if (tz == "" && x$type()$timezone() != "") {
       tz <- x$type()$timezone()
     } else if (tz == "") {
@@ -60,8 +58,8 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
     }
     x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
   }
-
-  build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+  opts <- list(format = format, locale = Sys.getlocale("LC_TIME"))
+  build_expr("strftime", x, options = opts)
 }
 
 # this is a helper function used for creating a difftime / duration objects from
