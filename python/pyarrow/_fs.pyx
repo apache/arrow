@@ -451,7 +451,13 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
+        Create a FileSystem subclass with nonempty file:
+
         >>> getfixture('local_fs')
+        <pyarrow._fs.LocalFileSystem object at ...>
+
+        Create a new FileSystem subclass from path:
+
         >>> local_new, path = fs.LocalFileSystem().from_uri('/tmp/fileinfo.dat')
         >>> local_new
         <pyarrow._fs.LocalFileSystem object at ...
@@ -522,9 +528,9 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        >>> local = getfixture('local_fs')
+        >>> local = fs.LocalFileSystem()
         >>> local
-        <pyarrow._fs.LocalFileSystem object at 0x100d3fdb0>
+        <pyarrow._fs.LocalFileSystem object at ...>
         >>> local.type_name
         'local'
         """
@@ -555,9 +561,14 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
+        Create a FileSystem subclass with nonempty file::
+
         >>> local = getfixture('local_fs')
         >>> local
         <pyarrow._fs.LocalFileSystem object at ...>
+
+        Get info for the file:
+
         >>> local.get_file_info("local.get_file_info(/tmp/fileinfo.dat)")
         <FileInfo for 'local.get_file_info(/tmp/fileinfo.dat)': type=FileType.NotFound>
         """
@@ -623,8 +634,6 @@ cdef class FileSystem(_Weakrefable):
         --------
         Create directory:
 
-        >>> local.get_file_info('/tmp')
-        <FileInfo for '/tmp': type=FileType.Directory>
         >>> local = fs.LocalFileSystem()
         >>> local.create_dir('/tmp/new_folder')
         >>> local.get_file_info('/tmp/new_folder')
@@ -661,7 +670,7 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass:
+        Create a FileSystem subclass with nonempty file:
 
         >>> local = getfixture('local_fs')
         >>> local
@@ -709,7 +718,7 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass:
+        Create a FileSystem subclass with nonempty file::
 
         >>> local = getfixture('local_fs')
         >>> local
@@ -747,7 +756,7 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass:
+        Create a FileSystem subclass with nonempty file::
 
         >>> local = getfixture('local_fs')
         >>> local
@@ -775,7 +784,7 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a FileSystem subclass:
+        Create a FileSystem subclass with nonempty file::
 
         >>> local = getfixture('local_fs')
         >>> local.get_file_info('/tmp/fileinfo.dat')
@@ -821,6 +830,19 @@ cdef class FileSystem(_Weakrefable):
         Returns
         -------
         stream : NativeFile
+
+        Examples
+        --------
+        Create a FileSystem subclass with nonempty file::
+
+        >>> local = getfixture('local_fs')
+
+        Print the data from the file with `open_input_file()`:
+
+        >>> with local.open_input_file('/tmp/fileinfo.dat') as f:
+        ...     print(f.readall())
+        ... 
+        b'data'
         """
         cdef:
             c_string pathstr = _path_as_bytes(path)
@@ -855,6 +877,19 @@ cdef class FileSystem(_Weakrefable):
         Returns
         -------
         stream : NativeFile
+
+        Examples        
+        --------
+        Create a FileSystem subclass with nonempty file::
+
+        >>> local = getfixture('local_fs')
+
+        Print the data from the file with `open_input_stream()`:
+
+        >>> with local.open_input_stream('/tmp/fileinfo.dat') as f:
+        ...     print(f.readall())
+        ... 
+        b'data'
         """
         cdef:
             c_string pathstr = _path_as_bytes(path)
@@ -900,6 +935,14 @@ cdef class FileSystem(_Weakrefable):
         Returns
         -------
         stream : NativeFile
+
+        Examples
+        --------
+        >>> local = fs.LocalFileSystem()
+        >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
+        ...     stream.write(b'data')
+        ... 
+        4
         """
         cdef:
             c_string pathstr = _path_as_bytes(path)
@@ -957,6 +1000,26 @@ cdef class FileSystem(_Weakrefable):
         Returns
         -------
         stream : NativeFile
+
+        Examples        
+        --------
+        Create a FileSystem subclass with nonempty file::
+
+        >>> local = getfixture('local_fs')
+
+        append new data:
+
+        >>> with local.open_append_stream('/tmp/fileinfo.dat') as f:
+        ...     f.write(b'+newly added')
+        ... 
+        12
+
+        Print out the content fo the file:
+
+        >>> with local.open_input_file('/tmp/fileinfo.dat') as f:
+        ...     print(f.readall())
+        ... 
+        b'data+newly added'
         """
         cdef:
             c_string pathstr = _path_as_bytes(path)
