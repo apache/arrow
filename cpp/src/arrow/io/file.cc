@@ -68,11 +68,11 @@ class OSFile {
   // Note: only one of the Open* methods below may be called on a given instance
 
   Status OpenWritable(const std::string& path, bool truncate, bool append,
-                      bool write_only) {
+                      bool write_only, bool direct = false) {
     RETURN_NOT_OK(SetFileName(path));
 
     ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenWritable(file_name_, write_only,
-                                                                   truncate, append));
+                                                                   truncate, append, direct));
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
     if (!truncate) {
@@ -377,6 +377,75 @@ Status FileOutputStream::Write(const void* data, int64_t length) {
 }
 
 int FileOutputStream::file_descriptor() const { return impl_->fd(); }
+
+// ----------------------------------------------------------------------
+// DirectFileOutputStream, change the Open, Write and Close methods from FileOutputStream
+
+class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
+ public:
+  Status Open(const std::string& path, bool append) {
+    const bool truncate = !append;
+    return OpenWritable(path, truncate, append, true /* write_only */, true);
+  }
+  Status Open(int fd) { return OpenWritable(fd); }
+};
+
+DirectFileOutputStream::DirectFileOutputStream() { 
+  uintptr_t mask = ~(uintptr_t)(511);
+  uint8_t *mem = static_cast<uint8_t *>(malloc(512 + 511));
+  cached_data = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+511) & ~(mask));
+  impl_.reset(new DirectFileOutputStreamImpl()); }
+
+DirectFileOutputStream::~DirectFileOutputStream() { internal::CloseFromDestructor(this); }
+
+Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(const std::string& path,
+                                                                 bool append) {
+  auto stream = std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream());
+  RETURN_NOT_OK(stream->impl_->Open(path, append));
+  return stream;
+}
+
+Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(int fd) {
+  auto stream = std::shared_ptr<DirectFileOutputStream>(new DirectFileOutputStream());
+  RETURN_NOT_OK(stream->impl_->Open(fd));
+  return stream;
+}
+
+Status DirectFileOutputStream::Close() { 
+  // have to flush out the temprorary data
+  if(cached_length > 0){
+    std::memset(cached_data + cached_length, 0, 512 - cached_length);
+    impl_->Write(cached_data, 512);
+  }
+  return impl_->Close(); }
+
+bool DirectFileOutputStream::closed() const { return !impl_->is_open(); }
+
+Result<int64_t> DirectFileOutputStream::Tell() const { return impl_->Tell(); }
+
+Status DirectFileOutputStream::Write(const void* data, int64_t length) {
+
+  if (cached_length + length < 512)
+  {
+    std::memcpy(cached_data + cached_length, data, length);
+    cached_length += length;
+    return Status::OK();
+  }
+
+  auto bytes_to_write = (cached_length + length) / 512 * 512;
+  auto bytes_leftover = cached_length + length - bytes_to_write;
+  uintptr_t mask = ~(uintptr_t)(511);
+  uint8_t *mem = static_cast<uint8_t *>(malloc(bytes_to_write + 511));
+  uint8_t * new_ptr = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+511) & ~(mask));
+  std::memcpy(new_ptr, cached_data, cached_length);
+  std::memcpy(new_ptr + cached_length, data, bytes_to_write - cached_length);
+  std::memset(cached_data, 0, cached_length); //this is not required.
+  std::memcpy(cached_data, reinterpret_cast<const uint8_t*>(data) + bytes_to_write - cached_length, bytes_leftover);
+  cached_length = bytes_leftover;
+  return impl_->Write(new_ptr, bytes_to_write);
+}
+
+int DirectFileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
 // Implement MemoryMappedFile

@@ -80,6 +80,51 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   std::unique_ptr<FileOutputStreamImpl> impl_;
 };
 
+class ARROW_EXPORT DirectFileOutputStream : public OutputStream {
+ public:
+  ~DirectFileOutputStream() override;
+
+  /// \brief Open a local file for writing, truncating any existing file
+  /// \param[in] path with UTF8 encoding
+  /// \param[in] append append to existing file, otherwise truncate to 0 bytes
+  /// \return an open FileOutputStream
+  ///
+  /// When opening a new file, any existing file with the indicated path is
+  /// truncated to 0 bytes, deleting any existing data
+  static Result<std::shared_ptr<DirectFileOutputStream>> Open(const std::string& path,
+                                                        bool append = false);
+
+  /// \brief Open a file descriptor for writing.  The underlying file isn't
+  /// truncated.
+  /// \param[in] fd file descriptor
+  /// \return an open FileOutputStream
+  ///
+  /// The file descriptor becomes owned by the OutputStream, and will be closed
+  /// on Close() or destruction.
+  static Result<std::shared_ptr<DirectFileOutputStream>> Open(int fd);
+
+  // OutputStream interface
+  Status Close() override;
+  bool closed() const override;
+  Result<int64_t> Tell() const override;
+
+  // Write bytes to the stream. Thread-safe
+  Status Write(const void* data, int64_t nbytes) override;
+  /// \cond FALSE
+  using Writable::Write;
+  /// \endcond
+
+  int file_descriptor() const;
+
+ private:
+  DirectFileOutputStream();
+
+  class ARROW_NO_EXPORT DirectFileOutputStreamImpl;
+  std::unique_ptr<DirectFileOutputStreamImpl> impl_;
+  uint8_t * cached_data;
+  int64_t cached_length = 0;
+};
+
 /// \brief An operating system file open in read-only mode.
 ///
 /// Reads through this implementation are unbuffered.  If many small reads

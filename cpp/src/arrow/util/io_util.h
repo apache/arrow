@@ -164,7 +164,7 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name);
 ARROW_EXPORT
 Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
                                         bool write_only = true, bool truncate = true,
-                                        bool append = false);
+                                        bool append = false, bool direct = false);
 
 /// Read from current file position.  Return number of bytes read.
 ARROW_EXPORT
