@@ -3572,5 +3572,34 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalKolkata) {
   CheckScalarUnary("round_temporal", unit, times, unit, round_2_hours, &round_to_2_hours);
 }
 
+TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDate) {
+  RoundTemporalOptions round_to_2_hours = RoundTemporalOptions(2, CalendarUnit::HOUR);
+  const char* date32s = R"([0, 11016, -25932, null])";
+  const char* date64s = R"([0, 951782400000, -2240524800000, null])";
+  auto dates32 = ArrayFromJSON(date32(), date32s);
+  auto dates64 = ArrayFromJSON(date64(), date64s);
+
+  CheckScalarUnary("ceil_temporal", dates32, dates32, &round_to_2_hours);
+  CheckScalarUnary("floor_temporal", dates32, dates32, &round_to_2_hours);
+  CheckScalarUnary("round_temporal", dates32, dates32, &round_to_2_hours);
+  CheckScalarUnary("ceil_temporal", dates64, dates64, &round_to_2_hours);
+  CheckScalarUnary("floor_temporal", dates64, dates64, &round_to_2_hours);
+  CheckScalarUnary("round_temporal", dates64, dates64, &round_to_2_hours);
+
+  const char* times_s = R"([0, 7200, null])";
+  const char* times_ms = R"([0, 7200000, null])";
+  const char* times_us = R"([0, 7200000000, null])";
+  const char* times_ns = R"([0, 7200000000000, null])";
+  auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
+  auto arr_ms = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms);
+  auto arr_us = ArrayFromJSON(time64(TimeUnit::MICRO), times_us);
+  auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
+
+  CheckScalarUnary("ceil_temporal", arr_s, arr_s, &round_to_2_hours);
+  CheckScalarUnary("ceil_temporal", arr_ms, arr_ms, &round_to_2_hours);
+  CheckScalarUnary("ceil_temporal", arr_us, arr_us, &round_to_2_hours);
+  CheckScalarUnary("ceil_temporal", arr_ns, arr_ns, &round_to_2_hours);
+}
+
 }  // namespace compute
 }  // namespace arrow
