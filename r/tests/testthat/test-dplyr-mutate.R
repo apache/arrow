@@ -538,7 +538,25 @@ test_that("mutate() and transmute() with namespaced functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        a = base::round(dbl) + base::log(int),
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # stringr::str_detect binding depends on RE2
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
         b = stringr::str_detect(verses, "ur")
       ) %>%
       collect(),
@@ -547,7 +565,6 @@ test_that("mutate() and transmute() with namespaced functions", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        a = base::round(dbl) + base::log(int),
         b = stringr::str_detect(verses, "ur")
       ) %>%
       collect(),
