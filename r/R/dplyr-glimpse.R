@@ -131,7 +131,7 @@ glimpse.RecordBatchReader <- function(x,
   # can be run more than once (like duckdb does on the other side)
   msg <- paste(
     "Cannot glimpse() data from a RecordBatchReader because it can only be",
-    "read one time; call `as_arrow_table()` to consume it first"
+    "read one time; call `as_arrow_table()` to consume it first."
   )
   message(msg)
   print(x)
