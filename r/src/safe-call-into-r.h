@@ -32,8 +32,13 @@
 // on 32-bit R builds on R 3.6 and lower.
 static inline bool CanSafeCallIntoR() {
 #if defined(HAS_UNWIND_PROTECT)
-  cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
-  bool on_old_windows = on_old_windows_fun();
+  // Cache value to avoid calling into R more than once to check
+  static int on_old_windows = -1;
+  if (on_old_windows == -1) {
+    cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
+    on_old_windows = on_old_windows_fun();
+  }
+
   return !on_old_windows;
 #else
   return false;
@@ -55,7 +60,7 @@ class MainRThread {
   void Initialize() {
     thread_id_ = std::this_thread::get_id();
     initialized_ = true;
-    SetError(R_NilValue);
+    ResetError();
   }
 
   bool IsInitialized() { return initialized_; }
@@ -63,33 +68,34 @@ class MainRThread {
   // Check if the current thread is the main R thread
   bool IsMainThread() { return initialized_ && std::this_thread::get_id() == thread_id_; }
 
+  // Check if a SafeCallIntoR call is able to execute
+  bool CanExecuteSafeCallIntoR() { return IsMainThread() || executor_ != nullptr; }
+
   // The Executor that is running on the main R thread, if it exists
   arrow::internal::Executor*& Executor() { return executor_; }
 
-  // Save an error token generated from a cpp11::unwind_exception
-  // so that it can be properly handled after some cleanup code
-  // has run (e.g., cancelling some futures or waiting for them
-  // to finish).
-  void SetError(cpp11::sexp token) { error_token_ = token; }
+  // Save an error (possibly with an error token generated from
+  // a cpp11::unwind_exception) so that it can be properly handled
+  // after some cleanup code  has run (e.g., cancelling some futures
+  // or waiting for them to finish).
+  void SetError(arrow::Status status) { status_ = status; }
 
-  void ResetError() { error_token_ = R_NilValue; }
+  void ResetError() { status_ = arrow::Status::OK(); }
 
   // Check if there is a saved error
-  bool HasError() { return error_token_ != R_NilValue; }
+  bool HasError() { return !status_.ok(); }
 
-  // Throw a cpp11::unwind_exception() with the saved token if it exists
+  // Throw a cpp11::unwind_exception() if
   void ClearError() {
-    if (HasError()) {
-      cpp11::unwind_exception e(error_token_);
-      ResetError();
-      throw e;
-    }
+    arrow::Status maybe_error_status = status_;
+    ResetError();
+    arrow::StopIfNotOk(maybe_error_status);
   }
 
  private:
   bool initialized_;
   std::thread::id thread_id_;
-  cpp11::sexp error_token_;
+  arrow::Status status_;
   arrow::internal::Executor* executor_;
 };
 
@@ -108,21 +114,32 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
     // the cpp11::unwind_exception be thrown since it will be caught
     // at the top level.
     return fun();
-  } else if (main_r_thread.Executor() != nullptr) {
+  } else if (main_r_thread.CanExecuteSafeCallIntoR()) {
     // If we are not on the main thread and have an Executor,
     // use it to run the task on the main R thread. We can't throw
     // a cpp11::unwind_exception here, so we need to propagate it back
     // to RunWithCapturedR through the MainRThread singleton.
-    return DeferNotOk(main_r_thread.Executor()->Submit([fun]() {
+    return DeferNotOk(main_r_thread.Executor()->Submit([fun, reason]() {
+      // This occurs when some other R code that was previously scheduled to run
+      // has errored, in which case we skip execution and let the original
+      // error surface.
       if (GetMainRThread().HasError()) {
-        return arrow::Result<T>(arrow::Status::UnknownError("R code execution error"));
+        return arrow::Result<T>(
+            arrow::Status::Cancelled("Previous R code execution error (", reason, ")"));
       }
 
       try {
         return fun();
       } catch (cpp11::unwind_exception& e) {
-        GetMainRThread().SetError(e.token);
-        return arrow::Result<T>(arrow::Status::UnknownError("R code execution error"));
+        // Here we save the token and set the main R thread to an error state
+        GetMainRThread().SetError(arrow::StatusUnwindProtect(e.token));
+
+        // We also return an error although this should not surface because
+        // main_r_thread.ClearError() will get called before this value can be
+        // returned and will StopIfNotOk(). We don't save the error token here
+        // to ensure that it will only get thrown once.
+        return arrow::Result<T>(
+            arrow::Status::UnknownError("R code execution error (", reason, ")"));
       }
     }));
   } else {
