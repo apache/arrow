@@ -26,6 +26,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 
