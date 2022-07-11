@@ -155,7 +155,7 @@ test_that("register_user_defined_function() errors for unsupported specification
   )
   expect_error(
     register_user_defined_function(varargs_kernel_wrapper, "var_kernels"),
-    "User-defined function with a variable number of arguments is not supported"
+    "Kernels for user-defined function must accept the same number of arguments"
   )
 })
 

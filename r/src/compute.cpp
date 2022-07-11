@@ -686,30 +686,24 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
     cpp11::stop("Can't register user-defined function with zero kernels");
   }
 
-  // compute the Arity from the list of input kernels
-  std::vector<int64_t> n_args(n_kernels);
-  for (R_xlen_t i = 0; i < n_kernels; i++) {
+  // Compute the Arity from the list of input kernels. We don't currently handle
+  // variable numbers of arguments in a user-defined function.
+  int64_t n_args =
+      cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[0])->num_fields();
+  for (R_xlen_t i = 1; i < n_kernels; i++) {
     auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
-    n_args[i] = in_types->num_fields();
+    if (in_types->num_fields() != n_args) {
+      cpp11::stop(
+          "Kernels for user-defined function must accept the same number of arguments");
+    }
   }
 
-  const int64_t min_args = *std::min_element(n_args.begin(), n_args.end());
-  const int64_t max_args = *std::max_element(n_args.begin(), n_args.end());
-
-  // We can't currently handle variable numbers of arguments in a user-defined
-  // function and we don't have a mechanism for the user to specify a variable
-  // number of arguments at the end of a signature.
-  if (min_args != max_args) {
-    cpp11::stop(
-        "User-defined function with a variable number of arguments is not supported");
-  }
-
-  arrow::compute::Arity arity(min_args, false);
+  arrow::compute::Arity arity(n_args, false);
 
   // The function documentation isn't currently accessible from R but is required
   // for the C++ function constructor.
-  std::vector<std::string> dummy_argument_names(min_args);
-  for (int64_t i = 0; i < min_args; i++) {
+  std::vector<std::string> dummy_argument_names(n_args);
+  for (int64_t i = 0; i < n_args; i++) {
     dummy_argument_names[i] = "arg";
   }
   const arrow::compute::FunctionDoc dummy_function_doc{
