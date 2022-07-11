@@ -72,7 +72,16 @@ if (process_is_running("testbench")) {
   )
 
   now <- as.character(as.numeric(Sys.time()))
-  fs$CreateDir(now)
+  tryCatch(fs$CreateDir(now), error=function(cond) {
+    if (grepl("Couldn't connect to server", cond, fixed = TRUE)) {
+      abort(
+        c(sprintf("Unable to connect to testbench on port %s.", testbench_port),
+          i = "You can set a custom port with TESTBENCH_PORT environment variable."),
+        parent=cond)
+    } else {
+      stop(cond)
+    }
+  })
   # Clean up when we're all done
   on.exit(fs$DeleteDir(now))
 
