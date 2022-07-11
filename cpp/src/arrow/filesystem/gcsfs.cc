@@ -71,22 +71,28 @@ struct GcsPath {
   std::string bucket;
   std::string object;
 
-  static Result<GcsPath> FromString(const std::string& s) {
-    if (internal::IsLikelyUri(s)) {
+  static Result<GcsPath> FromString(const std::string& s,
+                                    bool is_definitely_file = false) {
+    // If we know it's definitely a file, we should remove the trailing slash
+    const auto src =
+        is_definitely_file ? internal::RemoveTrailingSlash(s) : util::string_view(s);
+
+    if (internal::IsLikelyUri(src)) {
       return Status::Invalid(
-          "Expected a GCS object path of the form 'bucket/key...', got a URI: '", s, "'");
+          "Expected a GCS object path of the form 'bucket/key...', got a URI: '", src,
+          "'");
     }
-    auto const first_sep = s.find_first_of(internal::kSep);
+    auto const first_sep = src.find_first_of(internal::kSep);
     if (first_sep == 0) {
-      return Status::Invalid("Path cannot start with a separator ('", s, "')");
+      return Status::Invalid("Path cannot start with a separator ('", src, "')");
     }
     if (first_sep == std::string::npos) {
       return GcsPath{s, std::string(internal::RemoveTrailingSlash(s)), ""};
     }
     GcsPath path;
-    path.full_path = s;
-    path.bucket = s.substr(0, first_sep);
-    path.object = s.substr(first_sep + 1);
+    path.full_path = src.to_string();
+    path.bucket = src.substr(0, first_sep).to_string();
+    path.object = src.substr(first_sep + 1).to_string();
     return path;
   }
 
