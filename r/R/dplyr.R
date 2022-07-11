@@ -155,8 +155,6 @@ print.arrow_dplyr_query <- function(x, ...) {
     )
   }
 
-  show_arrow_query(x)
-
   cat("See $.data for the source Arrow object\n")
   invisible(x)
 }
@@ -222,13 +220,22 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   x
 }
 
-show_arrow_query <- function(.data) {
-  adq <- arrow:::as_adq(.data)
-  plan <- arrow:::ExecPlan$create()
-  final_node <- plan$Build(.data)
-  cat("* ExecPlan\n")
+
+#' Show the details of an Arrow ExecPlan
+#'
+#' This is a function which gives more details about an ExecPlan. This is similar
+#' to `dplyr::show_query()`.
+#'
+#' @param x an `arrow_dplyr_query` to print the ExecPlan for.
+#'
+#' @return The argument, invisibly.
+#' @export
+show_exec_plan <- function(x) {
+  adq <- as_adq(x)
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
   cat(plan$ToString())
-  invisible(.data)
+  invisible(x)
 }
 
 ensure_group_vars <- function(x) {
