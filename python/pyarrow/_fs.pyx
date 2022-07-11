@@ -360,7 +360,7 @@ cdef class FileSelector(_Weakrefable):
 
     >>> selector_1 = fs.FileSelector('/tmp/alphabet', recursive=True)
     >>> local.get_file_info(selector_1)
-    [<FileInfo for '/tmp/alphabet/aeiou': type=FileType.Directory>, <FileInfo for '/tmp/alphabet/aeiou/fileinfo_copy.dat'...
+    [<FileInfo for '/tmp/alphabet/fileinfo.dat': type=FileType.File, size=4>, <FileInfo for '/tmp/alphabet/aeiou':...
 
     List only the contents of the base directory:
 
