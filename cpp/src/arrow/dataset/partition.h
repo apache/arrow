@@ -88,7 +88,7 @@ class ARROW_DS_EXPORT Partitioning {
   static std::shared_ptr<Partitioning> Default();
 
   /// \brief The partition schema.
-  const std::shared_ptr<Schema>& schema() { return schema_; }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
  protected:
   explicit Partitioning(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
