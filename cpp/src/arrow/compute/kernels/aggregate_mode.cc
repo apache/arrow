@@ -64,7 +64,8 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
     count_buffer = count_data->template GetMutableValues<int64_t>(1);
   }
 
-  out->value = ArrayData::Make(type.Copy(), n, {nullptr}, {mode_data, count_data}, 0);
+  out->value =
+      ArrayData::Make(type.GetSharedPtr(), n, {nullptr}, {mode_data, count_data}, 0);
   return std::make_pair(mode_buffer, count_buffer);
 }
 
@@ -465,9 +466,9 @@ struct ModeExecutorChunked {
   }
 };
 
-Result<ValueDescr> ModeType(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  return ValueDescr::Array(
-      struct_({field(kModeFieldName, descrs[0].type), field(kCountFieldName, int64())}));
+Result<TypeHolder> ModeType(KernelContext*, const std::vector<TypeHolder>& types) {
+  return struct_(
+      {field(kModeFieldName, types[0].GetSharedPtr()), field(kCountFieldName, int64())});
 }
 
 VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type, ArrayKernelExec exec,
@@ -485,8 +486,7 @@ VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type, ArrayKernel
     default: {
       auto out_type =
           struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
-      kernel.signature = KernelSignature::Make({InputType(in_type->id())},
-                                               ValueDescr::Array(std::move(out_type)));
+      kernel.signature = KernelSignature::Make({in_type->id()}, std::move(out_type));
       break;
     }
   }

@@ -15,49 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Common fixtures used in many tests
-tbl <- tibble::tibble(
-  int = 1:10,
-  dbl = as.numeric(1:10),
-  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-  chr = letters[1:10],
-  fct = factor(letters[1:10])
-)
-tab <- Table$create(tbl)
-
-test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
-  tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10]
-  )
-  tab <- Table$create(!!!tbl)
-
-  tf <- tempfile()
-  on.exit(unlink(tf))
-  expect_deprecated(
-    write_arrow(tab, tf),
-    "write_feather"
-  )
-
-  tab1 <- read_feather(tf, as_data_frame = FALSE)
-  tab2 <- read_feather(normalizePath(tf), as_data_frame = FALSE)
-
-  readable_file <- ReadableFile$create(tf)
-  expect_deprecated(
-    tab3 <- read_arrow(readable_file, as_data_frame = FALSE),
-    "read_feather"
-  )
-  readable_file$close()
-
-  mmap_file <- mmap_open(tf)
-  mmap_file$close()
-
-  expect_equal(tab, tab1)
-  expect_equal(tab, tab2)
-  expect_equal(tab, tab3)
-})
-
 test_that("Table cast (ARROW-3741)", {
   tab <- Table$create(x = 1:10, y = 1:10)
 
@@ -97,6 +54,16 @@ test_that("Table $column and $field", {
   expect_error(tab$field(1:2))
   expect_error(tab$field("one"))
 })
+
+# Common fixtures used in some of the following tests
+tbl <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  chr = letters[1:10],
+  fct = factor(letters[1:10])
+)
+tab <- Table$create(tbl)
 
 test_that("[, [[, $ for Table", {
   expect_identical(names(tab), names(tbl))

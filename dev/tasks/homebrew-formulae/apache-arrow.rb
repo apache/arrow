@@ -89,6 +89,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_UTF8PROC=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
+      -DCMAKE_CXX_STANDARD=17
       -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
       -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
     ]

@@ -27,18 +27,15 @@ using compute::ExecSpan;
 namespace py {
 
 namespace {
-Status CheckOutputType(const DataType& expected, const DataType& actual) {
-  if (!expected.Equals(actual)) {
-    return Status::TypeError("Expected output datatype ", expected.ToString(),
-                             ", but function returned datatype ", actual.ToString());
-  }
-  return Status::OK();
-}
 
-struct PythonUdf {
+struct PythonUdf : public compute::KernelState {
   ScalarUdfWrapperCallback cb;
   std::shared_ptr<OwnedRefNoGIL> function;
-  compute::OutputType output_type;
+  std::shared_ptr<DataType> output_type;
+
+  PythonUdf(ScalarUdfWrapperCallback cb, std::shared_ptr<OwnedRefNoGIL> function,
+            const std::shared_ptr<DataType>& output_type)
+      : cb(cb), function(function), output_type(output_type) {}
 
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
@@ -48,11 +45,7 @@ struct PythonUdf {
     }
   }
 
-  Status operator()(compute::KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    return SafeCallIntoPython([&]() -> Status { return Execute(ctx, batch, out); });
-  }
-
-  Status Execute(compute::KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  Status Exec(compute::KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const int num_args = batch.num_values();
     ScalarUdfContext udf_context{ctx->memory_pool(), batch.length};
 
@@ -60,7 +53,7 @@ struct PythonUdf {
     RETURN_NOT_OK(CheckPyError());
     for (int arg_id = 0; arg_id < num_args; arg_id++) {
       if (batch[arg_id].is_scalar()) {
-        std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->Copy();
+        std::shared_ptr<Scalar> c_data = batch[arg_id].scalar->GetSharedPtr();
         PyObject* data = wrap_scalar(c_data);
         PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
       } else {
@@ -73,33 +66,28 @@ struct PythonUdf {
     OwnedRef result(cb(function->obj(), udf_context, arg_tuple.obj()));
     RETURN_NOT_OK(CheckPyError());
     // unwrapping the output for expected output type
-    if (is_scalar(result.obj())) {
-      if (out->is_array_data()) {
-        return Status::TypeError(
-            "UDF executor expected an array result but a "
-            "scalar was returned");
-      }
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val, unwrap_scalar(result.obj()));
-      RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type));
-      out->value = val;
-      return Status::OK();
-    } else if (is_array(result.obj())) {
-      if (out->is_scalar()) {
-        return Status::TypeError(
-            "UDF executor expected a scalar result but an "
-            "array was returned");
-      }
+    if (is_array(result.obj())) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
-      RETURN_NOT_OK(CheckOutputType(*output_type.type(), *val->type()));
+      if (!output_type->Equals(*val->type())) {
+        return Status::TypeError("Expected output datatype ", output_type->ToString(),
+                                 ", but function returned datatype ",
+                                 val->type()->ToString());
+      }
       out->value = std::move(val->data());
       return Status::OK();
     } else {
       return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
-                               " (expected Scalar or Array)");
+                               " (expected Array)");
     }
     return Status::OK();
   }
 };
+
+Status PythonUdfExec(compute::KernelContext* ctx, const ExecSpan& batch,
+                     ExecResult* out) {
+  auto udf = static_cast<PythonUdf*>(ctx->kernel()->data.get());
+  return SafeCallIntoPython([&]() -> Status { return udf->Exec(ctx, batch, out); });
+}
 
 }  // namespace
 
@@ -116,11 +104,14 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
     input_types.emplace_back(in_dtype);
   }
   compute::OutputType output_type(options.output_type);
-  PythonUdf exec{wrapper, std::make_shared<OwnedRefNoGIL>(user_function), output_type};
+  auto udf_data = std::make_shared<PythonUdf>(
+      wrapper, std::make_shared<OwnedRefNoGIL>(user_function), options.output_type);
   compute::ScalarKernel kernel(
       compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
                                      options.arity.is_varargs),
-      std::move(exec));
+      PythonUdfExec);
+  kernel.data = std::move(udf_data);
+
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
   RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));

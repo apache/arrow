@@ -2757,6 +2757,11 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       return std::unique_ptr<Decoder>(new DeltaByteArrayDecoder(descr));
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
+  } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
+    if (type_num == Type::BYTE_ARRAY) {
+      return std::unique_ptr<Decoder>(new DeltaLengthByteArrayDecoder(descr));
+    }
+    throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }

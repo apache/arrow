@@ -1837,11 +1837,9 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // pipe the projection into a scalar aggregate node
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * aggregate,
-      compute::MakeExecNode(
-          "aggregate", plan.get(), {project},
-          compute::AggregateNodeOptions{{compute::internal::Aggregate{"sum", nullptr}},
-                                        /*targets=*/{"a * 2"},
-                                        /*names=*/{"sum(a * 2)"}}));
+      compute::MakeExecNode("aggregate", plan.get(), {project},
+                            compute::AggregateNodeOptions{{compute::Aggregate{
+                                "sum", nullptr, "a * 2", "sum(a * 2)"}}}));
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
@@ -1927,12 +1925,11 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // pipe the projection into a grouped aggregate node
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * aggregate,
-      compute::MakeExecNode("aggregate", plan.get(), {project},
-                            compute::AggregateNodeOptions{
-                                {compute::internal::Aggregate{"hash_sum", nullptr}},
-                                /*targets=*/{"a * 2"},
-                                /*names=*/{"sum(a * 2)"},
-                                /*keys=*/{"b"}}));
+      compute::MakeExecNode(
+          "aggregate", plan.get(), {project},
+          compute::AggregateNodeOptions{
+              {compute::Aggregate{"hash_sum", nullptr, "a * 2", "sum(a * 2)"}},
+              /*keys=*/{"b"}}));
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;

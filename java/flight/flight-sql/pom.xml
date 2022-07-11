@@ -60,7 +60,6 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -69,17 +68,14 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>${dep.protobuf.version}</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-api</artifactId>
-      <version>${dep.grpc.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>

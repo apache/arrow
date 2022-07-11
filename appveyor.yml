@@ -46,6 +46,7 @@ environment:
     CLCACHE_COMPRESS: 1
     CLCACHE_COMPRESSLEVEL: 6
     ARROW_BUILD_FLIGHT: "OFF"
+    ARROW_BUILD_FLIGHT_SQL: "OFF"
     ARROW_BUILD_GANDIVA: "OFF"
     ARROW_LLVM_VERSION: "7.0.*"
     ARROW_S3: "OFF"
@@ -60,6 +61,7 @@ environment:
       ARROW_GCS: "ON"
       ARROW_S3: "ON"
       ARROW_BUILD_FLIGHT: "ON"
+      ARROW_BUILD_FLIGHT_SQL: "ON"
       ARROW_BUILD_GANDIVA: "ON"
     - JOB: "Build_Debug"
       GENERATOR: Ninja

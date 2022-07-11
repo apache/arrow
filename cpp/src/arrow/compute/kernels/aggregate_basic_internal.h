@@ -65,8 +65,7 @@ struct SumImpl : public ScalarAggregator {
   using SumCType = typename TypeTraits<SumType>::CType;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
-  SumImpl(const std::shared_ptr<DataType>& out_type,
-          const ScalarAggregateOptions& options_)
+  SumImpl(std::shared_ptr<DataType> out_type, const ScalarAggregateOptions& options_)
       : out_type(out_type), options(options_) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
@@ -216,10 +215,10 @@ template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  const std::shared_ptr<DataType> type;
+  std::shared_ptr<DataType> type;
   const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+  SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -261,7 +260,7 @@ struct SumLikeInit {
 
 template <template <typename> class KernelClass>
 struct MeanKernelInit : public SumLikeInit<KernelClass> {
-  MeanKernelInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+  MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
       : SumLikeInit<KernelClass>(ctx, type, options) {}
 
@@ -441,13 +440,11 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = !scalar.is_valid;
     this->count += scalar.is_valid;
 
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
+    if (!local.has_nulls || options.skip_nulls) {
+      local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
     }
 
-    local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 
@@ -458,19 +455,15 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = null_count > 0;
     this->count += arr.length() - null_count;
 
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
-    }
-
-    if (local.has_nulls) {
-      local += ConsumeWithNulls(arr);
-    } else {  // All true values
+    if (!local.has_nulls) {
       for (int64_t i = 0; i < arr.length(); i++) {
         local.MergeOne(arr.GetView(i));
       }
+    } else if (local.has_nulls && options.skip_nulls) {
+      local += ConsumeWithNulls(arr);
     }
-    this->state = local;
+
+    this->state += local;
     return Status::OK();
   }
 
@@ -586,17 +579,14 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = null_count > 0;
     this->count += valid_count;
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
+    if (!local.has_nulls || options.skip_nulls) {
+      const auto true_count = arr.true_count();
+      const auto false_count = valid_count - true_count;
+      local.max = true_count > 0;
+      local.min = false_count == 0;
     }
 
-    const auto true_count = arr.true_count();
-    const auto false_count = valid_count - true_count;
-    local.max = true_count > 0;
-    local.min = false_count == 0;
-
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 
@@ -605,17 +595,14 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = !scalar.is_valid;
     this->count += scalar.is_valid;
-    if (local.has_nulls && !options.skip_nulls) {
-      this->state = local;
-      return Status::OK();
+    if (!local.has_nulls || options.skip_nulls) {
+      const int true_count = scalar.is_valid && scalar.value;
+      const int false_count = scalar.is_valid && !scalar.value;
+      local.max = true_count > 0;
+      local.min = false_count == 0;
     }
 
-    const int true_count = scalar.is_valid && scalar.value;
-    const int false_count = scalar.is_valid && !scalar.value;
-    local.max = true_count > 0;
-    local.min = false_count == 0;
-
-    this->state = local;
+    this->state += local;
     return Status::OK();
   }
 };
@@ -639,7 +626,7 @@ struct MinMaxInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& in_type;
-  const std::shared_ptr<DataType>& out_type;
+  std::shared_ptr<DataType> out_type;
   const ScalarAggregateOptions& options;
 
   MinMaxInitState(KernelContext* ctx, const DataType& in_type,

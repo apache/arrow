@@ -35,6 +35,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
                     ${JNI_INCLUDE_DIRS} ${JNI_HEADERS_DIR})
 
 add_jar(${PROJECT_NAME}
+        src/main/java/org/apache/arrow/c/jni/CDataJniException.java
         src/main/java/org/apache/arrow/c/jni/JniLoader.java
         src/main/java/org/apache/arrow/c/jni/JniWrapper.java
         src/main/java/org/apache/arrow/c/jni/PrivateData.java

@@ -296,6 +296,9 @@ class BlockParserImpl {
     if (UseBulkFilter) {
       const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+        if (is_final) {
+          data = data_end;
+        }
         goto AbortLine;
       }
       data = bulk_end;
@@ -337,6 +340,9 @@ class BlockParserImpl {
     if (UseBulkFilter) {
       const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+        if (is_final) {
+          data = data_end;
+        }
         goto AbortLine;
       }
       data = bulk_end;

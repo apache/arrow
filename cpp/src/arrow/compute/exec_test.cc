@@ -728,10 +728,10 @@ TEST_F(TestExecBatchIterator, Basics) {
   ASSERT_EQ(3, batch.num_values());
   ASSERT_EQ(length, batch.length);
 
-  std::vector<ValueDescr> descrs = batch.GetDescriptors();
-  ASSERT_EQ(ValueDescr::Array(int32()), descrs[0]);
-  ASSERT_EQ(ValueDescr::Array(float64()), descrs[1]);
-  ASSERT_EQ(ValueDescr::Scalar(int32()), descrs[2]);
+  std::vector<TypeHolder> types = batch.GetTypes();
+  ASSERT_EQ(types[0], int32());
+  ASSERT_EQ(types[1], float64());
+  ASSERT_EQ(types[2], int32());
 
   AssertArraysEqual(*args[0].make_array(), *batch[0].make_array());
   AssertArraysEqual(*args[1].make_array(), *batch[1].make_array());
@@ -795,13 +795,12 @@ TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
 class TestExecSpanIterator : public TestComputeInternals {
  public:
   void SetupIterator(const ExecBatch& batch,
-                     ValueDescr::Shape output_shape = ValueDescr::ARRAY,
                      int64_t max_chunksize = kDefaultMaxChunksize) {
-    ASSERT_OK(iterator_.Init(batch, output_shape, max_chunksize));
+    ASSERT_OK(iterator_.Init(batch, max_chunksize));
   }
   void CheckIteration(const ExecBatch& input, int chunksize,
                       const std::vector<int>& ex_batch_sizes) {
-    SetupIterator(input, ValueDescr::ARRAY, chunksize);
+    SetupIterator(input, chunksize);
     ExecSpan batch;
     int64_t position = 0;
     for (size_t i = 0; i < ex_batch_sizes.size(); ++i) {
@@ -902,8 +901,10 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
-    ASSERT_OK(iterator.Init(batch, ValueDescr::ARRAY));
+    ASSERT_OK(iterator.Init(batch));
     ExecSpan iter_span;
+    ASSERT_TRUE(iterator.Next(&iter_span));
+    ASSERT_EQ(0, iter_span.length);
     ASSERT_FALSE(iterator.Next(&iter_span));
   };
 
@@ -1045,11 +1046,13 @@ Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   return Status::OK();
 }
 
-// TODO: remove this / refactor it in ARROW-16577
 Status ExecAddInt32(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const Int32Scalar& arg0 = batch[0].scalar_as<Int32Scalar>();
-  const Int32Scalar& arg1 = batch[1].scalar_as<Int32Scalar>();
-  out->value = std::make_shared<Int32Scalar>(arg0.value + arg1.value);
+  const int32_t* left_data = batch[0].array.GetValues<int32_t>(1);
+  const int32_t* right_data = batch[1].array.GetValues<int32_t>(1);
+  int32_t* out_data = out->array_span()->GetValues<int32_t>(1);
+  for (int64_t i = 0; i < batch.length; ++i) {
+    *out_data++ = *left_data++ + *right_data++;
+  }
   return Status::OK();
 }
 
@@ -1078,16 +1081,15 @@ class TestCallScalarFunction : public TestComputeInternals {
                                                  /*doc=*/FunctionDoc::Empty());
 
     // Add a few kernels. Our implementation only accepts arrays
-    ASSERT_OK(func->AddKernel({InputType::Array(uint8())}, uint8(), ExecCopyArraySpan));
-    ASSERT_OK(func->AddKernel({InputType::Array(int32())}, int32(), ExecCopyArraySpan));
-    ASSERT_OK(
-        func->AddKernel({InputType::Array(float64())}, float64(), ExecCopyArraySpan));
+    ASSERT_OK(func->AddKernel({uint8()}, uint8(), ExecCopyArraySpan));
+    ASSERT_OK(func->AddKernel({int32()}, int32(), ExecCopyArraySpan));
+    ASSERT_OK(func->AddKernel({float64()}, float64(), ExecCopyArraySpan));
     ASSERT_OK(registry->AddFunction(func));
 
     // A version which doesn't want the executor to call PropagateNulls
     auto func2 = std::make_shared<ScalarFunction>(
         "test_copy_computed_bitmap", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
-    ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecComputedBitmap);
+    ScalarKernel kernel({uint8()}, uint8(), ExecComputedBitmap);
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     ASSERT_OK(func2->AddKernel(kernel));
     ASSERT_OK(registry->AddFunction(func2));
@@ -1103,7 +1105,7 @@ class TestCallScalarFunction : public TestComputeInternals {
     auto f2 = std::make_shared<ScalarFunction>(
         "test_nopre_validity_or_data", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
 
-    ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecNoPreallocatedData);
+    ScalarKernel kernel({uint8()}, uint8(), ExecNoPreallocatedData);
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     ASSERT_OK(f1->AddKernel(kernel));
 
@@ -1123,7 +1125,7 @@ class TestCallScalarFunction : public TestComputeInternals {
     auto func = std::make_shared<ScalarFunction>("test_stateful", Arity::Unary(),
                                                  /*doc=*/FunctionDoc::Empty());
 
-    ScalarKernel kernel({InputType::Array(int32())}, int32(), ExecStateful, InitStateful);
+    ScalarKernel kernel({int32()}, int32(), ExecStateful, InitStateful);
     ASSERT_OK(func->AddKernel(kernel));
     ASSERT_OK(registry->AddFunction(func));
   }
@@ -1133,8 +1135,7 @@ class TestCallScalarFunction : public TestComputeInternals {
 
     auto func = std::make_shared<ScalarFunction>("test_scalar_add_int32", Arity::Binary(),
                                                  /*doc=*/FunctionDoc::Empty());
-    ASSERT_OK(func->AddKernel({InputType::Scalar(int32()), InputType::Scalar(int32())},
-                              int32(), ExecAddInt32));
+    ASSERT_OK(func->AddKernel({int32(), int32()}, int32(), ExecAddInt32));
     ASSERT_OK(registry->AddFunction(func));
   }
 };
@@ -1154,8 +1155,9 @@ TEST_F(TestCallScalarFunction, ArgumentValidation) {
   ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
 
   // Cannot do scalar
-  args = {Datum(std::make_shared<Int32Scalar>(5))};
-  ASSERT_RAISES(NotImplemented, CallFunction("test_copy", args));
+  Datum d1_scalar(std::make_shared<Int32Scalar>(5));
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("test_copy", {d1}));
+  ASSERT_OK_AND_ASSIGN(result, CallFunction("test_copy", {d1_scalar}));
 }
 
 TEST_F(TestCallScalarFunction, PreallocationCases) {

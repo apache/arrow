@@ -18,7 +18,6 @@
 #include <signal.h>
 #include <utility>
 
-#include "arrow/flight/serialization_internal.h"
 #include "arrow/python/flight.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -291,9 +290,7 @@ void PyServerMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_
     return status;
   });
 
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python server middleware failed in SendingHeaders: " << status;
-  }
+  ARROW_WARN_NOT_OK(status, "Python server middleware failed in SendingHeaders");
 }
 
 void PyServerMiddleware::CallCompleted(const Status& call_status) {
@@ -302,9 +299,8 @@ void PyServerMiddleware::CallCompleted(const Status& call_status) {
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python server middleware failed in CallCompleted: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python server middleware failed in CallCompleted");
 }
 
 std::string PyServerMiddleware::name() const { return kPyServerMiddlewareName; }
@@ -328,9 +324,8 @@ void PyClientMiddlewareFactory::StartCall(
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 PyClientMiddleware::PyClientMiddleware(PyObject* middleware, Vtable vtable)
@@ -345,9 +340,8 @@ void PyClientMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 void PyClientMiddleware::ReceivedHeaders(
@@ -357,9 +351,8 @@ void PyClientMiddleware::ReceivedHeaders(
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 void PyClientMiddleware::CallCompleted(const Status& call_status) {
@@ -368,9 +361,8 @@ void PyClientMiddleware::CallCompleted(const Status& call_status) {
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
-  if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
-  }
+
+  ARROW_WARN_NOT_OK(status, "Python client middleware failed in StartCall");
 }
 
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
@@ -378,24 +370,19 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
                         int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out) {
-  arrow::flight::FlightInfo::Data flight_data;
-  RETURN_NOT_OK(arrow::flight::internal::SchemaToString(*schema, &flight_data.schema));
-  flight_data.descriptor = descriptor;
-  flight_data.endpoints = endpoints;
-  flight_data.total_records = total_records;
-  flight_data.total_bytes = total_bytes;
-  arrow::flight::FlightInfo value(flight_data);
-  *out = std::unique_ptr<arrow::flight::FlightInfo>(new arrow::flight::FlightInfo(value));
+  ARROW_ASSIGN_OR_RAISE(auto result,
+                        arrow::flight::FlightInfo::Make(*schema, descriptor, endpoints,
+                                                        total_records, total_bytes));
+  *out = std::unique_ptr<arrow::flight::FlightInfo>(
+      new arrow::flight::FlightInfo(std::move(result)));
   return Status::OK();
 }
 
 Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
                           std::unique_ptr<arrow::flight::SchemaResult>* out) {
-  std::string schema_in;
-  RETURN_NOT_OK(arrow::flight::internal::SchemaToString(*schema, &schema_in));
-  arrow::flight::SchemaResult value(schema_in);
+  ARROW_ASSIGN_OR_RAISE(auto result, arrow::flight::SchemaResult::Make(*schema));
   *out = std::unique_ptr<arrow::flight::SchemaResult>(
-      new arrow::flight::SchemaResult(value));
+      new arrow::flight::SchemaResult(std::move(result)));
   return Status::OK();
 }
 

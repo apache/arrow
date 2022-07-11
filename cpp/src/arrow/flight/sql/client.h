@@ -22,6 +22,7 @@
 
 #include "arrow/flight/client.h"
 #include "arrow/flight/sql/types.h"
+#include "arrow/flight/sql/visibility.h"
 #include "arrow/flight/types.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -35,7 +36,7 @@ class PreparedStatement;
 /// \brief Flight client with Flight SQL semantics.
 ///
 /// Wraps a Flight client to provide the Flight SQL RPC calls.
-class ARROW_EXPORT FlightSqlClient {
+class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   friend class PreparedStatement;
 
  private:
@@ -202,7 +203,7 @@ class ARROW_EXPORT FlightSqlClient {
 };
 
 /// \brief A prepared statement that can be executed.
-class ARROW_EXPORT PreparedStatement {
+class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
  public:
   /// \brief Create a new prepared statement. However, applications
   /// should generally use FlightSqlClient::Prepare.

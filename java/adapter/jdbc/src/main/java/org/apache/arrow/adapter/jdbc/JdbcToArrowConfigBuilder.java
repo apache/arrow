@@ -19,6 +19,7 @@ package org.apache.arrow.adapter.jdbc;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowConfig.DEFAULT_TARGET_BATCH_SIZE;
 
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Function;
@@ -41,6 +42,7 @@ public class JdbcToArrowConfigBuilder {
   private Map<String, JdbcFieldInfo> explicitTypesByColumnName;
   private int targetBatchSize;
   private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
+  private RoundingMode bigDecimalRoundingMode;
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
@@ -56,6 +58,7 @@ public class JdbcToArrowConfigBuilder {
     this.arraySubTypesByColumnName = null;
     this.explicitTypesByColumnIndex = null;
     this.explicitTypesByColumnName = null;
+    this.bigDecimalRoundingMode = null;
   }
 
   /**
@@ -193,6 +196,11 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  public JdbcToArrowConfigBuilder setBigDecimalRoundingMode(RoundingMode bigDecimalRoundingMode) {
+    this.bigDecimalRoundingMode = bigDecimalRoundingMode;
+    return this;
+  }
+
   /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BufferAllocator} and {@link Calendar}.
@@ -211,6 +219,7 @@ public class JdbcToArrowConfigBuilder {
         targetBatchSize,
         jdbcToArrowTypeConverter,
         explicitTypesByColumnIndex,
-        explicitTypesByColumnName);
+        explicitTypesByColumnName,
+        bigDecimalRoundingMode);
   }
 }

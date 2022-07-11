@@ -48,6 +48,12 @@ struct StringTransformBase {
   }
 };
 
+template <typename offset_type>
+static int64_t GetVarBinaryValuesLength(const ArraySpan& span) {
+  const offset_type* offsets = span.GetValues<offset_type>(1);
+  return span.length > 0 ? offsets[span.length] - offsets[0] : 0;
+}
+
 /// Kernel exec generator for unary string transforms. Types of template
 /// parameter StringTransform need to define a transform method with the
 /// following signature:
@@ -69,22 +75,13 @@ struct StringTransformExecBase {
 
   static Status Execute(KernelContext* ctx, StringTransform* transform,
                         const ExecSpan& batch, ExecResult* out) {
-    if (batch[0].is_array()) {
-      return ExecArray(ctx, transform, batch[0].array, out);
-    }
-    DCHECK(batch[0].is_scalar());
-    // TODO: change to execute with array of length 1
-    return ExecScalar(ctx, transform, batch[0].scalar, out);
-  }
+    const ArraySpan& input = batch[0].array;
+    auto offsets = input.GetValues<offset_type>(1);
+    const uint8_t* input_data = input.buffers[2].data;
 
-  static Status ExecArray(KernelContext* ctx, StringTransform* transform,
-                          const ArraySpan& data, ExecResult* out) {
-    // TODO(wesm): reimplement this to not use the array box type
-    ArrayType input(data.ToArrayData());
-    const int64_t input_ncodeunits = input.total_values_length();
-    const int64_t input_nstrings = input.length();
+    const int64_t input_ncodeunits = GetVarBinaryValuesLength<offset_type>(input);
     const int64_t max_output_ncodeunits =
-        transform->MaxCodeunits(input_nstrings, input_ncodeunits);
+        transform->MaxCodeunits(input.length, input_ncodeunits);
     RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
 
     ArrayData* output = out->array_data().get();
@@ -96,10 +93,10 @@ struct StringTransformExecBase {
     uint8_t* output_str = output->buffers[2]->mutable_data();
     offset_type output_ncodeunits = 0;
     output_string_offsets[0] = output_ncodeunits;
-    for (int64_t i = 0; i < input_nstrings; i++) {
+    for (int64_t i = 0; i < input.length; i++) {
       if (!input.IsNull(i)) {
-        offset_type input_string_ncodeunits;
-        const uint8_t* input_string = input.GetValue(i, &input_string_ncodeunits);
+        const uint8_t* input_string = input_data + offsets[i];
+        offset_type input_string_ncodeunits = offsets[i + 1] - offsets[i];
         auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
             input_string, input_string_ncodeunits, output_str + output_ncodeunits));
         if (encoded_nbytes < 0) {
@@ -113,29 +110,6 @@ struct StringTransformExecBase {
 
     // Trim the codepoint buffer, since we may have allocated too much
     return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
-  }
-
-  static Status ExecScalar(KernelContext* ctx, StringTransform* transform,
-                           const Scalar* scalar, ExecResult* out) {
-    const auto& input = checked_cast<const BaseBinaryScalar&>(*scalar);
-    if (!input.is_valid) {
-      return Status::OK();
-    }
-    const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
-    const int64_t max_output_ncodeunits = transform->MaxCodeunits(1, data_nbytes);
-    RETURN_NOT_OK(CheckOutputCapacity(max_output_ncodeunits));
-
-    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(max_output_ncodeunits));
-    auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-    result->is_valid = true;
-    result->value = value_buffer;
-    auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
-        input.value->data(), data_nbytes, value_buffer->mutable_data()));
-    if (encoded_nbytes < 0) {
-      return transform->InvalidInputSequence();
-    }
-    DCHECK_LE(encoded_nbytes, max_output_ncodeunits);
-    return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
   }
 
   static Status CheckOutputCapacity(int64_t ncodeunits) {
@@ -245,27 +219,15 @@ struct StringPredicateFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     Status st = Status::OK();
     EnsureUtf8LookupTablesFilled();
-    if (batch[0].is_array()) {
-      const ArraySpan& input = batch[0].array;
-      ArrayIterator<Type> input_it(input);
-      ArraySpan* out_arr = out->array_span();
-      ::arrow::internal::GenerateBitsUnrolled(
-          out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
-            util::string_view val = input_it();
-            return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
-                                   val.size(), &st);
-          });
-    } else {
-      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar);
-      if (input.is_valid) {
-        bool boolean_result = Predicate::Call(
-            ctx, input.value->data(), static_cast<size_t>(input.value->size()), &st);
-        // UTF decoding can lead to issues
-        if (st.ok()) {
-          out->value = std::make_shared<BooleanScalar>(boolean_result);
-        }
-      }
-    }
+    const ArraySpan& input = batch[0].array;
+    ArrayIterator<Type> input_it(input);
+    ArraySpan* out_arr = out->array_span();
+    ::arrow::internal::GenerateBitsUnrolled(
+        out_arr->buffers[1].data, out_arr->offset, input.length, [&]() -> bool {
+          util::string_view val = input_it();
+          return Predicate::Call(ctx, reinterpret_cast<const uint8_t*>(val.data()),
+                                 val.size(), &st);
+        });
     return st;
   }
 };
@@ -357,17 +319,8 @@ struct StringSplitExec {
   Status Execute(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     SplitFinder finder;
     RETURN_NOT_OK(finder.PreExec(options));
-    if (batch[0].is_array()) {
-      return Execute(ctx, &finder, batch[0].array, out);
-    } else {
-      return Execute(ctx, &finder, batch[0].scalar, out);
-    }
-  }
-
-  Status Execute(KernelContext* ctx, SplitFinder* finder, const ArraySpan& data,
-                 ExecResult* out) {
     // TODO(wesm): refactor to not require creating ArrayData
-    const ArrayType input(data.ToArrayData());
+    const ArrayType input(batch[0].array.ToArrayData());
 
     BuilderType builder(input.type(), ctx->memory_pool());
     // A slight overestimate of the data needed
@@ -383,7 +336,7 @@ struct StringSplitExec {
     *list_offsets++ = 0;
     for (int64_t i = 0; i < input.length(); ++i) {
       if (!input.IsNull(i)) {
-        RETURN_NOT_OK(SplitString(input.GetView(i), finder, &builder));
+        RETURN_NOT_OK(SplitString(input.GetView(i), &finder, &builder));
         if (ARROW_PREDICT_FALSE(builder.length() >
                                 std::numeric_limits<list_offset_type>::max())) {
           return Status::CapacityError("List offset does not fit into 32 bit");
@@ -395,20 +348,6 @@ struct StringSplitExec {
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
     output_list->child_data.push_back(string_array->data());
-    return Status::OK();
-  }
-
-  Status Execute(KernelContext* ctx, SplitFinder* finder, const Scalar* scalar,
-                 ExecResult* out) {
-    const auto& input = checked_cast<const ScalarType&>(*scalar);
-    auto result = checked_cast<ListScalarType*>(out->scalar().get());
-    if (input.is_valid) {
-      result->is_valid = true;
-      BuilderType builder(input.type, ctx->memory_pool());
-      util::string_view s(*input.value);
-      RETURN_NOT_OK(SplitString(s, finder, &builder));
-      RETURN_NOT_OK(builder.Finish(&result->value));
-    }
     return Status::OK();
   }
 

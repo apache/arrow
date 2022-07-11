@@ -452,9 +452,9 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
-Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs);
-Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs);
-Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args);
+Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types);
+Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types);
+Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& types);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -479,28 +479,10 @@ Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>&
 const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes();
 
 // ----------------------------------------------------------------------
-// "Applicators" take an operator definition (which may be scalar-valued or
-// array-valued) and creates an ArrayKernelExec which can be used to add an
-// ArrayKernel to a Function.
+// "Applicators" take an operator definition and creates an ArrayKernelExec
+// which can be used to add a kernel to a Function.
 
 namespace applicator {
-
-// Generate an ArrayKernelExec given a functor that handles all of its own
-// iteration, etc.
-//
-// Operator must implement
-//
-// static Status Call(KernelContext*, const ArraySpan& in, ExecResult* out)
-// static Status Call(KernelContext*, const Scalar& in, ExecResult* out)
-template <typename Operator>
-static Status SimpleUnary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  if (batch[0].is_scalar()) {
-    return Operator::Call(ctx, *batch[0].scalar, out);
-  } else if (batch.length > 0) {
-    return Operator::Call(ctx, batch[0].array, out);
-  }
-  return Status::OK();
-}
 
 // Generate an ArrayKernelExec given a functor that handles all of its own
 // iteration, etc.
@@ -512,8 +494,6 @@ static Status SimpleUnary(KernelContext* ctx, const ExecSpan& batch, ExecResult*
 // static Status Call(KernelContext*, const ArraySpan& arg0, const Scalar& arg1,
 //                    ExecResult* out)
 // static Status Call(KernelContext*, const Scalar& arg0, const ArraySpan& arg1,
-//                    ExecResult* out)
-// static Status Call(KernelContext*, const Scalar& arg0, const Scalar& arg1,
 //                    ExecResult* out)
 template <typename Operator>
 static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -529,7 +509,8 @@ static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult
     if (batch[1].is_array()) {
       return Operator::Call(ctx, *batch[0].scalar, batch[1].array, out);
     } else {
-      return Operator::Call(ctx, *batch[0].scalar, *batch[1].scalar, out);
+      DCHECK(false);
+      return Status::Invalid("Should be unreachable");
     }
   }
 }
@@ -597,7 +578,9 @@ struct ScalarUnary {
   using OutValue = typename GetOutputType<OutType>::T;
   using Arg0Value = typename GetViewType<Arg0Type>::T;
 
-  static Status ExecArray(KernelContext* ctx, const ArraySpan& arg0, ExecResult* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    DCHECK(batch[0].is_array());
+    const ArraySpan& arg0 = batch[0].array;
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
     RETURN_NOT_OK(
@@ -605,28 +588,6 @@ struct ScalarUnary {
           return Op::template Call<OutValue, Arg0Value>(ctx, arg0_it(), &st);
         }));
     return st;
-  }
-
-  static Status ExecScalar(KernelContext* ctx, const Scalar& arg0, ExecResult* out) {
-    Status st = Status::OK();
-    Scalar* out_scalar = out->scalar().get();
-    if (arg0.is_valid) {
-      Arg0Value arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      out_scalar->is_valid = true;
-      BoxScalar<OutType>::Box(Op::template Call<OutValue, Arg0Value>(ctx, arg0_val, &st),
-                              out_scalar);
-    } else {
-      out_scalar->is_valid = false;
-    }
-    return st;
-  }
-
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    if (batch[0].is_array()) {
-      return ExecArray(ctx, batch[0].array, out);
-    } else {
-      return ExecScalar(ctx, *batch[0].scalar, out);
-    }
   }
 };
 
@@ -720,23 +681,9 @@ struct ScalarUnaryNotNullStateful {
     }
   };
 
-  Status Scalar(KernelContext* ctx, const Scalar& arg0, ExecResult* out) {
-    Status st = Status::OK();
-    if (arg0.is_valid) {
-      Arg0Value arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      BoxScalar<OutType>::Box(
-          this->op.template Call<OutValue, Arg0Value>(ctx, arg0_val, &st),
-          out->scalar().get());
-    }
-    return st;
-  }
-
   Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    if (batch[0].is_array()) {
-      return ArrayExec<OutType>::Exec(*this, ctx, batch[0].array, out);
-    } else {
-      return Scalar(ctx, *batch[0].scalar, out);
-    }
+    DCHECK(batch[0].is_array());
+    return ArrayExec<OutType>::Exec(*this, ctx, batch[0].array, out);
   }
 };
 
@@ -819,19 +766,6 @@ struct ScalarBinary {
     return st;
   }
 
-  static Status ScalarScalar(KernelContext* ctx, const Scalar& arg0, const Scalar& arg1,
-                             ExecResult* out) {
-    Status st = Status::OK();
-    if (out->scalar()->is_valid) {
-      auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      BoxScalar<OutType>::Box(
-          Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_val, &st),
-          out->scalar().get());
-    }
-    return st;
-  }
-
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (batch[0].is_array()) {
       if (batch[1].is_array()) {
@@ -843,7 +777,8 @@ struct ScalarBinary {
       if (batch[1].is_array()) {
         return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        return ScalarScalar(ctx, *batch[0].scalar, *batch[1].scalar, out);
+        DCHECK(false);
+        return Status::Invalid("Should be unreachable");
       }
     }
   }
@@ -916,19 +851,6 @@ struct ScalarBinaryNotNullStateful {
     return st;
   }
 
-  Status ScalarScalar(KernelContext* ctx, const Scalar& arg0, const Scalar& arg1,
-                      ExecResult* out) {
-    Status st = Status::OK();
-    if (arg0.is_valid && arg1.is_valid) {
-      const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      BoxScalar<OutType>::Box(
-          op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_val, &st),
-          out->scalar().get());
-    }
-    return st;
-  }
-
   Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (batch[0].is_array()) {
       if (batch[1].is_array()) {
@@ -940,7 +862,8 @@ struct ScalarBinaryNotNullStateful {
       if (batch[1].is_array()) {
         return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        return ScalarScalar(ctx, *batch[0].scalar, *batch[1].scalar, out);
+        DCHECK(false);
+        return Status::Invalid("Should be unreachable");
       }
     }
   }
@@ -1413,41 +1336,41 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
 // ----------------------------------------------------------------------
 
 ARROW_EXPORT
-void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs);
+void EnsureDictionaryDecoded(std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-void EnsureDictionaryDecoded(ValueDescr* begin, size_t count);
+void EnsureDictionaryDecoded(TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs);
+void ReplaceNullWithOtherType(std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-void ReplaceNullWithOtherType(ValueDescr* begin, size_t count);
+void ReplaceNullWithOtherType(TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-void ReplaceTypes(const std::shared_ptr<DataType>&, std::vector<ValueDescr>* descrs);
+void ReplaceTypes(const TypeHolder& replacement, std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
+void ReplaceTypes(const TypeHolder& replacement, TypeHolder* types, size_t count);
 
 ARROW_EXPORT
-void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<ValueDescr>* descrs);
+void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
+TypeHolder CommonNumeric(const std::vector<TypeHolder>& types);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
+TypeHolder CommonNumeric(const TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
+TypeHolder CommonTemporal(const TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-bool CommonTemporalResolution(const ValueDescr* begin, size_t count,
+bool CommonTemporalResolution(const TypeHolder* begin, size_t count,
                               TimeUnit::type* finest_unit);
 
 ARROW_EXPORT
-std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);
+TypeHolder CommonBinary(const TypeHolder* begin, size_t count);
 
 /// How to promote decimal precision/scale in CastBinaryDecimalArgs.
 enum class DecimalPromotion : uint8_t {
@@ -1460,15 +1383,15 @@ enum class DecimalPromotion : uint8_t {
 /// to not necessarily identical types, but types which are compatible
 /// for the given operator (add/multiply/divide).
 ARROW_EXPORT
-Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<ValueDescr>* descrs);
+Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>* types);
 
 /// Given one or more arguments, at least one of which is decimal,
 /// promote all to an identical type.
 ARROW_EXPORT
-Status CastDecimalArgs(ValueDescr* begin, size_t count);
+Status CastDecimalArgs(TypeHolder* begin, size_t count);
 
 ARROW_EXPORT
-bool HasDecimal(const std::vector<ValueDescr>& descrs);
+bool HasDecimal(const std::vector<TypeHolder>& types);
 
 }  // namespace internal
 }  // namespace compute

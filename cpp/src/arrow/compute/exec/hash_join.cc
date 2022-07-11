@@ -84,13 +84,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
  private:
   void InitEncoder(int side, HashJoinProjection projection_handle, RowEncoder* encoder) {
-    std::vector<ValueDescr> data_types;
+    std::vector<TypeHolder> data_types;
     int num_cols = schema_mgr_->proj_maps[side].num_cols(projection_handle);
     data_types.resize(num_cols);
     for (int icol = 0; icol < num_cols; ++icol) {
-      data_types[icol] =
-          ValueDescr(schema_mgr_->proj_maps[side].data_type(projection_handle, icol),
-                     ValueDescr::ARRAY);
+      data_types[icol] = schema_mgr_->proj_maps[side].data_type(projection_handle, icol);
     }
     encoder->Init(data_types, ctx_);
     encoder->Clear();

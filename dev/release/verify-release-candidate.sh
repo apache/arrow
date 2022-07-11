@@ -182,9 +182,7 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:buster" \
-                "arm64v8/debian:buster" \
-                "debian:bullseye" \
+  for target in "debian:bullseye" \
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
@@ -192,8 +190,6 @@ test_apt() {
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
-                "ubuntu:impish" \
-                "arm64v8/ubuntu:impish" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy"; do \
     case "${target}" in
@@ -227,14 +223,24 @@ test_apt() {
 test_yum() {
   show_header "Testing Yum packages"
 
-  for target in "almalinux:8" \
+  for target in "almalinux:9" \
+                "arm64v8/almalinux:9" \
+                "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
+                "quay.io/centos/centos:stream9" \
                 "quay.io/centos/centos:stream8" \
                 "centos:7"; do
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
+          : # OK
+        else
+          continue
+        fi
+        ;;
+      centos:7)
+        if [ "$(arch)" = "x86_64" ]; then
           : # OK
         else
           continue
@@ -255,7 +261,8 @@ test_yum() {
   done
 
   if [ "$(arch)" != "aarch64" -a -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "quay.io/centos/centos:stream8"; do
+    for target in "quay.io/centos/centos:stream9" \
+                  "quay.io/centos/centos:stream8"; do
       if ! docker run \
              --platform linux/arm64 \
              --rm \
@@ -771,6 +778,9 @@ test_ruby() {
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
     modules="${modules} red-arrow-flight"
   fi
+  if [ "${ARROW_FLIGHT_SQL}" = "ON" ]; then
+    modules="${modules} red-arrow-flight-sql"
+  fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
   fi
@@ -1162,6 +1172,7 @@ if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
 : ${ARROW_CUDA:=OFF}
+: ${ARROW_FLIGHT_SQL:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GCS:=OFF}

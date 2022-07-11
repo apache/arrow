@@ -143,10 +143,9 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
 
 }  // namespace match
 
-/// \brief An object used for type- and shape-checking arguments to be passed
-/// to a kernel and stored in a KernelSignature. Distinguishes between ARRAY
-/// and SCALAR arguments using ValueDescr::Shape. The type-checking rule can be
-/// supplied either with an exact DataType instance or a custom TypeMatcher.
+/// \brief An object used for type-checking arguments to be passed to a kernel
+/// and stored in a KernelSignature. The type-checking rule can be supplied
+/// either with an exact DataType instance or a custom TypeMatcher.
 class ARROW_EXPORT InputType {
  public:
   /// \brief The kind of type-checking rule that the InputType contains.
@@ -163,29 +162,21 @@ class ARROW_EXPORT InputType {
     USE_TYPE_MATCHER
   };
 
-  /// \brief Accept any value type but with a specific shape (e.g. any Array or
-  /// any Scalar).
-  InputType(ValueDescr::Shape shape = ValueDescr::ANY)  // NOLINT implicit construction
-      : kind_(ANY_TYPE), shape_(shape) {}
+  /// \brief Accept any value type
+  InputType() : kind_(ANY_TYPE) {}
 
   /// \brief Accept an exact value type.
-  InputType(std::shared_ptr<DataType> type,  // NOLINT implicit construction
-            ValueDescr::Shape shape = ValueDescr::ANY)
-      : kind_(EXACT_TYPE), shape_(shape), type_(std::move(type)) {}
-
-  /// \brief Accept an exact value type and shape provided by a ValueDescr.
-  InputType(const ValueDescr& descr)  // NOLINT implicit construction
-      : InputType(descr.type, descr.shape) {}
+  InputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
+      : kind_(EXACT_TYPE), type_(std::move(type)) {}
 
   /// \brief Use the passed TypeMatcher to type check.
-  InputType(std::shared_ptr<TypeMatcher> type_matcher,  // NOLINT implicit construction
-            ValueDescr::Shape shape = ValueDescr::ANY)
-      : kind_(USE_TYPE_MATCHER), shape_(shape), type_matcher_(std::move(type_matcher)) {}
+  InputType(std::shared_ptr<TypeMatcher> type_matcher)  // NOLINT implicit construction
+      : kind_(USE_TYPE_MATCHER), type_matcher_(std::move(type_matcher)) {}
 
   /// \brief Match any type with the given Type::type. Uses a TypeMatcher for
   /// its implementation.
-  explicit InputType(Type::type type_id, ValueDescr::Shape shape = ValueDescr::ANY)
-      : InputType(match::SameTypeId(type_id), shape) {}
+  InputType(Type::type type_id)  // NOLINT implicit construction
+      : InputType(match::SameTypeId(type_id)) {}
 
   InputType(const InputType& other) { CopyInto(other); }
 
@@ -195,23 +186,8 @@ class ARROW_EXPORT InputType {
 
   void operator=(InputType&& other) { MoveInto(std::forward<InputType>(other)); }
 
-  // \brief Match an array with the given exact type. Convenience constructor.
-  static InputType Array(std::shared_ptr<DataType> type) {
-    return InputType(std::move(type), ValueDescr::ARRAY);
-  }
-
-  // \brief Match a scalar with the given exact type. Convenience constructor.
-  static InputType Scalar(std::shared_ptr<DataType> type) {
-    return InputType(std::move(type), ValueDescr::SCALAR);
-  }
-
-  // \brief Match an array with the given Type::type id. Convenience
-  // constructor.
-  static InputType Array(Type::type id) { return InputType(id, ValueDescr::ARRAY); }
-
-  // \brief Match a scalar with the given Type::type id. Convenience
-  // constructor.
-  static InputType Scalar(Type::type id) { return InputType(id, ValueDescr::SCALAR); }
+  // \brief Match any input (array, scalar of any type)
+  static InputType Any() { return InputType(); }
 
   /// \brief Return true if this input type matches the same type cases as the
   /// other.
@@ -227,20 +203,15 @@ class ARROW_EXPORT InputType {
   /// \brief Render a human-readable string representation.
   std::string ToString() const;
 
-  /// \brief Return true if the value matches this argument kind in type
-  /// and shape.
+  /// \brief Return true if the Datum matches this argument kind in
+  /// type (and only allows scalar or array-like Datums).
   bool Matches(const Datum& value) const;
 
-  /// \brief Return true if the value descriptor matches this argument kind in
-  /// type and shape.
-  bool Matches(const ValueDescr& value) const;
+  /// \brief Return true if the type matches this InputType
+  bool Matches(const DataType& type) const;
 
   /// \brief The type matching rule that this InputType uses.
   Kind kind() const { return kind_; }
-
-  /// \brief Indicates whether this InputType matches Array (ValueDescr::ARRAY),
-  /// Scalar (ValueDescr::SCALAR) values, or both (ValueDescr::ANY).
-  ValueDescr::Shape shape() const { return shape_; }
 
   /// \brief For InputType::EXACT_TYPE kind, the exact type that this InputType
   /// must match. Otherwise this function should not be used and will assert in
@@ -255,21 +226,17 @@ class ARROW_EXPORT InputType {
  private:
   void CopyInto(const InputType& other) {
     this->kind_ = other.kind_;
-    this->shape_ = other.shape_;
     this->type_ = other.type_;
     this->type_matcher_ = other.type_matcher_;
   }
 
   void MoveInto(InputType&& other) {
     this->kind_ = other.kind_;
-    this->shape_ = other.shape_;
     this->type_ = std::move(other.type_);
     this->type_matcher_ = std::move(other.type_matcher_);
   }
 
   Kind kind_;
-
-  ValueDescr::Shape shape_ = ValueDescr::ANY;
 
   // For EXACT_TYPE Kind
   std::shared_ptr<DataType> type_;
@@ -279,35 +246,23 @@ class ARROW_EXPORT InputType {
 };
 
 /// \brief Container to capture both exact and input-dependent output types.
-///
-/// The value shape returned by Resolve will be determined by broadcasting the
-/// shapes of the input arguments, otherwise this is handled by the
-/// user-defined resolver function:
-///
-/// * Any ARRAY shape -> output shape is ARRAY
-/// * All SCALAR shapes -> output shape is SCALAR
 class ARROW_EXPORT OutputType {
  public:
   /// \brief An enum indicating whether the value type is an invariant fixed
   /// value or one that's computed by a kernel-defined resolver function.
   enum ResolveKind { FIXED, COMPUTED };
 
-  /// Type resolution function. Given input types and shapes, return output
-  /// type and shape.  This function MAY may use the kernel state to decide
-  /// the output type based on the functionoptions.
+  /// Type resolution function. Given input types, return output type.  This
+  /// function MAY may use the kernel state to decide the output type based on
+  /// the FunctionOptions.
   ///
   /// This function SHOULD _not_ be used to check for arity, that is to be
   /// performed one or more layers above.
-  using Resolver =
-      std::function<Result<ValueDescr>(KernelContext*, const std::vector<ValueDescr>&)>;
+  typedef Result<TypeHolder> (*Resolver)(KernelContext*, const std::vector<TypeHolder>&);
 
-  /// \brief Output an exact type, but with shape determined by promoting the
-  /// shapes of the inputs (any ARRAY argument yields ARRAY).
+  /// \brief Output an exact type
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
       : kind_(FIXED), type_(std::move(type)) {}
-
-  /// \brief Output the exact type and shape provided by a ValueDescr
-  OutputType(ValueDescr descr);  // NOLINT implicit construction
 
   /// \brief Output a computed type depending on actual input types
   OutputType(Resolver resolver)  // NOLINT implicit construction
@@ -315,7 +270,6 @@ class ARROW_EXPORT OutputType {
 
   OutputType(const OutputType& other) {
     this->kind_ = other.kind_;
-    this->shape_ = other.shape_;
     this->type_ = other.type_;
     this->resolver_ = other.resolver_;
   }
@@ -323,19 +277,17 @@ class ARROW_EXPORT OutputType {
   OutputType(OutputType&& other) {
     this->kind_ = other.kind_;
     this->type_ = std::move(other.type_);
-    this->shape_ = other.shape_;
     this->resolver_ = other.resolver_;
   }
 
   OutputType& operator=(const OutputType&) = default;
   OutputType& operator=(OutputType&&) = default;
 
-  /// \brief Return the shape and type of the expected output value of the
-  /// kernel given the value descriptors (shapes and types) of the input
-  /// arguments. The resolver may make use of state information kept in the
-  /// KernelContext.
-  Result<ValueDescr> Resolve(KernelContext* ctx,
-                             const std::vector<ValueDescr>& args) const;
+  /// \brief Return the type of the expected output value of the kernel given
+  /// the input argument types. The resolver may make use of state information
+  /// kept in the KernelContext.
+  Result<TypeHolder> Resolve(KernelContext* ctx,
+                             const std::vector<TypeHolder>& args) const;
 
   /// \brief The exact output value type for the FIXED kind.
   const std::shared_ptr<DataType>& type() const;
@@ -352,22 +304,14 @@ class ARROW_EXPORT OutputType {
   /// fixed/invariant or computed by a resolver.
   ResolveKind kind() const { return kind_; }
 
-  /// \brief If the shape is ANY, then Resolve will compute the shape based on
-  /// the input arguments.
-  ValueDescr::Shape shape() const { return shape_; }
-
  private:
   ResolveKind kind_;
 
   // For FIXED resolution
   std::shared_ptr<DataType> type_;
 
-  /// \brief The shape of the output type to return when using Resolve. If ANY
-  /// will promote the input shapes.
-  ValueDescr::Shape shape_ = ValueDescr::ANY;
-
   // For COMPUTED resolution
-  Resolver resolver_;
+  Resolver resolver_ = NULLPTR;
 };
 
 /// \brief Holds the input types and output type of the kernel.
@@ -388,7 +332,7 @@ class ARROW_EXPORT KernelSignature {
 
   /// \brief Return true if the signature if compatible with the list of input
   /// value descriptors.
-  bool MatchesInputs(const std::vector<ValueDescr>& descriptors) const;
+  bool MatchesInputs(const std::vector<TypeHolder>& types) const;
 
   /// \brief Returns true if the input types of each signature are
   /// equal. Well-formed functions should have a deterministic output type
@@ -408,9 +352,10 @@ class ARROW_EXPORT KernelSignature {
   /// function arguments.
   const std::vector<InputType>& in_types() const { return in_types_; }
 
-  /// \brief The output type for the kernel. Use Resolve to return the exact
-  /// output given input argument ValueDescrs, since many kernels' output types
-  /// depend on their input types (or their type metadata).
+  /// \brief The output type for the kernel. Use Resolve to return the
+  /// exact output given input argument types, since many kernels'
+  /// output types depend on their input types (or their type
+  /// metadata).
   const OutputType& out_type() const { return out_type_; }
 
   /// \brief Render a human-readable string representation
@@ -493,12 +438,9 @@ struct KernelInitArgs {
   /// depend on the kernel's KernelSignature or other data contained there.
   const Kernel* kernel;
 
-  /// \brief The types and shapes of the input arguments that the kernel is
+  /// \brief The types of the input arguments that the kernel is
   /// about to be executed against.
-  ///
-  /// TODO: should this be const std::vector<ValueDescr>*? const-ref is being
-  /// used to avoid the cost of copying the struct into the args struct.
-  const std::vector<ValueDescr>& inputs;
+  const std::vector<TypeHolder>& inputs;
 
   /// \brief Opaque options specific to this kernel. May be nullptr for functions
   /// that do not require options.
@@ -523,7 +465,7 @@ struct Kernel {
                std::move(init)) {}
 
   /// \brief The "signature" of the kernel containing the InputType input
-  /// argument validators and OutputType output type and shape resolver.
+  /// argument validators and OutputType output type resolver.
   std::shared_ptr<KernelSignature> signature;
 
   /// \brief Create a new KernelState for invocations of this kernel, e.g. to
@@ -546,6 +488,9 @@ struct Kernel {
   /// contain multiple kernels with the same signature but different levels of SIMD,
   /// so that the most optimized kernel supported on a host's processor can be chosen.
   SimdLevel::type simd_level = SimdLevel::NONE;
+
+  // Additional kernel-specific data
+  std::shared_ptr<KernelState> data;
 };
 
 /// \brief The scalar kernel execution API that must be implemented for SCALAR
@@ -555,8 +500,7 @@ struct Kernel {
 /// endeavor to write into pre-allocated memory if they are able, though for
 /// some kernels (e.g. in cases when a builder like StringBuilder) must be
 /// employed this may not be possible.
-using ArrayKernelExec =
-    std::function<Status(KernelContext*, const ExecSpan&, ExecResult*)>;
+typedef Status (*ArrayKernelExec)(KernelContext*, const ExecSpan&, ExecResult*);
 
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
@@ -566,12 +510,11 @@ struct ScalarKernel : public Kernel {
 
   ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
                KernelInit init = NULLPTR)
-      : Kernel(std::move(sig), init), exec(std::move(exec)) {}
+      : Kernel(std::move(sig), init), exec(exec) {}
 
   ScalarKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR)
-      : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
-        exec(std::move(exec)) {}
+      : Kernel(std::move(in_types), std::move(out_type), std::move(init)), exec(exec) {}
 
   /// \brief Perform a single invocation of this kernel. Depending on the
   /// implementation, it may only write into preallocated memory, while in some
@@ -590,9 +533,6 @@ struct ScalarKernel : public Kernel {
   // bitmaps is a reasonable default
   NullHandling::type null_handling = NullHandling::INTERSECTION;
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
-
-  // Additional kernel-specific data
-  std::shared_ptr<KernelState> data;
 };
 
 // ----------------------------------------------------------------------
@@ -615,13 +555,13 @@ struct VectorKernel : public Kernel {
   VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
-        exec(std::move(exec)),
+        exec(exec),
         finalize(std::move(finalize)) {}
 
   VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
                KernelInit init = NULLPTR, FinalizeFunc finalize = NULLPTR)
       : Kernel(std::move(sig), std::move(init)),
-        exec(std::move(exec)),
+        exec(exec),
         finalize(std::move(finalize)) {}
 
   /// \brief Perform a single invocation of this kernel. Any required state is

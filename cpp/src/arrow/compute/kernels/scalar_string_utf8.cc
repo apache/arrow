@@ -605,15 +605,8 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = State::Get(ctx);
     Utf8NormalizeExec exec{options};
-    if (batch[0].is_array()) {
-      return exec.ExecArray(ctx, batch[0].array, out);
-    } else {
-      DCHECK(batch[0].is_scalar());
-      return exec.ExecScalar(ctx, *batch[0].scalar, out);
-    }
-  }
 
-  Status ExecArray(KernelContext* ctx, const ArraySpan& array, ExecResult* out) {
+    const ArraySpan& array = batch[0].array;
     BufferBuilder data_builder(ctx->memory_pool());
 
     const offset_type* in_offsets = array.GetValues<offset_type>(1);
@@ -631,7 +624,7 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
     RETURN_NOT_OK(VisitArraySpanInline<Type>(
         array,
         [&](util::string_view v) {
-          ARROW_ASSIGN_OR_RAISE(auto n_bytes, Decompose(v, &data_builder));
+          ARROW_ASSIGN_OR_RAISE(auto n_bytes, exec.Decompose(v, &data_builder));
           offset += n_bytes;
           *out_offsets++ = static_cast<offset_type>(offset);
           return Status::OK();
@@ -642,19 +635,6 @@ struct Utf8NormalizeExec : public Utf8NormalizeBase {
         }));
 
     return data_builder.Finish(&output->buffers[2]);
-  }
-
-  Status ExecScalar(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
-    if (scalar.is_valid) {
-      const auto& string_scalar = checked_cast<const ScalarType&>(scalar);
-      auto* out_scalar = checked_cast<ScalarType*>(out->scalar().get());
-
-      BufferBuilder data_builder(ctx->memory_pool());
-      RETURN_NOT_OK(Decompose(string_scalar.view(), &data_builder));
-      RETURN_NOT_OK(data_builder.Finish(&out_scalar->value));
-      out_scalar->is_valid = true;
-    }
-    return Status::OK();
   }
 };
 
