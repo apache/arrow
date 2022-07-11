@@ -72,7 +72,9 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
   virtual std::string type_name() const = 0;
 
   /// \brief determines if partiioning is exactly equal
-  virtual bool Equals(const Partitioning& other, bool check_metadata = false) const = 0;
+  virtual bool Equals(const Partitioning& other, bool check_metadata = false) const {
+    return schema_->Equals(other.schema_, check_metadata);
+  }
 
   /// \brief If the input batch shares any fields with this partitioning,
   /// produce sub-batches which satisfy mutually exclusive Expressions.
@@ -229,6 +231,8 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
 
   std::string type_name() const override { return "directory"; }
 
+  bool Equals(const Partitioning& other, bool check_metadata) const override;
+
   /// \brief Create a factory for a directory partitioning.
   ///
   /// \param[in] field_names The names for the partition fields. Types will be
@@ -287,6 +291,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
   static Result<util::optional<Key>> ParseKey(const std::string& segment,
                                               const HivePartitioningOptions& options);
+
+  bool Equals(const Partitioning& other, bool check_metadata) const override;
 
   /// \brief Create a factory for a hive partitioning.
   static std::shared_ptr<PartitioningFactory> MakeFactory(
@@ -362,6 +368,8 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
   ///     inferred.
   static std::shared_ptr<PartitioningFactory> MakeFactory(
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
+
+  bool Equals(const Partitioning& other, bool check_metadata = false) const override;
 
  private:
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
