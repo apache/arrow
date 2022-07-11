@@ -110,6 +110,33 @@ test_that("register_user_defined_function() adds a compute function to the regis
   )
 })
 
+test_that("register_user_defined_function() can register multiple kernels", {
+  skip_if_not_available("dataset")
+
+  times_32_wrapper <- arrow_scalar_function(
+    function(x) x * 32L,
+    in_type = list(int32(), int64(), float64()),
+    out_type = function(in_types) in_types[[1]]
+  )
+
+  register_user_defined_function(times_32_wrapper, "times_32")
+
+  expect_equal(
+    call_function("times_32", Scalar$create(1L, int32())),
+    Scalar$create(32L, int32())
+  )
+
+  expect_equal(
+    call_function("times_32", Scalar$create(1L, int64())),
+    Scalar$create(32L, int64())
+  )
+
+  expect_equal(
+    call_function("times_32", Scalar$create(1L, float64())),
+    Scalar$create(32L, float64())
+  )
+})
+
 test_that("register_user_defined_function() errors for unsupported specifications", {
   no_kernel_wrapper <- arrow_scalar_function(
     function(...) NULL,
