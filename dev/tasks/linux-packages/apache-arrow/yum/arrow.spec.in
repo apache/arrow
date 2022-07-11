@@ -158,6 +158,7 @@ cd cpp
   -DARROW_DATASET=ON \
 %if %{use_flight}
   -DARROW_FLIGHT=ON \
+  -DARROW_FLIGHT_SQL=ON \
 %endif
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
@@ -384,9 +385,7 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-%if %{use_flight}
 Requires:	c-ares
-%endif
 Requires:	openssl
 
 %description -n %{name}%{major_version}-flight-libs
@@ -412,12 +411,48 @@ Libraries and header files for Apache Arrow Flight.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/
+%exclude %{_includedir}/arrow/flight/sql/
 %{_libdir}/cmake/arrow/ArrowFlightConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowFlightTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrowFlight.cmake
 %{_libdir}/libarrow_flight.a
 %{_libdir}/libarrow_flight.so
 %{_libdir}/pkgconfig/arrow-flight.pc
+
+%package -n %{name}%{major_version}-flight-sql-libs
+Summary:	C++ library for interacting with SQL databases.
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
+
+%description -n %{name}%{major_version}-flight-sql-libs
+This package contains the libraries for Apache Arrow Flight SQL.
+
+%files -n %{name}%{major_version}-flight-sql-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_flight_sql.so.*
+
+%package flight-sql-devel
+Summary:	Libraries and header files for Apache Arrow Flight SQL.
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-sql-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description flight-sql-devel
+Libraries and header files for Apache Arrow Flight SQL.
+
+%files flight-sql-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/flight/sql/
+%{_libdir}/cmake/arrow/ArrowFlightSqlConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowFlightSqlTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrowFlightSql.cmake
+%{_libdir}/libarrow_flight_sql.a
+%{_libdir}/libarrow_flight_sql.so
+%{_libdir}/pkgconfig/arrow-flight-sql.pc
 %endif
 
 %if %{use_gandiva}
@@ -779,6 +814,56 @@ Documentation for Apache Arrow Flight GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/arrow-flight-glib/
+
+%package -n %{name}%{major_version}-flight-sql-glib-libs
+Summary:	Runtime libraries for Apache Arrow Flight SQL GLib
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-sql-libs = %{version}-%{release}
+Requires:	%{name}%{major_version}-flight-glib-libs = %{version}-%{release}
+
+%description -n %{name}%{major_version}-flight-sql-glib-libs
+This package contains the libraries for Apache Arrow Flight SQL GLib.
+
+%files -n %{name}%{major_version}-flight-sql-glib-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-flight-sql-glib.so.*
+%{_datadir}/gir-1.0/ArrowFlightSQL-1.0.gir
+
+%package flight-sql-glib-devel
+Summary:	Libraries and header files for Apache Arrow Flight SQL GLib
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-sql-glib-libs = %{version}-%{release}
+Requires:	%{name}-flight-sql-devel = %{version}-%{release}
+Requires:	%{name}-flight-glib-devel = %{version}-%{release}
+
+%description flight-sql-glib-devel
+Libraries and header files for Apache Arrow Flight SQL GLib.
+
+%files flight-sql-glib-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-flight-sql-glib/
+%{_libdir}/libarrow-flight-sql-glib.a
+%{_libdir}/libarrow-flight-sql-glib.so
+%{_libdir}/pkgconfig/arrow-flight-sql-glib.pc
+%{_libdir}/girepository-1.0/ArrowFlightSQL-1.0.typelib
+%{_datadir}/vala/vapi/arrow-flight-sql-glib.*
+
+%package flight-sql-glib-doc
+Summary:	Documentation for Apache Arrow Flight SQL GLib
+License:	Apache-2.0
+
+%description flight-sql-glib-doc
+Documentation for Apache Arrow Flight SQL GLib.
+
+%files flight-sql-glib-doc
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/arrow-flight-sql-glib/
 %endif
 
 %if %{use_gandiva}

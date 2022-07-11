@@ -137,9 +137,9 @@ garrow_output_stream_set_property(GObject *object,
 
 static void
 garrow_output_stream_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
 {
   switch (prop_id) {
   default:

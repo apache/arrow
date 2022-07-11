@@ -84,6 +84,14 @@ struct _GAFlightServerCallContextClass
 };
 
 
+#define GAFLIGHT_TYPE_SERVABLE (gaflight_servable_get_type())
+G_DECLARE_INTERFACE(GAFlightServable,
+                    gaflight_servable,
+                    GAFLIGHT,
+                    SERVABLE,
+                    GObject)
+
+
 #define GAFLIGHT_TYPE_SERVER (gaflight_server_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightServer,
                          gaflight_server,

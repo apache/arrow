@@ -84,12 +84,13 @@ if have_gi
                        symbol_prefix: 'gaflight')
 
   if generate_vapi
-    gnome.generate_vapi('arrow-flight-glib',
-                        install: true,
-                        packages: [
-                          arrow_glib_vapi,
-                          'gio-2.0',
-                        ],
-                        sources: [flight_glib_gir[0]])
+    flight_glib_vapi = \
+      gnome.generate_vapi('arrow-flight-glib',
+                          install: true,
+                          packages: [
+                            arrow_glib_vapi,
+                            'gio-2.0',
+                          ],
+                          sources: [flight_glib_gir[0]])
   endif
 endif
