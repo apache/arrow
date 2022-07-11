@@ -20,7 +20,11 @@ assigned.}
 
 \item{update_cache}{Update .cache$functions at the time of registration.
 the default is FALSE because the majority of usage is to register
-bindings at package load, after which we create the cache once.}
+bindings at package load, after which we create the cache once. The
+reason why .cache$functions is needed in addition to nse_funcs for
+non-aggregate functions could be revisited...it is currently used
+as the data mask in mutate, filter, and aggregate (but not
+summarise) because the data mask has to be a list.}
 
 \item{agg_fun}{An aggregate function or \code{NULL} to un-register a previous
 aggregate function. This function must accept \code{Expression} objects as

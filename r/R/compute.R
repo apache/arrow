@@ -344,7 +344,7 @@ cast_options <- function(safe = TRUE, ...) {
 #'     `register_user_defined_function()`.
 #' @export
 #'
-#' @examplesIf .Machine$sizeof.pointer >= 8
+#' @examplesIf arrow_with_dataset()
 #' fun_wrapper <- arrow_scalar_function(
 #'   function(x, y, z) x + y + z,
 #'   schema(x = float64(), y = float64(), z = float64()),

@@ -52,7 +52,11 @@ NULL
 #'   - `options`: list of function options, as passed to call_function
 #' @param update_cache Update .cache$functions at the time of registration.
 #'   the default is FALSE because the majority of usage is to register
-#'   bindings at package load, after which we create the cache once.
+#'   bindings at package load, after which we create the cache once. The
+#'   reason why .cache$functions is needed in addition to nse_funcs for
+#'   non-aggregate functions could be revisited...it is currently used
+#'   as the data mask in mutate, filter, and aggregate (but not
+#'   summarise) because the data mask has to be a list.
 #' @param registry An environment in which the functions should be
 #'   assigned.
 #'

@@ -56,7 +56,7 @@ returns R objects; use \code{\link[=arrow_advanced_scalar_function]{arrow_advanc
 lower-level function that operates directly on Arrow objects.
 }
 \examples{
-\dontshow{if (.Machine$sizeof.pointer >= 8) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 fun_wrapper <- arrow_scalar_function(
   function(x, y, z) x + y + z,
   schema(x = float64(), y = float64(), z = float64()),
