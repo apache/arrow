@@ -899,6 +899,14 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
 
   ASSERT_RAISES(Invalid, stream->Write("x"));  // Stream is closed
 
+  // Trailing slash ignored
+  ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream("CD/ghi/"));
+  ASSERT_OK(stream->Write("new data"));
+  ASSERT_OK(stream->Close());
+  AssertAllDirs(fs, {"CD"});
+  AssertAllFiles(fs, {"CD/ghi", "abc"});
+  AssertFileContents(fs, "CD/ghi", "new data");
+
   // Storing metadata along file
   auto metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
                                          {"x-arrow/filesystem-test", "fr_FR"});
