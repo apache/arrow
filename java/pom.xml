@@ -260,7 +260,7 @@
               <goal>revision</goal>
             </goals>
             <configuration>
-              <generateGitPropertiesFilename>target/classes/git.properties</generateGitPropertiesFilename>
+              <generateGitPropertiesFilename>target/classes/gitarrowinfo.properties</generateGitPropertiesFilename>
             </configuration>
           </execution>
           <execution>
@@ -270,7 +270,7 @@
             </goals>
             <inherited>false</inherited>
             <configuration>
-              <generateGitPropertiesFilename>./git.properties</generateGitPropertiesFilename>
+              <generateGitPropertiesFilename>./gitarrowinfo.properties</generateGitPropertiesFilename>
             </configuration>
           </execution>
         </executions>
