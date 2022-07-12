@@ -552,7 +552,7 @@ test_that("mutate() and transmute() with namespaced functions", {
     tbl
   )
 
-  # stringr::str_detect binding depends on RE2
+  # str_detect binding depends on RE2
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
