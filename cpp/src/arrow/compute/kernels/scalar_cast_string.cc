@@ -27,14 +27,14 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
 using internal::StringFormatter;
 using util::InitializeUTF8;
-using util::ValidateUTF8;
+using util::ValidateUTF8Inline;
 
 namespace compute {
 namespace internal {
@@ -197,7 +197,7 @@ struct Utf8Validator {
   Status VisitNull() { return Status::OK(); }
 
   Status VisitValue(util::string_view str) {
-    if (ARROW_PREDICT_FALSE(!ValidateUTF8(str))) {
+    if (ARROW_PREDICT_FALSE(!ValidateUTF8Inline(str))) {
       return Status::Invalid("Invalid UTF8 payload");
     }
     return Status::OK();
