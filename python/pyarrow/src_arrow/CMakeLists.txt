@@ -168,6 +168,7 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Needed gdb flags
+# Remove and change to include(SetupCxxFlags) when ARROW-17037 is merged
 
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 if(ARROW_GGDB_DEBUG)
@@ -256,9 +257,13 @@ set(ARROW_PYTHON_STATIC_LINK_LIBS ${PYTHON_OTHER_LIBS})
 if(WIN32)
   list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
 endif()
+
 if(PARQUET_REQUIRE_ENCRYPTION AND PYARROW_WITH_PARQUET_ENCRYPTION)
   list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS parquet_shared)
 endif()
+
+# xsimd
+# Remove when ARROW-17037 is merged
 
 if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQUAL "NONE"
                                              ))
