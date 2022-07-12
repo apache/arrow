@@ -268,6 +268,8 @@ class build_ext(_build_ext):
                 str(pjoin(saved_cwd, 'build/dist')),
                 '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type.lower()),
                 '-DARROW_BUILD_DIR=' + str(arrow_build_dir),
+                '-DPYTHON_EXECUTABLE=%s' % sys.executable,
+                '-DPython3_EXECUTABLE=%s' % sys.executable,
             ]
 
             # Check for specific options
