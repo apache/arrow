@@ -242,8 +242,8 @@ class build_ext(_build_ext):
         # The directory for the module being built
         build_cmd = self.get_finalized_command('build')
         saved_cwd = os.getcwd()
-        build_temp = pjoin(saved_cwd, 'build/dist/temp')
-        build_include = pjoin(saved_cwd, 'build/dist/include')
+        build_temp = pjoin(saved_cwd, 'build', 'dist', 'temp')
+        build_include = pjoin(saved_cwd, 'build', 'dist', 'include')
         build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
 
         # The directory containing Arrow C++ build
