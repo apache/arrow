@@ -1800,6 +1800,10 @@ InitializeMainRThread <- function() {
   invisible(.Call(`_arrow_InitializeMainRThread`))
 }
 
+CanRunWithCapturedR <- function() {
+  .Call(`_arrow_CanRunWithCapturedR`)
+}
+
 TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {
   .Call(`_arrow_TestSafeCallIntoR`, r_fun_that_returns_a_string, opt)
 }

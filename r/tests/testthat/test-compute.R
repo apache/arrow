@@ -80,7 +80,7 @@ test_that("arrow_scalar_function() returns an advanced scalar function", {
 })
 
 test_that("register_user_defined_function() adds a compute function to the registry", {
-  skip_if_not_available("dataset")
+  skip_if_not(CanRunWithCapturedR())
 
   times_32_wrapper <- arrow_scalar_function(
     function(x) x * 32.0,
@@ -111,7 +111,7 @@ test_that("register_user_defined_function() adds a compute function to the regis
 })
 
 test_that("arrow_scalar_function() with bad return type errors", {
-  skip_if_not_available("dataset")
+  skip_if_not(CanRunWithCapturedR())
 
   times_32_wrapper <- arrow_advanced_scalar_function(
     function(context, args) Array$create(args[[1]], int32()),
@@ -137,7 +137,7 @@ test_that("arrow_scalar_function() with bad return type errors", {
 })
 
 test_that("register_user_defined_function() can register multiple kernels", {
-  skip_if_not_available("dataset")
+  skip_if_not(CanRunWithCapturedR())
 
   times_32_wrapper <- arrow_scalar_function(
     function(x) x * 32L,
@@ -186,6 +186,7 @@ test_that("register_user_defined_function() errors for unsupported specification
 })
 
 test_that("user-defined functions work during multi-threaded execution", {
+  skip_if_not(CanRunWithCapturedR())
   skip_if_not_available("dataset")
 
   n_rows <- 10000
@@ -234,6 +235,7 @@ test_that("user-defined functions work during multi-threaded execution", {
 
 test_that("user-defined error when called from an unsupported context", {
   skip_if_not_available("dataset")
+  skip_if_not(CanRunWithCapturedR())
 
   times_32_wrapper <- arrow_scalar_function(
     function(x) x * 32.0,
