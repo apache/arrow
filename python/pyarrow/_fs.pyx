@@ -108,22 +108,16 @@ cdef class FileInfo(_Weakrefable):
     >>> local = fs.LocalFileSystem()
     >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
     ...     stream.write(b'data')
-    ...
     4
 
-    Get FileInfo object using `get_file_info()`:
+    Get FileInfo object using ``get_file_info()``:
 
-    >>> local.get_file_info('/tmp/fileinfo.dat')
+    >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+    >>> file_info
     <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
-
-    or FileInfo constructor:
-
-    >>> fs.FileInfo('/tmp/fileinfo.dat', type=fs.FileType.File)
-    <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=None>
 
     Inspect FileInfo attributes:
 
-    >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
     >>> file_info.type
     <FileType.File: 2>
 
@@ -363,7 +357,6 @@ cdef class FileSelector(_Weakrefable):
     >>> local = fs.LocalFileSystem()
     >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
     ...     stream.write(b'data')
-    ...
     4
 
     Create new directory and subdirectory with copied data:
@@ -372,20 +365,20 @@ cdef class FileSelector(_Weakrefable):
     >>> local.create_dir('/tmp/alphabet')
     >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/alphabet/fileinfo.dat')
     >>> # subdirectory
-    >>> local.create_dir('/tmp/alphabet/aeiou')
-    >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/alphabet/aeiou/fileinfo_copy.dat')
+    >>> local.create_dir('/tmp/alphabet/subdir')
+    >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/alphabet/subdir/fileinfo_copy.dat')
 
     List the contents of a directory and subdirectories:
 
     >>> selector_1 = fs.FileSelector('/tmp/alphabet', recursive=True)
     >>> local.get_file_info(selector_1)
-    [<FileInfo for '/tmp/alphabet/fileinfo.dat': type=FileType.File, size=4>, <FileInfo for '/tmp/alphabet/aeiou':...
+    [<FileInfo for '/tmp/alphabet/fileinfo.dat': type=FileType.File, size=4>, <FileInfo for '/tmp/alphabet/subdir':...
 
     List only the contents of the base directory:
 
     >>> selector_2 = fs.FileSelector('/tmp/alphabet')
     >>> local.get_file_info(selector_2)
-    [<FileInfo for '/tmp/alphabet/fileinfo.dat': type=FileType.File, size=4>, <FileInfo for '/tmp/alphabet/aeiou': ...
+    [<FileInfo for '/tmp/alphabet/fileinfo.dat': type=FileType.File, size=4>, <FileInfo for '/tmp/alphabet/subdir': ...
 
     Return empty selection if the directory doesn't exist:
 
@@ -470,9 +463,9 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a new FileSystem subclass from path:
+        Create a new FileSystem subclass from a URI:
 
-        >>> local_new, path = fs.LocalFileSystem().from_uri('file:///tmp/fileinfo.dat')
+        >>> local_new, path = fs.FileSystem.from_uri('file:///tmp/fileinfo.dat')
         >>> local_new
         <pyarrow._fs.LocalFileSystem object at ...
         >>> path
@@ -580,8 +573,8 @@ cdef class FileSystem(_Weakrefable):
         --------
         >>> local
         <pyarrow._fs.LocalFileSystem object at ...>
-        >>> local.get_file_info("local.get_file_info(/tmp/fileinfo.dat)")
-        <FileInfo for 'local.get_file_info(/tmp/fileinfo.dat)': type=FileType.NotFound>
+        >>> local.get_file_info("/tmp/fileinfo.dat")
+        <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
         """
         cdef:
             CFileInfo info
@@ -758,8 +751,13 @@ cdef class FileSystem(_Weakrefable):
         Examples
         --------
         >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/fileinfo_copy.dat')
+
+        Inspect the file info:
+
         >>> local.get_file_info('/tmp/fileinfo_copy.dat')
         <FileInfo for '/tmp/fileinfo_copy.dat': type=FileType.File, size=4>
+        >>> local.get_file_info('/tmp/fileinfo.dat')
+        <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
         """
         cdef:
             c_string source = _path_as_bytes(src)
@@ -828,7 +826,6 @@ cdef class FileSystem(_Weakrefable):
 
         >>> with local.open_input_file('/tmp/fileinfo.dat') as f:
         ...     print(f.readall())
-        ... 
         b'data'
         """
         cdef:
@@ -871,7 +868,6 @@ cdef class FileSystem(_Weakrefable):
 
         >>> with local.open_input_stream('/tmp/fileinfo.dat') as f:
         ...     print(f.readall())
-        ... 
         b'data'
         """
         cdef:
@@ -924,7 +920,6 @@ cdef class FileSystem(_Weakrefable):
         >>> local = fs.LocalFileSystem()
         >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
         ...     stream.write(b'data')
-        ... 
         4
         """
         cdef:
@@ -990,14 +985,12 @@ cdef class FileSystem(_Weakrefable):
 
         >>> with local.open_append_stream('/tmp/fileinfo.dat') as f:
         ...     f.write(b'+newly added')
-        ... 
         12
 
         Print out the content fo the file:
 
         >>> with local.open_input_file('/tmp/fileinfo.dat') as f:
         ...     print(f.readall())
-        ... 
         b'data+newly added'
         """
         cdef:
@@ -1068,11 +1061,9 @@ cdef class LocalFileSystem(FileSystem):
 
     >>> with local.open_output_stream('/tmp/local_fs.dat') as stream:
     ...     stream.write(b'data')
-    ...
     4
     >>> with local.open_input_stream('/tmp/local_fs.dat') as stream:
     ...     print(stream.readall())
-    ...
     b'data'
 
     Create a FileSystem object inferred from a URI of the saved file:
@@ -1106,11 +1097,10 @@ cdef class LocalFileSystem(FileSystem):
 
     >>> with local.open_append_stream('/tmp/local_fs-copy.dat') as f:
     ...     f.write(b'+newly added')
-    ...
     12
+
     >>> with local.open_input_stream('/tmp/local_fs-copy.dat') as f:
     ...     print(f.readall())
-    ...
     b'data+newly added'
 
     Create a directory, copy a file into it and then delete the whole directory:
@@ -1211,8 +1201,7 @@ cdef class SubTreeFileSystem(FileSystem):
     >>> from pyarrow import fs
     >>> local = fs.LocalFileSystem()
     >>> with local.open_output_stream('/tmp/local_fs.dat') as stream:
-    ...     stream.write(b'data')
-    ... 
+    ...     stream.write(b'data') 
     4
 
     Create a directory and a SubTreeFileSystem instance:
@@ -1224,7 +1213,6 @@ cdef class SubTreeFileSystem(FileSystem):
 
     >>> with subtree.open_append_stream('sub_tree_fs.dat') as f:
     ...     f.write(b'+newly added')
-    ... 
     12
 
     Print out the attributes:
