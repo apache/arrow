@@ -80,8 +80,8 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
   });
   std::vector<ExecBatch> inputs(num_batches);
   for (auto& batch : inputs) {
-    batch = ExecBatch({Datum(ConstantArrayGenerator::Int64(rows_per_batch, 5))},
-                      /*length=*/1);
+    batch = ExecBatch({Datum(ConstantArrayGenerator::Int64(rows_per_batch, /*value=*/5))},
+                      /*length=*/rows_per_batch);
   }
 
   ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
