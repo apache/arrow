@@ -287,13 +287,19 @@ class build_ext(_build_ext):
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
 
+            # build args
+            build_tool_args = []
+            if os.environ.get('PYARROW_PARALLEL'):
+                build_tool_args.append(
+                    '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+
             # run cmake
             print("-- Running cmake for C pyarrow")
             self.spawn(['cmake'] + cmake_options + [source_cpyarrow])
             print("-- Finished cmake for C pyarrow")
             # run make & install
             print("-- Running make build and install for C pyarrow")
-            self.spawn(['make', '-j4'])
+            self.spawn(['make'] + build_tool_args)
             self.spawn(['make', 'install'])
             print("-- Finished make build and install for C pyarrow")
 
@@ -429,10 +435,6 @@ class build_ext(_build_ext):
             self.spawn(['cmake', '--build', '.', '--config', self.build_type] +
                        build_tool_args)
             print("-- Finished cmake --build for pyarrow")
-
-            if self.inplace:
-                # a bit hacky
-                build_lib = saved_cwd
 
             # Move the libraries to the place expected by the Python build
             try:
