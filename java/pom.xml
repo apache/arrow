@@ -123,7 +123,7 @@
             <exclude>**/*.seq</exclude>
             <exclude>**/*.parquet</exclude>
             <exclude>**/*.sql</exclude>
-            <exclude>**/git.properties</exclude>
+            <exclude>**/arrow-git.properties</exclude>
             <exclude>**/*.csv</exclude>
             <exclude>**/*.csvh</exclude>
             <exclude>**/*.csvh-test</exclude>
@@ -260,7 +260,7 @@
               <goal>revision</goal>
             </goals>
             <configuration>
-              <generateGitPropertiesFilename>target/classes/git.properties</generateGitPropertiesFilename>
+              <generateGitPropertiesFilename>target/classes/arrow-git.properties</generateGitPropertiesFilename>
             </configuration>
           </execution>
           <execution>
@@ -270,7 +270,7 @@
             </goals>
             <inherited>false</inherited>
             <configuration>
-              <generateGitPropertiesFilename>./git.properties</generateGitPropertiesFilename>
+              <generateGitPropertiesFilename>./arrow-git.properties</generateGitPropertiesFilename>
             </configuration>
           </execution>
         </executions>
