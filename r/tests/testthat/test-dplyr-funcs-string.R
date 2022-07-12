@@ -23,6 +23,14 @@ library(lubridate)
 library(stringr)
 library(stringi)
 
+tbl <- example_data
+# Add some better string data
+tbl$verses <- verses[[1]]
+# c(" a ", "  b  ", "   c   ", ...) increasing padding
+# nchar =   3  5  7  9 11 13 15 17 19 21
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
+tbl$some_grouping <- rep(c(1, 2), 5)
+
 test_that("paste, paste0, and str_c", {
   df <- tibble(
     v = c("A", "B", "C"),
@@ -1240,5 +1248,75 @@ test_that("str_count", {
       mutate(dots_count = str_count(dots, fixed("."))) %>%
       collect(),
     df
+  )
+})
+
+test_that("stringi::stri_reverse", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        verse_length = stri_reverse(verses)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("base::tolower and base::toupper", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        verse_to_upper = toupper(verses),
+        verse_to_lower = tolower(verses)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("stringr::str_dup and base::strrep", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        duped_verses_stringr = str_dup(verses, times = 2L),
+        duped_verses_base = strrep(verses, times = 3L)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("namespaced unary and binary string functions", {
+  # str_length and stringi::stri_reverse
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        verse_length = stringr::str_length(verses),
+        reverses_verse = stringi::stri_reverse(verses)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # base::tolower and base::toupper
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        verse_to_upper = base::toupper(verses),
+        verse_to_lower = base::tolower(verses)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # stringr::str_dup and base::strrep
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        duped_verses_stringr = stringr::str_dup(verses, times = 2L),
+        duped_verses_base = base::strrep(verses, times = 3L)
+      ) %>%
+      collect(),
+    tbl
   )
 })
