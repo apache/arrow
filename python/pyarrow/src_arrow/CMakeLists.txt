@@ -168,57 +168,7 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Needed gdb flags
-# Remove and change to include(SetupCxxFlags) when ARROW-17037 is merged
-
-# compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
-if(ARROW_GGDB_DEBUG)
-  set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
-  set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-  set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-  set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-  set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-else()
-  set(C_FLAGS_DEBUG "-g -O0")
-  set(C_FLAGS_FASTDEBUG "-g -O1")
-  set(CXX_FLAGS_DEBUG "-g -O0")
-  set(CXX_FLAGS_FASTDEBUG "-g -O1")
-endif()
-
-set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
-set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-
-set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
-set(C_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
-set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
-set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
-
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
-# Set compile flags based on the build type.
-message(STATUS "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
-)
-
-if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
-
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELEASE}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELEASE}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_GEN}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_GEN}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_BUILD}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
-else()
-  message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
-endif()
-
-message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
+include(SetupCxxFlags)
 
 #
 # Linker flags
@@ -260,37 +210,6 @@ endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION AND PYARROW_WITH_PARQUET_ENCRYPTION)
   list(APPEND ARROW_PYTHON_SHARED_LINK_LIBS parquet_shared)
-endif()
-
-# xsimd
-# Remove when ARROW-17037 is merged
-
-if((NOT ARROW_SIMD_LEVEL STREQUAL "NONE") OR (NOT ARROW_RUNTIME_SIMD_LEVEL STREQUAL "NONE"
-                                             ))
-  set(ARROW_USE_XSIMD TRUE)
-else()
-  set(ARROW_USE_XSIMD FALSE)
-endif()
-
-if(ARROW_USE_XSIMD)
-  set(XSIMD_PREFIX "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/xsimd_ep/src/xsimd_ep-install")
-  if(EXISTS ${XSIMD_PREFIX}/include)
-    set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
-  else()
-    set(XSIMD_PREFIX "$ENV{CONDA_PREFIX}")
-    set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
-  endif()
-
-  add_library(xsimd INTERFACE IMPORTED)
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                          "${XSIMD_INCLUDE_DIR}")
-  else()
-    target_include_directories(xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
-  endif()
-
-  list(APPEND ARROW_PYTHON_SHARED_PRIVATE_LINK_LIBS xsimd)
-  list(APPEND ARROW_PYTHON_STATIC_LINK_LIBS xsimd)
 endif()
 
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
