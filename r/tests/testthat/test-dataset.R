@@ -1215,3 +1215,20 @@ test_that("FileSystemFactoryOptions input validation", {
     fixed = TRUE
   )
 })
+
+test_that("show_exec_plan() with datasets", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  expect_output(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6L & part == 1) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
+      # the filter including the auto-casting of part
+      "FilterNode.*filter=.*int > 6.*cast.*",
+      "SourceNode"                   # the starting point
+    )
+  )
+})

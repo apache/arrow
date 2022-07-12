@@ -295,21 +295,74 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
 })
 
 test_that("show_exec_plan()", {
-  expect_snapshot(
+  # arrow_table and mutate
+  expect_output(
     tbl %>%
       arrow_table() %>%
       filter(dbl > 2, chr != "e") %>%
       select(chr, int, lgl) %>%
       mutate(int_plus_ten = int + 10) %>%
-      show_exec_plan()
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",           # boiler plate for ExecPlan
+      "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
+      "(dbl > 2).*",                         # the filter expressions
+      "chr != \"e\".*",
+      "TableSourceNode"                       # the starting point
+    )
   )
 
-  expect_snapshot(
+  # record_batch & mutate
+  expect_output(
     tbl %>%
       record_batch() %>%
       filter(dbl > 2, chr != "e") %>%
       select(chr, int, lgl) %>%
       mutate(int_plus_ten = int + 10) %>%
-      show_exec_plan()
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",           # boiler plate for ExecPlan
+      "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
+      "(dbl > 2).*",                         # the filter expressions
+      "chr != \"e\".*",
+      "TableSourceNode"                       # the starting point"
+    )
+  )
+
+  # test with group_by and summarise
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      group_by(lgl) %>%
+      summarise(avg = mean(dbl, na.rm = TRUE)) %>%
+      ungroup() %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",            # boiler plate for ExecPlan
+      "GroupByNode.*keys.*\"lgl\".*",         # the group_by statement
+      "aggregates.*\\thash_mean.*avg.*skip_nulls=true, min_count=0.*", # the aggregation
+      "TableSourceNode"                       # the starting point
+    )
+  )
+
+  # test with join
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      left_join(
+        example_data %>%
+          arrow_table() %>%
+          mutate(doubled_dbl = dbl * 2) %>%
+          select(int, doubled_dbl),
+        by = "int"
+      ) %>%
+      select(int, verses, doubled_dbl) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",              # boiler plate for ExecPlan
+      "HashJoinNode.*",                         # the join
+      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # the mutate
+      "TableSourceNode"                         # the starting point
+    )
   )
 })
