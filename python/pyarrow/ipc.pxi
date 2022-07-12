@@ -598,7 +598,7 @@ class _ReadPandasMixin:
 cdef class RecordBatchReader(_Weakrefable):
     """Base class for reading stream of record batches.
 
-    Record batch readers function as iterators of record batches that also 
+    Record batch readers function as iterators of record batches that also
     provide the schema (without the need to get any batches).
 
     Warnings
@@ -608,7 +608,7 @@ cdef class RecordBatchReader(_Weakrefable):
 
     Notes
     -----
-    To import and export using the Arrow C stream interface, use the 
+    To import and export using the Arrow C stream interface, use the
     ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
     interface is intended for expert users.
 
@@ -702,11 +702,18 @@ cdef class RecordBatchReader(_Weakrefable):
 
     read_pandas = _ReadPandasMixin.read_pandas
 
+    def close(self):
+        """
+        Release any resources associated with the reader.
+        """
+        with nogil:
+            check_status(self.reader.get().Close())
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self.close()
 
     def _export_to_c(self, out_ptr):
         """

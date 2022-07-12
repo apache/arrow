@@ -2320,7 +2320,7 @@ cdef class Expression(_Weakrefable):
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
 
-    def cast(self, type, bint safe=True):
+    def cast(self, type=None, safe=None, options=None):
         """
         Explicitly set or change the expression's data type.
 
@@ -2329,16 +2329,29 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        type : DataType
+        type : DataType, default None
             Type to cast array to.
         safe : boolean, default True
             Whether to check for conversion errors such as overflow.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
         cast : Expression
         """
-        options = CastOptions.safe(ensure_type(type))
+        safe_vars_passed = (safe is not None) or (type is not None)
+
+        if safe_vars_passed and (options is not None):
+            raise ValueError("Must either pass values for 'type' and 'safe' or pass a "
+                             "value for 'options'")
+
+        if options is None:
+            type = ensure_type(type, allow_none=False)
+            if safe is False:
+                options = CastOptions.unsafe(type)
+            else:
+                options = CastOptions.safe(type)
         return Expression._call("cast", [self], options)
 
     def isin(self, values):

@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -113,6 +114,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
 
     return dictionaries.get(id);
+  }
+
+  @Override
+  public Set<Long> getDictionaryIds() {
+    return dictionaries.keySet();
   }
 
   /** Reads the beginning (schema section) of the json file and returns it. */

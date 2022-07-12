@@ -41,7 +41,17 @@ class TestListScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal(<<-LIST.strip, @scalar.to_s)
+[
+  [
+    [
+      1,
+      2,
+      3
+    ]
+  ]
+]
+                 LIST
   end
 
   def test_value

@@ -41,7 +41,15 @@ public class JniWrapper {
 
   public native void releaseArray(long memoryAddress);
 
+  public native void getNextArrayStream(long streamAddress, long arrayAddress) throws CDataJniException;
+
+  public native void getSchemaArrayStream(long streamAddress, long arrayAddress) throws CDataJniException;
+
+  public native void releaseArrayStream(long memoryAddress);
+
   public native void exportSchema(long memoryAddress, PrivateData privateData);
 
   public native void exportArray(long memoryAddress, PrivateData data);
+
+  public native void exportArrayStream(long memoryAddress, PrivateData data);
 }

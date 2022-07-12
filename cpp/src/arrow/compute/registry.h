@@ -80,7 +80,7 @@ class ARROW_EXPORT FunctionRegistry {
 
   /// \brief Check whether a new function options type can be added to the registry.
   ///
-  /// \returns Status::KeyError if a function options type with the same name is already
+  /// \return Status::KeyError if a function options type with the same name is already
   /// registered.
   Status CanAddFunctionOptionsType(const FunctionOptionsType* options_type,
                                    bool allow_overwrite = false);
@@ -115,8 +115,6 @@ class ARROW_EXPORT FunctionRegistry {
   std::unique_ptr<FunctionRegistryImpl> impl_;
 
   explicit FunctionRegistry(FunctionRegistryImpl* impl);
-
-  class NestedFunctionRegistryImpl;
 };
 
 /// \brief Return the process-global function registry.

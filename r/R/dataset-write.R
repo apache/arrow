@@ -143,21 +143,7 @@ write_dataset <- function(dataset,
       # now to construct `partitioning` and don't want it in the metadata$r
       dataset <- dplyr::ungroup(dataset)
     }
-    dataset <- tryCatch(
-      as_adq(dataset),
-      error = function(e) {
-        supported <- c(
-          "Dataset", "RecordBatch", "Table", "arrow_dplyr_query", "data.frame"
-        )
-        stop(
-          "'dataset' must be a ",
-          oxford_paste(supported, "or", quote = FALSE),
-          ", not ",
-          deparse(class(dataset)),
-          call. = FALSE
-        )
-      }
-    )
+    dataset <- as_adq(dataset)
   }
 
   plan <- ExecPlan$create()

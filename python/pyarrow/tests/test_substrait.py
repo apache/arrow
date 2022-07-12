@@ -55,7 +55,8 @@ def test_run_serialized_query(tmpdir):
             "local_files": {
                 "items": [
                 {
-                    "uri_file": "file://FILENAME_PLACEHOLDER"
+                    "uri_file": "file://FILENAME_PLACEHOLDER",
+                    "arrow": {}
                 }
                 ]
             }

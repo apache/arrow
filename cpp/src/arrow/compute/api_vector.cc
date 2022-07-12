@@ -347,11 +347,11 @@ Result<Datum> Filter(const Datum& values, const Datum& filter,
   return CallFunction("filter", {values, filter}, &options, ctx);
 }
 
-Result<Datum> Take(const Datum& values, const Datum& filter, const TakeOptions& options,
+Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
                    ExecContext* ctx) {
   // Invoke metafunction which deals with Datum kinds other than just Array,
   // ChunkedArray.
-  return CallFunction("take", {values, filter}, &options, ctx);
+  return CallFunction("take", {values, indices}, &options, ctx);
 }
 
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,

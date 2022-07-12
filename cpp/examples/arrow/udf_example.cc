@@ -75,10 +75,8 @@ arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecSpan& batch,
 arrow::Status Execute() {
   const std::string name = "add_three";
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Ternary(), func_doc);
-  cp::ScalarKernel kernel(
-      {cp::InputType::Array(arrow::int64()), cp::InputType::Array(arrow::int64()),
-       cp::InputType::Array(arrow::int64())},
-      arrow::int64(), SampleFunction);
+  cp::ScalarKernel kernel({arrow::int64(), arrow::int64(), arrow::int64()},
+                          arrow::int64(), SampleFunction);
 
   kernel.mem_allocation = cp::MemAllocation::PREALLOCATE;
   kernel.null_handling = cp::NullHandling::INTERSECTION;

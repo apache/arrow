@@ -34,5 +34,46 @@ GAFlightServerCallContext *
 gaflight_server_call_context_new_raw(
   const arrow::flight::ServerCallContext *flight_context);
 
+
+struct _GAFlightServableInterface
+{
+  GTypeInterface parent_iface;
+
+  arrow::flight::FlightServerBase *(*get_raw)(GAFlightServable *servable);
+};
+
 arrow::flight::FlightServerBase *
-gaflight_server_get_raw(GAFlightServer *server);
+gaflight_servable_get_raw(GAFlightServable *servable);
+
+
+namespace gaflight {
+  class DataStream : public arrow::flight::FlightDataStream {
+  public:
+    explicit DataStream(GAFlightDataStream *gastream) :
+      arrow::flight::FlightDataStream(),
+      gastream_(gastream) {
+    }
+
+    ~DataStream() override {
+      g_object_unref(gastream_);
+    }
+
+    std::shared_ptr<arrow::Schema> schema() override {
+      auto stream = gaflight_data_stream_get_raw(gastream_);
+      return stream->schema();
+    }
+
+    arrow::Result<arrow::flight::FlightPayload> GetSchemaPayload() override {
+      auto stream = gaflight_data_stream_get_raw(gastream_);
+      return stream->GetSchemaPayload();
+    }
+
+    arrow::Result<arrow::flight::FlightPayload> Next() override {
+      auto stream = gaflight_data_stream_get_raw(gastream_);
+      return stream->Next();
+    }
+
+  private:
+    GAFlightDataStream *gastream_;
+  };
+};

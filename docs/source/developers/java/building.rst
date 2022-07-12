@@ -186,11 +186,6 @@ Arrow repository, and update the following settings:
   Settings > Build, Execution, Deployment > Compiler > Java Compiler and disable
   "Use '--release' option for cross-compilation (Java 9 and later)". Otherwise
   you will get an error like "package sun.misc does not exist".
-* You may need to disable the ``linux-netty-native`` or ``mac-netty-native``
-  profile in the Maven tool window if you get an error like the following::
-
-    Unresolved dependency: 'io.netty:netty-transport-native-unix-common:jar:4.1.72.Final'
-
 * If using IntelliJ's Maven integration to build, you may need to change
   ``<fork>`` to ``false`` in the pom.xml files due to an `IntelliJ bug
   <https://youtrack.jetbrains.com/issue/IDEA-278903>`__.

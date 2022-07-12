@@ -150,6 +150,12 @@ arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
   return ipc::ReadSchema(&schema_reader, dictionary_memo);
 }
 
+arrow::Result<SchemaResult> SchemaResult::Make(const Schema& schema) {
+  std::string schema_in;
+  RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
+  return SchemaResult(std::move(schema_in));
+}
+
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
                                std::shared_ptr<Schema>* out) const {
   return GetSchema(dictionary_memo).Value(out);

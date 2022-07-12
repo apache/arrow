@@ -45,15 +45,16 @@ namespace compute {
 namespace {
 
 struct GrouperImpl : Grouper {
-  static Result<std::unique_ptr<GrouperImpl>> Make(const std::vector<ValueDescr>& keys,
-                                                   ExecContext* ctx) {
+  static Result<std::unique_ptr<GrouperImpl>> Make(
+      const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
     auto impl = ::arrow::internal::make_unique<GrouperImpl>();
 
-    impl->encoders_.resize(keys.size());
+    impl->encoders_.resize(key_types.size());
     impl->ctx_ = ctx;
 
-    for (size_t i = 0; i < keys.size(); ++i) {
-      const auto& key = keys[i].type;
+    for (size_t i = 0; i < key_types.size(); ++i) {
+      // TODO(wesm): eliminate this probably unneeded shared_ptr copy
+      std::shared_ptr<DataType> key = key_types[i].GetSharedPtr();
 
       if (key->id() == Type::BOOL) {
         impl->encoders_[i] =
@@ -198,11 +199,10 @@ struct GrouperFastImpl : Grouper {
   static constexpr int kBitmapPaddingForSIMD = 64;  // bits
   static constexpr int kPaddingForSIMD = 32;        // bytes
 
-  static bool CanUse(const std::vector<ValueDescr>& keys) {
+  static bool CanUse(const std::vector<TypeHolder>& key_types) {
 #if ARROW_LITTLE_ENDIAN
-    for (size_t i = 0; i < keys.size(); ++i) {
-      const auto& key = keys[i].type;
-      if (is_large_binary_like(key->id())) {
+    for (size_t i = 0; i < key_types.size(); ++i) {
+      if (is_large_binary_like(key_types[i].id())) {
         return false;
       }
     }
@@ -213,7 +213,7 @@ struct GrouperFastImpl : Grouper {
   }
 
   static Result<std::unique_ptr<GrouperFastImpl>> Make(
-      const std::vector<ValueDescr>& keys, ExecContext* ctx) {
+      const std::vector<TypeHolder>& keys, ExecContext* ctx) {
     auto impl = ::arrow::internal::make_unique<GrouperFastImpl>();
     impl->ctx_ = ctx;
 
@@ -227,19 +227,19 @@ struct GrouperFastImpl : Grouper {
     impl->key_types_.resize(num_columns);
     impl->dictionaries_.resize(num_columns);
     for (size_t icol = 0; icol < num_columns; ++icol) {
-      const auto& key = keys[icol].type;
-      if (key->id() == Type::DICTIONARY) {
+      const TypeHolder& key = keys[icol];
+      if (key.id() == Type::DICTIONARY) {
         auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
         ARROW_DCHECK(bit_width % 8 == 0);
         impl->col_metadata_[icol] = KeyColumnMetadata(true, bit_width / 8);
-      } else if (key->id() == Type::BOOL) {
+      } else if (key.id() == Type::BOOL) {
         impl->col_metadata_[icol] = KeyColumnMetadata(true, 0);
-      } else if (is_fixed_width(key->id())) {
+      } else if (is_fixed_width(key.id())) {
         impl->col_metadata_[icol] = KeyColumnMetadata(
             true, checked_cast<const FixedWidthType&>(*key).bit_width() / 8);
-      } else if (is_binary_like(key->id())) {
+      } else if (is_binary_like(key.id())) {
         impl->col_metadata_[icol] = KeyColumnMetadata(false, sizeof(uint32_t));
-      } else if (key->id() == Type::NA) {
+      } else if (key.id() == Type::NA) {
         impl->col_metadata_[icol] = KeyColumnMetadata(true, 0, /*is_null_type_in=*/true);
       } else {
         return Status::NotImplemented("Keys of type ", *key);
@@ -306,7 +306,7 @@ struct GrouperFastImpl : Grouper {
     int num_columns = batch.num_values();
     // Process dictionaries
     for (int icol = 0; icol < num_columns; ++icol) {
-      if (key_types_[icol]->id() == Type::DICTIONARY) {
+      if (key_types_[icol].id() == Type::DICTIONARY) {
         auto data = batch[icol].array();
         auto dict = MakeArray(data->dictionary);
         if (dictionaries_[icol]) {
@@ -331,7 +331,7 @@ struct GrouperFastImpl : Grouper {
       const uint8_t* varlen = NULLPTR;
 
       // Skip if the key's type is NULL
-      if (key_types_[icol]->id() != Type::NA) {
+      if (key_types_[icol].id() != Type::NA) {
         if (batch[icol].array()->buffers[0] != NULLPTR) {
           non_nulls = batch[icol].array()->buffers[0]->data();
         }
@@ -488,11 +488,11 @@ struct GrouperFastImpl : Grouper {
 
       if (col_metadata_[i].is_fixed_length) {
         out.values[i] = ArrayData::Make(
-            key_types_[i], num_groups,
+            key_types_[i].GetSharedPtr(), num_groups,
             {std::move(non_null_bufs[i]), std::move(fixedlen_bufs[i])}, null_count);
       } else {
         out.values[i] =
-            ArrayData::Make(key_types_[i], num_groups,
+            ArrayData::Make(key_types_[i].GetSharedPtr(), num_groups,
                             {std::move(non_null_bufs[i]), std::move(fixedlen_bufs[i]),
                              std::move(varlen_bufs[i])},
                             null_count);
@@ -501,11 +501,12 @@ struct GrouperFastImpl : Grouper {
 
     // Process dictionaries
     for (size_t icol = 0; icol < num_columns; ++icol) {
-      if (key_types_[icol]->id() == Type::DICTIONARY) {
+      if (key_types_[icol].id() == Type::DICTIONARY) {
         if (dictionaries_[icol]) {
           out.values[icol].array()->dictionary = dictionaries_[icol]->data();
         } else {
-          ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(key_types_[icol], 0));
+          ARROW_ASSIGN_OR_RAISE(auto dict,
+                                MakeArrayOfNull(key_types_[icol].GetSharedPtr(), 0));
           out.values[icol].array()->dictionary = dict->data();
         }
       }
@@ -523,7 +524,7 @@ struct GrouperFastImpl : Grouper {
   arrow::util::TempVectorStack temp_stack_;
   LightContext encode_ctx_;
 
-  std::vector<std::shared_ptr<arrow::DataType>> key_types_;
+  std::vector<TypeHolder> key_types_;
   std::vector<KeyColumnMetadata> col_metadata_;
   std::vector<KeyColumnArray> cols_;
   std::vector<uint32_t> minibatch_hashes_;
@@ -538,12 +539,12 @@ struct GrouperFastImpl : Grouper {
 
 }  // namespace
 
-Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
+Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<TypeHolder>& key_types,
                                                ExecContext* ctx) {
-  if (GrouperFastImpl::CanUse(descrs)) {
-    return GrouperFastImpl::Make(descrs, ctx);
+  if (GrouperFastImpl::CanUse(key_types)) {
+    return GrouperFastImpl::Make(key_types, ctx);
   }
-  return GrouperImpl::Make(descrs, ctx);
+  return GrouperImpl::Make(key_types, ctx);
 }
 
 Result<std::shared_ptr<ListArray>> Grouper::ApplyGroupings(const ListArray& groupings,

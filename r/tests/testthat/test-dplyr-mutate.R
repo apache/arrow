@@ -365,7 +365,7 @@ test_that("dplyr::mutate's examples", {
   # The mutate operation may yield different results on grouped
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
-  # TODO: ARROW-13926
+  # TODO(ARROW-13926): support window functions
   compare_dplyr_binding(
     .input %>%
       select(name, mass, species) %>%

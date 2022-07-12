@@ -44,7 +44,7 @@ namespace compute {
 namespace {
 
 void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
-                        const std::vector<internal::Aggregate>& aggs,
+                        const std::vector<Aggregate>& aggs,
                         const std::vector<int>& target_field_ids, int indent = 0) {
   *ss << "aggregates=[" << std::endl;
   for (size_t i = 0; i < aggs.size(); i++) {
@@ -64,8 +64,7 @@ class ScalarAggregateNode : public ExecNode {
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
-                      std::vector<int> target_field_ids,
-                      std::vector<internal::Aggregate> aggs,
+                      std::vector<int> target_field_ids, std::vector<Aggregate> aggs,
                       std::vector<const ScalarAggregateKernel*> kernels,
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(plan, std::move(inputs), {"target"},
@@ -89,12 +88,12 @@ class ScalarAggregateNode : public ExecNode {
     std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
     std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
     FieldVector fields(kernels.size());
-    const auto& field_names = aggregate_options.names;
     std::vector<int> target_field_ids(kernels.size());
 
     for (size_t i = 0; i < kernels.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match,
-                            FieldRef(aggregate_options.targets[i]).FindOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(
+          auto match,
+          FieldRef(aggregate_options.aggregates[i].target).FindOne(input_schema));
       target_field_ids[i] = match[0];
 
       ARROW_ASSIGN_OR_RAISE(
@@ -105,8 +104,7 @@ class ScalarAggregateNode : public ExecNode {
                                aggregates[i].function);
       }
 
-      auto in_type = ValueDescr::Array(input_schema.field(target_field_ids[i])->type());
-
+      TypeHolder in_type(input_schema.field(target_field_ids[i])->type().get());
       ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact({in_type}));
       kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
 
@@ -126,10 +124,10 @@ class ScalarAggregateNode : public ExecNode {
 
       // pick one to resolve the kernel signature
       kernel_ctx.SetState(states[i][0].get());
-      ARROW_ASSIGN_OR_RAISE(
-          auto descr, kernels[i]->signature->out_type().Resolve(&kernel_ctx, {in_type}));
+      ARROW_ASSIGN_OR_RAISE(auto out_type, kernels[i]->signature->out_type().Resolve(
+                                               &kernel_ctx, {in_type}));
 
-      fields[i] = field(field_names[i], std::move(descr.type));
+      fields[i] = field(aggregate_options.aggregates[i].name, out_type.GetSharedPtr());
     }
 
     return plan->EmplaceNode<ScalarAggregateNode>(
@@ -263,7 +261,7 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   const std::vector<int> target_field_ids_;
-  const std::vector<internal::Aggregate> aggs_;
+  const std::vector<Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
@@ -276,7 +274,7 @@ class GroupByNode : public ExecNode {
  public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
               std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
-              std::vector<internal::Aggregate> aggs,
+              std::vector<Aggregate> aggs,
               std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
@@ -295,7 +293,6 @@ class GroupByNode : public ExecNode {
     const auto& keys = aggregate_options.keys;
     // Copy (need to modify options pointer below)
     auto aggs = aggregate_options.aggregates;
-    const auto& field_names = aggregate_options.names;
 
     // Get input schema
     auto input_schema = input->output_schema();
@@ -310,39 +307,37 @@ class GroupByNode : public ExecNode {
     // Find input field indices for aggregates
     std::vector<int> agg_src_field_ids(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match,
-                            aggregate_options.targets[i].FindOne(*input_schema));
+      ARROW_ASSIGN_OR_RAISE(auto match, aggs[i].target.FindOne(*input_schema));
       agg_src_field_ids[i] = match[0];
     }
 
     // Build vector of aggregate source field data types
-    DCHECK_EQ(aggregate_options.targets.size(), aggs.size());
-    std::vector<ValueDescr> agg_src_descrs(aggs.size());
+    std::vector<TypeHolder> agg_src_types(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
       auto agg_src_field_id = agg_src_field_ids[i];
-      agg_src_descrs[i] =
-          ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
+      agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
     }
 
     auto ctx = input->plan()->exec_context();
 
     // Construct aggregates
     ARROW_ASSIGN_OR_RAISE(auto agg_kernels,
-                          internal::GetKernels(ctx, aggs, agg_src_descrs));
+                          internal::GetKernels(ctx, aggs, agg_src_types));
 
     ARROW_ASSIGN_OR_RAISE(auto agg_states,
-                          internal::InitKernels(agg_kernels, ctx, aggs, agg_src_descrs));
+                          internal::InitKernels(agg_kernels, ctx, aggs, agg_src_types));
 
     ARROW_ASSIGN_OR_RAISE(
         FieldVector agg_result_fields,
-        internal::ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_descrs));
+        internal::ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_types));
 
     // Build field vector for output schema
     FieldVector output_fields{keys.size() + aggs.size()};
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < aggs.size(); ++i) {
-      output_fields[i] = agg_result_fields[i]->WithName(field_names[i]);
+      output_fields[i] =
+          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
     }
     size_t base = aggs.size();
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -624,26 +619,24 @@ class GroupByNode : public ExecNode {
     if (state->grouper != nullptr) return Status::OK();
 
     // Build vector of key field data types
-    std::vector<ValueDescr> key_descrs(key_field_ids_.size());
+    std::vector<TypeHolder> key_types(key_field_ids_.size());
     for (size_t i = 0; i < key_field_ids_.size(); ++i) {
       auto key_field_id = key_field_ids_[i];
-      key_descrs[i] = ValueDescr(input_schema->field(key_field_id)->type());
+      key_types[i] = input_schema->field(key_field_id)->type().get();
     }
 
     // Construct grouper
-    ARROW_ASSIGN_OR_RAISE(state->grouper, Grouper::Make(key_descrs, ctx_));
+    ARROW_ASSIGN_OR_RAISE(state->grouper, Grouper::Make(key_types, ctx_));
 
     // Build vector of aggregate source field data types
-    std::vector<ValueDescr> agg_src_descrs(agg_kernels_.size());
+    std::vector<TypeHolder> agg_src_types(agg_kernels_.size());
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       auto agg_src_field_id = agg_src_field_ids_[i];
-      agg_src_descrs[i] =
-          ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
+      agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        state->agg_states,
-        internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
+    ARROW_ASSIGN_OR_RAISE(state->agg_states, internal::InitKernels(agg_kernels_, ctx_,
+                                                                   aggs_, agg_src_types));
 
     return Status::OK();
   }
@@ -660,7 +653,7 @@ class GroupByNode : public ExecNode {
 
   const std::vector<int> key_field_ids_;
   const std::vector<int> agg_src_field_ids_;
-  const std::vector<internal::Aggregate> aggs_;
+  const std::vector<Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
 
   ThreadIndexer get_thread_index_;

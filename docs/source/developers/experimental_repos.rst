@@ -15,8 +15,6 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _experimental-repos:
-
 Experimental repositories
 =========================
 

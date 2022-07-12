@@ -204,5 +204,5 @@ error codes.
 Implementing Custom Transports
 ==============================
 
-.. doxygenfile:: arrow/flight/transport_impl.h
+.. doxygenfile:: arrow/flight/transport.h
    :sections: briefdescription detaileddescription

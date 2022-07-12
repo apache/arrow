@@ -81,7 +81,7 @@ class RecordBatchReader;
 class Table;
 
 struct Datum;
-struct ValueDescr;
+struct TypeHolder;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
@@ -416,43 +416,43 @@ struct Type {
 /// @{
 
 /// \brief Return a NullType instance
-std::shared_ptr<DataType> ARROW_EXPORT null();
+ARROW_EXPORT const std::shared_ptr<DataType>& null();
 /// \brief Return a BooleanType instance
-std::shared_ptr<DataType> ARROW_EXPORT boolean();
+ARROW_EXPORT const std::shared_ptr<DataType>& boolean();
 /// \brief Return a Int8Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int8();
+ARROW_EXPORT const std::shared_ptr<DataType>& int8();
 /// \brief Return a Int16Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int16();
+ARROW_EXPORT const std::shared_ptr<DataType>& int16();
 /// \brief Return a Int32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int32();
+ARROW_EXPORT const std::shared_ptr<DataType>& int32();
 /// \brief Return a Int64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT int64();
+ARROW_EXPORT const std::shared_ptr<DataType>& int64();
 /// \brief Return a UInt8Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint8();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint8();
 /// \brief Return a UInt16Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint16();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint16();
 /// \brief Return a UInt32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint32();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint32();
 /// \brief Return a UInt64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT uint64();
+ARROW_EXPORT const std::shared_ptr<DataType>& uint64();
 /// \brief Return a HalfFloatType instance
-std::shared_ptr<DataType> ARROW_EXPORT float16();
+ARROW_EXPORT const std::shared_ptr<DataType>& float16();
 /// \brief Return a FloatType instance
-std::shared_ptr<DataType> ARROW_EXPORT float32();
+ARROW_EXPORT const std::shared_ptr<DataType>& float32();
 /// \brief Return a DoubleType instance
-std::shared_ptr<DataType> ARROW_EXPORT float64();
+ARROW_EXPORT const std::shared_ptr<DataType>& float64();
 /// \brief Return a StringType instance
-std::shared_ptr<DataType> ARROW_EXPORT utf8();
+ARROW_EXPORT const std::shared_ptr<DataType>& utf8();
 /// \brief Return a LargeStringType instance
-std::shared_ptr<DataType> ARROW_EXPORT large_utf8();
+ARROW_EXPORT const std::shared_ptr<DataType>& large_utf8();
 /// \brief Return a BinaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT binary();
+ARROW_EXPORT const std::shared_ptr<DataType>& binary();
 /// \brief Return a LargeBinaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT large_binary();
+ARROW_EXPORT const std::shared_ptr<DataType>& large_binary();
 /// \brief Return a Date32Type instance
-std::shared_ptr<DataType> ARROW_EXPORT date32();
+ARROW_EXPORT const std::shared_ptr<DataType>& date32();
 /// \brief Return a Date64Type instance
-std::shared_ptr<DataType> ARROW_EXPORT date64();
+ARROW_EXPORT const std::shared_ptr<DataType>& date64();
 
 /// \brief Create a FixedSizeBinaryType instance.
 ARROW_EXPORT

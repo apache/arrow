@@ -139,16 +139,22 @@ class JiraIssue(object):
     def current_fix_versions(self):
         return self.issue.fields.fixVersions
 
+    @classmethod
+    def sort_versions(cls, versions):
+        def version_tuple(x):
+            # Parquet versions are something like cpp-1.2.0
+            numeric_version = x.name.split("-", 1)[-1]
+            return tuple(int(_) for _ in numeric_version.split("."))
+        return sorted(versions, key=version_tuple, reverse=True)
+
     def get_candidate_fix_versions(self, merge_branches=('master',)):
         # Only suggest versions starting with a number, like 0.x but not JS-0.x
         all_versions = self.jira_con.project_versions(self.project)
         unreleased_versions = [x for x in all_versions
                                if not x.raw['released']]
 
-        unreleased_versions = sorted(unreleased_versions,
-                                     key=lambda x: x.name, reverse=True)
-
         mainline_versions = self._filter_mainline_versions(unreleased_versions)
+        mainline_versions = self.sort_versions(mainline_versions)
 
         mainline_non_patch_versions = []
         for v in mainline_versions:

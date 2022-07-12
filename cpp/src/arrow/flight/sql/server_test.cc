@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <signal.h>
 #include <sqlite3.h>
 
 #include <condition_variable>

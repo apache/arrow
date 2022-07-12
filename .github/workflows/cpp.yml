@@ -23,6 +23,8 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
@@ -32,6 +34,8 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_gcs_testbench.sh'
+      - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
@@ -77,7 +81,7 @@ jobs:
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.image }}-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -261,7 +265,9 @@ jobs:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    # Build may take 1h+ without cache and installing Google Cloud
+    # Storage Testbench may take 20m+ without cache.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -275,10 +281,9 @@ jobs:
       ARROW_BUILD_TYPE: release
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
-      # google-could-cpp uses _dupenv_s() but it can't be used with msvcrt.
-      # We need to use ucrt to use _dupenv_s().
-      # ARROW_GCS: ON
+      ARROW_GCS: ON
       ARROW_HDFS: OFF
       ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
@@ -300,7 +305,9 @@ jobs:
       CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
-      CMAKE_UNITY_BUILD: ON
+      # We can't use unity build because we don't have enough memory on
+      # GitHub Actions.
+      # CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -344,10 +351,20 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
+      - name: Cache Python wheels
+        uses: actions/cache@v2
+        with:
+          path: "${{ env.PIP_CACHE_DIR }}"
+          key: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('ci/scripts/install_gcs_testbench.sh') }}
+          restore-keys: cpp-wheels-mingw${{ matrix.mingw-n-bits }}-
+      - name: Install Google Cloud Storage Testbench
+        shell: msys2 {0}
+        run: |
+          ci/scripts/install_gcs_testbench.sh default
       - name: Test
         shell: msys2 {0}
         run: |
-          python_version=$(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
+          python_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
           export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
           PYTHONPATH="${PYTHONHOME}"
           PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"

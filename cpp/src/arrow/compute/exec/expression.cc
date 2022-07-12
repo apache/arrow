@@ -64,7 +64,7 @@ Expression::Expression(Parameter parameter)
 Expression literal(Datum lit) { return Expression(std::move(lit)); }
 
 Expression field_ref(FieldRef ref) {
-  return Expression(Expression::Parameter{std::move(ref), ValueDescr{}, {-1}});
+  return Expression(Expression::Parameter{std::move(ref), TypeHolder{}, {-1}});
 }
 
 Expression call(std::string function, std::vector<Expression> arguments,
@@ -93,36 +93,18 @@ const Expression::Call* Expression::call() const {
   return util::get_if<Call>(impl_.get());
 }
 
-ValueDescr Expression::descr() const {
-  if (impl_ == nullptr) return {};
+const DataType* Expression::type() const {
+  if (impl_ == nullptr) return nullptr;
 
-  if (auto lit = literal()) {
-    return lit->descr();
+  if (const Datum* lit = literal()) {
+    return lit->type().get();
   }
 
-  if (auto parameter = this->parameter()) {
-    return parameter->descr;
+  if (const Parameter* parameter = this->parameter()) {
+    return parameter->type.type;
   }
 
-  return CallNotNull(*this)->descr;
-}
-
-// This is a module-global singleton to avoid synchronization costs of a
-// function-static singleton.
-static const std::shared_ptr<DataType> kNoType;
-
-const std::shared_ptr<DataType>& Expression::type() const {
-  if (impl_ == nullptr) return kNoType;
-
-  if (auto lit = literal()) {
-    return lit->type();
-  }
-
-  if (auto parameter = this->parameter()) {
-    return parameter->descr.type;
-  }
-
-  return CallNotNull(*this)->descr.type;
+  return CallNotNull(*this)->type.type;
 }
 
 namespace {
@@ -276,7 +258,7 @@ size_t Expression::hash() const {
 bool Expression::IsBound() const {
   if (type() == nullptr) return false;
 
-  if (auto call = this->call()) {
+  if (const Call* call = this->call()) {
     if (call->kernel == nullptr) return false;
 
     for (const Expression& arg : call->arguments) {
@@ -338,7 +320,7 @@ util::optional<compute::NullHandling::type> GetNullHandling(
 }  // namespace
 
 bool Expression::IsSatisfiable() const {
-  if (!type()) return true;
+  if (type() == nullptr) return true;
   if (type()->id() != Type::BOOL) return true;
 
   if (auto lit = literal()) {
@@ -382,25 +364,20 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   DCHECK(std::all_of(call.arguments.begin(), call.arguments.end(),
                      [](const Expression& argument) { return argument.IsBound(); }));
 
-  auto descrs = GetDescriptors(call.arguments);
+  std::vector<TypeHolder> types = GetTypes(call.arguments);
   ARROW_ASSIGN_OR_RAISE(call.function, GetFunction(call, exec_context));
 
   if (!insert_implicit_casts) {
-    ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchExact(descrs));
+    ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchExact(types));
   } else {
-    ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&descrs));
+    ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&types));
 
-    for (size_t i = 0; i < descrs.size(); ++i) {
-      if (descrs[i] == call.arguments[i].descr()) continue;
+    for (size_t i = 0; i < types.size(); ++i) {
+      if (types[i] == call.arguments[i].type()) continue;
 
-      if (descrs[i].shape != call.arguments[i].descr().shape) {
-        return Status::NotImplemented(
-            "Automatic broadcasting of scalars arguments to arrays in ",
-            Expression(std::move(call)).ToString());
-      }
-
-      if (auto lit = call.arguments[i].literal()) {
-        ARROW_ASSIGN_OR_RAISE(Datum new_lit, compute::Cast(*lit, descrs[i].type));
+      if (const Datum* lit = call.arguments[i].literal()) {
+        ARROW_ASSIGN_OR_RAISE(Datum new_lit,
+                              compute::Cast(*lit, types[i].GetSharedPtr()));
         call.arguments[i] = literal(std::move(new_lit));
         continue;
       }
@@ -409,8 +386,10 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
       Expression::Call implicit_cast;
       implicit_cast.function_name = "cast";
       implicit_cast.arguments = {std::move(call.arguments[i])};
+
+      // TODO(wesm): Use TypeHolder in options
       implicit_cast.options = std::make_shared<compute::CastOptions>(
-          compute::CastOptions::Safe(descrs[i].type));
+          compute::CastOptions::Safe(types[i].GetSharedPtr()));
 
       ARROW_ASSIGN_OR_RAISE(
           call.arguments[i],
@@ -425,43 +404,41 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
         call.options ? call.options.get() : call.function->default_options();
     ARROW_ASSIGN_OR_RAISE(
         call.kernel_state,
-        call.kernel->init(&kernel_context, {call.kernel, descrs, options}));
+        call.kernel->init(&kernel_context, {call.kernel, types, options}));
 
     kernel_context.SetState(call.kernel_state.get());
   }
 
   ARROW_ASSIGN_OR_RAISE(
-      call.descr, call.kernel->signature->out_type().Resolve(&kernel_context, descrs));
+      call.type, call.kernel->signature->out_type().Resolve(&kernel_context, types));
 
   return Expression(std::move(call));
 }
 
 template <typename TypeOrSchema>
 Result<Expression> BindImpl(Expression expr, const TypeOrSchema& in,
-                            ValueDescr::Shape shape, compute::ExecContext* exec_context) {
+                            compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
-    return BindImpl(std::move(expr), in, shape, &exec_context);
+    return BindImpl(std::move(expr), in, &exec_context);
   }
 
   if (expr.literal()) return expr;
 
-  if (auto ref = expr.field_ref()) {
-    ARROW_ASSIGN_OR_RAISE(auto path, ref->FindOne(in));
+  if (const FieldRef* ref = expr.field_ref()) {
+    ARROW_ASSIGN_OR_RAISE(FieldPath path, ref->FindOne(in));
 
-    auto bound = *expr.parameter();
-    bound.indices.resize(path.indices().size());
-    std::copy(path.indices().begin(), path.indices().end(), bound.indices.begin());
+    Expression::Parameter param = *expr.parameter();
+    param.indices.resize(path.indices().size());
+    std::copy(path.indices().begin(), path.indices().end(), param.indices.begin());
     ARROW_ASSIGN_OR_RAISE(auto field, path.Get(in));
-    bound.descr.type = field->type();
-    bound.descr.shape = shape;
-    return Expression{std::move(bound)};
+    param.type = field->type();
+    return Expression{std::move(param)};
   }
 
   auto call = *CallNotNull(expr);
   for (auto& argument : call.arguments) {
-    ARROW_ASSIGN_OR_RAISE(argument,
-                          BindImpl(std::move(argument), in, shape, exec_context));
+    ARROW_ASSIGN_OR_RAISE(argument, BindImpl(std::move(argument), in, exec_context));
   }
   return BindNonRecursive(std::move(call),
                           /*insert_implicit_casts=*/true, exec_context);
@@ -469,14 +446,14 @@ Result<Expression> BindImpl(Expression expr, const TypeOrSchema& in,
 
 }  // namespace
 
-Result<Expression> Expression::Bind(const ValueDescr& in,
+Result<Expression> Expression::Bind(const TypeHolder& in,
                                     compute::ExecContext* exec_context) const {
-  return BindImpl(*this, *in.type, in.shape, exec_context);
+  return BindImpl(*this, *in.type, exec_context);
 }
 
 Result<Expression> Expression::Bind(const Schema& in_schema,
                                     compute::ExecContext* exec_context) const {
-  return BindImpl(*this, in_schema, ValueDescr::ARRAY, exec_context);
+  return BindImpl(*this, in_schema, exec_context);
 }
 
 Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial) {
@@ -558,7 +535,7 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   if (auto lit = expr.literal()) return *lit;
 
   if (auto param = expr.parameter()) {
-    if (param->descr.type->id() == Type::NA) {
+    if (param->type.id() == Type::NA) {
       return MakeNullScalar(null());
     }
 
@@ -569,10 +546,10 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
       ARROW_ASSIGN_OR_RAISE(
           field, compute::CallFunction("struct_field", {std::move(field)}, &options));
     }
-    if (!field.type()->Equals(param->descr.type)) {
+    if (!field.type()->Equals(*param->type.type)) {
       return Status::Invalid("Referenced field ", expr.ToString(), " was ",
                              field.type()->ToString(), " but should have been ",
-                             param->descr.type->ToString());
+                             param->type.ToString());
     }
 
     return field;
@@ -596,10 +573,10 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   compute::KernelContext kernel_context(exec_context, call->kernel);
   kernel_context.SetState(call->kernel_state.get());
 
-  auto kernel = call->kernel;
-  auto descrs = GetDescriptors(arguments);
+  const Kernel* kernel = call->kernel;
+  std::vector<TypeHolder> types = GetTypes(arguments);
   auto options = call->options.get();
-  RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, descrs, options}));
+  RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
   compute::detail::DatumAccumulator listener;
   RETURN_NOT_OK(executor->Execute(
@@ -683,16 +660,16 @@ Result<Expression> FoldConstants(Expression expr) {
         if (GetNullHandling(*call) == compute::NullHandling::INTERSECTION) {
           // kernels which always produce intersected validity can be resolved
           // to null *now* if any of their inputs is a null literal
-          if (!call->descr.type) {
+          if (!call->type.type) {
             return Status::Invalid("Cannot fold constants for unbound expression ",
                                    expr.ToString());
           }
-          for (const auto& argument : call->arguments) {
+          for (const Expression& argument : call->arguments) {
             if (argument.IsNullLiteral()) {
-              if (argument.type()->Equals(*call->descr.type)) {
+              if (argument.type()->Equals(*call->type.type)) {
                 return argument;
               } else {
-                return literal(MakeNullScalar(call->descr.type));
+                return literal(MakeNullScalar(call->type.GetSharedPtr()));
               }
             }
           }
@@ -815,7 +792,7 @@ Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_va
           auto it = known_values.map.find(*ref);
           if (it != known_values.map.end()) {
             Datum lit = it->second;
-            if (lit.descr() == expr.descr()) return literal(std::move(lit));
+            if (lit.type()->Equals(*expr.type())) return literal(std::move(lit));
             // type mismatch, try casting the known value to the correct type
 
             if (expr.type()->id() == Type::DICTIONARY &&
@@ -836,7 +813,7 @@ Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_va
               }
             }
 
-            ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(lit, expr.type()));
+            ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(lit, expr.type()->GetSharedPtr()));
             return literal(std::move(lit));
           }
         }
