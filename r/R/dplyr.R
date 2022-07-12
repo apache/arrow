@@ -229,7 +229,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #' @return The argument, invisibly.
 #' @export
 #'
-#' @examples
+#' @examplesIf arrow_with_dataset() & requireNamespace("dplyr", quietly = TRUE)
 #' library(dplyr)
 #' mtcars %>%
 #'   arrow_table() %>%

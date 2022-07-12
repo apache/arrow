@@ -17,10 +17,12 @@ This is a function which gives more details about the \code{ExecPlan} of an
 \code{arrow_dplyr_query} object. It is similar to \code{dplyr::show_query()}.
 }
 \examples{
+\dontshow{if (arrow_with_dataset() & requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 library(dplyr)
 mtcars \%>\%
   arrow_table() \%>\%
   filter(mpg > 20) \%>\%
   mutate(x = gear/carb) \%>\%
   show_exec_plan()
+\dontshow{\}) # examplesIf}
 }
