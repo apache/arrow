@@ -161,15 +161,6 @@ static ReaderNodeTableProperties make_table_source_node(
           rows, row_size * rows};
 }
 
-static void output_results_to_csv(std::string output_file_name,
-                                  std::shared_ptr<arrow::Schema> output_schema,
-                                  std::vector<arrow::compute::ExecBatch> execBatches) {
-  ASSERT_OK_AND_ASSIGN(auto table, TableFromExecBatches(output_schema, execBatches));
-  ASSERT_OK_AND_ASSIGN(auto outstream,
-                       arrow::io::FileOutputStream::Open(output_file_name));
-  arrow::csv::WriteCSV(*table, arrow::csv::WriteOptions::Defaults(), outstream.get());
-}
-
 static void TableJoinOverhead(benchmark::State& state, std::string left_table,
                               std::vector<std::string> right_tables,
                               int64_t left_batch_size, int64_t right_batch_size,
