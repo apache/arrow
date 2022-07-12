@@ -140,7 +140,7 @@ util::string_view RemoveLeadingSlash(util::string_view key) {
   return key;
 }
 
-Status AssertNoTrailingSlash(const std::string& key) {
+Status AssertNoTrailingSlash(util::string_view key) {
   if (key.back() == '/') {
     return NotAFile(key);
   }

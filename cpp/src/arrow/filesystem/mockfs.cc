@@ -721,8 +721,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> MockFileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-      
-  RETURN_NOT_OK(ValidatePath(path));
+    RETURN_NOT_OK(ValidatePath(path));
   auto guard = impl_->lock_guard();
 
   return impl_->OpenOutputStream(path, /*append=*/false, metadata);
