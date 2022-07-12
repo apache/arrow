@@ -27,8 +27,8 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
-  return x->num_columns();
+r_vec_size RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
+  return r_vec_size(x->num_columns());
 }
 
 // [[arrow::export]]

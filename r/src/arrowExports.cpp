@@ -698,7 +698,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // chunkedarray.cpp
-int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+r_vec_size ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
@@ -706,7 +706,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // chunkedarray.cpp
-int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+r_vec_size ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
@@ -714,7 +714,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // chunkedarray.cpp
-int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+r_vec_size ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
@@ -4239,7 +4239,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatch.cpp
-int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
+r_vec_size RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 extern "C" SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
@@ -4834,7 +4834,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // table.cpp
-int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
+r_vec_size Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 extern "C" SEXP _arrow_Table__num_columns(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
