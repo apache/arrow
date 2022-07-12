@@ -32,8 +32,12 @@
 // on 32-bit R builds on R 3.6 and lower.
 static inline bool CanSafeCallIntoR() {
 #if defined(HAS_UNWIND_PROTECT)
-  cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
-  bool on_old_windows = on_old_windows_fun();
+  static int on_old_windows = -1;
+  if (on_old_windows == -1) {
+    cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
+    on_old_windows = on_old_windows_fun();
+  }
+
   return !on_old_windows;
 #else
   return false;
@@ -66,28 +70,30 @@ class MainRThread {
   // The Executor that is running on the main R thread, if it exists
   arrow::internal::Executor*& Executor() { return executor_; }
 
-  // Save an error (possibly with an error token generated from
-  // a cpp11::unwind_exception) so that it can be properly handled
-  // after some cleanup code  has run (e.g., cancelling some futures
-  // or waiting for them to finish).
-  void SetError(arrow::Status status) { status_ = status; }
+  // Save an error token generated from a cpp11::unwind_exception
+  // so that it can be properly handled after some cleanup code
+  // has run (e.g., cancelling some futures or waiting for them
+  // to finish).
+  void SetError(cpp11::sexp token) { error_token_ = token; }
 
-  void ResetError() { status_ = arrow::Status::OK(); }
+  void ResetError() { error_token_ = R_NilValue; }
 
   // Check if there is a saved error
-  bool HasError() { return !status_.ok(); }
+  bool HasError() { return error_token_ != R_NilValue; }
 
-  // Throw a cpp11::unwind_exception() if
+  // Throw a cpp11::unwind_exception() with the saved token if it exists
   void ClearError() {
-    arrow::Status maybe_error_status = status_;
-    ResetError();
-    arrow::StopIfNotOk(maybe_error_status);
+    if (HasError()) {
+      cpp11::unwind_exception e(error_token_);
+      ResetError();
+      throw e;
+    }
   }
 
  private:
   bool initialized_;
   std::thread::id thread_id_;
-  arrow::Status status_;
+  cpp11::sexp error_token_;
   arrow::internal::Executor* executor_;
 };
 
