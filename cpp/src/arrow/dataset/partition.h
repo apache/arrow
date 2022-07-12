@@ -71,7 +71,7 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
   /// \brief The name identifying the kind of partitioning
   virtual std::string type_name() const = 0;
 
-  /// \brief determines if partiioning is exactly equal
+  //// \brief Return whether the partitionings are equal
   virtual bool Equals(const Partitioning& other) const {
     return schema_->Equals(other.schema_, false);
   }

@@ -82,7 +82,9 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    bool Equals(const Partitioning& other) const override { return false; }
+    bool Equals(const Partitioning& other) const override {
+      return type_name() == other.type_name();
+    }
 
     Result<compute::Expression> Parse(const std::string& path) const override {
       return compute::literal(true);
@@ -121,14 +123,21 @@ bool KeyValuePartitioning::Equals(const Partitioning& other) const {
   if (this == &other) {
     return true;
   }
-  const auto& kv_partion = checked_cast<const KeyValuePartitioning&>(other);
+  const auto& kv_partitioning = checked_cast<const KeyValuePartitioning&>(other);
+  const auto& other_dictionaries = kv_partitioning.dictionaries();
+  if (dictionaries_.size() != other_dictionaries.size()) {
+    return false;
+  }
   int64_t idx = 0;
   for (const auto& array : dictionaries_) {
-    if (!array->Equals(kv_partion.dictionaries()[idx++])) {
+    const auto& other_array = other_dictionaries[idx++];
+    bool match = (array == NULLPTR && other_array == NULLPTR) ||
+                 (array && other_array && array->Equals(other_array));
+    if (!match) {
       return false;
     }
   }
-  return options_.segment_encoding == kv_partion.options_.segment_encoding &&
+  return options_.segment_encoding == kv_partitioning.options_.segment_encoding &&
          Partitioning::Equals(other);
 }
 
