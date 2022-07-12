@@ -1274,18 +1274,6 @@ test_that("base::tolower and base::toupper", {
   )
 })
 
-test_that("stringr::str_dup and base::strrep", {
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        duped_verses_stringr = str_dup(verses, times = 2L),
-        duped_verses_base = strrep(verses, times = 3L)
-      ) %>%
-      collect(),
-    tbl
-  )
-})
-
 test_that("namespaced unary and binary string functions", {
   # str_length and stringi::stri_reverse
   compare_dplyr_binding(
@@ -1310,13 +1298,20 @@ test_that("namespaced unary and binary string functions", {
   )
 
   # stringr::str_dup and base::strrep
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        duped_verses_stringr = stringr::str_dup(verses, times = 2L),
-        duped_verses_base = base::strrep(verses, times = 3L)
-      ) %>%
-      collect(),
-    tbl
-  )
+  df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
+  for (times in 0:8) {
+    compare_dplyr_binding(
+      .input %>%
+        mutate(x = base::strrep(x, times)) %>%
+        collect(),
+      df
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        mutate(x = stringr::str_dup(x, times)) %>%
+        collect(),
+      df
+    )
+  }
 })
