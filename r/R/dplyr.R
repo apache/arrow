@@ -219,12 +219,12 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   x
 }
 
-#' Show the details of an Arrow ExecPlan
+#' Show the details of an Arrow Execution Plan
 #'
-#' This is a function which gives more details about the `ExecPlan` of an
-#' `arrow_dplyr_query` object. It is similar to `dplyr::show_query()`.
+#' This is a function which gives more details about the Execution Plan (`ExecPlan`)
+#' of an `arrow_dplyr_query` object. It is similar to `dplyr::explain()`.
 #'
-#' @param x an `arrow_dplyr_query` to print the ExecPlan for.
+#' @param x an `arrow_dplyr_query` to print the `ExecPlan` for.
 #'
 #' @return The argument, invisibly.
 #' @export

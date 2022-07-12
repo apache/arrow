@@ -2,19 +2,19 @@
 % Please edit documentation in R/dplyr.R
 \name{show_exec_plan}
 \alias{show_exec_plan}
-\title{Show the details of an Arrow ExecPlan}
+\title{Show the details of an Arrow Execution Plan}
 \usage{
 show_exec_plan(x)
 }
 \arguments{
-\item{x}{an \code{arrow_dplyr_query} to print the ExecPlan for.}
+\item{x}{an \code{arrow_dplyr_query} to print the \code{ExecPlan} for.}
 }
 \value{
 The argument, invisibly.
 }
 \description{
-This is a function which gives more details about the \code{ExecPlan} of an
-\code{arrow_dplyr_query} object. It is similar to \code{dplyr::show_query()}.
+This is a function which gives more details about the Execution Plan (\code{ExecPlan})
+of an \code{arrow_dplyr_query} object. It is similar to \code{dplyr::explain()}.
 }
 \examples{
 \dontshow{if (arrow_with_dataset() & requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
