@@ -175,6 +175,14 @@ test_that("log functions", {
     df
   )
 
+  # namespaced log
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = base::log(x)) %>%
+      collect(),
+    df
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(y = log(x, base = exp(1))) %>%
@@ -253,6 +261,14 @@ test_that("log functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(y = logb(x)) %>%
+      collect(),
+    df
+  )
+
+  # namespaced logb
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = base::logb(x)) %>%
       collect(),
     df
   )
@@ -403,6 +419,14 @@ test_that("exp()", {
       collect(),
     df
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = base::exp(x)) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("sqrt()", {
@@ -411,6 +435,14 @@ test_that("sqrt()", {
   compare_dplyr_binding(
     .input %>%
       mutate(y = sqrt(x)) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = base::sqrt(x)) %>%
       collect(),
     df
   )

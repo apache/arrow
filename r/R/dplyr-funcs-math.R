@@ -81,14 +81,14 @@ register_bindings_math <- function() {
     )
   })
 
-  register_binding("sqrt", function(x) {
+  register_binding("base::sqrt", function(x) {
     build_expr(
       "sqrt_checked",
       x
     )
   })
 
-  register_binding("exp", function(x) {
+  register_binding("base::exp", function(x) {
     build_expr(
       "power_checked",
       exp(1),
