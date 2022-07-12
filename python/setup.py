@@ -283,6 +283,10 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_hdfs,
                               'PYARROW_WITH_HDFS')
 
+            # Windows
+            if self.cmake_generator:
+                cmake_options += ['-G', self.cmake_generator]
+
             # run cmake
             print("-- Running cmake for C pyarrow")
             self.spawn(['cmake'] + cmake_options + [source_cpyarrow])
