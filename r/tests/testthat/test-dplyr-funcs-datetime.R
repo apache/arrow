@@ -402,6 +402,14 @@ test_that("extract epiyear from timestamp", {
       collect(),
     test_df
   )
+
+  # namespaced epiyear
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::epiyear(datetime)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("extract quarter from timestamp", {
@@ -443,6 +451,14 @@ test_that("extract isoweek from timestamp", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = isoweek(datetime)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced isoweek
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::isoweek(datetime)) %>%
       collect(),
     test_df
   )
@@ -530,6 +546,14 @@ test_that("extract yday from timestamp", {
       collect(),
     test_df
   )
+
+  # namespaced yday
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::yday(datetime)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("extract hour from timestamp", {
@@ -539,12 +563,28 @@ test_that("extract hour from timestamp", {
       collect(),
     test_df
   )
+
+  # namespaced hour
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::hour(datetime)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("extract minute from timestamp", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = minute(datetime)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced minute
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::minute(datetime)) %>%
       collect(),
     test_df
   )
@@ -570,12 +610,28 @@ test_that("extract year from date", {
       collect(),
     test_df
   )
+
+  # namespaced year
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::year(date)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("extract isoyear from date", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = isoyear(date)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced isoyear
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::isoyear(date)) %>%
       collect(),
     test_df
   )
@@ -597,6 +653,14 @@ test_that("extract quarter from date", {
       collect(),
     test_df
   )
+
+  # namespaced quarter
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::quarter(date)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("extract isoweek from date", {
@@ -612,6 +676,14 @@ test_that("extract epiweek from date", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = epiweek(date)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced epiweek
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::epiweek(date)) %>%
       collect(),
     test_df
   )
@@ -656,6 +728,14 @@ test_that("extract day from date", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = day(date)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced day
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::day(date)) %>%
       collect(),
     test_df
   )
@@ -707,6 +787,14 @@ test_that("extract mday from date", {
       collect(),
     test_df
   )
+
+  # namespaced mday
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::mday(date)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("extract yday from date", {
@@ -745,6 +833,14 @@ test_that("leap_year mirror lubridate", {
         "2000-01-01" # leap year (divide by 400 rule)
       ))
     )
+  )
+
+  # namespaced leap_year
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::leap_year(date)) %>%
+      collect(),
+    test_df
   )
 })
 
@@ -850,6 +946,14 @@ test_that("dst extracts daylight savings time correctly", {
   compare_dplyr_binding(
     .input %>%
       mutate(dst = dst(dates)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced dst
+  compare_dplyr_binding(
+    .input %>%
+      mutate(dst = lubridate::dst(dates)) %>%
       collect(),
     test_df
   )
