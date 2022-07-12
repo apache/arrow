@@ -1333,6 +1333,17 @@ test_that("ISO_datetime & ISOdate", {
     ignore_attr = TRUE
   )
 
+  # namespaced ISOdate
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_date = base::ISOdate(year, month, day)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(composed_date_r_obj = ISOdate(1999, 12, 31)) %>%
@@ -1356,6 +1367,19 @@ test_that("ISO_datetime & ISOdate", {
     ignore_attr = TRUE
   )
 
+  # namespaced ISOdatetime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        composed_datetime = base::ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")
+      ) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1369,7 +1393,7 @@ test_that("ISO_datetime & ISOdate", {
   )
 })
 
-test_that("difftime works correctly", {
+test_that("difftime()", {
   test_df <- tibble(
     time1 = as.POSIXct(
       c("2021-02-20", "2021-07-31 0:0:0", "2021-10-30", "2021-01-31 0:0:0")
@@ -1384,6 +1408,17 @@ test_that("difftime works correctly", {
     .input %>%
       mutate(
         secs2 = difftime(time1, time2, units = "secs")
+      ) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+
+  # namespaced difftime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        secs2 = base::difftime(time1, time2, units = "secs")
       ) %>%
       collect(),
     test_df,
@@ -1456,6 +1491,14 @@ test_that("as.difftime()", {
   compare_dplyr_binding(
     .input %>%
       mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced as.difftime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(hms_difftime = base::as.difftime(hms_string, units = "secs")) %>%
       collect(),
     test_df
   )
@@ -1536,6 +1579,22 @@ test_that("`decimal_date()` and `date_decimal()`", {
     test_df,
     ignore_attr = "tzone"
   )
+
+  # namespaced tests
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        decimal_date_from_POSIXct = lubridate::decimal_date(b),
+        decimal_date_from_r_POSIXct_obj = lubridate::decimal_date(as.POSIXct("2022-03-25 15:37:01")),
+        decimal_date_from_r_date_obj = lubridate::decimal_date(as.Date("2022-03-25")),
+        decimal_date_from_date = lubridate::decimal_date(c),
+        date_from_decimal = lubridate::date_decimal(a),
+        date_from_decimal_r_obj = lubridate::date_decimal(2022.178)
+      ) %>%
+      collect(),
+    test_df,
+    ignore_attr = "tzone"
+  )
 })
 
 test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
@@ -1591,6 +1650,22 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
     ignore_attr = TRUE
   )
 
+  # namespaced dminutes, dhours, ddays, dweeks, dyears
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        r_obj_dminutes = lubridate::dminutes(1),
+        r_obj_dhours = lubridate::dhours(2),
+        r_obj_ddays = lubridate::ddays(3),
+        r_obj_dweeks = lubridate::dweeks(4),
+        r_obj_dmonths = lubridate::dmonths(5),
+        r_obj_dyears = lubridate::dyears(6)
+      ) %>%
+      collect(),
+    tibble(),
+    ignore_attr = TRUE
+  )
+
   # double -> duration not supported in Arrow.
   # Error is generated in the C++ code
   expect_error(
@@ -1623,6 +1698,21 @@ test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", 
     ignore_attr = TRUE
   )
 
+  # namespaced dseconds, dmillisecodns, dmicroseconds, dnanoseconds
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dseconds = lubridate::dseconds(x),
+        dmilliseconds = lubridate::dmilliseconds(x),
+        dmicroseconds = lubridate::dmicroseconds(x),
+        dnanoseconds = lubridate::dnanoseconds(x),
+      ) %>%
+      collect(),
+    example_d,
+    ignore_attr = TRUE
+  )
+
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -1652,6 +1742,11 @@ test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", 
 
   expect_error(
     call_binding("dpicoseconds"),
+    "Duration in picoseconds not supported in Arrow"
+  )
+
+  expect_error(
+    call_binding("lubridate::dpicoseconds"),
     "Duration in picoseconds not supported in Arrow"
   )
 
@@ -1698,6 +1793,23 @@ test_that("make_difftime()", {
           minute = 45,
           day = 2,
           week = 4,
+          units = "secs"
+        )
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced make_difftime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        duration_from_parts = lubridate::make_difftime(
+          second = seconds,
+          minute = minutes,
+          hour = hours,
+          day = days,
+          week = weeks,
           units = "secs"
         )
       ) %>%
@@ -1796,6 +1908,21 @@ test_that("`as.Date()` and `as_date()`", {
         date_int2 = as_date(integer_var, origin = "1970-01-01"),
         date_int_origin2 = as_date(integer_var, origin = "1970-01-03"),
         date_integerish2 = as_date(integerish_var, origin = "1970-01-01")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced as.Date() and as_date
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_dv1 = base::as.Date(date_var),
+        date_pv1 = base::as.Date(posixct_var),
+        date_pv_tz1 = base::as.Date(posixct_var, tz = "Pacific/Marquesas"),
+        date_dv2 = lubridate::as_date(date_var),
+        date_pv2 = lubridate::as_date(posixct_var),
+        date_pv_tz2 = lubridate::as_date(posixct_var, tz = "Pacific/Marquesas")
       ) %>%
       collect(),
     test_df
@@ -1933,6 +2060,21 @@ test_that("`as_datetime()`", {
     test_df
   )
 
+  # namespaced as_datetime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ddate = lubridate::as_datetime(date),
+        dchar_date_no_tz = lubridate::as_datetime(char_date),
+        dchar_date_with_tz = lubridate::as_datetime(char_date, tz = "Pacific/Marquesas"),
+        dint_date = lubridate::as_datetime(int_date, origin = "1970-01-02"),
+        dintegerish_date = lubridate::as_datetime(integerish_date, origin = "1970-01-02"),
+        dintegerish_date2 = lubridate::as_datetime(integerish_date, origin = "1970-01-01")
+      ) %>%
+      collect(),
+    test_df
+  )
+
   # Arrow does not support conversion of double to date
   # the below should error with an error message originating in the C++ code
   expect_error(
@@ -1973,6 +2115,22 @@ test_that("parse_date_time() works with year, month, and date components", {
         "09-01-2021", "09/2/2021", "09.3.2021", "09,04,2021", "09:05:2021",
         "09 6 2021", "09-7-21", "09/08/21", "09.9.21", "09,10,21", "09:11:21",
         "09122021", "091321", NA
+      )
+    )
+  )
+
+  # namespaced parse_date_time
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = lubridate::parse_date_time(string_ymd, orders = "ymd"),
+      ) %>%
+      collect(),
+    tibble::tibble(
+      string_ymd = c(
+        "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
+        "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10", "21:09:11",
+        "20210912", "210913", NA
       )
     )
   )
@@ -2052,6 +2210,21 @@ test_that("year, month, day date/time parsers", {
     test_df
   )
 
+  # namespaced individual ymd parsers
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_date = lubridate::ymd(ymd_string),
+        ydm_date = lubridate::ydm(ydm_string),
+        mdy_date = lubridate::mdy(mdy_string),
+        myd_date = lubridate::myd(myd_string),
+        dmy_date = lubridate::dmy(dmy_string),
+        dym_date = lubridate::dym(dym_string)
+      ) %>%
+      collect(),
+    test_df
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2120,6 +2293,21 @@ test_that("ym, my & yq parsers", {
         qy_date_from_string2 = parse_date_time(qy_string, orders = "qY"),
         qy_date_from_numeric2 = parse_date_time(qy_numeric, orders = "qY"),
         qy_date_from_string_with_space2 = parse_date_time(qy_space, orders = "qY")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced ym, mq and yq parsers
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ym_date = lubridate::ym(ym_string),
+        ym_datetime = lubridate::ym(ym_string, tz = "Pacific/Marquesas"),
+        my_date = lubridate::my(my_string),
+        my_datetime = lubridate::my(my_string, tz = "Pacific/Marquesas"),
+        yq_date_from_string = lubridate::yq(yq_string),
+        yq_datetime_from_string = lubridate::yq(yq_string, tz = "Pacific/Marquesas")
       ) %>%
       collect(),
     test_df
