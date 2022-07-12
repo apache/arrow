@@ -70,6 +70,17 @@ test_that("strptime", {
         collect(),
       t_stamp_with_pm_tz
     )
+
+    # namespaced strptime
+    expect_equal(
+      t_string %>%
+        record_batch() %>%
+        mutate(
+          x = base::strptime(x, format = "%Y-%m-%d %H:%M:%S")
+        ) %>%
+        collect(),
+      t_stamp_with_pm_tz
+    )
   })
 
   # adding a timezone to a timezone-naive timestamp works
@@ -201,6 +212,14 @@ test_that("strftime", {
     times
   )
 
+  # namespaced strftime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = base::strftime(datetime, format = formats)) %>%
+      collect(),
+    times
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(x = strftime(date, format = formats_date)) %>%
@@ -285,6 +304,14 @@ test_that("format_ISO8601", {
     times
   )
 
+  # namespaced format_ISO8601
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
+      collect(),
+    times
+  )
+
   if (getRversion() < "3.5") {
     # before 3.5, times$x will have no timezone attribute, so Arrow faithfully
     # errors that there is no timezone to format:
@@ -345,9 +372,31 @@ test_that("is.* functions from lubridate", {
     test_df
   )
 
+  # namespaced is.POSIXct
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = lubridate::is.POSIXct(datetime),
+        y = lubridate::is.POSIXct(integer)
+      ) %>%
+      collect(),
+    test_df
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(x = is.Date(date), y = is.Date(integer)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced is.Date
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = lubridate::is.Date(date),
+        y = lubridate::is.Date(integer)
+      ) %>%
       collect(),
     test_df
   )
@@ -369,6 +418,18 @@ test_that("is.* functions from lubridate", {
         x = is.timepoint(datetime),
         y = is.instant(date),
         z = is.timepoint(integer)
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced is.timepoint and is.instant
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = lubridate::is.timepoint(datetime),
+        y = lubridate::is.instant(date),
+        z = lubridate::is.timepoint(integer)
       ) %>%
       collect(),
     test_df
@@ -429,6 +490,14 @@ test_that("extract month from timestamp", {
     test_df
   )
 
+  # namespaced month
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::month(datetime)) %>%
+      collect(),
+    test_df
+  )
+
   compare_dplyr_binding(
     .input %>%
       # R returns ordered factor whereas Arrow returns character
@@ -477,6 +546,14 @@ test_that("extract week from timestamp", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = week(datetime)) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced week
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::week(datetime)) %>%
       collect(),
     test_df
   )
@@ -594,6 +671,16 @@ test_that("extract second from timestamp", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = second(datetime)) %>%
+      collect(),
+    test_df,
+    # arrow supports nanosecond resolution but lubridate does not
+    tolerance = 1e-6
+  )
+
+  # namespaced second
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::second(datetime)) %>%
       collect(),
     test_df,
     # arrow supports nanosecond resolution but lubridate does not
@@ -756,6 +843,14 @@ test_that("extract wday from date", {
     test_df
   )
 
+  # namespaced wday
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = lubridate::wday(date, week_start = 3)) %>%
+      collect(),
+    test_df
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(x = wday(date, week_start = 1)) %>%
@@ -863,6 +958,26 @@ test_that("am/pm mirror lubridate", {
       )
     )
   )
+
+  # namespaced am and pm
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        am = lubridate::am(test_time),
+        pm = lubridate::pm(test_time)
+      ) %>%
+      collect(),
+    data.frame(
+      test_time = strptime(
+        x = c(
+          "2022-01-25 11:50:59",
+          "2022-01-25 12:00:00",
+          "2022-01-25 00:00:00"
+        ),
+        format = "%Y-%m-%d %H:%M:%S"
+      )
+    )
+  )
 })
 
 test_that("extract tz", {
@@ -873,6 +988,14 @@ test_that("extract tz", {
   compare_dplyr_binding(
     .input %>%
       mutate(timezone_posixct_date = tz(posixct_date)) %>%
+      collect(),
+    df
+  )
+
+  # namespaced tz
+  compare_dplyr_binding(
+    .input %>%
+      mutate(timezone_posixct_date = lubridate::tz(posixct_date)) %>%
       collect(),
     df
   )
@@ -916,6 +1039,17 @@ test_that("semester works with temporal types and integers", {
       mutate(
         sem_wo_year = semester(dates),
         sem_w_year = semester(dates, with_year = TRUE)
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # namespaced semester
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        sem_wo_year = lubridate::semester(dates),
+        sem_w_year = lubridate::semester(dates, with_year = TRUE)
       ) %>%
       collect(),
     test_df
@@ -1129,6 +1263,14 @@ test_that("make_date & make_datetime", {
     test_df
   )
 
+  # namespaced make_date
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_date = lubridate::make_date(year, month, day)) %>%
+      collect(),
+    test_df
+  )
+
   compare_dplyr_binding(
     .input %>%
       mutate(composed_date_r_obj = make_date(1999, 12, 31)) %>%
@@ -1139,6 +1281,17 @@ test_that("make_date & make_datetime", {
   compare_dplyr_binding(
     .input %>%
       mutate(composed_datetime = make_datetime(year, month, day, hour, min, sec)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
+  # namespaced make_datetime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_datetime = lubridate::make_datetime(year, month, day, hour, min, sec)) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
