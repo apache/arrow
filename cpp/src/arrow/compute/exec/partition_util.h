@@ -118,9 +118,20 @@ class PartitionLocks {
   /// \brief Release a partition so that other threads can work on it
   void ReleasePartitionLock(int prtn_id);
 
+  // Executes (synchronously and using current thread) the same operation on a set of
+  // multiple partitions. Tries to minimize partition locking overhead by randomizing and
+  // adjusting order in which partitions are processed.
+  //
+  // PROCESS_PRTN_FN is a callback which will be executed for each partition after
+  // acquiring the lock for that partition. It gets partition id as an argument.
+  // IS_PRTN_EMPTY_FN is a callback which filters out (when returning true) partitions
+  // with specific ids from processing.
+  //
   template <typename IS_PRTN_EMPTY_FN, typename PROCESS_PRTN_FN>
-  Status ForEachPartition(size_t thread_id, int* temp_unprocessed_prtns,
-                          IS_PRTN_EMPTY_FN is_prtn_empty_fn,
+  Status ForEachPartition(size_t thread_id,
+                          /*scratch space buffer with space for one element per partition;
+                             dirty in and dirty out*/
+                          int* temp_unprocessed_prtns, IS_PRTN_EMPTY_FN is_prtn_empty_fn,
                           PROCESS_PRTN_FN process_prtn_fn) {
     int num_unprocessed_partitions = 0;
     for (int i = 0; i < num_prtns_; ++i) {

@@ -27,6 +27,14 @@
 namespace arrow {
 namespace compute {
 
+// SwissTable is a variant of a hash table implementation.
+// This implementation is vectorized, that is: main interface methods take arrays of input
+// values and output arrays of result values.
+//
+// A detailed explanation of this data structure (including concepts such as blocks,
+// slots, stamps) and operations provided by this class is given in the document:
+// arrow/compute/exec/doc/key_map.md.
+//
 class SwissTable {
   friend class SwissTableMerge;
 

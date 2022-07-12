@@ -444,19 +444,25 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   //
   int64_t num_rows = 0;
   int64_t num_bytes = 0;
-  first_target_row_id->resize(sources.size() + 1);
+  if (first_target_row_id) {
+    first_target_row_id->resize(sources.size() + 1);
+  }
   for (size_t i = 0; i < sources.size(); ++i) {
     // All input sources must be initialized and have the same row format.
     //
     ARROW_DCHECK(sources[i]->is_initialized_);
     ARROW_DCHECK(metadata.is_compatible(sources[i]->rows_.metadata()));
-    (*first_target_row_id)[i] = num_rows;
+    if (first_target_row_id) {
+      (*first_target_row_id)[i] = num_rows;
+    }
     num_rows += sources[i]->rows_.length();
     if (!metadata.is_fixed_length) {
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
   }
-  (*first_target_row_id)[sources.size()] = num_rows;
+  if (first_target_row_id) {
+    (*first_target_row_id)[sources.size()] = num_rows;
+  }
 
   // Allocate target memory
   //
@@ -643,13 +649,15 @@ Status SwissTableMerge::PrepareForMerge(SwissTable* target,
 
   // Calculate and output the first group id index for each source.
   //
-  uint32_t num_groups = 0;
-  first_target_group_id->resize(sources.size());
-  for (size_t i = 0; i < sources.size(); ++i) {
-    (*first_target_group_id)[i] = num_groups;
-    num_groups += sources[i]->num_inserted_;
+  if (first_target_group_id) {
+    uint32_t num_groups = 0;
+    first_target_group_id->resize(sources.size());
+    for (size_t i = 0; i < sources.size(); ++i) {
+      (*first_target_group_id)[i] = num_groups;
+      num_groups += sources[i]->num_inserted_;
+    }
+    target->num_inserted_ = num_groups;
   }
-  target->num_inserted_ = num_groups;
 
   return Status::OK();
 }
@@ -1035,33 +1043,6 @@ Status SwissTableWithKeys::Map(Input* input, bool insert_missing, const uint32_t
   }
 
   return Status::OK();
-}
-
-void SwissTableForJoin::Lookup(const ExecBatch& batch, int start_row, int num_rows,
-                               uint8_t* out_has_match_bitvector, uint32_t* out_key_ids,
-                               util::TempVectorStack* temp_stack,
-                               std::vector<KeyColumnArray>* temp_column_arrays) {
-  SwissTableWithKeys::Input input(&batch, start_row, start_row + num_rows, temp_stack,
-                                  temp_column_arrays);
-
-  // Split into smaller mini-batches
-  //
-  int minibatch_size = map_.swiss_table()->minibatch_size();
-  auto hashes_buf = util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size);
-  for (int minibatch_start = 0; minibatch_start < num_rows;) {
-    uint32_t minibatch_size_next = std::min(minibatch_size, num_rows - minibatch_start);
-
-    SwissTableWithKeys::Input minibatch_input(input, minibatch_start,
-                                              minibatch_size_next);
-
-    SwissTableWithKeys::Hash(&minibatch_input, hashes_buf.mutable_data(),
-                             map_.swiss_table()->hardware_flags());
-    map_.MapReadOnly(&minibatch_input, hashes_buf.mutable_data(),
-                     out_has_match_bitvector + minibatch_start / 8,
-                     out_key_ids + minibatch_start);
-
-    minibatch_start += minibatch_size_next;
-  }
 }
 
 uint8_t* SwissTableForJoin::local_has_match(int64_t thread_id) {
@@ -1488,9 +1469,6 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
     RowArrayMerge::MergeSingle(&target_->payloads_, prtn_state.payloads,
                                partition_payloads_first_row_id_[prtn_id],
                                source_payload_ids.data());
-
-    // TODO: Uncomment for debugging
-    // prtn_state.payloads.DebugPrintToFile("payload_local.txt", false);
   }
 }
 
@@ -1686,7 +1664,10 @@ Result<std::shared_ptr<ArrayData>> JoinResultMaterialize::FlushBuildColumn(
 }
 
 Status JoinResultMaterialize::Flush(ExecBatch* out) {
-  ARROW_DCHECK(num_rows_ > 0);
+  if (num_rows_ == 0) {
+    return Status::OK();
+  }
+
   out->length = num_rows_;
   out->values.clear();
 
@@ -2032,10 +2013,8 @@ Status JoinProbeProcessor::OnFinished() {
   //
   for (size_t i = 0; i < materialize_.size(); ++i) {
     JoinResultMaterialize& materialize = *materialize_[i];
-    if (materialize.num_rows() > 0) {
-      RETURN_NOT_OK(materialize.Flush(
-          [&](ExecBatch batch) { output_batch_fn_(i, std::move(batch)); }));
-    }
+    RETURN_NOT_OK(materialize.Flush(
+        [&](ExecBatch batch) { output_batch_fn_(i, std::move(batch)); }));
   }
 
   return Status::OK();
@@ -2051,7 +2030,7 @@ class SwissJoin : public HashJoinImpl {
               FinishedCallback finished_callback, TaskScheduler* scheduler) override {
     START_COMPUTE_SPAN(span_, "SwissJoinImpl",
                        {{"detail", filter.ToString()},
-                        {"join.kind", ToString(join_type)},
+                        {"join.kind", arrow::compute::ToString(join_type)},
                         {"join.threads", static_cast<uint32_t>(num_threads)}});
 
     num_threads_ = static_cast<int>(num_threads);
@@ -2142,7 +2121,7 @@ class SwissJoin : public HashJoinImpl {
       return status();
     }
 
-    return CancelIfNotOK(ScanHashTableAsync(static_cast<int64_t>(thread_index)));
+    return CancelIfNotOK(StartScanHashTable(static_cast<int64_t>(thread_index)));
   }
 
   Status BuildHashTable(size_t thread_id, AccumulationQueue batches,
@@ -2154,7 +2133,7 @@ class SwissJoin : public HashJoinImpl {
     build_side_batches_ = std::move(batches);
     build_finished_callback_ = on_finished;
 
-    return CancelIfNotOK(BuildHashTableAsync(static_cast<int64_t>(thread_id)));
+    return CancelIfNotOK(StartBuildHashTable(static_cast<int64_t>(thread_id)));
   }
 
   void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) override {
@@ -2164,8 +2143,10 @@ class SwissJoin : public HashJoinImpl {
     scheduler_->Abort(std::move(pos_abort_callback));
   }
 
+  std::string ToString() const override { return "SwissJoin"; }
+
  private:
-  Status BuildHashTableAsync(int64_t thread_id) {
+  Status StartBuildHashTable(int64_t thread_id) {
     // Initialize build class instance
     //
     const HashJoinProjectionMaps* schema = schema_[1];
@@ -2292,7 +2273,7 @@ class SwissJoin : public HashJoinImpl {
     return build_finished_callback_(thread_id);
   }
 
-  Status ScanHashTableAsync(int64_t thread_id) {
+  Status StartScanHashTable(int64_t thread_id) {
     if (IsCancelled()) {
       return status();
     }

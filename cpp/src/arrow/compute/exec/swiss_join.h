@@ -146,7 +146,8 @@ class RowArrayMerge {
   // All input sources must be initialized, but they can contain zero rows.
   //
   // Output in vector the first target row id for each source (exclusive
-  // cummulative sum of number of rows in sources).
+  // cummulative sum of number of rows in sources). This output is optional,
+  // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
                                 std::vector<int64_t>* first_target_row_id,
@@ -224,7 +225,8 @@ class SwissTableMerge {
   // All input sources must be initialized, but they can be empty.
   //
   // Output in a vector the first target group id for each source (exclusive
-  // cummulative sum of number of groups in sources).
+  // cummulative sum of number of groups in sources). This output is optional,
+  // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(SwissTable* target,
                                 const std::vector<SwissTable*>& sources,
@@ -355,10 +357,6 @@ class SwissTableForJoin {
   friend class SwissTableForJoinBuild;
 
  public:
-  void Lookup(const ExecBatch& batch, int start_row, int num_rows,
-              uint8_t* out_has_match_bitvector, uint32_t* out_key_ids,
-              util::TempVectorStack* temp_stack,
-              std::vector<KeyColumnArray>* temp_column_arrays);
   void UpdateHasMatchForKeys(int64_t thread_id, int num_rows, const uint32_t* key_ids);
   void MergeHasMatch();
 
@@ -668,9 +666,14 @@ class JoinResultMaterialize {
   int64_t num_produced_batches_;
 };
 
+// When comparing two join key values to check if they are equal, hash join allows to
+// chose (even separately for each field within the join key) whether two null values are
+// considered to be equal (IS comparison) or not (EQ comparison). For EQ comparison we
+// need to filter rows with nulls in keys outside of hash table lookups, since hash table
+// implementation always treats two nulls as equal (like IS comparison).
+//
 // Implements evaluating filter bit vector eliminating rows that do not have
 // join matches due to nulls in key columns.
-//
 //
 class JoinNullFilter {
  public:

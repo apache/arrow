@@ -22,6 +22,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/hash_join.h"
 #include "arrow/compute/exec/hash_join_dict.h"
+#include "arrow/compute/exec/hash_join_node.h"
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
@@ -1016,6 +1017,11 @@ class HashJoinNode : public ExecNode {
   }
 
   Future<> finished() override { return task_group_.OnFinished(); }
+
+ protected:
+  std::string ToStringExtra(int indent = 0) const override {
+    return "implementation=" + impl_->ToString();
+  }
 
  private:
   void OutputBatchCallback(ExecBatch batch) {

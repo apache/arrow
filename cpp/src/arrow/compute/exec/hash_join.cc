@@ -48,7 +48,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
               FinishedCallback finished_callback, TaskScheduler* scheduler) override {
     START_COMPUTE_SPAN(span_, "HashJoinBasicImpl",
                        {{"detail", filter.ToString()},
-                        {"join.kind", ToString(join_type)},
+                        {"join.kind", arrow::compute::ToString(join_type)},
                         {"join.threads", static_cast<uint32_t>(num_threads)}});
 
     num_threads_ = num_threads;
@@ -84,6 +84,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     cancelled_ = true;
     scheduler_->Abort(std::move(pos_abort_callback));
   }
+
+  std::string ToString() const override { return "HashJoinBasicImpl"; }
 
  private:
   void InitEncoder(int side, HashJoinProjection projection_handle, RowEncoder* encoder) {
@@ -188,8 +190,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     auto from_payload =
         schema_[0]->map(HashJoinProjection::OUTPUT, HashJoinProjection::PAYLOAD);
     for (int icol = 0; icol < num_out_cols_left; ++icol) {
-      bool is_from_key = (from_key.get(icol) != HashJoinSchema::kMissingField());
-      bool is_from_payload = (from_payload.get(icol) != HashJoinSchema::kMissingField());
+      bool is_from_key = (from_key.get(icol) != HashJoinProjectionMaps::kMissingField);
+      bool is_from_payload =
+          (from_payload.get(icol) != HashJoinProjectionMaps::kMissingField);
       ARROW_DCHECK(is_from_key != is_from_payload);
       ARROW_DCHECK(!is_from_key ||
                    (opt_left_key &&
@@ -208,8 +211,9 @@ class HashJoinBasicImpl : public HashJoinImpl {
     from_payload =
         schema_[1]->map(HashJoinProjection::OUTPUT, HashJoinProjection::PAYLOAD);
     for (int icol = 0; icol < num_out_cols_right; ++icol) {
-      bool is_from_key = (from_key.get(icol) != HashJoinSchema::kMissingField());
-      bool is_from_payload = (from_payload.get(icol) != HashJoinSchema::kMissingField());
+      bool is_from_key = (from_key.get(icol) != HashJoinProjectionMaps::kMissingField);
+      bool is_from_payload =
+          (from_payload.get(icol) != HashJoinProjectionMaps::kMissingField);
       ARROW_DCHECK(is_from_key != is_from_payload);
       ARROW_DCHECK(!is_from_key ||
                    (opt_right_key &&

@@ -38,6 +38,9 @@ namespace compute {
 struct BenchmarkSettings {
   int num_threads = 1;
   JoinType join_type = JoinType::INNER;
+  // Change to 'true' to benchmark alternative, non-default and less optimized version of
+  // a hash join node implementation.
+  bool use_basic_implementation = false;
   int batch_size = 1024;
   int num_build_batches = 32;
   int num_probe_batches = 32 * 16;
@@ -134,7 +137,11 @@ class JoinBenchmark {
                                 left_keys, *r_batches_with_schema.schema, right_keys,
                                 filter, "l_", "r_"));
 
-    join_ = *HashJoinImpl::MakeSwiss();
+    if (settings.use_basic_implementation) {
+      join_ = *HashJoinImpl::MakeBasic();
+    } else {
+      join_ = *HashJoinImpl::MakeSwiss();
+    }
 
     omp_set_num_threads(settings.num_threads);
     auto schedule_callback = [](std::function<Status(size_t)> func) -> Status {
