@@ -2331,6 +2331,23 @@ test_that("lubridate's fast_strptime", {
     )
   )
 
+  # namespaced fast_strptime
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        y =
+          lubridate::fast_strptime(
+            x,
+            format = "%Y-%m-%d %H:%M:%S",
+            lt = FALSE
+          )
+      ) %>%
+      collect(),
+    tibble(
+      x = c("2018-10-07 19:04:05", "2022-05-17 21:23:45", NA)
+    )
+  )
+
   # R object
   compare_dplyr_binding(
     .input %>%
