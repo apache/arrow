@@ -383,8 +383,7 @@ class CompositeReferenceTable {
 
   // Materializes the current reference table into a target record batch
   Result<std::shared_ptr<RecordBatch>> Materialize(
-      ExecContext *execCtx,
-      const std::shared_ptr<arrow::Schema>& output_schema,
+      ExecContext* execCtx, const std::shared_ptr<arrow::Schema>& output_schema,
       const std::vector<std::unique_ptr<InputState>>& state) {
     DCHECK_EQ(state.size(), n_tables_);
 
@@ -411,25 +410,22 @@ class CompositeReferenceTable {
           if (field_type->Equals(arrow::int32())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::Int32Builder, int32_t>(execCtx->memory_pool(),
-                                                                          i_table,
-                                                                          i_src_col)));
+                (MaterializePrimitiveColumn<arrow::Int32Builder, int32_t>(
+                    execCtx->memory_pool(), i_table, i_src_col)));
           } else if (field_type->Equals(arrow::int64())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::Int64Builder, int64_t>(execCtx->memory_pool(),
-                                                                          i_table,
-                                                                          i_src_col)));
+                (MaterializePrimitiveColumn<arrow::Int64Builder, int64_t>(
+                    execCtx->memory_pool(), i_table, i_src_col)));
           } else if (field_type->Equals(arrow::float32())) {
             ARROW_ASSIGN_OR_RAISE(arrays.at(i_dst_col),
-                                  (MaterializePrimitiveColumn<arrow::FloatBuilder, float>(execCtx->memory_pool(),
-                                      i_table, i_src_col)));
+                                  (MaterializePrimitiveColumn<arrow::FloatBuilder, float>(
+                                      execCtx->memory_pool(), i_table, i_src_col)));
           } else if (field_type->Equals(arrow::float64())) {
             ARROW_ASSIGN_OR_RAISE(
                 arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(execCtx->memory_pool(),
-                                                                          i_table,
-                                                                          i_src_col)));
+                (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(
+                    execCtx->memory_pool(), i_table, i_src_col)));
           } else {
             ARROW_RETURN_NOT_OK(
                 Status::Invalid("Unsupported data type: ", src_field->name()));
@@ -464,7 +460,7 @@ class CompositeReferenceTable {
   }
 
   template <class Builder, class PrimitiveType>
-  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(MemoryPool *memory_pool,
+  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(MemoryPool* memory_pool,
                                                             size_t i_table,
                                                             col_index_t i_col) {
     Builder builder(memory_pool);
