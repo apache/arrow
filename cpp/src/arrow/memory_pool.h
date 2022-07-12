@@ -131,6 +131,35 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   MemoryPool* pool_;
 };
 
+class ARROW_EXPORT BenchmarkMemoryPool : public MemoryPool {
+ public:
+
+ struct Activity {
+    time_t time;
+    int64_t size;
+  };
+
+  explicit BenchmarkMemoryPool(MemoryPool* pool, std::vector<BenchmarkMemoryPool::Activity> v);
+  ~BenchmarkMemoryPool() override = default;
+
+  Status Allocate(int64_t size, uint8_t** out) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+
+  void Free(uint8_t* buffer, int64_t size) override;
+
+  int64_t bytes_allocated() const override;
+
+  int64_t max_memory() const override;
+
+  std::string backend_name() const override;
+
+  void record_activity(int64_t size);
+  
+ private:
+  MemoryPool* pool_;
+  std::vector<BenchmarkMemoryPool::Activity> *record;
+};
+
 /// Derived class for memory allocation.
 ///
 /// Tracks the number of bytes and maximum memory allocated through its direct
