@@ -312,7 +312,7 @@ test_that("show_exec_plan()", {
     )
   )
 
-  # record_batch & mutate
+  # record_batch and mutate
   expect_output(
     tbl %>%
       record_batch() %>%
