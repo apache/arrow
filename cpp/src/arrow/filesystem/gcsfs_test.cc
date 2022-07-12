@@ -116,10 +116,10 @@ class GcsTestbench : public ::testing::Environment {
       // Wait for message: "* Restarting with"
       auto testbench_is_running = [&output, this](bp::child& process) {
         std::string line;
-        std::chrono::time_point<std::chrono::system_clock> end =
-            std::chrono::system_clock::now() + std::chrono::seconds(10);
+        std::chrono::time_point<std::chrono::steady_clock> end =
+            std::chrono::steady_clock::now() + std::chrono::seconds(10);
         while (server_process_.valid() && server_process_.running() &&
-               std::chrono::system_clock::now() < end) {
+               std::chrono::steady_clock::now() < end) {
           if (output.peek() && std::getline(output, line)) {
             std::cerr << line << std::endl;
             if (line.find("* Restarting with") != std::string::npos) return true;
