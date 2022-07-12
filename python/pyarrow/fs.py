@@ -229,10 +229,11 @@ def copy_files(source, destination,
     --------
     Inspect an S3 bucket's files:
 
-    >>> s3, path = fs.FileSystem.from_uri("s3://registry.opendata.aws/roda/ndjson/")
+    >>> s3, path = fs.FileSystem.from_uri(
+    ...            "s3://registry.opendata.aws/roda/ndjson/")
     >>> selector = fs.FileSelector("registry.opendata.aws/roda/ndjson")
     >>> s3.get_file_info(selector)
-    [<FileInfo for 'registry.opendata.aws/roda/ndjson/index.ndjson': type=FileType.File, size=947684>]
+    [<FileInfo for 'registry.opendata.aws/roda/ndjson/index.ndjson':...]
 
     Create a LocalFIleSystem object and a new directory:
 
@@ -247,7 +248,7 @@ def copy_files(source, destination,
 
     >>> selector2 = fs.FileSelector('/tmp/copy-dir')
     >>> local.get_file_info(selector2)
-    [<FileInfo for '/tmp/copy-dir/copy.ndjson': type=FileType.File, size=947684>]
+    [<FileInfo for '/tmp/copy-dir/copy.ndjson': type=FileType.File...]
 
     Copy file using a FileSystem object:
 
