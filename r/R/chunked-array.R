@@ -120,7 +120,8 @@ ChunkedArray <- R6Class("ChunkedArray",
       ChunkedArray__Validate(self)
     },
     ToString = function() {
-      ChunkedArray__ToString(self)
+      typ <- paste0("<", self$type$ToString(), ">")
+      paste(typ, ChunkedArray__ToString(self), sep = "\n")
     },
     Equals = function(other, ...) {
       inherits(other, "ChunkedArray") && ChunkedArray__Equals(self, other)
