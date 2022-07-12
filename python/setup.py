@@ -294,14 +294,14 @@ class build_ext(_build_ext):
                     '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
             # run cmake
-            print("-- Running cmake for C pyarrow")
+            print("-- Running cmake for arrow python")
             self.spawn(['cmake'] + cmake_options + [source_cpyarrow])
-            print("-- Finished cmake for C pyarrow")
+            print("-- Finished cmake for arrow python")
             # run make & install
-            print("-- Running make build and install for C pyarrow")
+            print("-- Running make build and install for arrow python")
             self.spawn(['make'] + build_tool_args)
             self.spawn(['make', 'install'])
-            print("-- Finished make build and install for C pyarrow")
+            print("-- Finished make build and install for arrow python")
 
             # Move the libraries to the place expected by the Python build
             try:
