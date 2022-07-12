@@ -240,15 +240,16 @@ def copy_files(source, destination,
     >>> local.create_dir('/tmp/copy-dir')
 
 
-    Copy one file to a local directory:
+    Copy one file from S3 bucket to a local directory:
 
     >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
     ...               "file:///tmp/copy-dir/copy.ndjson")
+
     >>> selector2 = fs.FileSelector('/tmp/copy-dir')
     >>> local.get_file_info(selector2)
     [<FileInfo for '/tmp/copy-dir/copy.ndjson': type=FileType.File, size=947684>]
 
-    Using a FileSystem object:
+    Copy file using a FileSystem object:
 
     >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
     ...               "file:///tmp/copy-dir/copy.ndjson",
