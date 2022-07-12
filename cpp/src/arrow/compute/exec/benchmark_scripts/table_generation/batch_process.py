@@ -1,6 +1,5 @@
 import json
-from datagen import *
-
+from .datagen import *
 from pyarrow import ipc
 from pyarrow.ipc import RecordBatchStreamWriter
 import pyarrow as pa
@@ -96,7 +95,7 @@ if __name__ == "__main__":
     if len(sys.argv) < pre_args + 4:
         sys.stderr.write(
             "Usage: python -m bamboo.batch_process <process-type> <filename> <generator> <generator-keywords-in-json>\n" \
-            "Example: python -m bamboo.batch_process BatchStreamFeatherFileWriter marketdata.feather TableMSDataGenerator '{\"begin_date\":\"2020-01-01\", \"end_date\":\"2020-01-01\", \"seed\":1, \"freq\":\"1h\"}'\n"
+            "Example: python -m bamboo.batch_process BatchStreamFeatherFileWriter marketdata.feather MarketDataGenerator '{\"begin_date\":\"2020-01-01\", \"end_date\":\"2020-01-01\", \"seed\":1, \"freq\":\"1h\"}'\n"
         )
         sys.exit(1)
     process_type, filename, dgen, dgen_json = sys.argv[pre_args:pre_args+4]

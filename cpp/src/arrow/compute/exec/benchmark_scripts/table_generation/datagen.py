@@ -16,19 +16,9 @@ _DEFAULT_NUM_FEATURE_CATEGORIES = 100
 
 # the arrays below provide mock details
 # an array shorter than the number of ids is used in round-robin fashion
-_DEFAULT_DETAIL_EXCHANGE = np.array(
-    ["N", "O"], dtype=_DTYPE_STRING)
 _DEFAULT_DETAIL_NAME = np.array(
-    ["American Electric Power", "Canada Electric Power"], dtype=_DTYPE_STRING)
-_DEFAULT_DETAIL_COUNTRY_NAME = np.array(
-    ["United States", "Canada"], dtype=_DTYPE_STRING)
-_DEFAULT_DETAIL_SHORT_NAME = np.array(
-    ["A", "B"], dtype=_DTYPE_STRING)
-_DEFAULT_DETAIL_CURRENCY_ID = np.array([10203040, 50607080], dtype=_DTYPE_ID)
-_DEFAULT_DETAIL_CODE = np.array([10203040, 50607080], dtype=_DTYPE_ID)
-_DEFAULT_DETAIL_COUNTRY_ID = np.array([10203040, 50607080], dtype=_DTYPE_ID)
-_DEFAULT_DETAIL_TYPE_ID = np.array([10203040, 50607080], dtype=_DTYPE_ID)
-
+    ["Alice", "Bob"], dtype=_DTYPE_STRING)
+_DEFAULT_DETAIL_IDS = np.array([10203040, 50607080], dtype=_DTYPE_ID)
 
 def _arrow_type(dtype):
     if dtype == np.int8:
@@ -473,10 +463,7 @@ class DataGenerator:
             curr_date += one_day
             curr_date_ns = self._date_to_midnight_ns(curr_date)
 
-class TableMDDataGenerator:
-
-    table_prefix = "md"
-
+class BasicDataGenerator:
     def __init__(self):
         self.datagen = DataGenerator()
 
@@ -518,9 +505,9 @@ class TableMDDataGenerator:
 
             "time_ns" uint64
             "id" int32
-            md_1 float64
+            column1 float64
             ...
-            md_N float64
+            columnN float64
 
         The column names default to ["column" + str(i) for i in range(N)] where
         N is the number of columns. The BatchRecord will have fewer time points
@@ -529,7 +516,7 @@ class TableMDDataGenerator:
         Example (takes a couple of minutes):
 
             >>> num_batches = total_rows = total_bytes = 0
-            >>> mdgen = TableMDDataGenerator()
+            >>> mdgen = BasicDataGenerator()
             >>> for batch in mdgen.generate("2020-01-01", "2020-01-01", seed=1):
             ...     num_batches += 1
             ...     total_rows += batch.num_rows
@@ -544,7 +531,7 @@ class TableMDDataGenerator:
         if not isinstance(ids, int):
             raise ValueError("invalid ids " + str(ids))
         if isinstance(cols, int):
-            cols = [self.table_prefix + "_" + str(i) for i in range(max(1, cols))]
+            cols = ["column_" + str(i) for i in range(max(1, cols))]
         else:
             cols = list(cols)
 
@@ -557,7 +544,7 @@ class TableMDDataGenerator:
             seed=seed, calendar=calendar, freq=freq, time_dist=time_dist,
             dists=dists, num_ids=ids, batch_size=batch_size)
 
-class TableMSDataGenerator:
+class StateDataGenerator:
     def __init__(self):
         self.dgen = DataGenerator()
 
@@ -579,45 +566,41 @@ class TableMSDataGenerator:
 
         Example:
 
-        >>> gen = TableMSDataGenerator()
-        >>> for batch in gen.generate("2020-01-01", "2020-01-01", seed=1):
+        >>> sdg = StateDataGenerator()
+        >>> for batch in sdg.generate("2020-01-01", "2020-01-01", seed=1):
         ...     for item in batch.to_pydict().items():
         ...         print((item[0], item[1][:1]))
         ...     break
         ... 
         ('time', [Timestamp('2020-01-01 05:00:00+0000', tz='UTC')])
         ('id', [0])
-        ('ms_0', [0.345584192064786])
-        ('ms_1', [0.599476654534323])
-        ('ms_2', [0.338346476063111])
-        ('ms_3', [484732503.5147238])
-        ('ms_4', [-0.43637535848759307])
-        ('ms_5', [0])
-        ('ms_6', [-0.14101551119463715])
+        ('c0', [0.345584192064786])
+        ('c1', [0.599476654534323])
+        ('c2', [0.338346476063111])
+        ('c3', [484732503.5147238])
+        ('c4', [-0.43637535848759307])
+        ('c5', [0])
+        ('c6', [-0.14101551119463715])
         """
         freq = _max_freq([freq, "30T"])
         dists = [
             ("id", _get_id_dist()),
-            ("ms_0", NormalDistribution()),
-            ("ms_1", NormalDistribution()),
-            ("ms_2", SquaredNormalDistribution()),
-            ("ms_3", SquaredNormalDistribution(0.0, 20000.0)),
-            ("ms_4", NormalDistribution()),
-            ("ms_5", _get_category_id_dist()),
-            ("ms_6", NormalDistribution()),
+            ("c0", NormalDistribution()),
+            ("c1", NormalDistribution()),
+            ("c2", SquaredNormalDistribution()),
+            ("c3", SquaredNormalDistribution(0.0, 20000.0)),
+            ("c4", NormalDistribution()),
+            ("c5", _get_category_id_dist()),
+            ("c6", NormalDistribution()),
         ]
         return self.dgen.generate(begin_date=begin_date, end_date=end_date,
             seed=seed, calendar=SimpleDailyBusinessCalendar(), freq=freq,
             time_dist="constant", dists=dists, num_ids=_DEFAULT_NUM_IDS,
             batch_size=batch_size)
 
-class TableGLDataGenerator:
-
-    table_prefix = "gl"
-
+class CompleteDataGenerator:
     def __init__(self):
-        self.mdgen = TableMDDataGenerator()
-        self.mdgen.table_prefix = self.table_prefix
+        self.mdgen = BasicDataGenerator()
 
     def generate(self, begin_date=None, end_date=None, seed=None,
             freq="24h", batch_size=_DEFAULT_BATCH_SIZE):
@@ -639,22 +622,22 @@ class TableGLDataGenerator:
 
         Example:
 
-        >>> gen = TableGLDataGenerator()
-        >>> for batch in gen.generate("2020-01-01", "2020-01-01", seed=1):
+        >>> cdgen = CompleteDataGenerator()
+        >>> for batch in cdgen.generate("2020-01-01", "2020-01-01", seed=1):
         ...     for item in list(batch.to_pydict().items())[-10:]:
         ...         print((item[0], item[1][:1]))
         ...     break
         ... 
-        ('gl_131', [2.749462981735764])
-        ('gl_132', [1.1768217718084364])
-        ('gl_133', [1.0369319084482733])
-        ('gl_134', [-0.9942706167664396])
-        ('gl_135', [0.9809507712347781])
-        ('gl_136', [-1.1456103231734929])
-        ('gl_137', [-0.8939909449630671])
-        ('gl_138', [-0.28543920874737394])
-        ('gl_139', [1.3280087243059246])
-        ('gl_140', [-1.1114318678329866])
+        ('column_131', [2.749462981735764])
+        ('column_132', [1.1768217718084364])
+        ('column_133', [1.0369319084482733])
+        ('column_134', [-0.9942706167664396])
+        ('column_135', [0.9809507712347781])
+        ('column_136', [-1.1456103231734929])
+        ('column_137', [-0.8939909449630671])
+        ('column_138', [-0.28543920874737394])
+        ('column_139', [1.3280087243059246])
+        ('column_140', [-1.1114318678329866])
         """
         freq = _max_freq([freq, "24h"])
         return self.mdgen.generate(begin_date=begin_date, end_date=end_date,
@@ -662,13 +645,9 @@ class TableGLDataGenerator:
             time_dist="constant", ids=_DEFAULT_NUM_IDS, ids_dist="all",
             cols=141, batch_size=batch_size)
 
-class TableIUSLDataGenerator:
-
-    table_prefix = "iusl"
-
+class CompleteDailyDataGenerator:
     def __init__(self):
-        self.mdgen = TableMDDataGenerator()
-        self.mdgen.table_prefix = self.table_prefix
+        self.mdgen = BasicDataGenerator()
 
     def generate(self, begin_date=None, end_date=None, seed=None,
             freq="24h", batch_size=_DEFAULT_BATCH_SIZE):
@@ -690,22 +669,22 @@ class TableIUSLDataGenerator:
 
         Example:
 
-        >>> gen = TableIUSLDataGenerator()
-        >>> for batch in gen.generate("2020-01-01", "2020-01-01", seed=1):
+        >>> cddg = CompleteDailyDataGenerator()
+        >>> for batch in cddg.generate("2020-01-01", "2020-01-01", seed=1):
         ...     for item in list(batch.to_pydict().items())[-10:]:
         ...         print((item[0], item[1][:1]))
         ...     break
         ... 
-        ('iusl_75', [1.3668288118895462])
-        ('iusl_76', [0.09800763059526184])
-        ('iusl_77', [0.30368723055036645])
-        ('iusl_78', [0.7207469586450851])
-        ('iusl_79', [-0.8567123247414715])
-        ('iusl_80', [1.3452920309743779])
-        ('iusl_81', [2.136508741914908])
-        ('iusl_82', [-0.6624693897167523])
-        ('iusl_83', [0.6089530774546572])
-        ('iusl_84', [-1.5991155529278167])
+        ('column_75', [1.3668288118895462])
+        ('column_76', [0.09800763059526184])
+        ('column_77', [0.30368723055036645])
+        ('column_78', [0.7207469586450851])
+        ('column_79', [-0.8567123247414715])
+        ('column_80', [1.3452920309743779])
+        ('column_81', [2.136508741914908])
+        ('column_82', [-0.6624693897167523])
+        ('column_83', [0.6089530774546572])
+        ('column_84', [-1.5991155529278167])
         """
         freq = _max_freq([freq, "24h"])
         return self.mdgen.generate(begin_date=begin_date, end_date=end_date,
@@ -713,13 +692,9 @@ class TableIUSLDataGenerator:
             time_dist="constant", ids=_DEFAULT_NUM_IDS, ids_dist="all",
             cols=85, batch_size=batch_size)
 
-class TableFDataGenerator:
-
-    table_prefix = "f"
-
+class CompleteMonthlyDataGenerator:
     def __init__(self):
-        self.mdgen = TableMDDataGenerator()
-        self.mdgen.table_prefix = self.table_prefix
+        self.mdgen = BasicDataGenerator()
 
     def generate(self, begin_date=None, end_date=None, seed=None,
             freq="30T", batch_size=_DEFAULT_BATCH_SIZE):
@@ -741,23 +716,23 @@ class TableFDataGenerator:
 
         Example:
 
-        >>> gen = TableFDataGenerator()
-        >>> for batch in gen.generate("2020-01-01", "2020-01-01", seed=1):
+        >>> cmdgen = CompleteMonthlyDataGenerator()
+        >>> for batch in cmdgen.generate("2020-01-01", "2020-01-01", seed=1):
         ...     for item in batch.to_pydict().items():
         ...         print((item[0], item[1][:1]))
         ...     break
         ... 
         ('time', [Timestamp('2020-01-01 14:00:00+0000', tz='UTC')])
         ('id', [0])
-        ('f_0', [0.345584192064786])
+        ('data', [0.345584192064786])
         """
         freq = _max_freq([freq, "30T"])
         return self.mdgen.generate(begin_date=begin_date, end_date=end_date,
             seed=seed, calendar=SimpleBusinessCalendar(), freq=freq,
             time_dist="constant", ids=_DEFAULT_NUM_IDS, ids_dist="all",
-            cols=1, batch_size=batch_size)
+            cols=["data"], batch_size=batch_size)
 
-class TableIDDataGenerator:
+class FeatureDataGenerator:
     def __init__(self):
         self.dgen = DataGenerator()
 
@@ -781,44 +756,44 @@ class TableIDDataGenerator:
 
         Example:
 
-        >>> gen = TableIDDataGenerator()
-        >>> for batch in gen.generate("2020-01-01", "2020-01-01", seed=1):
+        >>> fdgen = FeatureDataGenerator()
+        >>> for batch in fdgen.generate("2020-01-01", "2020-01-01", seed=1):
         ...     for item in batch.to_pydict().items():
         ...         print((item[0], item[1][:1]))
         ...     break
         ... 
         ('time', [Timestamp('2020-01-01 05:00:00+0000', tz='UTC')])
         ('id', [0])
-        ('id_0', [0.345584192064786])
-        ('id_1', ['N'])
-        ('id_2', ['American Electric Power'])
-        ('id_3', ['United States'])
-        ('id_4', ['A'])
-        ('id_5', [10203040])
-        ('id_6', [10203040])
-        ('id_7', [10203040])
-        ('id_8', [10203040])
+        ('f0', [0.345584192064786])
+        ('f1', ['Alice'])
+        ('f2', ['Bob'])
+        ('f3', ['Alice'])
+        ('f4', ['Bob'])
+        ('f5', [10203040])
+        ('f6', [10203040])
+        ('f7', [10203040])
+        ('f8', [10203040])
         """
         freq = _max_freq([freq, "24h"])
         dists = [
             ("id", _get_id_dist()),
-            ("id_0", NormalDistribution()),
-            ("id_1",
-                _get_id_dist(_DEFAULT_DETAIL_EXCHANGE)),
-            ("id_2",
+            ("f0", NormalDistribution()),
+            ("f1",
                 _get_id_dist(_DEFAULT_DETAIL_NAME)),
-            ("id_3",
-                _get_id_dist(_DEFAULT_DETAIL_COUNTRY_NAME)),
-            ("id_4",
-                _get_id_dist(_DEFAULT_DETAIL_SHORT_NAME)),
-            ("id_5",
-                _get_id_dist(_DEFAULT_DETAIL_CURRENCY_ID)),
-            ("id_6",
-                _get_id_dist(_DEFAULT_DETAIL_CODE)),
-            ("id_7",
-                _get_id_dist(_DEFAULT_DETAIL_COUNTRY_ID)),
-            ("id_8",
-                _get_id_dist(_DEFAULT_DETAIL_TYPE_ID)),
+            ("f2",
+                _get_id_dist(_DEFAULT_DETAIL_NAME)),
+            ("f3",
+                _get_id_dist(_DEFAULT_DETAIL_NAME)),
+            ("f4",
+                _get_id_dist(_DEFAULT_DETAIL_NAME)),
+            ("f5",
+                _get_id_dist(_DEFAULT_DETAIL_IDS)),
+            ("f6",
+                _get_id_dist(_DEFAULT_DETAIL_IDS)),
+            ("f7",
+                _get_id_dist(_DEFAULT_DETAIL_IDS)),
+            ("f8",
+                _get_id_dist(_DEFAULT_DETAIL_IDS)),
         ]
         return self.dgen.generate(begin_date=begin_date, end_date=end_date,
             seed=seed, calendar=SimpleDailyBusinessCalendar(), freq=freq,
