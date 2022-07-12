@@ -241,7 +241,9 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem = NULL) {
   if (inherits(file, "SubTreeFileSystem")) {
     filesystem <- file$base_fs
-    file <- gsub("/$", "", file$base_path)
+    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject file names
+    # with trailing slashes, so we need to remove it here.
+    file <- sub("/$", "", file$base_path)
   }
   if (is.string(file)) {
     if (is_url(file)) {
@@ -303,7 +305,9 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
 
   if (inherits(x, "SubTreeFileSystem")) {
     filesystem <- x$base_fs
-    x <- gsub("/$", "", x$base_path)
+    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject file names
+    # with trailing slashes, so we need to remove it here.
+    x <- sub("/$", "", x$base_path)
   } else if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
     filesystem <- fs_and_path$fs
@@ -333,7 +337,7 @@ detect_compression <- function(path) {
   }
 
   # Remove any trailing slashes, which FileSystem$from_uri may add
-  path <- gsub("/$", "", path)
+  path <- sub("/$", "", path)
 
   switch(tools::file_ext(path),
     bz2 = "bz2",
