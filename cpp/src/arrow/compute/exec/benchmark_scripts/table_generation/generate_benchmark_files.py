@@ -74,7 +74,7 @@ def generate(files_generated, output_dir):
         if file_name not in files_generated:
             print('needs write', name_freq, name_cols, name_ids, index, file = sys.stderr)
             dgen_json = f'''{{"begin_date":"{def_start_date}", "end_date":"{def_end_date}", "freq":"{freq_val}", "cols" : {col_val}, "ids" : {id_val}}}'''
-            generate_data("BatchStreamFeatherFileWriter", output_dir + file_name, "TableMDDataGenerator", dgen_json)
+            generate_data("BatchStreamFeatherFileWriter", output_dir + file_name, "TableMDGenerator", dgen_json)
     for name_freq, freq in [("5m", "300s"), ("30m", "1800s"), ("1d","1d")]:
         for i in range(2):
             generate_if(output_dir, name_freq, def_table_cols, def_table_ids, i, freq, def_table_cols_value, def_table_ids_value)
