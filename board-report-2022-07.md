@@ -37,10 +37,12 @@ Recent releases:
 ## Community Health:
 
 - A book about Apache Arrow was published from a community member.
+  https://www.packtpub.com/product/in-memory-analytics-with-apache-arrow/9781801071031
 - We've split Apache Arrow Ballista to
   https://github.com/apache/arrow-ballista from
   https://github.com/apache/arrow-datafusion .
 - We've marked Apache Arrow C Streaming Interface stable.
 - A conference that focuses on Apache Arrow was held by community members.
+  https://thedatathread.com/
 - We're improving our release process to reduce release management cost.
 - We've accepted donation of Apache Arrow Flight SQL JDBC driver.
