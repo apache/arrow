@@ -428,6 +428,24 @@ class ScalarMemoTable : public MemoTable {
         value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
+  Status MaybeInsert(const Scalar& value) {
+    auto cmp_func = [value](const Payload* payload) -> bool {
+      return ScalarHelper<Scalar, 0>::CompareScalars(value, payload->value);
+    };
+
+    hash_t val_hash   = ComputeHash(value);
+    auto   hash_entry = hash_table_.Lookup(val_hash, cmp_func);
+
+    // Insert if it wasn't found; otherwise, we're done
+    if (!hash_entry.second) {
+      RETURN_NOT_OK(
+        hash_table_.Insert(hash_entry.first, val_hash, { value, size() })
+      );
+    }
+
+    return Status::OK();
+  }
+
   int32_t GetNull() const { return null_index_; }
 
   template <typename Func1, typename Func2>
@@ -484,6 +502,22 @@ class ScalarMemoTable : public MemoTable {
 
   hash_t ComputeHash(const Scalar& value) const {
     return ScalarHelper<Scalar, 0>::ComputeHash(value);
+  }
+
+ public:
+  // defined here so that `HashTableType` is visible
+  // Merge entries from `other_table` into `this->hash_table_`.
+  void MergeTable(ScalarMemoTable &other_table) {
+    HashTableType &other_hashtable = other_table.hash_table_;
+
+    other_hashtable.VisitEntries(
+      [=](const HashTableEntry *other_entry) {
+        ARROW_WARN_NOT_OK(
+           this->MaybeInsert(other_entry->payload.value)
+          ,"Merging ScalarMemoTable"
+        );
+      }
+    );
   }
 };
 
@@ -545,6 +579,22 @@ class SmallScalarMemoTable : public MemoTable {
         value, [](int32_t i) {}, [](int32_t i) {}, out_memo_index);
   }
 
+  Status MaybeInsert(const Scalar& value) {
+    auto value_index = AsIndex(value);
+    auto memo_index  = value_to_index_[value_index];
+
+    if (memo_index == kKeyNotFound) {
+      memo_index = static_cast<int32_t>(index_to_value_.size());
+
+      index_to_value_.push_back(value);
+      value_to_index_[value_index] = memo_index;
+
+      DCHECK_LT(memo_index, cardinality + 1);
+    }
+
+    return Status::OK();
+  }
+
   int32_t GetNull() const { return value_to_index_[cardinality]; }
 
   template <typename Func1, typename Func2>
@@ -567,6 +617,16 @@ class SmallScalarMemoTable : public MemoTable {
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
   int32_t size() const override { return static_cast<int32_t>(index_to_value_.size()); }
+
+  // Merge entries from `other_table` into `this`.
+  void MergeTable(SmallScalarMemoTable &other_table) {
+    for (const Scalar &other_val : other_table.index_to_value_) {
+      auto insert_status = this->MaybeInsert(other_val);
+      if (not insert_status.ok()) {
+        ARROW_WARN_NOT_OK(insert_status, "Merging SmallScalarMemoTable");
+      }
+    }
+  }
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
@@ -681,6 +741,30 @@ class BinaryMemoTable : public MemoTable {
 
   int32_t GetOrInsertNull() {
     return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
+  }
+
+  Status MaybeInsert(const util::string_view& value) {
+    const void *val_data   = value.data();
+    auto        val_length = static_cast<builder_offset_type>(value.length());
+
+    hash_t      val_hash   = ComputeStringHash<0>(val_data, val_length);
+    auto        hash_entry = Lookup(val_hash, val_data, val_length);
+
+    if (!hash_entry.second) {
+      // Insert string value
+      RETURN_NOT_OK(
+        binary_builder_.Append(static_cast<const char*>(val_data), val_length)
+      );
+
+      // Insert hash entry
+      RETURN_NOT_OK(
+        hash_table_.Insert(
+          const_cast<HashTableEntry*>(hash_entry.first), val_hash, { size() }
+        )
+      );
+    }
+
+    return Status::OK();
   }
 
   // The number of entries in the memo table
@@ -823,6 +907,19 @@ class BinaryMemoTable : public MemoTable {
       return lhs == rhs;
     };
     return hash_table_.Lookup(h, cmp_func);
+  }
+
+ public:
+  void MergeTable(BinaryMemoTable &other_table) {
+    other_table.VisitValues(
+       0
+      ,[=](const util::string_view &other_value) {
+         ARROW_WARN_NOT_OK(
+            this->MaybeInsert(other_value)
+           ,"Merging BinaryMemoTable"
+        );
+       }
+    );
   }
 };
 

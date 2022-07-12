@@ -156,7 +156,8 @@ struct CountDistinctImpl : public ScalarAggregator {
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other_state = checked_cast<const CountDistinctImpl&>(src);
-    this->non_nulls += other_state.non_nulls;
+    this->memo_table_->MergeTable(*(other_state.memo_table_));
+    this->non_nulls = this->memo_table_->size();
     this->has_nulls = this->has_nulls || other_state.has_nulls;
     return Status::OK();
   }
