@@ -23,6 +23,7 @@
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
@@ -32,18 +33,22 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&);
+Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&,
+                                      const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
 Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression&,
-                                                       ExtensionSet*);
+                                                       ExtensionSet*,
+                                                       const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
-Result<Datum> FromProto(const substrait::Expression::Literal&, const ExtensionSet&);
+Result<Datum> FromProto(const substrait::Expression::Literal&, const ExtensionSet&,
+                        const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
 Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum&,
-                                                                ExtensionSet*);
+                                                                ExtensionSet*,
+                                                                const ConversionOptions&);
 
 }  // namespace engine
 }  // namespace arrow

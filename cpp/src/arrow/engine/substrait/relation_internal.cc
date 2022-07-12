@@ -52,8 +52,8 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
-Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
-                                  const ExtensionSet& ext_set) {
+Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet& ext_set,
+                                  const ConversionOptions& conversion_options) {
   static bool dataset_init = false;
   if (!dataset_init) {
     dataset_init = true;
@@ -65,13 +65,15 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       const auto& read = rel.read();
       RETURN_NOT_OK(CheckRelCommon(read));
 
-      ARROW_ASSIGN_OR_RAISE(auto base_schema, FromProto(read.base_schema(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto base_schema,
+                            FromProto(read.base_schema(), ext_set, conversion_options));
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
       scan_options->use_threads = true;
 
       if (read.has_filter()) {
-        ARROW_ASSIGN_OR_RAISE(scan_options->filter, FromProto(read.filter(), ext_set));
+        ARROW_ASSIGN_OR_RAISE(scan_options->filter,
+                              FromProto(read.filter(), ext_set, conversion_options));
       }
 
       if (read.has_projection()) {
@@ -196,12 +198,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       if (!filter.has_input()) {
         return Status::Invalid("substrait::FilterRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProto(filter.input(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(filter.input(), ext_set, conversion_options));
 
       if (!filter.has_condition()) {
         return Status::Invalid("substrait::FilterRel with no condition expression");
       }
-      ARROW_ASSIGN_OR_RAISE(auto condition, FromProto(filter.condition(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto condition,
+                            FromProto(filter.condition(), ext_set, conversion_options));
 
       return DeclarationInfo{
           compute::Declaration::Sequence({
@@ -218,7 +222,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       if (!project.has_input()) {
         return Status::Invalid("substrait::ProjectRel with no input relation");
       }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProto(project.input(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(project.input(), ext_set, conversion_options));
 
       // NOTE: Substrait ProjectRels *append* columns, while Acero's project node replaces
       // them. Therefore, we need to prefix all the current columns for compatibility.
@@ -229,7 +234,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       }
       for (const auto& expr : project.expressions()) {
         expressions.emplace_back();
-        ARROW_ASSIGN_OR_RAISE(expressions.back(), FromProto(expr, ext_set));
+        ARROW_ASSIGN_OR_RAISE(expressions.back(),
+                              FromProto(expr, ext_set, conversion_options));
       }
 
       auto num_columns = static_cast<int>(expressions.size());
@@ -279,14 +285,17 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           return Status::Invalid("Unsupported join type");
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto left, FromProto(join.left(), ext_set));
-      ARROW_ASSIGN_OR_RAISE(auto right, FromProto(join.right(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto left,
+                            FromProto(join.left(), ext_set, conversion_options));
+      ARROW_ASSIGN_OR_RAISE(auto right,
+                            FromProto(join.right(), ext_set, conversion_options));
 
       if (!join.has_expression()) {
         return Status::Invalid("substrait::JoinRel with no expression");
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto expression, FromProto(join.expression(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto expression,
+                            FromProto(join.expression(), ext_set, conversion_options));
 
       const auto* callptr = expression.call();
       if (!callptr) {
