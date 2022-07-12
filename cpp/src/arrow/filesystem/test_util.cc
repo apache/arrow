@@ -987,6 +987,17 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_OK(stream->Close());
   ASSERT_RAISES(Invalid, stream->Read(1));  // Stream is closed
 
+  // Either ignore or reject trailing slash on a file
+  auto maybe_stream = fs->OpenInputStream("AB/abc/");
+  if (maybe_stream.ok()) {
+    ASSERT_OK_AND_ASSIGN(stream, maybe_stream);
+    ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
+    AssertBufferEqual(*buffer, "some");
+    ASSERT_OK(stream->Close());
+  } else {
+    ASSERT_RAISES(IOError, maybe_stream);
+  }
+
   // File does not exist
   AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("AB/def"));
   AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("def"));
@@ -1056,6 +1067,17 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_OK_AND_EQ(15, file->GetSize());
   ASSERT_OK(file->Close());
   ASSERT_RAISES(Invalid, file->ReadAt(1, 1));  // Stream is closed
+
+  // Either ignore or reject trailing slash on a file
+  auto maybe_file = fs->OpenInputFile("AB/abc/");
+  if (maybe_file.ok()) {
+    ASSERT_OK_AND_ASSIGN(file, maybe_file);
+    ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(5, 6));
+    AssertBufferEqual(*buffer, "other ");
+    ASSERT_OK(file->Close());
+  } else {
+    ASSERT_RAISES(IOError, maybe_file);
+  }
 
   // File does not exist
   AssertRaisesWithErrno(ENOENT, fs->OpenInputFile("AB/def"));
