@@ -82,22 +82,6 @@ static std::vector<std::string> generateRightHandTables(std::string freq, int wi
   return right_hand_tables;
 }
 
-std::shared_ptr<arrow::Schema> get_resultant_join_schema(
-    std::shared_ptr<arrow::Schema> left_table_schema,
-    std::vector<std::shared_ptr<arrow::Schema>> right_table_schemas) {
-  std::vector<std::shared_ptr<arrow::Schema>> schemas_to_add;
-  schemas_to_add.push_back(left_table_schema);
-  for (std::shared_ptr<arrow::Schema> r_schema : right_table_schemas) {
-    int time_index = r_schema->GetFieldIndex("time");
-    int id_index = r_schema->GetFieldIndex("id");
-    r_schema->RemoveField(time_index);
-    r_schema->RemoveField(id_index);
-    schemas_to_add.push_back(r_schema);
-  }
-  auto value = arrow::UnifySchemas(schemas_to_add);
-  return value.ValueOrDie();
-}
-
 // Wrapper to enable the use of RecordBatchFileReaders as RecordBatchReaders
 class RecordBatchFileReaderWrapper : public arrow::ipc::RecordBatchReader {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> _reader;
