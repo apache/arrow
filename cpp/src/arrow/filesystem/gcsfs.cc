@@ -71,28 +71,22 @@ struct GcsPath {
   std::string bucket;
   std::string object;
 
-  static Result<GcsPath> FromString(const std::string& s,
-                                    bool is_definitely_file = false) {
-    // If we know it's definitely a file, we should remove the trailing slash
-    const auto src =
-        is_definitely_file ? internal::RemoveTrailingSlash(s) : util::string_view(s);
-
-    if (internal::IsLikelyUri(src)) {
+  static Result<GcsPath> FromString(const std::string& s) {
+    if (internal::IsLikelyUri(s)) {
       return Status::Invalid(
-          "Expected a GCS object path of the form 'bucket/key...', got a URI: '", src,
-          "'");
+          "Expected a GCS object path of the form 'bucket/key...', got a URI: '", s, "'");
     }
-    auto const first_sep = src.find_first_of(internal::kSep);
+    auto const first_sep = s.find_first_of(internal::kSep);
     if (first_sep == 0) {
-      return Status::Invalid("Path cannot start with a separator ('", src, "')");
+      return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
       return GcsPath{s, internal::RemoveTrailingSlash(s).to_string(), ""};
     }
     GcsPath path;
-    path.full_path = src.to_string();
-    path.bucket = src.substr(0, first_sep).to_string();
-    path.object = src.substr(first_sep + 1).to_string();
+    path.full_path = s;
+    path.bucket = s.substr(0, first_sep);
+    path.object = s.substr(first_sep + 1);
     return path;
   }
 
@@ -893,7 +887,8 @@ Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) 
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const std::string& path) {
-  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path, /*is_definitely_file=*/true));
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
 
@@ -903,14 +898,15 @@ Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     return Status::IOError("Cannot open directory '", info.path(),
                            "' as an input stream");
   }
-  ARROW_ASSIGN_OR_RAISE(auto p,
-                        GcsPath::FromString(info.path(), /*is_definitely_file=*/true));
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     const std::string& path) {
-  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path, /*is_definitely_file=*/true));
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
@@ -931,8 +927,8 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     return Status::IOError("Cannot open directory '", info.path(),
                            "' as an input stream");
   }
-  ARROW_ASSIGN_OR_RAISE(auto p,
-                        GcsPath::FromString(info.path(), /*is_definitely_file=*/true));
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
@@ -949,7 +945,8 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path, /*is_definitely_file=*/true));
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
+  ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   return impl_->OpenOutputStream(p, metadata);
 }
 
