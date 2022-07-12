@@ -299,8 +299,8 @@ class build_ext(_build_ext):
             print("-- Finished cmake for arrow python")
             # run make & install
             print("-- Running make build and install for arrow python")
-            self.spawn(['make'] + build_tool_args)
-            self.spawn(['make', 'install'])
+            self.spawn(['cmake', '--build', '.'] + build_tool_args)
+            self.spawn(['cmake', '--install', '.'])
             print("-- Finished make build and install for arrow python")
 
             # Move the libraries to the place expected by the Python build
