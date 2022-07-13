@@ -25,6 +25,7 @@
   * `orders` with year, month, day, hours, minutes, and seconds components are supported.
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
 * `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed. Use the `read/write_feather()` and `read/write_ipc_stream()` functions depending on whether you're working with the Arrow IPC file or stream format, respectively.
+* `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps.
 
 # arrow 8.0.0
 

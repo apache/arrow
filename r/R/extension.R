@@ -193,7 +193,7 @@ ExtensionType <- R6Class("ExtensionType",
           sprintf(
             "<%s %s...>",
             class(self)[1],
-            paste(format(utils::head(metadata_raw, 20)), collapse = " ")
+            paste(format(head(metadata_raw, 20)), collapse = " ")
           )
         } else {
           sprintf(
@@ -420,31 +420,19 @@ unregister_extension_type <- function(extension_name) {
   arrow__UnregisterRExtensionType(extension_name)
 }
 
+#' @importFrom utils capture.output
 VctrsExtensionType <- R6Class("VctrsExtensionType",
   inherit = ExtensionType,
   public = list(
-    ptype = function() {
-      private$.ptype
-    },
+    ptype = function() private$.ptype,
     ToString = function() {
-      tf <- tempfile()
-      sink(tf)
-      on.exit({
-        sink(NULL)
-        unlink(tf)
-      })
-      print(self$ptype())
-      paste0(readLines(tf), collapse = "\n")
+      paste0(capture.output(print(self$ptype())), collapse = "\n")
     },
     deserialize_instance = function() {
       private$.ptype <- unserialize(self$extension_metadata())
     },
     ExtensionEquals = function(other) {
-      if (!inherits(other, "VctrsExtensionType")) {
-        return(FALSE)
-      }
-
-      identical(self$ptype(), other$ptype())
+      inherits(other, "VctrsExtensionType") && identical(self$ptype(), other$ptype())
     },
     as_vector = function(extension_array) {
       if (inherits(extension_array, "ChunkedArray")) {

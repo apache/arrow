@@ -39,7 +39,7 @@ test_that("Array$SortIndices()", {
     Array$create(int)$SortIndices(),
     Array$create(order(int) - 1L, type = uint64())
   )
-  # Need to remove NAs because ARROW-12063
+  # TODO(ARROW-14085): remove workaround once NA behavior is supported
   int <- na.omit(int)
   expect_equal(
     Array$create(int)$SortIndices(descending = TRUE),
@@ -57,7 +57,7 @@ test_that("ChunkedArray$SortIndices()", {
     ChunkedArray$create(int[1:4], int[5:length(int)])$SortIndices(),
     Array$create(order(int) - 1L, type = uint64())
   )
-  # Need to remove NAs because ARROW-12063
+  # TODO(ARROW-14085): remove workaround once NA behavior is supported
   int <- na.omit(int)
   expect_equal(
     ChunkedArray$create(int[1:4], int[5:length(int)])$SortIndices(descending = TRUE),

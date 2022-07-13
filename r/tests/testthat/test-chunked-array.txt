@@ -1,5 +1,6 @@
 > chunked_array(c(1, 2, 3), c(4, 5, 6))
 ChunkedArray
+<double>
 [
   [
     1,
@@ -15,6 +16,7 @@ ChunkedArray
 
 > chunked_array(1:30, c(4, 5, 6))
 ChunkedArray
+<int32>
 [
   [
     1,
@@ -48,6 +50,7 @@ ChunkedArray
 
 > chunked_array(1:30)
 ChunkedArray
+<int32>
 [
   [
     1,
@@ -76,6 +79,7 @@ ChunkedArray
 
 > chunked_array(factor(c("a", "b")), factor(c("c", "d")))
 ChunkedArray
+<dictionary<values=string, indices=int8>>
 [
 
   -- dictionary:

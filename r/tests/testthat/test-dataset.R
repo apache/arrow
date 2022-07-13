@@ -618,6 +618,17 @@ test_that("UnionDataset handles InMemoryDatasets", {
   expect_equal(actual, expected)
 })
 
+test_that("scalar aggregates with many batches (ARROW-16904)", {
+  tf <- tempfile()
+  write_parquet(data.frame(x = 1:100), tf, chunk_size = 20)
+
+  ds <- open_dataset(tf)
+  replicate(100, ds %>% summarize(min(x)) %>% pull())
+
+  expect_true(all(replicate(100, ds %>% summarize(min(x)) %>% pull()) == 1))
+  expect_true(all(replicate(100, ds %>% summarize(max(x)) %>% pull()) == 100))
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 

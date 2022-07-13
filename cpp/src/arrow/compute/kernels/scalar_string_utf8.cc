@@ -24,7 +24,7 @@
 #endif
 
 #include "arrow/compute/kernels/scalar_string_internal.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 
 namespace arrow {
 namespace compute {

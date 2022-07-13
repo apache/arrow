@@ -45,5 +45,5 @@
       write_dataset(df, dst_dir, format = "parquet", nonsensical_arg = "blah-blah")
     Error <rlang_error>
       `nonsensical_arg` is not a valid argument for your chosen `format`.
-      i Supported arguments: `chunk_size`, `version`, `compression`, `compression_level`, `use_dictionary`, `write_statistics`, `data_page_size`, `use_deprecated_int96_timestamps`, `coerce_timestamps`, `allow_truncated_timestamps`, `properties`, and `arrow_properties`.
+      i Supported arguments: `chunk_size`, `version`, `compression`, `compression_level`, `use_dictionary`, `write_statistics`, `data_page_size`, `use_deprecated_int96_timestamps`, `coerce_timestamps`, and `allow_truncated_timestamps`.
 

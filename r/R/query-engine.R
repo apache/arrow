@@ -226,9 +226,9 @@ ExecPlan <- R6Class("ExecPlan",
         slice_size <- node$extras$head %||% node$extras$tail
         if (!is.null(slice_size)) {
           out <- head(out, slice_size)
+          # We already have everything we need for the head, so StopProducing
+          self$Stop()
         }
-        # Can we now tell `self$Stop()` to StopProducing? We already have
-        # everything we need for the head (but it seems to segfault: ARROW-14329)
       } else if (!is.null(node$extras$tail)) {
         # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect

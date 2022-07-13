@@ -280,7 +280,6 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     } else {
       stop(paste("Invalid .groups argument:", .groups))
     }
-    # TODO: shouldn't we be doing something with `drop_empty_groups` in summarize? (ARROW-14044)
     out$drop_empty_groups <- .data$drop_empty_groups
   }
   out

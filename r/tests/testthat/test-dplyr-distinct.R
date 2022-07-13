@@ -93,7 +93,7 @@ test_that("distinct() can contain expressions", {
 })
 
 test_that("distinct() can return all columns", {
-  skip("ARROW-13993 - need this to return correct rows from other cols")
+  skip("ARROW-14045")
   compare_dplyr_binding(
     .input %>%
       distinct(lgl, .keep_all = TRUE) %>%
