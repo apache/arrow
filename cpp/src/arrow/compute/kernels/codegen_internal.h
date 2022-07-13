@@ -343,6 +343,22 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
   using T = util::string_view;
   static T Unbox(const Scalar& val) {
     if (!val.is_valid) return util::string_view();
+
+    switch (val.type->id()) {
+      case arrow::Type::DECIMAL128: {
+        return util::string_view(checked_cast<const Decimal128Scalar&>(val).view());
+        break;
+      }
+
+      case arrow::Type::DECIMAL256: {
+        return util::string_view(checked_cast<const Decimal256Scalar&>(val).view());
+        break;
+      }
+
+      default:
+        break;
+    }
+
     return util::string_view(*checked_cast<const BaseBinaryScalar&>(val).value);
   }
 };
