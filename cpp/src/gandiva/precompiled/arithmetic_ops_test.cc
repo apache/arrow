@@ -611,6 +611,25 @@ TEST(TestArithmeticOps, TestSignIntFloatDouble) {
   EXPECT_EQ(sign_float64(-INFINITY), -1.0);
   EXPECT_TRUE(std::isnan(sign_float64(std::numeric_limits<double>::quiet_NaN())));
   EXPECT_EQ(sign_float64(-2147483647), -1.0);
+}  
+TEST(TestArithmeticOps, TestCeilingIntFloatDouble) {
+  // ceiling from floats
+  EXPECT_EQ(ceiling_float32(6.6f), 7);
+  EXPECT_EQ(ceiling_float32(-6.6f), -6);
+  EXPECT_EQ(ceiling_float32(-6.3f), -6);
+  EXPECT_EQ(ceiling_float32(0.0f), 0);
+  EXPECT_EQ(ceiling_float32(-0), 0);
+
+  // ceiling from doubles
+  EXPECT_EQ(ceiling_float64(6.6), 7);
+  EXPECT_EQ(ceiling_float64(-6.6), -6);
+  EXPECT_EQ(ceiling_float64(-6.3), -6);
+  EXPECT_EQ(ceiling_float64(0.0), 0);
+  EXPECT_EQ(ceiling_float64(-0), 0);
+  EXPECT_EQ(ceiling_float64(999999.99999999999999999999999), 1000000);
+  EXPECT_EQ(ceiling_float64(-999999.99999999999999999999999), -1000000);
+  EXPECT_EQ(ceiling_float64(INT32_MAX), 2147483647);
+  EXPECT_EQ(ceiling_float64(-2147483647), -2147483647);
 }
 
 }  // namespace gandiva
