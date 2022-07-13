@@ -77,6 +77,9 @@ type ArrayData interface {
 	// Reset allows reusing this ArrayData object by replacing the data in this ArrayData
 	// object without changing the reference count.
 	Reset(newtype DataType, newlength int, newbuffers []*memory.Buffer, newchildren []ArrayData, newnulls int, newoffset int)
+	// Dictionary returns the ArrayData object for the dictionary if this is a
+	// dictionary array, otherwise it will be nil.
+	Dictionary() ArrayData
 }
 
 // Array represents an immutable sequence of values using the Arrow in-memory format.

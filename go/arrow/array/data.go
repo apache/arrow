@@ -165,11 +165,14 @@ func (d *Data) Dictionary() arrow.ArrayData { return d.dictionary }
 
 // SetDictionary allows replacing the dictionary for this particular Data object
 func (d *Data) SetDictionary(dict arrow.ArrayData) {
-	dict.Retain()
 	if d.dictionary != nil {
 		d.dictionary.Release()
+		d.dictionary = nil
 	}
-	d.dictionary = dict.(*Data)
+	if dict.(*Data) != nil {
+		dict.Retain()
+		d.dictionary = dict.(*Data)
+	}
 }
 
 // NewSliceData returns a new slice that shares backing data with the input.
