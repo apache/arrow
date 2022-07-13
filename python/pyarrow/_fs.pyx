@@ -1027,6 +1027,23 @@ cdef class PyFileSystem(FileSystem):
     ----------
     handler : FileSystemHandler
         The handler object implementing custom filesystem behavior.
+
+    Examples
+    --------
+    Create an fsspec-based filesystem object for Google Cloud Storage:
+
+    >>> import gcsfs
+    >>> fs = gcsfs.GCSFileSystem(project='gcp-public-data-sentinel-2/index.csv.gz')
+
+    Get a PyArrow FileSystem object:
+
+    >>> from pyarrow.fs import PyFileSystem, FSSpecHandler
+    >>> pa_fs = PyFileSystem(FSSpecHandler(fs))
+
+    Use :func:`~pyarrow.fs.FileSystem` functionality `get_file_info()`:
+
+    >>> pa_fs.get_file_info('gcp-public-data-sentinel-2/index.csv.gz')
+    <FileInfo for 'gcp-public-data-sentinel-2/index.csv.gz': type=FileType.File, size=2783655355>
     """
 
     def __init__(self, handler):
