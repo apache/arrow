@@ -246,7 +246,7 @@ def _docdir(request):
 
 # Define doctest_namespace for fs module docstring import
 @pytest.fixture(autouse=True)
-def add_fs(doctest_namespace, request):
+def add_fs(doctest_namespace, request, tmp_path):
 
     # Trigger ONLY for the doctests
     doctest_m = request.config.option.doctestmodules
@@ -258,10 +258,9 @@ def add_fs(doctest_namespace, request):
 
         # Creation of an object and file with data
         local = fs.LocalFileSystem()
-        with local.open_output_stream('/tmp/fileinfo.dat') as stream:
+        path = tmp_path / 'fileinfo.dat'
+        with local.open_output_stream(str(path)) as stream:
             stream.write(b'data')
         doctest_namespace["local"] = local
-        yield
-
-    else:
-        yield
+        doctest_namespace["local_path"] = tmp_path
+    yield

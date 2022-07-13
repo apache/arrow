@@ -231,29 +231,23 @@ def copy_files(source, destination,
 
     >>> s3, path = fs.FileSystem.from_uri(
     ...            "s3://registry.opendata.aws/roda/ndjson/")
-    >>> selector = fs.FileSelector("registry.opendata.aws/roda/ndjson")
+    >>> selector = fs.FileSelector(path)
     >>> s3.get_file_info(selector)
     [<FileInfo for 'registry.opendata.aws/roda/ndjson/index.ndjson':...]
-
-    Create a LocalFIleSystem object and a new directory:
-
-    >>> local = fs.LocalFileSystem()
-    >>> local.create_dir('/tmp/copy-dir')
-
 
     Copy one file from S3 bucket to a local directory:
 
     >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///tmp/copy-dir/copy.ndjson")
+    ...               "file:///{}/index_copy.ndjson".format(local_path))
 
-    >>> selector2 = fs.FileSelector('/tmp/copy-dir')
+    >>> selector2 = fs.FileSelector(str(local_path))
     >>> local.get_file_info(selector2)
-    [<FileInfo for '/tmp/copy-dir/copy.ndjson': type=FileType.File...]
+    [<FileInfo for '.../index_copy.ndjson': type=FileType.File, size=949986>,...
 
     Copy file using a FileSystem object:
 
     >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
-    ...               "file:///tmp/copy-dir/copy.ndjson",
+    ...               "file:///{}/index_copy.ndjson".format(local_path),
     ...               source_filesystem=fs.S3FileSystem())
     """
     source_fs, source_path = _resolve_filesystem_and_path(
