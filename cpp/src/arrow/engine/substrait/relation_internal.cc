@@ -334,7 +334,9 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       ARROW_ASSIGN_OR_RAISE(auto input, FromProto(aggregate.input(), ext_set));
 
       if (aggregate.groupings_size() > 1) {
-        return Status::NotImplemented("Grouping sets not supported.");
+        return Status::NotImplemented(
+            "Grouping sets not supported.  AggregateRel::groupings may not have more "
+            "than one item");
       }
       std::vector<FieldRef> keys;
       auto group = aggregate.groupings(0);
@@ -384,9 +386,12 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
           return Status::Invalid("substrait::AggregateFunction not provided");
         }
       }
-      return compute::Declaration::Sequence(
-          {std::move(input),
-           {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}});
+
+      return DeclarationInfo{
+          compute::Declaration::Sequence(
+              {std::move(input.declaration),
+               {"aggregate", compute::AggregateNodeOptions{aggregates, keys}}}),
+          static_cast<int>(aggregates.size())};
     }
 
     default:
