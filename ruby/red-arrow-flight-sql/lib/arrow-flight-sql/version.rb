@@ -15,26 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @rdname read_ipc_stream
-#' @export
-read_arrow <- function(file, ...) {
-  .Deprecated(msg = "Use 'read_ipc_stream' or 'read_feather' instead.")
-  if (inherits(file, "raw")) {
-    read_ipc_stream(file, ...)
-  } else {
-    read_feather(file, ...)
-  }
-}
+module ArrowFlightSQL
+  VERSION = "9.0.0-SNAPSHOT"
 
-#' @rdname write_ipc_stream
-#' @export
-write_arrow <- function(x, sink, ...) {
-  .Deprecated(msg = "Use 'write_ipc_stream' or 'write_feather' instead.")
-  if (inherits(sink, "raw")) {
-    # HACK for sparklyr
-    # Note that this returns a new R raw vector, not the one passed as `sink`
-    write_to_raw(x)
-  } else {
-    write_feather(x, sink, ...)
-  }
-}
+  module Version
+    numbers, TAG = VERSION.split("-")
+    MAJOR, MINOR, MICRO = numbers.split(".").collect(&:to_i)
+    STRING = VERSION
+  end
+end

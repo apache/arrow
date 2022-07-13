@@ -711,7 +711,10 @@ struct MakeNullImpl {
   Status Visit(const FixedSizeBinaryType& type) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> value,
                           AllocateBuffer(type.byte_width()));
-    out_ = std::make_shared<FixedSizeBinaryScalar>(value, type_, /*is_valid=*/false);
+    // Avoid exposing past memory contents
+    memset(value->mutable_data(), 0, value->size());
+    out_ = std::make_shared<FixedSizeBinaryScalar>(std::move(value), type_,
+                                                   /*is_valid=*/false);
     return Status::OK();
   }
 

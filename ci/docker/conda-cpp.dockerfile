@@ -26,7 +26,7 @@ RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
      /arrow/ci/
-RUN mamba install \
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \

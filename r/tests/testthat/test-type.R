@@ -284,3 +284,12 @@ test_that("infer_type() infers type for vctrs", {
     vctrs_extension_type(vec[integer(0)])
   )
 })
+
+test_that("type() is deprecated", {
+  a <- Array$create(1:10)
+  expect_deprecated(
+    a_type <- type(a),
+    "infer_type"
+  )
+  expect_equal(a_type, a$type)
+})

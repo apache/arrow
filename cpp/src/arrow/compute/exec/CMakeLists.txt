@@ -48,7 +48,19 @@ add_arrow_compute_test(util_test
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
 
-add_arrow_benchmark(project_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(filter_benchmark
+                    PREFIX
+                    "arrow-compute"
+                    SOURCES
+                    benchmark_util.cc
+                    filter_benchmark.cc)
+
+add_arrow_benchmark(project_benchmark
+                    PREFIX
+                    "arrow-compute"
+                    SOURCES
+                    benchmark_util.cc
+                    project_benchmark.cc)
 
 add_arrow_benchmark(tpch_benchmark PREFIX "arrow-compute")
 

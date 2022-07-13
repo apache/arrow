@@ -152,7 +152,6 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
-  - python-wheel-manylinux-2010
   - python-wheel-manylinux-2014:
     - java-jni-manylinux-2014
   - python-wheel-manylinux-test-imports
@@ -173,8 +172,6 @@ volumes:
     name: ${ARCH}-fedora-${FEDORA}-ccache
   maven-cache:
     name: maven-cache
-  python-wheel-manylinux2010-ccache:
-    name: python-wheel-manylinux2010-ccache
   python-wheel-manylinux2014-ccache:
     name: python-wheel-manylinux2014-ccache
   python-wheel-windows-clcache:
@@ -869,30 +866,6 @@ services:
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
   ############################ Python wheels ##################################
-
-  # See available versions at:
-  #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
-  #    only amd64 arch is supported
-  python-wheel-manylinux-2010:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
-    build:
-      args:
-        arch: ${ARCH}
-        arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2021-10-11-14ac00e
-        vcpkg: ${VCPKG}
-        python: ${PYTHON}
-        manylinux: 2010
-      context: .
-      dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
-    environment:
-      <<: *ccache
-    volumes:
-      - .:/arrow:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2010-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags

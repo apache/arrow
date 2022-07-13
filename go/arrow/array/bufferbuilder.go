@@ -73,7 +73,7 @@ func (b *bufferBuilder) resize(elements int) {
 		b.buffer = memory.NewResizableBuffer(b.mem)
 	}
 
-	b.buffer.Resize(elements)
+	b.buffer.ResizeNoShrink(elements)
 	oldCapacity := b.capacity
 	b.capacity = b.buffer.Cap()
 	b.bytes = b.buffer.Buf()

@@ -88,6 +88,7 @@ if arrow_cpp_build_lib_dir == ''
   arrow_cuda = dependency('arrow-cuda', required: false)
   arrow_dataset = dependency('arrow-dataset', required: false)
   arrow_flight = dependency('arrow-flight', required: false)
+  arrow_flight_sql = dependency('arrow-flight-sql', required: false)
   gandiva = dependency('gandiva', required: false)
   parquet = dependency('parquet', required: false)
   plasma = dependency('plasma', required: false)
@@ -121,6 +122,9 @@ main(void)
   arrow_flight = cpp_compiler.find_library('arrow_flight',
                                            dirs: [arrow_cpp_build_lib_dir],
                                            required: false)
+  arrow_flight_sql = cpp_compiler.find_library('arrow_flight_sql',
+                                               dirs: [arrow_cpp_build_lib_dir],
+                                               required: false)
   gandiva = cpp_compiler.find_library('gandiva',
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
@@ -149,6 +153,9 @@ endif
 if arrow_flight.found()
   subdir('arrow-flight-glib')
 endif
+if arrow_flight_sql.found()
+  subdir('arrow-flight-sql-glib')
+endif
 if gandiva.found()
   subdir('gandiva-glib')
 endif
@@ -167,6 +174,9 @@ if get_option('gtk_doc')
   endif
   if arrow_flight.found()
     subdir('doc/arrow-flight-glib')
+  endif
+  if arrow_flight_sql.found()
+    subdir('doc/arrow-flight-sql-glib')
   endif
   if gandiva.found()
     subdir('doc/gandiva-glib')

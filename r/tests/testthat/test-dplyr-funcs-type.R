@@ -806,8 +806,7 @@ test_that("nested structs can be created from scalars and existing data frames",
 })
 
 test_that("format date/time", {
-  # locale issues
-  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16399 is done
+  # TODO(ARROW-16399): remove this workaround
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     withr::local_locale(LC_TIME = "C")
   }

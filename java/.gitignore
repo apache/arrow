@@ -13,7 +13,7 @@ target/
 *.DS_Store
 *.patch
 *~
-git.properties
+arrow-git.properties
 contrib/native/client/build/
 contrib/native/client/build/*
 CMakeCache.txt
