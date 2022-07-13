@@ -401,7 +401,7 @@ cdef class NativeFile(_Weakrefable):
 
     def get_stream(self, file_offset, nbytes):
         """
-        Returns an input stream that reads a file segment independent of the
+        Return an input stream that reads a file segment independent of the
         state of the file.
 
         Allows reading portions of a random access file as an input stream
