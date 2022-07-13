@@ -242,7 +242,7 @@ def copy_files(source, destination,
 
     >>> selector2 = fs.FileSelector(str(local_path))
     >>> local.get_file_info(selector2)
-    [<FileInfo for '.../index_copy.ndjson': type=FileType.File, size=949986>,...
+    [<FileInfo for '.../index_copy.ndjson': type=FileType.File, size=949986>...
 
     Copy file using a FileSystem object:
 
