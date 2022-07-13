@@ -96,6 +96,8 @@ if (process_is_running("testbench")) {
   test_filesystem("gcs", fs, gcs_path, gcs_uri)
 } else {
   test_that("GCSFileSystem tests with testbench", {
-    skip("testbench is not running")
+    suggested_command <- paste('gunicorn --bind "localhost:9001" --worker-class sync',
+                               '--threads 10 --reload --access-logfile - "testbench:run()"')
+    skip(sprintf("testbench is not running. You can start it with:\n  %s", suggested_command))
   })
 }
