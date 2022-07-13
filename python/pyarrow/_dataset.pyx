@@ -489,7 +489,7 @@ cdef class FilteredDataset(Dataset):
             new_filter = expression
         filtered_dataset = self.__class__.__new__(self.__class__)
         filtered_dataset.init(self.wrapped)
-        filtered_dataset._filter = new_filter
+        filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
     cdef Scanner _make_scanner(self, options):
