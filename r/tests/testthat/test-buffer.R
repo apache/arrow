@@ -95,14 +95,3 @@ test_that("Buffer$Equals", {
   expect_true(buf1$Equals(buf2))
   expect_false(buf1$Equals(vec))
 })
-
-test_that("size method not susceptible to integer overflow", {
-  skip_if_not_running_large_memory_tests()
-
-  small_buffer <- buffer(raw(1))
-  big_buffer <- buffer(raw(.Machine$integer.max + 1))
-
-  expect_type(small_buffer$size, "integer")
-  expect_type(big_buffer$size, "double")
-
-})
