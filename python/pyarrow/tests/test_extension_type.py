@@ -34,6 +34,15 @@ class IntegerType(pa.PyExtensionType):
         return IntegerType, ()
 
 
+class UuidScalarType(pa.ExtensionScalar):
+    def as_py(self):
+        value = self.value.as_py() if self.value else None
+        if value is not None:
+            return UUID(bytes=value)
+        else:
+            return None
+
+
 class UuidType(pa.PyExtensionType):
 
     def __init__(self):
@@ -42,8 +51,8 @@ class UuidType(pa.PyExtensionType):
     def __reduce__(self):
         return UuidType, ()
 
-    def scalar_as_py(self, scalar):
-        return UUID(bytes=scalar.as_py())
+    def __arrow_ext_scalar_class__(self):
+        return UuidScalarType
 
 
 class UuidType2(pa.PyExtensionType):
@@ -174,7 +183,7 @@ def test_ext_type_as_py():
     ]
     carr = pa.chunked_array(data)
     for i, expected in enumerate(uuids + uuids):
-        assert carr[i].as_py() == expected
+        assert carr[i].value.as_py() == expected.bytes
 
     for result, expected in zip(carr, uuids + uuids):
         assert result.as_py() == expected
@@ -229,7 +238,8 @@ def test_ext_array_to_pylist():
     storage = pa.array([b"foo", b"bar", None], type=pa.binary(3))
     arr = pa.ExtensionArray.from_storage(ty, storage)
 
-    assert arr.to_pylist() == [b"foo", b"bar", None]
+    assert [x.as_py() if x else None for x in arr.to_pylist()] == [
+        b"foo", b"bar", None]
 
 
 def test_ext_array_errors():
@@ -302,6 +312,10 @@ def test_ext_scalar_from_array():
     scalars_a = list(a)
     assert len(scalars_a) == 4
 
+    assert ty1.__arrow_ext_scalar_class__() == UuidScalarType
+    assert type(a[0]) == UuidScalarType
+    assert type(scalars_a[0]) == UuidScalarType
+
     for s, val in zip(scalars_a, data):
         assert isinstance(s, pa.ExtensionScalar)
         assert s.is_valid == (val is not None)
@@ -320,7 +334,7 @@ def test_ext_scalar_from_array():
         if sa.as_py() is None:
             assert sa.as_py() == sb.as_py()
         else:
-            assert sa.as_py().bytes == sb.as_py()
+            assert sa.as_py().bytes == sb.value.as_py()
         assert sa != sb
 
     scalars_c = list(c)
@@ -332,7 +346,7 @@ def test_ext_scalar_from_array():
         assert s.type == ty3
         if val is not None:
             assert s.value == pa.scalar(val, storage.type)
-            assert s.as_py() == val
+            assert s.value.as_py() == val
         else:
             assert s.value is None
 

@@ -2771,6 +2771,11 @@ cdef class ExtensionArray(Array):
         """
         return self.storage.to_numpy(**kwargs)
 
+    cdef getitem(self, int64_t i):
+        scalar = ExtensionScalar.wrap(GetResultValue(self.ap.GetScalar(i)))
+        return self.type.__arrow_ext_scalar_class__().from_storage(
+            self.type, scalar.value)
+
 
 cdef dict _array_classes = {
     _Type_NA: NullArray,

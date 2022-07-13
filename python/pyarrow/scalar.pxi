@@ -902,10 +902,7 @@ cdef class ExtensionScalar(Scalar):
         """
         Return this scalar as a Python object.
         """
-        if self.value is None:
-            return None
-        else:
-            return self.type.scalar_as_py(self.value)
+        return self.value if self.value is not None else None
 
     @staticmethod
     def from_storage(BaseExtensionType typ, value):
@@ -988,6 +985,19 @@ cdef dict _scalar_classes = {
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,
     _Type_EXTENSION: ExtensionScalar,
 }
+
+
+cdef object get_scalar_class_from_type(
+        const shared_ptr[CDataType]& sp_data_type):
+    cdef CDataType* data_type = sp_data_type.get()
+    if data_type == NULL:
+        raise ValueError('Scalar data type was NULL')
+
+    if data_type.id() == _Type_EXTENSION:
+        py_ext_data_type = pyarrow_wrap_data_type(sp_data_type)
+        return py_ext_data_type.__arrow_ext_scalar_class__()
+    else:
+        return _scalar_classes[data_type.id()]
 
 
 def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
