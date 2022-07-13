@@ -327,6 +327,13 @@ class ARROW_EXPORT RecordBatchReader {
   ///            element if not provided.
   static Result<std::shared_ptr<RecordBatchReader>> Make(
       RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
+
+  /// \brief Create a RecordBatchReader from a RecordBatch iterator.
+  ///
+  /// \param[in] it the RecordBatch iterator to read from
+  /// \param[in] schema schema to conform to.
+  static Result<std::shared_ptr<RecordBatchReader>> Make(
+      Iterator<std::shared_ptr<RecordBatch>> it, std::shared_ptr<Schema> schema);
 };
 
 }  // namespace arrow

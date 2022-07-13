@@ -25,4 +25,5 @@ from pyarrow._substrait import (  # noqa
     run_query_as,
     run_query,
     _parse_json_plan,
+    get_default_extension_types_uri,
 )

@@ -2509,6 +2509,29 @@ def _get_scalar_udf_context(memory_pool, batch_length):
     return context
 
 
+ctypedef CStatus (*CRegisterScalarLikeFunction)(PyObject* function,
+                                                function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
+                                                CFunctionRegistry* registry)
+
+cdef class RegisterScalarLikeFunction(_Weakrefable):
+    cdef CRegisterScalarLikeFunction register_func
+
+    cdef void init(self, const CRegisterScalarLikeFunction register_func):
+        self.register_func = register_func
+
+
+cdef GetRegisterScalarFunction():
+    cdef RegisterScalarLikeFunction reg = RegisterScalarLikeFunction.__new__(RegisterScalarLikeFunction)
+    reg.register_func = RegisterScalarFunction
+    return reg
+
+
+cdef GetRegisterTableFunction():
+    cdef RegisterScalarLikeFunction reg = RegisterScalarLikeFunction.__new__(RegisterScalarLikeFunction)
+    reg.register_func = RegisterTableFunction
+    return reg
+
+
 def register_scalar_function(func, function_name, function_doc, in_types,
                              out_type, func_registry=None):
     """
@@ -2582,6 +2605,20 @@ def register_scalar_function(func, function_name, function_doc, in_types,
       21
     ]
     """
+    return register_scalar_like_function(GetRegisterScalarFunction(),
+                                         func, function_name, function_doc, in_types,
+                                         out_type, func_registry)
+
+
+def register_tabular_function(func, function_name, function_doc, in_types,
+                              out_type, func_registry=None):
+    return register_scalar_like_function(GetRegisterTableFunction(),
+                                         func, function_name, function_doc, in_types,
+                                         out_type, func_registry)
+
+
+def register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
+                                  out_type, func_registry=None):
     cdef:
         c_string c_func_name
         CArity c_arity
@@ -2591,6 +2628,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         shared_ptr[CDataType] c_out_type
         CScalarUdfOptions c_options
         CFunctionRegistry* c_func_registry
+        CRegisterScalarLikeFunction c_register_func
 
     if callable(func):
         c_function = <PyObject*>func
@@ -2641,6 +2679,8 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     else:
         c_func_registry = (<FunctionRegistry>func_registry).registry
 
-    check_status(RegisterScalarFunction(c_function,
-                                        <function[CallbackUdf]> &_scalar_udf_callback,
-                                        c_options, c_func_registry))
+    c_register_func = (<RegisterScalarLikeFunction>register_func).register_func
+
+    check_status(c_register_func(c_function,
+                                 <function[CallbackUdf]> &_scalar_udf_callback,
+                                 c_options, c_func_registry))

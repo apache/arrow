@@ -54,6 +54,11 @@ Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
     PyObject* user_function, ScalarUdfWrapperCallback wrapper,
     const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
 
+/// \brief register a Table user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterTableFunction(
+    PyObject* user_function, ScalarUdfWrapperCallback wrapper,
+    const ScalarUdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+
 }  // namespace py
 
 }  // namespace arrow

@@ -156,6 +156,7 @@ Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
             udf.description(),
             std::move(input_types),
             std::move(output_type),
+            udf.func_type_case() == substrait::extensions::SimpleExtensionDeclaration::ExtensionFunction::UserDefinedFunction::FuncTypeCase::kTabular,
           }));
         }
         break;

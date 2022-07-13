@@ -16,6 +16,8 @@
 # under the License.
 
 
+import base64
+import cloudpickle
 import os
 import json
 import pytest
@@ -37,7 +39,7 @@ except ImportError:
 try:
     import pyarrow.substrait as substrait
 except ImportError:
-    substrait = None
+    raise#substrait = None
 
 
 def mock_udf_context(batch_length=10):
@@ -525,8 +527,10 @@ def twice_and_add_2(scl_udf_ctx, v):
     return 2 * v, v + 2
 
 
-def twice(scl_udf_ctx, v):
-    return DoubleArray.from_pandas((2 * v.to_pandas()))
+def twice(v):
+    """Compute twice the value of the input"""
+    import pyarrow.compute as pc
+    return pc.multiply(v, 2)
 
 
 def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
@@ -535,7 +539,7 @@ def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
       "extensionUris": [
         {
           "extensionUriAnchor": 1,
-          "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+          "uri": """ + '"' + substrait.get_default_extension_types_uri() + '"' + """
         }
       ],
       "extensions": [
@@ -663,7 +667,7 @@ def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
     with pa.ipc.RecordBatchFileWriter(path, schema=table.schema) as writer:
         writer.write_table(table)
 
-    query = tobytes(substrait_query.replace("CODE_PLACEHOLDER", code).replace("FILENAME_PLACEHOLDER", path))
+    query = bytes([ord(x) for x in substrait_query.replace("CODE_PLACEHOLDER", code).replace("FILENAME_PLACEHOLDER", path)])
 
     plan = substrait._parse_json_plan(query)
 
@@ -680,7 +684,7 @@ def test_elementwise_scalar_udf_in_substrait_query(tmpdir):
     assert res_tb.drop(["twice"]) == table
 
 
-def _test_query(query):
+def _read_query(query):
     plan = substrait._parse_json_plan(query)
 
     extid_registry = substrait.make_extension_id_registry()
@@ -688,43 +692,22 @@ def _test_query(query):
     substrait.register_udf_declarations(plan, extid_registry, func_registry)
 
     reader = substrait.run_query(plan, extid_registry, func_registry)
-    res_tb = reader.read_all()
+    return reader.read_all()
 
 
-def _test_query_string(querystr):
-    query = tobytes(querystr)
-    return _test_query(query)
-
-
-def _test_query_path(path):
-    with open(path) as f:
-        querystr = f.read()
-    return _test_query_string(querystr)
+def _read_query_string(querystr):
+    query = bytes([ord(x) for x in querystr])
+    return _read_query(query)
 
 
 def _simple_udf_add_query_string(input_path):
-    code = (
-        "gAWVGgMAAAAAAACMF2Nsb3VkcGlja2xlLmNsb3VkcGlja2xllIwNX2J1aWx0aW5fdHlwZZSTlIwKTGFt" +
-        "YmRhVHlwZZSFlFKUKGgCjAhDb2RlVHlwZZSFlFKUKEsBSwBLAEsCSwRLQ0MYZAFkAmwAbQF9AQEAfAGg" +
-        "AnwAZAOhAlMAlCiMJENvbXB1dGUgdHdpY2UgdGhlIHZhbHVlIG9mIHRoZSBpbnB1dJRLAE5LAnSUjA9w" +
-        "eWFycm93LmNvbXB1dGWUjAdjb21wdXRllIwIbXVsdGlwbHmUh5SMAXaUjAJwY5SGlIxgL21udC91c2Vy" +
-        "MS90c2NvbnRyYWN0L2dpdGh1Yi9ydHBzdy9pYmlzLXN1YnN0cmFpdC9pYmlzX3N1YnN0cmFpdC90ZXN0" +
-        "cy9jb21waWxlci90ZXN0X2NvbXBpbGVyLnB5lIwFdHdpY2WUTUYBQwQAAwwBlCkpdJRSlH2UKIwLX19w" +
-        "YWNrYWdlX1+UjB1pYmlzX3N1YnN0cmFpdC50ZXN0cy5jb21waWxlcpSMCF9fbmFtZV9flIwraWJpc19z" +
-        "dWJzdHJhaXQudGVzdHMuY29tcGlsZXIudGVzdF9jb21waWxlcpSMCF9fZmlsZV9flIxgL21udC91c2Vy" +
-        "MS90c2NvbnRyYWN0L2dpdGh1Yi9ydHBzdy9pYmlzLXN1YnN0cmFpdC9pYmlzX3N1YnN0cmFpdC90ZXN0" +
-        "cy9jb21waWxlci90ZXN0X2NvbXBpbGVyLnB5lHVOTk50lFKUjBxjbG91ZHBpY2tsZS5jbG91ZHBpY2ts" +
-        "ZV9mYXN0lIwSX2Z1bmN0aW9uX3NldHN0YXRllJOUaCB9lH2UKGgbaBSMDF9fcXVhbG5hbWVfX5RoFIwP" +
-        "X19hbm5vdGF0aW9uc19flH2UjA5fX2t3ZGVmYXVsdHNfX5ROjAxfX2RlZmF1bHRzX1+UTowKX19tb2R1" +
-        "bGVfX5RoHIwHX19kb2NfX5RoCowLX19jbG9zdXJlX1+UTowXX2Nsb3VkcGlja2xlX3N1Ym1vZHVsZXOU" +
-        "XZSMC19fZ2xvYmFsc19flH2UdYaUhlIwLg=="
-    )
+    code = "".join([chr(x) for x in base64.b64encode(cloudpickle.dumps(twice))])
     querystr = json.dumps(
         {
           "extensionUris": [
             {
               "extensionUriAnchor": 1,
-              "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+              "uri": substrait.get_default_extension_types_uri()
             }
           ],
           "extensions": [
@@ -825,7 +808,7 @@ def _simple_reg_add_query_string(input_path):
           "extensionUris": [
             {
               "extensionUriAnchor": 1,
-              "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+              "uri": substrait.get_default_extension_types_uri()
             }
           ],
           "extensions": [
@@ -913,36 +896,18 @@ def _make_ipc_data(data_path, batch_size, num_batches):
     schema = pa.schema([("v", pa.float64())])
     writer = pa.ipc.new_file(sink, schema)
     for i in range(num_batches):
-        batch = pa.record_batch([np.random.randn(batch_size)], schema=schema)
+        batch = pa.record_batch([np.arange(batch_size)], schema=schema)
         writer.write_batch(batch)
     writer.close()
     sink.close()
 
 
-def _timeit_query(querystr, n):
-    import timeit
-    total_secs = timeit.timeit(
-        lambda: _test_query_string(querystr),
-        number=n
-    )
-    return total_secs / n
-
-
-def _simple_query(tmpdir, name):
-    data_path = os.path.realpath(os.path.join(tmpdir, f"{name}.feather"))
-    output_path = f"{name}.timeit"
-    querystr = _simple_udf_add_query_string(data_path)
-    batch_size = 1024
-    n = 5
-    with open(output_path, "w") as f:
-        for num_batches in [1, 10, 100, 1000, 10000]:
-            _make_ipc_data(data_path, batch_size, num_batches)
-            secs = _timeit_query(querystr, n)
-            f.write(f"batches={num_batches} size={batch_size} average-of-{n}:seconds={secs/n}\n")
-
-
 def test_simple_udf_add(tmpdir):
-    _simple_query(tmpdir, "test_simple_udf_add")
-
-def test_simple_reg_add(tmpdir):
-    _simple_query(tmpdir, "test_simple_reg_add")
+    name = "test_simple_udf_add"
+    data_path = os.path.realpath(os.path.join(tmpdir, f"{name}.feather"))
+    batch_size, num_batches = 10, 10
+    _make_ipc_data(data_path, batch_size, num_batches)
+    qfuncs = [_simple_udf_add_query_string, _simple_reg_add_query_string]
+    udf_tb, reg_tb = [_read_query_string(qfunc(data_path)) for qfunc in qfuncs]
+    assert len(udf_tb) == batch_size * num_batches
+    assert udf_tb == reg_tb

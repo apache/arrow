@@ -2734,6 +2734,10 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
                                    CFunctionRegistry* registry)
 
+    CStatus RegisterTableFunction(PyObject* function,
+                                  function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
+                                  CFunctionRegistry* registry)
+
 cdef extern from "arrow/engine/substrait/extension_set.h" namespace "arrow::engine" nogil:
 
     cdef cppclass CExtensionIdRegistry" arrow::engine::ExtensionIdRegistry"
@@ -2741,3 +2745,36 @@ cdef extern from "arrow/engine/substrait/extension_set.h" namespace "arrow::engi
 cdef extern from "arrow/compute/registry_util.h" namespace "arrow::compute" nogil:
 
     unique_ptr[CFunctionRegistry] MakeFunctionRegistry()
+
+ctypedef vector[shared_ptr[CArray]] CArrayVector
+ctypedef CIterator[shared_ptr[CRecordBatch]] CRecordBatchIteratorCall()
+ctypedef CIterator[shared_ptr[CExecBatch]] CExecBatchIteratorCall()
+ctypedef CIterator[shared_ptr[CArrayVector]] CArrayVectorIteratorCall()
+
+cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil:
+    cdef cppclass CSchemaSourceNodeOptions "arrow::compute::SchemaSourceNodeOptions"(CExecNodeOptions):
+        CSchemaSourceNodeOptions(shared_ptr[CSchema] schema)
+
+        shared_ptr[CSchema] schema
+        CExecutor* executor
+
+    cdef cppclass CRecordBatchSourceNodeOptions "arrow::compute::RecordBatchSourceNodeOptions"(CSchemaSourceNodeOptions):
+        CRecordBatchSourceNodeOptions(shared_ptr[CSchema] schema, function[CRecordBatchIteratorCall])
+
+        function[CRecordBatchIteratorCall] batch_it_maker
+
+    cdef cppclass CExecBatchSourceNodeOptions "arrow::compute::ExecBatchSourceNodeOptions"(CSchemaSourceNodeOptions):
+        CExecBatchSourceNodeOptions(shared_ptr[CSchema] schema, function[CExecBatchIteratorCall])
+
+        function[CExecBatchIteratorCall] batch_it_maker
+
+    cdef cppclass CArrayVectorSourceNodeOptions "arrow::compute::ArrayVectorSourceNodeOptions"(CSchemaSourceNodeOptions):
+        CArrayVectorSourceNodeOptions(shared_ptr[CSchema] schema, function[CArrayVectorIteratorCall])
+
+        function[CArrayVectorIteratorCall] arrayvec_it_maker
+
+    cdef cppclass CFunctionSourceNodeOptions "arrow::compute::FunctionSourceNodeOptions"(CExecNodeOptions):
+        CFunctionSourceNodeOptions (c_string function_name, c_string source_node_factory)
+
+        c_string function_name
+        c_string source_node_factory

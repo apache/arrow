@@ -144,9 +144,17 @@ Result<compute::Declaration> FromProtoInternal(
         return Status::NotImplemented("substrait::ReadRel::projection");
       }
 
+      if (read.has_udt()) {
+        ARROW_ASSIGN_OR_RAISE(auto decoded_function,
+                              ext_set.DecodeFunction(read.udt().function_reference()));
+
+        auto func_name = decoded_function.name.to_string();
+        auto options = compute::FunctionSourceNodeOptions{func_name, "record_source"};
+        return compute::Declaration{"function_source", std::move(options)};
+      }
+
       if (!read.has_local_files()) {
-        return Status::NotImplemented(
-            "substrait::ReadRel with read_type other than LocalFiles");
+        return Status::NotImplemented("substrait::ReadRel with unsupported read_type");
       }
 
       if (read.local_files().has_advanced_extension()) {

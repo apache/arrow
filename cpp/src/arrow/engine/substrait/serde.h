@@ -96,6 +96,7 @@ struct ARROW_ENGINE_EXPORT UdfDeclaration {
   std::string description;
   std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types;
   std::pair<std::shared_ptr<DataType>, bool> output_type;
+  bool is_tabular;
 };
 
 ARROW_ENGINE_EXPORT Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(

@@ -68,7 +68,7 @@ class SubstraitExecutor {
                              compute::ExecContext exec_context)
       : plan_(std::move(plan)), exec_context_(exec_context) {}
 
-  ~SubstraitExecutor() { this->Close(); }
+  ~SubstraitExecutor() { ARROW_UNUSED(this->Close()); }
 
   Result<std::shared_ptr<RecordBatchReader>> Execute() {
     for (const compute::Declaration& decl : declarations_) {
@@ -92,10 +92,9 @@ class SubstraitExecutor {
     std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
       return sink_consumer_;
     };
-    ARROW_ASSIGN_OR_RAISE(declarations_,
-                          engine::DeserializePlans(substrait_buffer,
-                                                   consumer_factory,
-                                                   registry));
+    ARROW_ASSIGN_OR_RAISE(
+        declarations_,
+        engine::DeserializePlans(substrait_buffer, consumer_factory, registry));
     return Status::OK();
   }
 
@@ -114,12 +113,12 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     compute::FunctionRegistry* func_registry) {
   // TODO(ARROW-15732)
   compute::ExecContext exec_context(arrow::default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool(),
-                                    func_registry);
+                                    ::arrow::internal::GetCpuThreadPool(), func_registry);
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
   SubstraitExecutor executor(std::move(plan), exec_context);
   RETURN_NOT_OK(executor.Init(substrait_buffer, extid_registry));
   ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
+  // check closing here, not in destructor, to expose error to caller
   RETURN_NOT_OK(executor.Close());
   return sink_reader;
 }
@@ -144,11 +143,7 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
 Status RegisterFunction(ExtensionIdRegistry& registry, const std::string& id_uri,
                         const std::string& id_name,
                         const std::string& arrow_function_name) {
-  const std::string& id_uri_sym = registry.AddExternalSymbol(id_uri);
-  const std::string& id_name_sym = registry.AddExternalSymbol(id_name);
-  const std::string& arrow_function_name_sym =
-      registry.AddExternalSymbol(arrow_function_name);
-  return registry.RegisterFunction({id_uri_sym, id_name_sym}, arrow_function_name_sym);
+  return registry.RegisterFunction(id_uri, id_name, arrow_function_name);
 }
 
 const std::string& default_extension_types_uri() {

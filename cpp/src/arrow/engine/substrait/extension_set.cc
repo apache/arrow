@@ -315,6 +315,11 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return Status::OK();
   }
 
+  Status RegisterFunction(std::string uri, std::string name,
+                          std::string arrow_function_name) override {
+    return RegisterFunction({uri, name}, arrow_function_name);
+  }
+
   // owning storage of uris, names, (arrow::)function_names, types
   //    note that storing strings like this is safe since references into an
   //    unordered_set are not invalidated on insertion

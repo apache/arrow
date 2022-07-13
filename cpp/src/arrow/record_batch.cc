@@ -394,4 +394,12 @@ RecordBatchReader::~RecordBatchReader() {
   ARROW_WARN_NOT_OK(this->Close(), "Implicitly called RecordBatchReader::Close failed");
 }
 
+Result<std::shared_ptr<RecordBatchReader>> Make(Iterator<std::shared_ptr<RecordBatch>> it,
+                                                std::shared_ptr<Schema> schema) {
+  if (schema == NULLPTR) {
+    return Status::Invalid("Schema must not be null");
+  }
+  return std::make_shared<SimpleRecordBatchReader>(std::move(it), std::move(schema));
+}
+
 }  // namespace arrow

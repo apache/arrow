@@ -23,6 +23,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
@@ -32,6 +33,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
@@ -277,6 +279,229 @@ struct TableSourceNode : public SourceNode {
   }
 };
 
+struct RecordBatchSourceNode : public SourceNode {
+  RecordBatchSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+                        arrow::AsyncGenerator<util::optional<ExecBatch>> generator)
+      : SourceNode(plan, schema, generator) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName.c_str()));
+    const auto& rb_options = checked_cast<const RecordBatchSourceNodeOptions&>(options);
+    auto& batch_it_maker = rb_options.batch_it_maker;
+    auto& schema = rb_options.schema;
+
+    auto io_executor = plan->exec_context()->executor();
+    auto batch_it = batch_it_maker();
+
+    RETURN_NOT_OK(ValidateRecordBatchSourceNodeInput(io_executor, schema));
+    ARROW_ASSIGN_OR_RAISE(auto generator,
+                          RecordBatchGenerator(batch_it, io_executor, schema));
+    return plan->EmplaceNode<RecordBatchSourceNode>(plan, schema, generator);
+  }
+
+  const char* kind_name() const override { return kKindName.c_str(); }
+
+  static arrow::Status ValidateRecordBatchSourceNodeInput(
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    if (schema == NULLPTR) {
+      return Status::Invalid(kKindName + " requires schema which is not null");
+    }
+    if (io_executor == NULLPTR) {
+      return Status::Invalid(kKindName + " requires IO-context which is not null");
+    }
+
+    return Status::OK();
+  }
+
+  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> RecordBatchGenerator(
+      Iterator<std::shared_ptr<RecordBatch>>& batch_it,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [&schema](const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
+      if (batch == NULLPTR || batch->schema() != schema) {
+        return util::nullopt;
+      }
+      return util::optional<ExecBatch>(ExecBatch(*batch));
+    };
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+ private:
+  static const std::string kKindName;
+};
+
+const std::string RecordBatchSourceNode::kKindName = "RecordBatchSourceNode";
+
+struct ExecBatchSourceNode : public SourceNode {
+  ExecBatchSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+                      arrow::AsyncGenerator<util::optional<ExecBatch>> generator)
+      : SourceNode(plan, schema, generator) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName.c_str()));
+    const auto& eb_options = checked_cast<const ExecBatchSourceNodeOptions&>(options);
+    auto& batch_it_maker = eb_options.batch_it_maker;
+    auto& schema = eb_options.schema;
+
+    auto io_executor = plan->exec_context()->executor();
+    auto batch_it = batch_it_maker();
+
+    RETURN_NOT_OK(ValidateExecBatchSourceNodeInput(io_executor, schema));
+    ARROW_ASSIGN_OR_RAISE(auto generator,
+                          ExecBatchGenerator(batch_it, io_executor, schema));
+    return plan->EmplaceNode<ExecBatchSourceNode>(plan, schema, generator);
+  }
+
+  const char* kind_name() const override { return kKindName.c_str(); }
+
+  static arrow::Status ValidateExecBatchSourceNodeInput(
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    if (schema == NULLPTR) {
+      return Status::Invalid(kKindName + " requires schema which is not null");
+    }
+    if (io_executor == NULLPTR) {
+      return Status::Invalid(kKindName + " requires IO-context which is not null");
+    }
+
+    return Status::OK();
+  }
+
+  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> ExecBatchGenerator(
+      Iterator<std::shared_ptr<ExecBatch>>& batch_it,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [&schema](const std::shared_ptr<ExecBatch>& batch) -> util::optional<ExecBatch> {
+      return batch == NULLPTR ? util::nullopt : util::optional<ExecBatch>(*batch);
+    };
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(batch_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+ private:
+  static const std::string kKindName;
+};
+
+const std::string ExecBatchSourceNode::kKindName = "ExecBatchSourceNode";
+
+struct ArrayVectorSourceNode : public SourceNode {
+  ArrayVectorSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
+                        arrow::AsyncGenerator<util::optional<ExecBatch>> generator)
+      : SourceNode(plan, schema, generator) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName.c_str()));
+    const auto& av_options = checked_cast<const ArrayVectorSourceNodeOptions&>(options);
+    auto& arrayvec_it_maker = av_options.arrayvec_it_maker;
+    auto& schema = av_options.schema;
+
+    auto io_executor = plan->exec_context()->executor();
+    auto arrayvec_it = arrayvec_it_maker();
+
+    RETURN_NOT_OK(ValidateArrayVectorSourceNodeInput(io_executor, schema));
+    ARROW_ASSIGN_OR_RAISE(auto generator,
+                          ArrayVectorGenerator(arrayvec_it, io_executor, schema));
+    return plan->EmplaceNode<ArrayVectorSourceNode>(plan, schema, generator);
+  }
+
+  const char* kind_name() const override { return kKindName.c_str(); }
+
+  static arrow::Status ValidateArrayVectorSourceNodeInput(
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    if (schema == NULLPTR) {
+      return Status::Invalid(kKindName + " requires schema which is not null");
+    }
+    if (io_executor == NULLPTR) {
+      return Status::Invalid(kKindName + " requires IO-context which is not null");
+    }
+
+    return Status::OK();
+  }
+
+  static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> ArrayVectorGenerator(
+      Iterator<std::shared_ptr<ArrayVector>>& arrayvec_it,
+      arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
+    auto to_exec_batch =
+        [&schema](const std::shared_ptr<ArrayVector>& arrayvec) -> util::optional<ExecBatch> {
+      if (arrayvec == NULLPTR || arrayvec->size() == 0) {
+        return util::nullopt;
+      }
+      std::vector<Datum> datumvec;
+      for (const auto& array : *arrayvec) {
+        datumvec.push_back(Datum(array));
+      }
+      return util::optional<ExecBatch>(ExecBatch(std::move(datumvec),
+                                                 (*arrayvec)[0]->length()));
+    };
+    auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(arrayvec_it));
+    return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
+  }
+
+ private:
+  static const std::string kKindName;
+};
+
+const std::string ArrayVectorSourceNode::kKindName = "ArrayVectorSourceNode";
+
+Result<std::shared_ptr<RecordBatch>> MakeDatumRecordBatch(std::shared_ptr<Schema> schema,
+                                                          Datum& datum) {
+  if (!datum.is_array()) {
+    return Status::Invalid("datum of non-array kind");
+  }
+  ArrayData* data = datum.mutable_array();
+  if (data->child_data.size() != static_cast<size_t>(schema->num_fields())) {
+    return Status::Invalid("data with shape not conforming to schema");
+  }
+  return RecordBatch::Make(std::move(schema), data->length, std::move(data->child_data));
+}
+
+Result<ExecNode*> MakeFunctionSourceNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                         const ExecNodeOptions& options) {
+  const auto& fs_options = checked_cast<const FunctionSourceNodeOptions&>(options);
+  const std::string function_name = fs_options.function_name;
+  const std::string source_node_factory = fs_options.source_node_factory;
+
+  auto func_registry = plan->exec_context()->func_registry();
+  ARROW_ASSIGN_OR_RAISE(auto func, func_registry->GetFunction(function_name));
+  if (func->kind() != Function::SCALAR) {
+    return Status::Invalid("source function of non-scalar kind");
+  }
+  auto arity = func->arity();
+  if (arity.num_args != 0 || arity.is_varargs) {
+    return Status::Invalid("source function of non-null arity");
+  }
+  auto kernels = ::arrow::internal::checked_pointer_cast<ScalarFunction>(func)->kernels();
+  if (kernels.size() != 1) {
+    return Status::Invalid("source function with non-single kernel");
+  }
+  const ScalarKernel* kernel = kernels[0];
+  auto out_type = kernel->signature->out_type();
+  if (out_type.kind() != OutputType::FIXED) {
+    return Status::Invalid("source kernel of non-fixed kind");
+  }
+  auto datatype = out_type.type();
+  if (datatype->id() != Type::type::STRUCT) {
+    return Status::Invalid("source kernel with non-struct output");
+  }
+  auto fields = checked_cast<const StructType*>(datatype.get())->fields();
+  auto schema = ::arrow::schema(fields);
+  if (source_node_factory == "record_source") {
+    auto next_func = [function_name, schema] () -> Result<std::shared_ptr<RecordBatch>> {
+      std::vector<Datum> args;
+      ARROW_ASSIGN_OR_RAISE(auto datum, CallFunction(function_name, args));
+      return MakeDatumRecordBatch(std::move(schema), datum);
+    };
+    RecordBatchSourceNodeOptions source_node_options{
+        schema, [next_func] { return MakeFunctionIterator(next_func); }};
+    return MakeExecNode(source_node_factory, plan, std::move(inputs),
+                        std::move(source_node_options));
+  }
+  return Status::Invalid("source node factory unknown");
+}
+
 }  // namespace
 
 namespace internal {
@@ -284,6 +509,10 @@ namespace internal {
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
   DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("record_source", RecordBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("exec_source", ExecBatchSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("array_source", ArrayVectorSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("function_source", MakeFunctionSourceNode));
 }
 
 }  // namespace internal

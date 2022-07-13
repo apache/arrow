@@ -75,6 +75,67 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   int64_t max_batch_size;
 };
 
+/// \brief An extended Source node which accepts a schema
+///
+/// Derived classes should add am iterator of tabular data
+class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
+ public:
+  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema) : schema(schema) {}
+
+  // the schema of the record batches from the iterator
+  std::shared_ptr<Schema> schema;
+};
+
+using RecordBatchIteratorMaker = std::function<Iterator<std::shared_ptr<RecordBatch>>()>;
+
+/// \brief An extended async-schema Source node which accepts record batches
+class ARROW_EXPORT RecordBatchSourceNodeOptions : public SchemaSourceNodeOptions {
+ public:
+  RecordBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
+                               RecordBatchIteratorMaker batch_it_maker)
+      : SchemaSourceNodeOptions(schema), batch_it_maker(batch_it_maker) {}
+
+  // maker of a record batch iterator which acts as the data source
+  RecordBatchIteratorMaker batch_it_maker;
+};
+
+using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>>()>;
+
+/// \brief An extended async-schema Source node which accepts exec batches
+class ARROW_EXPORT ExecBatchSourceNodeOptions : public SchemaSourceNodeOptions {
+ public:
+  ExecBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
+                               ExecBatchIteratorMaker batch_it_maker)
+      : SchemaSourceNodeOptions(schema), batch_it_maker(batch_it_maker) {}
+
+  // maker of a record batch iterator which acts as the data source
+  ExecBatchIteratorMaker batch_it_maker;
+};
+
+using ArrayVectorIteratorMaker = std::function<Iterator<std::shared_ptr<ArrayVector>>()>;
+
+/// \brief An extended async-schema Source node which accepts arrays
+class ARROW_EXPORT ArrayVectorSourceNodeOptions : public SchemaSourceNodeOptions {
+ public:
+  ArrayVectorSourceNodeOptions(std::shared_ptr<Schema> schema,
+                               ArrayVectorIteratorMaker arrayvec_it_maker)
+      : SchemaSourceNodeOptions(schema), arrayvec_it_maker(arrayvec_it_maker) {}
+
+  // maker of a record batch iterator which acts as the data source
+  ArrayVectorIteratorMaker arrayvec_it_maker;
+};
+
+class ARROW_EXPORT FunctionSourceNodeOptions : public ExecNodeOptions {
+ public:
+  FunctionSourceNodeOptions(std::string function_name, std::string source_node_factory)
+      : function_name(function_name), source_node_factory(source_node_factory) {}
+
+  // the name of the function to source from
+  std::string function_name;
+  // the name of the source node factory to source using
+  std::string source_node_factory;
+};
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to
@@ -223,8 +284,7 @@ class ARROW_EXPORT SinkNodeConsumer {
 
 class ARROW_EXPORT NullSinkNodeConsumer : public SinkNodeConsumer {
 public:
-  virtual Status Init(const std::shared_ptr<Schema>&,
-                             BackpressureControl*) override {
+  virtual Status Init(const std::shared_ptr<Schema>&, BackpressureControl*) override {
     return Status::OK();
   }
   virtual Status Consume(ExecBatch exec_batch) override {

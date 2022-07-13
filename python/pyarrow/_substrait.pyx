@@ -35,6 +35,10 @@ from pyarrow._exec_plan cimport is_supported_execplan_output_type, execplan
 from pyarrow._compute import make_function_registry
 
 
+def get_default_extension_types_uri():
+    return frombytes(default_extension_types_uri())
+
+
 def make_extension_id_registry():
     cdef:
         shared_ptr[CExtensionIdRegistry] c_extid_registry
@@ -46,8 +50,16 @@ def make_extension_id_registry():
     return pyarrow_wrap_extension_id_registry(c_extid_registry)
 
 
+def _bytes_to_str(b):
+    return "".join([chr(x) for x in b])
+
+
+def _str_to_bytes(s):
+    return bytes([x for x in s])
+
+
 def _get_udf_code(func):
-    return frombytes(base64.b64encode(cloudpickle.dumps(func)))
+    return _bytes_to_str(base64.b64encode(cloudpickle.dumps(func)))
 
 
 def get_udf_declarations(plan, extid_registry):
@@ -76,12 +88,13 @@ def get_udf_declarations(plan, extid_registry):
             inc(c_in_types_iter)
         decls.append({
             "name": frombytes(deref(c_decls_iter).name),
-            "code": frombytes(deref(c_decls_iter).code),
+            "code": deref(c_decls_iter).code,
             "summary": frombytes(deref(c_decls_iter).summary),
             "description": frombytes(deref(c_decls_iter).description),
             "input_types": input_types,
             "output_type": (pyarrow_wrap_data_type(deref(c_decls_iter).output_type.first),
                             deref(c_decls_iter).output_type.second),
+            "is_tabular": deref(c_decls_iter).is_tabular,
         })
         inc(c_decls_iter)
     return decls
@@ -111,23 +124,14 @@ def register_udf_declarations(plan, extid_registry, func_registry, udf_decls=Non
         udf_decls = get_udf_declarations(plan, extid_registry)
     for udf_decl in udf_decls:
         udf_name = udf_decl["name"]
-        udf_func = cloudpickle.loads(
-            base64.b64decode(tobytes(udf_decl["code"])))
+        udf_func = cloudpickle.loads(udf_decl["code"])
         udf_arg_names = list(inspect.signature(udf_func).parameters.keys())
         udf_arg_types = udf_decl["input_types"]
+        udf_is_tabular = udf_decl["is_tabular"]
         register_function(extid_registry, None, udf_name, udf_name)
         def udf(ctx, *args):
-            try:
-                r = udf_func(*args)
-                with open("bblah", "w") as f:
-                    f.write(str((ctx,args,r)))
-                return r
-            except:
-                import sys
-                with open("bblah", "w") as f:
-                    f.write(str((ctx,args,sys.exc_info())))
-                raise
-        pc.register_scalar_function(
+            return udf_func(*args)
+        (pc.register_tabular_function if udf_is_tabular else pc.register_scalar_function)(
             udf,
             udf_name,
             {"summary": udf_decl["summary"],

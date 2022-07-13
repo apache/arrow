@@ -32,6 +32,7 @@ cdef extern from "arrow/engine/substrait/serde.h" namespace "arrow::engine" nogi
         c_string description
         vector[pair[shared_ptr[CDataType], c_bool]] input_types
         pair[shared_ptr[CDataType], c_bool] output_type
+        c_bool is_tabular
 
     CResult[vector[CUdfDeclaration]] DeserializePlanUdfs(const CBuffer& substrait_buffer, const CExtensionIdRegistry* registry)
 
