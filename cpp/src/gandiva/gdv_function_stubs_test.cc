@@ -999,24 +999,24 @@ TEST(TestGdvFnStubs, TestToUtcTimezone) {
   gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
   gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
 
-  //2012-02-28 15:30:00 Asia/Kolkata
-  gdv_timestamp ts = 55800000;
-  gdv_timestamp ts2 = to_utc_timezone_timestamp(context_ptr, ts,
-                                                "Asia/Kolkata", len_ist);
-  EXPECT_EQ(36000000, ts2);
+  //2012-02-28 15:30:00
+  gdv_timestamp ts = 1330443000000;
+  gdv_timestamp ts2 =
+      to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
+  EXPECT_EQ(1330423200000, ts2);
 
-  //1970-01-01 5:00:00 Asia/Kolkata
+  //1970-01-01 5:00:00
   ts = 18000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
   EXPECT_EQ(ts2, -1800000);
 
   //daylight savings check
-  //2018-03-11 01:00:00 America/Los_Angeles
+  //2018-03-11 01:00:00
   ts = 	1520730000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
   EXPECT_EQ(ts2, 1520758800000);
 
-  //2018-03-12 01:00:00 America/Los_Angeles
+  //2018-03-12 01:00:00
   ts = 1331712000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
   EXPECT_EQ(ts2, 1331737200000);
@@ -1033,8 +1033,8 @@ TEST(TestGdvFnStubs, TestFromUtcTimezone) {
   gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
 
   gdv_timestamp ts = 36000000;
-  gdv_timestamp ts2 = from_utc_timezone_timestamp(context_ptr, ts,
-                                                  "Asia/Kolkata", len_ist);
+  gdv_timestamp ts2 =
+      from_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
   EXPECT_EQ(ts2, 55800000);
 
   ts = -1800000;
