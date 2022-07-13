@@ -492,7 +492,7 @@ SIGN(float64)
 #undef SIGN
 #define CEILING(TYPE) \
   FORCE_INLINE        \
-  gdv_int64 ceiling_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(ceil(in1)); }
+  gdv_##TYPE ceiling_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(ceil(in1)); }
 
 CEILING(float32)
 CEILING(float64)
