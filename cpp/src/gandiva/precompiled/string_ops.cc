@@ -3052,10 +3052,8 @@ int32_t find_in_set_utf8_utf8(int64_t context, const char* to_find, int32_t to_f
   int32_t cur_length = 0;
   bool matching = true;
 
-  int char_length = 0;
-  for (int i = 0; i < string_list_len; i += char_length) {
-    char_length = utf8_char_length(string_list[i]);
-    if (char_length == 1 && string_list[i] == ',') {
+  for (int i = 0; i < string_list_len; i++) {
+    if (string_list[i] == ',') {
       cur_pos_in_array++;
       if (matching && cur_length == to_find_len) {
         return cur_pos_in_array;
@@ -3065,13 +3063,13 @@ int32_t find_in_set_utf8_utf8(int64_t context, const char* to_find, int32_t to_f
       }
     } else {
       if (cur_length + 1 <= string_list_len) {
-        if (!matching || (memcmp(string_list + i, to_find + cur_length, char_length))) {
+        if (!matching || (memcmp(string_list + i, to_find + cur_length, 1))) {
           matching = false;
         }
       } else {
         matching = false;
       }
-      cur_length += utf8_char_length(to_find[cur_length]);
+      cur_length++;
     }
   }
 
