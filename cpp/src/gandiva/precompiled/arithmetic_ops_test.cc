@@ -628,7 +628,7 @@ TEST(TestArithmeticOps, TestCeilingIntFloatDouble) {
   EXPECT_EQ(ceiling_float64(-0), 0.0);
   EXPECT_EQ(ceiling_float64(999999.99999999999999999999999), 1000000.0);
   EXPECT_EQ(ceiling_float64(-999999.99999999999999999999999), -1000000.0);
-  EXPECT_EQ(ceiling_float64(INT32_MAX), 2147483647.0);
+  EXPECT_EQ(ceiling_float64(2147483647.7), 2147483648.0);
   EXPECT_EQ(ceiling_float64(-2147483647), -2147483647.0);
 }
 
