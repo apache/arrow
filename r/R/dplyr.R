@@ -221,12 +221,14 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 
 #' Show the details of an Arrow Execution Plan
 #'
-#' This is a function which gives more details about the Execution Plan (`ExecPlan`)
-#' of an `arrow_dplyr_query` object. It is similar to `dplyr::explain()`.
+#' This is a function which gives more details about the logical query plan
+#' that will be executed when evaluating an `arrow_dplyr_query` object.
+#' It calls the C++ `ExecPlan` object's print method.
+#' Functionally, it is similar to `dplyr::explain()`.
 #'
 #' @param x an `arrow_dplyr_query` to print the `ExecPlan` for.
 #'
-#' @return The argument, invisibly.
+#' @return `x`, invisibly.
 #' @export
 #'
 #' @examplesIf arrow_with_dataset() & requireNamespace("dplyr", quietly = TRUE)
@@ -237,7 +239,6 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #'   mutate(x = gear/carb) %>%
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
-  adq <- as_adq(x)
   plan <- ExecPlan$create()
   final_node <- plan$Build(x)
   cat(plan$ToString())

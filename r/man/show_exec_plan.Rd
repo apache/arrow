@@ -10,11 +10,13 @@ show_exec_plan(x)
 \item{x}{an \code{arrow_dplyr_query} to print the \code{ExecPlan} for.}
 }
 \value{
-The argument, invisibly.
+\code{x}, invisibly.
 }
 \description{
-This is a function which gives more details about the Execution Plan (\code{ExecPlan})
-of an \code{arrow_dplyr_query} object. It is similar to \code{dplyr::explain()}.
+This is a function which gives more details about the logical query plan
+that will be executed when evaluating an \code{arrow_dplyr_query} object.
+It calls the C++ \code{ExecPlan} object's print method.
+Functionally, it is similar to \code{dplyr::explain()}.
 }
 \examples{
 \dontshow{if (arrow_with_dataset() & requireNamespace("dplyr", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
