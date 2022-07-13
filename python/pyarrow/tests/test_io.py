@@ -146,8 +146,8 @@ def test_python_file_get_stream():
 
     # Read to end of each stream
     buf_stream1_4 = stream1.read(nbytes=4)
-    assert len(buf_stream1_4) == 2
-    assert buf_stream1_4 == b'a2'
+    assert len(buf_stream1_4) == 4
+    assert buf_stream1_4 == b'ata2'
     assert stream1.tell() == 10
 
     buf_stream1_1 = stream1.read(nbytes=1)
