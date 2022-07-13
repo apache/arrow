@@ -223,8 +223,8 @@ test_that("n_distinct() with many batches", {
 	write_parquet(dplyr::starwars, tf, chunk_size = 20)
 
 	ds <- open_dataset(tf)
-	expect_true(ds %>% summarise(n_distinct(sex, na.rm = FALSE)) %>% collect() == 5)
-	expect_true(ds %>% collect() %>% summarise(n_distinct(sex, na.rm = FALSE)) == 5)
+	expect_equal(ds %>% summarise(n_distinct(sex, na.rm = FALSE)) %>% collect(),
+	             ds %>% collect() %>% summarise(n_distinct(sex, na.rm = FALSE)))
 })
 
 test_that("n_distinct() on dataset", {
