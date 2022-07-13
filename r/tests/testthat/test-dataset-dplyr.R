@@ -392,12 +392,11 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
     ds %>%
       filter(lgl) %>%
       arrange(chr) %>%
-      # head() %>%
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
       "ProjectNode.*",              # output columns
-      "order_by.*",                   # there should be something in the output
+      "order_by.*",                 # there should be something in the output
                                     # regarding arrange, maybe "order_by", but
                                     # it is missing
       "FilterNode*",                # filter node
@@ -415,22 +414,15 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
     regexp = paste0(
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
       "ProjectNode.*",              # output columns
-      "order_by.*",                   # there should be something in the output
-      # regarding arrange, maybe "order_by", but
-      # it is missing
+      "select_k.*",                 # there should be something in the output
+                                    # regarding head and its corresponding
+                                    # ExecNode ("select_k"), but it is missing
+      "order_by.*",                 # there should be something in the output
+                                    # regarding arrange, maybe "order_by", but
+                                    # it is missing
       "FilterNode*",                # filter node
       "filter=lgl.*",               # filtering expression
       "SourceNode"                  # entry point
     )
   )
-
-  ds %>%
-    filter(lgl) %>%
-    arrange(chr) %>%
-    head() %>%
-    # group_by(part) %>%
-    # summarise(avg = mean(int)) %>%
-    show_exec_plan()
-  collect()
-
 })
