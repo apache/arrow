@@ -239,8 +239,9 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #'   mutate(x = gear/carb) %>%
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
+  adq <- as_adq(x)
   plan <- ExecPlan$create()
-  final_node <- plan$Build(x)
+  final_node <- plan$Build(adq)
   cat(plan$ToString())
   invisible(x)
 }
