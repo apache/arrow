@@ -246,6 +246,18 @@ show_exec_plan <- function(x) {
   invisible(x)
 }
 
+show_query.arrow_dplyr_query <- function(x, ...) {
+  show_exec_plan(x)
+}
+
+show_query.Dataset <- show_query.ArrowTabular <- show_query.RecordBatchReader <- show_query.arrow_dplyr_query
+
+explain.arrow_dplyr_query <- function(x, ...) {
+  show_exec_plan(x)
+}
+
+explain.Dataset <- explain.ArrowTabular <- explain.RecordBatchReader <- explain.arrow_dplyr_query
+
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
