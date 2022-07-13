@@ -290,6 +290,7 @@ class build_ext(_build_ext):
             # build args
             build_tool_args = []
             if os.environ.get('PYARROW_PARALLEL'):
+                build_tool_args.append('--')
                 build_tool_args.append(
                     '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
