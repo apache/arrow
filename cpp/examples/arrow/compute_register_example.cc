@@ -27,18 +27,11 @@
 #include <iostream>
 #include <memory>
 
+#include "example_utils.h"
+
 // Demonstrate registering an Arrow compute function outside of the Arrow source tree
 
 namespace cp = ::arrow::compute;
-
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
 
 class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
   const char* type_name() const override { return "ExampleFunctionOptionsType"; }

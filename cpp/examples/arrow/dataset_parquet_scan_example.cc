@@ -28,6 +28,8 @@
 #include <cstdlib>
 #include <iostream>
 
+#include "example_utils.h"
+
 using arrow::field;
 using arrow::int16;
 using arrow::Schema;
@@ -38,15 +40,6 @@ namespace fs = arrow::fs;
 namespace ds = arrow::dataset;
 
 namespace cp = arrow::compute;
-
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
 
 struct Configuration {
   // Increase the ds::DataSet by repeating `repeat` times the ds::Dataset.

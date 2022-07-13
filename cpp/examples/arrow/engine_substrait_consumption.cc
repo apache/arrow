@@ -24,17 +24,10 @@
 #include <memory>
 #include <vector>
 
+#include "example_utils.h"
+
 namespace eng = arrow::engine;
 namespace cp = arrow::compute;
-
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
 
 class IgnoringConsumer : public cp::SinkNodeConsumer {
  public:
@@ -87,7 +80,7 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
             "items": [
               {
                 "uri_file": "file://FILENAME_PLACEHOLDER",
-                "format": "FILE_FORMAT_PARQUET"
+                "parquet": {}
               }
             ]
           }

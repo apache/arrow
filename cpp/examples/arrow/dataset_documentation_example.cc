@@ -35,18 +35,17 @@
 #include <iostream>
 #include <vector>
 
+#include "example_utils.h"
+
 namespace ds = arrow::dataset;
 namespace fs = arrow::fs;
 namespace cp = arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
+/**
+ * @brief Run Example
+ * 
+ * ./debug/dataset-documentation-example file:///<some_path>/<some_directory> parquet
+ */
 
 // (Doc section: Reading Datasets)
 // Generate some data for the rest of this example.
