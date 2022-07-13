@@ -171,32 +171,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(SetupCxxFlags)
 
 #
-# Linker flags
-#
-
-# Localize thirdparty symbols using a linker version script. This hides them
-# from the client application. The OS X linker does not support the
-# version-script option.
-if(CMAKE_VERSION VERSION_LESS 3.18)
-  if(APPLE OR WIN32)
-    set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT FALSE)
-  else()
-    set(CXX_LINKER_SUPPORTS_VERSION_SCRIPT TRUE)
-  endif()
-else()
-  include(CheckLinkerFlag)
-  check_linker_flag(CXX
-                    "-Wl,--version-script=${ARROW_CPP_SOURCE_DIR}/src/arrow/symbols.map"
-                    CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
-endif()
-
-# Need to set ARROW_VERSION_SCRIPT_FLAGS for add_arrow_lib
-if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
-  set(ARROW_VERSION_SCRIPT_FLAGS
-      "-Wl,--version-script=${ARROW_CPP_SOURCE_DIR}/src/arrow/symbols.map")
-endif()
-
-#
 # shred/static link libs
 #
 
