@@ -459,6 +459,7 @@ test_that("show_exec_plan()", {
     regexp = paste0(
       "ExecPlan with .* nodes:.*",           # boiler plate for ExecPlan
       "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
+      "FilterNode.*",                        # the filter node
       "(dbl > 2).*",                         # the filter expressions
       "chr != \"e\".*",
       "TableSourceNode"                       # the entry point
@@ -478,7 +479,7 @@ test_that("show_exec_plan()", {
       "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
       "(dbl > 2).*",                         # the filter expressions
       "chr != \"e\".*",
-      "TableSourceNode"                       # the starting point"
+      "TableSourceNode"                       # the entry point"
     )
   )
 
@@ -492,9 +493,11 @@ test_that("show_exec_plan()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",            # boiler plate for ExecPlan
-      "GroupByNode.*keys.*\"lgl\".*",         # the group_by statement
-      "aggregates.*\\thash_mean.*avg.*skip_nulls=true, min_count=0.*", # the aggregation
-      "TableSourceNode"                       # the starting point
+      "GroupByNode.*",                        # the group_by statement
+      "keys.*\"lgl\".*",                      # the key for the aggregations
+      "aggregates.*\\thash_mean.*avg.*skip_nulls=true, min_count=0.*", # the aggregations
+      "ProjectNode.*",                        # the output columns
+      "TableSourceNode"                       # the entry point
     )
   )
 
@@ -514,8 +517,47 @@ test_that("show_exec_plan()", {
     regexp = paste0(
       "ExecPlan with .* nodes:.*",              # boiler plate for ExecPlan
       "HashJoinNode.*",                         # the join
+      "ProjectNode.*",                          # the output columns for the second table
       "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # the mutate
-      "TableSourceNode"                         # the starting point
+      "TableSourceNode.*",                      # the second table
+      "ProjectNode.*",                          # output columns for the first table
+      "TableSourceNode"                         # the first table
+    )
+  )
+
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      filter(mpg > 20) %>%
+      arrange(desc(wt)) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*",             # output columns
+      "order_by_sink.*",           # there should be something here regarding
+                                   # arrange (maybe "order_by_sink"), but it is
+                                   # missing
+      "FilterNode.*",              # the filter node
+      "TableSourceNode.*"          # the entry point
+    )
+  )
+
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      filter(mpg > 20) %>%
+      arrange(desc(wt)) %>%
+      head(3) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*",             # output columns
+      "select_k_sink.*",           # there should be something here regarding
+                                   # head (maybe "select_k_sink"), but it is
+                                   # missing
+      "order_by_sink.*",           # the arrange
+      "FilterNode.*",              # the filter node
+      "TableSourceNode.*"          # the entry point
     )
   )
 })
