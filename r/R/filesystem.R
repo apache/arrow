@@ -426,7 +426,7 @@ default_s3_options <- list(
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
-#' bucket <- s3_bucket("ursa-labs-taxi-data")
+#' bucket <- s3_bucket("voltrondata-labs-datasets")
 #' @export
 s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
