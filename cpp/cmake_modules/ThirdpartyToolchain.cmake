@@ -1740,7 +1740,7 @@ macro(build_substrait)
     # Missing dll-interface:
     list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "/wd4251")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-    "Clang")
+                                                        "Clang")
     # Protobuf generated files trigger some errors on CLANG TSAN builds
     list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
   endif()
