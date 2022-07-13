@@ -435,6 +435,19 @@ test_that("query_can_stream()", {
 })
 
 test_that("show_exec_plan()", {
+  # minimal test - this fails if we don't coerce the input to `show_exec_plan()`
+  # to be an `arrow_dplyr_query`
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*",             # this node would evaluate Expressions to produce new columns
+      "TableSourceNode"            # the entry point
+    )
+  )
+
   # arrow_table and mutate
   expect_output(
     tbl %>%
@@ -448,7 +461,7 @@ test_that("show_exec_plan()", {
       "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
       "(dbl > 2).*",                         # the filter expressions
       "chr != \"e\".*",
-      "TableSourceNode"                       # the starting point
+      "TableSourceNode"                       # the entry point
     )
   )
 
