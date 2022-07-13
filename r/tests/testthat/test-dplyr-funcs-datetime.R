@@ -2641,12 +2641,9 @@ test_that("date round/floor/ceil works for units: month/quarter/year", {
   # lubridate::round_date() for Date objects with large rounding units
   # https://github.com/tidyverse/lubridate/issues/1051
 
-  # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for (r in nrow(year_of_dates)) {
-    year_of_dates[r, ] %>% check_date_rounding_1051_bypass("month", ignore_attr = TRUE)
-    year_of_dates[r, ] %>% check_date_rounding_1051_bypass("quarter", ignore_attr = TRUE)
-    year_of_dates[r, ] %>% check_date_rounding_1051_bypass("year", ignore_attr = TRUE)
-  }
+  check_date_rounding_1051_bypass(year_of_dates, "month", ignore_attr = TRUE)
+  check_date_rounding_1051_bypass(year_of_dates, "quarter", ignore_attr = TRUE)
+  check_date_rounding_1051_bypass(year_of_dates, "year", ignore_attr = TRUE)
 
 })
 
@@ -2679,7 +2676,6 @@ check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) 
 }
 
 check_timestamp_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2703,11 +2699,11 @@ test_that("timestamp round/floor/ceil works for week units (standard week_start)
 
 test_that("timestamp round/floor/ceil works for week units (non-standard week_start)", {
 
-  fortnight %>% check_timestamp_week_rounding(week_start = 1) # Tuesday
-  fortnight %>% check_timestamp_week_rounding(week_start = 2) # Wednesday
-  fortnight %>% check_timestamp_week_rounding(week_start = 3) # Thursday
-  fortnight %>% check_timestamp_week_rounding(week_start = 4) # Friday
-  fortnight %>% check_timestamp_week_rounding(week_start = 5) # Saturday
+  fortnight %>% check_timestamp_week_rounding(week_start = 2) # Tuesday
+  fortnight %>% check_timestamp_week_rounding(week_start = 3) # Wednesday
+  fortnight %>% check_timestamp_week_rounding(week_start = 4) # Thursday
+  fortnight %>% check_timestamp_week_rounding(week_start = 5) # Friday
+  fortnight %>% check_timestamp_week_rounding(week_start = 6) # Saturday
 
 })
 
@@ -2745,23 +2741,19 @@ check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) 
 
 test_that("date round/floor/ceil works for week units (standard week_start)", {
 
-  # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for (r in seq_len(nrow(fortnight))) {
-    fortnight[r, ] %>% check_date_week_rounding(week_start = 1) # Monday
-    fortnight[r, ] %>% check_date_week_rounding(week_start = 7) # Sunday
-  }
+  check_date_week_rounding(fortnight, week_start = 1) # Monday
+  check_date_week_rounding(fortnight, week_start = 7) # Sunday
+
 })
 
 test_that("date round/floor/ceil works for week units (non-standard week_start)", {
 
-  # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for (r in seq_len(nrow(fortnight))) {
-    fortnight[r, ] %>% check_date_week_rounding(week_start = 1) # Tuesday
-    fortnight[r, ] %>% check_date_week_rounding(week_start = 2) # Wednedsday
-    fortnight[r, ] %>% check_date_week_rounding(week_start = 3) # Thursday
-    fortnight[r, ] %>% check_date_week_rounding(week_start = 4) # Friday
-    fortnight[r, ] %>% check_date_week_rounding(week_start = 5) # Saturday
-  }
+  check_date_week_rounding(fortnight, week_start = 2) # Tuesday
+  check_date_week_rounding(fortnight, week_start = 3) # Wednesday
+  check_date_week_rounding(fortnight, week_start = 4) # Thursday
+  check_date_week_rounding(fortnight, week_start = 5) # Friday
+  check_date_week_rounding(fortnight, week_start = 6) # Saturday
+
 })
 
 
@@ -2785,26 +2777,24 @@ check_boundary_with_unit <- function(unit, ...) {
   )
 
   # dates
-  # these tests are run one row at a time to avoid ARROW-16412 (see note)
-  for (r in seq_len(nrow(boundary_times))) {
-    expect_equal(
-      boundary_times[r, ] %>%
-        arrow_table() %>%
-        mutate(
-          cob_null = ceiling_date(date, unit, change_on_boundary = NULL),
-          cob_true = ceiling_date(date, unit, change_on_boundary = TRUE),
-          cob_false = ceiling_date(date, unit, change_on_boundary = FALSE)
-        ) %>%
-        collect(),
-      boundary_times[r, ] %>%
-        mutate(
-          cob_null = as.Date(ceiling_date(date, unit, change_on_boundary = NULL)),
-          cob_true = as.Date(ceiling_date(date, unit, change_on_boundary = TRUE)),
-          cob_false = as.Date(ceiling_date(date, unit, change_on_boundary = FALSE))
-        ),
-      ...
-    )
-  }
+
+  expect_equal(
+    boundary_times %>%
+      arrow_table() %>%
+      mutate(
+        cob_null = ceiling_date(date, unit, change_on_boundary = NULL),
+        cob_true = ceiling_date(date, unit, change_on_boundary = TRUE),
+        cob_false = ceiling_date(date, unit, change_on_boundary = FALSE)
+      ) %>%
+      collect(),
+    boundary_times %>%
+      mutate(
+        cob_null = as.Date(ceiling_date(date, unit, change_on_boundary = NULL)),
+        cob_true = as.Date(ceiling_date(date, unit, change_on_boundary = TRUE)),
+        cob_false = as.Date(ceiling_date(date, unit, change_on_boundary = FALSE))
+      ),
+    ...
+  )
 
 
 }
