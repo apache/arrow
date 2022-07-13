@@ -136,21 +136,26 @@ struct CountDistinctImpl : public ScalarAggregator {
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
       const ArrayData& arr = *batch[0].array();
+      this->has_nulls = arr.GetNullCount() > 0;
+
       auto visit_null = []() { return Status::OK(); };
       auto visit_value = [&](VisitorArgType arg) {
         int y;
         return memo_table_->GetOrInsert(arg, &y);
       };
       RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
-      this->non_nulls += memo_table_->size();
-      this->has_nulls = arr.GetNullCount() > 0;
+
     } else {
       const Scalar& input = *batch[0].scalar();
       this->has_nulls = !input.is_valid;
+
       if (input.is_valid) {
-        this->non_nulls += batch.length;
+        RETURN_NOT_OK(memo_table_->MaybeInsert(UnboxScalar<Type>::Unbox(input)));
       }
     }
+
+    this->non_nulls = memo_table_->size();
+
     return Status::OK();
   }
 
