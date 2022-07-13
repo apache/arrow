@@ -47,7 +47,7 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
 
     Examples
     --------
-    >>> fs.initialize_s3(fs.S3LogLevel(5)) # doctest: +SKIP
+    >>> fs.initialize_s3(fs.S3LogLevel.Error) # doctest: +SKIP
     """
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
@@ -55,11 +55,6 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
 
 
 def finalize_s3():
-    """
-    Examples
-    --------
-    >>> fs.finalize_s3() # doctest: +SKIP
-    """
     check_status(CFinalizeS3())
 
 
