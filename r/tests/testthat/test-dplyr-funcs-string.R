@@ -49,6 +49,13 @@ test_that("paste, paste0, and str_c", {
       collect(),
     df
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(base::paste(v, w)) %>%
+      collect(),
+    df
+  )
   compare_dplyr_binding(
     .input %>%
       transmute(paste(v, w, sep = "-")) %>%
@@ -61,9 +68,23 @@ test_that("paste, paste0, and str_c", {
       collect(),
     df
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(base::paste0(v, w)) %>%
+      collect(),
+    df
+  )
   compare_dplyr_binding(
     .input %>%
       transmute(str_c(v, w)) %>%
+      collect(),
+    df
+  )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(stringr::str_c(v, w)) %>%
       collect(),
     df
   )
@@ -244,6 +265,13 @@ test_that("grepl", {
         collect(),
       df
     )
+    # with namespacing
+    compare_dplyr_binding(
+      .input %>%
+        filter(base::grepl("Foo", x, fixed = fixed)) %>%
+        collect(),
+      df
+    )
   }
 })
 
@@ -292,6 +320,13 @@ test_that("str_detect", {
   compare_dplyr_binding(
     .input %>%
       transmute(x = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+      collect(),
+    df
+  )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = stringr::str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
       collect(),
     df
   )
@@ -810,6 +845,14 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
+  # with namespacing
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      mutate(x = stringr::str_like(x, "baz")) %>%
+      collect(),
+    tibble(x = c(FALSE, FALSE))
+  )
 
   # Match - entire string
   expect_equal(
@@ -1113,6 +1156,19 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     df
   )
 
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = stringr::str_starts(x, "b.*"),
+        b = stringr::str_starts(x, "b.*", negate = TRUE),
+        c = stringr::str_starts(x, fixed("b")),
+        d = stringr::str_starts(x, fixed("b"), negate = TRUE)
+      ) %>%
+      collect(),
+    df
+  )
+
   compare_dplyr_binding(
     .input %>%
       filter(str_ends(x, "r")) %>%
@@ -1152,6 +1208,20 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
       collect(),
     df
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = stringr::str_ends(x, "r"),
+        b = stringr::str_ends(x, "r", negate = TRUE),
+        c = stringr::str_ends(x, fixed("r")),
+        d = stringr::str_ends(x, fixed("r"), negate = TRUE)
+      ) %>%
+      collect(),
+    df
+  )
+
   compare_dplyr_binding(
     .input %>%
       filter(startsWith(x, "b")) %>%
@@ -1189,6 +1259,17 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
       collect(),
     df
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = base::startsWith(x, "b"),
+        b = base::endsWith(x, "r")
+      ) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("str_count", {
@@ -1197,6 +1278,14 @@ test_that("str_count", {
     dots = c("a.", "...", ".a.a", "a..a.", "ab...", "dse....", ".f..d..")
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(a_count = str_count(cities, pattern = "a")) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       mutate(a_count = str_count(cities, pattern = "a")) %>%
