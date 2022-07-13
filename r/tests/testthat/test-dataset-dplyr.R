@@ -397,8 +397,8 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
       "ProjectNode.*",              # output columns
       "order_by.*",                 # there should be something in the output
-                                    # regarding arrange, maybe "order_by", but
-                                    # it is missing
+                                    # regarding arrange and its corresponding
+                                    # ExecNode ("order_by"), but it is missing
       "FilterNode*",                # filter node
       "filter=lgl.*",               # filtering expression
       "SourceNode"                  # entry point
