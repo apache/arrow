@@ -1383,7 +1383,7 @@ TEST(Substrait, JoinPlanInvalidKeys) {
   }
 }
 
-TEST(Substrait, AggregateBase) {
+TEST(Substrait, AggregateBasic) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
     "relations": [{
       "rel": {
@@ -1455,7 +1455,7 @@ TEST(Substrait, AggregateBase) {
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "count"
+        "name": "hash_count"
       }
     }],
   })"));
@@ -1476,7 +1476,7 @@ TEST(Substrait, AggregateBase) {
 
   EXPECT_EQ(agg_rel->factory_name, "aggregate");
   EXPECT_EQ(agg_options.aggregates[0].name, "");
-  EXPECT_EQ(agg_options.aggregates[0].function, "count");
+  EXPECT_EQ(agg_options.aggregates[0].function, "hash_count");
 }
 
 TEST(Substrait, AggregateInvalidRel) {
@@ -1495,7 +1495,7 @@ TEST(Substrait, AggregateInvalidRel) {
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "count"
+        "name": "hash_count"
       }
     }],
   })"));
@@ -1562,7 +1562,7 @@ TEST(Substrait, AggregateInvalidFunction) {
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "count"
+        "name": "hash_count"
       }
     }],
   })"));
@@ -1638,7 +1638,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "count"
+        "name": "hash_count"
       }
     }],
   })"));
