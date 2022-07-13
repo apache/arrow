@@ -290,8 +290,8 @@ Be sure to go through on the following checklist:
 
     .. code-block::
     
-        # dev/release/post-02-upload.sh 0.1.0 0
-        dev/release/post-02-upload.sh <version> <rc>
+        # dev/release/post-01-upload.sh 0.1.0 0
+        dev/release/post-01-upload.sh <version> <rc>
 
 .. dropdown:: Uploading binary release artifacts to Artifactory
    :animate: fade-in-slide-down
@@ -302,8 +302,8 @@ Be sure to go through on the following checklist:
 
     .. code-block::
     
-        # dev/release/post-03-binary.sh 0.1.0 0
-        dev/release/post-03-binary.sh <version> <rc number>
+        # dev/release/post-02-binary.sh 0.1.0 0
+        dev/release/post-02-binary.sh <version> <rc number>
 
 .. dropdown:: Announcing release
    :animate: fade-in-slide-down
@@ -328,7 +328,7 @@ Be sure to go through on the following checklist:
     
         # preferred to have a cuda capable device with a recent docker version to generate the cuda docs as well
         # if you don't have an nvidia GPU please ask for help on the mailing list
-        dev/release/post-09-docs.sh <version>
+        dev/release/post-08-docs.sh <version>
         
         # without a cuda device it's still possible to generate the apidocs with the following archery command
         archery docker run -v "${ARROW_SITE_DIR}/docs:/build/docs" -e ARROW_DOCS_VERSION="${version}" ubuntu-docs  
