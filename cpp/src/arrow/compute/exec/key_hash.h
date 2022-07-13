@@ -49,6 +49,7 @@ class ARROW_EXPORT Hashing32 {
                               uint32_t* out_hash);
 
   static Status HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
+                          std::vector<KeyColumnArray>& column_arrays,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length);
 
@@ -161,6 +162,7 @@ class ARROW_EXPORT Hashing64 {
                               uint64_t* hashes);
 
   static Status HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
+                          std::vector<KeyColumnArray>& column_arrays,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length);
 

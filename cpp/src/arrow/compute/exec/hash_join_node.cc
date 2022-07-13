@@ -22,6 +22,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/hash_join.h"
 #include "arrow/compute/exec/hash_join_dict.h"
+#include "arrow/compute/exec/hash_join_node.h"
 #include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/schema_util.h"
@@ -560,7 +561,8 @@ struct BloomFilterPushdownContext {
         }
       }
       ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(keys)));
-      RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes.data(),
+      std::vector<KeyColumnArray> temp_column_arrays;
+      RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes.data(), temp_column_arrays,
                                          ctx_->cpu_info()->hardware_flags(), stack, 0,
                                          key_batch.length));
 
@@ -654,6 +656,33 @@ struct BloomFilterPushdownContext {
     FilterFinishedCallback on_finished_;
   } eval_;
 };
+bool HashJoinSchema::HasDictionaries() const {
+  for (int side = 0; side <= 1; ++side) {
+    for (int icol = 0; icol < proj_maps[side].num_cols(HashJoinProjection::INPUT);
+         ++icol) {
+      const std::shared_ptr<DataType>& column_type =
+          proj_maps[side].data_type(HashJoinProjection::INPUT, icol);
+      if (column_type->id() == Type::DICTIONARY) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool HashJoinSchema::HasLargeBinary() const {
+  for (int side = 0; side <= 1; ++side) {
+    for (int icol = 0; icol < proj_maps[side].num_cols(HashJoinProjection::INPUT);
+         ++icol) {
+      const std::shared_ptr<DataType>& column_type =
+          proj_maps[side].data_type(HashJoinProjection::INPUT, icol);
+      if (is_large_binary_like(column_type->id())) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 class HashJoinNode : public ExecNode {
  public:
@@ -708,8 +737,26 @@ class HashJoinNode : public ExecNode {
     // Generate output schema
     std::shared_ptr<Schema> output_schema = schema_mgr->MakeOutputSchema(
         join_options.output_suffix_for_left, join_options.output_suffix_for_right);
+
     // Create hash join implementation object
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<HashJoinImpl> impl, HashJoinImpl::MakeBasic());
+    // SwissJoin does not support:
+    // a) 64-bit string offsets
+    // b) residual predicates
+    // c) dictionaries
+    //
+    bool use_swiss_join;
+#if ARROW_LITTLE_ENDIAN
+    use_swiss_join = (filter == literal(true)) && !schema_mgr->HasDictionaries() &&
+                     !schema_mgr->HasLargeBinary();
+#else
+    use_swiss_join = false;
+#endif
+    std::unique_ptr<HashJoinImpl> impl;
+    if (use_swiss_join) {
+      ARROW_ASSIGN_OR_RAISE(impl, HashJoinImpl::MakeSwiss());
+    } else {
+      ARROW_ASSIGN_OR_RAISE(impl, HashJoinImpl::MakeBasic());
+    }
 
     return plan->EmplaceNode<HashJoinNode>(
         plan, inputs, join_options, std::move(output_schema), std::move(schema_mgr),
@@ -907,8 +954,11 @@ class HashJoinNode : public ExecNode {
         disable_bloom_filter_, use_sync_execution);
 
     RETURN_NOT_OK(impl_->Init(
-        plan_->exec_context(), join_type_, num_threads, schema_mgr_.get(), key_cmp_,
-        filter_, [this](ExecBatch batch) { this->OutputBatchCallback(batch); },
+        plan_->exec_context(), join_type_, num_threads, &(schema_mgr_->proj_maps[0]),
+        &(schema_mgr_->proj_maps[1]), key_cmp_, filter_,
+        [this](int64_t /*ignored*/, ExecBatch batch) {
+          this->OutputBatchCallback(batch);
+        },
         [this](int64_t total_num_batches) { this->FinishedCallback(total_num_batches); },
         scheduler_.get()));
 
@@ -967,6 +1017,11 @@ class HashJoinNode : public ExecNode {
   }
 
   Future<> finished() override { return task_group_.OnFinished(); }
+
+ protected:
+  std::string ToStringExtra(int indent = 0) const override {
+    return "implementation=" + impl_->ToString();
+  }
 
  private:
   void OutputBatchCallback(ExecBatch batch) {
@@ -1124,8 +1179,11 @@ Status BloomFilterPushdownContext::BuildBloomFilter_exec_task(size_t thread_inde
   for (int64_t i = 0; i < key_batch.length; i += util::MiniBatch::kMiniBatchLength) {
     int64_t length = std::min(static_cast<int64_t>(key_batch.length - i),
                               static_cast<int64_t>(util::MiniBatch::kMiniBatchLength));
-    RETURN_NOT_OK(Hashing32::HashBatch(
-        key_batch, hashes, ctx_->cpu_info()->hardware_flags(), stack, i, length));
+
+    std::vector<KeyColumnArray> temp_column_arrays;
+    RETURN_NOT_OK(Hashing32::HashBatch(key_batch, hashes, temp_column_arrays,
+                                       ctx_->cpu_info()->hardware_flags(), stack, i,
+                                       length));
     RETURN_NOT_OK(build_.builder_->PushNextBatch(thread_index, length, hashes));
   }
   return Status::OK();
