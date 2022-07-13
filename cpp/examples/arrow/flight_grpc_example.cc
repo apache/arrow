@@ -26,6 +26,7 @@
 
 #include "examples/arrow/helloworld.grpc.pb.h"
 #include "examples/arrow/helloworld.pb.h"
+#include "examples/arrow/example_utils.h"
 
 // Demonstrate registering a gRPC service alongside a Flight service
 //
@@ -58,15 +59,6 @@
 DEFINE_int32(port, -1, "Server port to listen on");
 
 namespace flight = ::arrow::flight;
-
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
 
 // Flight service
 class SimpleFlightServer : public flight::FlightServerBase {};
