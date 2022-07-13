@@ -700,23 +700,24 @@ test_that("as_arrow_table() errors for invalid input", {
 test_that("num_rows method not susceptible to integer overflow", {
   skip_if_not_running_large_memory_tests()
 
-  test_array1 <- Array$create(raw(.Machine$integer.max))
-  test_array2 <- Array$create(raw(1))
-  big_chunked <- chunked_array(test_array1, test_array2)
-  small_table <- Table$create(col = test_array1)
-  big_table <- Table$create(col = big_chunked)
+  small_array <- Array$create(raw(1))
+  big_array <- Array$create(raw(.Machine$integer.max))
+  big_chunked_array <- chunked_array(big_array, small_array)
+  # LargeString array with data buffer > MAX_INT32
+  big_string_array <- Array$create(make_big_string())
 
-  expect_type(test_array1$nbytes(), "integer")
-  expect_type(test_array2$nbytes(), "integer")
+  small_table <- Table$create(col = small_array)
+  big_table <- Table$create(col = big_chunked_array)
 
-  big_chunked$length()
+  expect_type(big_array$nbytes(), "integer")
+  expect_type(big_chunked_array$nbytes(), "double")
 
-  length(big_chunked)
+  expect_type(length(big_array), "integer")
+  expect_type(length(big_chunked_array), "double")
 
-  expect_type(big_chunked$nbytes(), "double")
   expect_type(small_table$num_rows, "integer")
-
-  expect_type(big_chunked$nbytes(), "double")
   expect_type(big_table$num_rows, "double")
+
+  expect_identical(big_string_array$data()$buffers[[3]]$size, 2148007936)
 
 })
