@@ -15,13 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' Run standard suite of integration tests for a filesystem
+#'
+#' @param name Name of filesystem to be printed in test name
+#' @param fs A `FileSystem` instance to test with
+#' @param path_formatter A function that takes a sequence of path segments and
+#' returns a absolute path.
+#' @param uri_formatter A function that takes a sequence of path segments and
+#' returns a URI containing the filesystem scheme (e.g. 's3://', 'gs://'), the
+#' absolute path, and any necessary connection options as URL query parameters.
 test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
-  test_that(sprintf("read/write Feather on %s", name), {
+  # NOTE: it's important that we label these tests with name of filesystem so
+  # that we can differentiate the different calls to these test in the output.
+  test_that(sprintf("read/write Feather on %s using URIs", name), {
     write_feather(example_data, uri_formatter("test.feather"))
     expect_identical(read_feather(uri_formatter("test.feather")), example_data)
   })
 
-  test_that("read/write Feather by filesystem, not URI", {
+  test_that(sprintf("read/write Feather on %s using Filesystem", name), {
     write_feather(example_data, fs$path(path_formatter("test2.feather")))
     expect_identical(
       read_feather(fs$path(path_formatter("test2.feather"))),
@@ -31,7 +42,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
 
   library(dplyr)
 
-  test_that("read/write compressed csv by filesystem", {
+  test_that(sprintf("read/write compressed csv on %s using FileSystem", name), {
     skip_if_not_available("gzip")
     dat <- tibble(x = seq(1, 10, by = 0.2))
     write_csv_arrow(dat, fs$path(path_formatter("test.csv.gz")))
@@ -41,7 +52,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
     )
   })
 
-  test_that("read/write csv by filesystem", {
+  test_that(sprintf("read/write csv on %s using FileSystem", name), {
     skip_if_not_available("gzip")
     dat <- tibble(x = seq(1, 10, by = 0.2))
     write_csv_arrow(dat, fs$path(path_formatter("test.csv")))
@@ -51,7 +62,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
     )
   })
 
-  test_that("read/write stream", {
+  test_that(sprintf("read/write IPC stream on %s", name), {
     write_ipc_stream(example_data, fs$path(path_formatter("test3.ipc")))
     expect_identical(
       read_ipc_stream(fs$path(path_formatter("test3.ipc"))),
@@ -92,7 +103,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       )
     })
 
-    test_that("open_dataset errors on URIs for different file systems", {
+    test_that(sprintf("open_dataset errors if passed URIs mixing %s and local fs", name), {
       td <- make_temp_dir()
       expect_error(
         open_dataset(
@@ -128,7 +139,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
     )
 
     # This is also to set up the dataset tests
-    test_that("write_parquet with filesystem arg", {
+    test_that(sprintf("write_parquet with %s filesystem arg", name), {
       skip_if_not_available("parquet")
       fs$CreateDir(path_formatter("hive_dir", "group=1", "other=xxx"))
       fs$CreateDir(path_formatter("hive_dir", "group=2", "other=yyy"))
@@ -141,7 +152,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       )
     })
 
-    test_that("open_dataset with fs", {
+    test_that(sprintf("open_dataset with %s", name), {
       ds <- open_dataset(fs$path(path_formatter("hive_dir")))
       expect_identical(
         ds %>% select(int, dbl, lgl) %>% collect() %>% arrange(int),
@@ -149,13 +160,13 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       )
     })
 
-    test_that("write_dataset with fs", {
+    test_that(sprintf("write_dataset with %s", name), {
       ds <- open_dataset(fs$path(path_formatter("hive_dir")))
       write_dataset(ds, fs$path(path_formatter("new_dataset_dir")))
       expect_length(fs$ls(path_formatter("new_dataset_dir")), 1)
     })
 
-    test_that("Let's test copy_files too", {
+    test_that(sprintf("copy files with %s", name), {
       td <- make_temp_dir()
       copy_files(uri_formatter("hive_dir"), td)
       expect_length(dir(td), 2)
