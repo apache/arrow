@@ -675,7 +675,6 @@ test_that("show_exec_plan(), show_query() and explain()", {
     )
   )
 
-  skip("WIP - arrange and head are not currently captured by C++ ExecPlan print method")
   expect_output(
     mtcars %>%
       arrow_table() %>%

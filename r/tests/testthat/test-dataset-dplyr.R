@@ -340,3 +340,97 @@ test_that("dplyr method not implemented messages", {
     fixed = TRUE
   )
 })
+
+test_that("show_exec_plan(), show_query() and explain() with datasets", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  # minimal test
+  expect_output(
+    ds %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "SourceNode"                  # entry point
+    )
+  )
+
+  # filter and select
+  expect_output(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6L & part == 1) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "FilterNode.*",               # filter node
+      "int > 6.*cast.*",            # filtering expressions + auto-casting of part
+      "SourceNode"                  # entry point
+    )
+  )
+
+  # group_by and summarise
+  expect_output(
+    ds %>%
+      group_by(part) %>%
+      summarise(avg = mean(int)) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "GroupByNode.*",              # group by node
+      "keys=.*part.*",              # key for aggregations
+      "aggregates=.*hash_mean.*",   # aggregations
+      "ProjectNode.*",              # input columns
+      "SourceNode"                  # entry point
+    )
+  )
+
+  # arrange and head
+  expect_output(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      # head() %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "order_by.*",                   # there should be something in the output
+                                    # regarding arrange, maybe "order_by", but
+                                    # it is missing
+      "FilterNode*",                # filter node
+      "filter=lgl.*",               # filtering expression
+      "SourceNode"                  # entry point
+    )
+  )
+
+  expect_output(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      head() %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "order_by.*",                   # there should be something in the output
+      # regarding arrange, maybe "order_by", but
+      # it is missing
+      "FilterNode*",                # filter node
+      "filter=lgl.*",               # filtering expression
+      "SourceNode"                  # entry point
+    )
+  )
+
+  ds %>%
+    filter(lgl) %>%
+    arrange(chr) %>%
+    head() %>%
+    # group_by(part) %>%
+    # summarise(avg = mean(int)) %>%
+    show_exec_plan()
+  collect()
+
+})
