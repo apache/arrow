@@ -37,7 +37,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/trie.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 
 namespace arrow {
@@ -176,7 +176,7 @@ struct BinaryValueDecoder : public ValueDecoder {
   }
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
-    if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
+    if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8Inline(data, size))) {
       return Status::Invalid("CSV conversion error to ", type_->ToString(),
                              ": invalid UTF8 data");
     }

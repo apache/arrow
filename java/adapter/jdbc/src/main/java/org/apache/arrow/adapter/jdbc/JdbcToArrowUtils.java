@@ -260,7 +260,7 @@ public class JdbcToArrowUtils {
       final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
       if (arrowType != null) {
         final FieldType fieldType = new FieldType(
-                isColumnNullable(rsmd, i), arrowType, /* dictionary encoding */ null, metadata);
+                isColumnNullable(rsmd, i, columnFieldInfo), arrowType, /* dictionary encoding */ null, metadata);
 
         List<Field> children = null;
         if (arrowType.getTypeID() == ArrowType.List.TYPE_TYPE) {
@@ -280,7 +280,7 @@ public class JdbcToArrowUtils {
     return new Schema(fields, null);
   }
 
-  private static JdbcFieldInfo getJdbcFieldInfoForColumn(
+  static JdbcFieldInfo getJdbcFieldInfoForColumn(
       ResultSetMetaData rsmd,
       int arrayColumn,
       JdbcToArrowConfig config)
@@ -347,12 +347,14 @@ public class JdbcToArrowUtils {
     jdbcToArrowVectors(rs, root, new JdbcToArrowConfig(new RootAllocator(0), calendar));
   }
 
-  static boolean isColumnNullable(ResultSet resultSet, int index) throws SQLException {
-    return isColumnNullable(resultSet.getMetaData(), index);
-  }
-
-  static boolean isColumnNullable(ResultSetMetaData resultSetMetadata, int index) throws SQLException {
-    int nullableValue = resultSetMetadata.isNullable(index);
+  static boolean isColumnNullable(ResultSetMetaData resultSetMetadata, int index, JdbcFieldInfo info)
+      throws SQLException {
+    int nullableValue;
+    if (info != null && info.isNullable() != ResultSetMetaData.columnNullableUnknown) {
+      nullableValue = info.isNullable();
+    } else {
+      nullableValue = resultSetMetadata.isNullable(index);
+    }
     return nullableValue == ResultSetMetaData.columnNullable ||
         nullableValue == ResultSetMetaData.columnNullableUnknown;
   }
@@ -375,7 +377,9 @@ public class JdbcToArrowUtils {
     JdbcConsumer[] consumers = new JdbcConsumer[columnCount];
     for (int i = 1; i <= columnCount; i++) {
       FieldVector vector = root.getVector(rsmd.getColumnLabel(i));
-      consumers[i - 1] = getConsumer(vector.getField().getType(), i, isColumnNullable(rs, i), vector, config);
+      final JdbcFieldInfo columnFieldInfo = getJdbcFieldInfoForColumn(rsmd, i, config);
+      consumers[i - 1] = getConsumer(
+          vector.getField().getType(), i, isColumnNullable(rsmd, i, columnFieldInfo), vector, config);
     }
 
     CompositeJdbcConsumer compositeConsumer = null;

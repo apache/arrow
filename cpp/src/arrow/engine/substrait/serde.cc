@@ -55,7 +55,8 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
 Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
                                                  const ExtensionSet& ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto rel, ParseFromBuffer<substrait::Rel>(buf));
-  return FromProto(rel, ext_set);
+  ARROW_ASSIGN_OR_RAISE(auto decl_info, FromProto(rel, ext_set));
+  return std::move(decl_info.declaration);
 }
 
 using DeclarationFactory = std::function<Result<compute::Declaration>(
@@ -121,7 +122,7 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
   std::vector<compute::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
     ARROW_ASSIGN_OR_RAISE(
-        auto decl,
+        auto decl_info,
         FromProto(plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel(),
                   ext_set));
     std::vector<std::string> names;
@@ -130,8 +131,9 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     }
 
     // pipe each relation
-    ARROW_ASSIGN_OR_RAISE(auto sink_decl,
-                          declaration_factory(std::move(decl), std::move(names)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto sink_decl,
+        declaration_factory(std::move(decl_info.declaration), std::move(names)));
     sink_decls.push_back(std::move(sink_decl));
   }
 

@@ -39,6 +39,7 @@ check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   "dnanoseconds" = list(1, "ns")
 )
 make_duration <- function(x, unit) {
+  # TODO(ARROW-15862): remove first cast to int64
   x <- build_expr("cast", x, options = cast_options(to_type = int64()))
   x$cast(duration(unit))
 }
@@ -49,9 +50,7 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
   }
 
   if (call_binding("is.POSIXct", x)) {
-    # the casting part might not be required once
-    # https://issues.apache.org/jira/browse/ARROW-14442 is solved
-    # TODO revisit the steps below once the PR for that issue is merged
+    # Make sure the timezone is reflected
     if (tz == "" && x$type()$timezone() != "") {
       tz <- x$type()$timezone()
     } else if (tz == "") {
@@ -59,8 +58,8 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
     }
     x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
   }
-
-  build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+  opts <- list(format = format, locale = Sys.getlocale("LC_TIME"))
+  build_expr("strftime", x, options = opts)
 }
 
 # this is a helper function used for creating a difftime / duration objects from
@@ -104,7 +103,6 @@ binding_as_date <- function(x,
                             format = NULL,
                             tryFormats = "%Y-%m-%d",
                             origin = "1970-01-01") {
-
   if (call_binding("is.Date", x)) {
     return(x)
 
@@ -132,16 +130,15 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 
   # Arrow does not support direct casting from double to date32(), but for
   # integer-like values we can go via int32()
-  # https://issues.apache.org/jira/browse/ARROW-15798
-  # TODO revisit if arrow decides to support double -> date casting
+  # TODO: revisit after ARROW-15798
   if (!call_binding("is.integer", x)) {
     x <- build_expr("cast", x, options = cast_options(to_type = int32()))
   }
 
   if (origin != "1970-01-01") {
     delta_in_sec <- call_binding("difftime", origin, "1970-01-01")
-    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15862
-    # (casting from int32 -> duration or double -> duration) is addressed
+    # TODO: revisit after ARROW-15862
+    # (casting from int32 -> duration or double -> duration)
     delta_in_days <- (delta_in_sec$cast(int64()) / 86400L)$cast(int32())
     x <- build_expr("+", x, delta_in_days)
   }
@@ -292,7 +289,6 @@ build_format_from_order <- function(order) {
 #'  * `augmented_x_qy`
 #' @noRd
 process_data_for_parsing <- function(x, orders) {
-
   processed_x <- x$cast(string())
 
   # make all separators (non-letters and non-numbers) into "-"
@@ -302,7 +298,7 @@ process_data_for_parsing <- function(x, orders) {
 
   # we need to transform `x` when orders are `ym`, `my`, and `yq`
   # for `ym` and `my` orders we add a day ("01")
-  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-16627
+  # TODO: revisit after ARROW-16627
   augmented_x_ym <- NULL
   if (any(orders %in% c("ym", "my", "Ym", "mY"))) {
     # add day as "-01" if there is a "-" separator and as "01" if not

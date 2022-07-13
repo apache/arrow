@@ -383,6 +383,10 @@ int64_t ExecSpanIterator::GetNextChunkSpan(int64_t iteration_size, ExecSpan* spa
       continue;
     }
     const ChunkedArray* arg = args_->at(i).chunked_array().get();
+    if (arg->num_chunks() == 0) {
+      iteration_size = 0;
+      continue;
+    }
     const Array* current_chunk;
     while (true) {
       current_chunk = arg->chunk(chunk_indexes_[i]).get();

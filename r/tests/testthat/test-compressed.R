@@ -28,6 +28,8 @@ test_that("Compression codecs are included in the Windows build", {
   expect_true(codec_is_available("lz4"))
   expect_true(codec_is_available("zstd"))
   expect_true(codec_is_available("brotli"))
+  expect_true(codec_is_available("bz2"))
+  expect_true(codec_is_available("snappy"))
 })
 
 test_that("Codec attributes", {

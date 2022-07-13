@@ -109,6 +109,10 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
+///
+/// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is
+/// expected to be a HashAggregate function. If the keys attribute is an empty vector,
+/// then each aggregate is assumed to be a ScalarAggregate function.
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
   explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,

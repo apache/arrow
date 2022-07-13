@@ -219,7 +219,7 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
   span->length = 0;
   int num_buffers = GetNumBuffers(*type);
   for (int i = 0; i < num_buffers; ++i) {
-    span->buffers[i].data = span->scratch_space;
+    span->buffers[i].data = reinterpret_cast<uint8_t*>(span->scratch_space);
     span->buffers[i].size = 0;
   }
 
@@ -270,7 +270,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
   } else if (is_base_binary_like(type_id)) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
-    this->buffers[1].data = this->scratch_space;
+    this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
     const uint8_t* data_buffer = nullptr;
     int64_t data_size = 0;
     if (scalar.is_valid) {
@@ -328,7 +328,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
 
-    this->buffers[1].data = this->scratch_space;
+    this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
     this->buffers[1].size = 1;
     int8_t* type_codes = reinterpret_cast<int8_t*>(this->scratch_space);
     type_codes[0] = checked_cast<const UnionScalar&>(value).type_code;

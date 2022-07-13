@@ -143,7 +143,7 @@ module Arrow
           nullable = nil
         end
         data_type = DataType.resolve(data_type)
-      when 2, 3
+      when 3
         name = args[0]
         data_type = DataType.resolve(args[1])
         nullable = args[2]

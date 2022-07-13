@@ -297,7 +297,6 @@ register_bindings_datetime_conversion <- function() {
                                        tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
-
     if (is.null(format) && length(tryFormats) > 1) {
       abort(
         paste(
@@ -461,8 +460,7 @@ register_bindings_duration <- function() {
 
     # numeric -> duration not supported in Arrow yet so we use int64() as an
     # intermediate step
-    # TODO revisit if https://issues.apache.org/jira/browse/ARROW-15862 results
-    # in numeric -> duration support
+    # TODO: revisit after ARROW-15862
 
     if (call_binding("is.numeric", x)) {
       # coerce x to be int64(). it should work for integer-like doubles and fail
@@ -567,7 +565,6 @@ register_bindings_datetime_parsers <- function() {
     } else {
       coalesce_output
     }
-
   })
 
   ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq")

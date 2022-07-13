@@ -21,7 +21,7 @@ ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
 # install kartothek dependencies from conda-forge
-RUN mamba install -c conda-forge -q \
+RUN mamba install -c conda-forge -q -y \
         attrs \
         click \
         cloudpickle \

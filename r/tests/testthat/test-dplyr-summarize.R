@@ -548,7 +548,6 @@ test_that("min() and max() on character strings", {
       collect(),
     tbl,
   )
-  skip("Strings not supported by hash_min_max (ARROW-13988)")
   compare_dplyr_binding(
     .input %>%
       group_by(fct) %>%
@@ -556,6 +555,7 @@ test_that("min() and max() on character strings", {
         min_chr = min(chr, na.rm = TRUE),
         max_chr = max(chr, na.rm = TRUE)
       ) %>%
+      arrange(min_chr) %>%
       collect(),
     tbl,
   )

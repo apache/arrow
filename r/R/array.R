@@ -155,12 +155,6 @@ Array <- R6Class("Array",
       assert_is(i, "Array")
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
-    SortIndices = function(descending = FALSE) {
-      assert_that(is.logical(descending))
-      assert_that(length(descending) == 1L)
-      assert_that(!is.na(descending))
-      call_function("array_sort_indices", self, options = list(order = descending))
-    },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)

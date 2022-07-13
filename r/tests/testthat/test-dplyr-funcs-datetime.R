@@ -25,7 +25,7 @@ library(dplyr, warn.conflicts = FALSE)
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
 # So that tests are consistent, set the local timezone to UTC
-# TODO: consider reevaluating this workaround after ARROW-12980
+# TODO: consider reevaluating now that ARROW-12980 has merged
 withr::local_timezone("UTC")
 
 if (tolower(Sys.info()[["sysname"]]) == "windows") {
@@ -37,8 +37,7 @@ test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 
 test_df <- tibble::tibble(
   # test_date + 1 turns the tzone = "" to NULL, which is functionally equivalent
-  # so we can run some tests on Windows, but this skirts around
-  # https://issues.apache.org/jira/browse/ARROW-13588
+  # so we can run some tests on Windows, but this skirts around ARROW-13588.
   # That issue is tough because in C++, "" is the "no timezone" value
   # due to static typing, so we can't distinguish a literal "" from NULL
   datetime = c(test_date, NA) + 1,
@@ -743,7 +742,7 @@ test_that("leap_year mirror lubridate", {
         "1998-01-01", # not leap year
         "1996-01-01", # leap year (divide by 4 rule)
         "1900-01-01", # not leap year (divide by 100 rule)
-        "2000-01-01"  # leap year (divide by 400 rule)
+        "2000-01-01" # leap year (divide by 400 rule)
       ))
     )
   )
@@ -941,7 +940,7 @@ test_that("date works in arrow", {
   # we can't (for now) use namespacing, so we need to make sure lubridate::date()
   # and not base::date() is being used. This is due to the way testthat runs and
   # normal use of arrow would not have to do this explicitly.
-  # TODO remove once https://issues.apache.org/jira/browse/ARROW-14575 is done
+  # TODO: remove after ARROW-14575
   date <- lubridate::date
 
   compare_dplyr_binding(
@@ -1584,7 +1583,7 @@ test_that("`as.Date()` and `as_date()`", {
 
   # strptime does not support a partial format - Arrow returns NA, while
   # lubridate parses correctly
-  # TODO revisit once - https://issues.apache.org/jira/browse/ARROW-15813
+  # TODO: revisit after ARROW-15813
   expect_error(
     expect_equal(
       test_df %>%
@@ -1611,16 +1610,13 @@ test_that("`as.Date()` and `as_date()`", {
   )
 
   # we do not support as.Date() with double/ float (error surfaced from C++)
-  # TODO revisit after https://issues.apache.org/jira/browse/ARROW-15798
+  # TODO: revisit after ARROW-15798
   expect_error(
     test_df %>%
       arrow_table() %>%
       mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
       collect()
   )
-
-  # we do not support as_date with double/ float (error surfaced from C++)
-  # TODO: revisit after https://issues.apache.org/jira/browse/ARROW-15798
   expect_error(
     test_df %>%
       arrow_table() %>%
@@ -1742,8 +1738,7 @@ test_that("parse_date_time() works with year, month, and date components", {
     )
   )
 
-  # locale (affecting "%b% and "%B" formats) does not work properly on Windows
-  # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16443 is done
+  # TODO(ARROW-16443): locale (affecting "%b% and "%B") does not work on Windows
   skip_on_os("windows")
   compare_dplyr_binding(
     .input %>%
@@ -1893,7 +1888,6 @@ test_that("ym, my & yq parsers", {
 })
 
 test_that("lubridate's fast_strptime", {
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2032,7 +2026,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     dmy_hms_string =
       c("09-01-67 12:34:56", "22-05-1970 20:13:59", "220887201359", NA),
     dmy_hm_string =
-      c("09-01-67 12:34", "22-05-1970 20:13",  "2208872013", NA),
+      c("09-01-67 12:34", "22-05-1970 20:13", "2208872013", NA),
     dmy_h_string =
       c("09-01-67 12", "22-05-1970 20", "22088720", NA),
     mdy_hms_string =
@@ -2110,15 +2104,14 @@ test_that("parse_date_time with hours, minutes and seconds components", {
       ) %>%
       collect(),
     tibble(
-     ymd_ims_string =
-       c("67-01-09 9:34:56", "1970-05-22 10:13:59", "19870822171359", NA)
-   )
+      ymd_ims_string =
+        c("67-01-09 9:34:56", "1970-05-22 10:13:59", "19870822171359", NA)
+    )
   )
 })
 
 test_that("parse_date_time with month names and HMS", {
-  # locale (affecting "%b% and "%B" formats) does not work properly on Windows
-  # TODO revisit once https://issues.apache.org/jira/browse/ARROW-16443 is done
+  # TODO(ARROW-16443): locale (affecting "%b% and "%B") does not work on Windows
   skip_on_os("windows")
 
   # these functions' internals use some string processing which requires the
@@ -2197,7 +2190,7 @@ test_that("parse_date_time with truncated formats", {
   # RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
 
-  test_truncation_df <-  tibble(
+  test_truncation_df <- tibble(
     truncated_ymd_string =
       c(
         "2022-05-19 13:46:51",
@@ -2290,22 +2283,26 @@ test_that("build_formats() and build_format_from_order()", {
       "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d",
       # formats from "%Y-%d-%m" format
       "%y-%d-%m", "%Y-%d-%m", "%y-%d-%B", "%Y-%d-%B", "%y-%d-%b", "%Y-%d-%b",
-      "%y%d%m", "%Y%d%m", "%y%d%B", "%Y%d%B", "%y%d%b", "%Y%d%b")
+      "%y%d%m", "%Y%d%m", "%y%d%B", "%Y%d%B", "%y%d%b", "%Y%d%b"
+    )
   )
 
   expect_equal(
     build_formats("ymd_HMS"),
-    c("%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+    c(
+      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
       "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
       "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
+      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    )
   )
 
   # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
   # or "ydm" and the formats are built accordingly
   ymd_formats <- c(
     "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d")
+    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
+  )
   expect_equal(
     build_formats("yq"),
     ymd_formats
@@ -2329,8 +2326,10 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_formats("my"),
-    c("%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
-      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d")
+    c(
+      "%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
+      "%m%y%d", "%B%y%d", "%b%y%d", "%m%Y%d", "%B%Y%d", "%b%Y%d"
+    )
   )
 
   # ab not supported yet
@@ -2346,15 +2345,19 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_format_from_order("ymd"),
-    c("%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d")
+    c(
+      "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
+      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
+    )
   )
 
   expect_equal(
     build_format_from_order("ymdHMS"),
-    c("%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+    c(
+      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
       "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
       "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
+      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    )
   )
 })

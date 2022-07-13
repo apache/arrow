@@ -25,6 +25,7 @@ arch=("any")
 url="https://arrow.apache.org/"
 license=("Apache-2.0")
 depends=("${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp"
+         "${MINGW_PACKAGE_PREFIX}-bzip2"
          "${MINGW_PACKAGE_PREFIX}-curl" # for google-cloud-cpp bundled build
          "${MINGW_PACKAGE_PREFIX}-libutf8proc"
          "${MINGW_PACKAGE_PREFIX}-re2"
@@ -123,6 +124,7 @@ build() {
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
     -DARROW_WITH_BROTLI=ON \
+    -DARROW_WITH_BZ2=ON \
     -DARROW_ZSTD_USE_SHARED=OFF \
     -DARROW_CXXFLAGS="${CPPFLAGS}" \
     -DCMAKE_BUILD_TYPE="release" \

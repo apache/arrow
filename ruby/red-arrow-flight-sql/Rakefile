@@ -1,3 +1,5 @@
+# -*- ruby -*-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,15 +17,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# flake8: noqa
+require "rubygems"
+require "bundler/gem_helper"
 
-import pyarrow.util as util
-import warnings
+base_dir = File.join(File.dirname(__FILE__))
 
+helper = Bundler::GemHelper.new(base_dir)
+helper.install
 
-warnings.warn("pyarrow.compat has been deprecated and will be removed in a "
-              "future release", FutureWarning)
+release_task = Rake::Task["release"]
+release_task.prerequisites.replace(["build", "release:rubygem_push"])
 
+desc "Run tests"
+task :test do
+  cd(base_dir) do
+    cd("dependency-check") do
+      ruby("-S", "rake")
+    end
+    ruby("test/run-test.rb")
+  end
+end
 
-guid = util._deprecate_api("compat.guid", "util.guid",
-                           util.guid, "1.0.0")
+task default: :test

@@ -37,6 +37,7 @@ override_dh_auto_configure:
 	  -DARROW_DATASET=ON					\
 	  -DARROW_FILESYSTEM=ON					\
 	  -DARROW_FLIGHT=ON					\
+	  -DARROW_FLIGHT_SQL=ON					\
 	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_GCS=ON					\

@@ -30,8 +30,17 @@
 namespace arrow {
 namespace engine {
 
+/// Information resulting from converting a Substrait relation.
+struct DeclarationInfo {
+  /// The compute declaration produced thus far.
+  compute::Declaration declaration;
+
+  /// The number of columns returned by the declaration.
+  int num_columns;
+};
+
 ARROW_ENGINE_EXPORT
-Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&);
+Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&);
 
 }  // namespace engine
 }  // namespace arrow

@@ -618,6 +618,17 @@ test_that("UnionDataset handles InMemoryDatasets", {
   expect_equal(actual, expected)
 })
 
+test_that("scalar aggregates with many batches (ARROW-16904)", {
+  tf <- tempfile()
+  write_parquet(data.frame(x = 1:100), tf, chunk_size = 20)
+
+  ds <- open_dataset(tf)
+  replicate(100, ds %>% summarize(min(x)) %>% pull())
+
+  expect_true(all(replicate(100, ds %>% summarize(min(x)) %>% pull()) == 1))
+  expect_true(all(replicate(100, ds %>% summarize(max(x)) %>% pull()) == 100))
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
@@ -798,24 +809,6 @@ test_that("Scanner$ScanBatches", {
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
-
-  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-
-  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
-  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {

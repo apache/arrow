@@ -264,7 +264,9 @@ abandon_ship <- function(call, .data, msg) {
   eval.parent(call, 2)
 }
 
-query_on_dataset <- function(x) inherits(source_data(x), c("Dataset", "RecordBatchReader"))
+query_on_dataset <- function(x) {
+  any(map_lgl(all_sources(x), ~ inherits(., c("Dataset", "RecordBatchReader"))))
+}
 
 source_data <- function(x) {
   if (!inherits(x, "arrow_dplyr_query")) {
@@ -276,12 +278,47 @@ source_data <- function(x) {
   }
 }
 
-is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
-
-has_aggregation <- function(x) {
-  # TODO: update with joins (check right side data too)
-  !is.null(x$aggregations) || (is_collapsed(x) && has_aggregation(x$.data))
+all_sources <- function(x) {
+  if (is.null(x)) {
+    x
+  } else if (!inherits(x, "arrow_dplyr_query")) {
+    list(x)
+  } else {
+    c(
+      all_sources(x$.data),
+      all_sources(x$join$right_data),
+      all_sources(x$union_all$right_data)
+    )
+  }
 }
+
+query_can_stream <- function(x) {
+  # Queries that just select/filter/mutate can stream:
+  # you can take head() without evaluating over the whole dataset
+  if (inherits(x, "arrow_dplyr_query")) {
+    # Aggregations require all of the data
+    is.null(x$aggregations) &&
+      # Sorting does too
+      length(x$arrange_vars) == 0 &&
+      # Joins are ok as long as the right-side data is in memory
+      # (we have to hash the whole dataset to join it)
+      !query_on_dataset(x$join$right_data) &&
+      # But need to check that this non-dataset join can stream
+      query_can_stream(x$join$right_data) &&
+      # Also check that any unioned datasets also can stream
+      query_can_stream(x$union_all$right_data) &&
+      # Recursively check any queries that have been collapsed
+      query_can_stream(x$.data)
+  } else {
+    # Not a query, so it must be a Table/Dataset (or NULL)
+    # Note that if you have a RecordBatchReader, you *can* stream,
+    # but the reader is consumed. If that's a problem, you should check
+    # for RBRs outside of this function.
+    TRUE
+  }
+}
+
+is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 
 has_head_tail <- function(x) {
   !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))

@@ -15,6 +15,40 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(find_package_args)
+if(SnappyAlt_FIND_VERSION)
+  list(APPEND find_package_args ${SnappyAlt_FIND_VERSION})
+endif()
+if(SnappyAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(Snappy ${find_package_args})
+if(Snappy_FOUND)
+  if(ARROW_SNAPPY_USE_SHARED)
+    set(Snappy_TARGET Snappy::snappy)
+    set(SnappyAlt_FOUND TRUE)
+    return()
+  else()
+    if(TARGET Snappy::snappy-static)
+      # The official SnappyTargets.cmake uses Snappy::snappy-static for
+      # static version.
+      set(Snappy_TARGET Snappy::snappy-static)
+      set(SnappyAlt_FOUND TRUE)
+      return()
+    else()
+      # The Conan's Snappy package always uses Snappy::snappy and it's
+      # an INTERFACE_LIBRARY.
+      get_target_property(Snappy Snappy::snappy TYPE)
+      if(Snappy_TYPE STREQUAL "STATIC_LIBRARY" OR Snappy_TYPE STREQUAL
+                                                  "INTERFACE_LIBRARY")
+        set(Snappy_TARGET Snappy::snappy)
+        set(SnappyAlt_FOUND TRUE)
+        return()
+      endif()
+    endif()
+  endif()
+endif()
+
 if(ARROW_SNAPPY_USE_SHARED)
   set(SNAPPY_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
@@ -52,11 +86,18 @@ else()
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
+find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
-if(Snappy_FOUND)
-  add_library(Snappy::snappy UNKNOWN IMPORTED)
-  set_target_properties(Snappy::snappy
+if(SnappyAlt_FOUND)
+  if(ARROW_SNAPPY_USE_SHARED)
+    set(Snappy_TARGET Snappy::snappy)
+    set(Snappy_TARGET_TYPE SHARED)
+  else()
+    set(Snappy_TARGET Snappy::snappy-static)
+    set(Snappy_TARGET_TYPE STATIC)
+  endif()
+  add_library(${Snappy_TARGET} ${Snappy_TARGET_TYPE} IMPORTED)
+  set_target_properties(${Snappy_TARGET}
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
 endif()

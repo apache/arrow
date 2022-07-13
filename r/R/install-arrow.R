@@ -113,7 +113,7 @@ arrow_repos <- function(repos = getOption("repos"), nightly = FALSE) {
     # Set the default/CDN
     repos <- "https://cloud.r-project.org/"
   }
-  dev_repo <- getOption("arrow.dev_repo", "https://arrow-r-nightly.s3.amazonaws.com")
+  dev_repo <- getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r")
   # Remove it if it's there (so nightly=FALSE won't accidentally pull from it)
   repos <- setdiff(repos, dev_repo)
   if (nightly) {
