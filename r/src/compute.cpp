@@ -681,9 +681,9 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
 }
 
 // [[arrow::export]]
-void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
-  cpp11::list in_type_r(func_sexp.attr("in_type"));
-  cpp11::list out_type_r(func_sexp.attr("out_type"));
+void RegisterScalarUDF(std::string name, cpp11::list func_sexp) {
+  cpp11::list in_type_r(func_sexp["in_type"]);
+  cpp11::list out_type_r(func_sexp["out_type"]);
   R_xlen_t n_kernels = in_type_r.size();
 
   if (n_kernels == 0) {
@@ -732,7 +732,8 @@ void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp) {
     arrow::compute::ScalarKernel kernel(signature, &CallRScalarUDF);
     kernel.mem_allocation = arrow::compute::MemAllocation::NO_PREALLOCATE;
     kernel.null_handling = arrow::compute::NullHandling::COMPUTED_NO_PREALLOCATE;
-    kernel.data = std::make_shared<RScalarUDFKernelState>(func_sexp, out_type_func);
+    kernel.data =
+        std::make_shared<RScalarUDFKernelState>(func_sexp["wrapper_fun"], out_type_func);
 
     StopIfNotOk(func->AddKernel(std::move(kernel)));
   }

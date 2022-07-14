@@ -328,51 +328,30 @@ cast_options <- function(safe = TRUE, ...) {
 #' @param out_type A [DataType] of the output type or a function accepting
 #'   a single argument (`types`), which is a `list()` of [DataType]s. If a
 #'   function it must return a [DataType].
-#' @param fun An R function or rlang-style lambda expression. This function
-#'   will be called with R objects as arguments and must return an object
-#'   that can be converted to an [Array] using [as_arrow_array()]. Function
-#'   authors must take care to return an array castable to the output data
-#'   type specified by `out_type`.
-#' @param advanced_fun An R function or rlang-style lambda expression. This
-#'   function will be called with exactly two arguments: `kernel_context`,
-#'   which is a `list()` of objects giving information about the
-#'   execution context and `args`, which is a list of [Array] or [Scalar]
-#'   objects corresponding to the input arguments. The function must return
-#'   an Array or Scalar with the type equal to
-#'   `kernel_context$output_type` and length equal to
-#'   `kernel_context$batch_length`.
+#' @param fun An R function or rlang-style lambda expression. The function
+#'   will be called with a first argument `context` which is a `list()`
+#'   with elements `batch_size` (the expected length of the output) and
+#'   `output_type` (the required [DataType] of the output). Subsequent
+#'   arguments are passed by position as specified by `in_types`. If
+#'   `auto_convert` is `TRUE`, subsequent arguments are converted to
+#'   R vectors before being passed to `fun` and the output is automatically
+#'   constructed with the expected output type via [as_arrow_array()].
 #'
 #' @return
 #'   - `register_user_defined_function()`: `NULL`, invisibly
 #'   - `arrow_scalar_function()`: returns an object of class
-#'     "arrow_advanced_scalar_function" that can be passed to
+#'     "arrow_scalar_function" that can be passed to
 #'     `register_user_defined_function()`.
 #' @export
 #'
 #' @examplesIf arrow_with_dataset()
 #' fun_wrapper <- arrow_scalar_function(
-#'   function(x, y, z) x + y + z,
+#'   function(context, x, y, z) x + y + z,
 #'   schema(x = float64(), y = float64(), z = float64()),
-#'   float64()
+#'   float64(),
+#'   auto_convert = TRUE
 #' )
 #' register_user_defined_function(fun_wrapper, "example_add3")
-#'
-#' call_function(
-#'   "example_add3",
-#'   Scalar$create(1),
-#'   Scalar$create(2),
-#'   Array$create(3)
-#' )
-#'
-#' # use arrow_advanced_scalar_function() for a lower-level interface
-#' advanced_fun_wrapper <- arrow_advanced_scalar_function(
-#'   function(context, args) {
-#'     args[[1]] + args[[2]] + args[[3]]
-#'   },
-#'   schema(x = float64(), y = float64(), z = float64()),
-#'   float64()
-#' )
-#' register_user_defined_function(advanced_fun_wrapper, "example_add3")
 #'
 #' call_function(
 #'   "example_add3",
@@ -384,7 +363,7 @@ cast_options <- function(safe = TRUE, ...) {
 register_user_defined_function <- function(scalar_function, name) {
   assert_that(
     is.string(name),
-    inherits(scalar_function, "arrow_advanced_scalar_function")
+    inherits(scalar_function, "arrow_scalar_function")
   )
 
   # register with Arrow C++ function registry (enables its use in
@@ -403,23 +382,25 @@ register_user_defined_function <- function(scalar_function, name) {
 
 #' @rdname register_user_defined_function
 #' @export
-arrow_scalar_function <- function(fun, in_type, out_type) {
+arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) {
   fun <- as_function(fun)
 
-  # create a small wrapper that converts Scalar/Array arguments to R vectors
-  # and converts the result back to an Array
-  advanced_fun <- function(context, args) {
-    args <- lapply(args, as.vector)
-    result <- do.call(fun, args)
-    as_arrow_array(result, type = context$output_type)
+  # Create a small wrapper function that is easier to call from C++.
+  # This wrapper could be implemented in C/C++ to reduce evaluation
+  # overhead and generate prettier backtraces when errors occur
+  # (probably using a similar approach to purrr).
+  if (auto_convert) {
+    wrapper_fun <- function(context, args) {
+      args <- lapply(args, as.vector)
+      result <- do.call(fun, c(list(context), args))
+      as_arrow_array(result, type = context$output_type)
+    }
+  } else {
+    wrapper_fun <- function(context, args) {
+      do.call(fun, c(list(context), args))
+    }
   }
 
-  arrow_advanced_scalar_function(advanced_fun, in_type, out_type)
-}
-
-#' @rdname register_user_defined_function
-#' @export
-arrow_advanced_scalar_function <- function(advanced_fun, in_type, out_type) {
   if (is.list(in_type)) {
     in_type <- lapply(in_type, as_scalar_function_in_type)
   } else {
@@ -434,16 +415,13 @@ arrow_advanced_scalar_function <- function(advanced_fun, in_type, out_type) {
 
   out_type <- rep_len(out_type, length(in_type))
 
-  advanced_fun <- as_function(advanced_fun)
-  if (length(formals(advanced_fun)) != 2) {
-    abort("`advanced_fun` must accept exactly two arguments")
-  }
-
   structure(
-    advanced_fun,
-    in_type = in_type,
-    out_type = out_type,
-    class = "arrow_advanced_scalar_function"
+    list(
+      wrapper_fun = wrapper_fun,
+      in_type = in_type,
+      out_type = out_type
+    ),
+    class = "arrow_scalar_function"
   )
 }
 

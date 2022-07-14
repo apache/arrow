@@ -3,14 +3,11 @@
 \name{register_user_defined_function}
 \alias{register_user_defined_function}
 \alias{arrow_scalar_function}
-\alias{arrow_advanced_scalar_function}
 \title{Register user-defined functions}
 \usage{
 register_user_defined_function(scalar_function, name)
 
-arrow_scalar_function(fun, in_type, out_type)
-
-arrow_advanced_scalar_function(advanced_fun, in_type, out_type)
+arrow_scalar_function(fun, in_type, out_type, auto_convert = FALSE)
 }
 \arguments{
 \item{scalar_function}{An object created with \code{\link[=arrow_scalar_function]{arrow_scalar_function()}}
@@ -20,11 +17,14 @@ number of rows) as the input.}
 
 \item{name}{The function name to be used in the dplyr bindings}
 
-\item{fun}{An R function or rlang-style lambda expression. This function
-will be called with R objects as arguments and must return an object
-that can be converted to an \link{Array} using \code{\link[=as_arrow_array]{as_arrow_array()}}. Function
-authors must take care to return an array castable to the output data
-type specified by \code{out_type}.}
+\item{fun}{An R function or rlang-style lambda expression. The function
+will be called with a first argument \code{context} which is a \code{list()}
+with elements \code{batch_size} (the expected length of the output) and
+\code{output_type} (the required \link{DataType} of the output). Subsequent
+arguments are passed by position as specified by \code{in_types}. If
+\code{auto_convert} is \code{TRUE}, subsequent arguments are converted to
+R vectors before being passed to \code{fun} and the output is automatically
+constructed with the expected output type via \code{\link[=as_arrow_array]{as_arrow_array()}}.}
 
 \item{in_type}{A \link{DataType} of the input type or a \code{\link[=schema]{schema()}}
 for functions with more than one argument. This signature will be used
@@ -35,21 +35,12 @@ If this function is appropriate for more than one signature, pass a
 \item{out_type}{A \link{DataType} of the output type or a function accepting
 a single argument (\code{types}), which is a \code{list()} of \link{DataType}s. If a
 function it must return a \link{DataType}.}
-
-\item{advanced_fun}{An R function or rlang-style lambda expression. This
-function will be called with exactly two arguments: \code{kernel_context},
-which is a \code{list()} of objects giving information about the
-execution context and \code{args}, which is a list of \link{Array} or \link{Scalar}
-objects corresponding to the input arguments. The function must return
-an Array or Scalar with the type equal to
-\code{kernel_context$output_type} and length equal to
-\code{kernel_context$batch_length}.}
 }
 \value{
 \itemize{
 \item \code{register_user_defined_function()}: \code{NULL}, invisibly
 \item \code{arrow_scalar_function()}: returns an object of class
-"arrow_advanced_scalar_function" that can be passed to
+"arrow_scalar_function" that can be passed to
 \code{register_user_defined_function()}.
 }
 }
@@ -63,28 +54,12 @@ lower-level function that operates directly on Arrow objects.
 \examples{
 \dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 fun_wrapper <- arrow_scalar_function(
-  function(x, y, z) x + y + z,
+  function(context, x, y, z) x + y + z,
   schema(x = float64(), y = float64(), z = float64()),
-  float64()
+  float64(),
+  auto_convert = TRUE
 )
 register_user_defined_function(fun_wrapper, "example_add3")
-
-call_function(
-  "example_add3",
-  Scalar$create(1),
-  Scalar$create(2),
-  Array$create(3)
-)
-
-# use arrow_advanced_scalar_function() for a lower-level interface
-advanced_fun_wrapper <- arrow_advanced_scalar_function(
-  function(context, args) {
-    args[[1]] + args[[2]] + args[[3]]
-  },
-  schema(x = float64(), y = float64(), z = float64()),
-  float64()
-)
-register_user_defined_function(advanced_fun_wrapper, "example_add3")
 
 call_function(
   "example_add3",

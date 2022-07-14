@@ -21,60 +21,60 @@ test_that("list_compute_functions() works", {
 })
 
 
-test_that("arrow_advanced_scalar_function() works", {
+test_that("arrow_scalar_function() works", {
   # check in/out type as schema/data type
-  fun <- arrow_advanced_scalar_function(
-    function(kernel_context, args) args[[1]],
-    schema(.y = int32()), int64()
+  fun <- arrow_scalar_function(
+    function(context, x) x$cast(int64()),
+    schema(x = int32()), int64()
   )
-  expect_equal(attr(fun, "in_type")[[1]], schema(.y = int32()))
-  expect_equal(attr(fun, "out_type")[[1]](), int64())
+  expect_equal(fun$in_type[[1]], schema(x = int32()))
+  expect_equal(fun$out_type[[1]](), int64())
 
   # check in/out type as data type/data type
-  fun <- arrow_advanced_scalar_function(
-    function(kernel_context, args) args[[1]],
+  fun <- arrow_scalar_function(
+    function(context, x) x$cast(int64()),
     int32(), int64()
   )
-  expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
-  expect_equal(attr(fun, "out_type")[[1]](), int64())
+  expect_equal(fun$in_type[[1]][[1]], field("", int32()))
+  expect_equal(fun$out_type[[1]](), int64())
 
   # check in/out type as field/data type
-  fun <- arrow_advanced_scalar_function(
-    function(kernel_context, args) args[[1]],
+  fun <- arrow_scalar_function(
+    function(context, a_name) x$cast(int64()),
     field("a_name", int32()),
     int64()
   )
-  expect_equal(attr(fun, "in_type")[[1]], schema(a_name = int32()))
-  expect_equal(attr(fun, "out_type")[[1]](), int64())
+  expect_equal(fun$in_type[[1]], schema(a_name = int32()))
+  expect_equal(fun$out_type[[1]](), int64())
 
   # check in/out type as lists
-  fun <- arrow_advanced_scalar_function(
-    function(kernel_context, args) args[[1]],
+  fun <- arrow_scalar_function(
+    function(context, x) x,
     list(int32(), int64()),
-    list(int64(), int32())
+    list(int64(), int32()),
+    auto_convert = TRUE
   )
 
-  expect_equal(attr(fun, "in_type")[[1]][[1]], field("", int32()))
-  expect_equal(attr(fun, "in_type")[[2]][[1]], field("", int64()))
-  expect_equal(attr(fun, "out_type")[[1]](), int64())
-  expect_equal(attr(fun, "out_type")[[2]](), int32())
+  expect_equal(fun$in_type[[1]][[1]], field("", int32()))
+  expect_equal(fun$in_type[[2]][[1]], field("", int64()))
+  expect_equal(fun$out_type[[1]](), int64())
+  expect_equal(fun$out_type[[2]](), int32())
 
-  expect_snapshot_error(arrow_advanced_scalar_function(identity, int32(), int32()))
-  expect_snapshot_error(arrow_advanced_scalar_function(NULL, int32(), int32()))
+  expect_snapshot_error(arrow_scalar_function(NULL, int32(), int32()))
 })
 
-test_that("arrow_scalar_function() returns an advanced scalar function", {
+test_that("arrow_scalar_function() works with auto_convert = TRUE", {
   times_32_wrapper <- arrow_scalar_function(
-    function(x) x * 32,
+    function(context, x) x * 32,
     float64(),
-    float64()
+    float64(),
+    auto_convert = TRUE
   )
 
   dummy_kernel_context <- list()
 
-  expect_s3_class(times_32_wrapper, "arrow_advanced_scalar_function")
   expect_equal(
-    times_32_wrapper(dummy_kernel_context, list(Scalar$create(2))),
+    times_32_wrapper$wrapper_fun(dummy_kernel_context, list(Scalar$create(2))),
     Array$create(2 * 32)
   )
 })
@@ -83,13 +83,14 @@ test_that("register_user_defined_function() adds a compute function to the regis
   skip_if_not(CanRunWithCapturedR())
 
   times_32_wrapper <- arrow_scalar_function(
-    function(x) x * 32.0,
-    int32(), float64()
+    function(context, x) x * 32.0,
+    int32(), float64(),
+    auto_convert = TRUE
   )
 
   register_user_defined_function(times_32_wrapper, "times_32")
 
-  expect_true("times_32" %in% names(arrow:::.cache$functions))
+  expect_true("times_32" %in% names(asNamespace("arrow")$.cache$functions))
   expect_true("times_32" %in% list_compute_functions())
 
   expect_equal(
@@ -113,8 +114,8 @@ test_that("register_user_defined_function() adds a compute function to the regis
 test_that("arrow_scalar_function() with bad return type errors", {
   skip_if_not(CanRunWithCapturedR())
 
-  times_32_wrapper <- arrow_advanced_scalar_function(
-    function(context, args) Array$create(args[[1]], int32()),
+  times_32_wrapper <- arrow_scalar_function(
+    function(context, x) Array$create(x, int32()),
     int32(), float64()
   )
 
@@ -124,8 +125,8 @@ test_that("arrow_scalar_function() with bad return type errors", {
     "Expected return Array or Scalar with type 'double'"
   )
 
-  times_32_wrapper <- arrow_advanced_scalar_function(
-    function(context, args) Scalar$create(args[[1]], int32()),
+  times_32_wrapper <- arrow_scalar_function(
+    function(context, x) Scalar$create(x, int32()),
     int32(), float64()
   )
 
@@ -140,9 +141,10 @@ test_that("register_user_defined_function() can register multiple kernels", {
   skip_if_not(CanRunWithCapturedR())
 
   times_32_wrapper <- arrow_scalar_function(
-    function(x) x * 32L,
+    function(context, x) x * 32L,
     in_type = list(int32(), int64(), float64()),
-    out_type = function(in_types) in_types[[1]]
+    out_type = function(in_types) in_types[[1]],
+    auto_convert = TRUE
   )
 
   register_user_defined_function(times_32_wrapper, "times_32")
@@ -207,8 +209,9 @@ test_that("user-defined functions work during multi-threaded execution", {
   write_dataset(example_df, tf_dataset, partitioning = "part")
 
   times_32_wrapper <- arrow_scalar_function(
-    function(x) x * 32.0,
-    int32(), float64()
+    function(context, x) x * 32.0,
+    int32(), float64(),
+    auto_convert = TRUE
   )
 
   register_user_defined_function(times_32_wrapper, "times_32")
@@ -238,8 +241,9 @@ test_that("user-defined error when called from an unsupported context", {
   skip_if_not(CanRunWithCapturedR())
 
   times_32_wrapper <- arrow_scalar_function(
-    function(x) x * 32.0,
-    int32(), float64()
+    function(context, x) x * 32.0,
+    int32(), float64(),
+    auto_convert = TRUE
   )
 
   register_user_defined_function(times_32_wrapper, "times_32")

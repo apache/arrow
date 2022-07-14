@@ -1112,11 +1112,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute.cpp
-void RegisterScalarUDF(std::string name, cpp11::sexp func_sexp);
+void RegisterScalarUDF(std::string name, cpp11::list func_sexp);
 extern "C" SEXP _arrow_RegisterScalarUDF(SEXP name_sexp, SEXP func_sexp_sexp){
 BEGIN_CPP11
 	arrow::r::Input<std::string>::type name(name_sexp);
-	arrow::r::Input<cpp11::sexp>::type func_sexp(func_sexp_sexp);
+	arrow::r::Input<cpp11::list>::type func_sexp(func_sexp_sexp);
 	RegisterScalarUDF(name, func_sexp);
 	return R_NilValue;
 END_CPP11
