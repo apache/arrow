@@ -3118,7 +3118,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     **kwargs : dict,
         When use_legacy_dataset=False, used as additional kwargs for 
         `pyarrow.dataset.write_dataset` function (See docstring for 
-        write_dataset or ParquetFileFormat for more information).
+        `write_dataset` or `ParquetFileFormat` for more information).
         When use_legacy_dataset=True, used as additional kwargs for 
         `pyarrow.parquet.write_table` function (See docstring for `write_table`
         or `ParquetWriter` for more information).
