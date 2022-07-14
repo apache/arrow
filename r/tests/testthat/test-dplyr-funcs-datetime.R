@@ -71,7 +71,6 @@ test_that("strptime", {
       t_stamp_with_pm_tz
     )
 
-    # with namespacing
     expect_equal(
       t_string %>%
         record_batch() %>%
@@ -207,15 +206,10 @@ test_that("strftime", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = strftime(datetime, format = formats)) %>%
-      collect(),
-    times
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = base::strftime(datetime, format = formats)) %>%
+      mutate(
+        x = strftime(datetime, format = formats),
+        x2 = base::strftime(datetime, format = formats)
+      ) %>%
       collect(),
     times
   )
@@ -299,15 +293,18 @@ test_that("format_ISO8601", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
+      mutate(
+        x = format_ISO8601(x, precision = "ymd", usetz = FALSE)
+      ) %>%
       collect(),
     times
   )
 
-  # with namespacing
   compare_dplyr_binding(
     .input %>%
-      mutate(x = lubridate::format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
+      mutate(
+        x = lubridate::format_ISO8601(x, precision = "ymd", usetz = FALSE)
+      ) %>%
       collect(),
     times
   )
@@ -367,17 +364,11 @@ test_that("is.* functions from lubridate", {
   # make sure all true and at least one false value is considered
   compare_dplyr_binding(
     .input %>%
-      mutate(x = is.POSIXct(datetime), y = is.POSIXct(integer)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
       mutate(
-        x = lubridate::is.POSIXct(datetime),
-        y = lubridate::is.POSIXct(integer)
+        x = is.POSIXct(datetime),
+        y = is.POSIXct(integer),
+        x2 = lubridate::is.POSIXct(datetime),
+        y2 = lubridate::is.POSIXct(integer)
       ) %>%
       collect(),
     test_df
@@ -385,17 +376,11 @@ test_that("is.* functions from lubridate", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = is.Date(date), y = is.Date(integer)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
       mutate(
-        x = lubridate::is.Date(date),
-        y = lubridate::is.Date(integer)
+        x = is.Date(date),
+        y = is.Date(integer),
+        x2 = lubridate::is.Date(date),
+        y2 = lubridate::is.Date(integer)
       ) %>%
       collect(),
     test_df
@@ -417,19 +402,10 @@ test_that("is.* functions from lubridate", {
       mutate(
         x = is.timepoint(datetime),
         y = is.instant(date),
-        z = is.timepoint(integer)
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        x = lubridate::is.timepoint(datetime),
-        y = lubridate::is.instant(date),
-        z = lubridate::is.timepoint(integer)
+        z = is.timepoint(integer),
+        x2 = lubridate::is.timepoint(datetime),
+        y2 = lubridate::is.instant(date),
+        z2 = lubridate::is.timepoint(integer)
       ) %>%
       collect(),
     test_df
@@ -459,15 +435,10 @@ test_that("extract isoyear from timestamp", {
 test_that("extract epiyear from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = epiyear(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::epiyear(datetime)) %>%
+      mutate(
+        x = epiyear(datetime),
+        x2 = lubridate::epiyear(datetime)
+      ) %>%
       collect(),
     test_df
   )
@@ -485,15 +456,10 @@ test_that("extract quarter from timestamp", {
 test_that("extract month from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = month(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::month(datetime)) %>%
+      mutate(
+        x = month(datetime),
+        x2 = lubridate::month(datetime)
+      ) %>%
       collect(),
     test_df
   )
@@ -519,15 +485,10 @@ test_that("extract month from timestamp", {
 test_that("extract isoweek from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = isoweek(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::isoweek(datetime)) %>%
+      mutate(
+        x = isoweek(datetime),
+        x2 = lubridate::isoweek(datetime)
+      ) %>%
       collect(),
     test_df
   )
@@ -545,15 +506,10 @@ test_that("extract epiweek from timestamp", {
 test_that("extract week from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = week(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::week(datetime)) %>%
+      mutate(
+        x = week(datetime),
+        x = lubridate::week(datetime)
+      ) %>%
       collect(),
     test_df
   )
@@ -619,15 +575,10 @@ test_that("extract mday from timestamp", {
 test_that("extract yday from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = yday(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::yday(datetime)) %>%
+      mutate(
+        x = yday(datetime),
+        x2 = lubridate::yday(datetime)
+      ) %>%
       collect(),
     test_df
   )
@@ -636,15 +587,10 @@ test_that("extract yday from timestamp", {
 test_that("extract hour from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = hour(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::hour(datetime)) %>%
+      mutate(
+        x = hour(datetime),
+        x2 = lubridate::hour(datetime)
+      ) %>%
       collect(),
     test_df
   )
@@ -653,15 +599,10 @@ test_that("extract hour from timestamp", {
 test_that("extract minute from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = minute(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::minute(datetime)) %>%
+      mutate(
+        x = minute(datetime),
+        x2 = lubridate::minute(datetime)
+      ) %>%
       collect(),
     test_df
   )
@@ -670,17 +611,10 @@ test_that("extract minute from timestamp", {
 test_that("extract second from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = second(datetime)) %>%
-      collect(),
-    test_df,
-    # arrow supports nanosecond resolution but lubridate does not
-    tolerance = 1e-6
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::second(datetime)) %>%
+      mutate(
+        x = second(datetime),
+        x2 = lubridate::second(datetime)
+      ) %>%
       collect(),
     test_df,
     # arrow supports nanosecond resolution but lubridate does not
@@ -693,15 +627,10 @@ test_that("extract second from timestamp", {
 test_that("extract year from date", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = year(date)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::year(date)) %>%
+      mutate(
+        x = year(date),
+        x2 = lubridate::year(date)
+      ) %>%
       collect(),
     test_df
   )
@@ -710,15 +639,10 @@ test_that("extract year from date", {
 test_that("extract isoyear from date", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = isoyear(date)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::isoyear(date)) %>%
+      mutate(
+        x = isoyear(date),
+        x2 = lubridate::isoyear(date)
+      ) %>%
       collect(),
     test_df
   )
@@ -736,15 +660,10 @@ test_that("extract epiyear from date", {
 test_that("extract quarter from date", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = quarter(date)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::quarter(date)) %>%
+      mutate(
+        x = quarter(date),
+        x2 = lubridate::quarter(date)
+      ) %>%
       collect(),
     test_df
   )
@@ -762,15 +681,10 @@ test_that("extract isoweek from date", {
 test_that("extract epiweek from date", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = epiweek(date)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::epiweek(date)) %>%
+      mutate(
+        x = epiweek(date),
+        x2 = lubridate::epiweek(date)
+      ) %>%
       collect(),
     test_df
   )
@@ -814,15 +728,10 @@ test_that("extract month from date", {
 test_that("extract day from date", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = day(date)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::day(date)) %>%
+      mutate(
+        x = day(date),
+        x2 = lubridate::day(date)
+      ) %>%
       collect(),
     test_df
   )
@@ -838,15 +747,10 @@ test_that("extract wday from date", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = wday(date, week_start = 3)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::wday(date, week_start = 3)) %>%
+      mutate(
+        x = wday(date, week_start = 3),
+        x2 = lubridate::wday(date, week_start = 3)
+      ) %>%
       collect(),
     test_df
   )
@@ -878,15 +782,10 @@ test_that("extract wday from date", {
 test_that("extract mday from date", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = mday(date)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::mday(date)) %>%
+      mutate(
+        x = mday(date),
+        x2 = lubridate::mday(date)
+      ) %>%
       collect(),
     test_df
   )
@@ -904,7 +803,10 @@ test_that("extract yday from date", {
 test_that("leap_year mirror lubridate", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = leap_year(date)) %>%
+      mutate(
+        x = leap_year(date),
+        x2 = lubridate::leap_year(date)
+      ) %>%
       collect(),
     test_df
   )
@@ -929,14 +831,6 @@ test_that("leap_year mirror lubridate", {
       ))
     )
   )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = lubridate::leap_year(date)) %>%
-      collect(),
-    test_df
-  )
 })
 
 test_that("am/pm mirror lubridate", {
@@ -944,27 +838,9 @@ test_that("am/pm mirror lubridate", {
     .input %>%
       mutate(
         am = am(test_time),
-        pm = pm(test_time)
-      ) %>%
-      collect(),
-    data.frame(
-      test_time = strptime(
-        x = c(
-          "2022-01-25 11:50:59",
-          "2022-01-25 12:00:00",
-          "2022-01-25 00:00:00"
-        ),
-        format = "%Y-%m-%d %H:%M:%S"
-      )
-    )
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        am = lubridate::am(test_time),
-        pm = lubridate::pm(test_time)
+        pm = pm(test_time),
+        am2 = lubridate::am(test_time),
+        pm2 = lubridate::pm(test_time)
       ) %>%
       collect(),
     data.frame(
@@ -987,15 +863,10 @@ test_that("extract tz", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(timezone_posixct_date = tz(posixct_date)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(timezone_posixct_date = lubridate::tz(posixct_date)) %>%
+      mutate(
+        timezone_posixct_date = tz(posixct_date),
+        timezone_posixct_date2 = lubridate::tz(posixct_date)
+      ) %>%
       collect(),
     df
   )
@@ -1038,18 +909,8 @@ test_that("semester works with temporal types and integers", {
     .input %>%
       mutate(
         sem_wo_year = semester(dates),
+        sem_wo_year2 = lubridate::semester(dates),
         sem_w_year = semester(dates, with_year = TRUE)
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        sem_wo_year = lubridate::semester(dates),
-        sem_w_year = lubridate::semester(dates, with_year = TRUE)
       ) %>%
       collect(),
     test_df
@@ -1079,15 +940,10 @@ test_that("dst extracts daylight savings time correctly", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(dst = dst(dates)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(dst = lubridate::dst(dates)) %>%
+      mutate(
+        dst = dst(dates),
+        dst2 = lubridate::dst(dates)
+      ) %>%
       collect(),
     test_df
   )
@@ -1258,15 +1114,10 @@ test_that("make_date & make_datetime", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(composed_date = make_date(year, month, day)) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(composed_date = lubridate::make_date(year, month, day)) %>%
+      mutate(
+        composed_date = make_date(year, month, day),
+        composed_date2 = lubridate::make_date(year, month, day)
+      ) %>%
       collect(),
     test_df
   )
@@ -1280,18 +1131,10 @@ test_that("make_date & make_datetime", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(composed_datetime = make_datetime(year, month, day, hour, min, sec)) %>%
-      collect(),
-    test_df,
-    # the make_datetime binding uses strptime which does not support tz, hence
-    # a mismatch in tzone attribute (ARROW-12820)
-    ignore_attr = TRUE
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(composed_datetime = lubridate::make_datetime(year, month, day, hour, min, sec)) %>%
+      mutate(
+        composed_datetime = make_datetime(year, month, day, hour, min, sec),
+        composed_datetime2 = lubridate::make_datetime(year, month, day, hour, min, sec)
+      ) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
@@ -1325,18 +1168,10 @@ test_that("ISO_datetime & ISOdate", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(composed_date = ISOdate(year, month, day)) %>%
-      collect(),
-    test_df,
-    # the make_datetime binding uses strptime which does not support tz, hence
-    # a mismatch in tzone attribute (ARROW-12820)
-    ignore_attr = TRUE
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(composed_date = base::ISOdate(year, month, day)) %>%
+      mutate(
+        composed_date = ISOdate(year, month, day),
+        composed_date2 = base::ISOdate(year, month, day)
+      ) %>%
       collect(),
     test_df,
     # the make_datetime binding uses strptime which does not support tz, hence
@@ -1358,20 +1193,8 @@ test_that("ISO_datetime & ISOdate", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        composed_datetime = ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")
-      ) %>%
-      collect(),
-    test_df,
-    # the make_datetime binding uses strptime which does not support tz, hence
-    # a mismatch in tzone attribute (ARROW-12820)
-    ignore_attr = TRUE
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        composed_datetime = base::ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")
+        composed_datetime = ISOdatetime(year, month, day, hour, min, sec, tz = "UTC"),
+        composed_datetime2 = base::ISOdatetime(year, month, day, hour, min, sec, tz = "UTC")
       ) %>%
       collect(),
     test_df,
@@ -1407,17 +1230,7 @@ test_that("difftime()", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        secs2 = difftime(time1, time2, units = "secs")
-      ) %>%
-      collect(),
-    test_df,
-    ignore_attr = TRUE
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
+        secs = difftime(time1, time2, units = "secs"),
         secs2 = base::difftime(time1, time2, units = "secs")
       ) %>%
       collect(),
@@ -1490,15 +1303,10 @@ test_that("as.difftime()", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(hms_difftime = base::as.difftime(hms_string, units = "secs")) %>%
+      mutate(
+        hms_difftime = as.difftime(hms_string, units = "secs"),
+        hms_difftime2 = base::as.difftime(hms_string, units = "secs")
+      ) %>%
       collect(),
     test_df
   )
@@ -1569,27 +1377,13 @@ test_that("`decimal_date()` and `date_decimal()`", {
     .input %>%
       mutate(
         decimal_date_from_POSIXct = decimal_date(b),
+        decimal_date_from_POSIXct2 = lubridate::decimal_date(b),
         decimal_date_from_r_POSIXct_obj = decimal_date(as.POSIXct("2022-03-25 15:37:01")),
         decimal_date_from_r_date_obj = decimal_date(as.Date("2022-03-25")),
         decimal_date_from_date = decimal_date(c),
         date_from_decimal = date_decimal(a),
+        date_from_decimal2 = lubridate::date_decimal(a),
         date_from_decimal_r_obj = date_decimal(2022.178)
-      ) %>%
-      collect(),
-    test_df,
-    ignore_attr = "tzone"
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        decimal_date_from_POSIXct = lubridate::decimal_date(b),
-        decimal_date_from_r_POSIXct_obj = lubridate::decimal_date(as.POSIXct("2022-03-25 15:37:01")),
-        decimal_date_from_r_date_obj = lubridate::decimal_date(as.Date("2022-03-25")),
-        decimal_date_from_date = lubridate::decimal_date(c),
-        date_from_decimal = lubridate::date_decimal(a),
-        date_from_decimal_r_obj = lubridate::date_decimal(2022.178)
       ) %>%
       collect(),
     test_df,
@@ -1643,23 +1437,13 @@ test_that("dminutes, dhours, ddays, dweeks, dmonths, dyears", {
         r_obj_ddays = ddays(3),
         r_obj_dweeks = dweeks(4),
         r_obj_dmonths = dmonths(5),
-        r_obj_dyears = dyears(6)
-      ) %>%
-      collect(),
-    tibble(),
-    ignore_attr = TRUE
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        r_obj_dminutes = lubridate::dminutes(1),
-        r_obj_dhours = lubridate::dhours(2),
-        r_obj_ddays = lubridate::ddays(3),
-        r_obj_dweeks = lubridate::dweeks(4),
-        r_obj_dmonths = lubridate::dmonths(5),
-        r_obj_dyears = lubridate::dyears(6)
+        r_obj_dyears = dyears(6),
+        r_obj_dminutes2 = lubridate::dminutes(1),
+        r_obj_dhours2 = lubridate::dhours(2),
+        r_obj_ddays2 = lubridate::ddays(3),
+        r_obj_dweeks2 = lubridate::dweeks(4),
+        r_obj_dmonths2 = lubridate::dmonths(5),
+        r_obj_dyears2 = lubridate::dyears(6)
       ) %>%
       collect(),
     tibble(),
@@ -1692,26 +1476,15 @@ test_that("dseconds, dmilliseconds, dmicroseconds, dnanoseconds, dpicoseconds", 
         dmilliseconds = dmilliseconds(x),
         dmicroseconds = dmicroseconds(x),
         dnanoseconds = dnanoseconds(x),
+        dseconds2 = lubridate::dseconds(x),
+        dmilliseconds2 = lubridate::dmilliseconds(x),
+        dmicroseconds2 = lubridate::dmicroseconds(x),
+        dnanoseconds2 = lubridate::dnanoseconds(x),
       ) %>%
       collect(),
     example_d,
     ignore_attr = TRUE
   )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        dseconds = lubridate::dseconds(x),
-        dmilliseconds = lubridate::dmilliseconds(x),
-        dmicroseconds = lubridate::dmicroseconds(x),
-        dnanoseconds = lubridate::dnanoseconds(x),
-      ) %>%
-      collect(),
-    example_d,
-    ignore_attr = TRUE
-  )
-
 
   compare_dplyr_binding(
     .input %>%
@@ -1794,17 +1567,8 @@ test_that("make_difftime()", {
           day = 2,
           week = 4,
           units = "secs"
-        )
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        duration_from_parts = lubridate::make_difftime(
+        ),
+        duration_from_parts2 = lubridate::make_difftime(
           second = seconds,
           minute = minutes,
           hour = hours,
@@ -1889,6 +1653,7 @@ test_that("`as.Date()` and `as_date()`", {
     .input %>%
       mutate(
         date_dv1 = as.Date(date_var),
+        date_dv1_nmspc = base::as.Date(date_var),
         date_pv1 = as.Date(posixct_var),
         date_pv_tz1 = as.Date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc1 = as.Date(dt_utc),
@@ -1899,6 +1664,7 @@ test_that("`as.Date()` and `as_date()`", {
         date_int_origin1 = as.Date(integer_var, origin = "1970-01-03"),
         date_integerish1 = as.Date(integerish_var, origin = "1970-01-01"),
         date_dv2 = as_date(date_var),
+        date_dv2_nmspc = lubridate::as_date(date_var),
         date_pv2 = as_date(posixct_var),
         date_pv_tz2 = as_date(posixct_var, tz = "Pacific/Marquesas"),
         date_utc2 = as_date(dt_utc),
@@ -1908,21 +1674,6 @@ test_that("`as.Date()` and `as_date()`", {
         date_int2 = as_date(integer_var, origin = "1970-01-01"),
         date_int_origin2 = as_date(integer_var, origin = "1970-01-03"),
         date_integerish2 = as_date(integerish_var, origin = "1970-01-01")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_dv1 = base::as.Date(date_var),
-        date_pv1 = base::as.Date(posixct_var),
-        date_pv_tz1 = base::as.Date(posixct_var, tz = "Pacific/Marquesas"),
-        date_dv2 = lubridate::as_date(date_var),
-        date_pv2 = lubridate::as_date(posixct_var),
-        date_pv_tz2 = lubridate::as_date(posixct_var, tz = "Pacific/Marquesas")
       ) %>%
       collect(),
     test_df
@@ -2050,26 +1801,12 @@ test_that("`as_datetime()`", {
     .input %>%
       mutate(
         ddate = as_datetime(date),
+        ddate2 = lubridate::as_datetime(date),
         dchar_date_no_tz = as_datetime(char_date),
         dchar_date_with_tz = as_datetime(char_date, tz = "Pacific/Marquesas"),
         dint_date = as_datetime(int_date, origin = "1970-01-02"),
         dintegerish_date = as_datetime(integerish_date, origin = "1970-01-02"),
         dintegerish_date2 = as_datetime(integerish_date, origin = "1970-01-01")
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        ddate = lubridate::as_datetime(date),
-        dchar_date_no_tz = lubridate::as_datetime(char_date),
-        dchar_date_with_tz = lubridate::as_datetime(char_date, tz = "Pacific/Marquesas"),
-        dint_date = lubridate::as_datetime(int_date, origin = "1970-01-02"),
-        dintegerish_date = lubridate::as_datetime(integerish_date, origin = "1970-01-02"),
-        dintegerish_date2 = lubridate::as_datetime(integerish_date, origin = "1970-01-01")
       ) %>%
       collect(),
     test_df
@@ -2096,6 +1833,7 @@ test_that("parse_date_time() works with year, month, and date components", {
     .input %>%
       mutate(
         parsed_date_ymd = parse_date_time(string_ymd, orders = "ymd"),
+        parsed_date_ymd2 = lubridate::parse_date_time(string_ymd, orders = "ymd"),
         parsed_date_dmy = parse_date_time(string_dmy, orders = "dmy"),
         parsed_date_mdy = parse_date_time(string_mdy, orders = "mdy")
       ) %>%
@@ -2115,22 +1853,6 @@ test_that("parse_date_time() works with year, month, and date components", {
         "09-01-2021", "09/2/2021", "09.3.2021", "09,04,2021", "09:05:2021",
         "09 6 2021", "09-7-21", "09/08/21", "09.9.21", "09,10,21", "09:11:21",
         "09122021", "091321", NA
-      )
-    )
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        parsed_date_ymd = lubridate::parse_date_time(string_ymd, orders = "ymd"),
-      ) %>%
-      collect(),
-    tibble::tibble(
-      string_ymd = c(
-        "2021-09-1", "2021/09///2", "2021.09.03", "2021,09,4", "2021:09::5",
-        "2021 09   6", "21-09-07", "21/09/08", "21.09.9", "21,09,10", "21:09:11",
-        "20210912", "210913", NA
       )
     )
   )
@@ -2204,22 +1926,13 @@ test_that("year, month, day date/time parsers", {
         mdy_date = mdy(mdy_string),
         myd_date = myd(myd_string),
         dmy_date = dmy(dmy_string),
-        dym_date = dym(dym_string)
-      ) %>%
-      collect(),
-    test_df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        ymd_date = lubridate::ymd(ymd_string),
-        ydm_date = lubridate::ydm(ydm_string),
-        mdy_date = lubridate::mdy(mdy_string),
-        myd_date = lubridate::myd(myd_string),
-        dmy_date = lubridate::dmy(dmy_string),
-        dym_date = lubridate::dym(dym_string)
+        dym_date = dym(dym_string),
+        ymd_date2 = lubridate::ymd(ymd_string),
+        ydm_date2 = lubridate::ydm(ydm_string),
+        mdy_date2 = lubridate::mdy(mdy_string),
+        myd_date2 = lubridate::myd(myd_string),
+        dmy_date2 = lubridate::dmy(dmy_string),
+        dym_date2 = lubridate::dym(dym_string)
       ) %>%
       collect(),
     test_df
@@ -2261,14 +1974,17 @@ test_that("ym, my & yq parsers", {
     .input %>%
       mutate(
         ym_date = ym(ym_string),
+        ym_date2 = lubridate::ym(ym_string),
         ym_datetime = ym(ym_string, tz = "Pacific/Marquesas"),
         Ym_date = ym(Ym_string),
         Ym_datetime = ym(Ym_string, tz = "Pacific/Marquesas"),
         my_date = my(my_string),
+        my_date2 = lubridate::my(my_string),
         my_datetime = my(my_string, tz = "Pacific/Marquesas"),
         mY_date = my(mY_string),
         mY_datetime = my(mY_string, tz = "Pacific/Marquesas"),
         yq_date_from_string = yq(yq_string),
+        yq_date_from_string2 = lubridate::yq(yq_string),
         yq_datetime_from_string = yq(yq_string, tz = "Pacific/Marquesas"),
         yq_date_from_numeric = yq(yq_numeric),
         yq_datetime_from_numeric = yq(yq_numeric, tz = "Pacific/Marquesas"),
@@ -2297,50 +2013,14 @@ test_that("ym, my & yq parsers", {
       collect(),
     test_df
   )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        ym_date = lubridate::ym(ym_string),
-        ym_datetime = lubridate::ym(ym_string, tz = "Pacific/Marquesas"),
-        my_date = lubridate::my(my_string),
-        my_datetime = lubridate::my(my_string, tz = "Pacific/Marquesas"),
-        yq_date_from_string = lubridate::yq(yq_string),
-        yq_datetime_from_string = lubridate::yq(yq_string, tz = "Pacific/Marquesas")
-      ) %>%
-      collect(),
-    test_df
-  )
 })
 
 test_that("lubridate's fast_strptime", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y =
-          fast_strptime(
-            x,
-            format = "%Y-%m-%d %H:%M:%S",
-            lt = FALSE
-          )
-      ) %>%
-      collect(),
-    tibble(
-      x = c("2018-10-07 19:04:05", "2022-05-17 21:23:45", NA)
-    )
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        y =
-          lubridate::fast_strptime(
-            x,
-            format = "%Y-%m-%d %H:%M:%S",
-            lt = FALSE
-          )
+        y = fast_strptime(x, format = "%Y-%m-%d %H:%M:%S", lt = FALSE),
+        y2 = lubridate::fast_strptime(x, format = "%Y-%m-%d %H:%M:%S", lt = FALSE)
       ) %>%
       collect(),
     tibble(
