@@ -779,7 +779,7 @@ test_that("as.factor()/dictionary_encode()", {
     df1
   )
 
-  # namespaced as.factor
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       transmute(x = base::as.factor(x)) %>%

@@ -44,7 +44,7 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  # namespaced if_else
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -81,7 +81,7 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  # namespaced ifelse
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -212,7 +212,7 @@ test_that("case_when()", {
     tbl
   )
 
-  # namespaced case_when
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       transmute(cw = dplyr::case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
@@ -342,7 +342,7 @@ test_that("coalesce()", {
     df
   )
 
-  # namespaced coalesce
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       mutate(

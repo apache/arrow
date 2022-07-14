@@ -157,7 +157,7 @@ test_that("group_by with .drop", {
   )
 })
 
-test_that("group_by() and namespaced functions", {
+test_that("group_by() with namespaced functions", {
   compare_dplyr_binding(
     .input %>%
       group_by(int > base::sqrt(25)) %>%
