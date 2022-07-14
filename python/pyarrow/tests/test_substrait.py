@@ -92,3 +92,92 @@ def test_invalid_plan():
     exec_message = "Empty substrait plan is passed."
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf)
+
+
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="ARROW-16392: file based URI is" +
+                    " not fully supported for Windows")
+def test_binary_conversion_with_json_options():
+    query = """
+    {
+     "relations": [{
+       "rel": {
+         "aggregate": {
+           "input": {
+             "read": {
+               "base_schema": {
+                 "names": ["A", "B", "C"],
+                 "struct": {
+                   "types": [{
+                     "i32": {}
+                   }, {
+                     "i32": {}
+                   }, {
+                     "i32": {}
+                   }]
+                 }
+               },
+               "local_files": {
+                 "items": [
+                   {
+                     "uri_file": "file:///tmp/dat.parquet",
+                     "parquet": {}
+                   }
+                 ]
+               }
+             }
+           },
+           "groupings": [{
+             "groupingExpressions": [{
+               "selection": {
+                 "directReference": {
+                   "structField": {
+                     "field": 0
+                   }
+                 }
+               }
+             }]
+           }],
+           "measures": [{
+             "measure": {
+               "functionReference": 0,
+               "arguments": [{
+                 "value": {
+                   "selection": {
+                     "directReference": {
+                       "structField": {
+                         "field": 1
+                       }
+                     }
+                   }
+                 }
+             }],
+               "sorts": [],
+               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+               "outputType": {
+                 "i64": {}
+               }
+             }
+           }]
+         }
+       }
+     }],
+     "extensionUris": [{
+       "extension_uri_anchor": 0,
+       "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+     }],
+     "extensions": [{
+       "extension_function": {
+         "extension_uri_reference": 0,
+         "function_anchor": 0,
+         "name": "hash_count"
+       }
+     }],
+    }
+    """
+
+    buf = pa._substrait._parse_json_plan(tobytes(query))
+
+    exec_message = "Function https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml#hash_count not found"
+    with pytest.raises(ArrowInvalid, match=exec_message):
+        substrait.run_query(buf)
