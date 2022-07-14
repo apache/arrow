@@ -191,7 +191,7 @@ As `startsWith()` requires options, direct mapping is not appropriate.
 If the function cannot be mapped directly, some extra work may be needed to 
 ensure that calling the arrow version of the function results in the same result
 as calling the R version of the function.  In this case, the function will need 
-adding to the `nse_funcs` function register.  Here is how this might look for 
+adding to the `nse_funcs` function registry. Here is how this might look for 
 `startsWith()`:
 
 ```{r, eval = FALSE}
