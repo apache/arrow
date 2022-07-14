@@ -26,29 +26,38 @@ namespace engine {
 /// Acero representations of a plan. This allows the user to trade conversion accuracy
 /// for performance and lenience.
 enum class ConversionStrictness {
-  /// Prevent information loss by rejecting incoming plans that use features or contain
-  /// metadata that cannot be exactly represented in the output format in a way that
-  /// will round-trip. Relations/nodes must map one-to-one.
-  PEDANTIC,
+  /// When a primitive is used at the input that doesn't have an exact match at the
+  /// output, reject the conversion. This effectively asserts that there is no (known)
+  /// information loss in the conversion, and that plans should either round-trip back and
+  /// forth exactly or not at all. This option is primarily intended for testing and
+  /// debugging.
+  EXACT_ROUNDTRIP,
 
-  /// When an incoming plan uses a feature that cannot be exactly represented in the
-  /// output format, attempt to emulate that feature as opposed to immediately
-  /// rejecting the plan. For example, a Substrait SortRel with a complex sort key
-  /// expression may be emulated using a project-order-project triple. Relations/nodes
-  /// will thus map one-to-many.
+  /// When a primitive is used at the input that doesn't have an exact match at the
+  /// output, attempt to model it with some collection of primitives at the output. This
+  /// means that even if the incoming plan is completely optimal by some metric, the
+  /// returned plan is fairly likely to not be optimal anymore, and round-trips back and
+  /// forth may make the plan increasingly suboptimal. However, every primitive at the
+  /// output can be (manually) traced back to exactly one primitive at the input, which
+  /// may be useful when debugging.
   PRESERVE_STRUCTURE,
 
-  /// Attempt to prevent performance-related regressions caused by differences in how
-  /// operations are represented in the input and output format, by allowing for
-  /// optimizations that cross structural boundaries. For example, the converter may
-  /// collapse chains of project nodes into one.
+  /// Behaves like PRESERVE_STRUCTURE, but prefers performance over structural accuracy.
+  /// Basic optimizations *may* be applied, in order to attempt to not regress in terms of
+  /// plan performance: if the incoming plan was already aggressively optimized, the goal
+  /// is for the output plan to not be less performant. In practical use cases, this is
+  /// probably the option you want.
+  ///
+  /// Note that no guarantees are made on top of PRESERVE_STRUCTURE. Past and future
+  /// versions of Arrow may even ignore this option entirely and treat it exactly like
+  /// PRESERVE_STRUCTURE.
   BEST_EFFORT,
 };
 
 /// Controls how to convert between Substrait and Acero representations of a plan.
 struct ConversionOptions {
   /// Controls how strictly the converter is to adhere to the structure of the input.
-  ConversionStrictness strictness = ConversionStrictness::PEDANTIC;
+  ConversionStrictness strictness = ConversionStrictness::EXACT_ROUNDTRIP;
 };
 
 }  // namespace engine
