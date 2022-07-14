@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# For some reason, the glimpse output is different on 3.5
+# The glimpse output for tests with `example_data` is different on R < 3.5
+# because the `lgl` column is generated with `sample()` and the RNG
+# algorithm is different in older R versions. 
 skip_on_r_older_than("3.6")
 
 library(dplyr, warn.conflicts = FALSE)
