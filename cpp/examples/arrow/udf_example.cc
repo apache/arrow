@@ -26,8 +26,6 @@
 #include <utility>
 #include <vector>
 
-#include "example_utils.h"
-
 // Demonstrate registering a user-defined Arrow compute function outside of the Arrow
 // source tree
 
