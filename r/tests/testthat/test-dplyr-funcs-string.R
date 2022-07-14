@@ -415,6 +415,22 @@ test_that("sub and gsub with ignore.case = TRUE and fixed = TRUE", {
   )
 })
 
+test_that("sub and gsub with namespacing", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(verses_new = base::gsub("o", "u", verses, fixed = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(verses_new = base::sub("o", "u", verses, fixed = TRUE)) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("str_replace and str_replace_all", {
   df <- tibble(x = c("Foo", "bar"))
 
@@ -460,6 +476,20 @@ test_that("str_replace and str_replace_all", {
   compare_dplyr_binding(
     .input %>%
       transmute(x = str_replace(x, fixed("O", ignore_case = TRUE), "u")) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = stringr::str_replace_all(x, fixed("o"), "u")) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = stringr::str_replace(x, fixed("O"), "u")) %>%
       collect(),
     df
   )
@@ -526,6 +556,22 @@ test_that("strsplit and str_split", {
     df,
     ignore_attr = TRUE
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = base::strsplit(x, " +and +")) %>%
+      collect(),
+    df,
+    ignore_attr = TRUE
+  )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = stringr::str_split(x, "and")) %>%
+      collect(),
+    df,
+    ignore_attr = TRUE
+  )
 })
 
 test_that("strrep and str_dup", {
@@ -555,6 +601,18 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
         x_lower = str_to_lower(x),
         x_upper = str_to_upper(x),
         x_title = str_to_title(x)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x_lower = stringr::str_to_lower(x),
+        x_upper = stringr::str_to_upper(x),
+        x_title = stringr::str_to_title(x)
       ) %>%
       collect(),
     df
@@ -937,6 +995,14 @@ test_that("str_pad", {
       collect(),
     df
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = stringr::str_pad(x, width = 31, side = "both")) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("substr", {
@@ -1014,6 +1080,14 @@ test_that("substr", {
     call_binding("substr", "Apache Arrow", 1, c(2, 3)),
     "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = base::substr(x, -5, -1)) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("substring", {
@@ -1024,6 +1098,14 @@ test_that("substring", {
   compare_dplyr_binding(
     .input %>%
       mutate(y = substring(x, 1, 6)) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = base::substring(x, 1, 6)) %>%
       collect(),
     df
   )
@@ -1098,6 +1180,14 @@ test_that("str_sub", {
   compare_dplyr_binding(
     .input %>%
       mutate(y = str_sub(x, -5, -1)) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(y = stringr::str_sub(x, -5, -1)) %>%
       collect(),
     df
   )
@@ -1403,4 +1493,38 @@ test_that("namespaced unary and binary string functions", {
       df
     )
   }
+})
+
+test_that("nchar with namespacing", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(verses_nchar = base::nchar(verses)) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("str_trim", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        left_trimmed_padded_string = str_trim(padded_strings, "left"),
+        right_trimmed_padded_string = str_trim(padded_strings, "right"),
+        trimmed_padded_string = str_trim(padded_strings, "both")
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        left_trimmed_padded_string = stringr::str_trim(padded_strings, "left"),
+        right_trimmed_padded_string = stringr::str_trim(padded_strings, "right"),
+        trimmed_padded_string = stringr::str_trim(padded_strings, "both")
+      ) %>%
+      collect(),
+    tbl
+  )
 })
