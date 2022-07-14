@@ -175,7 +175,7 @@ test_that("log functions", {
     df
   )
 
-  # namespaced log
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       mutate(y = base::log(x)) %>%
@@ -265,7 +265,7 @@ test_that("log functions", {
     df
   )
 
-  # namespaced logb
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       mutate(y = base::logb(x)) %>%

@@ -1378,7 +1378,7 @@ test_that("str_count", {
   # with namespacing
   compare_dplyr_binding(
     .input %>%
-      mutate(a_count = str_count(cities, pattern = "a")) %>%
+      mutate(a_count = stringr::str_count(cities, pattern = "a")) %>%
       collect(),
     df
   )
@@ -1427,17 +1427,6 @@ test_that("str_count", {
       mutate(dots_count = str_count(dots, fixed("."))) %>%
       collect(),
     df
-  )
-})
-
-test_that("stringi::stri_reverse", {
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        verse_length = stri_reverse(verses)
-      ) %>%
-      collect(),
-    tbl
   )
 })
 
