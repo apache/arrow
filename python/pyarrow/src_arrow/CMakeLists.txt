@@ -231,7 +231,11 @@ if(ARROW_BUILD_STATIC AND MSVC)
 endif()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
-
+   # Must link to shared libarrow_flight: we don't want to link more than one
+   # copy of gRPC into the eventual Cython shared object, otherwise gRPC calls
+   # fail with weird errors due to multiple copies of global static state (The
+   # other solution is to link gRPC shared everywhere instead of statically only
+   # in Flight)
   find_package(ArrowFlight REQUIRED)
   include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/}/${ARROW_BUILD_DIR}/src")
 
