@@ -1014,7 +1014,7 @@ TEST(TestGdvFnStubs, TestToUtcTimezone) {
 
   // daylight savings check
   // ts: 2018-03-11 01:00:00
-  // ts2:2019-03-11 09:00:00
+  // ts2:2018-03-11 09:00:00
   ts = 1520730000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
   EXPECT_EQ(ts2, 1520758800000);
