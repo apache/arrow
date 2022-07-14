@@ -140,7 +140,7 @@ struct CountDistinctImpl : public ScalarAggregator {
 
       auto visit_null = []() { return Status::OK(); };
       auto visit_value = [&](VisitorArgType arg) {
-        int y;
+        int32_t y;
         return memo_table_->GetOrInsert(arg, &y);
       };
       RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
@@ -150,7 +150,8 @@ struct CountDistinctImpl : public ScalarAggregator {
       this->has_nulls = !input.is_valid;
 
       if (input.is_valid) {
-        RETURN_NOT_OK(memo_table_->MaybeInsert(UnboxScalar<Type>::Unbox(input)));
+        int32_t unused;
+        RETURN_NOT_OK(memo_table_->GetOrInsert(UnboxScalar<Type>::Unbox(input), &unused));
       }
     }
 
@@ -161,7 +162,7 @@ struct CountDistinctImpl : public ScalarAggregator {
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other_state = checked_cast<const CountDistinctImpl&>(src);
-    this->memo_table_->MergeTable(*(other_state.memo_table_));
+    RETURN_NOT_OK(this->memo_table_->MergeTable(*(other_state.memo_table_)));
     this->non_nulls = this->memo_table_->size();
     this->has_nulls = this->has_nulls || other_state.has_nulls;
     return Status::OK();
