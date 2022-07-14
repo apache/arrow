@@ -3049,10 +3049,12 @@ def write_to_dataset(table, root_path, partition_cols=None,
         Column names by which to partition the dataset.
         Columns are partitioned in the order they are given
     partition_filename_cb : callable,
-        (This option is used only when `use_legacy_dataset` is True.)
         A callback function that takes the partition key(s) as an argument
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
+        This option is only supported for use_legacy_dataset=True. When 
+        use_legacy_dataset=None and this option is specified, use_legacy_dataset
+        will be set to True.
     use_legacy_dataset : bool
         Default is False. Set to True to use the the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
@@ -3064,19 +3066,18 @@ def write_to_dataset(table, root_path, partition_cols=None,
         used determined by the number of available CPU cores.
     schema : Schema, optional
     partitioning : Partitioning or list[str], optional
-        (This option is used only when `use_legacy_dataset` is False.)
         The partitioning scheme specified with the
         ``pyarrow.dataset.partitioning()`` function or a list of field names.
         When providing a list of field names, you can use
         ``partitioning_flavor`` to drive which partitioning type should be
         used.
+        This option is only supported for use_legacy_dataset=False.
     basename_template : str, optional
-        (This option is used only when `use_legacy_dataset` is False.)
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented
         integer. If not specified, it defaults to "guid-{i}.parquet".
+        This option is only supported for use_legacy_dataset=False.
     file_visitor : function
-        (This option is used only when `use_legacy_dataset` is False.)
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
         a path attribute and a metadata attribute.
@@ -3095,9 +3096,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
             def file_visitor(written_file):
                 visited_paths.append(written_file.path)
+        This option is only supported for use_legacy_dataset=False.
     existing_data_behavior : 'overwrite_or_ignore' | 'error' | \
 'delete_matching'
-        (This option is used only when `use_legacy_dataset` is False.)
         Controls how the dataset will handle data that already exists in
         the destination. The default behaviour is 'overwrite_or_ignore'.
 
@@ -3113,12 +3114,14 @@ def write_to_dataset(table, root_path, partition_cols=None,
         dataset.  The first time each partition directory is encountered
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
+        This option is only supported for use_legacy_dataset=False.
     **kwargs : dict,
-        When `use_legacy_dataset` is False, used as additional kwargs for 
-        `pyarrow.dataset.ParquetFileFormat.make_write_options` function.
-        When `use_legacy_dataset` is True, used as additional kwargs for 
+        When use_legacy_dataset=False, used as additional kwargs for 
+        `pyarrow.dataset.write_dataset` function (See docstring for 
+        write_dataset or ParquetFileFormat for more information).
+        When use_legacy_dataset=True, used as additional kwargs for 
         `pyarrow.parquet.write_table` function (See docstring for `write_table`
-        or `ParquetWriter` for more information.)
+        or `ParquetWriter` for more information).
         Using `metadata_collector` in kwargs allows one to collect the
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
