@@ -56,9 +56,10 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
 # Testing Arrow Python
-pushd ${test_dir}
-ctest
-popd
-
+if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
+  pushd ${test_dir}
+  ctest
+  popd
+fi
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
