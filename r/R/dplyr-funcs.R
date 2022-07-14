@@ -63,7 +63,7 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
 
   previous_fun <- registry[[unqualified_name]]
 
-  # if th unqualified name exists in the register, warn
+  # if the unqualified name exists in the register, warn
   if (!is.null(fun) && !is.null(previous_fun)) {
     warn(
       paste0(
