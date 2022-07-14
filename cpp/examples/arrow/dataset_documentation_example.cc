@@ -377,7 +377,7 @@ int main(int argc, char** argv) {
 
   auto status = RunDatasetDocumentation(format_name, root_path, mode, fs);
   if (!status.ok()) {
-    std::cerr << status << std::endl;
+    std::cerr << status.ToString() << std::endl;
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;

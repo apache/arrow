@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
   auto fs = GetFileSystemFromUri(argv[1], &path);
   auto status = RunDatasetParquetScan(fs, path, format);
   if (!status.ok()) {
-    std::cerr << status << std::endl;
+    std::cerr << status.ToString() << std::endl;
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;

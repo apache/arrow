@@ -45,15 +45,6 @@
 namespace ds = arrow::dataset;
 namespace cp = arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 char kLeftRelationCsvData[] = R"csv(lkey,shared,ldistinct
 1,4,7
 2,5,8
@@ -143,9 +134,9 @@ arrow::Status DoHashJoin() {
       hashjoin->output_schema(), std::move(sink_gen), exec_context.memory_pool());
 
   // validate the ExecPlan
-  ABORT_ON_FAILURE(plan->Validate());
+  ARROW_RETURN_NOT_OK(plan->Validate());
   // start the ExecPlan
-  ABORT_ON_FAILURE(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
 
   // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;

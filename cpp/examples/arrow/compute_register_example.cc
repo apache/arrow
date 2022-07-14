@@ -165,7 +165,7 @@ arrow::Status RunComputeRegister(int argc, char** argv) {
 int main(int argc, char** argv) {
   auto status = RunComputeRegister(argc, argv);
   if (!status.ok()) {
-    std::cerr << status << std::endl;
+    std::cerr << status.ToString() << std::endl;
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
