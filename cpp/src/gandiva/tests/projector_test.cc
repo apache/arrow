@@ -1682,7 +1682,8 @@ TEST_F(TestProjector, TestSign) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  auto array3 = MakeArrowArrayFloat32({1.1f, 2.2f, 3.3f, 4.4f}, {true, true, true, true});
+  auto array3 =
+      MakeArrowArrayFloat32({1.1f, 2.2f, 3.3f, 4.4f}, {true, true, true, true});
   auto in_batch3 = arrow::RecordBatch::Make(schema3, num_records, {array3});
 
   auto out_float32 =
