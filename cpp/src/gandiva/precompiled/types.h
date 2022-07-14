@@ -223,6 +223,11 @@ gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 gdv_float32 div_float32_float32(gdv_int64 context, gdv_float32 in1, gdv_float32 in2);
 gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1, gdv_float64 in2);
 
+gdv_int32 sign_int32(gdv_int32 in);
+gdv_int64 sign_int64(gdv_int64 in);
+gdv_float32 sign_float32(gdv_float32 in);
+gdv_float64 sign_float64(gdv_float64 in);
+
 gdv_float32 round_float32(gdv_float32);
 gdv_float64 round_float64(gdv_float64);
 gdv_float64 bround_float64(gdv_float64);
