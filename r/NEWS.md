@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 6.0.1
+# arrow 6.0.2
 
 There are now two ways to query Arrow data:
 

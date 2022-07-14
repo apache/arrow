@@ -16,7 +16,7 @@
 # under the License.
 
 module ArrowFlight
-  VERSION = "6.0.1"
+  VERSION = "6.0.2"
 
   module Version
     numbers, TAG = VERSION.split("-")

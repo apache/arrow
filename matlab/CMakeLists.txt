@@ -183,7 +183,7 @@ endmacro()
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(MLARROW_VERSION "6.0.1")
+set(MLARROW_VERSION "6.0.2")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
 
 project(mlarrow VERSION "${MLARROW_BASE_VERSION}")
