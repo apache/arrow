@@ -1002,8 +1002,7 @@ TEST(TestGdvFnStubs, TestToUtcTimezone) {
   // ts: 2012-02-28 15:30:00
   // ts2:2012-02-28 10:00:00
   gdv_timestamp ts = 1330443000000;
-  gdv_timestamp ts2 =
-      to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
+  gdv_timestamp ts2 = to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
   EXPECT_EQ(1330423200000, ts2);
 
   // ts: 1970-01-01 05:00:00

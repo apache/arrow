@@ -727,7 +727,7 @@ TEST_F(TestProjector, TestToUtcTimestamp) {
 
   auto schema = arrow::schema({f0, f1});
 
-  //output fields
+  // output fields
   auto utc_timestamp = field("utc_time", timestamp(arrow::TimeUnit::MILLI));
 
   auto utc_time_expr =
