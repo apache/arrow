@@ -703,6 +703,11 @@ TEST(Substrait, ExtensionSetFromPlan) {
         "extension_uri_anchor": 7,
         "uri": ")" + substrait::default_extension_types_uri() +
                                R"("
+      },
+      {
+        "extension_uri_anchor": 18,
+        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+                               R"("
       }
     ],
     "extensions": [
@@ -712,12 +717,12 @@ TEST(Substrait, ExtensionSetFromPlan) {
         "name": "null"
       }},
       {"extension_function": {
-        "extension_uri_reference": 7,
+        "extension_uri_reference": 18,
         "function_anchor": 42,
         "name": "add"
       }}
     ]
-  })";
+})";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
@@ -732,10 +737,9 @@ TEST(Substrait, ExtensionSetFromPlan) {
     EXPECT_EQ(decoded_null_type.id.name, "null");
     EXPECT_EQ(*decoded_null_type.type, NullType());
 
-    EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set.DecodeFunction(42));
-    EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
-    EXPECT_EQ(decoded_add_func.id.name, "add");
-    EXPECT_EQ(decoded_add_func.name, "add");
+    EXPECT_OK_AND_ASSIGN(auto decoded_add_func_id, ext_set.DecodeFunction(42));
+    EXPECT_EQ(decoded_add_func_id.uri, kSubstraitArithmeticFunctionsUri);
+    EXPECT_EQ(decoded_add_func_id.name, "add");
   }
 }
 
@@ -844,17 +848,16 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   ASSERT_RAISES(Invalid,
                 DeserializePlans(
                     *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
-  ASSERT_OK(substrait::RegisterFunction(
-      *ext_id_reg, substrait::default_extension_types_uri(), "new_func", "multiply"));
+  ASSERT_OK(ext_id_reg->AddSubstraitToArrow(
+      {substrait::default_extension_types_uri(), "new_func"}, "multiply"));
   // valid after registration
   ExtensionSet ext_set_valid(ext_id_reg);
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set_valid));
-  EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set_valid.DecodeFunction(42));
-  EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
-  EXPECT_EQ(decoded_add_func.id.name, "new_func");
-  EXPECT_EQ(decoded_add_func.name, "multiply");
+  EXPECT_OK_AND_ASSIGN(auto decoded_add_func_id, ext_set_valid.DecodeFunction(42));
+  EXPECT_EQ(decoded_add_func_id.uri, kArrowExtTypesUri);
+  EXPECT_EQ(decoded_add_func_id.name, "new_func");
 }
 
 Result<std::string> GetSubstraitJSON() {
@@ -1101,7 +1104,10 @@ TEST(Substrait, JoinPlanBasic) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         "type": "JOIN_TYPE_INNER"
@@ -1111,7 +1117,7 @@ TEST(Substrait, JoinPlanBasic) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
@@ -1241,7 +1247,10 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
                   }
                 }
               }
-            }]
+            }],
+            "output_type": {
+              "bool": {}
+            }
           }
         },
         "type": "JOIN_TYPE_INNER"
@@ -1251,7 +1260,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
                                R"("
       }
     ],

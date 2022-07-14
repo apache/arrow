@@ -67,6 +67,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       ARROW_ASSIGN_OR_RAISE(auto base_schema,
                             FromProto(read.base_schema(), ext_set, conversion_options));
+      auto num_columns = static_cast<int>(base_schema->fields().size());
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
       scan_options->use_threads = true;
@@ -80,6 +81,21 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         // NOTE: scan_options->projection is not used by the scanner and thus can't be
         // used for this
         return Status::NotImplemented("substrait::ReadRel::projection");
+      }
+
+      if (read.has_named_table()) {
+        if (!ext_set.has_named_table_provider()) {
+          return Status::Invalid(
+              "plan contained a named table but a NamedTableProvider has not been "
+              "configured");
+        }
+        const NamedTableProvider& named_table_provider = ext_set.named_table_provider();
+        const substrait::ReadRel::NamedTable& named_table = read.named_table();
+        std::vector<std::string> table_names(named_table.names().begin(),
+                                             named_table.names().end());
+        ARROW_ASSIGN_OR_RAISE(compute::Declaration source_decl,
+                              named_table_provider(table_names));
+        return DeclarationInfo{std::move(source_decl), num_columns};
       }
 
       if (!read.has_local_files()) {
@@ -182,7 +198,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                                                  std::move(filesystem), std::move(files),
                                                  std::move(format), {}));
 
-      auto num_columns = static_cast<int>(base_schema->fields().size());
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(std::move(base_schema)));
 
       return DeclarationInfo{

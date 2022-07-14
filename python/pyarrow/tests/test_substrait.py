@@ -98,7 +98,6 @@ def test_invalid_plan():
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf)
 
-
 @pytest.mark.skipif(sys.platform == 'win32',
                     reason="ARROW-16392: file based URI is" +
                     " not fully supported for Windows")
@@ -145,3 +144,7 @@ def test_binary_conversion_with_json_options(tmpdir):
     res_tb = reader.read_all()
 
     assert table.select(["bar"]) == res_tb.select(["bar"])
+
+def test_get_supported_functions():
+    supported_functions = pa._substrait.get_supported_functions()
+    assert len(supported_functions) > 0
