@@ -1,4 +1,12 @@
 
+# Apache Arrow 6.0.2 (2022-07-14)
+
+## New Features and Improvements
+
+* [ARROW-16759](https://issues.apache.org/jira/browse/ARROW-16759) - [Go] backport gopkg.in/yaml.v3 security patch to v6 (#13586)
+
+
+
 # Apache Arrow 6.0.1 (2021-11-10)
 
 ## Bug Fixes
