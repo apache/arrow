@@ -834,6 +834,9 @@ Documentation for Apache Parquet GLib.
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Thu Jul 14 2022 Sutou Kouhei <kou@clear-code.com> - 6.0.2-1
+- New upstream release.
+
 * Wed Nov 10 2021 Sutou Kouhei <kou@clear-code.com> - 6.0.1-1
 - New upstream release.
 
