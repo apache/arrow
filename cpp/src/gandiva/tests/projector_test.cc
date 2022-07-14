@@ -3180,4 +3180,50 @@ TEST_F(TestProjector, TestTranslate) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_translate, outputs.at(0));
 }
+
+TEST_F(TestProjector, TestMaskShowFirstLastN) {
+  // schema for input fields
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", int32());
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto res_show_first_n = field("output", arrow::utf8());
+  auto res_show_last_n = field("output", arrow::utf8());
+
+  // Build expression
+  auto expr_show_first_n =
+      TreeExprBuilder::MakeExpression("mask_show_first_n", {f0, f1}, res_show_first_n);
+  auto expr_show_last_n =
+      TreeExprBuilder::MakeExpression("mask_show_last_n", {f0, f1}, res_show_last_n);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_show_first_n, expr_show_last_n},
+                                TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayUtf8({"aB-6", "ABcd-123456", "A#-c$%6", "A#-c$%6"},
+                                   {true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({3, 6, 0, -2}, {true, true, true, true});
+  // expected output
+  auto exp_show_first_n = MakeArrowArrayUtf8(
+      {"aB-n", "ABcd-1nnnnn", "X#-x$%n", "X#-x$%n"}, {true, true, true, true});
+  auto exp_show_last_n = MakeArrowArrayUtf8({"xB-6", "XXxx-123456", "X#-x$%n", "X#-x$%n"},
+                                            {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_show_first_n, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_show_last_n, outputs.at(1));
+}
+
 }  // namespace gandiva

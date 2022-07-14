@@ -351,4 +351,14 @@ GANDIVA_EXPORT
 const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt_len,
                                    const char* pat, int32_t pat_len, int32_t cnt,
                                    int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_first_n_utf8_int32(int64_t context, const char* data,
+                                             int32_t data_len, int32_t n_to_show,
+                                             int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
+                                            int32_t data_len, int32_t n_to_show,
+                                            int32_t* out_len);
 }
