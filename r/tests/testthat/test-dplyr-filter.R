@@ -241,11 +241,11 @@ test_that("filter() with between()", {
   )
 
   # with namespacing
-  expect_error(
-    tbl %>%
-      record_batch() %>%
-      filter(dplyr::between(chr, 1, 2)) %>%
-      collect()
+  compare_dplyr_binding(
+    .input %>%
+      filter(dplyr::between(dbl, 1, 2)) %>%
+      collect(),
+    tbl
   )
 })
 
