@@ -24,9 +24,9 @@
 #include <gflags/gflags.h>
 #include <grpc++/grpc++.h>
 
+#include "examples/arrow/example_utils.h"
 #include "examples/arrow/helloworld.grpc.pb.h"
 #include "examples/arrow/helloworld.pb.h"
-#include "examples/arrow/example_utils.h"
 
 // Demonstrate registering a gRPC service alongside a Flight service
 //
