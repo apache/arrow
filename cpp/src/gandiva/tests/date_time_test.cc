@@ -662,7 +662,6 @@ TEST_F(TestProjector, TestTrunc) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {trunc_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
