@@ -95,6 +95,9 @@ else
 fi
 
 %changelog
+* Thu Jul 14 2022 Sutou Kouhei <kou@clear-code.com> - 8.0.1-1
+- New upstream release.
+
 * Tue May 03 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 8.0.0-1
 - New upstream release.
 

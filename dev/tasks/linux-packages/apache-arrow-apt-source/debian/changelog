@@ -1,3 +1,9 @@
+apache-arrow-apt-source (8.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Sutou Kouhei <kou@clear-code.com>  Thu, 14 Jul 2022 02:51:16 -0000
+
 apache-arrow-apt-source (8.0.0-1) unstable; urgency=low
 
   * New upstream release.
