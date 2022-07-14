@@ -3018,7 +3018,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      use_threads=None, file_visitor=None,
                      existing_data_behavior=None,
                      **kwargs):
-    """Wrapper around parquet.write_table for writing a Table to
+    """Wrapper around dataset.write_dataset (when use_legacy_dataset=False) or 
+    parquet.write_table (when use_legacy_dataset=True) for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
     a subdirectories are created in the following
@@ -3066,6 +3067,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         used determined by the number of available CPU cores.
         This option is only supported for use_legacy_dataset=False.
     schema : Schema, optional
+        This option is only supported for use_legacy_dataset=False.
     partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the
         ``pyarrow.dataset.partitioning()`` function or a list of field names.
@@ -3254,6 +3256,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         "'use_legacy_dataset=False' while constructing the "
         "ParquetDataset."
     )
+    if schema is not None:
+        raise ValueError(msg2.format("schema"))
     if partitioning is not None:
         raise ValueError(msg2.format("partitioning"))
     if use_threads is not None:
@@ -3311,7 +3315,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             full_path = '/'.join([root_path, relative_path])
             with fs.open(full_path, 'wb') as f:
                 write_table(subtable, f, metadata_collector=metadata_collector,
-                            schema=schema, **kwargs)
+                            **kwargs)
             if metadata_collector is not None:
                 metadata_collector[-1].set_file_path(relative_path)
     else:
@@ -3322,7 +3326,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         full_path = '/'.join([root_path, outfile])
         with fs.open(full_path, 'wb') as f:
             write_table(table, f, metadata_collector=metadata_collector,
-                        schema=schema, **kwargs)
+                        **kwargs)
         if metadata_collector is not None:
             metadata_collector[-1].set_file_path(outfile)
 
