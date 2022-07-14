@@ -42,31 +42,31 @@ test_that("as_writable_table() errors for invalid input", {
 
 test_that("all_funs() identifies namespace-qualified and unqualified functions", {
   expect_equal(
-    arrow:::all_funs(rlang::quo(pkg::fun())),
+    all_funs(rlang::quo(pkg::fun())),
     "pkg::fun"
   )
   expect_equal(
-    arrow:::all_funs(rlang::quo(pkg::fun(other_pkg::obj))),
+    all_funs(rlang::quo(pkg::fun(other_pkg::obj))),
     "pkg::fun"
   )
   expect_equal(
-    arrow:::all_funs(rlang::quo(other_fun(pkg::fun()))),
+    all_funs(rlang::quo(other_fun(pkg::fun()))),
     c("other_fun", "pkg::fun")
   )
   expect_equal(
-    arrow:::all_funs(rlang::quo(other_pkg::other_fun(pkg::fun()))),
+    all_funs(rlang::quo(other_pkg::other_fun(pkg::fun()))),
     c("other_pkg::other_fun", "pkg::fun")
   )
   expect_equal(
-    arrow:::all_funs(rlang::quo(other_pkg::other_fun(pkg::fun(sum(base::log()))))),
+    all_funs(rlang::quo(other_pkg::other_fun(pkg::fun(sum(base::log()))))),
     c("other_pkg::other_fun", "pkg::fun", "sum", "base::log")
   )
   expect_equal(
-    arrow:::all_funs(rlang::quo(other_fun(fun(sum(log()))))),
+    all_funs(rlang::quo(other_fun(fun(sum(log()))))),
     c("other_fun", "fun", "sum", "log")
   )
   expect_equal(
-    arrow:::all_funs(rlang::quo(other_fun(fun(sum(base::log()))))),
+    all_funs(rlang::quo(other_fun(fun(sum(base::log()))))),
     c("other_fun", "fun", "sum", "base::log")
   )
 })
