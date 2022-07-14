@@ -28,8 +28,6 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "example_utils.h"
-
 using arrow::field;
 using arrow::int16;
 using arrow::Schema;
@@ -139,25 +137,38 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(
   return GetDatasetFromFile(fs, format, path);
 }
 
-std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
-                                                   std::vector<std::string> columns,
-                                                   cp::Expression filter,
-                                                   bool use_threads) {
+arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(
+    std::shared_ptr<ds::Dataset> dataset, std::vector<std::string> columns,
+    cp::Expression filter, bool use_threads) {
   auto scanner_builder = dataset->NewScan().ValueOrDie();
 
   if (!columns.empty()) {
-    ABORT_ON_FAILURE(scanner_builder->Project(columns));
+    ARROW_RETURN_NOT_OK(scanner_builder->Project(columns));
   }
 
-  ABORT_ON_FAILURE(scanner_builder->Filter(filter));
+  ARROW_RETURN_NOT_OK(scanner_builder->Filter(filter));
 
-  ABORT_ON_FAILURE(scanner_builder->UseThreads(use_threads));
+  ARROW_RETURN_NOT_OK(scanner_builder->UseThreads(use_threads));
 
   return scanner_builder->Finish().ValueOrDie();
 }
 
 std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
   return scanner->ToTable().ValueOrDie();
+}
+
+arrow::Status RunDatasetParquetScan(
+    const std::shared_ptr<arrow::fs::FileSystem>& fs, const std::string& path,
+    const std::shared_ptr<ds::ParquetFileFormat>& format) {
+  auto dataset = GetDatasetFromPath(fs, format, path);
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto scanner, GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
+                                          conf.use_threads));
+
+  auto table = GetTableFromScanner(scanner);
+  std::cout << "Table size: " << table->num_rows() << "\n";
+  return arrow::Status::OK();
 }
 
 int main(int argc, char** argv) {
@@ -170,14 +181,10 @@ int main(int argc, char** argv) {
 
   std::string path;
   auto fs = GetFileSystemFromUri(argv[1], &path);
-
-  auto dataset = GetDatasetFromPath(fs, format, path);
-
-  auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
-                                       conf.use_threads);
-
-  auto table = GetTableFromScanner(scanner);
-  std::cout << "Table size: " << table->num_rows() << "\n";
-
+  auto status = RunDatasetParquetScan(fs, path, format);
+  if (!status.ok()) {
+    std::cerr << status << std::endl;
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }
