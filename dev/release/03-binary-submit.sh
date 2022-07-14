@@ -42,4 +42,5 @@ archery crossbow submit \
     --arrow-version ${version_with_rc} \
     --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \
     --arrow-branch ${ARROW_BRANCH} \
-    --group packaging
+    --group packaging \
+    --track-on-pr-titled "WIP: [Release] Verify ${release_candidate_branch}"
