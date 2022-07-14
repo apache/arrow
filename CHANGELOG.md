@@ -1,4 +1,12 @@
 
+# Apache Arrow 7.0.1 (2022-07-14)
+
+## New Features and Improvements
+
+* [ARROW-16759](https://issues.apache.org/jira/browse/ARROW-16759) - [Go] Update testify to fix securiy vulnerability
+
+
+
 # Apache Arrow 7.0.0 (2022-01-29)
 
 ## Bug Fixes
