@@ -26,10 +26,14 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
@@ -38,6 +42,7 @@ import org.apache.arrow.vector.TimeNanoVector;
 import org.apache.arrow.vector.TimeSecVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
@@ -171,17 +176,23 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
 
   @Override
   public ColumnBinder visit(ArrowType.Binary type) {
-    throw new UnsupportedOperationException("No column binder implemented for type " + type);
+    VarBinaryVector varBinary = (VarBinaryVector) vector;
+    return jdbcType == null ? new VarBinaryBinder<>(varBinary, Types.VARBINARY) :
+        new VarBinaryBinder<>(varBinary, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.LargeBinary type) {
-    throw new UnsupportedOperationException("No column binder implemented for type " + type);
+    LargeVarBinaryVector varBinary = (LargeVarBinaryVector) vector;
+    return jdbcType == null ? new VarBinaryBinder<>(varBinary, Types.LONGVARBINARY) :
+        new VarBinaryBinder<>(varBinary, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.FixedSizeBinary type) {
-    throw new UnsupportedOperationException("No column binder implemented for type " + type);
+    FixedSizeBinaryVector binary = (FixedSizeBinaryVector) vector;
+    return jdbcType == null ? new FixedSizeBinaryBinder(binary, Types.BINARY) :
+        new FixedSizeBinaryBinder(binary, jdbcType);
   }
 
   @Override
@@ -191,6 +202,13 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
 
   @Override
   public ColumnBinder visit(ArrowType.Decimal type) {
+    if (type.getBitWidth() == 128) {
+      DecimalVector decimalVector = (DecimalVector) vector;
+      return jdbcType == null ? new Decimal128Binder(decimalVector) : new Decimal128Binder(decimalVector, jdbcType);
+    } else if (type.getBitWidth() == 256) {
+      Decimal256Vector decimalVector = (Decimal256Vector) vector;
+      return jdbcType == null ? new Decimal256Binder(decimalVector) : new Decimal256Binder(decimalVector, jdbcType);
+    }
     throw new UnsupportedOperationException("No column binder implemented for type " + type);
   }
 

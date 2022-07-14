@@ -19,6 +19,7 @@ package org.apache.arrow.adapter.jdbc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -40,10 +41,14 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
@@ -59,6 +64,7 @@ import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.DateUnit;
@@ -338,6 +344,45 @@ public class JdbcParameterBinderTest {
             vector.setSafe(index, value.getBytes(StandardCharsets.UTF_8)),
         BaseLargeVariableWidthVector::setNull,
         Arrays.asList("", "foobar", "abc"));
+  }
+
+  @Test
+  void binary() throws SQLException {
+    testSimpleType(ArrowType.Binary.INSTANCE, Types.VARBINARY,
+        (VarBinaryVector vector, Integer index, byte[] value) ->
+            vector.setSafe(index, value),
+        BaseVariableWidthVector::setNull,
+        Arrays.asList(new byte[0], new byte[] {2, -4}, new byte[] {0, -1, 127, -128}));
+  }
+
+  @Test
+  void largeBinary() throws SQLException {
+    testSimpleType(ArrowType.LargeBinary.INSTANCE, Types.LONGVARBINARY,
+        (LargeVarBinaryVector vector, Integer index, byte[] value) ->
+            vector.setSafe(index, value),
+        BaseLargeVariableWidthVector::setNull,
+        Arrays.asList(new byte[0], new byte[] {2, -4}, new byte[] {0, -1, 127, -128}));
+  }
+
+  @Test
+  void fixedSizeBinary() throws SQLException {
+    testSimpleType(new ArrowType.FixedSizeBinary(3), Types.BINARY,
+        FixedSizeBinaryVector::setSafe, FixedSizeBinaryVector::setNull,
+        Arrays.asList(new byte[3], new byte[] {1, 2, -4}, new byte[] {-1, 127, -128}));
+  }
+
+  @Test
+  void decimal128() throws SQLException {
+    testSimpleType(new ArrowType.Decimal(/*precision*/ 12, /*scale*/3, 128), Types.DECIMAL,
+        DecimalVector::setSafe, DecimalVector::setNull,
+        Arrays.asList(new BigDecimal("120.429"), new BigDecimal("-10590.123"), new BigDecimal("0.000")));
+  }
+
+  @Test
+  void decimal256() throws SQLException {
+    testSimpleType(new ArrowType.Decimal(/*precision*/ 12, /*scale*/3, 256), Types.DECIMAL,
+        Decimal256Vector::setSafe, Decimal256Vector::setNull,
+        Arrays.asList(new BigDecimal("120.429"), new BigDecimal("-10590.123"), new BigDecimal("0.000")));
   }
 
   @FunctionalInterface
