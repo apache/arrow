@@ -170,7 +170,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
             pull_request.create_comment(report.show())
             click.echo(f'Job is tracked on PR {pull_request.html_url}')
         else:
-            click.echo(f'Job is not tracked on PR. Repo not found')
+            click.echo('Job is not tracked on PR. Repo not found')
 
     if no_push:
         click.echo('Branches and commits created but not pushed: `{}`'
