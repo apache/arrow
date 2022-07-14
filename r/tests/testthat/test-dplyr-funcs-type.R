@@ -127,6 +127,22 @@ test_that("explicit type conversions with as.*()", {
       collect(),
     tibble(chr = c("1", "2", "3"))
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        chr2chr = base::as.character(chr),
+        chr2dbl = base::as.double(chr),
+        chr2int = base::as.integer(chr),
+        chr2num = base::as.numeric(chr),
+        rchr2chr = base::as.character("string"),
+        rchr2dbl = base::as.double("1.5"),
+        rchr2int = base::as.integer("1"),
+        rchr2num = base::as.numeric("1.5")
+      ) %>%
+      collect(),
+    tibble(chr = c("1", "2", "3"))
+  )
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -140,6 +156,20 @@ test_that("explicit type conversions with as.*()", {
       collect(),
     tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        chr2i64 = bit64::as.integer64(chr),
+        dbl2i64 = bit64::as.integer64(dbl),
+        i642i64 = bit64::as.integer64(i64),
+        rchr2i64 = bit64::as.integer64("10000000000"),
+        rdbl2i64 = bit64::as.integer64(10000000000),
+        ri642i64 = bit64::as.integer64(as.integer64(1e10))
+      ) %>%
+      collect(),
+    tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
+  )
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -149,6 +179,24 @@ test_that("explicit type conversions with as.*()", {
         rchr2lgl = as.logical("TRUE"),
         rdbl2lgl = as.logical(0),
         rint2lgl = as.logical(1L)
+      ) %>%
+      collect(),
+    tibble(
+      chr = c("TRUE", "FALSE", "true", "false"),
+      dbl = c(1, 0, -99, 0),
+      int = c(1L, 0L, -99L, 0L)
+    )
+  )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        chr2lgl = base::as.logical(chr),
+        dbl2lgl = base::as.logical(dbl),
+        int2lgl = base::as.logical(int),
+        rchr2lgl = base::as.logical("TRUE"),
+        rdbl2lgl = base::as.logical(0),
+        rint2lgl = base::as.logical(1L)
       ) %>%
       collect(),
     tibble(
@@ -213,11 +261,30 @@ test_that("is.finite(), is.infinite(), is.nan()", {
       collect(),
     df
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        is_fin = base::is.finite(x),
+        is_inf = base::is.infinite(x)
+      ) %>%
+      collect(),
+    df
+  )
   # is.nan() evaluates to FALSE on NA_real_ (ARROW-12850)
   compare_dplyr_binding(
     .input %>%
       transmute(
         is_nan = is.nan(x)
+      ) %>%
+      collect(),
+    df
+  )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        is_nan = base::is.nan(x)
       ) %>%
       collect(),
     df
@@ -230,6 +297,15 @@ test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
     .input %>%
       transmute(
         is_na = is.na(x)
+      ) %>%
+      collect(),
+    df
+  )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        is_na = base::is.na(x)
       ) %>%
       collect(),
     df
@@ -307,6 +383,28 @@ test_that("type checks with is() giving Arrow types", {
       str_is_i32 = is(str, "int32"),
       str_is_i64 = is(str, "double"),
       str_is_str = is(str, "string")
+    ) %>%
+      collect() %>%
+      t() %>%
+      as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
+  )
+  # with class2=string and namespacing
+  expect_equal(
+    Table$create(
+      i32 = Array$create(1, int32()),
+      f64 = Array$create(1.1, float64()),
+      str = Array$create("a", arrow::string())
+    ) %>% transmute(
+      i32_is_i32 = methods::is(i32, "int32"),
+      i32_is_i64 = methods::is(i32, "double"),
+      i32_is_str = methods::is(i32, "string"),
+      f64_is_i32 = methods::is(f64, "int32"),
+      f64_is_i64 = methods::is(f64, "double"),
+      f64_is_str = methods::is(f64, "string"),
+      str_is_i32 = methods::is(str, "int32"),
+      str_is_i64 = methods::is(str, "double"),
+      str_is_str = methods::is(str, "string")
     ) %>%
       collect() %>%
       t() %>%
@@ -480,6 +578,54 @@ test_that("type checks with is.*()", {
       collect(),
     tbl
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        chr_is_chr = base::is.character(chr),
+        chr_is_dbl = base::is.double(chr),
+        chr_is_fct = base::is.factor(chr),
+        chr_is_int = base::is.integer(chr),
+        chr_is_i64 = bit64::is.integer64(chr),
+        chr_is_lst = base::is.list(chr),
+        chr_is_lgl = base::is.logical(chr),
+        chr_is_num = base::is.numeric(chr),
+        dbl_is_chr = base::is.character(dbl),
+        dbl_is_dbl = base::is.double(dbl),
+        dbl_is_fct = base::is.factor(dbl),
+        dbl_is_int = base::is.integer(dbl),
+        dbl_is_i64 = bit64::is.integer64(dbl),
+        dbl_is_lst = base::is.list(dbl),
+        dbl_is_lgl = base::is.logical(dbl),
+        dbl_is_num = base::is.numeric(dbl),
+        fct_is_chr = base::is.character(fct),
+        fct_is_dbl = base::is.double(fct),
+        fct_is_fct = base::is.factor(fct),
+        fct_is_int = base::is.integer(fct),
+        fct_is_i64 = bit64::is.integer64(fct),
+        fct_is_lst = base::is.list(fct),
+        fct_is_lgl = base::is.logical(fct),
+        fct_is_num = base::is.numeric(fct),
+        int_is_chr = base::is.character(int),
+        int_is_dbl = base::is.double(int),
+        int_is_fct = base::is.factor(int),
+        int_is_int = base::is.integer(int),
+        int_is_i64 = bit64::is.integer64(int),
+        int_is_lst = base::is.list(int),
+        int_is_lgl = base::is.logical(int),
+        int_is_num = base::is.numeric(int),
+        lgl_is_chr = base::is.character(lgl),
+        lgl_is_dbl = base::is.double(lgl),
+        lgl_is_fct = base::is.factor(lgl),
+        lgl_is_int = base::is.integer(lgl),
+        lgl_is_i64 = bit64::is.integer64(lgl),
+        lgl_is_lst = base::is.list(lgl),
+        lgl_is_lgl = base::is.logical(lgl),
+        lgl_is_num = base::is.numeric(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -535,6 +681,34 @@ test_that("type checks with is_*()", {
         lgl_is_int = is_integer(lgl),
         lgl_is_lst = is_list(lgl),
         lgl_is_lgl = is_logical(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        chr_is_chr = rlang::is_character(chr),
+        chr_is_dbl = rlang::is_double(chr),
+        chr_is_int = rlang::is_integer(chr),
+        chr_is_lst = rlang::is_list(chr),
+        chr_is_lgl = rlang::is_logical(chr),
+        dbl_is_chr = rlang::is_character(dbl),
+        dbl_is_dbl = rlang::is_double(dbl),
+        dbl_is_int = rlang::is_integer(dbl),
+        dbl_is_lst = rlang::is_list(dbl),
+        dbl_is_lgl = rlang::is_logical(dbl),
+        int_is_chr = rlang::is_character(int),
+        int_is_dbl = rlang::is_double(int),
+        int_is_int = rlang::is_integer(int),
+        int_is_lst = rlang::is_list(int),
+        int_is_lgl = rlang::is_logical(int),
+        lgl_is_chr = rlang::is_character(lgl),
+        lgl_is_dbl = rlang::is_double(lgl),
+        lgl_is_int = rlang::is_integer(lgl),
+        lgl_is_lst = rlang::is_list(lgl),
+        lgl_is_lgl = rlang::is_logical(lgl)
       ) %>%
       collect(),
     tbl
@@ -703,6 +877,18 @@ test_that("structs/nested data frames/tibbles can be created", {
       collect(),
     df
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = tibble::tibble(
+          regular_col1 = regular_col1,
+          regular_col2 = regular_col2
+        )
+      ) %>%
+      collect(),
+    df
+  )
 
   # check auto column naming
   compare_dplyr_binding(
@@ -770,6 +956,16 @@ test_that("structs/nested data frames/tibbles can be created", {
       mutate(df_col = as.data.frame(df_col)),
     df
   )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        df_col = base::data.frame(regular_col1, regular_col1, check.names = FALSE)
+      ) %>%
+      collect() %>%
+      mutate(df_col = as.data.frame(df_col)),
+    df
+  )
 
   # ...and that other arguments are not supported
   expect_warning(
@@ -832,6 +1028,14 @@ test_that("format date/time", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = format(datetime, format = formats)) %>%
+      collect(),
+    times
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = base::format(datetime, format = formats)) %>%
       collect(),
     times
   )

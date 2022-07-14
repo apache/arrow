@@ -239,6 +239,14 @@ test_that("filter() with between()", {
       filter(between(chr, 1, 2)) %>%
       collect()
   )
+
+  # with namespacing
+  expect_error(
+    tbl %>%
+      record_batch() %>%
+      filter(dplyr::between(chr, 1, 2)) %>%
+      collect()
+  )
 })
 
 test_that("filter() with string ops", {
