@@ -448,6 +448,28 @@ s3_bucket <- function(bucket, ...) {
   SubTreeFileSystem$create(fs_and_path$path, fs)
 }
 
+#' Connect to an Google Storage Service (GCS) bucket
+#'
+#' `gs_bucket()` is a convenience function to create an `GcsFileSystem` object
+#' that holds onto its relative path
+#'
+#' @param bucket string GCS bucket name or path
+#' @param ... Additional connection options, passed to `GcsFileSystem$create()`
+#' @return A `SubTreeFileSystem` containing an `GcsFileSystem` and the bucket's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the bucket's contents.
+#' @examplesIf FALSE
+#' bucket <- gs_bucket("voltrondata-labs-datasets")
+#' @export
+gs_bucket <- function(bucket, ...) {
+  assert_that(is.string(bucket))
+  args <- list2(...)
+
+  fs <- exec(Gcs3FileSystem$create, !!!args)
+
+  SubTreeFileSystem(bucket, fs)
+}
+
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem

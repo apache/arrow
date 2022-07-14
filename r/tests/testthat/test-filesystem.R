@@ -190,3 +190,18 @@ test_that("s3_bucket", {
   skip_on_os("windows") # FIXME
   expect_identical(bucket$base_path, "ursa-labs-r-test/")
 })
+
+test_that("gs_bucket", {
+  skip_on_cran()
+  skip_if_not_available("gcs")
+  skip_if_offline()
+  bucket <- s3_bucket("voltrondata-labs-datasets")
+  expect_r6_class(bucket, "SubTreeFileSystem")
+  expect_r6_class(bucket$base_fs, "GcsFileSystem")
+  expect_identical(
+    capture.output(print(bucket)),
+    "SubTreeFileSystem: gs://voltrondata-labs-datasets/"
+  )
+  skip_on_os("windows") # FIXME
+  expect_identical(bucket$base_path, "voltrondata-labs-datasets/")
+})

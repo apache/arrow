@@ -1,8 +1,8 @@
 ---
-title: "Working with Cloud Storage (S3)"
+title: "Working with Cloud Storage (S3, GCS)"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Working with Cloud Storage (S3)}
+  %\VignetteIndexEntry{Working with Cloud Storage (S3, GCS)}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -13,8 +13,6 @@ parts of the project to be able to read and write data with different storage
 backends. In the `arrow` R package, support has been enabled for AWS S3 and
 Google Cloud Storage (GCS). This vignette provides an overview of working with 
 S3 and GCS data using Arrow.
-
-<!-- TODO: where do we currently package GCS support? -->
 
 > In Windows and macOS binary packages, S3 and GCS support are included. On Linux when 
 installing from source, S3 support is not enabled by default, and it has 
@@ -32,30 +30,64 @@ An S3 URI looks like:
 s3://[access_key:secret_key@]bucket/path[?region=]
 ```
 
+A GCS URI looks like:
+
+```
+gs://[access_key:secret_key@]bucket/path[?region=]
+gs://anonymous@bucket/path[?region=]
+```
+
 For example, one of the NYC taxi data files used in `vignette("dataset", package = "arrow")` is found at
 
-<!-- TODO: Create example GCS dataset -->
+```
+s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet
+# Or in GCS:
+# gs://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet
+```
 
-```
-s3://ursa-labs-taxi-data/2019/06/data.parquet
-```
+
 
 Given this URI, you can pass it to `read_parquet()` just as if it were a local file path:
 
 ```r
-df <- read_parquet("s3://ursa-labs-taxi-data/2019/06/data.parquet")
+df <- read_parquet("s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
+# Or in GCS:
+# df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
 ```
 
 Note that this will be slower to read than if the file were local,
 though if you're running on a machine in the same AWS region as the file in S3,
 the cost of reading the data over the network should be much lower.
 
+### URI options
+
+URIs accept additional options in the query parameters (the part after the `?`)
+that are passed down to configure the underlying file system. They are separated 
+by `&`. For example,
+
+```
+s3://voltrondata-labs-datasets/nyc-taxi/?endpoint_override=https://storage.googleapis.com&allow_bucket_creation=true
+```
+
+tells the `S3FileSystem` that it should allow the creation of new buckets and to 
+talk to Google Storage instead of S3. The latter is a neat trick that exists
+because GCS implements an S3-compatible API, but for better support for GCS use
+the GCSFileSystem with `gs://`.
+
+In GCS, a useful option is `retry_limit_seconds`, which sets the number of seconds
+a request may spend retrying before returning an error. The current default is 
+15 minutes, so in many interactive contexts it's nice to set a lower value:
+
+```
+gs://anonymous@voltrondata-labs-datasets/nyc-taxi/?retry_limit_seconds=10
+```
+
 ## Creating a FileSystem object
 
-Another way to connect to S3 is to create a `FileSystem` object once and pass
-that to the read/write functions.
-`S3FileSystem` objects can be created with the `s3_bucket()` function, which
-automatically detects the bucket's AWS region. Additionally, the resulting
+Instead of configuring filesystems through URIs, you can create `FileSystem` 
+objects. `S3FileSystem` objects can be created with the `s3_bucket()` function, which
+automatically detects the bucket's AWS region. Similarly, `GcsFileSystem` objects
+can be created with the `gs_bucket()` function. Additionally, the resulting
 `FileSystem` will consider paths relative to the bucket's path (so for example
 you don't need to prefix the bucket path when listing a directory).
 This may be convenient when dealing with
@@ -66,19 +98,21 @@ With a `FileSystem` object, you can point to specific files in it with the `$pat
 In the previous example, this would look like:
 
 ```r
-bucket <- s3_bucket("ursa-labs-taxi-data")
-df <- read_parquet(bucket$path("2019/06/data.parquet"))
+bucket <- s3_bucket("voltrondata-labs-datasets")
+df <- read_parquet(bucket$path("nyc-taxi/year=2019/month=6/data.parquet"))
 ```
 
 You can list the files and/or directories in an S3 bucket or subdirectory using
 the `$ls()` method:
 
 ```r
-bucket$ls()
+bucket$ls("nyc-taxi")
 ```
 
-See `help(FileSystem)` for a list of options that `s3_bucket()` and `S3FileSystem$create()`
-can take. `region`, `scheme`, and `endpoint_override` can be encoded as query
+See `help(FileSystem)` for a list of options that `s3_bucket()`/`S3FileSystem$create()`
+and `gs_bucket()`/`GcsFileSystem$create()` can take.
+
+For S3, only the following options can be included in t`region`, `scheme`, `endpoint_override` can be encoded as query
 parameters in the URI (though `region` will be auto-detected in `s3_bucket()` or from the URI if omitted).
 `access_key` and `secret_key` can also be included,
 but other options are not supported in the URI.
@@ -95,7 +129,7 @@ df <- read_parquet(june2019$path("data.parquet"))
 `SubTreeFileSystem` can also be made from a URI:
 
 ```r
-june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
+june2019 <- SubTreeFileSystem$create("s3://voltrondata-labs-datasets/nyc-taxi/2019/06")
 ```
 
 ## Authentication
@@ -128,7 +162,7 @@ a URI in the form `http://user:password@host:port` to `proxy_options`. For
 example, a local proxy server running on port 1316 can be used like this:
 
 ```r
-bucket <- s3_bucket("ursa-labs-taxi-data", proxy_options = "http://localhost:1316")
+bucket <- s3_bucket("voltrondata-labs-datasets", proxy_options = "http://localhost:1316")
 ```
 
 ## File systems that emulate S3

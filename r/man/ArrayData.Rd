@@ -9,16 +9,14 @@ The \code{ArrayData} class allows you to get and inspect the data
 inside an \code{arrow::Array}.
 }
 \section{Usage}{
-
-
-\if{html}{\out{<div class="sourceCode">}}\preformatted{data <- Array$create(x)$data()
+\preformatted{data <- Array$create(x)$data()
 
 data$type
 data$length
 data$null_count
 data$offset
 data$buffers
-}\if{html}{\out{</div>}}
+}
 }
 
 \section{Methods}{
