@@ -3254,8 +3254,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         "'use_legacy_dataset=False' while constructing the "
         "ParquetDataset."
     )
-    if schema is not None:
-        raise ValueError(msg2.format("schema"))
     if partitioning is not None:
         raise ValueError(msg2.format("partitioning"))
     if use_threads is not None:
@@ -3313,7 +3311,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             full_path = '/'.join([root_path, relative_path])
             with fs.open(full_path, 'wb') as f:
                 write_table(subtable, f, metadata_collector=metadata_collector,
-                            **kwargs)
+                            schema=schema, **kwargs)
             if metadata_collector is not None:
                 metadata_collector[-1].set_file_path(relative_path)
     else:
@@ -3324,7 +3322,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         full_path = '/'.join([root_path, outfile])
         with fs.open(full_path, 'wb') as f:
             write_table(table, f, metadata_collector=metadata_collector,
-                        **kwargs)
+                        schema=schema, **kwargs)
         if metadata_collector is not None:
             metadata_collector[-1].set_file_path(outfile)
 
