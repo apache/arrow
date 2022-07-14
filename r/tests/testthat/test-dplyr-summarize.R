@@ -107,6 +107,15 @@ test_that("Group by mean on dataset", {
       collect(),
     tbl
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(mean = base::mean(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("Group by sd on dataset", {
@@ -122,6 +131,15 @@ test_that("Group by sd on dataset", {
     .input %>%
       group_by(some_grouping) %>%
       summarize(sd = sd(int, na.rm = FALSE)) %>%
+      collect(),
+    tbl
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(sd = stats::sd(int, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
@@ -143,6 +161,15 @@ test_that("Group by var on dataset", {
       collect(),
     tbl
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(var = stats::var(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("n()", {
@@ -157,6 +184,16 @@ test_that("n()", {
     .input %>%
       group_by(some_grouping) %>%
       summarize(counts = n()) %>%
+      arrange(some_grouping) %>%
+      collect(),
+    tbl
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(counts = dplyr::n()) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
@@ -216,10 +253,26 @@ test_that("Group by any/all", {
       collect(),
     tbl
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(base::any(lgl, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(base::all(lgl, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("n_distinct() on dataset", {
-  # With groupby
+  # With group_by
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
@@ -244,6 +297,13 @@ test_that("n_distinct() on dataset", {
   compare_dplyr_binding(
     .input %>%
       summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      summarize(distinct = dplyr::n_distinct(lgl, na.rm = TRUE)) %>%
       collect(),
     tbl
   )
@@ -601,6 +661,18 @@ test_that("summarize() with min() and max()", {
       summarize(
         max_lgl = as.logical(max(lgl, na.rm = TRUE)),
         min_lgl = as.logical(min(lgl, na.rm = TRUE))
+      ) %>%
+      collect(),
+    tbl,
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      select(int) %>%
+      summarize(
+        min_int = base::min(int, na.rm = TRUE),
+        max_int = base::max(int, na.rm = TRUE)
       ) %>%
       collect(),
     tbl,
