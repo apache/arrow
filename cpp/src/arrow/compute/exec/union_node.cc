@@ -116,8 +116,7 @@ class UnionNode : public ExecNode {
                        {{"node.label", label()},
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
-    finished_ = Future<>::Make();
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     return Status::OK();
   }
 

@@ -67,6 +67,7 @@ struct DummyNode : ExecNode {
     for (size_t i = 0; i < input_labels_.size(); ++i) {
       input_labels_[i] = std::to_string(i);
     }
+    finished_.MarkFinished();
   }
 
   const char* kind_name() const override { return "Dummy"; }
@@ -110,8 +111,6 @@ struct DummyNode : ExecNode {
       }
     }
   }
-
-  Future<> finished() override { return Future<>::MakeFinished(); }
 
  private:
   void AssertIsOutput(ExecNode* output) {
