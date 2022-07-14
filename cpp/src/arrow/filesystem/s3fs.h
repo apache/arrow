@@ -102,6 +102,11 @@ struct ARROW_EXPORT S3Options {
   /// the region (environment variables, configuration profile, EC2 metadata
   /// server).
   std::string region;
+
+
+  /// if unset (or any value less than 0), the AWS SDK default values will be used.
+  /// requestTimeoutMs is default 3000
+  /// connectTimeoutMs is default 1000
   double request_timeout_ms = -1;
   double connect_timeout_ms = -1;
 
