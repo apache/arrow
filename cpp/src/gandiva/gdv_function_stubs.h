@@ -344,7 +344,6 @@ gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_mili
                                         const char* timezone, int32_t length);
 
 GANDIVA_EXPORT
-gdv_timestamp from_utc_timezone_timestamp(int64_t context,
-                                          gdv_timestamp time_miliseconds,
+gdv_timestamp from_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
                                           const char* timezone, int32_t length);
 }

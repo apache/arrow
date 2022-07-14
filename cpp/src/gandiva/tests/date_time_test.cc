@@ -750,11 +750,11 @@ TEST_F(TestProjector, TestToUtcTimestamp) {
   auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
 
-  auto array1 = MakeArrowArrayUtf8({"Asia/Kolkata", "Asia/Kolkata",
-                                    "America/Los_Angeles", "America/Los_Angeles"},
-                                   {true, true, true, true});
+  auto array1 = MakeArrowArrayUtf8(
+      {"Asia/Kolkata", "Asia/Kolkata", "America/Los_Angeles", "America/Los_Angeles"},
+      {true, true, true, true});
 
-  //expected output
+  // expected output
   std::vector<int64_t> exp_output_data = {MillisSince(epoch, 1970, 1, 1, 0, 30, 0, 0),
                                           MillisSince(epoch, 2001, 1, 4, 21, 30, 0, 0),
                                           MillisSince(epoch, 2018, 3, 12, 8, 0, 0, 0),
@@ -781,7 +781,7 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
 
   auto schema = arrow::schema({f0, f1});
 
-  //output fields
+  // output fields
   auto local_timestamp = field("local_time", timestamp(arrow::TimeUnit::MILLI));
 
   auto local_time_expr =
@@ -805,11 +805,11 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
   auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
 
-  auto array1 = MakeArrowArrayUtf8({"Asia/Kolkata", "Asia/Kolkata",
-                                    "America/Los_Angeles", "America/Los_Angeles"},
-                                   {true, true, true, true});
+  auto array1 = MakeArrowArrayUtf8(
+      {"Asia/Kolkata", "Asia/Kolkata", "America/Los_Angeles", "America/Los_Angeles"},
+      {true, true, true, true});
 
-  //expected output
+  // expected output
   std::vector<int64_t> exp_output_data = {MillisSince(epoch, 1970, 1, 1, 6, 0, 0, 0),
                                           MillisSince(epoch, 2001, 1, 5, 3, 0, 0, 0),
                                           MillisSince(epoch, 2018, 3, 12, 1, 0, 0, 0),

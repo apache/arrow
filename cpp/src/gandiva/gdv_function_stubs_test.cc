@@ -996,32 +996,36 @@ TEST(TestGdvFnStubs, TestTranslate) {
 TEST(TestGdvFnStubs, TestToUtcTimezone) {
   gandiva::ExecutionContext context;
   auto context_ptr = reinterpret_cast<int64_t>(&context);
-  gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
-  gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
+  auto len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
+  auto len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
 
-  //2012-02-28 15:30:00
+  // ts: 2012-02-28 15:30:00
+  // ts2:2012-02-28 10:00:00
   gdv_timestamp ts = 1330443000000;
   gdv_timestamp ts2 =
       to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
   EXPECT_EQ(1330423200000, ts2);
 
-  //1970-01-01 5:00:00
+  // ts: 1970-01-01 05:00:00
+  // ts2:1969-12-31 23:30:00
   ts = 18000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
   EXPECT_EQ(ts2, -1800000);
 
-  //daylight savings check
-  //2018-03-11 01:00:00
-  ts = 	1520730000000;
+  // daylight savings check
+  // ts: 2018-03-11 01:00:00
+  // ts2:2019-03-11 09:00:00
+  ts = 1520730000000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
   EXPECT_EQ(ts2, 1520758800000);
 
-  //2018-03-12 01:00:00
-  ts = 1331712000000;
+  // ts: 2018-03-12 01:00:00
+  // ts2:2018-03-12 08:00:00
+  ts = 1520816400000;
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
-  EXPECT_EQ(ts2, 1331737200000);
+  EXPECT_EQ(ts2, 1520841600000);
 
-  //Failure case
+  // Failure case
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/LA", 10);
   EXPECT_THAT(context.get_error(), "'America/LA' is an invalid time zone name.");
 }
@@ -1029,25 +1033,37 @@ TEST(TestGdvFnStubs, TestToUtcTimezone) {
 TEST(TestGdvFnStubs, TestFromUtcTimezone) {
   ExecutionContext context;
   auto context_ptr = reinterpret_cast<int64_t>(&context);
-  gdv_int32 len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
-  gdv_int32 len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
+  auto len_ist = static_cast<gdv_int32>(strlen("Asia/Kolkata"));
+  auto len_pst = static_cast<gdv_int32>(strlen("America/Los_Angeles"));
 
+  // ts: 1970-01-01 10:00:00
+  // ts2:1970-01-01 15:30:00
   gdv_timestamp ts = 36000000;
   gdv_timestamp ts2 =
       from_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
   EXPECT_EQ(ts2, 55800000);
 
+  // ts: 1969-12-31 23:30:00
+  // ts2:1970-01-01 05:00:00
   ts = -1800000;
   ts2 = from_utc_timezone_timestamp(context_ptr, ts, "Asia/Kolkata", len_ist);
   EXPECT_EQ(ts2, 18000000);
 
+  // ts: 2018-03-11 09:00:00
+  // ts2:2018-03-11 01:00:00
   ts = 1520758800000;
   ts2 = from_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
   EXPECT_EQ(ts2, 1520730000000);
 
-  ts = 1331737200000;
+  // ts: 2018-03-12 08:00:00
+  // ts2:2018-03-12 01:00:00
+  ts = 1520841600000;
   ts2 = from_utc_timezone_timestamp(context_ptr, ts, "America/Los_Angeles", len_pst);
-  EXPECT_EQ(ts2, 1331712000000);
+  EXPECT_EQ(ts2, 1520816400000);
+
+  // Failure case
+  ts2 = from_utc_timezone_timestamp(context_ptr, ts, "Kolkata", 10);
+  EXPECT_THAT(context.get_error(), "'Kolkata' is an invalid time zone name.");
 }
 
 }  // namespace gandiva
