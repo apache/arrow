@@ -126,6 +126,8 @@ nse_funcs <- new.env(parent = emptyenv())
 agg_funcs <- new.env(parent = emptyenv())
 .cache <- new.env(parent = emptyenv())
 
+# we register 2 version of the "::" binding - one for use with nse_funcs (below)
+# and another one for use with agg_funcs (in dplyr-summarize.R)
 register_bindings_utils <- function() {
   register_binding("::", function(lhs, rhs) {
     lhs_name <- as.character(substitute(lhs))

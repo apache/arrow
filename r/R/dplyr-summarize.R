@@ -159,6 +159,8 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
+  # we register 2 version of the "::" binding - one for use with nse_funcs
+  # and another one for use with agg_funcs (below)
   register_binding_agg("::", function(lhs, rhs) {
     lhs_name <- as.character(substitute(lhs))
     rhs_name <- as.character(substitute(rhs))
@@ -167,7 +169,8 @@ register_bindings_aggregate <- function() {
 
     # if we do not have a binding for pkg::fun, then fall back on to the
     # nse_funcs (useful when we have a regular function inside an aggregating one)
-    # and then regular pkg::fun function
+    # and then, if searching nse_funcs fails too, fall back to the
+    # regular `pkg::fun()` function
     agg_funcs[[fun_name]] %||% nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
   })
 }
