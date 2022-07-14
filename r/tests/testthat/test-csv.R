@@ -295,7 +295,7 @@ test_that("more informative error when reading a CSV with headers and schema", {
 test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
   # connections with csv need RunWithCapturedR, which is not available
   # in R <= 3.4.4
-  skip_if_r_version("3.4.4")
+  skip_on_r_older_than("3.5")
 
   tf <- tempfile()
   on.exit(unlink(tf))

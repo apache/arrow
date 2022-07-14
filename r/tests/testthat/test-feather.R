@@ -183,7 +183,7 @@ test_that("read_feather() and write_feather() accept connection objects", {
   skip_if(on_old_windows())
   # connections with feather need RunWithCapturedR, which is not available
   # in R <= 3.4.4
-  skip_if_r_version("3.4.4")
+  skip_on_r_older_than("3.5")
 
   tf <- tempfile()
   on.exit(unlink(tf))

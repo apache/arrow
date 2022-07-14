@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The glimpse output for tests with `example_data` is different on R < 3.6
+# because the `lgl` column is generated with `sample()` and the RNG
+# algorithm is different in older R versions. 
+skip_on_r_older_than("3.6")
+
 library(dplyr, warn.conflicts = FALSE)
 
 test_that("glimpse() Table/ChunkedArray", {
