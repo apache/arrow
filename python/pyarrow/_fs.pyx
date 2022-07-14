@@ -1030,20 +1030,20 @@ cdef class PyFileSystem(FileSystem):
 
     Examples
     --------
-    Create an fsspec-based filesystem object for Google Cloud Storage:
+    Create an fsspec-based filesystem object for GitHub:
 
-    >>> import gcsfs
-    >>> fs = gcsfs.GCSFileSystem(project='gcp-public-data-sentinel-2/index.csv.gz')
+    >>> from fsspec.implementations import github
+    >>> gfs = github.GithubFileSystem('apache', 'arrow')
 
     Get a PyArrow FileSystem object:
 
     >>> from pyarrow.fs import PyFileSystem, FSSpecHandler
-    >>> pa_fs = PyFileSystem(FSSpecHandler(fs))
+    >>> pa_fs = PyFileSystem(FSSpecHandler(gfs))
 
     Use :func:`~pyarrow.fs.FileSystem` functionality `get_file_info()`:
 
-    >>> pa_fs.get_file_info('gcp-public-data-sentinel-2/index.csv.gz')
-    <FileInfo for 'gcp-public-data-sentinel-2/index.csv.gz': type=FileType.File, size=2783655355>
+    >>> pa_fs.get_file_info('README.md')
+    <FileInfo for 'README.md': type=FileType.File, size=5302>
     """
 
     def __init__(self, handler):
