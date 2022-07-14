@@ -311,9 +311,9 @@ cast_options <- function(safe = TRUE, ...) {
 #'
 #' These functions support calling R code from query engine execution
 #' (i.e., a [dplyr::mutate()] or [dplyr::filter()] on a [Table] or [Dataset]).
-#' Use [arrow_scalar_function()] to define an R function that accepts and
-#' returns R objects; use [arrow_advanced_scalar_function()] to define a
-#' lower-level function that operates directly on Arrow objects.
+#' Use [arrow_scalar_function()] attach input and output types to a vectorized
+#' R function; use [register_user_defined_function()] to make it available
+#' for use in the dplyr interface and/or [call_function()].
 #'
 #' @param name The function name to be used in the dplyr bindings
 #' @param scalar_function An object created with [arrow_scalar_function()]
