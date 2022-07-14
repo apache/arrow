@@ -517,20 +517,11 @@ test_that("mutate and pmin/pmax", {
         max_val_1 = pmax(val1, val2, val3),
         max_val_2 = pmax(val1, val2, val3, na.rm = TRUE),
         min_val_1 = pmin(val1, val2, val3),
-        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE)
-      ) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        max_val_1 = base::pmax(val1, val2, val3),
-        max_val_2 = base::pmax(val1, val2, val3, na.rm = TRUE),
-        min_val_1 = base::pmin(val1, val2, val3),
-        min_val_2 = base::pmin(val1, val2, val3, na.rm = TRUE)
+        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE),
+        max_val_1_nmspc = base::pmax(val1, val2, val3),
+        max_val_2_nmspc = base::pmax(val1, val2, val3, na.rm = TRUE),
+        min_val_1_nmspc = base::pmin(val1, val2, val3),
+        min_val_2_nmspc = base::pmin(val1, val2, val3, na.rm = TRUE)
       ) %>%
       collect(),
     df
