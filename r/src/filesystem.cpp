@@ -71,7 +71,9 @@ void fs___FileInfo__set_path(const std::shared_ptr<fs::FileInfo>& x,
 }
 
 // [[arrow::export]]
-int64_t fs___FileInfo__size(const std::shared_ptr<fs::FileInfo>& x) { return x->size(); }
+r_vec_size fs___FileInfo__size(const std::shared_ptr<fs::FileInfo>& x) {
+  return r_vec_size(x->size());
+}
 
 // [[arrow::export]]
 void fs___FileInfo__set_size(const std::shared_ptr<fs::FileInfo>& x, int64_t size) {
