@@ -150,7 +150,10 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
-ENV ARROW_BUILD_TESTS=ON \
+# ARROW-17051: this build uses static Protobuf, so we must also use
+# static Arrow to run Flight/Flight SQL tests
+ENV ARROW_BUILD_STATIC=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
