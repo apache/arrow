@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 7.0.0.9000
+# arrow 8.0.1
 
 * `read_csv_arrow()`'s readr-style type `T` is now mapped to `timestamp(unit = "ns")` instead of `timestamp(unit = "s")`.
 * `lubridate`:
