@@ -163,7 +163,7 @@ register_bindings_aggregate <- function() {
 
 # we register 2 version of the "::" binding - one for use with nse_funcs
 # and another one for use with agg_funcs (below)
-agg_funcs[["::"]]<- function(lhs, rhs) {
+agg_funcs[["::"]] <- function(lhs, rhs) {
   lhs_name <- as.character(substitute(lhs))
   rhs_name <- as.character(substitute(rhs))
 
