@@ -67,6 +67,17 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
 
   previous_fun <- if (unqualified_name %in% names(registry)) registry[[unqualified_name]] else NULL
 
+  # if th unqualified name exists in the register, warn
+  if(!is.null(fun) && !is.null(previous_fun)) {
+    warn(
+      paste0(
+        "A \"",
+        unqualified_name,
+        "\" binding already exists in the register and will be overwritten.")
+    )
+  }
+
+  # if fun is NULL remove entries from the function registry
   if (is.null(fun) && !is.null(previous_fun)) {
     rm(list = c(unqualified_name, qualified_name), envir = registry, inherits = FALSE)
     # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed

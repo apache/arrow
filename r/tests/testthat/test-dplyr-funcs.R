@@ -18,6 +18,7 @@
 test_that("register_binding() works", {
   fake_registry <- new.env(parent = emptyenv())
   fun1 <- function() NULL
+  fun2 <- function() "Hello"
 
   expect_null(register_binding("some.pkg::some_fun", fun1, fake_registry))
   expect_identical(fake_registry$some_fun, fun1)
@@ -29,6 +30,11 @@ test_that("register_binding() works", {
 
   expect_null(register_binding("somePkg::some_fun", fun1, fake_registry))
   expect_identical(fake_registry$some_fun, fun1)
+
+  expect_warning(
+    register_binding("some.pkg2::some_fun", fun2, fake_registry),
+    "A \"some_fun\" binding already exists in the register and will be overwritten."
+  )
 })
 
 test_that("register_binding_agg() works", {
