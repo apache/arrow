@@ -3064,6 +3064,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
+        This option is only supported for use_legacy_dataset=False.
     schema : Schema, optional
     partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the
