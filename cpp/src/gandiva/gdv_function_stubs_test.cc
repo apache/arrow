@@ -453,6 +453,63 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestGdvFnStubs, TestSubstringIndex) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str =
+      gdv_fn_substring_index(ctx_ptr, "Abc.DE.fGh", 10, ".", 1, 2, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len), "Abc.DE");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "Abc.DE.fGh", 10, ".", 1, -2, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len), "fGh");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "S;DCGS;JO!L", 11, ";", 1, 1, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len), "S");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "S;DCGS;JO!L", 11, ";", 1, -1, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len), "DCGS;JO!L");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "www.mysql.com", 13, "Q", 1, 1, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len), "www.mysql.com");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "www||mysql||com", 15, "||", 2, 2, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len), "www||mysql");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "", 0, ".", 1, 1, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len).size(), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "www||mysql||com", 15, "", 0, 1, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len).size(), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "www||mysql||com", 15, "||", 2, 0, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len).size(), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "www||mysql||com", 15, "||", 2, -2, &out_len);
+  ARROW_LOG(INFO) << "output: " << std::string(out_str, out_len) << " " << out_len;
+  EXPECT_EQ(std::string(out_str, out_len), "com");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestGdvFnStubs, TestUpper) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
