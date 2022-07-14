@@ -163,7 +163,7 @@ jobs:
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Install Azurite Storage Emulator
         shell: bash
-        run: ci/scripts/install_azurite.sh $(pwd)
+        run: ci/scripts/install_azurite.sh
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh

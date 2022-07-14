@@ -115,8 +115,13 @@ void AzureOptions::ConfigureAnonymousCredentials(const std::string& account_name
 
 void AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_name,
                                                   const std::string& account_key) {
-  account_dfs_url = "https://" + account_name + ".dfs.core.windows.net/";
-  account_blob_url = "https://" + account_name + ".blob.core.windows.net/";
+  if (this->is_azurite) {
+    account_blob_url = "http://127.0.0.1:10000/" + account_name + "/";
+    account_dfs_url = "http://127.0.0.1:10000/" + account_name + "/";
+  } else {
+    account_dfs_url = "https://" + account_name + ".dfs.core.windows.net/";
+    account_blob_url = "https://" + account_name + ".blob.core.windows.net/";
+  }
   storage_credentials_provider =
       std::make_shared<Azure::Storage::StorageSharedKeyCredential>(account_name,
                                                                    account_key);
@@ -541,10 +546,14 @@ class ObjectOutputStream final : public io::OutputStream {
   ObjectOutputStream(
       std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> pathClient,
       std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> fileClient,
+      std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> blobClient,
+      const bool& isHierarchicalNamespaceEnabled,
       const io::IOContext& io_context, const AzurePath& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata)
       : pathClient_(std::move(pathClient)),
         fileClient_(std::move(fileClient)),
+        blobClient_(std::move(blobClient)),
+        isHierarchicalNamespaceEnabled_(isHierarchicalNamespaceEnabled),
         io_context_(io_context),
         path_(path),
         metadata_(metadata) {}
@@ -566,15 +575,13 @@ class ObjectOutputStream final : public io::OutputStream {
       if (properties.Value.IsDirectory) {
         return Status::IOError("Invalid file path given");
       }
-      content_length_ = properties.Value.FileSize;
-      DCHECK_GE(content_length_, 0);
     } catch (std::exception const& e) {
       // new file
-      std::string s = "";
-      fileClient_->UploadFrom(
-          const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&s[0])), s.size());
-      content_length_ = 0;
     }
+    std::string s = "";
+    fileClient_->UploadFrom(
+        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
+    content_length_ = 0;
     return Status::OK();
   }
 
@@ -622,12 +629,25 @@ class ObjectOutputStream final : public io::OutputStream {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
-    auto result =
-        fileClient_
-            ->UploadFrom(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(data)),
-                         nbytes)
-            .Value;
-    pos_ += nbytes;
+    if (isHierarchicalNamespaceEnabled_) {
+      auto bufferStream = std::make_unique<Azure::Core::IO::MemoryBodyStream>(
+          Azure::Core::IO::MemoryBodyStream(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(data)), nbytes));
+      auto result = fileClient_->Append(*bufferStream, pos_);
+      fileClient_->Flush(pos_);
+    } else {
+      auto append_data = static_cast<uint8_t*>((void*)data);
+      auto res = blobClient_->GetBlockList().Value;
+      std::string text = std::to_string(rand());
+      const std::string blockId = Azure::Core::Convert::Base64Encode(std::vector<uint8_t>(text.begin(), text.end()));
+      auto blockContent = Azure::Core::IO::MemoryBodyStream(append_data, strlen(reinterpret_cast<char*>(append_data)));
+      blobClient_->StageBlock(blockId, blockContent);
+      std::vector<std::string> blockIds;
+      for (auto r: res.CommittedBlocks) {
+        blockIds.push_back(r.Name);
+      }
+      blockIds.push_back(blockId);
+      blobClient_->CommitBlockList(blockIds);
+    }
     return Status::OK();
   }
 
@@ -642,6 +662,8 @@ class ObjectOutputStream final : public io::OutputStream {
  protected:
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> pathClient_;
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> fileClient_;
+  std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> blobClient_;
+  const bool isHierarchicalNamespaceEnabled_;
   const io::IOContext io_context_;
   const AzurePath path_;
 
@@ -656,10 +678,14 @@ class ObjectAppendStream final : public io::OutputStream {
   ObjectAppendStream(
       std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> pathClient,
       std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> fileClient,
+      std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> blobClient,
+      const bool& isHierarchicalNamespaceEnabled,
       const io::IOContext& io_context, const AzurePath& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata)
       : pathClient_(std::move(pathClient)),
         fileClient_(std::move(fileClient)),
+        blobClient_(std::move(blobClient)),
+        isHierarchicalNamespaceEnabled_(isHierarchicalNamespaceEnabled),
         io_context_(io_context),
         path_(path),
         metadata_(metadata) {}
@@ -682,11 +708,14 @@ class ObjectAppendStream final : public io::OutputStream {
         return Status::IOError("Invalid file path given");
       }
       content_length_ = properties.Value.FileSize;
-      DCHECK_GE(content_length_, 0);
-      return Status::OK();
     } catch (std::exception const& e) {
-      return Status::IOError("Invalid file path given");
+      // new file
+      std::string s = "";
+      fileClient_->UploadFrom(
+          const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
+      content_length_ = 0;
     }
+    return Status::OK();
   }
 
   Status Abort() override {
@@ -733,9 +762,25 @@ class ObjectAppendStream final : public io::OutputStream {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
-    auto content = Azure::Core::IO::MemoryBodyStream(
-        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(data)), nbytes);
-    auto result = fileClient_->Append(content, 0);
+    if (isHierarchicalNamespaceEnabled_) {
+      auto bufferStream = std::make_unique<Azure::Core::IO::MemoryBodyStream>(
+          Azure::Core::IO::MemoryBodyStream(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(data)), nbytes));
+      auto result = fileClient_->Append(*bufferStream, pos_);
+      fileClient_->Flush(pos_);
+    } else {
+      auto append_data = static_cast<uint8_t*>((void*)data);
+      auto res = blobClient_->GetBlockList().Value;
+      std::string text = std::to_string(rand());
+      const std::string blockId = Azure::Core::Convert::Base64Encode(std::vector<uint8_t>(text.begin(), text.end()));
+      auto blockContent = Azure::Core::IO::MemoryBodyStream(append_data, strlen(reinterpret_cast<char*>(append_data)));
+      blobClient_->StageBlock(blockId, blockContent);
+      std::vector<std::string> blockIds;
+      for (auto r: res.CommittedBlocks) {
+        blockIds.push_back(r.Name);
+      }
+      blockIds.push_back(blockId);
+      blobClient_->CommitBlockList(blockIds);
+    }
     return Status::OK();
   }
 
@@ -750,6 +795,8 @@ class ObjectAppendStream final : public io::OutputStream {
  protected:
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> pathClient_;
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> fileClient_;
+  std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> blobClient_;
+  const bool isHierarchicalNamespaceEnabled_;
   const io::IOContext io_context_;
   const AzurePath path_;
 
@@ -807,7 +854,7 @@ class AzureBlobFileSystem::Impl
     blob_endpoint_url = options_.account_blob_url;
     RETURN_NOT_OK(InitServiceClient(gen1Client_, options_, blob_endpoint_url));
     RETURN_NOT_OK(InitServiceClient(gen2Client_, options_, dfs_endpoint_url));
-    if (options_.isTestEnabled) {
+    if (options_.is_azurite) {
       // gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled throws error
       // in azurite
       isHierarchicalNamespaceEnabled = false;
@@ -1329,6 +1376,11 @@ class AzureBlobFileSystem::Impl
         fileClient_, options_, endpoint_url + path.full_path, path.container,
         path.path_to_file));
 
+    std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> blobClient_;
+    RETURN_NOT_OK(InitPathClient<Azure::Storage::Blobs::BlockBlobClient>(
+        blobClient_, options_, endpoint_url + path.full_path, path.container,
+        path.path_to_file));
+
     if (path.has_parent()) {
       AzurePath parent_path = path.parent();
       if (parent_path.path_to_file.empty()) {
@@ -1344,7 +1396,7 @@ class AzureBlobFileSystem::Impl
         }
       }
     }
-    auto ptr = std::make_shared<ObjectOutputStream>(pathClient_, fileClient_,
+    auto ptr = std::make_shared<ObjectOutputStream>(pathClient_, fileClient_, blobClient_, isHierarchicalNamespaceEnabled,
                                                     fs->io_context(), path, metadata);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
@@ -1355,23 +1407,52 @@ class AzureBlobFileSystem::Impl
       AzureBlobFileSystem* fs) {
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
 
+    if (path.empty() || path.path_to_file.empty()) {
+      return Status::IOError("Invalid path provided");
+    }
+    std::string endpoint_url = dfs_endpoint_url;
     if (!isHierarchicalNamespaceEnabled) {
       if (path.path_to_file_parts.size() > 1) {
         return Status::IOError(
-            "Invalid path provided, "
-            "hierarchical namespace not enabled");
+            "Invalid path provided,"
+            " hierarchical namespace not enabled");
       }
+      endpoint_url = blob_endpoint_url;
     }
-
+    if (DirExists(dfs_endpoint_url + path.full_path).ValueOrDie()) {
+      return Status::IOError("Invalid path provided");
+    }
     std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> pathClient_;
     RETURN_NOT_OK(InitPathClient<Azure::Storage::Files::DataLake::DataLakePathClient>(
-        pathClient_, options_, dfs_endpoint_url + s, path.container, path.path_to_file));
+        pathClient_, options_, endpoint_url + path.full_path, path.container,
+        path.path_to_file));
 
     std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> fileClient_;
     RETURN_NOT_OK(InitPathClient<Azure::Storage::Files::DataLake::DataLakeFileClient>(
-        fileClient_, options_, dfs_endpoint_url + s, path.container, path.path_to_file));
+        fileClient_, options_, endpoint_url + path.full_path, path.container,
+        path.path_to_file));
 
-    auto ptr = std::make_shared<ObjectAppendStream>(pathClient_, fileClient_,
+    std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> blobClient_;
+    RETURN_NOT_OK(InitPathClient<Azure::Storage::Blobs::BlockBlobClient>(
+        blobClient_, options_, endpoint_url + path.full_path, path.container,
+        path.path_to_file));
+
+    if (path.has_parent()) {
+      AzurePath parent_path = path.parent();
+      if (parent_path.path_to_file.empty()) {
+        if (!ContainerExists(parent_path.container).ValueOrDie()) {
+          return Status::IOError("Cannot write to file '", path.full_path,
+                                 "': parent directory does not exist");
+        }
+      } else {
+        auto exists = DirExists(dfs_endpoint_url + parent_path.full_path);
+        if (!(exists.ValueOrDie())) {
+          return Status::IOError("Cannot write to file '", path.full_path,
+                                 "': parent directory does not exist");
+        }
+      }
+    }
+    auto ptr = std::make_shared<ObjectAppendStream>(pathClient_, fileClient_, blobClient_, isHierarchicalNamespaceEnabled,
                                                     fs->io_context(), path, metadata);
     RETURN_NOT_OK(ptr->Init());
     return ptr;

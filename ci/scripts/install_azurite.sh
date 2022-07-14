@@ -21,7 +21,6 @@ set -e
 
 case "$(uname)" in
   Darwin)
-    brew install node
     npm install -g azurite
     which azurite
     ;;
@@ -30,8 +29,6 @@ case "$(uname)" in
     npm install -g azurite
     ;;
   Linux)
-    apt-get update
-    apt-get -y install npm
     npm install -g azurite
     which azurite
     ;;

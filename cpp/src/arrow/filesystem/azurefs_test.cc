@@ -47,9 +47,9 @@ using ::arrow::internal::TemporaryDir;
 using ::testing::IsEmpty;
 using ::testing::NotNull;
 
-class AzuriteEmulator : public ::testing::Environment {
+class AzuriteEnv : public ::testing::Environment {
  public:
-  AzuriteEmulator() {
+  AzuriteEnv() {
     account_name_ = "devstoreaccount1";
     account_key_ =
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
@@ -57,7 +57,7 @@ class AzuriteEmulator : public ::testing::Environment {
     auto exe_path = bp::search_path("azurite");
     if (exe_path.empty()) {
       auto error = std::string("Could not find Azurite emulator.");
-      error_ = std::move(error);
+      status_ = Status::Invalid(error);
       return;
     }
     auto temp_dir_ = TemporaryDir::Make("azurefs-test-").ValueOrDie();
@@ -68,120 +68,157 @@ class AzuriteEmulator : public ::testing::Environment {
       auto error = "Could not start Azurite emulator.";
       server_process_.terminate();
       server_process_.wait();
-      error_ = std::move(error);
+      status_ = Status::Invalid(error);
+      return;
     }
+    status_ = Status::OK();
   }
 
-  ~AzuriteEmulator() override {
+  ~AzuriteEnv() override {
     server_process_.terminate();
     server_process_.wait();
   }
 
   const std::string& account_name() const { return account_name_; }
   const std::string& account_key() const { return account_key_; }
-  const std::string& error() const { return error_; }
+  const Status status() const { return status_; }
 
  private:
   std::string account_name_;
   std::string account_key_;
   bp::child server_process_;
-  std::string error_;
+  Status status_;
   std::unique_ptr<TemporaryDir> temp_dir_;
 };
 
-AzuriteEmulator* TestAzure() {
-  static auto* const environment = [] { return new AzuriteEmulator; }();
-  return environment;
-}
+auto* azurite_env = ::testing::AddGlobalTestEnvironment(new AzuriteEnv);
 
-auto* testazure_env = ::testing::AddGlobalTestEnvironment(TestAzure());
+AzuriteEnv* GetAzuriteEnv() {
+  return ::arrow::internal::checked_cast<AzuriteEnv*>(azurite_env);
+}
 
 class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> gen2Client_;
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> gen2_client_;
   AzureOptions options_;
 
   void MakeFileSystem() {
-    const std::string& account_name = TestAzure()->account_name();
-    const std::string& account_key = TestAzure()->account_key();
-    options_.account_blob_url =
-        "http://127.0.0.1:10000/" + TestAzure()->account_name() + "/";
-    options_.account_dfs_url =
-        "http://127.0.0.1:10000/" + TestAzure()->account_name() + "/";
-    options_.isTestEnabled = true;
-    options_.storage_credentials_provider =
-        std::make_shared<Azure::Storage::StorageSharedKeyCredential>(account_name,
-                                                                     account_key);
-    options_.credentials_kind = AzureCredentialsKind::StorageCredentials;
-    gen2Client_ =
+    const std::string& account_name = GetAzuriteEnv()->account_name();
+    const std::string& account_key = GetAzuriteEnv()->account_key();
+    options_.is_azurite = true;
+    options_.ConfigureAccountKeyCredentials(account_name, account_key);
+    gen2_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
-    auto result = AzureBlobFileSystem::Make(options_);
-    fs_ = *result;
+    ASSERT_OK_AND_ASSIGN(fs_, AzureBlobFileSystem::Make(options_));
   }
 
   void SetUp() override {
-    ASSERT_THAT(TestAzure(), NotNull());
-    ASSERT_THAT(TestAzure()->error(), IsEmpty());
+    ASSERT_THAT(GetAzuriteEnv(), NotNull());
+    ASSERT_THAT(GetAzuriteEnv()->status(), Status::OK());
 
     MakeFileSystem();
-    auto fileSystemClient = gen2Client_->GetFileSystemClient("container");
-    fileSystemClient.CreateIfNotExists();
-    fileSystemClient = gen2Client_->GetFileSystemClient("empty-container");
-    fileSystemClient.CreateIfNotExists();
-    auto fileClient =
+    auto file_system_client = gen2_client_->GetFileSystemClient("container");
+    file_system_client.CreateIfNotExists();
+    file_system_client = gen2_client_->GetFileSystemClient("empty-container");
+    file_system_client.CreateIfNotExists();
+    auto file_client =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
             options_.account_blob_url + "container/somefile",
             options_.storage_credentials_provider);
     std::string s = "some data";
-    fileClient->UploadFrom(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&s[0])),
+    file_client->UploadFrom(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())),
                            s.size());
   }
+
   void TearDown() override {
-    auto containers = gen2Client_->ListFileSystems();
-    for (auto c : containers.FileSystems) {
-      auto fileSystemClient = gen2Client_->GetFileSystemClient(c.Name);
-      fileSystemClient.DeleteIfExists();
+    auto containers = gen2_client_->ListFileSystems();
+    for (auto container : containers.FileSystems) {
+      auto file_system_client = gen2_client_->GetFileSystemClient(container.Name);
+      file_system_client.DeleteIfExists();
     }
   }
+
   void AssertObjectContents(
       Azure::Storage::Files::DataLake::DataLakeServiceClient* client,
       const std::string& container, const std::string& path_to_file,
       const std::string& expected) {
-    auto pathClient_ =
+    auto path_client =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakePathClient>(
             client->GetUrl() + container + "/" + path_to_file,
             options_.storage_credentials_provider);
-    auto size = pathClient_->GetProperties().Value.FileSize;
+    auto size = path_client->GetProperties().Value.FileSize;
     if (size == 0) {
+      ASSERT_EQ(expected, "");
       return;
     }
-    auto buf = AllocateResizableBuffer(size, fs_->io_context().pool());
-    Azure::Storage::Blobs::DownloadBlobToOptions downloadOptions;
+    auto buf = AllocateBuffer(size, fs_->io_context().pool());
+    Azure::Storage::Blobs::DownloadBlobToOptions download_options;
     Azure::Core::Http::HttpRange range;
     range.Offset = 0;
     range.Length = size;
-    downloadOptions.Range = Azure::Nullable<Azure::Core::Http::HttpRange>(range);
-    auto fileClient_ =
+    download_options.Range = Azure::Nullable<Azure::Core::Http::HttpRange>(range);
+    auto file_client =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
             client->GetUrl() + container + "/" + path_to_file,
             options_.storage_credentials_provider);
-    auto result = fileClient_
+    auto result = file_client
                       ->DownloadTo(reinterpret_cast<uint8_t*>(buf->get()->mutable_data()),
-                                   size, downloadOptions)
+                                   size, download_options)
                       .Value;
-    buf->get()->Equals(
-        Buffer(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&expected[0])),
-               expected.size()));
+    auto buf_data = std::move(buf->get());
+    auto expected_data = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(expected.data()), expected.size());
+    AssertBufferEqual(*buf_data, *expected_data);
   }
 };
 
+TEST_F(TestAzureFileSystem, FromUri) {
+  Uri uri;
+
+  // Public container
+  ASSERT_OK(uri.Parse("https://testcontainer.dfs.core.windows.net/"));
+  ASSERT_OK_AND_ASSIGN(auto options, AzureOptions::FromUri(uri));
+  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Anonymous);
+  ASSERT_EQ(options.account_dfs_url, "https://testcontainer.dfs.core.windows.net/");
+
+  // Sas Token
+  ASSERT_OK(uri.Parse("https://testcontainer.blob.core.windows.net/?dummy_sas_token"));
+  ASSERT_OK_AND_ASSIGN(options, AzureOptions::FromUri(uri));
+  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Sas);
+  ASSERT_EQ(options.account_dfs_url, "https://testcontainer.dfs.core.windows.net/");
+  ASSERT_EQ(options.sas_token, "?dummy_sas_token");
+}
+
+TEST_F(TestAzureFileSystem, FromAccountKey) {
+  AzureOptions options = AzureOptions::FromAccountKey(GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key());
+  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::StorageCredentials);
+  ASSERT_NE(options.storage_credentials_provider, nullptr);
+}
+
+TEST_F(TestAzureFileSystem, FromConnectionString) {
+  AzureOptions options = AzureOptions::FromConnectionString("DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;");
+  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::ConnectionString);
+  ASSERT_NE(options.connection_string, "");
+}
+
+TEST_F(TestAzureFileSystem, FromServicePrincipleCredential) {
+  AzureOptions options = AzureOptions::FromServicePrincipleCredential("dummy_account_name", "dummy_tenant_id", "dummy_client_id", "dummy_client_secret");
+  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::ServicePrincipleCredentials);
+  ASSERT_NE(options.service_principle_credentials_provider, nullptr);
+}
+
+TEST_F(TestAzureFileSystem, FromSas) {
+  AzureOptions options = AzureOptions::FromSas("https://testcontainer.blob.core.windows.net/?dummy_sas_token");
+  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Sas);
+  ASSERT_NE(options.sas_token, "");
+}
+
 TEST_F(TestAzureFileSystem, CreateDir) {
   // New container
-  AssertFileInfo(fs_.get(), "container3", FileType::NotFound);
-  ASSERT_OK(fs_->CreateDir("container3"));
-  AssertFileInfo(fs_.get(), "container3", FileType::Directory);
+  AssertFileInfo(fs_.get(), "new-container", FileType::NotFound);
+  ASSERT_OK(fs_->CreateDir("new-container"));
+  AssertFileInfo(fs_.get(), "new-container", FileType::Directory);
 
   // Existing container
   ASSERT_OK(fs_->CreateDir("container"));
@@ -192,10 +229,10 @@ TEST_F(TestAzureFileSystem, CreateDir) {
   // Existing "file", should fail
   ASSERT_RAISES(IOError, fs_->CreateDir("container/somefile"));
 
-  // directory, false
+  // recursive, false
   ASSERT_RAISES(IOError, fs_->CreateDir("container/newdir/newsub/newsubsub", false));
 
-  // directory, true
+  // recursive, true
   ASSERT_RAISES(IOError, fs_->CreateDir("container/newdir/newsub/newsubsub", true));
 }
 
@@ -204,50 +241,38 @@ TEST_F(TestAzureFileSystem, DeleteDir) {
   ASSERT_OK(fs_->DeleteDir("container"));
   AssertFileInfo(fs_.get(), "container", FileType::NotFound);
 
-  // Nonexistent Container
-  ASSERT_OK(fs_->DeleteDir("container3"));
-  AssertFileInfo(fs_.get(), "container3", FileType::NotFound);
+  // Nonexistent-Container
+  ASSERT_OK(fs_->DeleteDir("nonexistent-container"));
+  AssertFileInfo(fs_.get(), "nonexistent-container", FileType::NotFound);
 
   // root
   ASSERT_RAISES(NotImplemented, fs_->DeleteDir(""));
 
-  // C/F
+  // Container/File
   ASSERT_RAISES(IOError, fs_->DeleteDir("container/somefile"));
 
-  // C/NF
-  ASSERT_RAISES(IOError, fs_->DeleteDir("container/somefile19"));
-
-  // C/ND/D
-  ASSERT_RAISES(IOError, fs_->DeleteDir("container/somedir3/base"));
-
-  // NC/D
-  ASSERT_RAISES(IOError, fs_->DeleteDir("container3/somedir"));
+  // Container/Nonexistent-File
+  ASSERT_RAISES(IOError, fs_->DeleteDir("container/nonexistent-file"));
 }
 
 TEST_F(TestAzureFileSystem, DeleteFile) {
   // Container
   ASSERT_RAISES(IOError, fs_->DeleteFile("container"));
 
-  // Nonexistent Container
-  ASSERT_RAISES(IOError, fs_->DeleteFile("container5"));
+  // Nonexistent-Container
+  ASSERT_RAISES(IOError, fs_->DeleteFile("nonexistent-container"));
 
   // root
   ASSERT_RAISES(IOError, fs_->DeleteFile(""));
 
-  // C/F
+  // Container/File
   ASSERT_OK(fs_->DeleteFile("container/somefile"));
 
-  // C/NF
+  // Container/Nonexistent-File
   ASSERT_RAISES(IOError, fs_->DeleteFile("container/somefile"));
 
-  // C/D/D
+  // Container/Directory/Directory
   ASSERT_RAISES(IOError, fs_->DeleteFile("container/somedir/subdir"));
-
-  // C/ND/D
-  ASSERT_RAISES(IOError, fs_->DeleteDir("container/somedir3/base"));
-
-  // NC/D
-  ASSERT_RAISES(IOError, fs_->DeleteDir("container3/somedir"));
 }
 
 TEST_F(TestAzureFileSystem, GetFileInfo) {
@@ -257,29 +282,23 @@ TEST_F(TestAzureFileSystem, GetFileInfo) {
 
   AssertFileInfo(fs_.get(), "", FileType::Directory);
 
-  auto res = fs_->OpenOutputStream("container/base.txt");
-  ASSERT_OK(res->get()->Write("Base data"));
+  ASSERT_OK_AND_ASSIGN(auto res, fs_->OpenOutputStream("container/base.txt"));
+  ASSERT_OK(res->Write("Base data"));
 
   // "Files"
   AssertFileInfo(fs_.get(), "container/base.txt", FileType::File);
-  AssertFileInfo(fs_.get(), "container/base1.txt", FileType::NotFound);
-
-  // "Directories"
-  AssertFileInfo(fs_.get(), "container/non-existentdir/subdir", FileType::NotFound);
-  AssertFileInfo(fs_.get(), "nonexistent-container/somedir/subdir/subfile",
-                 FileType::NotFound);
+  AssertFileInfo(fs_.get(), "container/nonexistent-file.txt", FileType::NotFound);
 }
 
 TEST_F(TestAzureFileSystem, GetFileInfoSelector) {
   FileSelector select;
-  std::vector<FileInfo> infos;
 
   // Non-empty container
   select.base_dir = "container";
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_OK_AND_ASSIGN(auto infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
 
-  // Nonexistent container
+  // Nonexistent-Container
   select.base_dir = "nonexistent-container";
   ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
   select.allow_not_found = true;
@@ -292,25 +311,9 @@ TEST_F(TestAzureFileSystem, GetFileInfoSelector) {
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 2);
 
-  // C/F
+  // Container/File
   select.base_dir = "container/somefile";
   ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
-
-  // C/ND/D
-  select.base_dir = "container/non-existentdir/non-existentsubdir";
-  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
-  select.allow_not_found = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 0);
-  select.allow_not_found = false;
-
-  // NC/D
-  select.base_dir = "nonexistent-container/non-existentdir";
-  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
-  select.allow_not_found = true;
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 0);
-  select.allow_not_found = false;
 }
 
 TEST_F(TestAzureFileSystem, Move) {
@@ -318,43 +321,25 @@ TEST_F(TestAzureFileSystem, Move) {
   ASSERT_RAISES(IOError,
                 fs_->Move("container/somedir/subdir", "container/newdir/newsub"));
   ASSERT_RAISES(IOError, fs_->Move("container/emptydir", "container/base.txt"));
-  ASSERT_RAISES(IOError, fs_->Move("container/emptydir",
-                                   "container/non-existentdir/non-existentsubdir"));
-  ASSERT_RAISES(IOError,
-                fs_->Move("container/emptydir", "nonexistent-container/non-existentdir"));
-  ASSERT_RAISES(IOError, fs_->Move("container/emptydir23", "container/base.txt"));
-  auto res = fs_->OpenOutputStream("container/somefile");
-  ASSERT_OK(res->get()->Write("Changed the data"));
+  ASSERT_RAISES(IOError, fs_->Move("container/nonexistent-directory", "container/base.txt"));
+  ASSERT_OK_AND_ASSIGN(auto res, fs_->OpenOutputStream("container/somefile"));
+  ASSERT_OK(res->Write("Changed the data"));
   ASSERT_RAISES(IOError, fs_->Move("container/base.txt", "container/somefile"));
   ASSERT_RAISES(IOError, fs_->Move("container/somefile", "container/base.txt"));
-  ASSERT_RAISES(IOError, fs_->Move("container/base.txt",
-                                   "container/non-existentdir/non-existentsubdir"));
-  ASSERT_RAISES(IOError,
-                fs_->Move("container/base.txt", "nonexistent-container/non-existentdir"));
-  ASSERT_RAISES(IOError, fs_->Move("container/base2.txt", "container/non-existentdir"));
+  ASSERT_RAISES(IOError, fs_->Move("container/nonexistent-file.txt", "container/non-existentdir"));
 }
 
 TEST_F(TestAzureFileSystem, CopyFile) {
   ASSERT_RAISES(IOError, fs_->CopyFile("container", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir", "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir", "container/newfile"));
-  ASSERT_RAISES(IOError,
-                fs_->CopyFile("container/somedir22/subdir", "container/newfile"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("nonexistent-container/somedir/subdir",
-                                       "container/newfile"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "container"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "container3435"));
+  ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "nonexistent-container"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", ""));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt", "container/somedir/subdir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt",
-                                       "container/non-existentdir/non-existentsubdir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/base.txt",
-                                       "nonexistent-container/non-existentdir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/base2t.txt",
-                                       "nonexistent-container/non-existentdir"));
 
   ASSERT_OK(fs_->CopyFile("container/somefile", "container/base.txt"));
-  ASSERT_OK(fs_->CopyFile("container/base.txt", "container/somefile3"));
+  ASSERT_OK(fs_->CopyFile("container/base.txt", "container/nonexistent-file"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile", "container"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
                                        "nonexistent-container"));
@@ -365,28 +350,19 @@ TEST_F(TestAzureFileSystem, CopyFile) {
                                        "container/non-existentdir"));
   ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
                                        "container/somedir/subdir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                       "container/non-existentdir/non-existentsubdir"));
-  ASSERT_RAISES(IOError, fs_->CopyFile("container/somedir/subdir/subfile",
-                                       "nonexistent-container/non-existentdir"));
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStream) {
-  std::shared_ptr<io::InputStream> stream;
-  std::shared_ptr<Buffer> buf;
-
   ASSERT_RAISES(IOError, fs_->OpenInputStream("container"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("nonexistent-container"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream(""));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("container/somedir"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("container/non-existentdir"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("container/somedir/subdir"));
-  ASSERT_RAISES(IOError, fs_->OpenInputStream("container/non-existentdir/subdir"));
-  ASSERT_RAISES(IOError, fs_->OpenInputStream("nonexistent-container/somedir"));
 
   // "Files"
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("container/somefile"));
-  ASSERT_OK_AND_ASSIGN(buf, stream->Read(2));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream("container/somefile"));
+  ASSERT_OK_AND_ASSIGN(auto buf, stream->Read(2));
   AssertBufferEqual(*buf, "so");
   ASSERT_OK_AND_ASSIGN(buf, stream->Read(5));
   AssertBufferEqual(*buf, "me da");
@@ -397,22 +373,17 @@ TEST_F(TestAzureFileSystem, OpenInputStream) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputFile) {
-  std::shared_ptr<io::RandomAccessFile> file;
-  std::shared_ptr<Buffer> buf;
-
   ASSERT_RAISES(IOError, fs_->OpenInputFile("container"));
   ASSERT_RAISES(IOError, fs_->OpenInputFile("nonexistent-container"));
   ASSERT_RAISES(IOError, fs_->OpenInputFile(""));
   ASSERT_RAISES(IOError, fs_->OpenInputFile("container/somedir"));
   ASSERT_RAISES(IOError, fs_->OpenInputFile("container/non-existentdir"));
   ASSERT_RAISES(IOError, fs_->OpenInputFile("container/somedir/subdir"));
-  ASSERT_RAISES(IOError, fs_->OpenInputFile("container/non-existentdir/subdir"));
-  ASSERT_RAISES(IOError, fs_->OpenInputFile("nonexistent-container/somedir"));
 
   // "Files"
-  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile("container/somefile"));
+  ASSERT_OK_AND_ASSIGN(auto file, fs_->OpenInputFile("container/somefile"));
   ASSERT_OK_AND_EQ(9, file->GetSize());
-  ASSERT_OK_AND_ASSIGN(buf, file->Read(4));
+  ASSERT_OK_AND_ASSIGN(auto buf, file->Read(4));
   AssertBufferEqual(*buf, "some");
   ASSERT_OK_AND_EQ(9, file->GetSize());
   ASSERT_OK_AND_EQ(4, file->Tell());
@@ -425,7 +396,7 @@ TEST_F(TestAzureFileSystem, OpenInputFile) {
   ASSERT_OK_AND_ASSIGN(buf, file->ReadAt(9, 20));
   AssertBufferEqual(*buf, "");
 
-  char result[10];
+  char result[20];
   ASSERT_OK_AND_EQ(5, file->ReadAt(2, 5, &result));
   ASSERT_OK_AND_EQ(4, file->ReadAt(5, 20, &result));
   ASSERT_OK_AND_EQ(0, file->ReadAt(9, 0, &result));
@@ -444,25 +415,21 @@ TEST_F(TestAzureFileSystem, OpenInputFile) {
 }
 
 TEST_F(TestAzureFileSystem, OpenOutputStream) {
-  std::shared_ptr<io::OutputStream> stream;
-
   ASSERT_RAISES(IOError, fs_->OpenOutputStream("container"));
   ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-container"));
   ASSERT_RAISES(IOError, fs_->OpenOutputStream(""));
   ASSERT_RAISES(IOError, fs_->OpenOutputStream("container/somedir/subdir"));
-  ASSERT_RAISES(IOError, fs_->OpenOutputStream("container/non-existentdir/subdir"));
-  ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-container/somedir"));
 
   // Create new empty file
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("container/newfile1"));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenOutputStream("container/newfile1"));
   ASSERT_OK(stream->Close());
-  AssertObjectContents(gen2Client_.get(), "container", "newfile1", "");
+  AssertObjectContents(gen2_client_.get(), "container", "newfile1", "");
 
   // Create new file with 1 small write
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("container/newfile2"));
   ASSERT_OK(stream->Write("some data"));
   ASSERT_OK(stream->Close());
-  AssertObjectContents(gen2Client_.get(), "container", "newfile2", "some data");
+  AssertObjectContents(gen2_client_.get(), "container", "newfile2", "some data");
 
   // Create new file with 3 small writes
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("container/newfile3"));
@@ -470,36 +437,56 @@ TEST_F(TestAzureFileSystem, OpenOutputStream) {
   ASSERT_OK(stream->Write(""));
   ASSERT_OK(stream->Write("new data"));
   ASSERT_OK(stream->Close());
-  AssertObjectContents(gen2Client_.get(), "container", "newfile3", "some new data");
-
-  // Create new file with some large writes
-  std::string s1, s2, s3, s4, s5, expected;
-  s1 = random_string(6000000, /*seed =*/42);  // More than the 5 MB minimum part upload
-  s2 = "xxx";
-  s3 = random_string(6000000, 43);
-  s4 = "zzz";
-  s5 = random_string(600000, 44);
-  expected = s1 + s2 + s3 + s4 + s5;
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("container/newfile4"));
-  for (auto input : {s1, s2, s3, s4, s5}) {
-    ASSERT_OK(stream->Write(input));
-    // Clobber source contents.  This shouldn't reflect in the data written.
-    input.front() = 'x';
-    input.back() = 'x';
-  }
-  ASSERT_OK(stream->Close());
-  AssertObjectContents(gen2Client_.get(), "container", "newfile4", expected);
+  AssertObjectContents(gen2_client_.get(), "container", "newfile3", "some new data");
 
   // Overwrite
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("container/newfile1"));
   ASSERT_OK(stream->Write("overwritten data"));
   ASSERT_OK(stream->Close());
-  AssertObjectContents(gen2Client_.get(), "container", "newfile1", "overwritten data");
+  AssertObjectContents(gen2_client_.get(), "container", "newfile1", "overwritten data");
 
   // Overwrite and make empty
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("container/newfile1"));
   ASSERT_OK(stream->Close());
-  AssertObjectContents(gen2Client_.get(), "container", "newfile1", "");
+  AssertObjectContents(gen2_client_.get(), "container", "newfile1", "");
+}
+
+TEST_F(TestAzureFileSystem, OpenAppendStream) {
+  ASSERT_RAISES(IOError, fs_->OpenAppendStream("container"));
+  ASSERT_RAISES(IOError, fs_->OpenAppendStream("nonexistent-container"));
+  ASSERT_RAISES(IOError, fs_->OpenAppendStream(""));
+  ASSERT_RAISES(IOError, fs_->OpenAppendStream("container/somedir/subdir"));
+
+  // Create new empty file
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenAppendStream("container/newfile1"));
+  ASSERT_OK(stream->Close());
+  AssertObjectContents(gen2_client_.get(), "container", "newfile1", "");
+
+  // Create new file with 1 small write
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenAppendStream("container/newfile2"));
+  ASSERT_OK(stream->Write("some data"));
+  ASSERT_OK(stream->Close());
+  AssertObjectContents(gen2_client_.get(), "container", "newfile2", "some data");
+
+  // Create new file with 3 small writes
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenAppendStream("container/newfile3"));
+  ASSERT_OK(stream->Write("some "));
+  ASSERT_OK(stream->Write(""));
+  ASSERT_OK(stream->Write("new data"));
+  ASSERT_OK(stream->Close());
+  AssertObjectContents(gen2_client_.get(), "container", "newfile3", "some new data");
+
+  // Append to empty file
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenAppendStream("container/newfile1"));
+  ASSERT_OK(stream->Write("append data"));
+  ASSERT_OK(stream->Close());
+  AssertObjectContents(gen2_client_.get(), "container", "newfile1", "append data");
+
+  // Append to non-empty file
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenAppendStream("container/newfile1"));
+  ASSERT_OK(stream->Write(", more data"));
+  ASSERT_OK(stream->Close());
+  AssertObjectContents(gen2_client_.get(), "container", "newfile1", "append data, more data");
 }
 
 TEST_F(TestAzureFileSystem, DeleteDirContents) {
@@ -507,24 +494,18 @@ TEST_F(TestAzureFileSystem, DeleteDirContents) {
   ASSERT_OK(fs_->DeleteDirContents("container"));
   AssertFileInfo(fs_.get(), "container", FileType::Directory);
 
-  // Nonexistent Container
-  ASSERT_RAISES(IOError, fs_->DeleteDirContents("container3"));
+  // Nonexistent-Container
+  ASSERT_RAISES(IOError, fs_->DeleteDirContents("nonexistent-container"));
   AssertFileInfo(fs_.get(), "container3", FileType::NotFound);
 
   // root
   ASSERT_RAISES(IOError, fs_->DeleteDirContents(""));
 
-  // C/F
-  auto res = fs_->OpenOutputStream("container/somefile");
-  ASSERT_OK(res->get()->Write("some data"));
+  // Container/File
+  ASSERT_OK_AND_ASSIGN(auto res, fs_->OpenOutputStream("container/somefile"));
+  ASSERT_OK(res->Write("some data"));
   ASSERT_RAISES(IOError, fs_->DeleteDirContents("container/somefile"));
   AssertFileInfo(fs_.get(), "container/somefile", FileType::File);
-
-  // C/ND/D
-  ASSERT_RAISES(IOError, fs_->DeleteDirContents("container/somedir3/base"));
-
-  // NC/D
-  ASSERT_RAISES(IOError, fs_->DeleteDirContents("container3/somedir"));
 }
 
 }  // namespace internal

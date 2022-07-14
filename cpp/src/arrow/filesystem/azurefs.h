@@ -61,7 +61,7 @@ struct ARROW_EXPORT AzureOptions {
   std::string scheme;
   std::string account_dfs_url;
   std::string account_blob_url;
-  bool isTestEnabled = false;
+  bool is_azurite = false;
   AzureCredentialsKind credentials_kind = AzureCredentialsKind::Anonymous;
 
   std::string sas_token;
