@@ -84,8 +84,8 @@ inconsistent scale. A RoundingMode can be set to handle these cases:
      }
    }
 
-Currently, it is not possible to define a custom type conversion for a
-supported or unsupported type.
+Currently, it is not possible to override the type conversion for a
+supported type, or define a new conversion for an unsupported type.
 
 Type Mapping
 ------------
