@@ -1730,15 +1730,19 @@ macro(build_substrait)
   set(SUBSTRAIT_CPP_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait_ep-generated")
   file(MAKE_DIRECTORY ${SUBSTRAIT_CPP_DIR})
 
-  set(SUBSTRAIT_SUPPRESSED_WARNINGS)
+  set(SUBSTRAIT_SUPPRESSED_FLAGS)
   if(MSVC)
     # Protobuf generated files trigger some spurious warnings on MSVC.
 
     # Implicit conversion from uint64_t to uint32_t:
-    list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4244")
+    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "/wd4244")
 
     # Missing dll-interface:
-    list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4251")
+    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "/wd4251")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                        "Clang")
+    # Protobuf generated files trigger some errors on CLANG TSAN builds
+    list(APPEND SUBSTRAIT_SUPPRESSED_FLAGS "-Wno-error=shorten-64-to-32")
   endif()
 
   set(SUBSTRAIT_SOURCES)
@@ -1749,7 +1753,7 @@ macro(build_substrait)
     foreach(EXT h cc)
       set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}"
                                   PROPERTIES COMPILE_OPTIONS
-                                             "${SUBSTRAIT_SUPPRESSED_WARNINGS}"
+                                             "${SUBSTRAIT_SUPPRESSED_FLAGS}"
                                              GENERATED TRUE
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
