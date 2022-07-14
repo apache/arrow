@@ -479,7 +479,7 @@ BITWISE_NOT(int64)
     } else if (in1 < 0) {                  \
       out = static_cast<gdv_##TYPE>(-1);   \
     } else {                               \
-      out = static_cast<gdv_##TYPE>(in1);  \
+      out = in1;                           \
     }                                      \
     return out;                            \
   }
