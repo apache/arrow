@@ -384,8 +384,7 @@ register_bindings_datetime_conversion <- function() {
     y + sofar$cast(int64()) / total
   })
 
-  register_binding("lubridate::date_decimal", function(decimal,
-                                                       tz = "UTC") {
+  register_binding("lubridate::date_decimal", function(decimal, tz = "UTC") {
     y <- build_expr("floor", decimal)
 
     start <- call_binding("make_datetime", year = y, tz = tz)

@@ -125,11 +125,11 @@ register_bindings_type_cast <- function() {
   })
 
   register_binding("base::data.frame", function(...,
-                                          row.names = NULL,
-                                          check.rows = NULL,
-                                          check.names = TRUE,
-                                          fix.empty.names = TRUE,
-                                          stringsAsFactors = FALSE) {
+                                                row.names = NULL,
+                                                check.rows = NULL,
+                                                check.names = TRUE,
+                                                fix.empty.names = TRUE,
+                                                stringsAsFactors = FALSE) {
     # we need a specific value of stringsAsFactors because the default was
     # TRUE in R <= 3.6
     if (!identical(stringsAsFactors, FALSE)) {
