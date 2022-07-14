@@ -103,16 +103,10 @@ test_that("Group by mean on dataset", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(mean = mean(int, na.rm = FALSE)) %>%
-      collect(),
-    tbl
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(mean = base::mean(int, na.rm = TRUE)) %>%
+      summarize(
+        mean = mean(int, na.rm = FALSE),
+        mean2 = base::mean(int, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -130,16 +124,10 @@ test_that("Group by sd on dataset", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(sd = sd(int, na.rm = FALSE)) %>%
-      collect(),
-    tbl
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(sd = stats::sd(int, na.rm = TRUE)) %>%
+      summarize(
+        sd = sd(int, na.rm = FALSE),
+        sd2 = stats::sd(int, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -157,16 +145,10 @@ test_that("Group by var on dataset", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(var = var(int, na.rm = FALSE)) %>%
-      collect(),
-    tbl
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(var = stats::var(int, na.rm = TRUE)) %>%
+      summarize(
+        var = var(int, na.rm = FALSE),
+        var2 = stats::var(int, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -183,17 +165,10 @@ test_that("n()", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(counts = n()) %>%
-      arrange(some_grouping) %>%
-      collect(),
-    tbl
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(counts = dplyr::n()) %>%
+      summarize(
+        counts = n(),
+        counts2 = dplyr::n()
+      ) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
@@ -204,14 +179,20 @@ test_that("Group by any/all", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(any(lgl, na.rm = TRUE)) %>%
+      summarize(
+        any(lgl, na.rm = TRUE),
+        base::any(lgl, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(all(lgl, na.rm = TRUE)) %>%
+      summarize(
+        all(lgl, na.rm = TRUE),
+        base::all(lgl, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -253,22 +234,6 @@ test_that("Group by any/all", {
       collect(),
     tbl
   )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(base::any(lgl, na.rm = TRUE)) %>%
-      collect(),
-    tbl
-  )
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(base::all(lgl, na.rm = TRUE)) %>%
-      collect(),
-    tbl
-  )
 })
 
 test_that("n_distinct() on dataset", {
@@ -296,14 +261,10 @@ test_that("n_distinct() on dataset", {
   )
   compare_dplyr_binding(
     .input %>%
-      summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
-      collect(),
-    tbl
-  )
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      summarize(distinct = dplyr::n_distinct(lgl, na.rm = TRUE)) %>%
+      summarize(
+        distinct = n_distinct(lgl, na.rm = TRUE),
+        distinct2 = dplyr::n_distinct(lgl, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -403,24 +364,10 @@ test_that("median()", {
         summarize(
           med_dbl = median(dbl),
           med_int = as.double(median(int)),
+          med_dbl2 = stats::median(dbl),
+          med_int2 = base::as.double(stats::median(int)),
           med_dbl_narmf = median(dbl, FALSE),
           med_int_narmf = as.double(median(int, na.rm = FALSE))
-        ) %>%
-        collect(),
-      tbl,
-      warning = "median\\(\\) currently returns an approximate median in Arrow"
-    ),
-    classes = "arrow.median.approximate"
-  )
-})
-
-test_that("median() with namespacing", {
-  suppressWarnings(
-    compare_dplyr_binding(
-      .input %>%
-        summarize(
-          med_dbl_narmt = stats::median(dbl, na.rm = TRUE),
-          med_int_narmt = base::as.double(stats::median(int, TRUE))
         ) %>%
         collect(),
       tbl,
@@ -562,30 +509,6 @@ test_that("quantile() with namespacing", {
     ),
     classes = "arrow.quantile.approximate"
   )
-
-  # without groups
-  suppressWarnings(
-    expect_warning(
-      expect_equal(
-        tbl %>%
-          summarize(
-            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-            q_int = as.double(
-              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
-            )
-          ),
-        Table$create(tbl) %>%
-          summarize(
-            q_dbl = stats::quantile(dbl, probs = 0.5, na.rm = TRUE),
-            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
-          ) %>%
-          collect()
-      ),
-      "quantile() currently returns an approximate quantile in Arrow",
-      fixed = TRUE
-    ),
-    classes = "arrow.quantile.approximate"
-  )
 })
 
 test_that("summarize() with min() and max()", {
@@ -620,7 +543,9 @@ test_that("summarize() with min() and max()", {
       select(int) %>%
       summarize(
         min_int = min(int, na.rm = TRUE),
-        max_int = max(int, na.rm = TRUE)
+        max_int = max(int, na.rm = TRUE),
+        min_int2 = base::min(int, na.rm = TRUE),
+        max_int2 = base::max(int, na.rm = TRUE)
       ) %>%
       collect(),
     tbl,
@@ -661,18 +586,6 @@ test_that("summarize() with min() and max()", {
       summarize(
         max_lgl = as.logical(max(lgl, na.rm = TRUE)),
         min_lgl = as.logical(min(lgl, na.rm = TRUE))
-      ) %>%
-      collect(),
-    tbl,
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      select(int) %>%
-      summarize(
-        min_int = base::min(int, na.rm = TRUE),
-        max_int = base::max(int, na.rm = TRUE)
       ) %>%
       collect(),
     tbl,
