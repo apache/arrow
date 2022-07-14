@@ -523,7 +523,7 @@ test_that("mutate and pmin/pmax", {
     df
   )
 
-  # namespaced pmin/pmax
+  # with namespacing
   compare_dplyr_binding(
     .input %>%
       mutate(
