@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 7.0.0
+# arrow 7.0.1
 
 ## Enhancements to dplyr and datasets
 
