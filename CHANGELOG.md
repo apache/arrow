@@ -1,4 +1,12 @@
 
+# Apache Arrow 8.0.1 (2022-07-14)
+
+## New Features and Improvements
+
+* [ARROW-16759](https://issues.apache.org/jira/browse/ARROW-16759) - [Go] backport gopkg.in/yaml.v3 security patch to v8 (#13588)
+
+
+
 # Apache Arrow 8.0.0 (2022-05-03)
 
 ## Bug Fixes
