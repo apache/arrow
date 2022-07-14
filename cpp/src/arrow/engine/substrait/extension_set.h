@@ -21,7 +21,6 @@
 
 #include <unordered_map>
 #include <vector>
-#include <set>
 
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"

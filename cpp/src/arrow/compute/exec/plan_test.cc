@@ -309,11 +309,13 @@ TEST(ExecPlanExecution, ArrayVectorSourceSink) {
     ASSERT_OK_AND_ASSIGN(auto io_executor,
                          arrow::internal::ThreadPool::Make(num_threads));
 
-    ASSERT_OK(Declaration::Sequence({
-        {"array_source", ArrayVectorSourceNodeOptions{exp_batches.schema,
-                                                      arrayvec_it_maker}},
-        {"sink", SinkNodeOptions{&sink_gen}},
-    }).AddToPlan(plan.get()));
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"array_source", ArrayVectorSourceNodeOptions{exp_batches.schema,
+                                                                    arrayvec_it_maker}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
 
     ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
     ASSERT_EQ(res, exp_batches.batches);
@@ -329,11 +331,10 @@ TEST(ExecPlanExecution, ArrayVectorSourceSinkError) {
   auto arrayvec_it_maker = [&arrayvecs]() {
     return MakeVectorIterator<std::shared_ptr<ArrayVector>>(arrayvecs);
   };
-  ASSERT_OK_AND_ASSIGN(auto io_executor,
-                       arrow::internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
 
-  auto null_executor_options = ArrayVectorSourceNodeOptions{exp_batches.schema,
-                                                            arrayvec_it_maker};
+  auto null_executor_options =
+      ArrayVectorSourceNodeOptions{exp_batches.schema, arrayvec_it_maker};
   ASSERT_THAT(MakeExecNode("array_source", plan.get(), {}, null_executor_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
 
@@ -355,11 +356,13 @@ TEST(ExecPlanExecution, ExecBatchSourceSink) {
     ASSERT_OK_AND_ASSIGN(auto io_executor,
                          arrow::internal::ThreadPool::Make(num_threads));
 
-    ASSERT_OK(Declaration::Sequence({
-        {"exec_source", ExecBatchSourceNodeOptions{exp_batches.schema,
-                                                   exec_batch_it_maker}},
-        {"sink", SinkNodeOptions{&sink_gen}},
-    }).AddToPlan(plan.get()));
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"exec_source", ExecBatchSourceNodeOptions{exp_batches.schema,
+                                                                 exec_batch_it_maker}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
 
     ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
     ASSERT_EQ(res, exp_batches.batches);
@@ -375,11 +378,10 @@ TEST(ExecPlanExecution, ExecBatchSourceSinkError) {
   auto exec_batch_it_maker = [&exec_batches]() {
     return MakeVectorIterator<std::shared_ptr<ExecBatch>>(exec_batches);
   };
-  ASSERT_OK_AND_ASSIGN(auto io_executor,
-                       arrow::internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
 
-  auto null_executor_options = ExecBatchSourceNodeOptions{exp_batches.schema,
-                                                          exec_batch_it_maker};
+  auto null_executor_options =
+      ExecBatchSourceNodeOptions{exp_batches.schema, exec_batch_it_maker};
   ASSERT_THAT(MakeExecNode("exec_source", plan.get(), {}, null_executor_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
 
@@ -402,10 +404,12 @@ TEST(ExecPlanExecution, RecordBatchSourceSink) {
                          arrow::internal::ThreadPool::Make(num_threads));
 
     ASSERT_OK(Declaration::Sequence({
-        {"record_source", RecordBatchSourceNodeOptions{exp_batches.schema,
-                                                       record_batch_it_maker}},
-        {"sink", SinkNodeOptions{&sink_gen}},
-    }).AddToPlan(plan.get()));
+                                        {"record_source",
+                                         RecordBatchSourceNodeOptions{
+                                             exp_batches.schema, record_batch_it_maker}},
+                                        {"sink", SinkNodeOptions{&sink_gen}},
+                                    })
+                  .AddToPlan(plan.get()));
 
     ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
     ASSERT_EQ(res, exp_batches.batches);
@@ -421,16 +425,15 @@ TEST(ExecPlanExecution, RecordBatchSourceSinkError) {
   auto record_batch_it_maker = [&record_batches]() {
     return MakeVectorIterator<std::shared_ptr<RecordBatch>>(record_batches);
   };
-  ASSERT_OK_AND_ASSIGN(auto io_executor,
-                       arrow::internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto io_executor, arrow::internal::ThreadPool::Make(1));
 
-  auto null_executor_options = RecordBatchSourceNodeOptions{exp_batches.schema,
-                                                            record_batch_it_maker};
+  auto null_executor_options =
+      RecordBatchSourceNodeOptions{exp_batches.schema, record_batch_it_maker};
   ASSERT_THAT(MakeExecNode("record_source", plan.get(), {}, null_executor_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
 
-  auto null_schema_options = RecordBatchSourceNodeOptions{no_schema,
-                                                          record_batch_it_maker};
+  auto null_schema_options =
+      RecordBatchSourceNodeOptions{no_schema, record_batch_it_maker};
   ASSERT_THAT(MakeExecNode("record_source", plan.get(), {}, null_schema_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
 }

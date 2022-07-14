@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include <iostream>
+
 #include "arrow/engine/substrait/relation_internal.h"
 
 #include "arrow/compute/api_scalar.h"
@@ -27,8 +27,8 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
-#include "arrow/filesystem/util_internal.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 
 namespace arrow {
 namespace engine {
@@ -62,41 +62,41 @@ Result<FieldRef> FromProto(const substrait::Expression& expr, const std::string&
           break;
         }
         default: {
-          return Status::NotImplemented(std::string(
-              "substrait::Expression with non-root-reference for ") + what);
+          return Status::NotImplemented(
+              "substrait::Expression with non-root-reference for ", what);
         }
       }
       switch (selection.reference_type_case()) {
         case substrait::Expression_FieldReference::ReferenceTypeCase::kDirectReference: {
           const auto& direct_reference = selection.direct_reference();
           switch (direct_reference.reference_type_case()) {
-            case substrait::Expression_ReferenceSegment::ReferenceTypeCase::kStructField:
-            {
+            case substrait::Expression_ReferenceSegment::ReferenceTypeCase::
+                kStructField: {
               break;
             }
             default: {
-              return Status::NotImplemented(std::string(
-                  "substrait::Expression with non-struct-field for ") + what);
+              return Status::NotImplemented(
+                  "substrait::Expression with non-struct-field for ", what);
             }
           }
           const auto& struct_field = direct_reference.struct_field();
           if (struct_field.has_child()) {
-            return Status::NotImplemented(std::string(
-                "substrait::Expression with non-flat struct-field for ") + what);
+            return Status::NotImplemented(
+                "substrait::Expression with non-flat struct-field for ", what);
           }
           index = struct_field.field();
           break;
         }
         default: {
-          return Status::NotImplemented(std::string(
-              "substrait::Expression with non-direct reference for ") + what);
+          return Status::NotImplemented(
+              "substrait::Expression with non-direct reference for ", what);
         }
       }
       break;
     }
     default: {
-      return Status::NotImplemented(std::string(
-          "substrait::Expression with non-selection for ") + what);
+      return Status::NotImplemented("substrait::Expression with non-selection for ",
+                                    what);
     }
   }
   return FieldRef(FieldPath({index}));
@@ -108,16 +108,14 @@ Result<std::vector<FieldRef>> FromProto(
   std::vector<FieldRef> fields;
   int size = exprs.size();
   for (int i = 0; i < size; i++) {
-      ARROW_ASSIGN_OR_RAISE(
-          FieldRef field, FromProto(exprs[i], what));
-      fields.push_back(field);
+    ARROW_ASSIGN_OR_RAISE(FieldRef field, FromProto(exprs[i], what));
+    fields.push_back(field);
   }
   return fields;
 }
 
-Result<compute::Declaration> FromProtoInternal(
-    const substrait::Rel& rel,
-    const ExtensionSet& ext_set) {
+Result<compute::Declaration> FromProtoInternal(const substrait::Rel& rel,
+                                               const ExtensionSet& ext_set) {
   static bool dataset_init = false;
   if (!dataset_init) {
     dataset_init = true;
@@ -407,10 +405,10 @@ Result<compute::Declaration> FromProtoInternal(
       }
 
       const auto& v1 = as_of_merge.v1();
-      ARROW_ASSIGN_OR_RAISE(
-          auto key_fields, FromProto(v1.key_fields(), "AsOfMerge key field"));
-      ARROW_ASSIGN_OR_RAISE(
-          auto time_fields, FromProto(v1.time_fields(), "AsOfMerge time field"));
+      ARROW_ASSIGN_OR_RAISE(auto key_fields,
+                            FromProto(v1.key_fields(), "AsOfMerge key field"));
+      ARROW_ASSIGN_OR_RAISE(auto time_fields,
+                            FromProto(v1.time_fields(), "AsOfMerge time field"));
       int64_t tolerance = as_of_merge.v1().tolerance();
 
       std::vector<compute::Declaration::Input> inputs;
@@ -421,10 +419,8 @@ Result<compute::Declaration> FromProtoInternal(
         inputs.push_back(input);
       }
       return compute::Declaration{
-          "as_of_merge",
-          inputs,
-          compute::AsOfMergeV1NodeOptions{key_fields, time_fields, tolerance}
-      };
+          "as_of_merge", inputs,
+          compute::AsOfMergeV1NodeOptions{key_fields, time_fields, tolerance}};
     }
 
     case substrait::Rel::RelTypeCase::kJoin: {

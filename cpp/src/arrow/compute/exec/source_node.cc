@@ -286,7 +286,7 @@ struct RecordBatchSourceNode : public SourceNode {
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName.c_str()));
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName));
     const auto& rb_options = checked_cast<const RecordBatchSourceNodeOptions&>(options);
     auto& batch_it_maker = rb_options.batch_it_maker;
     auto& schema = rb_options.schema;
@@ -300,15 +300,15 @@ struct RecordBatchSourceNode : public SourceNode {
     return plan->EmplaceNode<RecordBatchSourceNode>(plan, schema, generator);
   }
 
-  const char* kind_name() const override { return kKindName.c_str(); }
+  const char* kind_name() const override { return kKindName; }
 
   static arrow::Status ValidateRecordBatchSourceNodeInput(
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     if (schema == NULLPTR) {
-      return Status::Invalid(kKindName + " requires schema which is not null");
+      return Status::Invalid(kKindName, " requires schema which is not null");
     }
     if (io_executor == NULLPTR) {
-      return Status::Invalid(kKindName + " requires IO-context which is not null");
+      return Status::Invalid(kKindName, " requires IO-context which is not null");
     }
 
     return Status::OK();
@@ -318,7 +318,8 @@ struct RecordBatchSourceNode : public SourceNode {
       Iterator<std::shared_ptr<RecordBatch>>& batch_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     auto to_exec_batch =
-        [&schema](const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
+        [&schema](
+            const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
       if (batch == NULLPTR || batch->schema() != schema) {
         return util::nullopt;
       }
@@ -329,10 +330,10 @@ struct RecordBatchSourceNode : public SourceNode {
   }
 
  private:
-  static const std::string kKindName;
+  static const char kKindName[];
 };
 
-const std::string RecordBatchSourceNode::kKindName = "RecordBatchSourceNode";
+const char RecordBatchSourceNode::kKindName[] = "RecordBatchSourceNode";
 
 struct ExecBatchSourceNode : public SourceNode {
   ExecBatchSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
@@ -341,7 +342,7 @@ struct ExecBatchSourceNode : public SourceNode {
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName.c_str()));
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName));
     const auto& eb_options = checked_cast<const ExecBatchSourceNodeOptions&>(options);
     auto& batch_it_maker = eb_options.batch_it_maker;
     auto& schema = eb_options.schema;
@@ -355,15 +356,15 @@ struct ExecBatchSourceNode : public SourceNode {
     return plan->EmplaceNode<ExecBatchSourceNode>(plan, schema, generator);
   }
 
-  const char* kind_name() const override { return kKindName.c_str(); }
+  const char* kind_name() const override { return kKindName; }
 
   static arrow::Status ValidateExecBatchSourceNodeInput(
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     if (schema == NULLPTR) {
-      return Status::Invalid(kKindName + " requires schema which is not null");
+      return Status::Invalid(kKindName, " requires schema which is not null");
     }
     if (io_executor == NULLPTR) {
-      return Status::Invalid(kKindName + " requires IO-context which is not null");
+      return Status::Invalid(kKindName, " requires IO-context which is not null");
     }
 
     return Status::OK();
@@ -381,10 +382,10 @@ struct ExecBatchSourceNode : public SourceNode {
   }
 
  private:
-  static const std::string kKindName;
+  static const char kKindName[];
 };
 
-const std::string ExecBatchSourceNode::kKindName = "ExecBatchSourceNode";
+const char ExecBatchSourceNode::kKindName[] = "ExecBatchSourceNode";
 
 struct ArrayVectorSourceNode : public SourceNode {
   ArrayVectorSourceNode(ExecPlan* plan, std::shared_ptr<Schema> schema,
@@ -393,7 +394,7 @@ struct ArrayVectorSourceNode : public SourceNode {
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName.c_str()));
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, kKindName));
     const auto& av_options = checked_cast<const ArrayVectorSourceNodeOptions&>(options);
     auto& arrayvec_it_maker = av_options.arrayvec_it_maker;
     auto& schema = av_options.schema;
@@ -407,15 +408,15 @@ struct ArrayVectorSourceNode : public SourceNode {
     return plan->EmplaceNode<ArrayVectorSourceNode>(plan, schema, generator);
   }
 
-  const char* kind_name() const override { return kKindName.c_str(); }
+  const char* kind_name() const override { return kKindName; }
 
   static arrow::Status ValidateArrayVectorSourceNodeInput(
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     if (schema == NULLPTR) {
-      return Status::Invalid(kKindName + " requires schema which is not null");
+      return Status::Invalid(kKindName, " requires schema which is not null");
     }
     if (io_executor == NULLPTR) {
-      return Status::Invalid(kKindName + " requires IO-context which is not null");
+      return Status::Invalid(kKindName, " requires IO-context which is not null");
     }
 
     return Status::OK();
@@ -425,7 +426,8 @@ struct ArrayVectorSourceNode : public SourceNode {
       Iterator<std::shared_ptr<ArrayVector>>& arrayvec_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
     auto to_exec_batch =
-        [&schema](const std::shared_ptr<ArrayVector>& arrayvec) -> util::optional<ExecBatch> {
+        [&schema](
+            const std::shared_ptr<ArrayVector>& arrayvec) -> util::optional<ExecBatch> {
       if (arrayvec == NULLPTR || arrayvec->size() == 0) {
         return util::nullopt;
       }
@@ -433,18 +435,18 @@ struct ArrayVectorSourceNode : public SourceNode {
       for (const auto& array : *arrayvec) {
         datumvec.push_back(Datum(array));
       }
-      return util::optional<ExecBatch>(ExecBatch(std::move(datumvec),
-                                                 (*arrayvec)[0]->length()));
+      return util::optional<ExecBatch>(
+          ExecBatch(std::move(datumvec), (*arrayvec)[0]->length()));
     };
     auto exec_batch_it = MakeMapIterator(to_exec_batch, std::move(arrayvec_it));
     return MakeBackgroundGenerator(std::move(exec_batch_it), io_executor);
   }
 
  private:
-  static const std::string kKindName;
+  static const char kKindName[];
 };
 
-const std::string ArrayVectorSourceNode::kKindName = "ArrayVectorSourceNode";
+const char ArrayVectorSourceNode::kKindName[] = "ArrayVectorSourceNode";
 
 Result<std::shared_ptr<RecordBatch>> MakeDatumRecordBatch(std::shared_ptr<Schema> schema,
                                                           Datum& datum) {
@@ -489,7 +491,7 @@ Result<ExecNode*> MakeFunctionSourceNode(ExecPlan* plan, std::vector<ExecNode*> 
   auto fields = checked_cast<const StructType*>(datatype.get())->fields();
   auto schema = ::arrow::schema(fields);
   if (source_node_factory == "record_source") {
-    auto next_func = [function_name, schema] () -> Result<std::shared_ptr<RecordBatch>> {
+    auto next_func = [function_name, schema]() -> Result<std::shared_ptr<RecordBatch>> {
       std::vector<Datum> args;
       ARROW_ASSIGN_OR_RAISE(auto datum, CallFunction(function_name, args));
       return MakeDatumRecordBatch(std::move(schema), datum);

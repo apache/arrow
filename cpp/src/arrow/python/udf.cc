@@ -19,8 +19,8 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/python/common.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -39,14 +39,14 @@ Status CheckOutputType(const DataType& expected, const DataType& actual) {
 }
 
 struct PythonScalarUdfKernelState : public compute::KernelState {
-  PythonScalarUdfKernelState(std::shared_ptr<OwnedRefNoGIL> function)
+  explicit PythonScalarUdfKernelState(std::shared_ptr<OwnedRefNoGIL> function)
       : function(function) {}
 
   std::shared_ptr<OwnedRefNoGIL> function;
 };
 
 struct PythonScalarUdfKernelInit {
-  PythonScalarUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function)
+  explicit PythonScalarUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function)
       : function(function) {}
 
   Result<std::unique_ptr<compute::KernelState>> operator()(
@@ -58,7 +58,7 @@ struct PythonScalarUdfKernelInit {
 };
 
 struct PythonTableUdfKernelInit {
-  PythonTableUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function_maker)
+  explicit PythonTableUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function_maker)
       : function_maker(function_maker) {
     Py_INCREF(function_maker->obj());
   }
@@ -149,10 +149,11 @@ struct PythonUdf {
   }
 };
 
-Status RegisterScalarLikeFunction(
-    PyObject* user_function, compute::KernelInit kernel_init,
-    ScalarUdfWrapperCallback wrapper, const ScalarUdfOptions& options,
-    compute::FunctionRegistry* registry) {
+Status RegisterScalarLikeFunction(PyObject* user_function,
+                                  compute::KernelInit kernel_init,
+                                  ScalarUdfWrapperCallback wrapper,
+                                  const ScalarUdfOptions& options,
+                                  compute::FunctionRegistry* registry) {
   if (!PyCallable_Check(user_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
@@ -168,8 +169,7 @@ Status RegisterScalarLikeFunction(
   compute::ScalarKernel kernel(
       compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
                                      options.arity.is_varargs),
-      std::move(exec),
-      kernel_init);
+      std::move(exec), kernel_init);
   kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
   kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
   RETURN_NOT_OK(scalar_func->AddKernel(std::move(kernel)));
@@ -187,24 +187,20 @@ Status RegisterScalarFunction(PyObject* user_function, ScalarUdfWrapperCallback 
                               compute::FunctionRegistry* registry) {
   return RegisterScalarLikeFunction(
       user_function,
-      PythonScalarUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)},
-      wrapper,
-      options,
-      registry);
+      PythonScalarUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)}, wrapper,
+      options, registry);
 }
 
 Status RegisterTableFunction(PyObject* user_function, ScalarUdfWrapperCallback wrapper,
-                              const ScalarUdfOptions& options,
-                              compute::FunctionRegistry* registry) {
+                             const ScalarUdfOptions& options,
+                             compute::FunctionRegistry* registry) {
   if (options.arity.num_args != 0 || options.arity.is_varargs) {
     return Status::Invalid("tabular function must have no arguments");
   }
   return RegisterScalarLikeFunction(
       user_function,
-      PythonTableUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)},
-      wrapper,
-      options,
-      registry);
+      PythonTableUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)}, wrapper,
+      options, registry);
 }
 
 }  // namespace py

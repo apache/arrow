@@ -80,7 +80,7 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
 /// Derived classes should add am iterator of tabular data
 class ARROW_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
  public:
-  SchemaSourceNodeOptions(std::shared_ptr<Schema> schema) : schema(schema) {}
+  explicit SchemaSourceNodeOptions(std::shared_ptr<Schema> schema) : schema(schema) {}
 
   // the schema of the record batches from the iterator
   std::shared_ptr<Schema> schema;
@@ -105,7 +105,7 @@ using ExecBatchIteratorMaker = std::function<Iterator<std::shared_ptr<ExecBatch>
 class ARROW_EXPORT ExecBatchSourceNodeOptions : public SchemaSourceNodeOptions {
  public:
   ExecBatchSourceNodeOptions(std::shared_ptr<Schema> schema,
-                               ExecBatchIteratorMaker batch_it_maker)
+                             ExecBatchIteratorMaker batch_it_maker)
       : SchemaSourceNodeOptions(schema), batch_it_maker(batch_it_maker) {}
 
   // maker of a record batch iterator which acts as the data source
@@ -283,17 +283,12 @@ class ARROW_EXPORT SinkNodeConsumer {
 };
 
 class ARROW_EXPORT NullSinkNodeConsumer : public SinkNodeConsumer {
-public:
-  virtual Status Init(const std::shared_ptr<Schema>&, BackpressureControl*) override {
+ public:
+  Status Init(const std::shared_ptr<Schema>&, BackpressureControl*) override {
     return Status::OK();
   }
-  virtual Status Consume(ExecBatch exec_batch) override {
-    return Status::OK();
-  }
-  virtual Future<> Finish() override {
-    return Status::OK();
-  }
-public:
+  Status Consume(ExecBatch exec_batch) override { return Status::OK(); }
+  Future<> Finish() override { return Status::OK(); }
   static std::shared_ptr<NullSinkNodeConsumer> Make() {
     return std::make_shared<NullSinkNodeConsumer>();
   }
@@ -523,11 +518,8 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT AsOfMergeV1NodeOptions : public ExecNodeOptions {
  public:
   AsOfMergeV1NodeOptions(std::vector<FieldRef> key_fields,
-                         std::vector<FieldRef> time_fields,
-                         int64_t tolerance)
-      : key_fields(key_fields),
-        time_fields(time_fields),
-        tolerance(tolerance) {}
+                         std::vector<FieldRef> time_fields, int64_t tolerance)
+      : key_fields(key_fields), time_fields(time_fields), tolerance(tolerance) {}
 
   std::vector<FieldRef> key_fields;
   std::vector<FieldRef> time_fields;

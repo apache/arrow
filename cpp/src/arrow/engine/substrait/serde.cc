@@ -95,16 +95,12 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
   return DeserializePlans(
-      buf,
-      "consuming_sink",
+      buf, "consuming_sink",
       [&consumer_factory]() {
-          return std::make_shared<compute::ConsumingSinkNodeOptions>(
-              compute::ConsumingSinkNodeOptions{consumer_factory()}
-          );
+        return std::make_shared<compute::ConsumingSinkNodeOptions>(
+            compute::ConsumingSinkNodeOptions{consumer_factory()});
       },
-      registry,
-      ext_set_out
-  );
+      registry, ext_set_out);
 }
 
 Result<std::vector<compute::Declaration>> DeserializePlans(
@@ -144,19 +140,21 @@ Result<std::vector<UdfDeclaration>> DeserializePlanUdfs(
           const auto& in_types = udf.input_types();
           int size = in_types.size();
           std::vector<std::pair<std::shared_ptr<DataType>, bool>> input_types;
-          for (int i=0; i<size; i++) {
+          for (int i = 0; i < size; i++) {
             ARROW_ASSIGN_OR_RAISE(auto input_type, FromProto(in_types.Get(i), ext_set));
             input_types.push_back(std::move(input_type));
           }
           ARROW_ASSIGN_OR_RAISE(auto output_type, FromProto(udf.output_type(), ext_set));
           decls.push_back(std::move(UdfDeclaration{
-            fn.name(),
-            udf.code(),
-            udf.summary(),
-            udf.description(),
-            std::move(input_types),
-            std::move(output_type),
-            udf.func_type_case() == substrait::extensions::SimpleExtensionDeclaration::ExtensionFunction::UserDefinedFunction::FuncTypeCase::kTabular,
+              fn.name(),
+              udf.code(),
+              udf.summary(),
+              udf.description(),
+              std::move(input_types),
+              std::move(output_type),
+              udf.func_type_case() ==
+                  substrait::extensions::SimpleExtensionDeclaration::ExtensionFunction::
+                      UserDefinedFunction::FuncTypeCase::kTabular,
           }));
         }
         break;

@@ -448,9 +448,8 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
           custom_metadata, std::move(dataset_writer), write_options);
 
   ARROW_ASSIGN_OR_RAISE(
-      auto node,
-      compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
-                            compute::ConsumingSinkNodeOptions{consumer}));
+      auto node, compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
+                                       compute::ConsumingSinkNodeOptions{consumer}));
 
   // this is a workaround specific for Arrow Substrait code paths
   // Arrow Substrait creates ExecNodeOptions instances within a Declaration

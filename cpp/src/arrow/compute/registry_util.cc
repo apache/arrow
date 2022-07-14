@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/registry.h"
-
-#include "arrow/compute/registry.h"
+#include "arrow/compute/registry_util.h"
 
 namespace arrow {
 namespace compute {

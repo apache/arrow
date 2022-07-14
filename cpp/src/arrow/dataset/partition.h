@@ -97,7 +97,7 @@ class ARROW_DS_EXPORT Partitioning {
 };
 
 class ARROW_DS_EXPORT EmptyPartitioning : public Partitioning {
-public:
+ public:
   EmptyPartitioning() : Partitioning(::arrow::schema({})) {}
 
   std::string type_name() const override { return "empty"; }

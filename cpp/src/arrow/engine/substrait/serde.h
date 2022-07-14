@@ -24,9 +24,9 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/dataset/file_base.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"

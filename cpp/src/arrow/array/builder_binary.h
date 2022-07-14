@@ -425,9 +425,7 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 
   std::shared_ptr<DataType> type() const override { return utf8(); }
 
-  util::string_view operator[](int64_t i) const {
-    return GetView(i);
-  }
+  util::string_view operator[](int64_t i) const { return GetView(i); }
 };
 
 /// \class LargeBinaryBuilder
