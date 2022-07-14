@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# For some reason, the glimpse output is different on 3.5
+skip_if_r_version("3.5.0")
+
 library(dplyr, warn.conflicts = FALSE)
 
 test_that("glimpse() Table/ChunkedArray", {
