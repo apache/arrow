@@ -215,13 +215,6 @@ test_that("case_when()", {
   # with namespacing
   compare_dplyr_binding(
     .input %>%
-      transmute(cw = dplyr::case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
-      collect(),
-    tbl
-  )
-
-  compare_dplyr_binding(
-    .input %>%
       filter(dplyr::case_when(
         dbl + int - 1.1 == dbl2 ~ TRUE,
         NA ~ NA,
