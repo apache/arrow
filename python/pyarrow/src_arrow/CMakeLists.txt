@@ -196,6 +196,12 @@ include(CMakePackageConfigHelpers)
 # (CMAKE_INSTALL_PREFIX = python/build/dist! should be set in setup.py!)
 set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
+# Changing ARROW_SOURCE_DIR for sdist build
+# In this case cpp/cmake_modules doesn't exist
+if(EXIST "${ARROW_SOURCE_DIR}/cmake_modules/Find${MODULE}.cmake")
+  set(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR})
+endif()
+
 add_arrow_lib(arrow_python
               CMAKE_PACKAGE_NAME
               ArrowPython
