@@ -811,7 +811,7 @@ test_that("format date/time", {
     withr::local_locale(LC_TIME = "C")
   }
   # In 3.4 the lack of tzone attribute causes spurious failures
-  skip_if_r_version("3.4.4")
+  skip_on_r_older_than("3.5")
 
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
