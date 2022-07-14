@@ -35,6 +35,11 @@ If this function is appropriate for more than one signature, pass a
 \item{out_type}{A \link{DataType} of the output type or a function accepting
 a single argument (\code{types}), which is a \code{list()} of \link{DataType}s. If a
 function it must return a \link{DataType}.}
+
+\item{auto_convert}{Use \code{TRUE} to convert inputs before passing to \code{fun}
+and construct an Array of the correct type from the output. Use this
+option to write functions of R objects as opposed to functions of
+Arrow R6 objects.}
 }
 \value{
 \itemize{

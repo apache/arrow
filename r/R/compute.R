@@ -336,6 +336,10 @@ cast_options <- function(safe = TRUE, ...) {
 #'   `auto_convert` is `TRUE`, subsequent arguments are converted to
 #'   R vectors before being passed to `fun` and the output is automatically
 #'   constructed with the expected output type via [as_arrow_array()].
+#' @param auto_convert Use `TRUE` to convert inputs before passing to `fun`
+#'   and construct an Array of the correct type from the output. Use this
+#'   option to write functions of R objects as opposed to functions of
+#'   Arrow R6 objects.
 #'
 #' @return
 #'   - `register_user_defined_function()`: `NULL`, invisibly
