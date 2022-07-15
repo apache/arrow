@@ -1356,4 +1356,8 @@ test_that("can add in augmented fields", {
     mutate(file_name = add_filenames()) %>%
     collect()
 
+  expect_named(
+    ds,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file_name")
+  )
 })
