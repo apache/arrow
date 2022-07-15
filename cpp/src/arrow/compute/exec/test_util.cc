@@ -465,21 +465,24 @@ std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties) {
   std::vector<std::shared_ptr<Array>> columns;
   columns.reserve(total_columns);
   arrow::FieldVector field_vector = arrow::FieldVector();
-  std::vector<std::shared_ptr<arrow::Field>> schema_fields;
+  field_vector.reserve(total_columns);
+
   field_vector.push_back(std::make_shared<Field>("time", int64()));
   field_vector.push_back(std::make_shared<Field>("id", int32()));
+
   int num_rows = 0;
-  std::vector<int64_t> frequency_column;
+  std::vector<int64_t> time_column;
   std::vector<int32_t> id_column;
-  for (int j = 0; j < properties.num_ids; j++) {
-    for (int i = properties.start; i <= properties.end; i += properties.time_frequency) {
-      frequency_column.push_back(i);
-      id_column.push_back(j);
+  for (int id = 0; id < properties.num_ids; id++) {
+    for (int time = properties.start; time <= properties.end;
+         time += properties.time_frequency) {
+      time_column.push_back(time);
+      id_column.push_back(id);
       num_rows += 1;
     }
   }
   std::shared_ptr<Array> time_array;
-  ArrayFromVector<Int64Type, int64_t>(int64(), frequency_column, &time_array);
+  ArrayFromVector<Int64Type, int64_t>(int64(), time_column, &time_array);
   columns.push_back(time_array);
   std::shared_ptr<Array> id_array;
   ArrayFromVector<Int32Type, int32_t>(int32(), id_column, &id_array);
