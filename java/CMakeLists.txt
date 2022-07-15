@@ -27,12 +27,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ARROW_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
 
-include(CMakeDependentOption)
-cmake_dependent_option(ARROW_JNI_ENABLE_C
-                       "Enable C data interface"
-                       ON
-                       "ARROW_JNI_ENABLE_DEFAULT"
-                       OFF)
+option(ARROW_JNI_ENABLE_C "Enable C data interface" ${ARROW_JNI_ENABLE_DEFAULT})
 
 find_package(Java REQUIRED)
 find_package(JNI REQUIRED)
