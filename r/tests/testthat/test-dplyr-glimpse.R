@@ -17,7 +17,7 @@
 
 # The glimpse output for tests with `example_data` is different on R < 3.6
 # because the `lgl` column is generated with `sample()` and the RNG
-# algorithm is different in older R versions. 
+# algorithm is different in older R versions.
 skip_on_r_older_than("3.6")
 
 library(dplyr, warn.conflicts = FALSE)
