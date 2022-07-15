@@ -25,7 +25,6 @@ test_that("register_binding() works", {
   expect_identical(fake_registry$`some.pkg::some_fun`, fun1)
 
   expect_identical(register_binding("some.pkg::some_fun", NULL, fake_registry), fun1)
-  expect_false("some_fun" %in% names(fake_registry))
   expect_silent(expect_null(register_binding("some.pkg::some_fun", NULL, fake_registry)))
 
   expect_null(register_binding("somePkg::some_fun", fun1, fake_registry))
@@ -33,7 +32,7 @@ test_that("register_binding() works", {
 
   expect_warning(
     register_binding("some.pkg2::some_fun", fun2, fake_registry),
-    "A \"some_fun\" binding already exists in the register and will be overwritten."
+    "A \"some_fun\" binding already exists in the registry and will be overwritten."
   )
 })
 
