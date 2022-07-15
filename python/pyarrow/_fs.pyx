@@ -383,7 +383,7 @@ cdef class FileSelector(_Weakrefable):
 
     >>> selector_2 = fs.FileSelector(local_path + '/alphabet')
     >>> local.get_file_info(selector_2)
-    [<FileInfo for '/.../alphabet/subdir': type=FileType.Directory>, <FileInfo for '/.../alphabet/pyarrow-s-example.dat':...
+    [<FileInfo for '/.../alphabet/pyarrow-s-example.dat': type=FileType.File, size=4>, <FileInfo for 'alphabet/subdir'...]
 
     Return empty selection if the directory doesn't exist:
 
