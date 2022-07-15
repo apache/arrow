@@ -315,7 +315,8 @@ class build_ext(_build_ext):
                     if os.path.exists(libname_path):
                         os.remove(libname_path)
                     print(
-                        f"Copying {pjoin(build_dir, folder_name, libname)} to {pjoin(build_lib, 'pyarrow')}")
+                        f"Copying {pjoin(build_dir, folder_name, libname)}"
+                        f" to {pjoin(build_lib, 'pyarrow', libname)}")
                     shutil.copy(pjoin(build_dir, folder_name, libname),
                                 pjoin(build_lib, "pyarrow"))
 
@@ -336,7 +337,8 @@ class build_ext(_build_ext):
             if os.path.exists(pyarrow_include):
                 shutil.rmtree(pyarrow_include)
             print(
-                f"Copying include folder: {arrow_python_include} to {pyarrow_include}")
+                f"Copying include folder: {arrow_python_include}"
+                f" to {pyarrow_include}")
             shutil.copytree(arrow_python_include, pyarrow_include)
 
     def _run_cmake(self):
