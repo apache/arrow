@@ -239,7 +239,6 @@ class build_ext(_build_ext):
         # The directory containing this C PyArrow CMakeLists.txt
         source_cpyarrow = pjoin(source, "pyarrow/src_arrow")
 
-
         # The directory for the module being built
         build_cmd = self.get_finalized_command('build')
         saved_cwd = os.getcwd()
@@ -316,7 +315,7 @@ class build_ext(_build_ext):
                     if os.path.exists(libname_path):
                         os.remove(libname_path)
                     print(
-                        f"Copying {pjoin(build_dir,folder_name, libname)} to {pjoin(build_lib, 'pyarrow')}")
+                        f"Copying {pjoin(build_dir, folder_name, libname)} to {pjoin(build_lib, 'pyarrow')}")
                     shutil.copy(pjoin(build_dir, folder_name, libname),
                                 pjoin(build_lib, "pyarrow"))
 
@@ -324,9 +323,11 @@ class build_ext(_build_ext):
             for libname in os.listdir(pjoin(build_dir, 'lib')):
                 copy_libs(libname, 'lib')
             # For windows builds, move dll from bin
-            if os.path.isdir(pjoin(build_dir,' bin')):
+            try:
                 for libname in os.listdir(pjoin(build_dir, 'bin')):
                     copy_libs(libname, 'bin')
+            except OSError:
+                pass
 
             # Copy headers tp python/pyarrow/include
             arrow_python_include = pjoin(build_include, "arrow", "python")
