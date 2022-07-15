@@ -158,7 +158,7 @@ as_writable_table <- function(x) {
 #' @keywords internal
 recycle_scalars <- function(arrays) {
   # Get lengths of items in arrays
-  arr_lens <- map_int(arrays, NROW)
+  arr_lens <- map_dbl(arrays, NROW)
 
   is_scalar <- arr_lens == 1
 

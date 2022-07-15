@@ -42,7 +42,7 @@ arrow_dplyr_query <- function(.data) {
   gv <- tryCatch(
     # If dplyr is not available, or if the input doesn't have a group_vars
     # method, assume no group vars
-    dplyr::group_vars(.data) %||% character(),
+    dplyr::group_vars(.data),
     error = function(e) character()
   )
 

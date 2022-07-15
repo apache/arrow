@@ -87,7 +87,7 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
             "items": [
               {
                 "uri_file": "file://FILENAME_PLACEHOLDER",
-                "format": "FILE_FORMAT_PARQUET"
+                "parquet": {}
               }
             ]
           }

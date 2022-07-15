@@ -136,9 +136,7 @@ class SinkNode : public ExecNode {
                        {{"node.label", label()},
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
-    finished_ = Future<>::Make();
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
-
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     return Status::OK();
   }
 
@@ -160,8 +158,6 @@ class SinkNode : public ExecNode {
     Finish();
     inputs_[0]->StopProducing(this);
   }
-
-  Future<> finished() override { return finished_; }
 
   void RecordBackpressureBytesUsed(const ExecBatch& batch) {
     if (backpressure_queue_.enabled()) {
@@ -287,6 +283,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
                        {{"node.label", label()},
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     DCHECK_GT(inputs_.size(), 0);
     auto output_schema = inputs_[0]->output_schema();
     if (names_.size() > 0) {
@@ -303,8 +300,6 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
       output_schema = schema(std::move(fields));
     }
     RETURN_NOT_OK(consumer_->Init(output_schema, this));
-    finished_ = Future<>::Make();
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }
 
@@ -326,11 +321,9 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
 
   void StopProducing() override {
     EVENT(span_, "StopProducing");
-    Finish(Status::Invalid("ExecPlan was stopped early"));
+    Finish(Status::OK());
     inputs_[0]->StopProducing(this);
   }
-
-  Future<> finished() override { return finished_; }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
@@ -365,9 +358,7 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
     EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
 
-    if (input_counter_.Cancel()) {
-      Finish(std::move(error));
-    }
+    if (input_counter_.Cancel()) Finish(error);
 
     inputs_[0]->StopProducing(this);
   }

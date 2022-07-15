@@ -19,6 +19,7 @@
 
 #include "arrow/api.h"
 #include "arrow/compute/exec/hash_join.h"
+#include "arrow/compute/exec/hash_join_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/exec/util.h"
@@ -38,6 +39,9 @@ namespace compute {
 struct BenchmarkSettings {
   int num_threads = 1;
   JoinType join_type = JoinType::INNER;
+  // Change to 'true' to benchmark alternative, non-default and less optimized version of
+  // a hash join node implementation.
+  bool use_basic_implementation = false;
   int batch_size = 1024;
   int num_build_batches = 32;
   int num_probe_batches = 32 * 16;
@@ -53,8 +57,6 @@ struct BenchmarkSettings {
 class JoinBenchmark {
  public:
   explicit JoinBenchmark(BenchmarkSettings& settings) {
-    bool is_parallel = settings.num_threads != 1;
-
     SchemaBuilder l_schema_builder, r_schema_builder;
     std::vector<FieldRef> left_keys, right_keys;
     std::vector<JoinKeyCmp> key_cmp;
@@ -78,6 +80,8 @@ class JoinBenchmark {
       build_metadata["null_probability"] = std::to_string(settings.null_percentage);
       build_metadata["min"] = std::to_string(min_build_value);
       build_metadata["max"] = std::to_string(max_build_value);
+      build_metadata["min_length"] = "2";
+      build_metadata["max_length"] = "20";
 
       std::unordered_map<std::string, std::string> probe_metadata;
       probe_metadata["null_probability"] = std::to_string(settings.null_percentage);
@@ -122,9 +126,8 @@ class JoinBenchmark {
 
     stats_.num_probe_rows = settings.num_probe_batches * settings.batch_size;
 
-    ctx_ = arrow::internal::make_unique<ExecContext>(
-        default_memory_pool(),
-        is_parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+    ctx_ = arrow::internal::make_unique<ExecContext>(default_memory_pool(),
+                                                     arrow::internal::GetCpuThreadPool());
 
     schema_mgr_ = arrow::internal::make_unique<HashJoinSchema>();
     Expression filter = literal(true);
@@ -132,7 +135,11 @@ class JoinBenchmark {
                                 left_keys, *r_batches_with_schema.schema, right_keys,
                                 filter, "l_", "r_"));
 
-    join_ = *HashJoinImpl::MakeBasic();
+    if (settings.use_basic_implementation) {
+      join_ = *HashJoinImpl::MakeBasic();
+    } else {
+      join_ = *HashJoinImpl::MakeSwiss();
+    }
 
     omp_set_num_threads(settings.num_threads);
     auto schedule_callback = [](std::function<Status(size_t)> func) -> Status {
@@ -142,10 +149,22 @@ class JoinBenchmark {
     };
 
     scheduler_ = TaskScheduler::Make();
+
+    auto register_task_group_callback = [&](std::function<Status(size_t, int64_t)> task,
+                                            std::function<Status(size_t)> cont) {
+      return scheduler_->RegisterTaskGroup(std::move(task), std::move(cont));
+    };
+
+    auto start_task_group_callback = [&](int task_group_id, int64_t num_tasks) {
+      return scheduler_->StartTaskGroup(omp_get_thread_num(), task_group_id, num_tasks);
+    };
+
     DCHECK_OK(join_->Init(
-        ctx_.get(), settings.join_type, settings.num_threads, schema_mgr_.get(),
-        std::move(key_cmp), std::move(filter), [](ExecBatch) {}, [](int64_t x) {},
-        scheduler_.get()));
+        ctx_.get(), settings.join_type, settings.num_threads,
+        &(schema_mgr_->proj_maps[0]), &(schema_mgr_->proj_maps[1]), std::move(key_cmp),
+        std::move(filter), std::move(register_task_group_callback),
+        std::move(start_task_group_callback), [](int64_t, ExecBatch) {},
+        [](int64_t x) {}));
 
     task_group_probe_ = scheduler_->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
@@ -159,7 +178,8 @@ class JoinBenchmark {
 
     DCHECK_OK(scheduler_->StartScheduling(
         0 /*thread index*/, std::move(schedule_callback),
-        static_cast<int>(2 * settings.num_threads) /*concurrent tasks*/, !is_parallel));
+        static_cast<int>(2 * settings.num_threads) /*concurrent tasks*/,
+        settings.num_threads == 1));
   }
 
   void RunJoin() {

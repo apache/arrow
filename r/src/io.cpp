@@ -51,9 +51,9 @@ void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x)
 // ------ arrow::io::RandomAccessFile
 
 // [[arrow::export]]
-int64_t io___RandomAccessFile__GetSize(
+r_vec_size io___RandomAccessFile__GetSize(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  return ValueOrStop(x->GetSize());
+  return r_vec_size(ValueOrStop(x->GetSize()));
 }
 
 // [[arrow::export]]
@@ -69,9 +69,9 @@ void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFi
 }
 
 // [[arrow::export]]
-int64_t io___RandomAccessFile__Tell(
+r_vec_size io___RandomAccessFile__Tell(
     const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
-  return ValueOrStop(x->Tell());
+  return r_vec_size(ValueOrStop(x->Tell()));
 }
 
 // [[arrow::export]]
@@ -161,8 +161,9 @@ void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream,
 // ------- arrow::io::OutputStream
 
 // [[arrow::export]]
-int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream) {
-  return ValueOrStop(stream->Tell());
+r_vec_size io___OutputStream__Tell(
+    const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  return r_vec_size(ValueOrStop(stream->Tell()));
 }
 
 // ------ arrow::io::FileOutputStream
@@ -183,9 +184,9 @@ std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(
 }
 
 // [[arrow::export]]
-int64_t io___BufferOutputStream__capacity(
+r_vec_size io___BufferOutputStream__capacity(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  return stream->capacity();
+  return r_vec_size(stream->capacity());
 }
 
 // [[arrow::export]]
@@ -195,9 +196,9 @@ std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(
 }
 
 // [[arrow::export]]
-int64_t io___BufferOutputStream__Tell(
+r_vec_size io___BufferOutputStream__Tell(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  return ValueOrStop(stream->Tell());
+  return r_vec_size(ValueOrStop(stream->Tell()));
 }
 
 // [[arrow::export]]

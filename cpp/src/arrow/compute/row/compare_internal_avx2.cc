@@ -44,6 +44,9 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
   if (!rows.has_any_nulls(ctx) && !col.data(0)) {
     return num_rows_to_compare;
   }
+
+  uint32_t null_bit_id = rows.metadata().pos_after_encoding(id_col);
+
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
     const uint8_t* null_masks = rows.null_masks();
@@ -63,7 +66,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
       }
       __m256i bitid =
           _mm256_mullo_epi32(irow_right, _mm256_set1_epi32(null_mask_num_bytes * 8));
-      bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(id_col));
+      bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(null_bit_id));
       __m256i right =
           _mm256_i32gather_epi32((const int*)null_masks, _mm256_srli_epi32(bitid, 3), 1);
       right = _mm256_and_si256(
@@ -80,7 +83,8 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
     num_processed = num_rows_to_compare / unroll * unroll;
     return num_processed;
   } else if (!rows.has_any_nulls(ctx)) {
-    // Remove rows from the result for which the column value on left side is null
+    // Remove rows from the result for which the column value on left side is
+    // null
     const uint8_t* non_nulls = col.data(0);
     ARROW_DCHECK(non_nulls);
     uint32_t num_processed = 0;
@@ -145,7 +149,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
       }
       __m256i bitid =
           _mm256_mullo_epi32(irow_right, _mm256_set1_epi32(null_mask_num_bytes * 8));
-      bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(id_col));
+      bitid = _mm256_add_epi32(bitid, _mm256_set1_epi32(null_bit_id));
       __m256i right =
           _mm256_i32gather_epi32((const int*)null_masks, _mm256_srli_epi32(bitid, 3), 1);
       right = _mm256_and_si256(
@@ -252,22 +256,22 @@ inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* r
                                       int bit_offset = 0) {
   __m256i left;
   switch (column_width) {
-    case 0:
+    case 0: {
       irow_left = _mm256_add_epi32(irow_left, _mm256_set1_epi32(bit_offset));
       left = _mm256_i32gather_epi32((const int*)left_base,
-                                    _mm256_srli_epi32(irow_left, 3), 1);
-      left = _mm256_and_si256(
-          _mm256_set1_epi32(1),
-          _mm256_srlv_epi32(left, _mm256_and_si256(irow_left, _mm256_set1_epi32(7))));
-      left = _mm256_mullo_epi32(left, _mm256_set1_epi32(0xff));
-      break;
+                                    _mm256_srli_epi32(irow_left, 5), 4);
+      __m256i bit_selection = _mm256_sllv_epi32(
+          _mm256_set1_epi32(1), _mm256_and_si256(irow_left, _mm256_set1_epi32(31)));
+      left = _mm256_cmpeq_epi32(bit_selection, _mm256_and_si256(left, bit_selection));
+      left = _mm256_and_si256(left, _mm256_set1_epi32(0xff));
+    } break;
     case 1:
       left = _mm256_i32gather_epi32((const int*)left_base, irow_left, 1);
       left = _mm256_and_si256(left, _mm256_set1_epi32(0xff));
       break;
     case 2:
       left = _mm256_i32gather_epi32((const int*)left_base, irow_left, 2);
-      left = _mm256_and_si256(left, _mm256_set1_epi32(0xff));
+      left = _mm256_and_si256(left, _mm256_set1_epi32(0xffff));
       break;
     case 4:
       left = _mm256_i32gather_epi32((const int*)left_base, irow_left, 4);
@@ -311,15 +315,15 @@ inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_bas
     } break;
     case 1:
       left = _mm256_cvtepu8_epi32(_mm_set1_epi64x(
-          reinterpret_cast<const uint64_t*>(left_base)[irow_left_first / 8]));
+          *reinterpret_cast<const uint64_t*>(left_base + irow_left_first)));
       break;
     case 2:
       left = _mm256_cvtepu16_epi32(_mm_loadu_si128(
-          reinterpret_cast<const __m128i*>(left_base) + irow_left_first / 8));
+          reinterpret_cast<const __m128i*>(left_base + 2 * irow_left_first)));
       break;
     case 4:
-      left = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_base) +
-                                irow_left_first / 8);
+      left = _mm256_loadu_si256(
+          reinterpret_cast<const __m256i*>(left_base + 4 * irow_left_first));
       break;
     default:
       ARROW_DCHECK(false);
@@ -347,19 +351,17 @@ inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* rig
                                     __m256i offset_right) {
   auto left_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(left_base);
-  __m256i left_lo =
-      _mm256_i32gather_epi64(left_base_i64, _mm256_castsi256_si128(irow_left), 8);
-  __m256i left_hi =
-      _mm256_i32gather_epi64(left_base_i64, _mm256_extracti128_si256(irow_left, 1), 8);
+  __m256i left_lo, left_hi;
   if (use_selection) {
     left_lo = _mm256_i32gather_epi64(left_base_i64, _mm256_castsi256_si128(irow_left), 8);
     left_hi =
         _mm256_i32gather_epi64(left_base_i64, _mm256_extracti128_si256(irow_left, 1), 8);
   } else {
-    left_lo = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_base) +
-                                 irow_left_first / 4);
-    left_hi = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_base) +
-                                 irow_left_first / 4 + 1);
+    left_lo = _mm256_loadu_si256(
+        reinterpret_cast<const __m256i*>(left_base + irow_left_first * sizeof(uint64_t)));
+    left_hi = _mm256_loadu_si256(
+        reinterpret_cast<const __m256i*>(left_base + irow_left_first * sizeof(uint64_t)) +
+        1);
   }
   auto right_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(right_base);
@@ -532,7 +534,7 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
       const __m256i* key_right_ptr =
           reinterpret_cast<const __m256i*>(rows_right + begin_right);
       int32_t j;
-      // length can be zero
+      // length is greater than zero
       for (j = 0; j < (static_cast<int32_t>(length) + 31) / 32 - 1; ++j) {
         __m256i key_left = _mm256_loadu_si256(key_left_ptr + j);
         __m256i key_right = _mm256_loadu_si256(key_right_ptr + j);
@@ -569,6 +571,15 @@ uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
     const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
     LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
     uint8_t* match_bytevector) {
+  int64_t num_rows_safe =
+      TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(), col.bit_offset(0));
+  if (sel_left_maybe_null) {
+    num_rows_to_compare = static_cast<uint32_t>(TailSkipForSIMD::FixSelection(
+        num_rows_safe, static_cast<int>(num_rows_to_compare), sel_left_maybe_null));
+  } else {
+    num_rows_to_compare = static_cast<uint32_t>(num_rows_safe);
+  }
+
   if (use_selection) {
     return NullUpdateColumnToRowImp_avx2<true>(id_col, num_rows_to_compare,
                                                sel_left_maybe_null, left_to_right_map,
@@ -585,6 +596,29 @@ uint32_t KeyCompare::CompareBinaryColumnToRow_avx2(
     const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
     LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
     uint8_t* match_bytevector) {
+  uint32_t col_width = col.metadata().fixed_length;
+  int64_t num_rows_safe = col.length();
+  if (col_width == 0) {
+    // In this case we will access left column memory 4B at a time
+    num_rows_safe =
+        TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(), col.bit_offset(1));
+  } else if (col_width == 1 || col_width == 2) {
+    // In this case we will access left column memory 4B at a time
+    num_rows_safe =
+        TailSkipForSIMD::FixBinaryAccess(sizeof(uint32_t), col.length(), col_width);
+  } else if (col_width != 4 && col_width != 8) {
+    // In this case we will access left column memory 32B at a time
+    num_rows_safe =
+        TailSkipForSIMD::FixBinaryAccess(sizeof(__m256i), col.length(), col_width);
+  }
+  if (sel_left_maybe_null) {
+    num_rows_to_compare = static_cast<uint32_t>(TailSkipForSIMD::FixSelection(
+        num_rows_safe, static_cast<int>(num_rows_to_compare), sel_left_maybe_null));
+  } else {
+    num_rows_to_compare = static_cast<uint32_t>(
+        std::min(num_rows_safe, static_cast<int64_t>(num_rows_to_compare)));
+  }
+
   if (use_selection) {
     return CompareBinaryColumnToRowImp_avx2<true>(offset_within_row, num_rows_to_compare,
                                                   sel_left_maybe_null, left_to_right_map,
@@ -596,11 +630,20 @@ uint32_t KeyCompare::CompareBinaryColumnToRow_avx2(
   }
 }
 
-void KeyCompare::CompareVarBinaryColumnToRow_avx2(
+uint32_t KeyCompare::CompareVarBinaryColumnToRow_avx2(
     bool use_selection, bool is_first_varbinary_col, uint32_t id_varlen_col,
     uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
     const RowTableImpl& rows, uint8_t* match_bytevector) {
+  int64_t num_rows_safe =
+      TailSkipForSIMD::FixVarBinaryAccess(sizeof(__m256i), col.length(), col.offsets());
+  if (use_selection) {
+    num_rows_to_compare = static_cast<uint32_t>(TailSkipForSIMD::FixSelection(
+        num_rows_safe, static_cast<int>(num_rows_to_compare), sel_left_maybe_null));
+  } else {
+    num_rows_to_compare = static_cast<uint32_t>(num_rows_safe);
+  }
+
   if (use_selection) {
     if (is_first_varbinary_col) {
       CompareVarBinaryColumnToRowImp_avx2<true, true>(
@@ -622,6 +665,8 @@ void KeyCompare::CompareVarBinaryColumnToRow_avx2(
           col, rows, match_bytevector);
     }
   }
+
+  return num_rows_to_compare;
 }
 
 #endif

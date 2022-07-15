@@ -61,6 +61,60 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
     return out;
   }
 
+  /// \brief Returns the index of the current thread.
+  size_t GetThreadIndex();
+  /// \brief Returns the maximum number of threads that the plan could use.
+  ///
+  /// GetThreadIndex will always return something less than this, so it is safe to
+  /// e.g. make an array of thread-locals off this.
+  size_t max_concurrency() const;
+
+  /// \brief Add a future to the plan's task group.
+  ///
+  /// \param fut The future to add
+  ///
+  /// Use this when interfacing with anything that returns a future (such as IO), but
+  /// prefer ScheduleTask/StartTaskGroup inside of ExecNodes.
+  /// The below API interfaces with the scheduler to add tasks to the task group. Tasks
+  /// should be added sparingly! Prefer just doing the work immediately rather than adding
+  /// a task for it. Tasks are used in pipeline breakers that may output many more rows
+  /// than they received (such as a full outer join).
+  Status AddFuture(Future<> fut);
+
+  /// \brief Add a single function as a task to the plan's task group.
+  ///
+  /// \param fn The task to run. Takes no arguments and returns a Status.
+  Status ScheduleTask(std::function<Status()> fn);
+
+  /// \brief Add a single function as a task to the plan's task group.
+  ///
+  /// \param fn The task to run. Takes the thread index and returns a Status.
+  Status ScheduleTask(std::function<Status(size_t)> fn);
+  // Register/Start TaskGroup is a way of performing a "Parallel For" pattern:
+  // - The task function takes the thread index and the index of the task
+  // - The on_finished function takes the thread index
+  // Returns an integer ID that will be used to reference the task group in
+  // StartTaskGroup. At runtime, call StartTaskGroup with the ID and the number of times
+  // you'd like the task to be executed. The need to register a task group before use will
+  // be removed after we rewrite the scheduler.
+  /// \brief Register a "parallel for" task group with the scheduler
+  ///
+  /// \param task The function implementing the task. Takes the thread_index and
+  ///             the task index.
+  /// \param on_finished The function that gets run once all tasks have been completed.
+  /// Takes the thread_index.
+  ///
+  /// Must be called inside of ExecNode::Init.
+  int RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
+                        std::function<Status(size_t)> on_finished);
+
+  /// \brief Start the task group with the specified ID. This can only
+  ///        be called once per task_group_id.
+  ///
+  /// \param task_group_id The ID  of the task group to run
+  /// \param num_tasks The number of times to run the task
+  Status StartTaskGroup(int task_group_id, int64_t num_tasks);
+
   /// The initial inputs
   const NodeVector& sources() const;
 
@@ -157,6 +211,16 @@ class ARROW_EXPORT ExecNode {
   /// knows when it has received all input, regardless of order.
   virtual void InputFinished(ExecNode* input, int total_batches) = 0;
 
+  /// \brief Perform any needed initialization
+  ///
+  /// This hook performs any actions in between creation of ExecPlan and the call to
+  /// StartProducing. An example could be Bloom filter pushdown. The order of ExecNodes
+  /// that executes this method is undefined, but the calls are made synchronously.
+  ///
+  /// At this point a node can rely on all inputs & outputs (and the input schemas)
+  /// being well defined.
+  virtual Status Init();
+
   /// Lifecycle API:
   /// - start / stop to initiate and terminate production
   /// - pause / resume to apply backpressure
@@ -212,16 +276,6 @@ class ARROW_EXPORT ExecNode {
   // A node with multiple outputs will also need to ensure it is applying backpressure if
   // any of its outputs is asking to pause
 
-  /// \brief Perform any needed initialization
-  ///
-  /// This hook performs any actions in between creation of ExecPlan and the call to
-  /// StartProducing. An example could be Bloom filter pushdown. The order of ExecNodes
-  /// that executes this method is undefined, but the calls are made synchronously.
-  ///
-  /// At this point a node can rely on all inputs & outputs (and the input schemas)
-  /// being well defined.
-  virtual Status PrepareToProduce() { return Status::OK(); }
-
   /// \brief Start producing
   ///
   /// This must only be called once.  If this fails, then other lifecycle
@@ -263,7 +317,7 @@ class ARROW_EXPORT ExecNode {
   virtual void StopProducing() = 0;
 
   /// \brief A future which will be marked finished when this node has stopped producing.
-  virtual Future<> finished() = 0;
+  virtual Future<> finished() { return finished_; }
 
   std::string ToString(int indent = 0) const;
 
@@ -289,7 +343,7 @@ class ARROW_EXPORT ExecNode {
   NodeVector outputs_;
 
   // Future to sync finished
-  Future<> finished_ = Future<>::MakeFinished();
+  Future<> finished_ = Future<>::Make();
 
   util::tracing::Span span_;
 };
@@ -320,8 +374,6 @@ class ARROW_EXPORT MapNode : public ExecNode {
   void StopProducing(ExecNode* output) override;
 
   void StopProducing() override;
-
-  Future<> finished() override;
 
  protected:
   void SubmitTask(std::function<Result<ExecBatch>(ExecBatch)> map_fn, ExecBatch batch);
