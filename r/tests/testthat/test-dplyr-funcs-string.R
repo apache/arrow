@@ -45,14 +45,10 @@ test_that("paste, paste0, and str_c", {
   # no NAs in data
   compare_dplyr_binding(
     .input %>%
-      transmute(paste(v, w)) %>%
-      collect(),
-    df
-  )
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(base::paste(v, w)) %>%
+      transmute(
+        a = paste(v, w),
+        a2 = base::paste(v, w)
+      ) %>%
       collect(),
     df
   )
@@ -64,27 +60,18 @@ test_that("paste, paste0, and str_c", {
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(paste0(v, w)) %>%
-      collect(),
-    df
-  )
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(base::paste0(v, w)) %>%
+      transmute(
+        a = paste0(v, w),
+        a2 = base::paste0(v, w)) %>%
       collect(),
     df
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(str_c(v, w)) %>%
-      collect(),
-    df
-  )
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(stringr::str_c(v, w)) %>%
+      transmute(
+        a = str_c(v, w),
+        a2 = stringr::str_c(v, w)
+      ) %>%
       collect(),
     df
   )
@@ -319,14 +306,10 @@ test_that("str_detect", {
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
-      collect(),
-    df
-  )
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(x = stringr::str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+      transmute(
+        a = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE)),
+        a2 = stringr::str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))
+      ) %>%
       collect(),
     df
   )
@@ -463,33 +446,25 @@ test_that("str_replace and str_replace_all", {
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_replace_all(x, fixed("o"), "u")) %>%
+      transmute(
+        x = str_replace_all(x, fixed("o"), "u"),
+        x2 = stringr::str_replace_all(x, fixed("o"), "u")
+      ) %>%
       collect(),
     df
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_replace(x, fixed("O"), "u")) %>%
+      transmute(
+        x = str_replace(x, fixed("O"), "u"),
+        x2 = stringr::str_replace(x, fixed("O"), "u")
+      ) %>%
       collect(),
     df
   )
   compare_dplyr_binding(
     .input %>%
       transmute(x = str_replace(x, fixed("O", ignore_case = TRUE), "u")) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(x = stringr::str_replace_all(x, fixed("o"), "u")) %>%
-      collect(),
-    df
-  )
-  compare_dplyr_binding(
-    .input %>%
-      transmute(x = stringr::str_replace(x, fixed("O"), "u")) %>%
       collect(),
     df
   )
@@ -516,14 +491,20 @@ test_that("strsplit and str_split", {
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(x = strsplit(x, " +and +")) %>%
+      mutate(
+        a = strsplit(x, " +and +"),
+        a2 = base::strsplit(x, " +and +")
+      ) %>%
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(x = str_split(x, "and")) %>%
+      mutate(
+        a = str_split(x, "and"),
+        a2 = stringr::str_split(x, "and")
+      ) %>%
       collect(),
     df,
     ignore_attr = TRUE
@@ -556,22 +537,6 @@ test_that("strsplit and str_split", {
     df,
     ignore_attr = TRUE
   )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = base::strsplit(x, " +and +")) %>%
-      collect(),
-    df,
-    ignore_attr = TRUE
-  )
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = stringr::str_split(x, "and")) %>%
-      collect(),
-    df,
-    ignore_attr = TRUE
-  )
 })
 
 test_that("strrep and str_dup", {
@@ -600,19 +565,10 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
       transmute(
         x_lower = str_to_lower(x),
         x_upper = str_to_upper(x),
-        x_title = str_to_title(x)
-      ) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(
-        x_lower = stringr::str_to_lower(x),
-        x_upper = stringr::str_to_upper(x),
-        x_title = stringr::str_to_title(x)
+        x_title = str_to_title(x),
+        x_lower_nmspc = stringr::str_to_lower(x),
+        x_upper_nmspc = stringr::str_to_upper(x),
+        x_title_nmspc = stringr::str_to_title(x)
       ) %>%
       collect(),
     df
@@ -991,15 +947,10 @@ test_that("str_pad", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = str_pad(x, width = 31, side = "both")) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = stringr::str_pad(x, width = 31, side = "both")) %>%
+      mutate(
+        a = str_pad(x, width = 31, side = "both"),
+        a2 = stringr::str_pad(x, width = 31, side = "both")
+      ) %>%
       collect(),
     df
   )
@@ -1066,7 +1017,10 @@ test_that("substr", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = substr(x, -5, -1)) %>%
+      mutate(
+        y = substr(x, -5, -1),
+        y2 = base::substr(x, -5, -1)
+      ) %>%
       collect(),
     df
   )
@@ -1080,14 +1034,6 @@ test_that("substr", {
     call_binding("substr", "Apache Arrow", 1, c(2, 3)),
     "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y = base::substr(x, -5, -1)) %>%
-      collect(),
-    df
-  )
 })
 
 test_that("substring", {
@@ -1097,15 +1043,10 @@ test_that("substring", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = substring(x, 1, 6)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y = base::substring(x, 1, 6)) %>%
+      mutate(
+        y = substring(x, 1, 6),
+        y2 = base::substring(x, 1, 6)
+      ) %>%
       collect(),
     df
   )
@@ -1179,15 +1120,10 @@ test_that("str_sub", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = str_sub(x, -5, -1)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y = stringr::str_sub(x, -5, -1)) %>%
+      mutate(
+        y = str_sub(x, -5, -1),
+        y2 = stringr::str_sub(x, -5, -1)
+      ) %>%
       collect(),
     df
   )
@@ -1238,22 +1174,10 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     .input %>%
       transmute(
         a = str_starts(x, "b.*"),
+        a2 = stringr::str_starts(x, "b.*"),
         b = str_starts(x, "b.*", negate = TRUE),
         c = str_starts(x, fixed("b")),
         d = str_starts(x, fixed("b"), negate = TRUE)
-      ) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(
-        a = stringr::str_starts(x, "b.*"),
-        b = stringr::str_starts(x, "b.*", negate = TRUE),
-        c = stringr::str_starts(x, fixed("b")),
-        d = stringr::str_starts(x, fixed("b"), negate = TRUE)
       ) %>%
       collect(),
     df
@@ -1291,22 +1215,10 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     .input %>%
       transmute(
         a = str_ends(x, "r"),
+        a2 = stringr::str_ends(x, "r"),
         b = str_ends(x, "r", negate = TRUE),
         c = str_ends(x, fixed("r")),
         d = str_ends(x, fixed("r"), negate = TRUE)
-      ) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(
-        a = stringr::str_ends(x, "r"),
-        b = stringr::str_ends(x, "r", negate = TRUE),
-        c = stringr::str_ends(x, fixed("r")),
-        d = stringr::str_ends(x, fixed("r"), negate = TRUE)
       ) %>%
       collect(),
     df
@@ -1344,18 +1256,9 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     .input %>%
       transmute(
         a = startsWith(x, "b"),
-        b = endsWith(x, "r")
-      ) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(
-        a = base::startsWith(x, "b"),
-        b = base::endsWith(x, "r")
+        b = endsWith(x, "r"),
+        a2 = base::startsWith(x, "b"),
+        b2 = base::endsWith(x, "r")
       ) %>%
       collect(),
     df
@@ -1370,15 +1273,10 @@ test_that("str_count", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(a_count = str_count(cities, pattern = "a")) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(a_count = stringr::str_count(cities, pattern = "a")) %>%
+      mutate(
+        a_count = str_count(cities, pattern = "a"),
+        a_count_nmspc = stringr::str_count(cities, pattern = "a")
+      ) %>%
       collect(),
     df
   )
@@ -1493,25 +1391,16 @@ test_that("nchar with namespacing", {
   )
 })
 
-test_that("str_trim", {
+test_that("str_trim()", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        left_trimmed_padded_string = str_trim(padded_strings, "left"),
-        right_trimmed_padded_string = str_trim(padded_strings, "right"),
-        trimmed_padded_string = str_trim(padded_strings, "both")
-      ) %>%
-      collect(),
-    tbl
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        left_trimmed_padded_string = stringr::str_trim(padded_strings, "left"),
-        right_trimmed_padded_string = stringr::str_trim(padded_strings, "right"),
-        trimmed_padded_string = stringr::str_trim(padded_strings, "both")
+        left_trim_padded_string = str_trim(padded_strings, "left"),
+        right_trim_padded_string = str_trim(padded_strings, "right"),
+        both_trim_padded_string = str_trim(padded_strings, "both"),
+        left_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "left"),
+        right_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "right"),
+        both_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "both")
       ) %>%
       collect(),
     tbl
