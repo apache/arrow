@@ -156,16 +156,6 @@ class Random64Bit {
   columns
     - start specifies the beginning of 'time' recorded in the table
     - end specifies the end of 'time' recorded in the table
-
-    The schema is as follows:
-      time (int64)
-      id (int32)
-      [column_prefix]0 (float64)
-      [column_prefix]1 (float64)
-      ...
-      [column_prefix][num_columns] (float64)
-    Each id has rows corresponding to a singular data point in the time range (start, end,
-  time_frequency).
 */
 struct TableGenerationProperties {
   int time_frequency;
@@ -177,6 +167,15 @@ struct TableGenerationProperties {
   int end;
 };
 
+/*
+  The table generated in accordance to the TableGenerationProperties has the following
+  schema: time (int64) id (int32) [properties.column_prefix]0 (float64)
+      [properties.column_prefix]1 (float64)
+      ...
+      [properties.column_prefix][properties.num_columns] (float64)
+    Each id has rows corresponding to a singular data point in the time range (start, end,
+  time_frequency).
+*/
 std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties);
 
 }  // namespace compute

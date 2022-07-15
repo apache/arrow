@@ -75,7 +75,6 @@ static void TableJoinOverhead(benchmark::State& state,
     std::vector<ExecNode*> inputs = {left_table_stats.execNode};
     int right_hand_rows = 0;
     size_t right_hand_bytes = 0;
-    std::vector<std::shared_ptr<arrow::Schema>> schemas;
     for (int i = 0; i < num_right_tables; i++) {
       std::ostringstream string_stream;
       string_stream << "rt" << i;
@@ -89,9 +88,8 @@ static void TableJoinOverhead(benchmark::State& state,
     }
     rows = left_table_stats.total_rows + right_hand_rows;
     bytes = left_table_stats.total_bytes + right_hand_bytes;
-    AsofJoinNodeOptions options = AsofJoinNodeOptions(time_col, key_col, 0);
     ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * join_node,
-                         MakeExecNode("asofjoin", plan.get(), inputs, options));
+                         MakeExecNode(factory_name, plan.get(), inputs, options));
     AsyncGenerator<util::optional<ExecBatch>> sink_gen;
     MakeExecNode("sink", plan.get(), {join_node}, SinkNodeOptions{&sink_gen});
     state.ResumeTiming();
