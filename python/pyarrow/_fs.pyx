@@ -106,15 +106,16 @@ cdef class FileInfo(_Weakrefable):
 
     >>> from pyarrow import fs
     >>> local = fs.LocalFileSystem()
-    >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
+    >>> path_fi = local_path + '/pyarrow-fi-example.dat'
+    >>> with local.open_output_stream(path_fi) as stream:
     ...     stream.write(b'data')
     4
 
     Get FileInfo object using ``get_file_info()``:
 
-    >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+    >>> file_info = local.get_file_info(path_fi)
     >>> file_info
-    <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
+    <FileInfo for '.../pyarrow-fi-example.dat': type=FileType.File, size=4>
 
     Inspect FileInfo attributes:
 
@@ -125,10 +126,10 @@ cdef class FileInfo(_Weakrefable):
     True
 
     >>> file_info.path
-    '/tmp/fileinfo.dat'
+    '/.../pyarrow-fi-example.dat'
 
     >>> file_info.base_name
-    'fileinfo.dat'
+    'pyarrow-fi-example.dat'
 
     >>> file_info.size
     4
@@ -210,7 +211,7 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.type
         <FileType.File: 2>
         """
@@ -221,7 +222,7 @@ cdef class FileInfo(_Weakrefable):
         """
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.is_file
         True
         """
@@ -234,9 +235,9 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.path
-        '/tmp/fileinfo.dat'
+        '/.../pyarrow-fs-example.dat'
         """
         return frombytes(self.info.path())
 
@@ -249,9 +250,9 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.base_name
-        'fileinfo.dat'
+        'pyarrow-fs-example.dat'
         """
         return frombytes(self.info.base_name())
 
@@ -268,7 +269,7 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.size
         4
         """
@@ -283,7 +284,7 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.extension
         'dat'
         """
@@ -300,7 +301,7 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.mtime # doctest: +SKIP
         datetime.datetime(2022, 6, 29, 7, 56, 10, 873922, tzinfo=datetime.timezone.utc)
         """
@@ -321,7 +322,7 @@ cdef class FileInfo(_Weakrefable):
 
         Examples
         --------
-        >>> file_info = local.get_file_info('/tmp/fileinfo.dat')
+        >>> file_info = local.get_file_info(path)
         >>> file_info.mtime_ns # doctest: +SKIP
         1656489370873922073
         """
@@ -355,34 +356,39 @@ cdef class FileSelector(_Weakrefable):
 
     >>> from pyarrow import fs
     >>> local = fs.LocalFileSystem()
-    >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
+    >>> path_s = local_path + '/pyarrow-s-example.dat'
+    >>> with local.open_output_stream(path_s) as stream:
     ...     stream.write(b'data')
     4
 
     Create new directory and subdirectory with copied data:
 
     >>> # directory
-    >>> local.create_dir('/tmp/alphabet')
-    >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/alphabet/fileinfo.dat')
+    >>> local.create_dir(local_path + '/alphabet')
+    >>> local.copy_file(path,
+    ...                 local_path + '/alphabet/pyarrow-s-example.dat')
     >>> # subdirectory
-    >>> local.create_dir('/tmp/alphabet/subdir')
-    >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/alphabet/subdir/fileinfo_copy.dat')
+    >>> local.create_dir(local_path + '/alphabet/subdir')
+    >>> local.copy_file(path,
+    ...                 local_path + '/alphabet/subdir/pyarrow-s-example.dat')
 
     List the contents of a directory and subdirectories:
 
-    >>> selector_1 = fs.FileSelector('/tmp/alphabet', recursive=True)
+    >>> selector_1 = fs.FileSelector(local_path + '/alphabet',
+    ...                              recursive=True)
     >>> local.get_file_info(selector_1)
-    [<FileInfo for '/tmp/alphabet/subdir': type=FileType.Directory>, <FileInfo for '/tmp/alphabet/subdir/fileinfo_copy.dat'...
+    [<FileInfo for '/.../alphabet/subdir': type=FileType.Directory>, <FileInfo for '/.../alphabet/subdir/pyarrow-s-example.dat'...
 
     List only the contents of the base directory:
 
-    >>> selector_2 = fs.FileSelector('/tmp/alphabet')
+    >>> selector_2 = fs.FileSelector(local_path + '/alphabet')
     >>> local.get_file_info(selector_2)
-    [<FileInfo for '/tmp/alphabet/subdir': type=FileType.Directory>, <FileInfo for '/tmp/alphabet/fileinfo.dat':...
+    [<FileInfo for '/.../alphabet/subdir': type=FileType.Directory>, <FileInfo for '/.../alphabet/pyarrow-s-example.dat':...
 
     Return empty selection if the directory doesn't exist:
 
-    >>> selector_not_found = fs.FileSelector('/tmp/missing', recursive=True, allow_not_found=True)
+    >>> selector_not_found = fs.FileSelector(local_path + '/missing',
+    ...                                      recursive=True, allow_not_found=True)
     >>> local.get_file_info(selector_not_found)
     []
     """
@@ -465,11 +471,12 @@ cdef class FileSystem(_Weakrefable):
         --------
         Create a new FileSystem subclass from a URI:
 
-        >>> local_new, path = fs.FileSystem.from_uri('file:///tmp/fileinfo.dat')
+        >>> uri = 'file:///{}/pyarrow-fs-example.dat'.format(local_path)
+        >>> local_new, path_new = fs.FileSystem.from_uri(uri)
         >>> local_new
         <pyarrow._fs.LocalFileSystem object at ...
-        >>> path
-        '/tmp/fileinfo.dat'
+        >>> path_new
+        '/.../pyarrow-fs-example.dat'
 
         Or from a s3 bucket:
 
@@ -573,8 +580,8 @@ cdef class FileSystem(_Weakrefable):
         --------
         >>> local
         <pyarrow._fs.LocalFileSystem object at ...>
-        >>> local.get_file_info("/tmp/fileinfo.dat")
-        <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
+        >>> local.get_file_info("/{}/pyarrow-fs-example.dat".format(local_path))
+        <FileInfo for '/.../pyarrow-fs-example.dat': type=FileType.File, size=4>
         """
         cdef:
             CFileInfo info
@@ -617,9 +624,9 @@ cdef class FileSystem(_Weakrefable):
         Examples
         --------
         >>> local = fs.LocalFileSystem()
-        >>> local.create_dir('/tmp/new_folder')
-        >>> local.get_file_info('/tmp/new_folder')
-        <FileInfo for '/tmp/new_folder': type=FileType.Directory>
+        >>> local.create_dir(local_path + '/new_folder')
+        >>> local.get_file_info(local_path + '/new_folder')
+        <FileInfo for '/.../new_folder': type=FileType.Directory>
         """
         cdef c_string directory = _path_as_bytes(path)
         with nogil:
@@ -639,15 +646,15 @@ cdef class FileSystem(_Weakrefable):
         Create directory:
 
         >>> local = fs.LocalFileSystem()
-        >>> local.create_dir('/tmp/new_folder')
-        >>> local.get_file_info('/tmp/new_folder')
-        <FileInfo for '/tmp/new_folder': type=FileType.Directory>
+        >>> local.create_dir(local_path + '/new_folder')
+        >>> local.get_file_info(local_path + '/new_folder')
+        <FileInfo for '/.../new_folder': type=FileType.Directory>
 
         Delete the created directory:
 
-        >>> local.delete_dir('/tmp/new_folder')
-        >>> local.get_file_info('/tmp/new_folder')
-        <FileInfo for '/tmp/new_folder': type=FileType.NotFound>
+        >>> local.delete_dir(local_path + '/new_folder')
+        >>> local.get_file_info(local_path + '/new_folder')
+        <FileInfo for '/.../new_folder': type=FileType.NotFound>
         """
         cdef c_string directory = _path_as_bytes(path)
         with nogil:
@@ -676,18 +683,19 @@ cdef class FileSystem(_Weakrefable):
         --------
         Create a directory and copy a file into it:
 
-        >>> local.create_dir('/tmp/new_dir')
-        >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/new_dir/fileinfo.dat')
-        >>> local.get_file_info('/tmp/new_dir/fileinfo.dat')
-        <FileInfo for '/tmp/new_dir/fileinfo.dat': type=FileType.File, size=4>
+        >>> local.create_dir(local_path + '/new_dir')
+        >>> local.copy_file(path,
+        ...                 local_path + '/new_dir/example_copy.dat')
+        >>> local.get_file_info(local_path + '/new_dir/example_copy.dat')
+        <FileInfo for '/.../new_dir/example_copy.dat': type=FileType.File, size=4>
 
         Delete only the content of the directory and not the directory itself:
 
-        >>> local.delete_dir_contents('/tmp/new_dir')
-        >>> local.get_file_info('/tmp/new_dir/fileinfo.dat')
-        <FileInfo for '/tmp/new_dir/fileinfo.dat': type=FileType.NotFound>
-        >>> local.get_file_info('/tmp/new_dir')
-        <FileInfo for '/tmp/new_dir': type=FileType.Directory>
+        >>> local.delete_dir_contents(local_path + '/new_dir')
+        >>> local.get_file_info(local_path + '/new_dir/example_copy.dat')
+        <FileInfo for '/.../new_dir/example_copy.dat': type=FileType.NotFound>
+        >>> local.get_file_info(local_path + '/new_dir')
+        <FileInfo for '/.../new_dir': type=FileType.Directory>
         """
         cdef c_string directory = _path_as_bytes(path)
         if accept_root_dir and directory.strip(b"/") == b"":
@@ -716,17 +724,25 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        Create a new folder and move the file:
+        Create a new folder with a file:
 
         >>> local.create_dir('/tmp/other_dir')
-        >>> local.move('/tmp/fileinfo.dat', '/tmp/other_dir/fileinfo.dat')
+        >>> local.copy_file(path,'/tmp/move_example.dat')
+
+        Move the file:
+
+        >>> local.move('/tmp/move_example.dat',
+        ...            '/tmp/other_dir/move_example_2.dat')
 
         Inspect the file info:
 
-        >>> local.get_file_info('/tmp/other_dir/fileinfo.dat')
-        <FileInfo for '/tmp/other_dir/fileinfo.dat': type=FileType.File, size=4>
-        >>> local.get_file_info('/tmp/fileinfo.dat')
-        <FileInfo for '/tmp/fileinfo.dat': type=FileType.NotFound>
+        >>> local.get_file_info('/tmp/other_dir/move_example_2.dat')
+        <FileInfo for '/tmp/other_dir/move_example_2.dat': type=FileType.File, size=4>
+        >>> local.get_file_info('/tmp/move_example.dat')
+        <FileInfo for '/tmp/move_example.dat': type=FileType.NotFound>
+
+        Delete the folder:
+        >>> local.delete_dir('/tmp/other_dir')
         """
         cdef:
             c_string source = _path_as_bytes(src)
@@ -750,14 +766,15 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        >>> local.copy_file('/tmp/fileinfo.dat', '/tmp/fileinfo_copy.dat')
+        >>> local.copy_file(path,
+        ...                 local_path + '/pyarrow-fs-example_copy.dat')
 
         Inspect the file info:
 
-        >>> local.get_file_info('/tmp/fileinfo_copy.dat')
-        <FileInfo for '/tmp/fileinfo_copy.dat': type=FileType.File, size=4>
-        >>> local.get_file_info('/tmp/fileinfo.dat')
-        <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
+        >>> local.get_file_info(local_path + '/pyarrow-fs-example_copy.dat')
+        <FileInfo for '/.../pyarrow-fs-example_copy.dat': type=FileType.File, size=4>
+        >>> local.get_file_info(path)
+        <FileInfo for '/.../pyarrow-fs-example.dat': type=FileType.File, size=4>
         """
         cdef:
             c_string source = _path_as_bytes(src)
@@ -776,14 +793,18 @@ cdef class FileSystem(_Weakrefable):
 
         Examples
         --------
-        >>> local.get_file_info('/tmp/fileinfo.dat')
-        <FileInfo for '/tmp/fileinfo.dat': type=FileType.File, size=4>
+        Create a file to delete:
+
+        >>> local.create_dir('/tmp/')
+        >>> local.copy_file(path,'/tmp/delete_example.dat')
+        >>> local.get_file_info('/tmp/delete_example.dat')
+        <FileInfo for '/tmp/delete_example.dat': type=FileType.File, size=4>
 
         Delete a file:
 
-        >>> local.delete_file('/tmp/fileinfo.dat')
-        >>> local.get_file_info('/tmp/fileinfo.dat')
-        <FileInfo for '/tmp/fileinfo.dat': type=FileType.NotFound>
+        >>> local.delete_file('/tmp/delete_example.dat')
+        >>> local.get_file_info('/tmp/delete_example.dat')
+        <FileInfo for '/tmp/delete_example.dat': type=FileType.NotFound>
         """
         cdef c_string file = _path_as_bytes(path)
         with nogil:
@@ -824,7 +845,7 @@ cdef class FileSystem(_Weakrefable):
         --------
         Print the data from the file with `open_input_file()`:
 
-        >>> with local.open_input_file('/tmp/fileinfo.dat') as f:
+        >>> with local.open_input_file(path) as f:
         ...     print(f.readall())
         b'data'
         """
@@ -866,7 +887,7 @@ cdef class FileSystem(_Weakrefable):
         --------
         Print the data from the file with `open_input_stream()`:
 
-        >>> with local.open_input_stream('/tmp/fileinfo.dat') as f:
+        >>> with local.open_input_stream(path) as f:
         ...     print(f.readall())
         b'data'
         """
@@ -918,7 +939,7 @@ cdef class FileSystem(_Weakrefable):
         Examples
         --------
         >>> local = fs.LocalFileSystem()
-        >>> with local.open_output_stream('/tmp/fileinfo.dat') as stream:
+        >>> with local.open_output_stream(path) as stream:
         ...     stream.write(b'data')
         4
         """
@@ -983,13 +1004,13 @@ cdef class FileSystem(_Weakrefable):
         --------
         Append new data to a FileSystem subclass with nonempty file:
 
-        >>> with local.open_append_stream('/tmp/fileinfo.dat') as f:
+        >>> with local.open_append_stream(path) as f:
         ...     f.write(b'+newly added')
         12
 
         Print out the content fo the file:
 
-        >>> with local.open_input_file('/tmp/fileinfo.dat') as f:
+        >>> with local.open_input_file(path) as f:
         ...     print(f.readall())
         b'data+newly added'
         """
