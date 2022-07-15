@@ -160,6 +160,9 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       NativeFunction("bround", {}, DataTypeVector{float64()}, float64(),
                      kResultNullIfNull, "bround_float64"),
 
+      NativeFunction("bround", {}, DataTypeVector{float64(), int32()}, float64(),
+                     kResultNullIfNull, "bround_float64_int32"),
+
       // positive and negative functions
       UNARY_SAFE_NULL_IF_NULL(positive, {}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(positive, {}, int64, int64),

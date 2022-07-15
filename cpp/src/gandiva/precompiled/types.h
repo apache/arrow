@@ -235,6 +235,7 @@ gdv_float64 floor_float64(gdv_float64 in);
 gdv_float32 round_float32(gdv_float32);
 gdv_float64 round_float64(gdv_float64);
 gdv_float64 bround_float64(gdv_float64);
+gdv_float64 bround_float64_int32(gdv_float64, gdv_int32);
 gdv_float32 round_float32_int32(gdv_float32 number, gdv_int32 out_scale);
 gdv_float64 round_float64_int32(gdv_float64 number, gdv_int32 out_scale);
 gdv_float64 get_scale_multiplier(gdv_int32);

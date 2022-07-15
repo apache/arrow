@@ -179,6 +179,15 @@ TEST(TestExtendedMathOps, TestBRoundDecimal) {
   VerifyFuzzyEquals(bround_float64(-3.5), -4);
   VerifyFuzzyEquals(bround_float64(1.4999999), 1);
   VerifyFuzzyEquals(bround_float64(1.50001), 2);
+
+  EXPECT_DOUBLE_EQ(bround_float64_int32(3.4, 0), 3);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(-8.2548451268, -1), -10);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(8.2548451268, -1), 10);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(3.5351, 0), 4);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(3.5351, 1), 3.5);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(3.5551, 1), 3.6);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(3.5451, 2), 3.55);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(999999.999999, -9999), 0.0);
 }
 
 TEST(TestExtendedMathOps, TestRound) {
