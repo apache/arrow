@@ -58,8 +58,7 @@ NULL
 #' @keywords internal
 #'
 register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  qualified_name <- fun_name
-  unqualified_name <- gsub("^.*?::", "", qualified_name)
+  unqualified_name <- sub("^.*?::", "", fun_name)
 
   previous_fun <- registry[[unqualified_name]]
 
@@ -74,9 +73,9 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
   }
 
   # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
-  if (grepl("::", qualified_name)) {
+  if (grepl("::", fun_name)) {
     registry[[unqualified_name]] <- fun
-    registry[[qualified_name]] <- fun
+    registry[[fun_name]] <- fun
   } else {
     registry[[unqualified_name]] <- fun
   }
