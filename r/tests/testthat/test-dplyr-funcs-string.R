@@ -23,6 +23,14 @@ library(lubridate)
 library(stringr)
 library(stringi)
 
+tbl <- example_data
+# Add some better string data
+tbl$verses <- verses[[1]]
+# c(" a ", "  b  ", "   c   ", ...) increasing padding
+# nchar =   3  5  7  9 11 13 15 17 19 21
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
+tbl$some_grouping <- rep(c(1, 2), 5)
+
 test_that("paste, paste0, and str_c", {
   df <- tibble(
     v = c("A", "B", "C"),
