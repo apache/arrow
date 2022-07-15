@@ -242,8 +242,8 @@ class build_ext(_build_ext):
         # The directory for the module being built
         build_cmd = self.get_finalized_command('build')
         saved_cwd = os.getcwd()
-        build_temp = pjoin(saved_cwd, 'build', 'dist', 'temp')
-        build_include = pjoin(saved_cwd, 'build', 'dist', 'include')
+        build_dir = pjoin(saved_cwd, 'build')
+        build_include = pjoin(saved_cwd, 'build', 'include')
         build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
 
         # The directory containing Arrow C++ build
@@ -253,19 +253,18 @@ class build_ext(_build_ext):
             # a bit hacky
             build_lib = saved_cwd
 
-        if not os.path.isdir(build_temp):
-            self.mkpath(build_temp)
-        if not os.path.isdir(build_lib):
-            self.mkpath(build_lib)
+        if not os.path.isdir(build_dir):
+            self.mkpath(build_dir)
         if not os.path.isdir(build_include):
             self.mkpath(build_include)
+        if not os.path.isdir(build_lib):
+            self.mkpath(build_lib)
 
         # Change to the build directory
-        with changed_dir(build_temp):
+        with changed_dir(build_dir):
             # cmake args
             cmake_options = [
-                '-DCMAKE_INSTALL_PREFIX=' +
-                str(pjoin(saved_cwd, 'build/dist')),
+                '-DCMAKE_INSTALL_PREFIX=' + str(build_dir),
                 '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type.lower()),
                 '-DARROW_BUILD_DIR=' + str(arrow_build_dir),
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
@@ -310,21 +309,30 @@ class build_ext(_build_ext):
             except OSError:
                 pass
 
-            print(f"moving {build_temp} to {build_lib}")
-            for libname in os.listdir(build_temp):
-                if "libarrow_python" in libname:
-                    libname_path = pjoin(build_lib, "pyarrow", libname)
+            # helper function
+            def copy_libs(libname, folder_name):
+                if "python" in libname:
+                    libname_path = pjoin(saved_cwd, "pyarrow", libname)
                     if os.path.exists(libname_path):
                         os.remove(libname_path)
-                    shutil.move(pjoin(build_temp, libname),
+                    print(f"* Copying {pjoin(build_dir,folder_name, libname)} to {pjoin(build_lib, 'pyarrow')}")
+                    shutil.copy(pjoin(build_dir,folder_name, libname),
                                 pjoin(build_lib, "pyarrow"))
+            # Move libraries to python/pyarrow
+            for libname in os.listdir(pjoin(build_dir,'lib')):
+                copy_libs(libname, 'lib')
+            # For windows builds, move dll from bin
+            if os.path.isdir(pjoin(build_dir,'bin')):
+                for libname in os.listdir(pjoin(build_dir,'bin')):
+                    copy_libs(libname, 'bin')
 
-            print(f"copying include folder: {build_include} to {build_lib}")
+            # Copy headers tp python/pyarrow/include
             arrow_python_include = pjoin(build_include, "arrow", "python")
             pyarrow_include = pjoin(
                 build_lib, "pyarrow", "include", "arrow", "python")
             if os.path.exists(pyarrow_include):
                 shutil.rmtree(pyarrow_include)
+            print(f"* Copying include folder: {arrow_python_include} to {pyarrow_include}")
             shutil.copytree(arrow_python_include, pyarrow_include)
 
     def _run_cmake(self):
