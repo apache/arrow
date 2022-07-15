@@ -74,7 +74,7 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
   }
 
   # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
-  if (grepl("::", qualified_name) && qualified_name != "::") {
+  if (grepl("::", qualified_name)) {
     registry[[unqualified_name]] <- fun
     registry[[qualified_name]] <- fun
   } else {
