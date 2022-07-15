@@ -492,7 +492,7 @@ std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties) {
     std::ostringstream string_stream;
     string_stream << properties.column_prefix << i;
     field_vector.push_back(std::make_shared<Field>(string_stream.str(), float64()));
-    random::RandomArrayGenerator rand = random::RandomArrayGenerator(properties.seed);
+    random::RandomArrayGenerator rand = random::RandomArrayGenerator(properties.seed + i);
     columns.push_back(rand.Float64(num_rows, -1e5, 1e5));
   }
   std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(field_vector);
