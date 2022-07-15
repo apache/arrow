@@ -1116,7 +1116,7 @@ services:
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
       ARROW_PLASMA: "OFF"
-      JAVA_JNI_CMAKE_ARGS: "-DARROW_JNI_ENABLE_DEFAULT=OFF -DARROW_JNI_ENABLE_C"
+      JAVA_JNI_CMAKE_ARGS: "-DARROW_JNI_ENABLE_DEFAULT=OFF -DARROW_JNI_ENABLE_C=ON"
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
