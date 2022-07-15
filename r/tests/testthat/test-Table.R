@@ -592,7 +592,7 @@ test_that("cbind.Table handles record batches and tables", {
   )
 })
 
-test_that("ARROW-11769 - grouping preserved in table creation", {
+test_that("ARROW-11769/ARROW-17085 - grouping preserved in table creation", {
   skip_if_not_available("dataset")
 
   tbl <- tibble::tibble(
@@ -601,6 +601,12 @@ test_that("ARROW-11769 - grouping preserved in table creation", {
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
 
+  expect_identical(
+    tbl %>%
+      Table$create() %>%
+      dplyr::group_vars(),
+    dplyr::group_vars(tbl)
+  )
   expect_identical(
     tbl %>%
       dplyr::group_by(fct, fct2) %>%
