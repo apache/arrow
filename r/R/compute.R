@@ -313,12 +313,14 @@ cast_options <- function(safe = TRUE, ...) {
 #' (i.e., a [dplyr::mutate()] or [dplyr::filter()] on a [Table] or [Dataset]).
 #' Use [arrow_scalar_function()] attach input and output types to a vectorized
 #' R function; use [register_user_defined_function()] to make it available
-#' for use in the dplyr interface and/or [call_function()].
+#' for use in the dplyr interface and/or [call_function()]. Scalar functions
+#' are currently the only type of user-defined function supported.
+#' In Arrow, scalar functions must be stateless and return output with the
+#' same shape (i.e., the same `number of rows) as the input.
 #'
 #' @param name The function name to be used in the dplyr bindings
 #' @param scalar_function An object created with [arrow_scalar_function()]
-#'   Scalar functions must be stateless and return output with the same
-#'   shape (i.e., the same number of rows) as the input.
+#'
 #' @param in_type A [DataType] of the input type or a [schema()]
 #'   for functions with more than one argument. This signature will be used
 #'   to determine if this function is appropriate for a given set of arguments.

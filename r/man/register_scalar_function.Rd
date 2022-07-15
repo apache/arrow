@@ -33,9 +33,7 @@ and construct an Array of the correct type from the output. Use this
 option to write functions of R objects as opposed to functions of
 Arrow R6 objects.}
 
-\item{scalar_function}{An object created with \code{\link[=arrow_scalar_function]{arrow_scalar_function()}}
-Scalar functions must be stateless and return output with the same
-shape (i.e., the same number of rows) as the input.}
+\item{scalar_function}{An object created with \code{\link[=arrow_scalar_function]{arrow_scalar_function()}}}
 }
 \value{
 \code{NULL}, invisibly
@@ -45,7 +43,10 @@ These functions support calling R code from query engine execution
 (i.e., a \code{\link[dplyr:mutate]{dplyr::mutate()}} or \code{\link[dplyr:filter]{dplyr::filter()}} on a \link{Table} or \link{Dataset}).
 Use \code{\link[=arrow_scalar_function]{arrow_scalar_function()}} attach input and output types to a vectorized
 R function; use \code{\link[=register_user_defined_function]{register_user_defined_function()}} to make it available
-for use in the dplyr interface and/or \code{\link[=call_function]{call_function()}}.
+for use in the dplyr interface and/or \code{\link[=call_function]{call_function()}}. Scalar functions
+are currently the only type of user-defined function supported.
+In Arrow, scalar functions must be stateless and return output with the
+same shape (i.e., the same `number of rows) as the input.
 }
 \examples{
 \dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
