@@ -803,6 +803,7 @@ class BinaryTask
     define_docs_tasks
     define_nuget_tasks
     define_python_tasks
+    define_r_tasks
     define_summary_tasks
   end
 
@@ -1815,9 +1816,24 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
           Pathname(artifacts_dir).glob(target_files_glob) do |path|
             next if path.directory?
+            # /.../${JOB_ID}/.../file ->
+            # ${JOB_ID}/.../file
+            #
+            # e.g.:
+            #   /.../test-ubuntu-default-docs/docs.tar.gz ->
+            #   test-ubuntu-default-docs/docs.tar.gz
+            relative_path = path.relative_path_from(artifacts_dir)
+            # ${JOB_ID}/.../file ->
+            # .../file
+            #
+            # e.g.:
+            #   test-ubuntu-default-docs/docs.tar.gz ->
+            #   docs.tar.gz
+            relative_path =
+              relative_path.relative_path_from(relative_path.dirname)
             destination_path = [
               rc_dir,
-              path.basename.to_s,
+              relative_path.to_s,
             ].join("/")
             copy_artifact(path, destination_path, progress_reporter)
           end
@@ -1899,6 +1915,14 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               "{python-sdist,wheel-*}/**/*")
   end
 
+  def define_r_tasks
+    define_generic_data_tasks("R",
+                              :r,
+                              "#{rc_dir}/r/#{full_version}",
+                              "#{release_dir}/r/#{full_version}",
+                              "r-binary-packages/**/*")
+  end
+
   def define_summary_tasks
     namespace :summary do
       desc "Show RC summary"
@@ -1914,6 +1938,7 @@ Success! The release candidate binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}-rc/
   https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/r#{suffix}-rc/#{full_version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}-rc/
         SUMMARY
       end
@@ -1931,6 +1956,7 @@ Success! The release binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/docs#{suffix}/
   https://apache.jfrog.io/artifactory/arrow/nuget#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/python#{suffix}/#{version}
+  https://apache.jfrog.io/artifactory/arrow/r#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/
         SUMMARY
       end
