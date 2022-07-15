@@ -42,7 +42,7 @@ struct TableSourceNodeStats {
   size_t total_bytes;
 };
 
-static TableSourceNodeStats make_table_source_node_from_table(
+static TableSourceNodeStats MakeTableSourceNode(
     std::shared_ptr<arrow::compute::ExecPlan>& plan, TableGenerationProperties properties,
     int batch_size) {
   std::shared_ptr<Table> table = MakeRandomTable(properties);
@@ -73,7 +73,7 @@ static void TableJoinOverhead(benchmark::State& state,
                          ExecPlan::Make(&ctx));
     left_table_properties.column_prefix = "lt";
     left_table_properties.seed = 0;
-    TableSourceNodeStats left_table_stats = make_table_source_node_from_table(
+    TableSourceNodeStats left_table_stats = MakeTableSourceNode(
         plan, left_table_properties, left_table_batch_size);
     std::vector<ExecNode*> inputs = {left_table_stats.execNode};
     int right_hand_rows = 0;
@@ -84,7 +84,7 @@ static void TableJoinOverhead(benchmark::State& state,
       string_stream << "rt" << i;
       right_table_properties.column_prefix = string_stream.str();
       left_table_properties.seed = i + 1;
-      TableSourceNodeStats right_table_stats = make_table_source_node_from_table(
+      TableSourceNodeStats right_table_stats = MakeTableSourceNode(
           plan, right_table_properties, right_table_batch_size);
       inputs.push_back(right_table_stats.execNode);
       right_hand_rows += right_table_stats.total_rows;
@@ -124,18 +124,6 @@ static void AsOfJoinOverhead(benchmark::State& state) {
       int(state.range(8)), int(state.range(4)), "asofjoin", options);
 }
 
-static void HashJoinOverhead(benchmark::State& state) {
-  HashJoinNodeOptions options =
-      HashJoinNodeOptions({time_col, key_col}, {time_col, key_col});
-  TableJoinOverhead(
-      state,
-      TableGenerationProperties{int(state.range(0)), int(state.range(1)), int(state.range(2)), "",
-                      0, default_start, default_end},
-      int(state.range(3)),
-      TableGenerationProperties{int(state.range(5)), int(state.range(6)), int(state.range(7)), "",
-                      0, default_start, default_end},
-      int(state.range(8)), int(state.range(4)), "hashjoin", options);
-}
 // this generates the set of right hand tables to test on.
 void SetArgs(benchmark::internal::Benchmark* bench) {
   bench
