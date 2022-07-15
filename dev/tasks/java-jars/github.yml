@@ -29,13 +29,11 @@ jobs:
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ Libs
         run: archery docker run java-jni-manylinux-2014
-      - name: Compress into single artifact
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: ubuntu-shared-lib
-          path: arrow-shared-libs-linux.tar.gz
+          path: arrow/java-dist/
     {% if arrow.branch == 'master' %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
@@ -55,13 +53,6 @@ jobs:
         run: |
           brew install --overwrite git
           brew bundle --file=arrow/cpp/Brewfile
-      - name: Build C Data Interface lib
-        run: |
-          set -e
-          arrow/ci/scripts/java_cdata_build.sh \
-            $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/java-native-build \
-            $GITHUB_WORKSPACE/arrow/java-dist
       - name: Build C++ Libs
         run: |
           set -e
@@ -69,13 +60,11 @@ jobs:
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
             $GITHUB_WORKSPACE/arrow/java-dist
-      - name: Compress into single artifact
-        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: macos-shared-lib
-          path: arrow-shared-libs-macos.tar.gz
+          path: arrow/java-dist/
 
   package-jars:
     name: Build Jar Files
@@ -91,10 +80,6 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: macos-shared-lib
-      - name: Descompress artifacts
-        run: |
-          tar -xvzf arrow-shared-libs-macos.tar.gz
-          tar -xvzf arrow-shared-libs-linux.tar.gz
       - name: Test that Shared Libraries Exist
         run: |
           test -f arrow/java-dist/libarrow_cdata_jni.dylib

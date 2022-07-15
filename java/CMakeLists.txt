@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,29 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+cmake_minimum_required(VERSION 3.11)
+message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-arrow_dir=${1}
-build_dir=${2}
-# The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}
+project(arrow-jni)
 
-echo "=== Clear output directories and leftovers ==="
-# Clear output directories and leftovers
-rm -rf ${build_dir}
 
-echo "=== Building Arrow Java C Data Interface native library ==="
-mkdir -p "${build_dir}"
-pushd "${build_dir}"
+option(ARROW_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
 
-cmake \
-  -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-release} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_INSTALL_PREFIX=${build_dir} \
-  ${arrow_dir}/java/c
-cmake --build . --target install --config ${ARROW_BUILD_TYPE:-release}
-popd
+include(CMakeDependentOption)
+cmake_dependent_option(ARROW_JNI_ENABLE_C "Enable C data interface" ON "ARROW_JNI_ENABLE_DEFAULT" OFF)
 
-echo "=== Copying libraries to the distribution folder ==="
-mkdir -p "${dist_dir}"
-cp -L ${build_dir}/lib/*arrow_cdata_jni.* ${dist_dir}
+
+find_package(Java REQUIRED)
+find_package(JNI REQUIRED)
+
+include(UseJava)
+
+if(ARROW_JNI_ENABLE_C)
+  add_subdirectory(c)
+endif()

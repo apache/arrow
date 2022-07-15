@@ -964,7 +964,6 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery &&
-        /arrow/ci/scripts/java_cdata_build.sh /arrow /java-native-build /arrow/java-dist &&
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist"]
 
   ##############################  Integration #################################
@@ -1117,6 +1116,7 @@ services:
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
       ARROW_PLASMA: "OFF"
+      JAVA_JNI_CMAKE_ARGS: "-DARROW_JNI_ENABLE_DEFAULT=OFF -DARROW_JNI_ENABLE_C"
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
@@ -1124,7 +1124,7 @@ services:
     command:
       [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
           /arrow/ci/scripts/python_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
+          /arrow/ci/scripts/java_jni_build.sh /arrow /build/java/build /build/java/c &&
           /arrow/ci/scripts/java_build.sh /arrow /build &&
           /arrow/ci/scripts/java_cdata_integration.sh /arrow" ]
 
