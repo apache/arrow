@@ -145,8 +145,27 @@ class Random64Bit {
   std::uniform_int_distribution<uint64_t> dist_;
 };
 
-struct TableProperties {
-  int frequency;
+/*
+  Specify properties of a table to be generated.
+    - num_ids is the number of unique keys in the table
+    - time_frequency indicates the amount of time between data points that lie between start and end (inclusive)
+    - num_columns indicates the amount of random columns in the table
+    - column_prefix specifies the prefix each randomly generated column should have
+    - seed is the random seed the random array generator is given to generate the random columns
+    - start specifies the beginning of 'time' recorded in the table
+    - end specifies the end of 'time' recorded in the table
+
+    The schema is as follows:
+      time (int64)
+      id (int32)
+      [column_prefix]0 (float64)
+      [column_prefix]1 (float64)
+      ...
+      [column_prefix][num_columns] (float64)
+    Each id has rows corresponding to a singular data point in the time range (start, end, time_frequency).
+*/
+struct TableGenerationProperties {
+  int time_frequency;
   int num_columns;
   int num_ids;
   std::string column_prefix;
@@ -155,7 +174,7 @@ struct TableProperties {
   int end;
 };
 
-std::shared_ptr<Table> MakeRandomTable(TableProperties properties);
+std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties);
 
 }  // namespace compute
 }  // namespace arrow

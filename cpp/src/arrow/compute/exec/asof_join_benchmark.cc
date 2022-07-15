@@ -34,7 +34,7 @@ namespace compute {
 static const char* time_col = "time";
 static const char* key_col = "id";
 const int default_start = 0;
-const int default_end = 0;
+const int default_end = 500;
 
 struct TableSourceNodeStats {
   ExecNode* execNode;
@@ -43,7 +43,7 @@ struct TableSourceNodeStats {
 };
 
 static TableSourceNodeStats make_table_source_node_from_table(
-    std::shared_ptr<arrow::compute::ExecPlan>& plan, TableProperties properties,
+    std::shared_ptr<arrow::compute::ExecPlan>& plan, TableGenerationProperties properties,
     int batch_size) {
   std::shared_ptr<Table> table = MakeRandomTable(properties);
   size_t row_size = sizeof(double) * (table.get()->schema()->num_fields() - 2) +
@@ -58,9 +58,9 @@ static TableSourceNodeStats make_table_source_node_from_table(
 }
 
 static void TableJoinOverhead(benchmark::State& state,
-                              TableProperties left_table_properties,
+                              TableGenerationProperties left_table_properties,
                               int left_table_batch_size,
-                              TableProperties right_table_properties,
+                              TableGenerationProperties right_table_properties,
                               int right_table_batch_size, int num_right_tables,
                               std::string factory_name, ExecNodeOptions& options) {
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
@@ -116,10 +116,10 @@ static void AsOfJoinOverhead(benchmark::State& state) {
   AsofJoinNodeOptions options = AsofJoinNodeOptions(time_col, key_col, tolerance);
   TableJoinOverhead(
       state,
-      TableProperties{int(state.range(0)), int(state.range(1)), int(state.range(2)), "",
+      TableGenerationProperties{int(state.range(0)), int(state.range(1)), int(state.range(2)), "",
                       0, default_start, default_end},
       int(state.range(3)),
-      TableProperties{int(state.range(5)), int(state.range(6)), int(state.range(7)), "",
+      TableGenerationProperties{int(state.range(5)), int(state.range(6)), int(state.range(7)), "",
                       0, default_start, default_end},
       int(state.range(8)), int(state.range(4)), "asofjoin", options);
 }
@@ -129,18 +129,18 @@ static void HashJoinOverhead(benchmark::State& state) {
       HashJoinNodeOptions({time_col, key_col}, {time_col, key_col});
   TableJoinOverhead(
       state,
-      TableProperties{int(state.range(0)), int(state.range(1)), int(state.range(2)), "",
+      TableGenerationProperties{int(state.range(0)), int(state.range(1)), int(state.range(2)), "",
                       0, default_start, default_end},
       int(state.range(3)),
-      TableProperties{int(state.range(5)), int(state.range(6)), int(state.range(7)), "",
+      TableGenerationProperties{int(state.range(5)), int(state.range(6)), int(state.range(7)), "",
                       0, default_start, default_end},
       int(state.range(8)), int(state.range(4)), "hashjoin", options);
 }
 // this generates the set of right hand tables to test on.
 void SetArgs(benchmark::internal::Benchmark* bench) {
   bench
-      ->ArgNames({"left_freq", "left_cols", "left_ids", "num_right_tables", "right_freq",
-                  "right_cols", "right_ids"})
+      ->ArgNames({"left_freq", "left_cols", "left_ids", "left_batch_size", "num_right_tables", "right_freq",
+                  "right_cols", "right_ids", "right_batch_size"})
       ->UseRealTime();
   int default_freq = 5;
   int default_cols = 20;

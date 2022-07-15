@@ -460,7 +460,7 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
   *os << "}";
 }
 
-std::shared_ptr<Table> MakeRandomTable(TableProperties properties) {
+std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties) {
   int total_columns = properties.num_columns + 2;
   std::vector<std::shared_ptr<Array>> arrays;
   arrays.reserve(total_columns);
@@ -472,7 +472,7 @@ std::shared_ptr<Table> MakeRandomTable(TableProperties properties) {
   std::vector<int64_t> frequency_column;
   std::vector<int32_t> id_column;
   for (int j = 0; j < properties.num_ids; j++) {
-    for (int i = properties.start; i < properties.end; i += properties.frequency) {
+    for (int i = properties.start; i <= properties.end; i += properties.time_frequency) {
       frequency_column.push_back(i);
       id_column.push_back(j);
       num_rows += 1;
