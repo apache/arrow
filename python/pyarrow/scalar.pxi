@@ -35,16 +35,16 @@ cdef class Scalar(_Weakrefable):
         cdef:
             Scalar self
             Type type_id = wrapped.get().type.get().id()
+            shared_ptr[CDataType] sp_data_type = wrapped.get().type
 
         if type_id == _Type_NA:
             return _NULL
 
-        try:
-            typ = _scalar_classes[type_id]
-        except KeyError:
+        if type_id not in _scalar_classes:
             raise NotImplementedError(
-                "Wrapping scalar of type " +
-                frombytes(wrapped.get().type.get().ToString()))
+                "Wrapping scalar of type " + frombytes(sp_data_type.get().ToString()))
+
+        typ = get_scalar_class_from_type(sp_data_type)
         self = typ.__new__(typ)
         self.init(wrapped)
 
@@ -902,7 +902,7 @@ cdef class ExtensionScalar(Scalar):
         """
         Return this scalar as a Python object.
         """
-        return self.value.as_py() if self.value is not None else None
+        return None if self.value is None else self.value.as_py()
 
     @staticmethod
     def from_storage(BaseExtensionType typ, value):
