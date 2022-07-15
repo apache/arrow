@@ -273,17 +273,6 @@ jobs:
           cd r/windows
           ls *.zip | xargs -n 1 unzip -uo
           rm -rf *.zip
-      - name: Install MinIO
-        shell: bash
-        run: |
-          mkdir -p /usr/local/bin
-          curl \
-            --output /usr/local/bin/minio.exe \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
-          chmod +x /usr/local/bin/minio.exe
-      - name: Install Google Cloud Storage Testbench
-        shell: bash
-        run: ci/scripts/install_gcs_testbench.sh default
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
@@ -299,6 +288,17 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
+      - name: Install MinIO
+        shell: bash
+        run: |
+          mkdir -p /usr/local/bin
+          curl \
+            --output /usr/local/bin/minio.exe \
+            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
+          chmod +x /usr/local/bin/minio.exe
+      - name: Install Google Cloud Storage Testbench
+        shell: bash
+        run: ci/scripts/install_gcs_testbench.sh default
       - name: Start MinIO and GCS Testbench
         shell: bash
         run: |
