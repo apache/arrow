@@ -299,11 +299,6 @@ jobs:
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: ci/scripts/install_gcs_testbench.sh default
-      - name: Start MinIO and GCS Testbench
-        shell: bash
-        run: |
-          /usr/local/bin/minio.exe server ~/minio-data
-          python -m testbench --port 9001 &>/dev/null &
       - name: Check
         shell: Rscript {0}
         run: |
@@ -312,6 +307,14 @@ jobs:
           setwd("r/windows")
           zip("libarrow.zip", ".")
           setwd("..")
+
+          minio_dir <- tempfile()
+          dir.create(minio_dir)
+          pid_minio <- sys::exec_background('/usr/local/bin/minio.exe', c('server', minio_dir))
+          on.exit(tools::pskill(pid_minio), add = TRUE)
+
+          pid_minio <- sys::exec_background('python', c('-m', 'testbench', '--port', '9001'))
+          on.exit(tools::pskill(pid_minio), add = TRUE)
 
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
