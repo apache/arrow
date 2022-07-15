@@ -69,6 +69,10 @@ parquet::ReaderProperties MakeReaderProperties(
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
   properties.file_decryption_properties(
       parquet_scan_options->reader_properties->file_decryption_properties());
+  properties.set_thrift_string_size_limit(
+      parquet_scan_options->reader_properties->thrift_string_size_limit());
+  properties.set_thrift_container_size_limit(
+      parquet_scan_options->reader_properties->thrift_container_size_limit());
   return properties;
 }
 

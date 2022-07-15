@@ -62,7 +62,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::CopyBitmap;
-using internal::GetByteWidth;
 
 namespace ipc {
 
@@ -322,7 +321,7 @@ class RecordBatchSerializer {
   Visit(const T& array) {
     std::shared_ptr<Buffer> data = array.values();
 
-    const int64_t type_width = GetByteWidth(*array.type());
+    const int64_t type_width = array.type()->byte_width();
     int64_t min_length = PaddedLength(array.length() * type_width);
 
     if (NeedTruncate(array.offset(), data.get(), min_length)) {
@@ -705,7 +704,7 @@ Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
 
 Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
                            std::unique_ptr<Tensor>* out) {
-  const int elem_size = GetByteWidth(*tensor.type());
+  const int elem_size = tensor.type()->byte_width();
 
   ARROW_ASSIGN_OR_RAISE(
       auto scratch_space,
@@ -727,7 +726,7 @@ Status GetContiguousTensor(const Tensor& tensor, MemoryPool* pool,
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length) {
-  const int elem_size = GetByteWidth(*tensor.type());
+  const int elem_size = tensor.type()->byte_width();
 
   *body_length = tensor.size() * elem_size;
 

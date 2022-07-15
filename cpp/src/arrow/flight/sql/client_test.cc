@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Platform-specific defines
+#include "arrow/flight/platform.h"
+
 #include "arrow/flight/client.h"
 
 #include <gmock/gmock.h>
@@ -24,8 +27,8 @@
 #include <utility>
 
 #include "arrow/buffer.h"
-#include "arrow/flight/sql/FlightSql.pb.h"
 #include "arrow/flight/sql/api.h"
+#include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace pb = arrow::flight::protocol;

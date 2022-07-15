@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_r_version("3.5.0")
+skip_on_r_older_than("3.6")
 
 test_that("is_arrow_altrep() does not include base altrep", {
   expect_false(is_arrow_altrep(1:10))

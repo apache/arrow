@@ -56,7 +56,20 @@ class TestMapScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal(<<-MAP.strip, @scalar.to_s)
+[
+  keys:
+  [
+    "hello",
+    "world"
+  ]
+  values:
+  [
+    1,
+    2
+  ]
+]
+                 MAP
   end
 
   def test_value

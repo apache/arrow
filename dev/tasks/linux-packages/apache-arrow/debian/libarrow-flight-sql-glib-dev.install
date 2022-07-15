@@ -1,0 +1,5 @@
+usr/include/arrow-flight-sql-glib/
+usr/lib/*/libarrow-flight-sql-glib.so
+usr/lib/*/pkgconfig/arrow-flight-sql-glib.pc
+usr/share/gir-1.0/ArrowFlightSQL-*.gir
+usr/share/vala/vapi/arrow-flight-sql-glib.*

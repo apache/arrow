@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -20,17 +20,21 @@
 test_dir="$(cd $(dirname $0); pwd)"
 build_dir="$(cd .; pwd)"
 
-modules="arrow-glib arrow-cuda-glib arrow-dataset-glib arrow-flight-glib gandiva-glib parquet-glib plasma-glib"
+modules=(
+  arrow-glib
+  arrow-cuda-glib
+  arrow-dataset-glib
+  arrow-flight-glib
+  arrow-flight-sql-glib
+  gandiva-glib
+  parquet-glib
+  plasma-glib
+)
 
-for module in ${modules}; do
+for module in "${modules[@]}"; do
   module_build_dir="${build_dir}/${module}"
-  libtool_dir="${module_build_dir}/.libs"
-  if [ -d "${libtool_dir}" ]; then
-    LD_LIBRARY_PATH="${libtool_dir}:${LD_LIBRARY_PATH}"
-  else
-    if [ -d "${module_build_dir}" ]; then
-      LD_LIBRARY_PATH="${module_build_dir}:${LD_LIBRARY_PATH}"
-    fi
+  if [ -d "${module_build_dir}" ]; then
+    LD_LIBRARY_PATH="${module_build_dir}:${LD_LIBRARY_PATH}"
   fi
 done
 export LD_LIBRARY_PATH
@@ -43,7 +47,7 @@ if [ "${BUILD}" != "no" ]; then
   fi
 fi
 
-for module in ${modules}; do
+for module in "${modules[@]}"; do
   MODULE_TYPELIB_DIR_VAR_NAME="$(echo ${module} | tr a-z- A-Z_)_TYPELIB_DIR"
   module_typelib_dir=$(eval "echo \${${MODULE_TYPELIB_DIR_VAR_NAME}}")
   if [ -z "${module_typelib_dir}" ]; then

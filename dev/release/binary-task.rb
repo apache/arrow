@@ -1082,12 +1082,10 @@ class BinaryTask
 
   def available_apt_targets
     [
-      ["debian", "buster", "main"],
       ["debian", "bullseye", "main"],
       ["debian", "bookworm", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
-      ["ubuntu", "impish", "main"],
       ["ubuntu", "jammy", "main"],
     ]
   end
@@ -1456,8 +1454,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def available_yum_targets
     [
+      ["almalinux", "9"],
       ["almalinux", "8"],
       ["amazon-linux", "2"],
+      ["centos", "9-stream"],
       ["centos", "8-stream"],
       ["centos", "7"],
     ]

@@ -36,6 +36,20 @@ module Arrow
         return nil unless const_defined?(builder_class_name)
         const_get(builder_class_name)
       end
+
+      # @api private
+      def try_convert(value)
+        case value
+        when ::Array
+          begin
+            new(value)
+          rescue ArgumentError
+            nil
+          end
+        else
+          nil
+        end
+      end
     end
 
     # @param i [Integer]

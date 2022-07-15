@@ -161,7 +161,7 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
 
 #' @export
 `[[<-.ArrowTabular` <- function(x, i, value) {
-  if (!is.character(i) & !is.numeric(i)) {
+  if (!is.character(i) && !is.numeric(i)) {
     stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
   }
   assert_that(length(i) == 1, !is.na(i))

@@ -150,6 +150,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `scheme`: S3 connection transport (default "https")
 #' - `background_writes`: logical, whether `OutputStream` writes will be issued
 #'    in the background, without blocking (default `TRUE`)
+#' - `allow_bucket_creation`: logical, if TRUE, the filesystem will create
+#'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
+#' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
+#'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
 #'
 #' @section Methods:
 #'
@@ -188,6 +192,15 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
 #' - `$base_path`: for `SubTreeFileSystem`, the path in `$base_fs` which is considered
 #'    root in this `SubTreeFileSystem`.
+#'
+#' @section Notes:
+#'
+#' On S3FileSystem, `$CreateDir()` on a top-level directory creates a new bucket.
+#' When S3FileSystem creates new buckets (assuming allow_bucket_creation is TRUE),
+#' it does not pass any non-default settings. In AWS S3, the bucket and all
+#' objects will be not publicly visible, and will have no bucket policies
+#' and no resource tags. To have more control over how buckets are created,
+#' use a different API to create them.
 #'
 #' @usage NULL
 #' @format NULL
@@ -256,7 +269,20 @@ FileSystem <- R6Class("FileSystem",
     }
   ),
   active = list(
-    type_name = function() fs___FileSystem__type_name(self)
+    type_name = function() fs___FileSystem__type_name(self),
+    url_scheme = function() {
+      fs_type_name <- self$type_name
+      if (identical(fs_type_name, "subtree")) {
+        # Recurse
+        return(self$base_fs$url_scheme)
+      }
+      # Some type_names are the url scheme but others aren't
+      type_map <- list(
+        local = "file",
+        gcs = "gs"
+      )
+      type_map[[fs_type_name]] %||% fs_type_name
+    }
   )
 )
 FileSystem$from_uri <- function(uri) {
@@ -338,7 +364,7 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
     invalid_args <- intersect(
       c(
         "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency"
+        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion"
       ),
       names(args)
     )
@@ -383,7 +409,9 @@ default_s3_options <- list(
   endpoint_override = "",
   scheme = "",
   proxy_options = "",
-  background_writes = TRUE
+  background_writes = TRUE,
+  allow_bucket_creation = FALSE,
+  allow_bucket_deletion = FALSE
 )
 
 #' Connect to an AWS S3 bucket
@@ -424,17 +452,66 @@ s3_bucket <- function(bucket, ...) {
 #' @format NULL
 #' @rdname FileSystem
 #' @export
+GcsFileSystem <- R6Class("GcsFileSystem",
+  inherit = FileSystem
+)
+GcsFileSystem$create <- function(anonymous = FALSE, ...) {
+  options <- list(...)
+
+  # Validate options
+  if (isTRUE(anonymous)) {
+    invalid_args <- intersect(
+      c("access_token", "expiration", "json_credentials"),
+      names(options)
+    )
+    if (length(invalid_args)) {
+      stop(
+        "Cannot specify ",
+        oxford_paste(invalid_args),
+        " when anonymous = TRUE",
+        call. = FALSE
+      )
+    }
+  } else {
+    token_args <- intersect(c("access_token", "expiration"), names(options))
+    if (!is.null(options[["json_credentials"]]) && length(token_args) > 0) {
+      stop("Cannot provide access_token with json_credentials", call. = FALSE)
+    } else if (length(token_args) == 1) {
+      stop("token auth requires both 'access_token' and 'expiration'", call. = FALSE)
+    }
+  }
+
+  valid_opts <- c(
+    "access_token", "expiration", "json_credentials", "endpoint_override",
+    "scheme", "default_bucket_location", "retry_limit_seconds",
+    "default_metadata"
+  )
+
+  invalid_opts <- setdiff(names(options), valid_opts)
+  if (length(invalid_opts)) {
+    stop(
+      "Invalid options for GcsFileSystem: ",
+      oxford_paste(invalid_opts),
+      call. = FALSE
+    )
+  }
+
+  fs___GcsFileSystem__Make(anonymous, options)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
+#' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem",
   inherit = FileSystem,
   public = list(
     print = function(...) {
-      if (inherits(self$base_fs, "LocalFileSystem")) {
-        cat("SubTreeFileSystem: ", "file://", self$base_path, "\n", sep = "")
-      } else if (inherits(self$base_fs, "S3FileSystem")) {
-        cat("SubTreeFileSystem: ", "s3://", self$base_path, "\n", sep = "")
-      } else {
-        cat("SubTreeFileSystem", "\n", sep = "")
-      }
+      cat(
+        "SubTreeFileSystem: ",
+        self$url_scheme, "://", self$base_path, "\n",
+        sep = ""
+      )
       invisible(self)
     }
   ),

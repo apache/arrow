@@ -399,14 +399,4 @@ test_that("filter() with .data pronoun", {
       collect(),
     tbl
   )
-
-  skip("test now faulty - code no longer gives error & outputs a empty tibble")
-  # but there is an error if we don't override the masking with `.env`
-  compare_dplyr_error(
-    .input %>%
-      filter(.data$dbl > chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
-      collect(),
-    tbl
-  )
 })

@@ -69,9 +69,9 @@ std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
   return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
 }
 
-arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                                  arrow::Datum* out) {
-  *out->mutable_array() = *batch[0].array();
+arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecSpan& batch,
+                                  cp::ExecResult* out) {
+  out->value = batch[0].array.ToArrayData();
   return arrow::Status::OK();
 }
 
@@ -127,8 +127,7 @@ const cp::FunctionDoc func_doc{
 int main(int argc, char** argv) {
   const std::string name = "compute_register_example";
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), func_doc);
-  cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
-                          ExampleFunctionImpl);
+  cp::ScalarKernel kernel({arrow::int64()}, arrow::int64(), ExampleFunctionImpl);
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
   ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
 

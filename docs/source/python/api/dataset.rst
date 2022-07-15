@@ -70,3 +70,4 @@ Classes
    Scanner
    Expression
    InMemoryDataset
+   WrittenFile

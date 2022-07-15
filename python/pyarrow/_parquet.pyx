@@ -239,7 +239,7 @@ cdef class ParquetLogicalType(_Weakrefable):
         -------
         json : str
             JSON representation of type, with at least a field called 'Type'
-            which contains the type name. If the type is parameterized, such 
+            which contains the type name. If the type is parameterized, such
             as a decimal with scale and precision, will contain those as fields
             as well.
         """
@@ -444,7 +444,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """
         Type of compression used for column (str).
 
-        One of 'UNCOMPRESSED', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD', 
+        One of 'UNCOMPRESSED', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD',
         or 'UNKNOWN'.
         """
         return compression_name_from_enum(self.metadata.compression())
@@ -714,7 +714,7 @@ cdef class FileMetaData(_Weakrefable):
         """
         Parquet format version used in file (str, such as '1.0', '2.4').
 
-        If version is missing or unparsable, will default to assuming '1.0'.
+        If version is missing or unparsable, will default to assuming '2.4'.
         """
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
@@ -726,9 +726,9 @@ cdef class FileMetaData(_Weakrefable):
         elif version == ParquetVersion_V2_6:
             return '2.6'
         else:
-            warnings.warn('Unrecognized file version, assuming 1.0: {}'
+            warnings.warn('Unrecognized file version, assuming 2.4: {}'
                           .format(version))
-            return '1.0'
+            return '2.4'
 
     @property
     def created_by(self):
@@ -1167,11 +1167,13 @@ cdef class ParquetReader(_Weakrefable):
         self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source not None, bint use_memory_map=True,
+    def open(self, object source not None, *, bint use_memory_map=False,
              read_dictionary=None, FileMetaData metadata=None,
              int buffer_size=0, bint pre_buffer=False,
              coerce_int96_timestamp_unit=None,
-             FileDecryptionProperties decryption_properties=None):
+             FileDecryptionProperties decryption_properties=None,
+             thrift_string_size_limit=None,
+             thrift_container_size_limit=None):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -1192,6 +1194,18 @@ cdef class ParquetReader(_Weakrefable):
             properties.disable_buffered_stream()
         else:
             raise ValueError('Buffer size must be larger than zero')
+
+        if thrift_string_size_limit is not None:
+            if thrift_string_size_limit <= 0:
+                raise ValueError("thrift_string_size_limit "
+                                 "must be larger than zero")
+            properties.set_thrift_string_size_limit(thrift_string_size_limit)
+        if thrift_container_size_limit is not None:
+            if thrift_container_size_limit <= 0:
+                raise ValueError("thrift_container_size_limit "
+                                 "must be larger than zero")
+            properties.set_thrift_container_size_limit(
+                thrift_container_size_limit)
 
         if decryption_properties is not None:
             properties.file_decryption_properties(
@@ -1419,13 +1433,6 @@ cdef class ParquetReader(_Weakrefable):
         with nogil:
             check_status(self.reader.get()
                          .ReadColumn(column_index, &out))
-        return pyarrow_wrap_chunked_array(out)
-
-    def read_schema_field(self, int field_index):
-        cdef shared_ptr[CChunkedArray] out
-        with nogil:
-            check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &out))
         return pyarrow_wrap_chunked_array(out)
 
 

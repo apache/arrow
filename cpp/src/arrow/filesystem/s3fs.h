@@ -116,7 +116,7 @@ struct ARROW_EXPORT S3Options {
   /// Optional external idenitifer to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
-  int load_frequency;
+  int load_frequency = 900;
 
   /// If connection is through a proxy, set options here
   S3ProxyOptions proxy_options;
@@ -129,6 +129,17 @@ struct ARROW_EXPORT S3Options {
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
+
+  /// Whether to allow creation of buckets
+  ///
+  /// When S3FileSystem creates new buckets, it does not pass any non-default settings.
+  /// In AWS S3, the bucket and all objects will be not publicly visible, and there
+  /// will be no bucket policies and no resource tags. To have more control over how
+  /// buckets are created, use a different API to create them.
+  bool allow_bucket_creation = false;
+
+  /// Whether to allow deletion of buckets
+  bool allow_bucket_deletion = false;
 
   /// \brief Default metadata for OpenOutputStream.
   ///

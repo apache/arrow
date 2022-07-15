@@ -16,29 +16,27 @@
 // under the License.
 
 #include "arrow/util/tracing.h"
+
+#include "arrow/util/config.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
+
+using internal::make_unique;
 namespace util {
 namespace tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 
-Span::Impl& Span::Set(const Impl& impl) {
-  inner_impl.reset(new Impl(impl));
-  return *inner_impl;
-}
+Span::Span() noexcept { details = make_unique<::arrow::internal::tracing::SpanImpl>(); }
 
-Span::Impl& Span::Set(Impl&& impl) {
-  inner_impl.reset(new Impl(std::move(impl)));
-  return *inner_impl;
+#else
+
+Span::Span() noexcept { /* details is left a nullptr */
 }
 
 #endif
-
-// Default destructor when impl type is complete.
-Span::~Span() = default;
 
 }  // namespace tracing
 }  // namespace util

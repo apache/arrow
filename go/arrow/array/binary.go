@@ -116,6 +116,19 @@ func (a *Binary) setData(data *Data) {
 	if valueOffsets := data.buffers[1]; valueOffsets != nil {
 		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
+
+	if a.array.data.length < 1 {
+		return
+	}
+
+	expNumOffsets := a.array.data.offset + a.array.data.length + 1
+	if len(a.valueOffsets) < expNumOffsets {
+		panic(fmt.Errorf("arrow/array: binary offset buffer must have at least %d values", expNumOffsets))
+	}
+
+	if int(a.valueOffsets[expNumOffsets-1]) > len(a.valueBytes) {
+		panic("arrow/array: binary offsets out of bounds of data buffer")
+	}
 }
 
 func (a *Binary) getOneForMarshal(i int) interface{} {

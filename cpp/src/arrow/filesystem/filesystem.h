@@ -452,7 +452,8 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
 /// \brief Create a new FileSystem by URI
 ///
-/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
+/// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
+/// "gs" and "gcs".
 ///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[out] out_path (optional) Path inside the filesystem.
@@ -463,7 +464,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 
 /// \brief Create a new FileSystem by URI with a custom IO context
 ///
-/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
+/// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",
+/// "gs" and "gcs".
 ///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[in] io_context an IOContext which will be associated with the filesystem

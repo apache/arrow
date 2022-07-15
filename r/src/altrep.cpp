@@ -85,7 +85,6 @@ const std::shared_ptr<ChunkedArray>& GetChunkedArray(SEXP alt) {
 }
 
 struct ArrayResolve {
-  // TODO: ARROW-11989
   ArrayResolve(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t i) {
     for (int idx_chunk = 0; idx_chunk < chunked_array->num_chunks(); idx_chunk++) {
       std::shared_ptr<Array> chunk = chunked_array->chunk(idx_chunk);
@@ -671,7 +670,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
                                  Transpose transpose, int* out) {
     using index_type = typename Type::c_type;
 
-    VisitArrayDataInline<Type>(
+    VisitArraySpanInline<Type>(
         *array->data(),
         /*valid_func=*/[&](index_type index) { *out++ = transpose(index) + 1; },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });

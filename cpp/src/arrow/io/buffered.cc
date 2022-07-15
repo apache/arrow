@@ -144,6 +144,8 @@ class BufferedOutputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(FlushUnlocked());
       DCHECK_EQ(buffer_pos_, 0);
       if (nbytes >= buffer_size_) {
+        // Invalidate cached raw pos
+        raw_pos_ = -1;
         // Direct write
         if (buffer) {
           return raw_->Write(buffer);

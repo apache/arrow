@@ -131,7 +131,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build with -fPIC so that can static link our libraries into other people's
 # shared libraries
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ${ARROW_POSITION_INDEPENDENT_CODE})
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
@@ -290,7 +290,6 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated-declarations")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")

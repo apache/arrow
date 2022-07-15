@@ -249,9 +249,11 @@ class SQLiteFlightSqlServer::Impl {
   std::string GenerateRandomString() {
     uint32_t length = 16;
 
-    std::uniform_int_distribution<char> dist('0', 'z');
+    // MSVC doesn't support char types here
+    std::uniform_int_distribution<uint16_t> dist(static_cast<uint16_t>('0'),
+                                                 static_cast<uint16_t>('z'));
     std::string ret(length, 0);
-    auto get_random_char = [&]() { return dist(gen_); };
+    auto get_random_char = [&]() { return static_cast<char>(dist(gen_)); };
     std::generate_n(ret.begin(), length, get_random_char);
     return ret;
   }
@@ -384,14 +386,14 @@ class SQLiteFlightSqlServer::Impl {
       const ActionCreatePreparedStatementRequest& request) {
     std::shared_ptr<SqliteStatement> statement;
     ARROW_ASSIGN_OR_RAISE(statement, SqliteStatement::Create(db_, request.query));
-    const std::string handle = GenerateRandomString();
+    std::string handle = GenerateRandomString();
     prepared_statements_[handle] = statement;
 
     ARROW_ASSIGN_OR_RAISE(auto dataset_schema, statement->GetSchema());
 
     sqlite3_stmt* stmt = statement->GetSqlite3Stmt();
     const int parameter_count = sqlite3_bind_parameter_count(stmt);
-    std::vector<std::shared_ptr<arrow::Field>> parameter_fields;
+    FieldVector parameter_fields;
     parameter_fields.reserve(parameter_count);
 
     // As SQLite doesn't know the parameter types before executing the query, the
@@ -410,13 +412,9 @@ class SQLiteFlightSqlServer::Impl {
       parameter_fields.push_back(field(parameter_name, dense_union_type));
     }
 
-    const std::shared_ptr<Schema>& parameter_schema = arrow::schema(parameter_fields);
-
-    ActionCreatePreparedStatementResult result{.dataset_schema = dataset_schema,
-                                               .parameter_schema = parameter_schema,
-                                               .prepared_statement_handle = handle};
-
-    return result;
+    std::shared_ptr<Schema> parameter_schema = arrow::schema(parameter_fields);
+    return ActionCreatePreparedStatementResult{
+        std::move(dataset_schema), std::move(parameter_schema), std::move(handle)};
   }
 
   Status ClosePreparedStatement(const ServerCallContext& context,

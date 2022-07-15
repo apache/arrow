@@ -39,6 +39,10 @@ type DeltaByteArrayEncoder struct {
 	lastVal parquet.ByteArray
 }
 
+func (enc *DeltaByteArrayEncoder) EstimatedDataEncodedSize() int64 {
+	return enc.prefixEncoder.EstimatedDataEncodedSize() + enc.suffixEncoder.EstimatedDataEncodedSize()
+}
+
 func (enc *DeltaByteArrayEncoder) initEncoders() {
 	enc.prefixEncoder = &DeltaBitPackInt32Encoder{
 		deltaBitPackEncoder: &deltaBitPackEncoder{encoder: newEncoderBase(enc.encoding, nil, enc.mem)}}

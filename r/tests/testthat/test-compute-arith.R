@@ -129,9 +129,9 @@ test_that("Power", {
 test_that("Dates casting", {
   a <- Array$create(c(Sys.Date() + 1:4, NA_integer_))
 
-  skip("ARROW-11090 (date/datetime arithmetic)")
-  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[date32[day]], scalar[double])
-  expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4) + 2), NA_integer_))
+  skip("ARROW-17043 (date/datetime arithmetic with integers)")
+  # Error: NotImplemented: Function 'add_checked' has no kernel matching input types (timestamp[s], int32)
+  expect_equal(a + 2L, Array$create(c((Sys.Date() + 1:4) + 2), NA_integer_))
 })
 
 test_that("Unary Ops group generics work on Array objects", {

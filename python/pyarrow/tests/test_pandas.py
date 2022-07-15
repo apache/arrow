@@ -149,6 +149,22 @@ class TestConvertMetadata:
         table = pa.Table.from_pandas(df)
         assert table.field(0).name == '0'
 
+    def test_non_string_columns_with_index(self):
+        df = pd.DataFrame({0: [1.0, 2.0, 3.0], 1: [4.0, 5.0, 6.0]})
+        df = df.set_index(0)
+
+        # assert that the from_pandas raises the warning
+        with pytest.warns(UserWarning):
+            table = pa.Table.from_pandas(df)
+            assert table.field(0).name == '1'
+
+        expected = df.copy()
+        # non-str index name will be converted to str
+        expected.index.name = str(expected.index.name)
+        with pytest.warns(UserWarning):
+            _check_pandas_roundtrip(df, expected=expected,
+                                    preserve_index=True)
+
     def test_from_pandas_with_columns(self):
         df = pd.DataFrame({0: [1, 2, 3], 1: [1, 3, 3], 2: [2, 4, 5]},
                           columns=[1, 0])
@@ -226,7 +242,7 @@ class TestConvertMetadata:
         with pytest.warns(None) as record:
             _check_pandas_roundtrip(df, preserve_index=True)
 
-        assert len(record) == 0
+        assert len(record) == 0, [r.message for r in record]
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
@@ -277,7 +293,7 @@ class TestConvertMetadata:
         with pytest.warns(None) as record:
             _check_pandas_roundtrip(df, preserve_index=True)
 
-        assert len(record) == 0
+        assert len(record) == 0, [r.message for r in record]
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
@@ -4457,3 +4473,15 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
 
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
+
+
+def test_does_not_mutate_timedelta_dtype():
+    expected = np.dtype('m8')
+
+    assert np.dtype(np.timedelta64) == expected
+
+    df = pd.DataFrame({"a": [np.timedelta64()]})
+    t = pa.Table.from_pandas(df)
+    t.to_pandas()
+
+    assert np.dtype(np.timedelta64) == expected

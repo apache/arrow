@@ -279,7 +279,8 @@ test_that("to_duckdb passing a connection", {
   table_four <- ds %>%
     select(int, lgl, dbl) %>%
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
-  table_four_name <- table_four$ops$x
+  # dbplyr 2.2.0 renames this internal attribute to lazy_query
+  table_four_name <- table_four$ops$x %||% table_four$lazy_query$x
 
   result <- DBI::dbGetQuery(
     con_separate,

@@ -67,6 +67,7 @@ struct DummyNode : ExecNode {
     for (size_t i = 0; i < input_labels_.size(); ++i) {
       input_labels_[i] = std::to_string(i);
     }
+    finished_.MarkFinished();
   }
 
   const char* kind_name() const override { return "Dummy"; }
@@ -111,8 +112,6 @@ struct DummyNode : ExecNode {
     }
   }
 
-  Future<> finished() override { return Future<>::MakeFinished(); }
-
  private:
   void AssertIsOutput(ExecNode* output) {
     auto it = std::find(outputs_.begin(), outputs_.end(), output);
@@ -143,16 +142,25 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
   return node;
 }
 
-ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
                             util::string_view json) {
   auto fields = ::arrow::internal::MapVector(
-      [](const ValueDescr& descr) { return field("", descr.type); }, descrs);
+      [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
 
   ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
 
+  return batch;
+}
+
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
+                            const std::vector<ArgShape>& shapes, util::string_view json) {
+  DCHECK_EQ(types.size(), shapes.size());
+
+  ExecBatch batch = ExecBatchFromJSON(types, json);
+
   auto value_it = batch.values.begin();
-  for (const auto& descr : descrs) {
-    if (descr.shape == ValueDescr::SCALAR) {
+  for (ArgShape shape : shapes) {
+    if (shape == ArgShape::SCALAR) {
       if (batch.length == 0) {
         *value_it = MakeNullScalar(value_it->type());
       } else {
@@ -225,6 +233,30 @@ BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
 
   out.schema = schema;
   return out;
+}
+
+BatchesWithSchema MakeBatchesFromString(
+    const std::shared_ptr<Schema>& schema,
+    const std::vector<util::string_view>& json_strings, int multiplicity) {
+  BatchesWithSchema out_batches{{}, schema};
+
+  std::vector<TypeHolder> types;
+  for (auto&& field : schema->fields()) {
+    types.emplace_back(field->type());
+  }
+
+  for (auto&& s : json_strings) {
+    out_batches.batches.push_back(ExecBatchFromJSON(types, s));
+  }
+
+  size_t batch_count = out_batches.batches.size();
+  for (int repeat = 1; repeat < multiplicity; ++repeat) {
+    for (size_t i = 0; i < batch_count; ++i) {
+      out_batches.batches.push_back(out_batches.batches[i]);
+    }
+  }
+
+  return out_batches;
 }
 
 Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>& tab) {
@@ -313,10 +345,12 @@ bool operator==(const Declaration& l, const Declaration& r) {
       if (l_agg->options == nullptr || r_agg->options == nullptr) return false;
 
       if (!l_agg->options->Equals(*r_agg->options)) return false;
+
+      if (l_agg->target != r_agg->target) return false;
+      if (l_agg->name != r_agg->name) return false;
     }
 
-    return l_opts->targets == r_opts->targets && l_opts->names == r_opts->names &&
-           l_opts->keys == r_opts->keys;
+    return l_opts->keys == r_opts->keys;
   }
 
   if (l.factory_name == "order_by_sink") {
@@ -376,23 +410,13 @@ static inline void PrintToImpl(const std::string& factory_name,
 
     *os << "aggregates={";
     for (const auto& agg : o->aggregates) {
-      *os << agg.function << "<";
+      *os << "function=" << agg.function << "<";
       if (agg.options) PrintTo(*agg.options, os);
       *os << ">,";
+      *os << "target=" << agg.target.ToString() << ",";
+      *os << "name=" << agg.name;
     }
     *os << "},";
-
-    *os << "targets={";
-    for (const auto& target : o->targets) {
-      *os << target.ToString() << ",";
-    }
-    *os << "},";
-
-    *os << "names={";
-    for (const auto& name : o->names) {
-      *os << name << ",";
-    }
-    *os << "}";
 
     if (!o->keys.empty()) {
       *os << ",keys={";

@@ -17,6 +17,7 @@ if [[ "${target_platform}" == "osx-arm64" ]]; then
 else
     export PYARROW_WITH_GANDIVA=1
 fi
+export PYARROW_WITH_GCS=1
 export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1

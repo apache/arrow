@@ -126,7 +126,8 @@ struct ARROW_EXPORT DataTypeLayout {
 ///
 /// Simple datatypes may be entirely described by their Type::type id, but
 /// complex datatypes are usually parametric.
-class ARROW_EXPORT DataType : public detail::Fingerprintable {
+class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
+                              public detail::Fingerprintable {
  public:
   explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
   ~DataType() override;
@@ -174,6 +175,25 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   /// \brief Return the type category of the storage type
   virtual Type::type storage_id() const { return id_; }
 
+  /// \brief Returns the type's fixed byte width, if any. Returns -1
+  /// for non-fixed-width types, and should only be used for
+  /// subclasses of FixedWidthType
+  virtual int32_t byte_width() const {
+    int32_t num_bits = this->bit_width();
+    return num_bits > 0 ? num_bits / 8 : -1;
+  }
+
+  /// \brief Returns the type's fixed bit width, if any. Returns -1
+  /// for non-fixed-width types, and should only be used for
+  /// subclasses of FixedWidthType
+  virtual int bit_width() const { return -1; }
+
+  // \brief EXPERIMENTAL: Enable retrieving shared_ptr<DataType> from a const
+  // context.
+  std::shared_ptr<DataType> GetSharedPtr() const {
+    return const_cast<DataType*>(this)->shared_from_this();
+  }
+
  protected:
   // Dummy version that returns a null string (indicating not implemented).
   // Subclasses should override for fast equality checks.
@@ -189,8 +209,67 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
+/// \brief EXPERIMENTAL: Container for a type pointer which can hold a
+/// dynamically created shared_ptr<DataType> if it needs to.
+struct ARROW_EXPORT TypeHolder {
+  const DataType* type = NULLPTR;
+  std::shared_ptr<DataType> owned_type;
+
+  TypeHolder() = default;
+  TypeHolder(const TypeHolder& other) = default;
+  TypeHolder& operator=(const TypeHolder& other) = default;
+  TypeHolder(TypeHolder&& other) = default;
+  TypeHolder& operator=(TypeHolder&& other) = default;
+
+  TypeHolder(std::shared_ptr<DataType> owned_type)  // NOLINT implicit construction
+      : type(owned_type.get()), owned_type(std::move(owned_type)) {}
+
+  TypeHolder(const DataType* type)  // NOLINT implicit construction
+      : type(type) {}
+
+  Type::type id() const { return this->type->id(); }
+
+  std::shared_ptr<DataType> GetSharedPtr() const {
+    return this->type != NULLPTR ? this->type->GetSharedPtr() : NULLPTR;
+  }
+
+  const DataType& operator*() const { return *this->type; }
+
+  operator bool() { return this->type != NULLPTR; }
+
+  bool operator==(const TypeHolder& other) const {
+    if (type == other.type) return true;
+    if (type == NULLPTR || other.type == NULLPTR) return false;
+    return type->Equals(*other.type);
+  }
+
+  bool operator==(decltype(NULLPTR)) const { return this->type == NULLPTR; }
+
+  bool operator==(const DataType& other) const {
+    if (this->type == NULLPTR) return false;
+    return other.Equals(*this->type);
+  }
+
+  bool operator!=(const DataType& other) const { return !(*this == other); }
+
+  bool operator==(const std::shared_ptr<DataType>& other) const {
+    return *this == *other;
+  }
+
+  bool operator!=(const TypeHolder& other) const { return !(*this == other); }
+
+  std::string ToString() const {
+    return this->type ? this->type->ToString() : "<NULLPTR>";
+  }
+
+  static std::string ToString(const std::vector<TypeHolder>&);
+};
+
 ARROW_EXPORT
 std::ostream& operator<<(std::ostream& os, const DataType& type);
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, const TypeHolder& type);
 
 inline bool operator==(const DataType& lhs, const DataType& rhs) {
   return lhs.Equals(rhs);
@@ -215,8 +294,6 @@ std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type)
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;
-
-  virtual int bit_width() const = 0;
 };
 
 /// \brief Base class for all data types representing primitive values
@@ -699,7 +776,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
         {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(byte_width())});
   }
 
-  int32_t byte_width() const { return byte_width_; }
+  int byte_width() const override { return byte_width_; }
+
   int bit_width() const override;
 
   // Validating constructor
@@ -2040,9 +2118,6 @@ std::string ToTypeName(Type::type id);
 
 ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
-
-ARROW_EXPORT
-int GetByteWidth(const DataType& type);
 
 }  // namespace internal
 

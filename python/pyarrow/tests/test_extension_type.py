@@ -17,6 +17,7 @@
 
 import pickle
 import weakref
+from uuid import uuid4, UUID
 
 import numpy as np
 import pyarrow as pa
@@ -34,6 +35,18 @@ class IntegerType(pa.PyExtensionType):
 
 
 class UuidType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.binary(16))
+
+    def __reduce__(self):
+        return UuidType, ()
+
+    def scalar_as_py(self, scalar):
+        return UUID(bytes=scalar.as_py())
+
+
+class UuidType2(pa.PyExtensionType):
 
     def __init__(self):
         pa.PyExtensionType.__init__(self, pa.binary(16))
@@ -133,6 +146,38 @@ def test_ext_type__storage_type():
     ty = ParamExtType(5)
     assert ty.storage_type == pa.binary(5)
     assert ty.__class__ is ParamExtType
+
+
+def test_ext_type_as_py():
+    ty = UuidType()
+    expected = uuid4()
+    scalar = pa.ExtensionScalar.from_storage(ty, expected.bytes)
+    assert scalar.as_py() == expected
+
+    # test array
+    uuids = [uuid4() for _ in range(3)]
+    storage = pa.array([uuid.bytes for uuid in uuids], type=pa.binary(16))
+    arr = pa.ExtensionArray.from_storage(ty, storage)
+
+    # Works for __get_item__
+    for i, expected in enumerate(uuids):
+        assert arr[i].as_py() == expected
+
+    # Works for __iter__
+    for result, expected in zip(arr, uuids):
+        assert result.as_py() == expected
+
+    # test chunked array
+    data = [
+        pa.ExtensionArray.from_storage(ty, storage),
+        pa.ExtensionArray.from_storage(ty, storage)
+    ]
+    carr = pa.chunked_array(data)
+    for i, expected in enumerate(uuids + uuids):
+        assert carr[i].as_py() == expected
+
+    for result, expected in zip(carr, uuids + uuids):
+        assert result.as_py() == expected
 
 
 def test_uuid_type_pickle():
@@ -248,9 +293,11 @@ def test_ext_scalar_from_array():
     storage = pa.array(data, type=pa.binary(16))
     ty1 = UuidType()
     ty2 = ParamExtType(16)
+    ty3 = UuidType2()
 
     a = pa.ExtensionArray.from_storage(ty1, storage)
     b = pa.ExtensionArray.from_storage(ty2, storage)
+    c = pa.ExtensionArray.from_storage(ty3, storage)
 
     scalars_a = list(a)
     assert len(scalars_a) == 4
@@ -261,17 +308,35 @@ def test_ext_scalar_from_array():
         assert s.type == ty1
         if val is not None:
             assert s.value == pa.scalar(val, storage.type)
+            assert s.as_py() == UUID(bytes=val)
         else:
             assert s.value is None
-        assert s.as_py() == val
 
     scalars_b = list(b)
     assert len(scalars_b) == 4
 
     for sa, sb in zip(scalars_a, scalars_b):
         assert sa.is_valid == sb.is_valid
-        assert sa.as_py() == sb.as_py()
+        if sa.as_py() is None:
+            assert sa.as_py() == sb.as_py()
+        else:
+            assert sa.as_py().bytes == sb.as_py()
         assert sa != sb
+
+    scalars_c = list(c)
+    assert len(scalars_c) == 4
+
+    for s, val in zip(scalars_c, data):
+        assert isinstance(s, pa.ExtensionScalar)
+        assert s.is_valid == (val is not None)
+        assert s.type == ty3
+        if val is not None:
+            assert s.value == pa.scalar(val, storage.type)
+            assert s.as_py() == val
+        else:
+            assert s.value is None
+
+    assert a.to_pylist() == [UUID(bytes=x) if x else None for x in data]
 
 
 def test_ext_scalar_from_storage():

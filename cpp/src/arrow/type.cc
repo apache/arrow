@@ -183,11 +183,6 @@ std::string ToString(TimeUnit::type unit) {
   }
 }
 
-int GetByteWidth(const DataType& type) {
-  const auto& fw_type = checked_cast<const FixedWidthType&>(type);
-  return fw_type.bit_width() / CHAR_BIT;
-}
-
 }  // namespace internal
 
 namespace {
@@ -392,6 +387,29 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
   os << type.ToString();
   return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const TypeHolder& type) {
+  os << type.ToString();
+  return os;
+}
+
+// ----------------------------------------------------------------------
+// TypeHolder
+
+std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
+  std::stringstream ss;
+  ss << "(";
+  for (size_t i = 0; i < types.size(); ++i) {
+    if (i > 0) {
+      ss << ", ";
+    }
+    ss << types[i].type->ToString();
+  }
+  ss << ")";
+  return ss.str();
+}
+
+// ----------------------------------------------------------------------
 
 FloatingPointType::Precision HalfFloatType::precision() const {
   return FloatingPointType::HALF;
@@ -2151,7 +2169,7 @@ Status DataType::Accept(TypeVisitor* visitor) const {
 }
 
 #define TYPE_FACTORY(NAME, KLASS)                                        \
-  std::shared_ptr<DataType> NAME() {                                     \
+  const std::shared_ptr<DataType>& NAME() {                              \
     static std::shared_ptr<DataType> result = std::make_shared<KLASS>(); \
     return result;                                                       \
   }

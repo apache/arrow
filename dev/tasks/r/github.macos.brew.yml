@@ -30,6 +30,8 @@ jobs:
 
       - name: Install apache-arrow
         run: |
+          # TODO(ARROW-16907): apache/arrow@master seems to be installed already
+          # so this does nothing on a branch/PR
           brew install -v --HEAD apache-arrow
           # for testing
           brew install minio

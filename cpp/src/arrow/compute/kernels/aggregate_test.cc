@@ -38,7 +38,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -1063,7 +1063,7 @@ TEST_F(TestCountDistinctKernel, Random) {
   };
   auto rand = random::RandomArrayGenerator(0x1205643);
   auto arr = rand.Numeric<UInt32Type>(1024, 0, 100, 0.0)->data();
-  auto r = VisitArrayDataInline<UInt32Type>(*arr, visit_value, visit_null);
+  auto r = VisitArraySpanInline<UInt32Type>(*arr, visit_value, visit_null);
   auto input = builder.Finish().ValueOrDie();
   Check(input, memo.size(), false);
 }
@@ -1563,7 +1563,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, PhysicalIntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
   ScalarAggregateOptions options;
-  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
   auto item_ty = default_type_instance<TypeParam>();

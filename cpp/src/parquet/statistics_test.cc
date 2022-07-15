@@ -595,8 +595,8 @@ void AssertStatsSet(const ApplicationVersion& version,
                     std::shared_ptr<parquet::WriterProperties> props,
                     const ColumnDescriptor* column, bool expected_is_set) {
   auto metadata_builder = ColumnChunkMetaDataBuilder::Make(props, column);
-  auto column_chunk =
-      ColumnChunkMetaData::Make(metadata_builder->contents(), column, &version);
+  auto column_chunk = ColumnChunkMetaData::Make(metadata_builder->contents(), column,
+                                                default_reader_properties(), &version);
   EncodedStatistics stats;
   stats.set_is_signed(false);
   metadata_builder->SetStatistics(stats);

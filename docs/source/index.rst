@@ -80,6 +80,7 @@ target environment.**
    format/CDataInterface
    format/CStreamInterface
    format/Other
+   format/Glossary
 
 .. _toc.development:
 
@@ -98,4 +99,5 @@ target environment.**
    developers/continuous_integration/index
    developers/benchmarks
    developers/documentation
+   developers/release
    developers/computeir

@@ -39,6 +39,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    jemalloc-devel \
     json-devel \
     libzstd-devel \
     lz4-devel \
@@ -53,7 +54,8 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
-    vala-devel \
+    thrift-devel \
+    vala \
     zlib-devel && \
   yum clean ${quiet} all
 

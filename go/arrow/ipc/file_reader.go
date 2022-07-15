@@ -188,6 +188,7 @@ func (f *FileReader) block(i int) (fileBlock, error) {
 		Meta:   blk.MetaDataLength(),
 		Body:   blk.BodyLength(),
 		r:      f.r,
+		mem:    f.mem,
 	}, nil
 }
 
@@ -202,6 +203,7 @@ func (f *FileReader) dict(i int) (fileBlock, error) {
 		Meta:   blk.MetaDataLength(),
 		Body:   blk.BodyLength(),
 		r:      f.r,
+		mem:    f.mem,
 	}, nil
 }
 

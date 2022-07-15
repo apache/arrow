@@ -20,6 +20,7 @@
 project('arrow-glib', 'c', 'cpp',
         license: 'Apache-2.0',
         default_options: [
+          'c_std=c99',
           'cpp_std=c++11',
         ])
 
@@ -43,17 +44,24 @@ library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
 prefix = get_option('prefix')
 include_dir = join_paths(prefix, get_option('includedir'))
 data_dir = join_paths(prefix, get_option('datadir'))
+gir_dir = join_paths(data_dir, 'gir-1.0')
+vapi_dir = join_paths(data_dir, 'vala', 'vapi')
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
+pkgconfig_variables = []
 
 base_include_directories = [
   include_directories('.')
 ]
 
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
-generate_vapi = have_gi and get_option('vala')
+if have_gi
+  pkgconfig_variables += ['girdir=@0@'.format(gir_dir)]
+endif
+generate_vapi = have_gi and get_option('vapi')
 if generate_vapi
+  pkgconfig_variables += ['vapidir=@0@'.format(vapi_dir)]
   add_languages('vala')
 endif
 
@@ -80,6 +88,7 @@ if arrow_cpp_build_lib_dir == ''
   arrow_cuda = dependency('arrow-cuda', required: false)
   arrow_dataset = dependency('arrow-dataset', required: false)
   arrow_flight = dependency('arrow-flight', required: false)
+  arrow_flight_sql = dependency('arrow-flight-sql', required: false)
   gandiva = dependency('gandiva', required: false)
   parquet = dependency('parquet', required: false)
   plasma = dependency('plasma', required: false)
@@ -97,7 +106,7 @@ else
 int
 main(void)
 {
-  arrow::adapters::orc::ORCFileReader::Open(nullptr, nullptr, nullptr);
+  arrow::adapters::orc::ORCFileWriter::Open(nullptr);
   return 0;
 }
   '''
@@ -113,6 +122,9 @@ main(void)
   arrow_flight = cpp_compiler.find_library('arrow_flight',
                                            dirs: [arrow_cpp_build_lib_dir],
                                            required: false)
+  arrow_flight_sql = cpp_compiler.find_library('arrow_flight_sql',
+                                               dirs: [arrow_cpp_build_lib_dir],
+                                               required: false)
   gandiva = cpp_compiler.find_library('gandiva',
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
@@ -141,6 +153,9 @@ endif
 if arrow_flight.found()
   subdir('arrow-flight-glib')
 endif
+if arrow_flight_sql.found()
+  subdir('arrow-flight-sql-glib')
+endif
 if gandiva.found()
   subdir('gandiva-glib')
 endif
@@ -159,6 +174,9 @@ if get_option('gtk_doc')
   endif
   if arrow_flight.found()
     subdir('doc/arrow-flight-glib')
+  endif
+  if arrow_flight_sql.found()
+    subdir('doc/arrow-flight-sql-glib')
   endif
   if gandiva.found()
     subdir('doc/gandiva-glib')

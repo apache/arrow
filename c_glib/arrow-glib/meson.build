@@ -78,9 +78,11 @@ c_headers = files(
   'array.h',
   'array-builder.h',
   'arrow-glib.h',
+  'basic-array-definition.h',
   'basic-array.h',
   'basic-data-type.h',
   'buffer.h',
+  'chunked-array-definition.h',
   'chunked-array.h',
   'codec.h',
   'composite-array.h',
@@ -122,6 +124,7 @@ c_headers += files(
 )
 
 c_headers += files(
+  'compute-definition.h',
   'compute.h',
 )
 
@@ -254,17 +257,18 @@ arrow_glib = declare_dependency(link_with: libarrow_glib,
                                 sources: enums_header)
 
 pkgconfig.generate(libarrow_glib,
+                   description: 'C API for Apache Arrow based on GLib',
                    filebase: meson.project_name(),
                    name: 'Apache Arrow GLib',
-                   description: 'C API for Apache Arrow based on GLib',
-                   version: version,
-                   requires: ['gobject-2.0', 'arrow'])
+                   requires: ['gobject-2.0', 'arrow'],
+                   variables: pkgconfig_variables,
+                   version: version)
 if have_arrow_orc
   pkgconfig.generate(filebase: 'arrow-orc-glib',
-                     name: 'Apache Arrow GLib ORC',
                      description: 'ORC modules for Apache Arrow GLib',
-                     version: version,
-                     requires: ['arrow-glib'])
+                     name: 'Apache Arrow GLib ORC',
+                     requires: ['arrow-glib'],
+                     version: version)
 endif
 
 if have_gi

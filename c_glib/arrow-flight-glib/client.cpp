@@ -163,9 +163,9 @@ gaflight_client_options_new(void)
 }
 
 
-typedef struct GAFlightClientPrivate_ {
-  arrow::flight::FlightClient *client;
-} GAFlightClientPrivate;
+struct GAFlightClientPrivate {
+  std::shared_ptr<arrow::flight::FlightClient> client;
+};
 
 enum {
   PROP_CLIENT = 1,
@@ -185,7 +185,7 @@ gaflight_client_finalize(GObject *object)
 {
   auto priv = GAFLIGHT_CLIENT_GET_PRIVATE(object);
 
-  delete priv->client;
+  priv->client.~shared_ptr();
 
   G_OBJECT_CLASS(gaflight_client_parent_class)->finalize(object);
 }
@@ -201,7 +201,8 @@ gaflight_client_set_property(GObject *object,
   switch (prop_id) {
   case PROP_CLIENT:
     priv->client =
-      static_cast<arrow::flight::FlightClient *>(g_value_get_pointer(value));
+      *(static_cast<std::shared_ptr<arrow::flight::FlightClient> *>(
+          g_value_get_pointer(value)));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -212,6 +213,8 @@ gaflight_client_set_property(GObject *object,
 static void
 gaflight_client_init(GAFlightClient *object)
 {
+  auto priv = GAFLIGHT_CLIENT_GET_PRIVATE(object);
+  new(&priv->client) std::shared_ptr<arrow::flight::FlightClient>;
 }
 
 static void
@@ -225,7 +228,7 @@ gaflight_client_class_init(GAFlightClientClass *klass)
   GParamSpec *spec;
   spec = g_param_spec_pointer("client",
                               "Client",
-                              "The raw arrow::flight::FlightClient *",
+                              "The raw std::shared_ptr<arrow::flight::FlightClient>",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CLIENT, spec);
@@ -247,18 +250,17 @@ gaflight_client_new(GAFlightLocation *location,
                     GError **error)
 {
   const auto flight_location = gaflight_location_get_raw(location);
-  std::unique_ptr<arrow::flight::FlightClient> flight_client;
-  arrow::Status status;
+  arrow::Result<std::unique_ptr<arrow::flight::FlightClient>> result;
   if (options) {
     const auto flight_options = gaflight_client_options_get_raw(options);
-    auto result = arrow::flight::FlightClient::Connect(*flight_location, *flight_options);
-    status = std::move(result).Value(&flight_client);
+    result = arrow::flight::FlightClient::Connect(*flight_location, *flight_options);
   } else {
-    auto result = arrow::flight::FlightClient::Connect(*flight_location);
-    status = std::move(result).Value(&flight_client);
+    result = arrow::flight::FlightClient::Connect(*flight_location);
   }
-  if (garrow::check(error, status, "[flight-client][new]")) {
-    return gaflight_client_new_raw(flight_client.release());
+  if (garrow::check(error, result, "[flight-client][new]")) {
+    std::shared_ptr<arrow::flight::FlightClient> flight_client =
+      std::move(*result);
+    return gaflight_client_new_raw(&flight_client);
   } else {
     return NULL;
   }
@@ -406,7 +408,7 @@ gaflight_client_options_get_raw(GAFlightClientOptions *options)
   return &(priv->options);
 }
 
-arrow::flight::FlightClient *
+std::shared_ptr<arrow::flight::FlightClient>
 gaflight_client_get_raw(GAFlightClient *client)
 {
   auto priv = GAFLIGHT_CLIENT_GET_PRIVATE(client);
@@ -414,7 +416,8 @@ gaflight_client_get_raw(GAFlightClient *client)
 }
 
 GAFlightClient *
-gaflight_client_new_raw(arrow::flight::FlightClient *flight_client)
+gaflight_client_new_raw(
+  std::shared_ptr<arrow::flight::FlightClient> *flight_client)
 {
   return GAFLIGHT_CLIENT(g_object_new(GAFLIGHT_TYPE_CLIENT,
                                       "client", flight_client,

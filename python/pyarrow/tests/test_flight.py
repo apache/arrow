@@ -819,6 +819,9 @@ class MultiHeaderClientMiddleware(ClientMiddleware):
     EXPECTED = {
         "x-text": ["foo", "bar"],
         "x-binary-bin": [b"\x00", b"\x01"],
+        # ARROW-16606: ensure mixed-case headers are accepted
+        "x-MIXED-case": ["baz"],
+        b"x-other-MIXED-case": ["baz"],
     }
 
     def __init__(self, factory):
@@ -1910,6 +1913,9 @@ def test_middleware_multi_header():
             client_headers = ast.literal_eval(raw_headers)
             # Don't directly compare; gRPC may add headers like User-Agent.
             for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
+                header = header.lower()
+                if isinstance(header, bytes):
+                    header = header.decode("ascii")
                 assert client_headers.get(header) == values
                 assert headers.last_headers.get(header) == values
 
@@ -1994,6 +2000,11 @@ def test_interrupt():
         descriptor = flight.FlightDescriptor.for_command(b"echo")
         writer, reader = client.do_exchange(descriptor)
         test(reader.read_all)
+        try:
+            writer.close()
+        except (KeyboardInterrupt, flight.FlightCancelledError):
+            # Silence the Cancelled/Interrupt exception
+            pass
 
 
 def test_never_sends_data():
@@ -2157,3 +2168,12 @@ def test_write_error_propagation():
             writer.close()
         assert exc_info.value.extra_info == expected_info
         thread.join()
+
+
+def test_interpreter_shutdown():
+    """
+    Ensure that the gRPC server is stopped at interpreter shutdown.
+
+    See https://issues.apache.org/jira/browse/ARROW-16597.
+    """
+    util.invoke_script("arrow_16597.py")

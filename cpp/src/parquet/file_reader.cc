@@ -30,7 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
@@ -543,8 +543,8 @@ uint32_t SerializedFile::ParseUnencryptedFileMetadata(
   }
   uint32_t read_metadata_len = metadata_len;
   // The encrypted read path falls through to here, so pass in the decryptor
-  file_metadata_ =
-      FileMetaData::Make(metadata_buffer->data(), &read_metadata_len, file_decryptor_);
+  file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len,
+                                      properties_, file_decryptor_);
   return read_metadata_len;
 }
 

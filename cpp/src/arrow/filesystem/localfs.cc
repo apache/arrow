@@ -439,10 +439,11 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   const bool write_only = true;
   ARROW_ASSIGN_OR_RAISE(
-      int fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
-  auto maybe_stream = io::FileOutputStream::Open(fd);
+      auto fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
+  int raw_fd = fd.Detach();
+  auto maybe_stream = io::FileOutputStream::Open(raw_fd);
   if (!maybe_stream.ok()) {
-    ARROW_UNUSED(::arrow::internal::FileClose(fd));
+    ARROW_UNUSED(::arrow::internal::FileClose(raw_fd));
   }
   return maybe_stream;
 }

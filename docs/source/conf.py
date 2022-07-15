@@ -92,7 +92,8 @@ breathe_default_project = "arrow_cpp"
 autodoc_mock_imports = []
 
 # copybutton configuration
-copybutton_prompt_text = "$"
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: "
+copybutton_prompt_is_regexp = True
 copybutton_line_continuation_character = "\\"
 
 # ipython directive options
@@ -171,7 +172,7 @@ if "+" in release:
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:

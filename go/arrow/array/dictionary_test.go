@@ -27,8 +27,10 @@ import (
 	"github.com/apache/arrow/go/v9/arrow/array"
 	"github.com/apache/arrow/go/v9/arrow/bitutil"
 	"github.com/apache/arrow/go/v9/arrow/decimal128"
+	"github.com/apache/arrow/go/v9/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -1180,4 +1182,459 @@ func TestDictionaryGetValueIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+func checkTransposeMap(t *testing.T, b *memory.Buffer, exp []int32) bool {
+	got := arrow.Int32Traits.CastFromBytes(b.Bytes())
+	return assert.Equal(t, exp, got)
+}
+
+func TestDictionaryUnifierNumeric(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := arrow.PrimitiveTypes.Int64
+
+	d1, _, err := array.FromJSON(mem, dictType, strings.NewReader(`[3, 4, 7]`))
+	require.NoError(t, err)
+	d2, _, err := array.FromJSON(mem, dictType, strings.NewReader(`[1, 7, 4, 8]`))
+	require.NoError(t, err)
+	d3, _, err := array.FromJSON(mem, dictType, strings.NewReader(`[1, -200]`))
+	require.NoError(t, err)
+
+	expected := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: dictType}
+	expectedDict, _, err := array.FromJSON(mem, dictType, strings.NewReader(`[3, 4, 7, 1, 8, -200]`))
+	require.NoError(t, err)
+	defer func() {
+		d1.Release()
+		d2.Release()
+		d3.Release()
+		expectedDict.Release()
+	}()
+
+	unifier, err := array.NewDictionaryUnifier(mem, dictType)
+	assert.NoError(t, err)
+	defer unifier.Release()
+
+	assert.NoError(t, unifier.Unify(d1))
+	assert.NoError(t, unifier.Unify(d2))
+	assert.NoError(t, unifier.Unify(d3))
+
+	invalid, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[1, -200]`))
+	defer invalid.Release()
+	assert.EqualError(t, unifier.Unify(invalid), "dictionary type different from unifier: int32, expected: int64")
+
+	outType, outDict, err := unifier.GetResult()
+	assert.NoError(t, err)
+	defer outDict.Release()
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	b1, err := unifier.UnifyAndTranspose(d1)
+	assert.NoError(t, err)
+	b2, err := unifier.UnifyAndTranspose(d2)
+	assert.NoError(t, err)
+	b3, err := unifier.UnifyAndTranspose(d3)
+	assert.NoError(t, err)
+
+	outType, outDict, err = unifier.GetResult()
+	assert.NoError(t, err)
+	defer func() {
+		outDict.Release()
+		b1.Release()
+		b2.Release()
+		b3.Release()
+	}()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	checkTransposeMap(t, b1, []int32{0, 1, 2})
+	checkTransposeMap(t, b2, []int32{3, 2, 1, 4})
+	checkTransposeMap(t, b3, []int32{3, 5})
+}
+
+func TestDictionaryUnifierString(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := arrow.BinaryTypes.String
+	d1, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["foo", "bar"]`))
+	require.NoError(t, err)
+	defer d1.Release()
+
+	d2, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["quux", "foo"]`))
+	require.NoError(t, err)
+	defer d2.Release()
+
+	expected := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: dictType}
+	expectedDict, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["foo", "bar", "quux"]`))
+	defer expectedDict.Release()
+
+	unifier, err := array.NewDictionaryUnifier(mem, dictType)
+	assert.NoError(t, err)
+	defer unifier.Release()
+
+	assert.NoError(t, unifier.Unify(d1))
+	assert.NoError(t, unifier.Unify(d2))
+	outType, outDict, err := unifier.GetResult()
+	assert.NoError(t, err)
+	defer outDict.Release()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	b1, err := unifier.UnifyAndTranspose(d1)
+	assert.NoError(t, err)
+	b2, err := unifier.UnifyAndTranspose(d2)
+	assert.NoError(t, err)
+
+	outType, outDict, err = unifier.GetResult()
+	assert.NoError(t, err)
+	defer func() {
+		outDict.Release()
+		b1.Release()
+		b2.Release()
+	}()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	checkTransposeMap(t, b1, []int32{0, 1})
+	checkTransposeMap(t, b2, []int32{2, 0})
+}
+
+func TestDictionaryUnifierFixedSizeBinary(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.FixedSizeBinaryType{ByteWidth: 3}
+	data := memory.NewBufferBytes([]byte(`foobarbazqux`))
+
+	fsbData := array.NewData(dictType, 2, []*memory.Buffer{nil, memory.SliceBuffer(data, 0, 6)}, nil, 0, 0)
+	defer fsbData.Release()
+	d1 := array.NewFixedSizeBinaryData(fsbData)
+	fsbData = array.NewData(dictType, 3, []*memory.Buffer{nil, memory.SliceBuffer(data, 3, 9)}, nil, 0, 0)
+	defer fsbData.Release()
+	d2 := array.NewFixedSizeBinaryData(fsbData)
+
+	fsbData = array.NewData(dictType, 4, []*memory.Buffer{nil, data}, nil, 0, 0)
+	defer fsbData.Release()
+	expectedDict := array.NewFixedSizeBinaryData(fsbData)
+	expected := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: dictType}
+
+	unifier, err := array.NewDictionaryUnifier(mem, dictType)
+	assert.NoError(t, err)
+
+	defer func() {
+		d1.Release()
+		d2.Release()
+		expectedDict.Release()
+		unifier.Release()
+	}()
+
+	assert.NoError(t, unifier.Unify(d1))
+	assert.NoError(t, unifier.Unify(d2))
+	outType, outDict, err := unifier.GetResult()
+	assert.NoError(t, err)
+	defer outDict.Release()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	b1, err := unifier.UnifyAndTranspose(d1)
+	assert.NoError(t, err)
+	b2, err := unifier.UnifyAndTranspose(d2)
+	assert.NoError(t, err)
+
+	outType, outDict, err = unifier.GetResult()
+	assert.NoError(t, err)
+	defer func() {
+		outDict.Release()
+		b1.Release()
+		b2.Release()
+	}()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	checkTransposeMap(t, b1, []int32{0, 1})
+	checkTransposeMap(t, b2, []int32{1, 2, 3})
+}
+
+func TestDictionaryUnifierLarge(t *testing.T) {
+	// unifying larger dictionaries should choose the right index type
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewInt32Builder(mem)
+	defer bldr.Release()
+	bldr.Reserve(120)
+	for i := int32(0); i < 120; i++ {
+		bldr.UnsafeAppend(i)
+	}
+
+	d1 := bldr.NewInt32Array()
+	defer d1.Release()
+	assert.EqualValues(t, 120, d1.Len())
+
+	bldr.Reserve(30)
+	for i := int32(110); i < 140; i++ {
+		bldr.UnsafeAppend(i)
+	}
+
+	d2 := bldr.NewInt32Array()
+	defer d2.Release()
+	assert.EqualValues(t, 30, d2.Len())
+
+	bldr.Reserve(140)
+	for i := int32(0); i < 140; i++ {
+		bldr.UnsafeAppend(i)
+	}
+
+	expectedDict := bldr.NewInt32Array()
+	defer expectedDict.Release()
+	assert.EqualValues(t, 140, expectedDict.Len())
+
+	// int8 would be too narrow to hold all the values
+	expected := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: arrow.PrimitiveTypes.Int32}
+
+	unifier, err := array.NewDictionaryUnifier(mem, arrow.PrimitiveTypes.Int32)
+	assert.NoError(t, err)
+	defer unifier.Release()
+
+	assert.NoError(t, unifier.Unify(d1))
+	assert.NoError(t, unifier.Unify(d2))
+	outType, outDict, err := unifier.GetResult()
+	assert.NoError(t, err)
+	defer outDict.Release()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+}
+
+func checkDictionaryArray(t *testing.T, arr, expectedVals, expectedIndices arrow.Array) bool {
+	require.IsType(t, (*array.Dictionary)(nil), arr)
+	dictArr := arr.(*array.Dictionary)
+	ret := true
+	ret = ret && assert.Truef(t, array.Equal(expectedVals, dictArr.Dictionary()), "got: %s, expected: %s", dictArr.Dictionary(), expectedVals)
+	return ret && assert.Truef(t, array.Equal(expectedIndices, dictArr.Indices()), "got: %s, expected: %s", dictArr.Indices(), expectedIndices)
+}
+
+func TestDictionaryUnifierSimpleChunkedArray(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String}
+	chunk1, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["ab", "cd", null, "cd"]`))
+	chunk2, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["ef", "cd", "ef"]`))
+	chunk3, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["ef", "ab", null, "ab"]`))
+	chunk4, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`[]`))
+	chunked := arrow.NewChunked(dictType, []arrow.Array{chunk1, chunk2, chunk3, chunk4})
+	defer func() {
+		chunk1.Release()
+		chunk2.Release()
+		chunk3.Release()
+		chunk4.Release()
+		chunked.Release()
+	}()
+
+	unified, err := array.UnifyChunkedDicts(mem, chunked)
+	assert.NoError(t, err)
+	defer unified.Release()
+
+	assert.Len(t, unified.Chunks(), 4)
+	expectedDict, _, _ := array.FromJSON(mem, dictType.ValueType, strings.NewReader(`["ab", "cd", "ef"]`))
+	defer expectedDict.Release()
+
+	c1Indices, _, _ := array.FromJSON(mem, dictType.IndexType, strings.NewReader(`[0, 1, null, 1]`))
+	defer c1Indices.Release()
+	c2Indices, _, _ := array.FromJSON(mem, dictType.IndexType, strings.NewReader(`[2, 1, 2]`))
+	defer c2Indices.Release()
+	c3Indices, _, _ := array.FromJSON(mem, dictType.IndexType, strings.NewReader(`[2, 0, null, 0]`))
+	defer c3Indices.Release()
+	c4Indices, _, _ := array.FromJSON(mem, dictType.IndexType, strings.NewReader(`[]`))
+	defer c4Indices.Release()
+	checkDictionaryArray(t, unified.Chunk(0), expectedDict, c1Indices)
+	checkDictionaryArray(t, unified.Chunk(1), expectedDict, c2Indices)
+	checkDictionaryArray(t, unified.Chunk(2), expectedDict, c3Indices)
+	checkDictionaryArray(t, unified.Chunk(3), expectedDict, c4Indices)
+}
+
+func TestDictionaryUnifierChunkedArrayZeroChunks(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String}
+	chunked := arrow.NewChunked(dictType, []arrow.Array{})
+	unified, err := array.UnifyChunkedDicts(mem, chunked)
+	assert.NoError(t, err)
+	assert.True(t, array.ChunkedEqual(unified, chunked))
+}
+
+func TestDictionaryUnifierChunkedArrayOneChunk(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String}
+	chunk1, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["ab", "cd", null, "cd"]`))
+	defer chunk1.Release()
+
+	chunked := arrow.NewChunked(dictType, []arrow.Array{chunk1})
+	defer chunked.Release()
+
+	unified, err := array.UnifyChunkedDicts(mem, chunked)
+	assert.NoError(t, err)
+	defer unified.Release()
+
+	assert.True(t, array.ChunkedEqual(unified, chunked))
+	assert.Same(t, unified, chunked)
+}
+
+func TestDictionaryUnifierChunkedArrayNoDict(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	typ := arrow.PrimitiveTypes.Int8
+	chunk1, _, _ := array.FromJSON(mem, typ, strings.NewReader(`[1, 1, 2, 3]`))
+	defer chunk1.Release()
+
+	chunk2, _, _ := array.FromJSON(mem, typ, strings.NewReader(`[5, 8, 13]`))
+	defer chunk2.Release()
+
+	chunked := arrow.NewChunked(typ, []arrow.Array{chunk1, chunk2})
+	defer chunked.Release()
+
+	unified, err := array.UnifyChunkedDicts(mem, chunked)
+	assert.NoError(t, err)
+	defer unified.Release()
+
+	assert.True(t, array.ChunkedEqual(unified, chunked))
+	assert.Same(t, unified, chunked)
+}
+
+func TestDictionaryUnifierChunkedArrayNested(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	typ := arrow.ListOf(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int16, ValueType: arrow.BinaryTypes.String})
+	chunk1, _, err := array.FromJSON(mem, typ, strings.NewReader(`[["ab", "cd"], ["cd"]]`))
+	assert.NoError(t, err)
+	// defer chunk1.Release()
+	chunk2, _, err := array.FromJSON(mem, typ, strings.NewReader(`[[], ["ef", "cd", "ef"]]`))
+	assert.NoError(t, err)
+	// defer chunk2.Release()
+	chunked := arrow.NewChunked(typ, []arrow.Array{chunk1, chunk2})
+	// defer chunked.Release()
+
+	unified, err := array.UnifyChunkedDicts(mem, chunked)
+	assert.NoError(t, err)
+	// defer unified.Release()
+	assert.Len(t, unified.Chunks(), 2)
+
+	expectedDict, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["ab", "cd", "ef"]`))
+	// defer expectedDict.Release()
+
+	unified1 := unified.Chunk(0).(*array.List)
+	assert.Equal(t, []int32{0, 2, 3}, unified1.Offsets())
+	expectedIndices1, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int16, strings.NewReader(`[0, 1, 1]`))
+	// defer expectedIndices1.Release()
+	checkDictionaryArray(t, unified1.ListValues(), expectedDict, expectedIndices1)
+
+	unified2 := unified.Chunk(1).(*array.List)
+	assert.Equal(t, []int32{0, 0, 3}, unified2.Offsets())
+	expectedIndices2, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int16, strings.NewReader(`[2, 1, 2]`))
+	// defer expectedIndices2.Release()
+	checkDictionaryArray(t, unified2.ListValues(), expectedDict, expectedIndices2)
+	defer func() {
+		expectedIndices1.Release()
+		expectedIndices2.Release()
+		expectedDict.Release()
+		unified.Release()
+		chunked.Release()
+		chunk2.Release()
+		chunk1.Release()
+	}()
+}
+
+func TestDictionaryUnifierChunkedArrayExtension(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dt := types.NewDictExtensionType()
+	chunk1, _, err := array.FromJSON(mem, dt, strings.NewReader(`["ab", null, "cd", "ab"]`))
+	assert.NoError(t, err)
+	defer chunk1.Release()
+
+	chunk2, _, err := array.FromJSON(mem, dt, strings.NewReader(`["ef", "ab", "ab"]`))
+	assert.NoError(t, err)
+	defer chunk2.Release()
+
+	chunked := arrow.NewChunked(dt, []arrow.Array{chunk1, chunk2})
+	defer chunked.Release()
+	unified, err := array.UnifyChunkedDicts(mem, chunked)
+	assert.NoError(t, err)
+	defer unified.Release()
+	assert.Len(t, unified.Chunks(), 2)
+
+	expectedDict, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["ab", "cd", "ef"]`))
+	defer expectedDict.Release()
+
+	unified1 := unified.Chunk(0).(array.ExtensionArray)
+	assert.Truef(t, arrow.TypeEqual(dt, unified1.DataType()), "expected: %s, got: %s", dt, unified1.DataType())
+	indices, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[0, null, 1, 0]`))
+	defer indices.Release()
+	checkDictionaryArray(t, unified1.Storage(), expectedDict, indices)
+
+	unified2 := unified.Chunk(1).(array.ExtensionArray)
+	assert.Truef(t, arrow.TypeEqual(dt, unified2.DataType()), "expected: %s, got: %s", dt, unified1.DataType())
+	indices, _, _ = array.FromJSON(mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[2, 0, 0]`))
+	defer indices.Release()
+	checkDictionaryArray(t, unified2.Storage(), expectedDict, indices)
+}
+
+func TestDictionaryUnifierChunkedArrayNestedDict(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	innerType := arrow.ListOf(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint32, ValueType: arrow.BinaryTypes.String})
+	innerDict1, _, err := array.FromJSON(mem, innerType, strings.NewReader(`[["ab", "cd"], [], ["cd", null]]`))
+	assert.NoError(t, err)
+	defer innerDict1.Release()
+	indices1, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[2, 1, 0, 1, 2]`))
+	defer indices1.Release()
+
+	chunk1 := array.NewDictionaryArray(&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: innerType}, indices1, innerDict1)
+	defer chunk1.Release()
+
+	innerDict2, _, err := array.FromJSON(mem, innerType, strings.NewReader(`[["cd", "ef"], ["cd", null], []]`))
+	assert.NoError(t, err)
+	defer innerDict2.Release()
+	indices2, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[1, 2, 2, 0]`))
+	defer indices2.Release()
+
+	chunk2 := array.NewDictionaryArray(&arrow.DictionaryType{IndexType: indices2.DataType(), ValueType: innerType}, indices2, innerDict2)
+	defer chunk2.Release()
+
+	chunked := arrow.NewChunked(chunk1.DataType(), []arrow.Array{chunk1, chunk2})
+	defer chunked.Release()
+
+	unified, err := array.UnifyChunkedDicts(mem, chunked)
+	assert.Nil(t, unified)
+	assert.EqualError(t, err, "unimplemented dictionary value type, list<item: dictionary<values=utf8, indices=uint32, ordered=false>, nullable>")
+}
+
+func TestDictioanryUnifierTableZeroColumns(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{}, nil)
+	table := array.NewTable(schema, []arrow.Column{}, 42)
+	defer table.Release()
+
+	unified, err := array.UnifyTableDicts(mem, table)
+	assert.NoError(t, err)
+	assert.True(t, schema.Equal(unified.Schema()))
+	assert.EqualValues(t, 42, unified.NumRows())
+	assert.True(t, array.TableEqual(table, unified))
 }

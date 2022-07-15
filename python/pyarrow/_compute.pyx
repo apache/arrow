@@ -314,7 +314,7 @@ cdef class Function(_Weakrefable):
         return self.base_func.num_kernels()
 
     def call(self, args, FunctionOptions options=None,
-             MemoryPool memory_pool=None):
+             MemoryPool memory_pool=None, length=None):
         """
         Call the function on the given arguments.
 
@@ -328,23 +328,34 @@ cdef class Function(_Weakrefable):
             the right concrete options type.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+        length : int, optional
+            Batch size for execution, for nullary (no argument) functions. If
+            not passed, will be inferred from passed data.
         """
         cdef:
             const CFunctionOptions* c_options = NULL
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
             CExecContext c_exec_ctx = CExecContext(pool)
-            vector[CDatum] c_args
+            CExecBatch c_batch
             CDatum result
 
-        _pack_compute_args(args, &c_args)
+        _pack_compute_args(args, &c_batch.values)
 
         if options is not None:
             c_options = options.get_options()
 
-        with nogil:
-            result = GetResultValue(
-                self.base_func.Execute(c_args, c_options, &c_exec_ctx)
-            )
+        if length is not None:
+            c_batch.length = length
+            with nogil:
+                result = GetResultValue(
+                    self.base_func.Execute(c_batch, c_options, &c_exec_ctx)
+                )
+        else:
+            with nogil:
+                result = GetResultValue(
+                    self.base_func.Execute(c_batch.values, c_options,
+                                           &c_exec_ctx)
+                )
 
         return wrap_datum(result)
 
@@ -524,7 +535,7 @@ def list_functions():
     return _global_func_registry.list_functions()
 
 
-def call_function(name, args, options=None, memory_pool=None):
+def call_function(name, args, options=None, memory_pool=None, length=None):
     """
     Call a named function.
 
@@ -541,9 +552,13 @@ def call_function(name, args, options=None, memory_pool=None):
         options provided to the function.
     memory_pool : MemoryPool, optional
         memory pool to use for allocations during function execution.
+    length : int, optional
+        Batch size for execution, for nullary (no argument) functions. If not
+        passed, inferred from data.
     """
     func = _global_func_registry.get_function(name)
-    return func.call(args, options=options, memory_pool=memory_pool)
+    return func.call(args, options=options, memory_pool=memory_pool,
+                     length=length)
 
 
 cdef class FunctionOptions(_Weakrefable):
@@ -882,11 +897,13 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    def _set_options(self, multiple, unit, week_starts_monday):
+    def _set_options(self, multiple, unit, week_starts_monday,
+                     ceil_is_strictly_greater, calendar_based_origin):
         self.wrapped.reset(
             new CRoundTemporalOptions(
                 multiple, unwrap_round_temporal_unit(unit),
-                week_starts_monday)
+                week_starts_monday, ceil_is_strictly_greater,
+                calendar_based_origin)
         )
 
 
@@ -905,10 +922,41 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         "nanosecond".
     week_starts_monday : bool, default True
         If True, weeks start on Monday; if False, on Sunday.
+    ceil_is_strictly_greater : bool, default False
+        If True, ceil returns a rounded value that is strictly greater than the
+        input. For example: ceiling 1970-01-01T00:00:00 to 3 hours would
+        yield 1970-01-01T03:00:00 if set to True and 1970-01-01T00:00:00
+        if set to False.
+        This applies to the ceil_temporal function only.
+    calendar_based_origin : bool, default False
+        By default, the origin is 1970-01-01T00:00:00. By setting this to True,
+        rounding origin will be beginning of one less precise calendar unit.
+        E.g.: rounding to hours will use beginning of day as origin.
+
+        By default time is rounded to a multiple of units since
+        1970-01-01T00:00:00. By setting calendar_based_origin to true,
+        time will be rounded to number of units since the last greater
+        calendar unit.
+        For example: rounding to multiple of days since the beginning of the
+        month or to hours since the beginning of the day.
+        Exceptions: week and quarter are not used as greater units,
+        therefore days will be rounded to the beginning of the month not
+        week. Greater unit of week is a year.
+        Note that ceiling and rounding might change sorting order of an array
+        near greater unit change. For example rounding YYYY-mm-dd 23:00:00 to
+        5 hours will ceil and round to YYYY-mm-dd+1 01:00:00 and floor to
+        YYYY-mm-dd 20:00:00. On the other hand YYYY-mm-dd+1 00:00:00 will
+        ceil, round and floor to YYYY-mm-dd+1 00:00:00. This can break the
+        order of an already ordered array.
+
     """
 
-    def __init__(self, multiple=1, unit="day", week_starts_monday=True):
-        self._set_options(multiple, unit, week_starts_monday)
+    def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
+                 ceil_is_strictly_greater=False,
+                 calendar_based_origin=False):
+        self._set_options(multiple, unit, week_starts_monday,
+                          ceil_is_strictly_greater,
+                          calendar_based_origin)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
@@ -1748,6 +1796,34 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
+cdef class _CumulativeSumOptions(FunctionOptions):
+    def _set_options(self, start, skip_nulls):
+        if not isinstance(start, Scalar):
+            try:
+                start = lib.scalar(start)
+            except Exception:
+                _raise_invalid_function_option(
+                    start, "`start` type for CumulativeSumOptions", TypeError)
+
+        self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
+
+
+class CumulativeSumOptions(_CumulativeSumOptions):
+    """
+    Options for `cumulative_sum` function.
+
+    Parameters
+    ----------
+    start : Scalar, default 0.0
+        Starting value for sum computation
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=0.0, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):
         self.wrapped.reset(new CArraySortOptions(
@@ -1946,10 +2022,10 @@ class Utf8NormalizeOptions(_Utf8NormalizeOptions):
 
 
 cdef class _RandomOptions(FunctionOptions):
-    def _set_options(self, length, initializer):
+    def _set_options(self, initializer):
         if initializer == 'system':
             self.wrapped.reset(new CRandomOptions(
-                CRandomOptions.FromSystemRandom(length)))
+                CRandomOptions.FromSystemRandom()))
             return
 
         if not isinstance(initializer, int):
@@ -1963,7 +2039,7 @@ cdef class _RandomOptions(FunctionOptions):
         if initializer < 0:
             initializer += 2**64
         self.wrapped.reset(new CRandomOptions(
-            CRandomOptions.FromSeed(length, initializer)))
+            CRandomOptions.FromSeed(initializer)))
 
 
 class RandomOptions(_RandomOptions):
@@ -1972,8 +2048,6 @@ class RandomOptions(_RandomOptions):
 
     Parameters
     ----------
-    length : int
-        Number of random values to generate.
     initializer : int or str
         How to initialize the underlying random generator.
         If an integer is given, it is used as a seed.
@@ -1982,8 +2056,70 @@ class RandomOptions(_RandomOptions):
         Other values are invalid.
     """
 
-    def __init__(self, length, *, initializer='system'):
-        self._set_options(length, initializer)
+    def __init__(self, *, initializer='system'):
+        self._set_options(initializer)
+
+
+cdef class _RankOptions(FunctionOptions):
+
+    _tiebreaker_map = {
+        "min": CRankOptionsTiebreaker_Min,
+        "max": CRankOptionsTiebreaker_Max,
+        "first": CRankOptionsTiebreaker_First,
+        "dense": CRankOptionsTiebreaker_Dense,
+    }
+
+    def _set_options(self, sort_keys, null_placement, tiebreaker):
+        cdef vector[CSortKey] c_sort_keys
+        if isinstance(sort_keys, str):
+            c_sort_keys.push_back(
+                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
+            )
+        else:
+            for name, order in sort_keys:
+                c_sort_keys.push_back(
+                    CSortKey(tobytes(name), unwrap_sort_order(order))
+                )
+        try:
+            self.wrapped.reset(
+                new CRankOptions(c_sort_keys,
+                                 unwrap_null_placement(null_placement),
+                                 self._tiebreaker_map[tiebreaker])
+            )
+        except KeyError:
+            _raise_invalid_function_option(tiebreaker, "tiebreaker")
+
+
+class RankOptions(_RankOptions):
+    """
+    Options for the `rank` function.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        Alternatively, one can simply pass "ascending" or "descending" as a string
+        if the input is array-like.
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted.
+        Accepted values are "at_start", "at_end".
+    tiebreaker : str, default "first"
+        Configure how ties between equal values are handled.
+        Accepted values are:
+
+        - "min": Ties get the smallest possible rank in sorted order.
+        - "max": Ties get the largest possible rank in sorted order.
+        - "first": Ranks are assigned in order of when ties appear in the
+                   input. This ensures the ranks are a stable permutation
+                   of the input.
+        - "dense": The ranks span a dense [1, M] interval where M is the
+                   number of distinct values in the input.
+    """
+
+    def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
+        self._set_options(sort_keys, null_placement, tiebreaker)
 
 
 def _group_by(args, keys, aggregations):
@@ -2000,9 +2136,9 @@ def _group_by(args, keys, aggregations):
     for aggr_func_name, aggr_opts in aggregations:
         c_aggr.function = tobytes(aggr_func_name)
         if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?> aggr_opts).get_options()
+            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
         else:
-            c_aggr.options = NULL
+            c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
         c_aggregations.push_back(c_aggr)
 
     with nogil:
@@ -2184,7 +2320,7 @@ cdef class Expression(_Weakrefable):
         options = NullOptions(nan_is_null=nan_is_null)
         return Expression._call("is_null", [self], options)
 
-    def cast(self, type, bint safe=True):
+    def cast(self, type=None, safe=None, options=None):
         """
         Explicitly set or change the expression's data type.
 
@@ -2193,16 +2329,29 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        type : DataType
+        type : DataType, default None
             Type to cast array to.
         safe : boolean, default True
             Whether to check for conversion errors such as overflow.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
         cast : Expression
         """
-        options = CastOptions.safe(ensure_type(type))
+        safe_vars_passed = (safe is not None) or (type is not None)
+
+        if safe_vars_passed and (options is not None):
+            raise ValueError("Must either pass values for 'type' and 'safe' or pass a "
+                             "value for 'options'")
+
+        if options is None:
+            type = ensure_type(type, allow_none=False)
+            if safe is False:
+                options = CastOptions.unsafe(type)
+            else:
+                options = CastOptions.safe(type)
         return Expression._call("cast", [self], options)
 
     def isin(self, values):
@@ -2323,8 +2472,8 @@ cdef class ScalarUdfContext:
 cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     """
     Helper function to generate the FunctionDoc
-    This function accepts a dictionary and expects the 
-    summary(str), description(str) and arg_names(List[str]) keys. 
+    This function accepts a dictionary and expects the
+    summary(str), description(str) and arg_names(List[str]) keys.
     """
     cdef:
         CFunctionDoc f_doc
@@ -2368,11 +2517,11 @@ def _get_scalar_udf_context(memory_pool, batch_length):
 def register_scalar_function(func, function_name, function_doc, in_types,
                              out_type):
     """
-    Register a user-defined scalar function. 
+    Register a user-defined scalar function.
 
     A scalar function is a function that executes elementwise
     operations on arrays or scalars, i.e. a scalar function must
-    be computed row-by-row with no state where each output row 
+    be computed row-by-row with no state where each output row
     is computed only from its corresponding input row.
     In other words, all argument arrays have the same length,
     and the output array is of the same length as the arguments.
@@ -2394,7 +2543,7 @@ def register_scalar_function(func, function_name, function_doc, in_types,
         varargs. The last in_type will be the type of all varargs
         arguments.
     function_name : str
-        Name of the function. This name must be globally unique. 
+        Name of the function. This name must be globally unique.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
@@ -2412,20 +2561,20 @@ def register_scalar_function(func, function_name, function_doc, in_types,
     --------
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
-    >>> 
+    >>>
     >>> func_doc = {}
     >>> func_doc["summary"] = "simple udf"
     >>> func_doc["description"] = "add a constant to a scalar"
-    >>> 
+    >>>
     >>> def add_constant(ctx, array):
     ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
-    >>> 
+    >>>
     >>> func_name = "py_add_func"
     >>> in_types = {"array": pa.int64()}
     >>> out_type = pa.int64()
     >>> pc.register_scalar_function(add_constant, func_name, func_doc,
     ...                   in_types, out_type)
-    >>> 
+    >>>
     >>> func = pc.get_function(func_name)
     >>> func.name
     'py_add_func'

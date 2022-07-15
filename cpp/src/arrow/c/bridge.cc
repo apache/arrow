@@ -1748,7 +1748,9 @@ class ArrayStreamBatchReader : public RecordBatchReader {
   }
 
   ~ArrayStreamBatchReader() {
-    ArrowArrayStreamRelease(&stream_);
+    if (!ArrowArrayStreamIsReleased(&stream_)) {
+      ArrowArrayStreamRelease(&stream_);
+    }
     DCHECK(ArrowArrayStreamIsReleased(&stream_));
   }
 
@@ -1764,6 +1766,13 @@ class ArrayStreamBatchReader : public RecordBatchReader {
     } else {
       return ImportRecordBatch(&c_array, CacheSchema()).Value(batch);
     }
+  }
+
+  Status Close() override {
+    if (!ArrowArrayStreamIsReleased(&stream_)) {
+      ArrowArrayStreamRelease(&stream_);
+    }
+    return Status::OK();
   }
 
  private:

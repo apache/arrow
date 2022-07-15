@@ -72,6 +72,7 @@ class ApacheArrow < Formula
     args = %W[
       -DARROW_FLIGHT=ON
       -DARROW_GANDIVA=ON
+      -DARROW_GCS=ON
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DARROW_JEMALLOC=ON
       -DARROW_MIMALLOC=ON
@@ -88,10 +89,10 @@ class ApacheArrow < Formula
       -DARROW_WITH_UTF8PROC=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
+      -DCMAKE_CXX_STANDARD=17
       -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
       -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
     ]
-    # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
 
     mkdir "build" do
       system "cmake", "../cpp", *std_cmake_args, *args

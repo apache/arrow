@@ -66,6 +66,7 @@ endif()
 
 add_arrow_test(substrait_test
                SOURCES
+               substrait/ext_test.cc
                substrait/serde_test.cc
                EXTRA_LINK_LIBS
                ${ARROW_SUBSTRAIT_TEST_LINK_LIBS}

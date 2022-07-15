@@ -160,7 +160,7 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return offsets_builder_.Append(offset);
   }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override;
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -239,7 +239,7 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   /// is called, and all other child builders must have null or empty value appended.
   Status Append(int8_t next_type) { return types_builder_.Append(next_type); }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override;
 };
 

@@ -119,11 +119,13 @@ if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
 else()
   set(ARROW_PKG_CONFIG_LIBDIR "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
 endif()
+set(ARROW_GDB_DIR "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/gdb")
+set(ARROW_FULL_GDB_DIR "${CMAKE_INSTALL_FULL_DATADIR}/${PROJECT_NAME}/gdb")
+set(ARROW_GDB_AUTO_LOAD_DIR "${CMAKE_INSTALL_DATADIR}/gdb/auto-load")
+set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
-
-set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSIONS
     "14.0"
@@ -191,6 +193,12 @@ endif()
 # ----------------------------------------------------------------------
 # cmake options
 include(DefineOptions)
+
+if(ARROW_BUILD_SHARED AND NOT ARROW_POSITION_INDEPENDENT_CODE)
+  message(WARNING "Can't disable position-independent code to build shared libraries, enabling"
+  )
+  set(ARROW_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # Needed for linting targets, etc.
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
@@ -752,9 +760,9 @@ if(ARROW_WITH_LZ4)
 endif()
 
 if(ARROW_WITH_SNAPPY)
-  list(APPEND ARROW_STATIC_LINK_LIBS Snappy::snappy)
+  list(APPEND ARROW_STATIC_LINK_LIBS ${Snappy_TARGET})
   if(Snappy_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Snappy::snappy)
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
   endif()
 endif()
 
@@ -926,10 +934,8 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC)
-  add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
-  list(APPEND ARROW_LINK_LIBS jemalloc::jemalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
+  list(APPEND ARROW_LINK_LIBS jemalloc)
+  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc)
 endif()
 
 if(ARROW_MIMALLOC)
@@ -981,7 +987,12 @@ if(ARROW_PARQUET)
 endif()
 
 if(ARROW_JNI)
-  add_subdirectory(src/jni)
+  if(ARROW_ORC)
+    add_subdirectory(../java/adapter/orc/src/main/cpp ./java/orc/jni)
+  endif()
+  if(ARROW_DATASET)
+    add_subdirectory(../java/dataset/src/main/cpp ./java/dataset/jni)
+  endif()
 endif()
 
 if(ARROW_GANDIVA)
@@ -1000,6 +1011,8 @@ endif()
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/README.md DESTINATION "${ARROW_DOC_DIR}")
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/gdb_arrow.py DESTINATION "${ARROW_GDB_DIR}")
 
 #
 # Validate and print out Arrow configuration options

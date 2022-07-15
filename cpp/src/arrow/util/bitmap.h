@@ -53,27 +53,36 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
   Bitmap() = default;
 
-  Bitmap(std::shared_ptr<Buffer> buffer, int64_t offset, int64_t length)
-      : buffer_(std::move(buffer)), offset_(offset), length_(length) {}
+  Bitmap(const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length)
+      : data_(buffer->data()), offset_(offset), length_(length) {
+    if (buffer->is_mutable()) {
+      mutable_data_ = buffer->mutable_data();
+    }
+  }
 
   Bitmap(const void* data, int64_t offset, int64_t length)
-      : buffer_(std::make_shared<Buffer>(static_cast<const uint8_t*>(data),
-                                         bit_util::BytesForBits(offset + length))),
-        offset_(offset),
-        length_(length) {}
+      : data_(reinterpret_cast<const uint8_t*>(data)), offset_(offset), length_(length) {}
 
   Bitmap(void* data, int64_t offset, int64_t length)
-      : buffer_(std::make_shared<MutableBuffer>(static_cast<uint8_t*>(data),
-                                                bit_util::BytesForBits(offset + length))),
+      : data_(reinterpret_cast<const uint8_t*>(data)),
+        mutable_data_(reinterpret_cast<uint8_t*>(data)),
         offset_(offset),
         length_(length) {}
 
   Bitmap Slice(int64_t offset) const {
-    return Bitmap(buffer_, offset_ + offset, length_ - offset);
+    if (mutable_data_ != NULLPTR) {
+      return Bitmap(mutable_data_, offset_ + offset, length_ - offset);
+    } else {
+      return Bitmap(data_, offset_ + offset, length_ - offset);
+    }
   }
 
   Bitmap Slice(int64_t offset, int64_t length) const {
-    return Bitmap(buffer_, offset_ + offset, length);
+    if (mutable_data_ != NULLPTR) {
+      return Bitmap(mutable_data_, offset_ + offset, length);
+    } else {
+      return Bitmap(data_, offset_ + offset, length);
+    }
   }
 
   std::string ToString() const;
@@ -82,17 +91,15 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
   std::string Diff(const Bitmap& other) const;
 
-  bool GetBit(int64_t i) const { return bit_util::GetBit(buffer_->data(), i + offset_); }
+  bool GetBit(int64_t i) const { return bit_util::GetBit(data_, i + offset_); }
 
   bool operator[](int64_t i) const { return GetBit(i); }
 
   void SetBitTo(int64_t i, bool v) const {
-    bit_util::SetBitTo(buffer_->mutable_data(), i + offset_, v);
+    bit_util::SetBitTo(mutable_data_, i + offset_, v);
   }
 
-  void SetBitsTo(bool v) {
-    bit_util::SetBitsTo(buffer_->mutable_data(), offset_, length_, v);
-  }
+  void SetBitsTo(bool v) { bit_util::SetBitsTo(mutable_data_, offset_, length_, v); }
 
   void CopyFrom(const Bitmap& other);
   void CopyFromInverted(const Bitmap& other);
@@ -339,14 +346,14 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
       for (size_t i = 0; i < N; ++i) {
         const Bitmap& in_bitmap = bitmaps_arg[i];
         readers[i] = BitmapWordReader<Word, /*may_have_byte_offset=*/false>(
-            in_bitmap.buffer_->data(), in_bitmap.offset_, in_bitmap.length_);
+            in_bitmap.data_, in_bitmap.offset_, in_bitmap.length_);
       }
 
       std::array<BitmapWordWriter<Word, /*may_have_byte_offset=*/false>, M> writers;
       for (size_t i = 0; i < M; ++i) {
         const Bitmap& out_bitmap = out_bitmaps_arg->at(i);
         writers[i] = BitmapWordWriter<Word, /*may_have_byte_offset=*/false>(
-            out_bitmap.buffer_->mutable_data(), out_bitmap.offset_, out_bitmap.length_);
+            out_bitmap.mutable_data_, out_bitmap.offset_, out_bitmap.length_);
       }
 
       RunVisitWordsAndWriteLoop(bit_length, readers, writers, visitor);
@@ -354,22 +361,23 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
       std::array<BitmapWordReader<Word>, N> readers;
       for (size_t i = 0; i < N; ++i) {
         const Bitmap& in_bitmap = bitmaps_arg[i];
-        readers[i] = BitmapWordReader<Word>(in_bitmap.buffer_->data(), in_bitmap.offset_,
-                                            in_bitmap.length_);
+        readers[i] =
+            BitmapWordReader<Word>(in_bitmap.data_, in_bitmap.offset_, in_bitmap.length_);
       }
 
       std::array<BitmapWordWriter<Word>, M> writers;
       for (size_t i = 0; i < M; ++i) {
         const Bitmap& out_bitmap = out_bitmaps_arg->at(i);
-        writers[i] = BitmapWordWriter<Word>(out_bitmap.buffer_->mutable_data(),
-                                            out_bitmap.offset_, out_bitmap.length_);
+        writers[i] = BitmapWordWriter<Word>(out_bitmap.mutable_data_, out_bitmap.offset_,
+                                            out_bitmap.length_);
       }
 
       RunVisitWordsAndWriteLoop(bit_length, readers, writers, visitor);
     }
   }
 
-  const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
+  const uint8_t* data() const { return data_; }
+  uint8_t* mutable_data() { return mutable_data_; }
 
   /// offset of first bit relative to buffer().data()
   int64_t offset() const { return offset_; }
@@ -381,7 +389,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   util::bytes_view bytes() const {
     auto byte_offset = offset_ / 8;
     auto byte_count = bit_util::CeilDiv(offset_ + length_, 8) - byte_offset;
-    return util::bytes_view(buffer_->data() + byte_offset, byte_count);
+    return util::bytes_view(data_ + byte_offset, byte_count);
   }
 
  private:
@@ -412,7 +420,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// offset of first bit relative to words<Word>().data()
   template <typename Word>
   int64_t word_offset() const {
-    return offset_ + 8 * (reinterpret_cast<intptr_t>(buffer_->data()) -
+    return offset_ + 8 * (reinterpret_cast<intptr_t>(data_) -
                           reinterpret_cast<intptr_t>(words<Word>().data()));
   }
 
@@ -440,8 +448,6 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     });
   }
 
-  std::shared_ptr<BooleanArray> ToArray() const;
-
   /// assert bitmaps have identical length and return that length
   static int64_t BitLength(const Bitmap* bitmaps, size_t N);
 
@@ -453,7 +459,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return bitmaps[0].length();
   }
 
-  std::shared_ptr<Buffer> buffer_;
+  const uint8_t* data_ = NULLPTR;
+  uint8_t* mutable_data_ = NULLPTR;
   int64_t offset_ = 0, length_ = 0;
 };
 

@@ -502,12 +502,11 @@ arrow::Status SourceScalarAggregateSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
-  auto aggregate_options = cp::AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr}},
-                                                    /*targets=*/{"a"},
-                                                    /*names=*/{"sum(a)"}};
+  auto aggregate_options =
+      cp::AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr, "a", "sum(a)"}}};
   ARROW_ASSIGN_OR_RAISE(
       cp::ExecNode * aggregate,
-      cp::MakeExecNode("aggregate", plan.get(), {source}, aggregate_options));
+      cp::MakeExecNode("aggregate", plan.get(), {source}, std::move(aggregate_options)));
 
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("sink", plan.get(), {aggregate}, cp::SinkNodeOptions{&sink_gen}));
@@ -539,11 +538,9 @@ arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
-  cp::CountOptions options(cp::CountOptions::ONLY_VALID);
+  auto options = std::make_shared<cp::CountOptions>(cp::CountOptions::ONLY_VALID);
   auto aggregate_options =
-      cp::AggregateNodeOptions{/*aggregates=*/{{"hash_count", &options}},
-                               /*targets=*/{"a"},
-                               /*names=*/{"count(a)"},
+      cp::AggregateNodeOptions{/*aggregates=*/{{"hash_count", options, "a", "count(a)"}},
                                /*keys=*/{"b"}};
   ARROW_ASSIGN_OR_RAISE(
       cp::ExecNode * aggregate,

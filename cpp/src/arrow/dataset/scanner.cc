@@ -85,6 +85,15 @@ class ScannerRecordBatchReader : public RecordBatchReader {
     return Status::OK();
   }
 
+  Status Close() override {
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(ReadNext(&batch));
+    while (batch != nullptr) {
+      RETURN_NOT_OK(ReadNext(&batch));
+    }
+    return Status::OK();
+  }
+
  private:
   std::shared_ptr<Schema> schema_;
   TaggedRecordBatchIterator delegate_;
@@ -120,10 +129,10 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
               "Top level projection expression call must be make_struct");
         }
         FieldVector fields;
-        for (const auto& arg : call->arguments) {
+        for (const compute::Expression& arg : call->arguments) {
           if (auto field_ref = arg.field_ref()) {
             if (field_ref->IsName()) {
-              fields.push_back(field(*field_ref->name(), arg.type()));
+              fields.push_back(field(*field_ref->name(), arg.type()->GetSharedPtr()));
               break;
             }
           }
@@ -666,10 +675,8 @@ Result<int64_t> AsyncScanner::CountRows() {
                                            std::move(fragment_gen)),
                                        options}},
               {"project", compute::ProjectNodeOptions{{options->filter}, {"mask"}}},
-              {"aggregate", compute::AggregateNodeOptions{{compute::internal::Aggregate{
-                                                              "sum", nullptr}},
-                                                          /*targets=*/{"mask"},
-                                                          /*names=*/{"selected_count"}}},
+              {"aggregate", compute::AggregateNodeOptions{{compute::Aggregate{
+                                "sum", nullptr, "mask", "selected_count"}}}},
               {"sink", compute::SinkNodeOptions{&sink_gen}},
           })
           .AddToPlan(plan.get()));
