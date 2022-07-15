@@ -20,6 +20,10 @@ message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 project(arrow-jni)
 
+if("${CMAKE_CXX_STANDARD}" STREQUAL "")
+  set(CMAKE_CXX_STANDARD 11)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ARROW_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
 
