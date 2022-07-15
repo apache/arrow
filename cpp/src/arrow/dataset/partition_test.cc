@@ -244,9 +244,12 @@ TEST_F(TestPartitioning, FilenamePartitioningEquals) {
       schema({field("sigma", int32()), field("beta", utf8())}));
   auto another_part = std::make_shared<FilenamePartitioning>(
       schema({field("sigma", int64()), field("beta", utf8())}));
+  auto some_other_part = std::make_shared<FilenamePartitioning>(
+      schema({field("sigma", int64()), field("beta", utf8())}));
   EXPECT_TRUE(part->Equals(*part));
   EXPECT_FALSE(part->Equals(*other_part));
   EXPECT_FALSE(other_part->Equals(*another_part));
+  EXPECT_TRUE(another_part->Equals(*some_other_part));
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
@@ -465,10 +468,13 @@ TEST_F(TestPartitioning, HivePartitioningEquals) {
       schema({field("alpha", int32()), field("beta", float32())}), other_vector, "xyz");
   auto some_part = std::make_shared<HivePartitioning>(
       schema({field("alpha", int32()), field("beta", float32())}), array_vector, "abc");
+  auto match_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), array_vector, "xyz");
   EXPECT_TRUE(part->Equals(*part));
   EXPECT_FALSE(part->Equals(*other_part));
   EXPECT_FALSE(part->Equals(*another_part));
   EXPECT_FALSE(part->Equals(*some_part));
+  EXPECT_TRUE(part->Equals(*match_part));
 }
 
 TEST_F(TestPartitioning, CrossCheckPartitioningEquals) {
@@ -1023,16 +1029,6 @@ TEST_F(TestPartitioning, Range) {
                          less(field_ref("y"), literal(1.5))),
                     and_(greater(field_ref("z"), literal(1.5)),
                          less_equal(field_ref("z"), literal(3.0)))}));
-}
-
-TEST_F(TestPartitioning, RangePartitoningEquals) {
-  auto part = std::make_shared<RangePartitioning>(
-      schema({field("x", float64()), field("y", float64()), field("z", float64())}));
-  auto other_part = std::make_shared<RangePartitioning>(
-      schema({field("a", float64()), field("y", float64()), field("z", float64())}));
-
-  EXPECT_FALSE(part->Equals(*other_part));
-  EXPECT_TRUE(part->Equals(*part));
 }
 
 TEST(TestStripPrefixAndFilename, Basic) {

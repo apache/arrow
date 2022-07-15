@@ -73,7 +73,7 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
 
   //// \brief Return whether the partitionings are equal
   virtual bool Equals(const Partitioning& other) const {
-    return schema_->Equals(other.schema_, false);
+    return schema_->Equals(other.schema_, /*check_metadata=*/false);
   }
 
   /// \brief If the input batch shares any fields with this partitioning,

@@ -131,7 +131,7 @@ bool KeyValuePartitioning::Equals(const Partitioning& other) const {
   int64_t idx = 0;
   for (const auto& array : dictionaries_) {
     const auto& other_array = other_dictionaries[idx++];
-    bool match = (array == NULLPTR && other_array == NULLPTR) ||
+    bool match = (array == nullptr && other_array == nullptr) ||
                  (array && other_array && array->Equals(other_array));
     if (!match) {
       return false;
