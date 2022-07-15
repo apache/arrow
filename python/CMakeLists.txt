@@ -233,7 +233,6 @@ if(PYARROW_BUILD_SUBSTRAIT)
 endif()
 
 # Arrow
-set(ARROW_PYTHON_LIB_DIR "${CMAKE_SOURCE_DIR}/pyarrow")
 find_package(ArrowPython REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
