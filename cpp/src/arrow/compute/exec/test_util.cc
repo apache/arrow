@@ -473,9 +473,9 @@ std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties) {
   int num_rows = 0;
   std::vector<int64_t> time_column;
   std::vector<int32_t> id_column;
-  for (int id = 0; id < properties.num_ids; id++) {
-    for (int time = properties.start; time <= properties.end;
+  for (int time = properties.start; time <= properties.end;
          time += properties.time_frequency) {
+    for (int id = 0; id < properties.num_ids; id++) {
       time_column.push_back(time);
       id_column.push_back(id);
       num_rows += 1;

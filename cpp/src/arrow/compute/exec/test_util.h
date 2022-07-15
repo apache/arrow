@@ -173,8 +173,8 @@ struct TableGenerationProperties {
       [properties.column_prefix]1 (float64)
       ...
       [properties.column_prefix][properties.num_columns] (float64)
-    Each id has rows corresponding to a singular data point in the time range (start, end,
-  time_frequency).
+  Each id has rows corresponding to a singular data point in the time range (start, end,
+  time_frequency). The table is sorted by time.
 */
 std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties);
 
