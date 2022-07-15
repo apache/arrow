@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -40,6 +41,7 @@
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -458,6 +460,42 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
     }
   }
   *os << "}";
+}
+
+std::shared_ptr<Table> MakeRandomTable(TableProperties properties) {
+  int total_columns = properties.num_columns + 2;
+  std::vector<std::shared_ptr<Array>> arrays;
+  arrays.reserve(total_columns);
+  auto fv = arrow::FieldVector();
+  std::vector<std::shared_ptr<arrow::Field>> schema_fields;
+  fv.push_back(std::make_shared<Field>("time", int64()));
+  fv.push_back(std::make_shared<Field>("id", int32()));
+  int num_rows = 0;
+  std::vector<int64_t> frequency_column;
+  std::vector<int32_t> id_column;
+  for (int j = 0; j < properties.num_ids; j++) {
+    for (int i = properties.start; i < properties.end; i += properties.frequency) {
+      frequency_column.push_back(i);
+      id_column.push_back(j);
+      num_rows += 1;
+    }
+  }
+  std::shared_ptr<Array> time_array;
+  ArrayFromVector<Int64Type, int64_t>(int64(), frequency_column, &time_array);
+  arrays.push_back(time_array);
+  std::shared_ptr<Array> id_array;
+  ArrayFromVector<Int32Type, int32_t>(int32(), id_column, &id_array);
+  arrays.push_back(id_array);
+
+  for (int i = 0; i < properties.num_columns; i++) {
+    std::ostringstream string_stream;
+    string_stream << properties.column_prefix << i;
+    fv.push_back(std::make_shared<Field>(string_stream.str(), float64()));
+    auto rand = random::RandomArrayGenerator(properties.seed);
+    arrays.push_back(rand.Float64(num_rows, -1e5, 1e5));
+  }
+  std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(fv);
+  return Table::Make(schema, arrays, num_rows);
 }
 
 }  // namespace compute

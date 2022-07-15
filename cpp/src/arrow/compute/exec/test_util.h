@@ -145,5 +145,17 @@ class Random64Bit {
   std::uniform_int_distribution<uint64_t> dist_;
 };
 
+struct TableProperties {
+  int frequency;
+  int num_columns;
+  int num_ids;
+  std::string column_prefix;
+  uint seed;
+  int start;
+  int end;
+};
+
+std::shared_ptr<Table> MakeRandomTable(TableProperties properties);
+
 }  // namespace compute
 }  // namespace arrow
