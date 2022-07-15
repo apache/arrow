@@ -882,6 +882,9 @@ cdef class LocalFileSystem(FileSystem):
     <FileInfo for '/tmp/new_folder/local_fs-copy.dat': type=FileType.File, size=16>
     >>> local.get_file_info('/tmp/local_fs-copy.dat')
     <FileInfo for '/tmp/local_fs-copy.dat': type=FileType.NotFound>
+
+    To finish delete the file left:
+    >>> local.delete_file('/tmp/local_fs.dat')
     """
 
     def __init__(self, *, use_mmap=False):
@@ -965,6 +968,11 @@ cdef class SubTreeFileSystem(FileSystem):
     <FileInfo for '': type=FileType.Directory>
     >>> subtree.get_file_info('sub_tree_fs.dat')
     <FileInfo for 'sub_tree_fs.dat': type=FileType.File, size=12>
+
+    Delete the file and directory:
+
+    >>> local.delete_dir('/tmp/sub_tree')
+    >>> local.delete_file('/tmp/local_fs.dat')
 
     For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
