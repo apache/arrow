@@ -489,14 +489,14 @@ class ScalarMemoTable : public MemoTable {
  public:
   // defined here so that `HashTableType` is visible
   // Merge entries from `other_table` into `this->hash_table_`.
-  Status MergeTable(ScalarMemoTable& other_table) {
-    HashTableType& other_hashtable = other_table.hash_table_;
+  Status MergeTable(const ScalarMemoTable& other_table) {
+    const HashTableType& other_hashtable = other_table.hash_table_;
 
     other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
       int32_t unused;
       DCHECK_OK(this->GetOrInsert(other_entry->payload.value, &unused));
     });
-    // TODO: implement proper (and perhaps more performant) error handling
+    // TODO: ARROW-17074 - implement proper error handling
     return Status::OK();
   }
 };
@@ -583,7 +583,7 @@ class SmallScalarMemoTable : public MemoTable {
   int32_t size() const override { return static_cast<int32_t>(index_to_value_.size()); }
 
   // Merge entries from `other_table` into `this`.
-  Status MergeTable(SmallScalarMemoTable& other_table) {
+  Status MergeTable(const SmallScalarMemoTable& other_table) {
     for (const Scalar& other_val : other_table.index_to_value_) {
       int32_t unused;
       RETURN_NOT_OK(this->GetOrInsert(other_val, &unused));
@@ -849,7 +849,7 @@ class BinaryMemoTable : public MemoTable {
   }
 
  public:
-  Status MergeTable(BinaryMemoTable& other_table) {
+  Status MergeTable(const BinaryMemoTable& other_table) {
     other_table.VisitValues(0, [this](const util::string_view& other_value) {
       int32_t unused;
       DCHECK_OK(this->GetOrInsert(other_value, &unused));
