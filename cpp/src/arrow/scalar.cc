@@ -27,7 +27,6 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
-#include "arrow/compute/cast.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -39,8 +38,6 @@
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_scalar_inline.h"
-
-#include <iostream>
 
 namespace arrow {
 
@@ -932,13 +929,6 @@ Status CastImpl(const Decimal128Scalar& from, StringScalar* to) {
 Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
   auto from_type = checked_cast<const Decimal256Type*>(from.type.get());
   to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
-  return Status::OK();
-}
-
-Status CastImpl(const BaseListScalar& from, BaseListScalar* to) {
-  auto child_type = checked_cast<BaseListType&>(*to->type).value_type();
-  ARROW_ASSIGN_OR_RAISE(auto to_value, arrow::compute::Cast(*from.value, child_type));
-  to->value = to_value;
   return Status::OK();
 }
 
