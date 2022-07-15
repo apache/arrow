@@ -25,7 +25,9 @@ test_that("abs()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(abs = abs(x)) %>%
+      transmute(
+        abs = abs(x),
+        abs2 = base::abs(x)) %>%
       collect(),
     df
   )
@@ -36,7 +38,10 @@ test_that("sign()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(sign = sign(x)) %>%
+      transmute(
+        sign = sign(x),
+        sign2 = base::sign(x)
+      ) %>%
       collect(),
     df
   )
@@ -51,7 +56,11 @@ test_that("ceiling(), floor(), trunc(), round()", {
         c = ceiling(x),
         f = floor(x),
         t = trunc(x),
-        r = round(x)
+        r = round(x),
+        c2 = base::ceiling(x),
+        f2 = base::floor(x),
+        t2 = base::trunc(x),
+        r2 = base::round(x)
       ) %>%
       collect(),
     df
@@ -141,7 +150,10 @@ test_that("log functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = log(x)) %>%
+      mutate(
+        y = log(x),
+        y2 = base::log(x)
+      ) %>%
       collect(),
     df
   )
@@ -248,6 +260,19 @@ test_that("log functions", {
       collect(),
     df
   )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::logb(x),
+        b = base::log1p(x),
+        c = base::log2(x),
+        d = base::log10(x)
+      ) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("trig functions", {
@@ -284,6 +309,20 @@ test_that("trig functions", {
   compare_dplyr_binding(
     .input %>%
       mutate(y = acos(x)) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::sin(x),
+        b = base::cos(x),
+        c = base::tan(x),
+        d = base::asin(x),
+        e = base::acos(x)
+      ) %>%
       collect(),
     df
   )
@@ -336,7 +375,10 @@ test_that("exp()", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = exp(x)) %>%
+      mutate(
+        y = exp(x),
+        y2 = base::exp(x)
+      ) %>%
       collect(),
     df
   )
@@ -347,7 +389,10 @@ test_that("sqrt()", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = sqrt(x)) %>%
+      mutate(
+        y = sqrt(x),
+        y2 = base::sqrt(x)
+      ) %>%
       collect(),
     df
   )

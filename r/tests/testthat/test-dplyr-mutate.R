@@ -144,9 +144,12 @@ test_that("transmute() defuses dots arguments (ARROW-13262)", {
   expect_warning(
     tbl %>%
       Table$create() %>%
-      transmute(stringr::str_c(chr, chr)) %>%
+      transmute(
+        a = stringr::str_c(padded_strings, padded_strings),
+        b = stringr::str_squish(a)
+      ) %>%
       collect(),
-    "Expression stringr::str_c(chr, chr) not supported in Arrow; pulling data into R",
+    "Expression stringr::str_squish(a) not supported in Arrow; pulling data into R",
     fixed = TRUE
   )
 })
@@ -528,7 +531,11 @@ test_that("mutate and pmin/pmax", {
         max_val_1 = pmax(val1, val2, val3),
         max_val_2 = pmax(val1, val2, val3, na.rm = TRUE),
         min_val_1 = pmin(val1, val2, val3),
-        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE)
+        min_val_2 = pmin(val1, val2, val3, na.rm = TRUE),
+        max_val_1_nmspc = base::pmax(val1, val2, val3),
+        max_val_2_nmspc = base::pmax(val1, val2, val3, na.rm = TRUE),
+        min_val_1_nmspc = base::pmin(val1, val2, val3),
+        min_val_2_nmspc = base::pmin(val1, val2, val3, na.rm = TRUE)
       ) %>%
       collect(),
     df
@@ -542,5 +549,43 @@ test_that("mutate and pmin/pmax", {
       ) %>%
       collect(),
     df
+  )
+})
+
+test_that("mutate() and transmute() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # str_detect binding depends on RE2
+  skip_if_not_available("re2")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        b = stringr::str_detect(verses, "ur")
+      ) %>%
+      collect(),
+    tbl
   )
 })

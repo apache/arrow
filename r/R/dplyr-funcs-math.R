@@ -49,10 +49,10 @@ register_bindings_math <- function() {
     Expression$create("logb_checked", x, Expression$scalar(base))
   }
 
-  register_binding("log", log_binding)
-  register_binding("logb", log_binding)
+  register_binding("base::log", log_binding)
+  register_binding("base::logb", log_binding)
 
-  register_binding("pmin", function(..., na.rm = FALSE) {
+  register_binding("base::pmin", function(..., na.rm = FALSE) {
     build_expr(
       "min_element_wise",
       ...,
@@ -60,7 +60,7 @@ register_bindings_math <- function() {
     )
   })
 
-  register_binding("pmax", function(..., na.rm = FALSE) {
+  register_binding("base::pmax", function(..., na.rm = FALSE) {
     build_expr(
       "max_element_wise",
       ...,
@@ -68,12 +68,12 @@ register_bindings_math <- function() {
     )
   })
 
-  register_binding("trunc", function(x, ...) {
+  register_binding("base::trunc", function(x, ...) {
     # accepts and ignores ... for consistency with base::trunc()
     build_expr("trunc", x)
   })
 
-  register_binding("round", function(x, digits = 0) {
+  register_binding("base::round", function(x, digits = 0) {
     build_expr(
       "round",
       x,
@@ -81,14 +81,14 @@ register_bindings_math <- function() {
     )
   })
 
-  register_binding("sqrt", function(x) {
+  register_binding("base::sqrt", function(x) {
     build_expr(
       "sqrt_checked",
       x
     )
   })
 
-  register_binding("exp", function(x) {
+  register_binding("base::exp", function(x) {
     build_expr(
       "power_checked",
       exp(1),
