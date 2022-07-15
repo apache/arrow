@@ -21,10 +21,7 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/compute/exec/test_util.h"
-#include "arrow/csv/writer.h"
 #include "arrow/dataset/file_parquet.h"
-#include "arrow/filesystem/api.h"
-#include "arrow/ipc/api.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 
@@ -73,8 +70,8 @@ static void TableJoinOverhead(benchmark::State& state,
                          ExecPlan::Make(&ctx));
     left_table_properties.column_prefix = "lt";
     left_table_properties.seed = 0;
-    TableSourceNodeStats left_table_stats = MakeTableSourceNode(
-        plan, left_table_properties, left_table_batch_size);
+    TableSourceNodeStats left_table_stats =
+        MakeTableSourceNode(plan, left_table_properties, left_table_batch_size);
     std::vector<ExecNode*> inputs = {left_table_stats.execNode};
     int right_hand_rows = 0;
     size_t right_hand_bytes = 0;
@@ -84,8 +81,8 @@ static void TableJoinOverhead(benchmark::State& state,
       string_stream << "rt" << i;
       right_table_properties.column_prefix = string_stream.str();
       left_table_properties.seed = i + 1;
-      TableSourceNodeStats right_table_stats = MakeTableSourceNode(
-          plan, right_table_properties, right_table_batch_size);
+      TableSourceNodeStats right_table_stats =
+          MakeTableSourceNode(plan, right_table_properties, right_table_batch_size);
       inputs.push_back(right_table_stats.execNode);
       right_hand_rows += right_table_stats.total_rows;
       right_hand_bytes += right_table_stats.total_bytes;
@@ -116,19 +113,20 @@ static void AsOfJoinOverhead(benchmark::State& state) {
   AsofJoinNodeOptions options = AsofJoinNodeOptions(time_col, key_col, tolerance);
   TableJoinOverhead(
       state,
-      TableGenerationProperties{int(state.range(0)), int(state.range(1)), int(state.range(2)), "",
-                      0, default_start, default_end},
+      TableGenerationProperties{int(state.range(0)), int(state.range(1)),
+                                int(state.range(2)), "", 0, default_start, default_end},
       int(state.range(3)),
-      TableGenerationProperties{int(state.range(5)), int(state.range(6)), int(state.range(7)), "",
-                      0, default_start, default_end},
+      TableGenerationProperties{int(state.range(5)), int(state.range(6)),
+                                int(state.range(7)), "", 0, default_start, default_end},
       int(state.range(8)), int(state.range(4)), "asofjoin", options);
 }
 
 // this generates the set of right hand tables to test on.
 void SetArgs(benchmark::internal::Benchmark* bench) {
   bench
-      ->ArgNames({"left_freq", "left_cols", "left_ids", "left_batch_size", "num_right_tables", "right_freq",
-                  "right_cols", "right_ids", "right_batch_size"})
+      ->ArgNames({"left_freq", "left_cols", "left_ids", "left_batch_size",
+                  "num_right_tables", "right_freq", "right_cols", "right_ids",
+                  "right_batch_size"})
       ->UseRealTime();
   int default_freq = 5;
   int default_cols = 20;
@@ -151,8 +149,13 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
     bench->Args({default_freq, default_cols, default_ids, default_batch_size, num_tables,
                  default_freq, default_cols, default_ids, default_batch_size});
   }
+  for (int batch_size : {1, 500, 1000}) {
+    bench->Args({default_freq, default_cols, default_ids, batch_size, default_num_tables,
+                 default_freq, default_cols, default_ids, batch_size});
+  }
 }
 
 BENCHMARK(AsOfJoinOverhead)->Apply(SetArgs);
+
 }  // namespace compute
 }  // namespace arrow
