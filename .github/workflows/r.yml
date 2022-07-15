@@ -302,7 +302,7 @@ jobs:
       - name: Start MinIO and GCS Testbench
         shell: bash
         run: |
-          minio server ~/minio-data --port 9000
+          /usr/local/bin/minio.exe server ~/minio-data --port 9000
           python -m testbench --port 9001
       - name: Check
         shell: Rscript {0}
