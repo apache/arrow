@@ -107,10 +107,6 @@ if (system('python -c "import testbench"') == 0) {
   withr::deferred_run()
 } else {
   test_that("GCSFileSystem tests with testbench", {
-    suggested_command <- paste(
-      'gunicorn --bind "localhost:9001" --worker-class sync',
-      '--threads 10 --reload --access-logfile - "testbench:run()"'
-    )
-    skip(sprintf("testbench is not running. You can start it with:\n  %s", suggested_command))
+    skip("googleapis-storage-testbench is not installed.")
   })
 }

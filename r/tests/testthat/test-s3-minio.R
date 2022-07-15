@@ -110,6 +110,6 @@ if (arrow_with_s3() && nzchar(Sys.which("minio"))) {
   # Kinda hacky, let's put a skipped test here, just so we note that the tests
   # didn't run
   test_that("S3FileSystem tests with Minio", {
-    skip("Minio is not running")
+    skip("Minio is not installed")
   })
 }
