@@ -382,7 +382,6 @@ test_that("grouped_df metadata is recorded (efficiently)", {
   expect_s3_class(grouped, "grouped_df")
   grouped_tab <- Table$create(grouped)
   expect_r6_class(grouped_tab, "Table")
-  expect_equal(grouped_tab$r_metadata$attributes$.group_vars, "a")
   expect_equal(grouped_tab$metadata$r$attributes$.group_vars, "a")
 })
 
