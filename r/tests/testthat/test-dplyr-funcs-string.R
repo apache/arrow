@@ -1333,7 +1333,9 @@ test_that("base::tolower and base::toupper", {
     .input %>%
       mutate(
         verse_to_upper = toupper(verses),
-        verse_to_lower = tolower(verses)
+        verse_to_lower = tolower(verses),
+        verse_to_upper_nmspc = base::toupper(verses),
+        verse_to_lower_nmspc = base::tolower(verses)
       ) %>%
       collect(),
     tbl
@@ -1347,17 +1349,6 @@ test_that("namespaced unary and binary string functions", {
       mutate(
         verse_length = stringr::str_length(verses),
         reverses_verse = stringi::stri_reverse(verses)
-      ) %>%
-      collect(),
-    tbl
-  )
-
-  # base::tolower and base::toupper
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        verse_to_upper = base::toupper(verses),
-        verse_to_lower = base::tolower(verses)
       ) %>%
       collect(),
     tbl
