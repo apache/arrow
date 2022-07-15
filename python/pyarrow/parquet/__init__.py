@@ -3018,7 +3018,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      use_threads=None, file_visitor=None,
                      existing_data_behavior=None,
                      **kwargs):
-    """Wrapper around dataset.write_dataset (when use_legacy_dataset=False) or 
+    """Wrapper around dataset.write_dataset (when use_legacy_dataset=False) or
     parquet.write_table (when use_legacy_dataset=True) for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -3053,9 +3053,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
         A callback function that takes the partition key(s) as an argument
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
-        This option is only supported for use_legacy_dataset=True. When 
-        use_legacy_dataset=None and this option is specified, use_legacy_dataset
-        will be set to True.
+        This option is only supported for use_legacy_dataset=True.
+        When use_legacy_dataset=None and this option is specified,
+        use_legacy_datase will be set to True.
     use_legacy_dataset : bool
         Default is False. Set to True to use the the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
@@ -3119,10 +3119,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
         old partitions completely.
         This option is only supported for use_legacy_dataset=False.
     **kwargs : dict,
-        When use_legacy_dataset=False, used as additional kwargs for 
-        `pyarrow.dataset.write_dataset` function (See docstring for 
+        When use_legacy_dataset=False, used as additional kwargs for
+        `pyarrow.dataset.write_dataset` function (See docstring for
         `write_dataset` or `ParquetFileFormat` for more information).
-        When use_legacy_dataset=True, used as additional kwargs for 
+        When use_legacy_dataset=True, used as additional kwargs for
         `pyarrow.parquet.write_table` function (See docstring for `write_table`
         or `ParquetWriter` for more information).
         Using `metadata_collector` in kwargs allows one to collect the
