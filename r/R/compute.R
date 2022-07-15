@@ -340,21 +340,17 @@ cast_options <- function(safe = TRUE, ...) {
 #'   option to write functions of R objects as opposed to functions of
 #'   Arrow R6 objects.
 #'
-#' @return
-#'   - `register_user_defined_function()`: `NULL`, invisibly
-#'   - `arrow_scalar_function()`: returns an object of class
-#'     "arrow_scalar_function" that can be passed to
-#'     `register_user_defined_function()`.
+#' @return `NULL`, invisibly
 #' @export
 #'
 #' @examplesIf arrow_with_dataset()
-#' fun_wrapper <- arrow_scalar_function(
+#' register_scalar_function(
+#'   "example_add3",
 #'   function(context, x, y, z) x + y + z,
 #'   schema(x = float64(), y = float64(), z = float64()),
 #'   float64(),
 #'   auto_convert = TRUE
 #' )
-#' register_user_defined_function(fun_wrapper, "example_add3")
 #'
 #' call_function(
 #'   "example_add3",
@@ -363,10 +359,15 @@ cast_options <- function(safe = TRUE, ...) {
 #'   Array$create(3)
 #' )
 #'
-register_user_defined_function <- function(scalar_function, name) {
-  assert_that(
-    is.string(name),
-    inherits(scalar_function, "arrow_scalar_function")
+register_scalar_function <- function(name, fun, in_type, out_type,
+                                     auto_convert = FALSE) {
+  assert_that(is.string(name))
+
+  scalar_function <- arrow_scalar_function(
+    fun,
+    in_type,
+    out_type,
+    auto_convert = auto_convert
   )
 
   # register with Arrow C++ function registry (enables its use in
@@ -383,8 +384,6 @@ register_user_defined_function <- function(scalar_function, name) {
   invisible(NULL)
 }
 
-#' @rdname register_user_defined_function
-#' @export
 arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) {
   fun <- as_function(fun)
 

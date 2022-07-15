@@ -79,16 +79,15 @@ test_that("arrow_scalar_function() works with auto_convert = TRUE", {
   )
 })
 
-test_that("register_user_defined_function() adds a compute function to the registry", {
+test_that("register_scalar_function() adds a compute function to the registry", {
   skip_if_not(CanRunWithCapturedR())
 
-  times_32_wrapper <- arrow_scalar_function(
+  register_scalar_function(
+    "times_32",
     function(context, x) x * 32.0,
     int32(), float64(),
     auto_convert = TRUE
   )
-
-  register_user_defined_function(times_32_wrapper, "times_32")
 
   expect_true("times_32" %in% names(asNamespace("arrow")$.cache$functions))
   expect_true("times_32" %in% list_compute_functions())
@@ -114,23 +113,25 @@ test_that("register_user_defined_function() adds a compute function to the regis
 test_that("arrow_scalar_function() with bad return type errors", {
   skip_if_not(CanRunWithCapturedR())
 
-  times_32_wrapper <- arrow_scalar_function(
+  register_scalar_function(
+    "times_32_bad_return_type",
     function(context, x) Array$create(x, int32()),
-    int32(), float64()
+    int32(),
+    float64()
   )
 
-  register_user_defined_function(times_32_wrapper, "times_32_bad_return_type")
   expect_error(
     call_function("times_32_bad_return_type", Array$create(1L)),
     "Expected return Array or Scalar with type 'double'"
   )
 
-  times_32_wrapper <- arrow_scalar_function(
+  register_scalar_function(
+    "times_32_bad_return_type",
     function(context, x) Scalar$create(x, int32()),
-    int32(), float64()
+    int32(),
+    float64()
   )
 
-  register_user_defined_function(times_32_wrapper, "times_32_bad_return_type")
   expect_error(
     call_function("times_32_bad_return_type", Array$create(1L)),
     "Expected return Array or Scalar with type 'double'"
@@ -140,14 +141,13 @@ test_that("arrow_scalar_function() with bad return type errors", {
 test_that("register_user_defined_function() can register multiple kernels", {
   skip_if_not(CanRunWithCapturedR())
 
-  times_32_wrapper <- arrow_scalar_function(
+  register_scalar_function(
+    "times_32",
     function(context, x) x * 32L,
     in_type = list(int32(), int64(), float64()),
     out_type = function(in_types) in_types[[1]],
     auto_convert = TRUE
   )
-
-  register_user_defined_function(times_32_wrapper, "times_32")
 
   expect_equal(
     call_function("times_32", Scalar$create(1L, int32())),
@@ -166,23 +166,23 @@ test_that("register_user_defined_function() can register multiple kernels", {
 })
 
 test_that("register_user_defined_function() errors for unsupported specifications", {
-  no_kernel_wrapper <- arrow_scalar_function(
-    function(...) NULL,
-    list(),
-    list()
-  )
   expect_error(
-    register_user_defined_function(no_kernel_wrapper, "no_kernels"),
+    register_scalar_function(
+      "no_kernels",
+      function(...) NULL,
+      list(),
+      list()
+    ),
     "Can't register user-defined function with zero kernels"
   )
 
-  varargs_kernel_wrapper <- arrow_scalar_function(
-    function(...) NULL,
-    list(float64(), schema(x = float64(), y = float64())),
-    list(float64())
-  )
   expect_error(
-    register_user_defined_function(varargs_kernel_wrapper, "var_kernels"),
+    register_scalar_function(
+      "var_kernels",
+      function(...) NULL,
+      list(float64(), schema(x = float64(), y = float64())),
+      float64()
+    ),
     "Kernels for user-defined function must accept the same number of arguments"
   )
 })
@@ -208,13 +208,13 @@ test_that("user-defined functions work during multi-threaded execution", {
   on.exit(unlink(c(tf_dataset, tf_dest)))
   write_dataset(example_df, tf_dataset, partitioning = "part")
 
-  times_32_wrapper <- arrow_scalar_function(
+  register_scalar_function(
+    "times_32",
     function(context, x) x * 32.0,
-    int32(), float64(),
+    int32(),
+    float64(),
     auto_convert = TRUE
   )
-
-  register_user_defined_function(times_32_wrapper, "times_32")
 
   # check a regular collect()
   result <- open_dataset(tf_dataset) %>%
@@ -240,13 +240,13 @@ test_that("user-defined error when called from an unsupported context", {
   skip_if_not_available("dataset")
   skip_if_not(CanRunWithCapturedR())
 
-  times_32_wrapper <- arrow_scalar_function(
+  register_scalar_function(
+    "times_32",
     function(context, x) x * 32.0,
-    int32(), float64(),
+    int32(),
+    float64(),
     auto_convert = TRUE
   )
-
-  register_user_defined_function(times_32_wrapper, "times_32")
 
   stream_plan_with_udf <- function() {
     rbr <- record_batch(a = 1:1000) %>%
