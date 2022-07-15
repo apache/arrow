@@ -37,11 +37,20 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
         silent = quietly
       )
     }
+
+    # Check if version string has 4th component
+    is_dev_version <- grepl("(\\d+\\.){3}\\d+", VERSION)
     # URL templates
-    nightly <- paste0(
-      getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"),
-      "/libarrow/bin/windows/arrow-%s.zip"
-    )
+    if (is_dev_version) {
+      nightly <- paste0(
+        getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"),
+        "/libarrow/bin/windows/arrow-%s.zip"
+      )
+    } else {
+      # %1$s uses the first variable for both substitutions
+      nightly <- "https://apache.jfrog.io/artifactory/arrow/r/%1$s/libarrow/bin/windows/arrow-%1$s.zip"
+    }
+
     rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
     # First look for a nightly
     get_file(nightly, VERSION)
