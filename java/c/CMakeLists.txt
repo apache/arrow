@@ -31,4 +31,4 @@ add_library(arrow_cdata_jni SHARED ${ARROW_CDATA_JNI_SOURCES})
 target_link_libraries(arrow_cdata_jni arrow_cdata_jni_headers ${JNI_LIBRARIES})
 target_include_directories(arrow_cdata_jni SYSTEM PRIVATE ${JNI_INCLUDE_DIRS})
 
-install(TARGETS arrow_cdata_jni DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS arrow_cdata_jni DESTINATION ${CMAKE_INSTALL_PREFIX})

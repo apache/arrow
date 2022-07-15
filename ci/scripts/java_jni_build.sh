@@ -34,7 +34,6 @@ pushd "${build_dir}"
 
 cmake \
   -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-release} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${dist_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
   ${JAVA_JNI_CMAKE_ARGS:-} \
