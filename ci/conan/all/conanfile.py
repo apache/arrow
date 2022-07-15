@@ -376,7 +376,7 @@ class ArrowConan(ConanFile):
             self._cmake.definitions["ARROW_BROTLI_USE_SHARED"] = self.options["brotli"].shared
         self._cmake.definitions["gflags_SOURCE"] = "SYSTEM"
         if self._with_gflags():
-            self._cmake.definitions["ARROW_BROTLI_USE_SHARED"] = self.options["gflags"].shared
+            self._cmake.definitions["ARROW_GFLAGS_USE_SHARED"] = self.options["gflags"].shared
         self._cmake.definitions["ARROW_WITH_BZ2"] = self.options.with_bz2
         self._cmake.definitions["BZip2_SOURCE"] = "SYSTEM"
         if self.options.with_bz2:
