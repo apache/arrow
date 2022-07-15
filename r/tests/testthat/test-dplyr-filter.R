@@ -239,14 +239,6 @@ test_that("filter() with between()", {
       filter(between(chr, 1, 2)) %>%
       collect()
   )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      filter(dplyr::between(dbl, 1, 2)) %>%
-      collect(),
-    tbl
-  )
 })
 
 test_that("filter() with string ops", {
