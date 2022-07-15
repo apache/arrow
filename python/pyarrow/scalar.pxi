@@ -902,7 +902,7 @@ cdef class ExtensionScalar(Scalar):
         """
         Return this scalar as a Python object.
         """
-        return self.value if self.value is not None else None
+        return self.value.as_py() if self.value is not None else None
 
     @staticmethod
     def from_storage(BaseExtensionType typ, value):
