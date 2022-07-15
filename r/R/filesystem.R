@@ -465,9 +465,9 @@ gs_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
   args <- list2(...)
 
-  fs <- exec(Gcs3FileSystem$create, !!!args)
+  fs <- exec(GcsFileSystem$create, !!!args)
 
-  SubTreeFileSystem(bucket, fs)
+  SubTreeFileSystem$create(bucket, fs)
 }
 
 #' @usage NULL

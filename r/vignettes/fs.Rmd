@@ -99,6 +99,8 @@ In the previous example, this would look like:
 
 ```r
 bucket <- s3_bucket("voltrondata-labs-datasets")
+# Or in GCS (anonymous = TRUE is required):
+# bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
 df <- read_parquet(bucket$path("nyc-taxi/year=2019/month=6/data.parquet"))
 ```
 
@@ -107,6 +109,9 @@ the `$ls()` method:
 
 ```r
 bucket$ls("nyc-taxi")
+# Or recursive:
+# bucket$ls("nyc-taxi", recursive = TRUE)
+# NOTE: in GCS, you must use recursive as directories often don't appear in ls results
 ```
 
 See `help(FileSystem)` for a list of options that `s3_bucket()`/`S3FileSystem$create()`

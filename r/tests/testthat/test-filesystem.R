@@ -195,7 +195,7 @@ test_that("gs_bucket", {
   skip_on_cran()
   skip_if_not_available("gcs")
   skip_if_offline()
-  bucket <- s3_bucket("voltrondata-labs-datasets")
+  bucket <- gs_bucket("voltrondata-labs-datasets")
   expect_r6_class(bucket, "SubTreeFileSystem")
   expect_r6_class(bucket$base_fs, "GcsFileSystem")
   expect_identical(
