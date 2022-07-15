@@ -105,10 +105,10 @@ struct ARROW_EXPORT S3Options {
 
 
   /// if unset (or any value less than 0), the AWS SDK default values will be used.
-  /// requestTimeoutMs is default 3000
-  /// connectTimeoutMs is default 1000
-  double request_timeout_ms = -1;
-  double connect_timeout_ms = -1;
+  /// request_timeout default 3 seconds
+  /// connect_timeout default 1 second
+  double request_timeout = -1;
+  double connect_timeout = -1;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?

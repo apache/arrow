@@ -137,7 +137,7 @@ cdef class S3FileSystem(FileSystem):
         assumed role session will be refreshed.
     region : str, default 'us-east-1'
         AWS region to connect to.
-    request_timeout_ms : double. default 3000. 
+    request_timeout : double. unit in seconds. default 3. 
         Socket read timeouts for HTTP clients on Windows. This should be more
         than adequate for most services. However, if you are transfering large
         amounts of data or are worried about higher latencies, you should set
@@ -146,10 +146,10 @@ cdef class S3FileSystem(FileSystem):
         that transfer speed should be below "lowSpeedLimit" for the library
         to consider it too slow and abort. Note that for Curl this config is
         converted to seconds by rounding down to the nearest whole second except
-        when the value is greater than 0 and less than 1000. In this case it is
+        when the value is greater than 0 and less than 1000ms. In this case it is
         set to one second. When it's 0, low speed limit check will be disabled.
         Note that for Windows when this config is 0, the behavior is not specified by Windows.
-    connect_timeout_ms : double. default 1000.
+    connect_timeout : double. unit in seconds. default 1.
         Socket connect timeout. Unless you are very far away from your 
         the data center you are talking to. 1000ms is more than sufficient.
     scheme : str, default 'https'
@@ -198,7 +198,7 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, region=None, request_timeout_ms=None, connect_timeout_ms=None, scheme=None,
+                 bint anonymous=False, region=None, request_timeout=None, connect_timeout=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  default_metadata=None, role_arn=None, session_name=None,
                  external_id=None, load_frequency=900, proxy_options=None,
@@ -269,10 +269,10 @@ cdef class S3FileSystem(FileSystem):
 
         if region is not None:
             options.region = tobytes(region)
-        if request_timeout_ms is not None:
-            options.request_timeout_ms = request_timeout_ms
-        if connect_timeout_ms is not None:
-            options.connect_timeout_ms = connect_timeout_ms  
+        if request_timeout is not None:
+            options.request_timeout = request_timeout
+        if connect_timeout is not None:
+            options.connect_timeout = connect_timeout
         if scheme is not None:
             options.scheme = tobytes(scheme)
         if endpoint_override is not None:
@@ -343,8 +343,8 @@ cdef class S3FileSystem(FileSystem):
                            CS3CredentialsKind_Anonymous),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
-                connect_timeout_ms=opts.connect_timeout_ms,
-                request_timeout_ms=opts.request_timeout_ms,
+                connect_timeout=opts.connect_timeout,
+                request_timeout=opts.request_timeout,
                 endpoint_override=frombytes(opts.endpoint_override),
                 role_arn=frombytes(opts.role_arn),
                 session_name=frombytes(opts.session_name),
