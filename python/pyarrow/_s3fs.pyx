@@ -138,17 +138,11 @@ cdef class S3FileSystem(FileSystem):
     region : str, default 'us-east-1'
         AWS region to connect to.
     request_timeout : double. unit in seconds. default 3. 
-        Socket read timeouts for HTTP clients on Windows. This should be more
+        Socket read timeouts for HTTP clients on Windows and Mac. This should be more
         than adequate for most services. However, if you are transfering large
         amounts of data or are worried about higher latencies, you should set
-        to something that makes more sense for your use case. For Curl, it's
-        the low speed time, which contains the time in number milliseconds
-        that transfer speed should be below "lowSpeedLimit" for the library
-        to consider it too slow and abort. Note that for Curl this config is
-        converted to seconds by rounding down to the nearest whole second except
-        when the value is greater than 0 and less than 1000ms. In this case it is
-        set to one second. When it's 0, low speed limit check will be disabled.
-        Note that for Windows when this config is 0, the behavior is not specified by Windows.
+        to something that makes more sense for your use case. 
+        This option seems to have no effect on Linux.
     connect_timeout : double. unit in seconds. default 1.
         Socket connect timeout. Unless you are very far away from your 
         the data center you are talking to. 1000ms is more than sufficient.
