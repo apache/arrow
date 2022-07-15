@@ -167,5 +167,4 @@ test_that("group_by() with namespaced functions", {
       collect(),
     tbl
   )
-
 })
