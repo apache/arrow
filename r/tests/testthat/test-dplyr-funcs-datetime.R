@@ -294,16 +294,8 @@ test_that("format_ISO8601", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        x = format_ISO8601(x, precision = "ymd", usetz = FALSE)
-      ) %>%
-      collect(),
-    times
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        x = lubridate::format_ISO8601(x, precision = "ymd", usetz = FALSE)
+        a = format_ISO8601(x, precision = "ymd", usetz = FALSE),
+        a2 = lubridate::format_ISO8601(x, precision = "ymd", usetz = FALSE)
       ) %>%
       collect(),
     times
@@ -367,8 +359,7 @@ test_that("is.* functions from lubridate", {
       mutate(
         x = is.POSIXct(datetime),
         y = is.POSIXct(integer),
-        x2 = lubridate::is.POSIXct(datetime),
-        y2 = lubridate::is.POSIXct(integer)
+        x2 = lubridate::is.POSIXct(datetime)
       ) %>%
       collect(),
     test_df
@@ -379,8 +370,7 @@ test_that("is.* functions from lubridate", {
       mutate(
         x = is.Date(date),
         y = is.Date(integer),
-        x2 = lubridate::is.Date(date),
-        y2 = lubridate::is.Date(integer)
+        x2 = lubridate::is.Date(date)
       ) %>%
       collect(),
     test_df
@@ -508,7 +498,7 @@ test_that("extract week from timestamp", {
     .input %>%
       mutate(
         x = week(datetime),
-        x = lubridate::week(datetime)
+        x2 = lubridate::week(datetime)
       ) %>%
       collect(),
     test_df
