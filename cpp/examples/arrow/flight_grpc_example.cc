@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
   auto status = RunFlightGRPC();
   if (!status.ok()) {
     std::cerr << status.ToString() << std::endl;
-    retunr EXIT_FAILURE;
+    return EXIT_FAILURE;
   }
 
   return EXIT_SUCCESS;
