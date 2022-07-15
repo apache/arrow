@@ -58,7 +58,7 @@ NULL
 #' @keywords internal
 #'
 register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  unqualified_name <- sub("^.*?::", "", fun_name)
+  unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
   previous_fun <- registry[[unqualified_name]]
 
