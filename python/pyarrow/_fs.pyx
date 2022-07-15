@@ -1040,7 +1040,7 @@ cdef class PyFileSystem(FileSystem):
     >>> from pyarrow.fs import PyFileSystem, FSSpecHandler
     >>> pa_fs = PyFileSystem(FSSpecHandler(gfs))
 
-    Use :func:`~pyarrow.fs.FileSystem` functionality `get_file_info()`:
+    Use :func:`~pyarrow.fs.FileSystem` functionality ``get_file_info()``:
 
     >>> pa_fs.get_file_info('README.md')
     <FileInfo for 'README.md': type=FileType.File, size=5302>
