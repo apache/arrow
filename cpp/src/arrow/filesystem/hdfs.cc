@@ -246,12 +246,14 @@ class HadoopFileSystem::Impl {
   }
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const std::string& path) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     std::shared_ptr<io::HdfsReadableFile> file;
     RETURN_NOT_OK(client_->OpenReadable(path, io_context_, &file));
     return file;
   }
 
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(const std::string& path) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     std::shared_ptr<io::HdfsReadableFile> file;
     RETURN_NOT_OK(client_->OpenReadable(path, io_context_, &file));
     return file;
@@ -285,6 +287,7 @@ class HadoopFileSystem::Impl {
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(
       const std::string& path, bool append) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     std::shared_ptr<io::HdfsOutputStream> stream;
     RETURN_NOT_OK(client_->OpenWritable(path, append, options_.buffer_size,
                                         options_.replication, options_.default_block_size,
