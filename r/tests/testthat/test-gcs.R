@@ -61,8 +61,15 @@ test_that("GcsFileSystem$create() input validation", {
   )
 })
 
-if (process_is_running("testbench")) {
+if (system('python -c "import testbench"') == 0) {
   testbench_port <- Sys.getenv("TESTBENCH_PORT", "9001")
+
+  pid_minio <- sys::exec_background("python", c("-m", "testbench", "--port", testbench_port),
+    std_out = FALSE,
+    std_err = FALSE # TODO: is there a good place to send output?
+  )
+  withr::defer(tools::pskill(pid_minio))
+  Sys.sleep(1) # Wait for startup
 
   fs <- GcsFileSystem$create(
     endpoint_override = sprintf("localhost:%s", testbench_port),
@@ -76,14 +83,16 @@ if (process_is_running("testbench")) {
     if (grepl("Couldn't connect to server", cond, fixed = TRUE)) {
       abort(
         c(sprintf("Unable to connect to testbench on port %s.", testbench_port),
-          i = "You can set a custom port with TESTBENCH_PORT environment variable."),
-        parent = cond)
+          i = "You can set a custom port with TESTBENCH_PORT environment variable."
+        ),
+        parent = cond
+      )
     } else {
       stop(cond)
     }
   })
   # Clean up when we're all done
-  on.exit(fs$DeleteDir(now))
+  withr::defer(fs$DeleteDir(now))
 
   gcs_path <- function(...) {
     paste(now, ..., sep = "/")
@@ -94,10 +103,14 @@ if (process_is_running("testbench")) {
   }
 
   test_filesystem("gcs", fs, gcs_path, gcs_uri)
+
+  withr::deferred_run()
 } else {
   test_that("GCSFileSystem tests with testbench", {
-    suggested_command <- paste('gunicorn --bind "localhost:9001" --worker-class sync',
-                               '--threads 10 --reload --access-logfile - "testbench:run()"')
+    suggested_command <- paste(
+      'gunicorn --bind "localhost:9001" --worker-class sync',
+      '--threads 10 --reload --access-logfile - "testbench:run()"'
+    )
     skip(sprintf("testbench is not running. You can start it with:\n  %s", suggested_command))
   })
 }

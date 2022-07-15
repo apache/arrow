@@ -17,11 +17,18 @@
 
 source_file("helper-filesystems.R")
 
-if (arrow_with_s3() && process_is_running("minio server")) {
-  # Get minio config, with expected defaults
-  minio_key <- Sys.getenv("MINIO_ACCESS_KEY", "minioadmin")
-  minio_secret <- Sys.getenv("MINIO_SECRET_KEY", "minioadmin")
+if (arrow_with_s3() && nzchar(Sys.which("minio"))) {
+  minio_dir <- Sys.getenv("MINIO_DATA_DIR", tempfile())
+  minio_key <- "minioadmin"
+  minio_secret <- "minioadmin"
   minio_port <- Sys.getenv("MINIO_PORT", "9000")
+
+  # Start minio server
+  dir.create(minio_dir, showWarnings = FALSE)
+  pid_minio <- sys::exec_background("minio", c("server", minio_dir, "--address", sprintf(":%s", minio_port)),
+    std_out = FALSE
+  )
+  withr::defer(tools::pskill(pid_minio))
 
   # Helper function for minio URIs
   minio_uri <- function(...) {
@@ -50,7 +57,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   now <- as.character(as.numeric(Sys.time()))
   fs$CreateDir(now)
   # Clean up when we're all done
-  on.exit(fs$DeleteDir(now))
+  withr::defer(fs$DeleteDir(now))
 
   test_filesystem("s3", fs, minio_path, minio_uri)
 
@@ -96,6 +103,9 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       'Cannot specify "external_id" without providing a role_arn string'
     )
   })
+
+  # Cleanup
+  withr::deferred_run()
 } else {
   # Kinda hacky, let's put a skipped test here, just so we note that the tests
   # didn't run

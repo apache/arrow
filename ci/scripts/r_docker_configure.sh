@@ -88,8 +88,6 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
   fi
 
   if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh" ] && [ "`which pip`" ]; then
-    # Will need reticulate to check whether testbench is installed
-    Rscript -e 'install.packages("reticulate")'
     ${ARROW_SOURCE_HOME}/ci/scripts/install_gcs_testbench.sh default
   fi
 fi

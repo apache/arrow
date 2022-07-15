@@ -308,14 +308,6 @@ jobs:
           zip("libarrow.zip", ".")
           setwd("..")
 
-          minio_dir <- tempfile()
-          dir.create(minio_dir)
-          pid_minio <- sys::exec_background('/usr/local/bin/minio.exe', c('server', minio_dir))
-          on.exit(tools::pskill(pid_minio), add = TRUE)
-
-          pid_minio <- sys::exec_background('python', c('-m', 'testbench', '--port', '9001'))
-          on.exit(tools::pskill(pid_minio), add = TRUE)
-
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
