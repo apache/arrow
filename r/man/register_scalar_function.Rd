@@ -32,8 +32,6 @@ function it must return a \link{DataType}.}
 and construct an Array of the correct type from the output. Use this
 option to write functions of R objects as opposed to functions of
 Arrow R6 objects.}
-
-\item{scalar_function}{An object created with \code{\link[=arrow_scalar_function]{arrow_scalar_function()}}}
 }
 \value{
 \code{NULL}, invisibly
