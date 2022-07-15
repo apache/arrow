@@ -29,7 +29,8 @@ test_that("if_else and ifelse", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = if_else(int > 5, 1, 0)
+        y = if_else(int > 5, 1, 0),
+        y2 = dplyr::if_else(int > 6, 1, 0)
       ) %>%
       collect(),
     tbl
@@ -39,16 +40,6 @@ test_that("if_else and ifelse", {
     .input %>%
       mutate(
         y = if_else(int > 5, int, 0L)
-      ) %>%
-      collect(),
-    tbl
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        y = dplyr::if_else(int > 5, 1, 0)
       ) %>%
       collect(),
     tbl
@@ -75,17 +66,8 @@ test_that("if_else and ifelse", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = ifelse(int > 5, 1, 0)
-      ) %>%
-      collect(),
-    tbl
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        y = base::ifelse(int > 5, 1, 0)
+        y = ifelse(int > 5, 1, 0),
+        y2 = base::ifelse(int > 6, 1, 0)
       ) %>%
       collect(),
     tbl
