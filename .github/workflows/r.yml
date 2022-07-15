@@ -303,7 +303,7 @@ jobs:
         shell: bash
         run: |
           /usr/local/bin/minio.exe server ~/minio-data
-          python -m testbench --port 9001
+          python -m testbench --port 9001 &>/dev/null &
       - name: Check
         shell: Rscript {0}
         run: |
