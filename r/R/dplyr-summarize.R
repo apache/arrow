@@ -480,7 +480,7 @@ wrap_hash_quantile <- function(expr) {
   if (length(expr) == 1) {
     return(expr)
   } else {
-    if (is.call(expr) && (expr[[1]] == quote(quantile) || expr[[1]] == quote(stats::quantile))) {
+    if (is.call(expr) && any(c(quote(quantile), quote(stats::quantile)) == expr[[1]])) {
       return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
     } else {
       return(as.call(lapply(expr, wrap_hash_quantile)))
