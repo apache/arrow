@@ -654,7 +654,7 @@ test_that("Handling string data with embedded nuls", {
   })
 })
 
-test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation", {
+test_that("ARROW-11769/ARROW-13860/ARROW-17085 - grouping preserved in record batch creation", {
   skip_if_not_available("dataset")
   library(dplyr, warn.conflicts = FALSE)
 
@@ -672,6 +672,12 @@ test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation
   )
   expect_identical(
     tbl %>%
+      record_batch() %>%
+      group_vars(),
+    group_vars(tbl)
+  )
+  expect_identical(
+    tbl %>%
       group_by(fct, fct2) %>%
       record_batch() %>%
       group_vars(),
@@ -683,7 +689,7 @@ test_that("ARROW-11769/ARROW-13860 - grouping preserved in record batch creation
       record_batch() %>%
       ungroup() %>%
       group_vars(),
-    NULL
+    character()
   )
   expect_identical(
     tbl %>%
