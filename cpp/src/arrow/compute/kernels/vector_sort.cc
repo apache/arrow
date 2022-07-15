@@ -201,7 +201,7 @@ class ChunkedArraySorter : public TypeVisitor {
 
     // Sort each chunk independently and merge to sorted indices.
     // This is a serial implementation.
-    std::vector<Result<NullPartitionResult>> sorted(num_chunks);
+    std::vector<NullPartitionResult> sorted(num_chunks);
 
     // First sort all individual chunks
     int64_t begin_offset = 0;
@@ -244,8 +244,8 @@ class ChunkedArraySorter : public TypeVisitor {
         auto out_it = sorted.begin();
         auto it = sorted.begin();
         while (it < sorted.end() - 1) {
-          ARROW_ASSIGN_OR_RAISE(const auto& left, *it++);
-          ARROW_ASSIGN_OR_RAISE(const auto& right, *it++);
+          const auto& left = *it++;
+          const auto& right = *it++;
           DCHECK_EQ(left.overall_end(), right.overall_begin());
           const auto merged = merge_impl.Merge(left, right, null_count);
           *out_it++ = merged;
@@ -258,11 +258,10 @@ class ChunkedArraySorter : public TypeVisitor {
     }
 
     DCHECK_EQ(sorted.size(), 1);
-    ARROW_ASSIGN_OR_RAISE(auto sorted_arr, sorted[0]);
-    DCHECK_EQ(sorted_arr.overall_begin(), indices_begin_);
-    DCHECK_EQ(sorted_arr.overall_end(), indices_end_);
+    DCHECK_EQ(sorted[0].overall_begin(), indices_begin_);
+    DCHECK_EQ(sorted[0].overall_end(), indices_end_);
     // Note that "nulls" can also include NaNs, hence the >= check
-    DCHECK_GE(sorted_arr.null_count(), null_count);
+    DCHECK_GE(sorted[0].null_count(), null_count);
 
     return Status::OK();
   }
@@ -1958,8 +1957,9 @@ class ArrayRanker : public TypeVisitor {
     std::iota(sort_begin, sort_end, 0);
 
     ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
-    ARROW_ASSIGN_OR_RAISE(auto sorted,
-                          array_sorter(sort_begin, sort_end, arr, 0, array_options));
+
+    NullPartitionResult sorted =
+        array_sorter(sort_begin, sort_end, arr, 0, array_options);
     uint64_t rank;
 
     ARROW_ASSIGN_OR_RAISE(auto rankings,

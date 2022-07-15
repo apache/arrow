@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <iterator>
 #include <limits>
 #include <numeric>
@@ -144,10 +143,9 @@ class ArrayCompareSorter {
   using GetView = GetViewType<ArrowType>;
 
  public:
-  // `offset` is used when this is called on a chunk of a chunked array
-  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                         const Array& array, int64_t offset,
-                                         const ArraySortOptions& options) {
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     const auto p = PartitionNulls<ArrayType, StablePartitioner>(
@@ -218,15 +216,15 @@ class ArrayCompareSorter<DictionaryType> {
       return Status::OK();
     }
 
-    Status Make(const std::shared_ptr<DataType>& index_type) {
-      return VisitTypeInline(*index_type, this);
+    void Make(const std::shared_ptr<DataType>& index_type) {
+      ARROW_CHECK_OK(VisitTypeInline(*index_type, this));
     }
   };
 
  public:
-  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                         const Array& array, int64_t offset,
-                                         const ArraySortOptions& options) {
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
     const auto& values = dict_array.dictionary();
     const auto& indices = dict_array.indices();
@@ -241,7 +239,7 @@ class ArrayCompareSorter<DictionaryType> {
     const auto& values_rank = checked_cast<const UInt64Array&>(*rank);
 
     DictionaryInternal visitor = {&p, values, indices, values_rank, options, offset};
-    ARROW_RETURN_NOT_OK(visitor.Make(index_type));
+    visitor.Make(index_type);
 
     return p;
   }
@@ -263,9 +261,9 @@ class ArrayCountSorter {
     value_range_ = static_cast<uint32_t>(max - min) + 1;
   }
 
-  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                         const Array& array, int64_t offset,
-                                         const ArraySortOptions& options) const {
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) const {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     // 32bit counter performs much better than 64bit one
@@ -281,9 +279,9 @@ class ArrayCountSorter {
   uint32_t value_range_{0};
 
   template <typename CounterType>
-  Result<NullPartitionResult> SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
-                                           const ArrayType& values, int64_t offset,
-                                           const ArraySortOptions& options) const {
+  NullPartitionResult SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
+                                   const ArrayType& values, int64_t offset,
+                                   const ArraySortOptions& options) const {
     const uint32_t value_range = value_range_;
 
     // first and last slot reserved for prefix sum (depending on sort order)
@@ -347,10 +345,9 @@ class ArrayCountSorter<BooleanType> {
  public:
   ArrayCountSorter() = default;
 
-  // `offset` is used when this is called on a chunk of a chunked array
-  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                         const Array& array, int64_t offset,
-                                         const ArraySortOptions& options) {
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
     const auto& values = checked_cast<const BooleanArray&>(array);
 
     std::array<int64_t, 3> counts{0, 0, 0};  // false, true, null
@@ -393,10 +390,9 @@ class ArrayCountOrCompareSorter {
   using c_type = typename ArrowType::c_type;
 
  public:
-  // `offset` is used when this is called on a chunk of a chunked array
-  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                         const Array& array, int64_t offset,
-                                         const ArraySortOptions& options) {
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& array, int64_t offset,
+                                 const ArraySortOptions& options) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
@@ -434,9 +430,9 @@ class ArrayCountOrCompareSorter {
 
 class ArrayNullSorter {
  public:
-  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                         const Array& values, int64_t offset,
-                                         const ArraySortOptions& options) {
+  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                 const Array& values, int64_t offset,
+                                 const ArraySortOptions& options) {
     return NullPartitionResult::NullsOnly(indices_begin, indices_end,
                                           options.null_placement);
   }
@@ -586,7 +582,7 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
 
 template <template <typename...> class ExecTemplate>
 void AddDictArraySortingKernels(VectorKernel base, VectorFunction* func) {
-  base.signature = KernelSignature::Make({InputType::Array(Type::DICTIONARY)}, uint64());
+  base.signature = KernelSignature::Make({Type::DICTIONARY}, uint64());
   base.exec = ExecTemplate<UInt64Type, DictionaryType>::Exec;
   DCHECK_OK(func->AddKernel(base));
 }

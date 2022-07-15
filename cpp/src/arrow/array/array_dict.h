@@ -112,7 +112,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
   const DictionaryType* dict_type() const { return dict_type_; }
 
   bool IsNull(int64_t i) const {
-    return indices_->IsNull(i) || dictionary_->IsNull(GetValueIndex(i));
+    return indices_->IsNull(i) || dictionary()->IsNull(GetValueIndex(i));
   }
 
  private:
