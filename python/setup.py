@@ -315,15 +315,16 @@ class build_ext(_build_ext):
                     libname_path = pjoin(saved_cwd, "pyarrow", libname)
                     if os.path.exists(libname_path):
                         os.remove(libname_path)
-                    print(f"* Copying {pjoin(build_dir,folder_name, libname)} to {pjoin(build_lib, 'pyarrow')}")
-                    shutil.copy(pjoin(build_dir,folder_name, libname),
+                    print(
+                        f"Copying {pjoin(build_dir,folder_name, libname)} to {pjoin(build_lib, 'pyarrow')}")
+                    shutil.copy(pjoin(build_dir, folder_name, libname),
                                 pjoin(build_lib, "pyarrow"))
             # Move libraries to python/pyarrow
-            for libname in os.listdir(pjoin(build_dir,'lib')):
+            for libname in os.listdir(pjoin(build_dir, 'lib')):
                 copy_libs(libname, 'lib')
             # For windows builds, move dll from bin
-            if os.path.isdir(pjoin(build_dir,'bin')):
-                for libname in os.listdir(pjoin(build_dir,'bin')):
+            if os.path.isdir(pjoin(build_dir,' bin')):
+                for libname in os.listdir(pjoin(build_dir, 'bin')):
                     copy_libs(libname, 'bin')
 
             # Copy headers tp python/pyarrow/include
@@ -332,7 +333,8 @@ class build_ext(_build_ext):
                 build_lib, "pyarrow", "include", "arrow", "python")
             if os.path.exists(pyarrow_include):
                 shutil.rmtree(pyarrow_include)
-            print(f"* Copying include folder: {arrow_python_include} to {pyarrow_include}")
+            print(
+                f"Copying include folder: {arrow_python_include} to {pyarrow_include}")
             shutil.copytree(arrow_python_include, pyarrow_include)
 
     def _run_cmake(self):
