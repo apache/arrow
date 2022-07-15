@@ -140,6 +140,20 @@ test_that("transmute() with unsupported arguments", {
   )
 })
 
+test_that("transmute() defuses dots arguments (ARROW-13262)", {
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      transmute(
+        a = stringr::str_c(padded_strings, padded_strings),
+        b = stringr::str_squish(a)
+      ) %>%
+      collect(),
+    "Expression stringr::str_squish(a) not supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+})
+
 test_that("mutate and refer to previous mutants", {
   compare_dplyr_binding(
     .input %>%
