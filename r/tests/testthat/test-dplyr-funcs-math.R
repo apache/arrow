@@ -25,15 +25,9 @@ test_that("abs()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(abs = abs(x)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(abs = base::abs(x)) %>%
+      transmute(
+        abs = abs(x),
+        abs2 = base::abs(x)) %>%
       collect(),
     df
   )
@@ -44,15 +38,10 @@ test_that("sign()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(sign = sign(x)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      transmute(sign = base::sign(x)) %>%
+      transmute(
+        sign = sign(x),
+        sign2 = base::sign(x)
+      ) %>%
       collect(),
     df
   )
@@ -67,20 +56,11 @@ test_that("ceiling(), floor(), trunc(), round()", {
         c = ceiling(x),
         f = floor(x),
         t = trunc(x),
-        r = round(x)
-      ) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        c = base::ceiling(x),
-        f = base::floor(x),
-        t = base::trunc(x),
-        r = base::round(x)
+        r = round(x),
+        c2 = base::ceiling(x),
+        f2 = base::floor(x),
+        t2 = base::trunc(x),
+        r2 = base::round(x)
       ) %>%
       collect(),
     df
@@ -170,15 +150,10 @@ test_that("log functions", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = log(x)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y = base::log(x)) %>%
+      mutate(
+        y = log(x),
+        y2 = base::log(x)
+      ) %>%
       collect(),
     df
   )
@@ -265,14 +240,6 @@ test_that("log functions", {
     df
   )
 
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y = base::logb(x)) %>%
-      collect(),
-    df
-  )
-
   compare_dplyr_binding(
     .input %>%
       mutate(y = log1p(x)) %>%
@@ -295,13 +262,6 @@ test_that("log functions", {
   )
 
   # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(a = base::log(x, base = y)) %>%
-      collect(),
-    tibble(x = 10, y = 1)
-  )
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -415,15 +375,10 @@ test_that("exp()", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = exp(x)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y = base::exp(x)) %>%
+      mutate(
+        y = exp(x),
+        y2 = base::exp(x)
+      ) %>%
       collect(),
     df
   )
@@ -434,15 +389,10 @@ test_that("sqrt()", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = sqrt(x)) %>%
-      collect(),
-    df
-  )
-
-  # with namespacing
-  compare_dplyr_binding(
-    .input %>%
-      mutate(y = base::sqrt(x)) %>%
+      mutate(
+        y = sqrt(x),
+        y2 = base::sqrt(x)
+      ) %>%
       collect(),
     df
   )
