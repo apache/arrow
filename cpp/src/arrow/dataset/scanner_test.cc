@@ -1431,21 +1431,20 @@ DatasetAndBatches MakeBasicDataset() {
 
   const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
 
-  return DatasetAndBatchesFromJSON(dataset_schema, physical_schema,
+  return DatasetAndBatchesFromJSON(dataset_schema, physical_schema, {
                                    {
-                                       {
-                                           R"([{"a": 1,    "b": null},
-                  {"a": 2,    "b": true}])",
-                                           R"([{"a": null, "b": true},
-                  {"a": 3,    "b": false}])",
-                                       },
-                                       {
-                                           R"([{"a": null, "b": true},
-                  {"a": 4,    "b": false}])",
-                                           R"([{"a": 5,    "b": null},
-                  {"a": 6,    "b": false},
-                  {"a": 7,    "b": false}])",
-                                       },
+                                       R"([{"a": 1,    "b": null},
+                                           {"a": 2,    "b": true}])",
+                                       R"([{"a": null, "b": true},
+                                           {"a": 3,    "b": false}])",
+                                   },
+                                   {
+                                       R"([{"a": null, "b": true},
+                                           {"a": 4,    "b": false}])",
+                                       R"([{"a": 5,    "b": null},
+                                           {"a": 6,    "b": false},
+                                           {"a": 7,    "b": false}])",
+                                   },
                                    },
                                    {
                                        equal(field_ref("c"), literal(23)),
