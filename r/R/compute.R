@@ -344,20 +344,23 @@ cast_options <- function(safe = TRUE, ...) {
 #' @export
 #'
 #' @examplesIf arrow_with_dataset()
+#' library(dplyr, warn.conflicts = FALSE)
+#'
+#' some_model <- lm(mpg ~ disp + cyl, data = mtcars)
 #' register_scalar_function(
-#'   "example_add3",
-#'   function(context, x, y, z) x + y + z,
-#'   schema(x = float64(), y = float64(), z = float64()),
-#'   float64(),
+#'   "mtcars_predict_mpg",
+#'   function(context, disp, cyl) {
+#'     predict(some_model, newdata = data.frame(disp, cyl))
+#'   },
+#'   in_type = schema(disp = float64(), cyl = float64()),
+#'   out_type = float64(),
 #'   auto_convert = TRUE
 #' )
 #'
-#' call_function(
-#'   "example_add3",
-#'   Scalar$create(1),
-#'   Scalar$create(2),
-#'   Array$create(3)
-#' )
+#' as_arrow_table(mtcars) %>%
+#'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) %>%
+#'   collect() %>%
+#'   head()
 #'
 register_scalar_function <- function(name, fun, in_type, out_type,
                                      auto_convert = FALSE) {
