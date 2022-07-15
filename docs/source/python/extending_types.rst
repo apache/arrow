@@ -290,7 +290,7 @@ Custom scalar conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you want scalars of your custom extension type to convert to a custom type when
-:meth:`ExtensionScalar.as_py()` is called, you can override the :meth:`ExtensionType.as_py()`
+:meth:`ExtensionScalar.as_py()` is called, you can override the :meth:`ExtensionScalar.as_py()`
 method. For example, if we wanted the above example 3D point type to return a custom
 3D point class instead of a list, we would implement::
 
