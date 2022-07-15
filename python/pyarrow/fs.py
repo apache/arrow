@@ -240,9 +240,8 @@ def copy_files(source, destination,
     >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
     ...               "file:///{}/index_copy.ndjson".format(local_path))
 
-    >>> selector2 = fs.FileSelector(str(local_path))
-    >>> local.get_file_info(selector2)
-    [<FileInfo for '.../index_copy.ndjson': type=FileType.File, size=949986>...
+    >>> fs.LocalFileSystem().get_file_info(str(local_path)+'/index_copy.ndjson')
+    <FileInfo for '.../index_copy.ndjson': type=FileType.File, size=...>
 
     Copy file using a FileSystem object:
 
