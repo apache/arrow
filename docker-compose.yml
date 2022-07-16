@@ -1125,7 +1125,7 @@ services:
       [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
           /arrow/ci/scripts/python_build.sh /arrow /build &&
           /arrow/ci/scripts/java_jni_build.sh /arrow /build /tmp/dist/java &&
-          /arrow/ci/scripts/java_build.sh /arrow /build &&
+          /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
           /arrow/ci/scripts/java_cdata_integration.sh /arrow /tmp/dist/java" ]
 
   conda-python-turbodbc:
@@ -1524,8 +1524,8 @@ services:
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_jni_build.sh /arrow /build/java_jni /build/java/c &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_jni_build.sh /arrow /build /tmp/java_dist &&
+        /arrow/ci/scripts/java_build.sh /arrow /build /tmp/java_dist &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
   oracle-java:
