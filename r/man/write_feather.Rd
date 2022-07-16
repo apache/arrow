@@ -2,12 +2,21 @@
 % Please edit documentation in R/feather.R
 \name{write_feather}
 \alias{write_feather}
-\title{Write data in the Feather format}
+\alias{write_ipc_file}
+\title{Write a Feather file (an Arrow IPC file)}
 \usage{
 write_feather(
   x,
   sink,
   version = 2,
+  chunk_size = 65536L,
+  compression = c("default", "lz4", "uncompressed", "zstd"),
+  compression_level = NULL
+)
+
+write_ipc_file(
+  x,
+  sink,
   chunk_size = 65536L,
   compression = c("default", "lz4", "uncompressed", "zstd"),
   compression_level = NULL
@@ -44,8 +53,10 @@ the stream will be left open.
 Feather provides binary columnar serialization for data frames.
 It is designed to make reading and writing data frames efficient,
 and to make sharing data across data analysis languages easy.
-This function writes both the original, limited specification of the format
-and the version 2 specification, which is the Apache Arrow IPC file format.
+\code{\link[=write_feather]{write_feather()}} can write both the Feather Version 1,
+a legacy version available starting in 2016, and the Version 2,
+which is the Apache Arrow IPC file format.
+\code{\link[=write_ipc_file]{write_ipc_file()}} is a shortcut to \code{write_feather(version = 2)}.
 }
 \examples{
 tf <- tempfile()

@@ -25,6 +25,13 @@ test_that("Write a feather file", {
   expect_identical(tib_out, tib)
 })
 
+test_that("write_ipc_file() returns its input", {
+  tib_out <- write_ipc_file(tib, feather_file)
+  expect_true(file.exists(feather_file))
+  # Input is returned unmodified
+  expect_identical(tib_out, tib)
+})
+
 expect_feather_roundtrip <- function(write_fun) {
   tf2 <- normalizePath(tempfile(), mustWork = FALSE)
   tf3 <- tempfile()
@@ -66,6 +73,7 @@ expect_feather_roundtrip <- function(write_fun) {
 test_that("feather read/write round trip", {
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 1))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
   if (codec_is_available("lz4")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "lz4"))
@@ -97,6 +105,10 @@ test_that("write_feather option error handling", {
   )
   expect_error(
     write_feather(tib, tf, compression_level = 1024),
+    "Can only specify a 'compression_level' when 'compression' is 'zstd'"
+  )
+  expect_error(
+    write_ipc_file(tib, tf, compression_level = 1024),
     "Can only specify a 'compression_level' when 'compression' is 'zstd'"
   )
   expect_match_arg_error(write_feather(tib, tf, compression = "bz2"))

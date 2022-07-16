@@ -15,13 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Write data in the Feather format
+#' Write a Feather file (an Arrow IPC file)
 #'
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
-#' This function writes both the original, limited specification of the format
-#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#' [write_feather()] can write both the Feather Version 1,
+#' a legacy version available starting in 2016, and the Version 2,
+#' which is the Apache Arrow IPC file format.
+#' [write_ipc_file()] is a shortcut to `write_feather(version = 2)`.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
@@ -108,6 +110,19 @@ write_feather <- function(x,
   }
   ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
   invisible(x_out)
+}
+
+#' @rdname write_feather
+#' @export
+write_ipc_file <- function(x,
+                           sink,
+                           chunk_size = 65536L,
+                           compression = c("default", "lz4", "uncompressed", "zstd"),
+                           compression_level = NULL) {
+  mc <- match.call()
+  mc$version <- 2
+  mc[[1]] <- get("write_feather", envir = asNamespace("arrow"))
+  eval.parent(mc)
 }
 
 #' Read a Feather file (an Arrow IPC file)
