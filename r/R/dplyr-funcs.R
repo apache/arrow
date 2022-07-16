@@ -64,13 +64,14 @@ NULL
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = nse_funcs, update_cache = FALSE) {
+register_binding <- function(fun_name, fun, registry = nse_funcs,
+                             update_cache = FALSE) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
   previous_fun <- registry[[unqualified_name]]
 
   # if the unqualified name exists in the registry, warn
-  if (!is.null(fun) && !is.null(previous_fun)) {
+  if (!is.null(previous_fun)) {
     warn(
       paste0(
         "A \"",
@@ -80,16 +81,35 @@ register_binding <- function(fun_name, fun, registry = nse_funcs, update_cache =
   }
 
   # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
-  if (grepl("::", fun_name)) {
-    registry[[unqualified_name]] <- fun
-    registry[[fun_name]] <- fun
-  } else {
-    registry[[unqualified_name]] <- fun
-  }
+  # unqualified_name and fun_name will be the same if not prefixed
+  registry[[unqualified_name]] <- fun
+  registry[[fun_name]] <- fun
 
   if (update_cache) {
     fun_cache <- .cache$functions
-    fun_cache[[name]] <- fun
+    fun_cache[[unqualified_name]] <- fun
+    fun_cache[[fun_name]] <- fun
+    .cache$functions <- fun_cache
+  }
+
+  invisible(previous_fun)
+}
+
+unregister_binding <- function(fun_name, registry = nse_funcs,
+                               update_cache = FALSE) {
+  unqualified_name <- sub("^.*?:{+}", "", fun_name)
+  previous_fun <- registry[[unqualified_name]]
+
+  rm(
+    list = unique(c(fun_name, unqualified_name)),
+    envir = registry,
+    inherits = FALSE
+  )
+
+  if (update_cache) {
+    fun_cache <- .cache$functions
+    fun_cache[[unqualified_name]] <- NULL
+    fun_cache[[fun_name]] <- NULL
     .cache$functions <- fun_cache
   }
 

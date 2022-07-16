@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that("register_binding() works", {
+test_that("register_binding()/unregister_binding() works", {
   fake_registry <- new.env(parent = emptyenv())
   fun1 <- function() NULL
   fun2 <- function() "Hello"
@@ -24,8 +24,9 @@ test_that("register_binding() works", {
   expect_identical(fake_registry$some_fun, fun1)
   expect_identical(fake_registry$`some.pkg::some_fun`, fun1)
 
-  expect_identical(register_binding("some.pkg::some_fun", NULL, fake_registry), fun1)
-  expect_silent(expect_null(register_binding("some.pkg::some_fun", NULL, fake_registry)))
+  expect_identical(unregister_binding("some.pkg::some_fun", fake_registry), fun1)
+  expect_false("some.pkg::some_fun" %in% names(fake_registry))
+  expect_false("some_fun" %in% names(fake_registry))
 
   expect_null(register_binding("somePkg::some_fun", fun1, fake_registry))
   expect_identical(fake_registry$some_fun, fun1)
