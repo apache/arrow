@@ -48,9 +48,14 @@
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
 #' @examples
-#' tf <- tempfile()
-#' on.exit(unlink(tf))
-#' write_feather(mtcars, tf)
+#' tf1 <- tempfile(fileext = ".feather")
+#' tf2 <- tempfile(fileext = ".arrow")
+#' on.exit({
+#'   unlink(tf1)
+#'   unlink(tf2)
+#' })
+#' write_feather(mtcars, tf1, version = 1)
+#' write_ipc_file(mtcars, tf2)
 #' @include arrow-object.R
 write_feather <- function(x,
                           sink,

@@ -59,9 +59,14 @@ which is the Apache Arrow IPC file format.
 \code{\link[=write_ipc_file]{write_ipc_file()}} is a shortcut to \code{write_feather(version = 2)}.
 }
 \examples{
-tf <- tempfile()
-on.exit(unlink(tf))
-write_feather(mtcars, tf)
+tf1 <- tempfile(fileext = ".feather")
+tf2 <- tempfile(fileext = ".arrow")
+on.exit({
+  unlink(tf1)
+  unlink(tf2)
+})
+write_feather(mtcars, tf1, version = 1)
+write_ipc_file(mtcars, tf2)
 }
 \seealso{
 \link{RecordBatchWriter} for lower-level access to writing Arrow IPC data.
