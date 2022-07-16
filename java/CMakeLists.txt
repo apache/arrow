@@ -27,7 +27,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Components
 option(ARROW_JAVA_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
-option(ARROW_JAVA_JNI_ENABLE_C "Enable C data interface" ${ARROW_JNI_ENABLE_DEFAULT})
+option(ARROW_JAVA_JNI_ENABLE_C "Enable C data interface" ${ARROW_JAVA_JNI_ENABLE_DEFAULT})
 
 # ccache
 option(ARROW_JAVA_JNI_USE_CCACHE "Use ccache when compiling (if available)" ON)
