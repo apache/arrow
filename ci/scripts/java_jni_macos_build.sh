@@ -110,12 +110,13 @@ echo "=== Checking shared dependencies for libraries ==="
 
 pushd ${dist_dir}
 archery linking check-dependencies \
+  --allow libSystem \
+  --allow libarrow_cdata_jni \
   --allow libarrow_dataset_jni \
   --allow libarrow_orc_jni \
   --allow libc++ \
   --allow libgandiva_jni \
   --allow libncurses \
-  --allow libSystem \
   --allow libz \
   libarrow_cdata_jni.dylib \
   libarrow_dataset_jni.dylib \
