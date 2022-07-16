@@ -2222,6 +2222,26 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     test_dates_times
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string),
+        ymd_hm_dttm = ymd_hm(ymd_hm_string),
+        ymd_h_dttm = ymd_h(ymd_h_string),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string),
+        dmy_hm_dttm = dmy_hm(dmy_hm_string),
+        dmy_h_dttm = dmy_h(dmy_h_string),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string),
+        mdy_hm_dttm = mdy_hm(mdy_hm_string),
+        mdy_h_dttm = mdy_h(mdy_h_string),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string),
+        ydm_hm_dttm = ydm_hm(ydm_hm_string),
+        ydm_h_dttm = ydm_h(ydm_h_string)
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
   # parse_date_time with timezone
   pm_tz <- "Pacific/Marquesas"
   compare_dplyr_binding(
@@ -2239,6 +2259,26 @@ test_that("parse_date_time with hours, minutes and seconds components", {
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS", tz = pm_tz),
         ydm_hm_dttm = parse_date_time(ydm_hm_string, orders = "ydm_HM", tz = pm_tz),
         ydm_h_dttm = parse_date_time(ydm_h_string, orders = "ydm_H", tz = pm_tz)
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string, tz = pm_tz),
+        ymd_hm_dttm = ymd_hm(ymd_hm_string, tz = pm_tz),
+        ymd_h_dttm = ymd_h(ymd_h_string, tz = pm_tz),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string, tz = pm_tz),
+        dmy_hm_dttm = dmy_hm(dmy_hm_string, tz = pm_tz),
+        dmy_h_dttm = dmy_h(dmy_h_string, tz = pm_tz),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string, tz = pm_tz),
+        mdy_hm_dttm = mdy_hm(mdy_hm_string, tz = pm_tz),
+        mdy_h_dttm = mdy_h(mdy_h_string, tz = pm_tz),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string, tz = pm_tz),
+        ydm_hm_dttm = ydm_hm(ydm_hm_string, tz = pm_tz),
+        ydm_h_dttm = ydm_h(ydm_h_string, tz = pm_tz),
       ) %>%
       collect(),
     test_dates_times
@@ -2315,6 +2355,26 @@ test_that("parse_date_time with month names and HMS", {
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS"),
         ydm_hm_dttm  = parse_date_time(ydm_hm_string, orders = "ydmHM"),
         ydm_h_dttm   = parse_date_time(ydm_h_string, orders = "ydm_H")
+      ) %>%
+      collect(),
+    test_dates_times2
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string),
+        ymd_hm_dttm  = ymd_hm(ymd_hm_string),
+        ymd_h_dttm   = ymd_h(ymd_h_string),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string),
+        dmy_hm_dttm  = dmy_hm(dmy_hm_string),
+        dmy_h_dttm   = dmy_h(dmy_h_string),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string),
+        mdy_hm_dttm  = mdy_hm(mdy_hm_string),
+        mdy_h_dttm   = mdy_h(mdy_h_string),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string),
+        ydm_hm_dttm  = ydm_hm(ydm_hm_string),
+        ydm_h_dttm   = ydm_h(ydm_h_string)
       ) %>%
       collect(),
     test_dates_times2
@@ -2512,6 +2572,26 @@ test_that("build_formats() and build_format_from_order()", {
       "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
       "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
       "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    )
+  )
+
+  expect_equal(
+    build_format_from_order("ymdHM"),
+    c(
+      "%y-%m-%d-%H-%M", "%Y-%m-%d-%H-%M", "%y-%B-%d-%H-%M",
+      "%Y-%B-%d-%H-%M", "%y-%b-%d-%H-%M", "%Y-%b-%d-%H-%M",
+      "%y%m%d%H%M", "%Y%m%d%H%M", "%y%B%d%H%M", "%Y%B%d%H%M",
+      "%y%b%d%H%M", "%Y%b%d%H%M"
+    )
+  )
+
+  expect_equal(
+    build_format_from_order("ymdH"),
+    c(
+      "%y-%m-%d-%H", "%Y-%m-%d-%H", "%y-%B-%d-%H",
+      "%Y-%B-%d-%H", "%y-%b-%d-%H", "%Y-%b-%d-%H",
+      "%y%m%d%H", "%Y%m%d%H", "%y%B%d%H", "%Y%B%d%H",
+      "%y%b%d%H", "%Y%b%d%H"
     )
   )
 })
