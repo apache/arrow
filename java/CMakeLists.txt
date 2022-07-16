@@ -51,9 +51,8 @@ find_package(JNI REQUIRED)
 
 include(UseJava)
 
-add_library(jni SHARED IMPORTED)
-set_target_properties(jni PROPERTIES IMPORTED_LOCATION "${JAVA_JVM_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES "${JNI_INCLUDE_DIRS}")
+add_library(jni INTERFACE IMPORTED)
+set_target_properties(jni PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${JNI_INCLUDE_DIRS}")
 
 if(ARROW_JAVA_JNI_ENABLE_C)
   add_subdirectory(c)
