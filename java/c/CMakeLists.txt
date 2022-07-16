@@ -28,7 +28,6 @@ add_jar(arrow_cdata_jar
 
 set(ARROW_CDATA_JNI_SOURCES src/main/cpp/jni_wrapper.cc)
 add_library(arrow_cdata_jni SHARED ${ARROW_CDATA_JNI_SOURCES})
-target_link_libraries(arrow_cdata_jni arrow_cdata_jni_headers ${JNI_LIBRARIES})
-target_include_directories(arrow_cdata_jni SYSTEM PRIVATE ${JNI_INCLUDE_DIRS})
+target_link_libraries(arrow_cdata_jni arrow_cdata_jni_headers jni)
 
 install(TARGETS arrow_cdata_jni DESTINATION ${CMAKE_INSTALL_PREFIX})

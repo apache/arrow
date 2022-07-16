@@ -25,14 +25,35 @@ if("${CMAKE_CXX_STANDARD}" STREQUAL "")
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Components
 option(ARROW_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
-
 option(ARROW_JNI_ENABLE_C "Enable C data interface" ${ARROW_JNI_ENABLE_DEFAULT})
 
+# ccache
+option(ARROW_JNI_USE_CCACHE "Use ccache when compiling (if available)" ON)
+if(ARROW_USE_CCACHE
+   AND NOT CMAKE_C_COMPILER_LAUNCHER
+   AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+  find_program(CCACHE ccache)
+  if(CCACHE)
+    message(STATUS "Using ccache: ${CCACHE}")
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
+    # ARROW-3985: let ccache preserve C++ comments, because some of them may be
+    # meaningful to the compiler
+    set(ENV{CCACHE_COMMENTS} "1")
+  endif()
+endif()
+
+# Build
 find_package(Java REQUIRED)
 find_package(JNI REQUIRED)
 
 include(UseJava)
+
+add_library(jni SHARED IMPORTED)
+set_target_properties(jni PROPERTIES IMPORTED_LOCATION "${JAVA_JVM_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${JNI_INCLUDE_DIRS}")
 
 if(ARROW_JNI_ENABLE_C)
   add_subdirectory(c)
