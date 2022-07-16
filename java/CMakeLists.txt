@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.11)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-project(arrow-jni)
+project(arrow-java-jni)
 
 if("${CMAKE_CXX_STANDARD}" STREQUAL "")
   set(CMAKE_CXX_STANDARD 11)
@@ -26,11 +26,11 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Components
-option(ARROW_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
-option(ARROW_JNI_ENABLE_C "Enable C data interface" ${ARROW_JNI_ENABLE_DEFAULT})
+option(ARROW_JAVA_JNI_ENABLE_DEFAULT "Whether enable components by default or not" ON)
+option(ARROW_JAVA_JNI_ENABLE_C "Enable C data interface" ${ARROW_JNI_ENABLE_DEFAULT})
 
 # ccache
-option(ARROW_JNI_USE_CCACHE "Use ccache when compiling (if available)" ON)
+option(ARROW_JAVA_JNI_USE_CCACHE "Use ccache when compiling (if available)" ON)
 if(ARROW_USE_CCACHE
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
@@ -55,6 +55,6 @@ add_library(jni SHARED IMPORTED)
 set_target_properties(jni PROPERTIES IMPORTED_LOCATION "${JAVA_JVM_LIBRARY}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${JNI_INCLUDE_DIRS}")
 
-if(ARROW_JNI_ENABLE_C)
+if(ARROW_JAVA_JNI_ENABLE_C)
   add_subdirectory(c)
 endif()
