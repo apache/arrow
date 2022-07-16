@@ -344,6 +344,7 @@ detect_compression <- function(path) {
     gz = "gzip",
     lz4 = "lz4",
     zst = "zstd",
+    snappy = "snappy",
     "uncompressed"
   )
 }

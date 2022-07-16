@@ -39,7 +39,9 @@ read_parquet <- function(file,
                          props = ParquetArrowReaderProperties$create(),
                          ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file)
+    # Compression is handled inside the parquet file format, so we don't need
+    # to detect from the file extension and wrap in a CompressedInputStream
+    file <- make_readable_file(file, compression = "uncompressed")
     on.exit(file$close())
   }
   reader <- ParquetFileReader$create(file, props = props, ...)
@@ -156,7 +158,17 @@ write_parquet <- function(x,
   x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
-    sink <- make_output_stream(sink)
+    if (missing(compression) && is.string(sink)) {
+      # Parquet handles compression in the writer itself, not by wrapping
+      # the sink in a CompressedOutputStream, which make_output_stream() does
+      # if the filename ends in a compression extension. So handle the ext
+      # here before passing to make_output_stream()
+      comp <- detect_compression(sink)
+      if (comp != "uncompressed") {
+        compression <- comp
+      }
+    }
+    sink <- make_output_stream(sink, compression = "uncompressed")
     on.exit(sink$close())
   }
 

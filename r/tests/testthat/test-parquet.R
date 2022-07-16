@@ -185,6 +185,23 @@ test_that("write_parquet() defaults to snappy compression", {
   expect_equal(file.size(tmp1), file.size(tmp2))
 })
 
+test_that("write_parquet() detects compression from filename", {
+  skip_if_not_available("gzip")
+  explicit <- tempfile(fileext = ".parquet")
+  implicit <- tempfile(fileext = ".parquet.gz")
+  write_parquet(mtcars, explicit, compression = "gzip")
+  write_parquet(mtcars, implicit)
+  expect_equal(file.size(explicit), file.size(implicit))
+})
+
+test_that("read_parquet() handles compression in filename", {
+  skip_if_not_available("gzip")
+  df <- tibble::tibble(x = 1:5)
+  implicit <- tempfile(fileext = ".parquet.gz")
+  write_parquet(df, implicit)
+  expect_equal(read_parquet(implicit), df)
+})
+
 test_that("Factors are preserved when writing/reading from Parquet", {
   fct <- factor(c("a", "b"), levels = c("c", "a", "b"))
   ord <- factor(c("a", "b"), levels = c("c", "a", "b"), ordered = TRUE)
