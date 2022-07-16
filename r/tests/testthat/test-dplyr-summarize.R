@@ -236,6 +236,15 @@ test_that("Group by any/all", {
   )
 })
 
+test_that("n_distinct() with many batches", {
+  tf <- tempfile()
+  write_parquet(dplyr::starwars, tf, chunk_size = 20)
+
+  ds <- open_dataset(tf)
+  expect_equal(ds %>% summarise(n_distinct(sex, na.rm = FALSE)) %>% collect(),
+               ds %>% collect() %>% summarise(n_distinct(sex, na.rm = FALSE)))
+})
+
 test_that("n_distinct() on dataset", {
   # With group_by
   compare_dplyr_binding(

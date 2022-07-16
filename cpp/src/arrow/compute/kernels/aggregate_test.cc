@@ -962,10 +962,82 @@ class TestCountDistinctKernel : public ::testing::Test {
     EXPECT_THAT(CallFunction("count_distinct", {input}, &all), one);
   }
 
+  void CheckChunkedArr(const std::shared_ptr<DataType>& type,
+                       const std::vector<std::string>& json, int64_t expected_all,
+                       bool has_nulls = true) {
+    Check(ChunkedArrayFromJSON(type, json), expected_all, has_nulls);
+  }
+
   CountOptions only_valid{CountOptions::ONLY_VALID};
   CountOptions only_null{CountOptions::ONLY_NULL};
   CountOptions all{CountOptions::ALL};
 };
+
+TEST_F(TestCountDistinctKernel, AllChunkedArrayTypesWithNulls) {
+  // Boolean
+  CheckChunkedArr(boolean(), {"[]", "[]"}, 0, /*has_nulls=*/false);
+  CheckChunkedArr(boolean(), {"[true, null]", "[false, null, false]", "[true]"}, 3);
+
+  // Number
+  for (auto ty : NumericTypes()) {
+    CheckChunkedArr(ty, {"[1, 1, null, 2]", "[5, 8, 9, 9, null, 10]", "[6, 6, 8, 9, 10]"},
+                    8);
+    CheckChunkedArr(ty, {"[1, 1, 8, 2]", "[5, 8, 9, 9, 10]", "[10, 6, 6]"}, 7,
+                    /*has_nulls=*/false);
+  }
+
+  // Date
+  CheckChunkedArr(date32(), {"[0, 11016]", "[0, null, 14241, 14241, null]"}, 4);
+  CheckChunkedArr(date64(), {"[0, null]", "[0, null, 0, 0, 1262217600000]"}, 3);
+
+  // Time
+  CheckChunkedArr(time32(TimeUnit::SECOND), {"[ 0, 11, 0, null]", "[14, 14, null]"}, 4);
+  CheckChunkedArr(time32(TimeUnit::MILLI), {"[ 0, 11000, 0]", "[null, 11000, 11000]"}, 3);
+
+  CheckChunkedArr(time64(TimeUnit::MICRO), {"[84203999999, 0, null, 84203999999]", "[0]"},
+                  3);
+  CheckChunkedArr(time64(TimeUnit::NANO),
+                  {"[11715003000000, 0, null, 0, 0]", "[0, 0, null]"}, 3);
+
+  // Timestamp & Duration
+  for (auto u : TimeUnit::values()) {
+    CheckChunkedArr(duration(u), {"[123456789, null, 987654321]", "[123456789, null]"},
+                    3);
+
+    CheckChunkedArr(duration(u),
+                    {"[123456789, 987654321, 123456789, 123456789]", "[123456789]"}, 2,
+                    /*has_nulls=*/false);
+
+    auto ts =
+        std::vector<std::string>{R"(["2009-12-31T04:20:20", "2009-12-31T04:20:20"])",
+                                 R"(["2020-01-01", null])", R"(["2020-01-01", null])"};
+    CheckChunkedArr(timestamp(u), ts, 3);
+    CheckChunkedArr(timestamp(u, "Pacific/Marquesas"), ts, 3);
+  }
+
+  // Interval
+  CheckChunkedArr(month_interval(), {"[9012, 5678, null, 9012]", "[5678, null, 9012]"},
+                  3);
+  CheckChunkedArr(day_time_interval(),
+                  {"[[0, 1], [0, 1]]", "[null, [0, 1], [1234, 5678]]"}, 3);
+  CheckChunkedArr(month_day_nano_interval(),
+                  {"[[0, 1, 2]]", "[[0, 1, 2], null, [0, 1, 2]]"}, 2);
+
+  // Binary & String & Fixed binary
+  auto samples = std::vector<std::string>{
+      R"([null, "abc", null])", R"(["abc", "abc", "cba"])", R"(["bca", "cba", null])"};
+
+  CheckChunkedArr(binary(), samples, 4);
+  CheckChunkedArr(large_binary(), samples, 4);
+  CheckChunkedArr(utf8(), samples, 4);
+  CheckChunkedArr(large_utf8(), samples, 4);
+  CheckChunkedArr(fixed_size_binary(3), samples, 4);
+
+  // Decimal
+  samples = {R"(["12345.679", "98765.421"])", R"([null, "12345.679", "98765.421"])"};
+  CheckChunkedArr(decimal128(21, 3), samples, 3);
+  CheckChunkedArr(decimal256(13, 3), samples, 3);
+}
 
 TEST_F(TestCountDistinctKernel, AllArrayTypesWithNulls) {
   // Boolean

@@ -136,27 +136,34 @@ struct CountDistinctImpl : public ScalarAggregator {
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_array()) {
       const ArrayData& arr = *batch[0].array();
+      this->has_nulls = arr.GetNullCount() > 0;
+
       auto visit_null = []() { return Status::OK(); };
       auto visit_value = [&](VisitorArgType arg) {
-        int y;
+        int32_t y;
         return memo_table_->GetOrInsert(arg, &y);
       };
       RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
-      this->non_nulls += memo_table_->size();
-      this->has_nulls = arr.GetNullCount() > 0;
+
     } else {
       const Scalar& input = *batch[0].scalar();
       this->has_nulls = !input.is_valid;
+
       if (input.is_valid) {
-        this->non_nulls += batch.length;
+        int32_t unused;
+        RETURN_NOT_OK(memo_table_->GetOrInsert(UnboxScalar<Type>::Unbox(input), &unused));
       }
     }
+
+    this->non_nulls = memo_table_->size();
+
     return Status::OK();
   }
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other_state = checked_cast<const CountDistinctImpl&>(src);
-    this->non_nulls += other_state.non_nulls;
+    RETURN_NOT_OK(this->memo_table_->MergeTable(*(other_state.memo_table_)));
+    this->non_nulls = this->memo_table_->size();
     this->has_nulls = this->has_nulls || other_state.has_nulls;
     return Status::OK();
   }

@@ -485,6 +485,20 @@ class ScalarMemoTable : public MemoTable {
   hash_t ComputeHash(const Scalar& value) const {
     return ScalarHelper<Scalar, 0>::ComputeHash(value);
   }
+
+ public:
+  // defined here so that `HashTableType` is visible
+  // Merge entries from `other_table` into `this->hash_table_`.
+  Status MergeTable(const ScalarMemoTable& other_table) {
+    const HashTableType& other_hashtable = other_table.hash_table_;
+
+    other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
+      int32_t unused;
+      DCHECK_OK(this->GetOrInsert(other_entry->payload.value, &unused));
+    });
+    // TODO: ARROW-17074 - implement proper error handling
+    return Status::OK();
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -567,6 +581,15 @@ class SmallScalarMemoTable : public MemoTable {
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
   int32_t size() const override { return static_cast<int32_t>(index_to_value_.size()); }
+
+  // Merge entries from `other_table` into `this`.
+  Status MergeTable(const SmallScalarMemoTable& other_table) {
+    for (const Scalar& other_val : other_table.index_to_value_) {
+      int32_t unused;
+      RETURN_NOT_OK(this->GetOrInsert(other_val, &unused));
+    }
+    return Status::OK();
+  }
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
@@ -823,6 +846,15 @@ class BinaryMemoTable : public MemoTable {
       return lhs == rhs;
     };
     return hash_table_.Lookup(h, cmp_func);
+  }
+
+ public:
+  Status MergeTable(const BinaryMemoTable& other_table) {
+    other_table.VisitValues(0, [this](const util::string_view& other_value) {
+      int32_t unused;
+      DCHECK_OK(this->GetOrInsert(other_value, &unused));
+    });
+    return Status::OK();
   }
 };
 
