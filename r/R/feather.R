@@ -110,13 +110,14 @@ write_feather <- function(x,
   invisible(x_out)
 }
 
-#' Read a Feather file
+#' Read a Feather file (an Arrow IPC file)
 #'
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
 #' This function reads both the original, limited specification of the format
 #' and the version 2 specification, which is the Apache Arrow IPC file format.
+#' [read_ipc_file()] is an alias of [read_feather()].
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
@@ -157,6 +158,10 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   }
   out
 }
+
+#' @rdname read_feather
+#' @export
+read_ipc_file <- read_feather
 
 #' @title FeatherReader class
 #' @rdname FeatherReader

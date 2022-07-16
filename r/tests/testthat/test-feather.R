@@ -276,3 +276,7 @@ test_that("Error is created when feather reads a parquet file", {
     "Not a Feather V1 or Arrow IPC file"
   )
 })
+
+test_that("The read_ipc_file function is an alias of read_feather", {
+  expect_identical(read_ipc_file, read_feather)
+})
