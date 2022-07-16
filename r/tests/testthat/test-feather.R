@@ -75,17 +75,23 @@ test_that("feather read/write round trip", {
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2))
   expect_feather_roundtrip(function(x, f) write_ipc_file(x, f))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, chunk_size = 32))
   if (codec_is_available("lz4")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "lz4"))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "lz4"))
   }
   if (codec_is_available("zstd")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd"))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "zstd"))
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd", compression_level = 3))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "zstd", compression_level = 3))
   }
 
   # Write from Arrow data structures
   expect_feather_roundtrip(function(x, f) write_feather(RecordBatch$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(RecordBatch$create(x), f))
   expect_feather_roundtrip(function(x, f) write_feather(Table$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(Table$create(x), f))
 })
 
 test_that("write_feather option error handling", {
@@ -107,11 +113,22 @@ test_that("write_feather option error handling", {
     write_feather(tib, tf, compression_level = 1024),
     "Can only specify a 'compression_level' when 'compression' is 'zstd'"
   )
+  expect_match_arg_error(write_feather(tib, tf, compression = "bz2"))
+  expect_false(file.exists(tf))
+})
+
+test_that("write_ipc_file option error handling", {
+  tf <- tempfile()
+  expect_false(file.exists(tf))
+  expect_error(
+    write_ipc_file(tib, tf, version = 1),
+    "unused argument \\(version = 1\\)"
+  )
   expect_error(
     write_ipc_file(tib, tf, compression_level = 1024),
     "Can only specify a 'compression_level' when 'compression' is 'zstd'"
   )
-  expect_match_arg_error(write_feather(tib, tf, compression = "bz2"))
+  expect_match_arg_error(write_ipc_file(tib, tf, compression = "bz2"))
   expect_false(file.exists(tf))
 })
 
