@@ -121,7 +121,7 @@ JAVA_JNI_CMAKE_ARGS="${JAVA_JNI_CMAKE_ARGS} -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGE
 export JAVA_JNI_CMAKE_ARGS
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
-  ${build_dir}/java \
+  ${build_dir} \
   ${dist_dir}
 
 

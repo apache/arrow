@@ -1124,9 +1124,9 @@ services:
     command:
       [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
           /arrow/ci/scripts/python_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_jni_build.sh /arrow /build/java/build /build/java/c &&
+          /arrow/ci/scripts/java_jni_build.sh /arrow /build /tmp/dist/java &&
           /arrow/ci/scripts/java_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_cdata_integration.sh /arrow" ]
+          /arrow/ci/scripts/java_cdata_integration.sh /arrow /tmp/dist/java" ]
 
   conda-python-turbodbc:
     # Possible $TURBODBC parameters:
@@ -1524,7 +1524,7 @@ services:
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/java_cdata_build.sh /arrow /build/java/c/build /build/java/c &&
+        /arrow/ci/scripts/java_jni_build.sh /arrow /build/java_jni /build/java/c &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 

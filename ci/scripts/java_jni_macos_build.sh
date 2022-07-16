@@ -96,7 +96,7 @@ popd
 
 ${arrow_dir}/ci/scripts/java_jni_build.sh \
   ${arrow_dir} \
-  ${build_dir}/java \
+  ${build_dir} \
   ${dist_dir}
 
 

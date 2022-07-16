@@ -20,7 +20,7 @@
 set -ex
 
 arrow_dir=${1}
-build_dir=${2}
+build_dir=${2}/java_jni
 # The directory where the final binaries will be stored when scripts finish
 dist_dir=${3}
 
