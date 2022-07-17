@@ -99,7 +99,7 @@ struct ListElement {
     const ArraySpan& list_values = list.child_data[0];
     const offset_type* offsets = list.GetValues<offset_type>(1);
 
-    IndexValueType index;
+    IndexValueType index = 0;
     RETURN_NOT_OK(GetListElementIndex<IndexScalarType>(batch[1], &index));
 
     std::unique_ptr<ArrayBuilder> builder;
@@ -138,7 +138,7 @@ struct FixedSizeListElement {
     const ArraySpan& list = batch[0].array;
     const ArraySpan& list_values = list.child_data[0];
 
-    IndexValueType index;
+    IndexValueType index = 0;
     RETURN_NOT_OK(GetListElementIndex<IndexScalarType>(batch[1], &index));
 
     std::unique_ptr<ArrayBuilder> builder;

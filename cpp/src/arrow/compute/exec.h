@@ -252,7 +252,7 @@ inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
 struct ExecValue {
-  ArraySpan array;
+  ArraySpan array = {};
   const Scalar* scalar = NULLPTR;
 
   ExecValue(Scalar* scalar)  // NOLINT implicit conversion
