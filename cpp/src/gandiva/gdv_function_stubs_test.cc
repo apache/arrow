@@ -1193,8 +1193,8 @@ TEST(TestGdvFnStubs, TestShowFirstN) {
 
   data = "ABcd-123456";
   data_len = static_cast<int32_t>(data.length());
-  expected = "ABcd-1nnnnn";
-  result = gdv_mask_show_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
+  expected = "ABcd-12nnnn";
+  result = gdv_mask_show_first_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 7, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
 
   data = "";
