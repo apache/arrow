@@ -29,11 +29,13 @@ jobs:
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ Libs
         run: archery docker run java-jni-manylinux-2014
+      - name: Compress into single artifact to keep directory structure
+        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: ubuntu-shared-lib
-          path: arrow/java-dist/
+          path: arrow-shared-libs-linux.tar.gz
     {% if arrow.branch == 'master' %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
@@ -60,11 +62,13 @@ jobs:
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
             $GITHUB_WORKSPACE/arrow/java-dist
+      - name: Compress into single artifact to keep directory structure
+        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: macos-shared-lib
-          path: arrow/java-dist/
+          path: arrow-shared-libs-macos.tar.gz
 
   package-jars:
     name: Build Jar Files
@@ -80,8 +84,13 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: macos-shared-lib
+      - name: Descompress artifacts
+        run: |
+          tar -xvzf arrow-shared-libs-linux.tar.gz
+          tar -xvzf arrow-shared-libs-macos.tar.gz
       - name: Test that Shared Libraries Exist
         run: |
+          set -x
           test -f arrow/java-dist/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/libgandiva_jni.dylib
