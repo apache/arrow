@@ -26,7 +26,7 @@
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
 * New functions `read_ipc_file()` and `write_ipc_file()` are added.
   These functions are almost the same as `read_feather()` and `write_feather()`,
-  but differ in that they only target IPC files (Feather V2 files) and not Feather V1 files.
+  but differ in that they only target IPC files (Feather V2 files), not Feather V1 files.
 * `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed.
   Instead of these, use the `read_ipc_file()` and `write_ipc_file()` for IPC files, or,
   `read_ipc_stream()` and `write_ipc_stream()` for IPC streams.
