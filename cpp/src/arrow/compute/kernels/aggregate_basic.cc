@@ -30,7 +30,7 @@ namespace internal {
 
 namespace {
 
-Status AggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
+Status AggregateConsume(KernelContext* ctx, const ExecSpan& batch) {
   return checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
 }
 
@@ -71,16 +71,16 @@ namespace {
 struct CountImpl : public ScalarAggregator {
   explicit CountImpl(CountOptions options) : options(std::move(options)) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (options.mode == CountOptions::ALL) {
       this->non_nulls += batch.length;
     } else if (batch[0].is_array()) {
-      const ArrayData& input = *batch[0].array();
+      const ArraySpan& input = batch[0].array;
       const int64_t nulls = input.GetNullCount();
       this->nulls += nulls;
       this->non_nulls += input.length - nulls;
     } else {
-      const Scalar& input = *batch[0].scalar();
+      const Scalar& input = *batch[0].scalar;
       this->nulls += !input.is_valid * batch.length;
       this->non_nulls += input.is_valid * batch.length;
     }
@@ -133,9 +133,9 @@ struct CountDistinctImpl : public ScalarAggregator {
   explicit CountDistinctImpl(MemoryPool* memory_pool, CountOptions options)
       : options(std::move(options)), memo_table_(new MemoTable(memory_pool, 0)) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
-      const ArrayData& arr = *batch[0].array();
+      const ArraySpan& arr = batch[0].array;
       this->has_nulls = arr.GetNullCount() > 0;
 
       auto visit_null = []() { return Status::OK(); };
@@ -144,9 +144,8 @@ struct CountDistinctImpl : public ScalarAggregator {
         return memo_table_->GetOrInsert(arg, &y);
       };
       RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
-
     } else {
-      const Scalar& input = *batch[0].scalar();
+      const Scalar& input = *batch[0].scalar;
       this->has_nulls = !input.is_valid;
 
       if (input.is_valid) {
@@ -156,7 +155,6 @@ struct CountDistinctImpl : public ScalarAggregator {
     }
 
     this->non_nulls = memo_table_->size();
-
     return Status::OK();
   }
 
@@ -292,11 +290,11 @@ struct ProductImpl : public ScalarAggregator {
         product(MultiplyTraits<AccType>::one(*out_type)),
         nulls_observed(false) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
-      const auto& data = batch[0].array();
-      this->count += data->length - data->GetNullCount();
-      this->nulls_observed = this->nulls_observed || data->GetNullCount();
+      const ArraySpan& data = batch[0].array;
+      this->count += data.length - data.GetNullCount();
+      this->nulls_observed = this->nulls_observed || data.GetNullCount();
 
       if (!options.skip_nulls && this->nulls_observed) {
         // Short-circuit
@@ -304,14 +302,14 @@ struct ProductImpl : public ScalarAggregator {
       }
 
       internal::VisitArrayValuesInline<ArrowType>(
-          *data,
+          data,
           [&](typename TypeTraits<ArrowType>::CType value) {
             this->product =
                 MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
           },
           [] {});
     } else {
-      const auto& data = *batch[0].scalar();
+      const Scalar& data = *batch[0].scalar;
       this->count += data.is_valid * batch.length;
       this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
@@ -461,23 +459,24 @@ void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
 struct BooleanAnyImpl : public ScalarAggregator {
   explicit BooleanAnyImpl(ScalarAggregateOptions options) : options(std::move(options)) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     // short-circuit if seen a True already
     if (this->any == true && this->count >= options.min_count) {
       return Status::OK();
     }
     if (batch[0].is_scalar()) {
-      const auto& scalar = *batch[0].scalar();
+      const Scalar& scalar = *batch[0].scalar;
       this->has_nulls = !scalar.is_valid;
       this->any = scalar.is_valid && checked_cast<const BooleanScalar&>(scalar).value;
       this->count += scalar.is_valid;
       return Status::OK();
     }
-    const auto& data = *batch[0].array();
+    const ArraySpan& data = batch[0].array;
     this->has_nulls = data.GetNullCount() > 0;
     this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
-        data.buffers[0], data.offset, data.buffers[1], data.offset, data.length);
+        data.buffers[0].data, data.offset, data.buffers[1].data, data.offset,
+        data.length);
     int64_t position = 0;
     while (position < data.length) {
       const auto block = counter.NextAndBlock();
@@ -527,7 +526,7 @@ Result<std::unique_ptr<KernelState>> AnyInit(KernelContext*, const KernelInitArg
 struct BooleanAllImpl : public ScalarAggregator {
   explicit BooleanAllImpl(ScalarAggregateOptions options) : options(std::move(options)) {}
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     // short-circuit if seen a false already
     if (this->all == false && this->count >= options.min_count) {
       return Status::OK();
@@ -537,17 +536,18 @@ struct BooleanAllImpl : public ScalarAggregator {
       return Status::OK();
     }
     if (batch[0].is_scalar()) {
-      const auto& scalar = *batch[0].scalar();
+      const Scalar& scalar = *batch[0].scalar;
       this->has_nulls = !scalar.is_valid;
       this->count += scalar.is_valid;
       this->all = !scalar.is_valid || checked_cast<const BooleanScalar&>(scalar).value;
       return Status::OK();
     }
-    const auto& data = *batch[0].array();
+    const ArraySpan& data = batch[0].array;
     this->has_nulls = data.GetNullCount() > 0;
     this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
-        data.buffers[1], data.offset, data.buffers[0], data.offset, data.length);
+        data.buffers[1].data, data.offset, data.buffers[0].data, data.offset,
+        data.length);
     int64_t position = 0;
     while (position < data.length) {
       const auto block = counter.NextOrNotBlock();
@@ -605,7 +605,7 @@ struct IndexImpl : public ScalarAggregator {
     }
   }
 
-  Status Consume(KernelContext* ctx, const ExecBatch& batch) override {
+  Status Consume(KernelContext* ctx, const ExecSpan& batch) override {
     // short-circuit
     if (index >= 0 || !options.value->is_valid) {
       return Status::OK();
@@ -615,8 +615,8 @@ struct IndexImpl : public ScalarAggregator {
 
     if (batch[0].is_scalar()) {
       seen = batch.length;
-      if (batch[0].scalar()->is_valid) {
-        const ArgValue v = internal::UnboxScalar<ArgType>::Unbox(*batch[0].scalar());
+      if (batch[0].scalar->is_valid) {
+        const ArgValue v = internal::UnboxScalar<ArgType>::Unbox(*batch[0].scalar);
         if (v == desired) {
           index = 0;
           return Status::Cancelled("Found");
@@ -625,12 +625,12 @@ struct IndexImpl : public ScalarAggregator {
       return Status::OK();
     }
 
-    auto input = batch[0].array();
-    seen = input->length;
+    const ArraySpan& input = batch[0].array;
+    seen = input.length;
     int64_t i = 0;
 
     ARROW_UNUSED(internal::VisitArrayValuesInline<ArgType>(
-        *input,
+        input,
         [&](ArgValue v) -> Status {
           if (v == desired) {
             index = i;
@@ -671,7 +671,7 @@ template <>
 struct IndexImpl<NullType> : public ScalarAggregator {
   explicit IndexImpl(IndexOptions, KernelState*) {}
 
-  Status Consume(KernelContext*, const ExecBatch&) override { return Status::OK(); }
+  Status Consume(KernelContext*, const ExecSpan&) override { return Status::OK(); }
 
   Status MergeFrom(KernelContext*, KernelState&&) override { return Status::OK(); }
 

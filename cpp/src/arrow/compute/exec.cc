@@ -249,7 +249,8 @@ bool CheckIfAllScalar(const ExecBatch& batch) {
 
 }  // namespace
 
-Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize) {
+Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize,
+                              bool promote_if_all_scalars) {
   if (batch.num_values() > 0) {
     // Validate arguments
     bool all_args_same_length = false;
@@ -264,6 +265,7 @@ Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize) {
   args_ = &batch.values;
   initialized_ = have_chunked_arrays_ = false;
   have_all_scalars_ = CheckIfAllScalar(batch);
+  promote_if_all_scalars_ = promote_if_all_scalars;
   position_ = 0;
   length_ = batch.length;
   chunk_indexes_.clear();
@@ -344,7 +346,7 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
       }
     }
 
-    if (have_all_scalars_) {
+    if (have_all_scalars_ && promote_if_all_scalars_) {
       PromoteExecSpanScalars(span);
     }
 
@@ -1040,7 +1042,8 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
   }
 
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
-    RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
+    RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize(),
+                                      /*promote_if_all_scalars=*/false));
 
     ExecSpan span;
     while (span_iterator_.Next(&span)) {
