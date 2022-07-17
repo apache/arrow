@@ -20,16 +20,18 @@
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
-#' [write_feather()] can write both the Feather Version 1,
-#' a legacy version available starting in 2016, and the Version 2,
+#' [write_feather()] can write both the Feather Version 1 (V1),
+#' a legacy version available starting in 2016, and the Version 2 (V2),
 #' which is the Apache Arrow IPC file format.
-#' [write_ipc_file()] is a shortcut to `write_feather(version = 2)`.
+#' The default version is V2.
+#' V1 files are distinct from Arrow IPC files and lack many feathures,
+#' such as the ability to store all Arrow data tyeps, and compression support.
+#' [write_ipc_file()] can only write V2 files.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
-#' @param version integer Feather file version. Version 2 is the current.
-#' Version 1 is the more limited legacy format.
+#' @param version integer Feather file version. Version 2 is the default.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
 #' should have in the file. Use a smaller `chunk_size` when you need faster
 #' random row access. Default is 64K. This option is not supported for V1.
@@ -50,12 +52,15 @@
 #' @examples
 #' tf1 <- tempfile(fileext = ".feather")
 #' tf2 <- tempfile(fileext = ".arrow")
+#' tf3 <- tempfile(fileext = ".arrow")
 #' on.exit({
 #'   unlink(tf1)
 #'   unlink(tf2)
+#'   unlink(tf3)
 #' })
 #' write_feather(mtcars, tf1, version = 1)
-#' write_ipc_file(mtcars, tf2)
+#' write_feather(mtcars, tf2)
+#' write_ipc_file(mtcars, tf3)
 #' @include arrow-object.R
 write_feather <- function(x,
                           sink,
