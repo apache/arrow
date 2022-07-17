@@ -61,6 +61,7 @@ such as the ability to store all Arrow data tyeps, and compression support.
 \code{\link[=write_ipc_file]{write_ipc_file()}} can only write V2 files.
 }
 \examples{
+# We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
 tf1 <- tempfile(fileext = ".feather")
 tf2 <- tempfile(fileext = ".arrow")
 tf3 <- tempfile(fileext = ".arrow")

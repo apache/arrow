@@ -50,6 +50,7 @@
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
 #' @examples
+#' # We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
 #' tf1 <- tempfile(fileext = ".feather")
 #' tf2 <- tempfile(fileext = ".arrow")
 #' tf3 <- tempfile(fileext = ".arrow")
@@ -140,8 +141,8 @@ write_ipc_file <- function(x,
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
-#' This function reads both the original, limited specification of the format
-#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#' [read_feather()] can read both the Feather Version 1 (V1), a legacy version available starting in 2016,
+#' and the Version 2 (V2), which is the Apache Arrow IPC file format.
 #' [read_ipc_file()] is an alias of [read_feather()].
 #'
 #' @inheritParams read_ipc_stream
@@ -154,7 +155,8 @@ write_ipc_file <- function(x,
 #' @export
 #' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
 #' @examples
-#' tf <- tempfile()
+#' # We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
+#' tf <- tempfile(fileext = ".arrow")
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
 #' df <- read_feather(tf)
