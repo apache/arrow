@@ -543,7 +543,7 @@ def test_metadata_schema_filesystem(tmpdir):
     pq.write_table(table, file_path)
 
     # Get expected `metadata` from path.
-    metadata = pq.read_metadata('./data.parquet')
+    metadata = pq.read_metadata(tmpdir / '/data.parquet')
     schema = table.schema
 
     assert pq.read_metadata(file_path).equals(metadata)
