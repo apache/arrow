@@ -1528,7 +1528,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/java_jni_build.sh /arrow /build /tmp/java_dist &&
         /arrow/ci/scripts/java_build.sh /arrow /build /tmp/java_dist &&
-        /arrow/ci/scripts/java_test.sh /arrow /build"
+        /arrow/ci/scripts/java_test.sh /arrow /build /tmp/java_dist"
 
   oracle-java:
     # Usage:
