@@ -18,6 +18,7 @@
 import datetime
 import decimal
 from collections import OrderedDict
+import os
 
 import numpy as np
 import pytest
@@ -531,3 +532,19 @@ def test_metadata_exceeds_message_size():
         buf = out.getvalue()
 
     metadata = pq.read_metadata(pa.BufferReader(buf))
+
+
+def test_metadata_schema_filesystem(tmpdir):
+    table = pa.table({"a": [1, 2, 3]})
+
+    # URI writing to local file.
+    file_path = 'file:///' + os.path.join(str(tmpdir), "data.parquet")
+
+    pq.write_table(table, file_path)
+
+    # Get expected `metadata` from path.
+    metadata = pq.read_metadata('./data.parquet')
+    schema = table.schema
+
+    assert pq.read_metadata(file_path).equals(metadata)
+    assert pq.read_schema(file_path).equals(schema)
