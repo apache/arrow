@@ -28,7 +28,7 @@ write_ipc_file(
 \item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
 
-\item{version}{integer Feather file version. Version 2 is the default.}
+\item{version}{integer Feather file version, Version 1 or Version 2. Version 2 is the default.}
 
 \item{chunk_size}{For V2 files, the number of rows that each chunk of data
 should have in the file. Use a smaller \code{chunk_size} when you need faster

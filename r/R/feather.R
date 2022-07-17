@@ -31,7 +31,7 @@
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
-#' @param version integer Feather file version. Version 2 is the default.
+#' @param version integer Feather file version, Version 1 or Version 2. Version 2 is the default.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
 #' should have in the file. Use a smaller `chunk_size` when you need faster
 #' random row access. Default is 64K. This option is not supported for V1.
