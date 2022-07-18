@@ -439,9 +439,19 @@ stop_if_no_datasets <- function() {
   }
 }
 
-#' Add filename to the dataset
+#' Add filename as dataset column
+#'
+#' @examplesIf requireNamespace("dplyr", quietly = TRUE)
+#' library(dplyr)
+#' tf <- tempfile()
+#' dir.create(tf)
+#' write_dataset(mtcars, tf, partitioning = "cyl")
+#'
+#' open_dataset(tf) %>%
+#'  mutate(filename = add_filename()) %>%
+#'  collect()
 #'
 #' @export
-add_filenames <- function() {
+add_filename <- function() {
   Expression$field_ref("__filename")
 }

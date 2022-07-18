@@ -1353,7 +1353,7 @@ test_that("can add in augmented fields", {
   ds <- open_dataset(hive_dir)
 
   ds <- ds %>%
-    mutate(file_name = add_filenames()) %>%
+    mutate(file_name = add_filename()) %>%
     collect()
 
   expect_named(
