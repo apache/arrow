@@ -23,6 +23,8 @@
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 #include "substrait/plan.pb.h"  // IWYU pragma: export
 
 namespace arrow {

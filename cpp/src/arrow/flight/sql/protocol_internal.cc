@@ -21,3 +21,15 @@
 // ensure our header gets included (and Protobuf will not insert the
 // include for you)
 #include "arrow/flight/sql/FlightSql.pb.cc"  // NOLINT
+
+namespace arrow {
+namespace flight {
+namespace sql {
+namespace internal {
+
+DEFINE_ABI_FIXUP_FOR_PROTOBUF()
+
+}  // namespace internal
+}  // namespace sql
+}  // namespace flight
+}  // namespace arrow

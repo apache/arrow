@@ -21,6 +21,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 #include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/cookie_internal.h"

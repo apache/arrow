@@ -234,8 +234,6 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
-  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
-
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
   define_option(ARROW_FLIGHT
@@ -283,6 +281,8 @@ if(ARROW_DEFINE_OPTIONS)
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
 
   define_option(ARROW_SKYHOOK "Build the Skyhook libraries" OFF)
+
+  define_option(ARROW_SUBSTRAIT "Build the Arrow Substrait Consumer Module" OFF)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 

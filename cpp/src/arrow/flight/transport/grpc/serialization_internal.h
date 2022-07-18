@@ -22,6 +22,8 @@
 
 #include <memory>
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 #include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/type_fwd.h"

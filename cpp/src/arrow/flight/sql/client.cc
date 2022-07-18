@@ -20,6 +20,8 @@
 
 #include "arrow/flight/sql/client.h"
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"

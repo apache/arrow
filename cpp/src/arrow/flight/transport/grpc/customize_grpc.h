@@ -24,6 +24,8 @@
 #include "arrow/flight/type_fwd.h"
 #include "arrow/util/config.h"
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 // Silence protobuf warnings
 #ifdef _MSC_VER
 #pragma warning(push)

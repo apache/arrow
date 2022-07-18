@@ -19,6 +19,8 @@
 // This addresses platform-specific defines, e.g. on Windows
 #include "arrow/flight/platform.h"  // IWYU pragma: keep
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 // This header holds the Flight SQL definitions.
 
 #include "arrow/flight/sql/visibility.h"

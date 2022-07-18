@@ -21,10 +21,13 @@
 #include "arrow/flight/client.h"
 
 #include <gmock/gmock.h>
-#include <google/protobuf/any.pb.h>
 #include <gtest/gtest.h>
 
 #include <utility>
+
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
+#include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
 #include "arrow/flight/sql/api.h"

@@ -26,6 +26,9 @@
 #include <utility>
 
 #include "arrow/util/config.h"
+
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #else

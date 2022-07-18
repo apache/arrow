@@ -23,6 +23,8 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/util/string_view.h"
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/message.h>
@@ -346,6 +348,8 @@ Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& b
   }
   return out;
 }
+
+DEFINE_ABI_FIXUP_FOR_PROTOBUF()
 
 }  // namespace internal
 }  // namespace engine

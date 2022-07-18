@@ -239,6 +239,12 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
   return status;
 }
 
+namespace internal {
+
+DEFINE_ABI_FIXUP_FOR_PROTOBUF()
+
+}  // namespace internal
+
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight
