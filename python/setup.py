@@ -470,7 +470,8 @@ class build_ext(_build_ext):
                             pjoin(build_lib, 'pyarrow'))
 
                 # We need to, again, add the PyArrow cpp include folder
-                build_pyarrow_cpp_include = pjoin(saved_cwd, 'build/dist/include')
+                build_pyarrow_cpp_include = pjoin(
+                    saved_cwd, 'build/dist/include')
                 if not os.path.isdir(
                         pjoin(build_pyarrow_cpp_include, "arrow", "python")):
                     self.mkpath(
