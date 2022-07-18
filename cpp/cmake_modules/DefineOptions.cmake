@@ -112,7 +112,7 @@ if(ARROW_DEFINE_OPTIONS)
   define_option(ARROW_POSITION_INDEPENDENT_CODE
                 "Whether to create position-independent target" ON)
   
-  define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available), takes precdent\
+  define_option(ARROW_USE_SCCACHE "Use sccache when compiling (if available), takes precdence\
    over ccache" ON)
   
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
