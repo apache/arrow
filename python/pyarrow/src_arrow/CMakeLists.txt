@@ -291,7 +291,7 @@ arrow_install_all_headers("arrow/python")
 #
 # Tests
 # The tests will be moved to Cython and are currently supported for bundled GTest
-# Follow-up: https://issues.apache.org/jira/browse/ARROW-17016?filter=-1
+# Follow-up: https://issues.apache.org/jira/browse/ARROW-17016
 #
 
 if(ARROW_BUILD_TESTS)
