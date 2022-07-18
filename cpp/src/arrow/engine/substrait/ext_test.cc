@@ -169,7 +169,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(ExtensionIdRegistryTest, GetSupportedSubstraitFunctions) {
   ExtensionIdRegistry* default_registry = default_extension_id_registry();
-  std::vector<Id> supported_functions =
+  std::vector<std::string> supported_functions =
       default_registry->GetSupportedSubstraitFunctions();
   std::size_t num_functions = supported_functions.size();
   ASSERT_GT(num_functions, 0);
