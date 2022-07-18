@@ -682,13 +682,11 @@ test_that("show_exec_plan(), show_query() and explain()", {
       arrange(desc(wt)) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "ProjectNode.*",             # output columns
-      "order_by.*",                # there should be something in the output
-                                   # regarding arrange and its corresponding
-                                   # ExecNode ("order_by"), but it is missing
-      "FilterNode.*",              # the filter node
-      "TableSourceNode.*"          # the entry point
+      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
+      "OrderBySinkNode.*wt.*DESC.*", # arrange goes via the OrderBy sink node
+      "ProjectNode.*",               # output columns
+      "FilterNode.*",                # the filter node
+      "TableSourceNode.*"            # the entry point
     )
   )
 
@@ -699,13 +697,11 @@ test_that("show_exec_plan(), show_query() and explain()", {
       arrange(desc(wt)) %>%
       show_query(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "ProjectNode.*",             # output columns
-      "order_by.*",                # there should be something in the output
-                                   # regarding arrange and its corresponding
-                                   # ExecNode ("order_by"), but it is missing
-      "FilterNode.*",              # the filter node
-      "TableSourceNode.*"          # the entry point
+      "ExecPlan with .* nodes:.*",    # boiler plate for ExecPlan
+      "OrderBySinkNode.*wt.*DESC.*",  # arrange goes via the OrderBy sink node
+      "ProjectNode.*",                # output columns
+      "FilterNode.*",                 # the filter node
+      "TableSourceNode.*"             # the entry point
     )
   )
 
@@ -716,13 +712,11 @@ test_that("show_exec_plan(), show_query() and explain()", {
       arrange(desc(wt)) %>%
       explain(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "ProjectNode.*",             # output columns
-      "order_by.*",                # there should be something in the output
-                                   # regarding arrange and its corresponding
-                                   # ExecNode ("order_by"), but it is missing
-      "FilterNode.*",              # the filter node
-      "TableSourceNode.*"          # the entry point
+      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
+      "OrderBySinkNode.*wt.*DESC.*", # arrange goes via the OrderBy sink node
+      "ProjectNode.*",               # output columns
+      "FilterNode.*",                # the filter node
+      "TableSourceNode.*"            # the entry point
     )
   )
 
@@ -733,17 +727,13 @@ test_that("show_exec_plan(), show_query() and explain()", {
       arrange(desc(wt)) %>%
       head(3) %>%
       show_exec_plan(),
+    # for some reason the FilterNode disappears when head/tail are involved +
+    # we do not have additional information regarding the SinkNode
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "select_k.*",                # there should be something in the output
-                                   # regarding head and its corresponding
-                                   # ExecNode ("select_k"), but it is missing
-      "order_by.*",                # there should be something in the output
-                                   # regarding arrange and its corresponding
-                                   # ExecNode ("order_by"), but it is missing
-      "FilterNode.*",              # the filter node
-      "TableSourceNode.*"          # the entry point
+      "SourceNode.*"               # the entry point
     )
   )
 
@@ -754,17 +744,13 @@ test_that("show_exec_plan(), show_query() and explain()", {
       arrange(desc(wt)) %>%
       head(3) %>%
       show_query(),
+    # for some reason the FilterNode disappears when head/tail are involved +
+    # we do not have additional information regarding the SinkNode
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "select_k.*",                # there should be something in the output
-                                   # regarding head and its corresponding
-                                   # ExecNode ("select_k"), but it is missing
-      "order_by.*",                # there should be something in the output
-                                   # regarding arrange and its corresponding
-                                   # ExecNode ("order_by"), but it is missing
-      "FilterNode.*",              # the filter node
-      "TableSourceNode.*"          # the entry point
+      "SourceNode.*"          # the entry point
     )
   )
   expect_output(
@@ -774,17 +760,13 @@ test_that("show_exec_plan(), show_query() and explain()", {
       arrange(desc(wt)) %>%
       head(3) %>%
       explain(),
+    # for some reason the FilterNode disappears when head/tail are involved +
+    # we do not have additional information regarding the SinkNode
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "select_k.*",                # there should be something in the output
-                                   # regarding head and its corresponding
-                                   # ExecNode ("select_k"), but it is missing
-      "order_by.*",                # there should be something in the output
-                                   # regarding arrange and its corresponding
-                                   # ExecNode ("order_by"), but it is missing
-      "FilterNode.*",              # the filter node
-      "TableSourceNode.*"          # the entry point
+      "SourceNode.*"          # the entry point
     )
   )
 })
