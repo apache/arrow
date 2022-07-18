@@ -25,6 +25,8 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
+from pyarrow.filesystem import LocalFileSystem, FileSystem
+from pyarrow.tests import util
 
 try:
     import pyarrow.parquet as pq
@@ -538,13 +540,22 @@ def test_metadata_schema_filesystem(tmpdir):
     table = pa.table({"a": [1, 2, 3]})
 
     # URI writing to local file.
-    file_path = 'file:///' + os.path.join(str(tmpdir), "data.parquet")
+    fname = "data.parquet"
+    file_path = 'file:///' + os.path.join(str(tmpdir), fname)
 
     pq.write_table(table, file_path)
 
     # Get expected `metadata` from path.
-    metadata = pq.read_metadata(tmpdir / '/data.parquet')
+    metadata = pq.read_metadata(tmpdir / fname)
     schema = table.schema
 
     assert pq.read_metadata(file_path).equals(metadata)
     assert pq.read_schema(file_path).equals(schema)
+
+    with util.change_cwd(tmpdir):
+        # Pass `filesystem` arg
+        assert pq.read_metadata(fname, filesystem=LocalFileSystem()).equals(metadata)
+        assert pq.read_metadata(fname, filesystem=LocalFileSystem.get_instance()).equals(metadata)
+
+        assert pq.read_schema(fname, filesystem=LocalFileSystem()).equals(schema)
+        assert pq.read_schema(fname, filesystem=LocalFileSystem.get_instance()).equals(schema)
