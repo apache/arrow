@@ -133,8 +133,8 @@ std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
 // [[arrow::export]]
 std::string ExecPlan_ToStringWithSink(
     const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node,
-    cpp11::list sort_options, int64_t head = -1) {
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
