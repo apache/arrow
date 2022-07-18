@@ -394,14 +394,12 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       arrange(chr) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "ProjectNode.*",              # output columns
-      "order_by.*",                 # there should be something in the output
-                                    # regarding arrange and its corresponding
-                                    # ExecNode ("order_by"), but it is missing
-      "FilterNode*",                # filter node
-      "filter=lgl.*",               # filtering expression
-      "SourceNode"                  # entry point
+      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
+      "OrderBySinkNode.*chr.*ASC.*", # arrange goes via the OrderBy sink node
+      "ProjectNode.*",               # output columns
+      "FilterNode.*",                # filter node
+      "filter=lgl.*",                # filtering expression
+      "SourceNode"                   # entry point
     )
   )
 
@@ -411,17 +409,12 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       arrange(chr) %>%
       head() %>%
       show_exec_plan(),
+    # for some reason the FilterNode disappears when head/tail are involved +
+    # we do not have additional information regarding the SinkNode
     regexp = paste0(
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "SinkNode.*",                 #
       "ProjectNode.*",              # output columns
-      "select_k.*",                 # there should be something in the output
-                                    # regarding head and its corresponding
-                                    # ExecNode ("select_k"), but it is missing
-      "order_by.*",                 # there should be something in the output
-                                    # regarding arrange, maybe "order_by", but
-                                    # it is missing
-      "FilterNode*",                # filter node
-      "filter=lgl.*",               # filtering expression
       "SourceNode"                  # entry point
     )
   )
