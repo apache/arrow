@@ -146,10 +146,10 @@ std::string ExecPlan_ToStringWithSink(
       MakeExecNodeOrStop(
           "select_k_sink", plan.get(), {final_node.get()},
           compute::SelectKSinkNodeOptions{
-            arrow::compute::SelectKOptions(
-                head, std::dynamic_pointer_cast<compute::SortOptions>(
-                    make_compute_options("sort_indices", sort_options))
-                    ->sort_keys),
+              arrow::compute::SelectKOptions(
+                  head, std::dynamic_pointer_cast<compute::SortOptions>(
+                      make_compute_options("sort_indices", sort_options))
+                      ->sort_keys),
             &sink_gen});
     } else {
       MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
