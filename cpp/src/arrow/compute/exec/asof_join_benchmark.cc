@@ -136,6 +136,7 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
                   "num_right_tables", "right_freq", "right_cols", "right_ids",
                   "right_batch_size"})
       ->UseRealTime();
+
   int default_freq = 5;
   int default_cols = 20;
   int default_ids = 500;
@@ -146,7 +147,6 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
     bench->Args({freq, default_cols, default_ids, default_batch_size, default_num_tables,
                  freq, default_cols, default_ids, default_batch_size});
   }
-
   for (int cols : {10, 20, 100}) {
     bench->Args({default_freq, cols, default_ids, default_batch_size, default_num_tables,
                  default_freq, cols, default_ids, default_batch_size});
