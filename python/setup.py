@@ -237,7 +237,7 @@ class build_ext(_build_ext):
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))
         # The directory containing this PyArrow cpp CMakeLists.txt
-        source_pyarrow_cpp = pjoin(source, "pyarrow/src_arrow")
+        source_pyarrow_cpp = pjoin(source, "pyarrow/src")
 
         # The directory for the module being built
         build_cmd = self.get_finalized_command('build')
@@ -476,7 +476,8 @@ class build_ext(_build_ext):
                         pjoin(build_pyarrow_cpp_include, "arrow", "python")):
                     self.mkpath(
                         pjoin(build_pyarrow_cpp_include, "arrow", "python"))
-                shutil.move(pjoin(build_pyarrow_cpp_include, "arrow", "python"),
+                shutil.move(pjoin(
+                                build_pyarrow_cpp_include, "arrow", "python"),
                             pjoin(
                                 build_lib, "pyarrow", "include",
                                 "arrow", "python"))
