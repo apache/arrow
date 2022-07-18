@@ -35,6 +35,8 @@
 // because only one of these can exist at any given time.
 bool CanRunWithCapturedR();
 
+extern "C" void OverridingSignalHandler(int sig);
+
 // The MainRThread class keeps track of the thread on which it is safe
 // to call the R API to facilitate its safe use (or erroring
 // if it is not safe). The MainRThread singleton can be accessed from
@@ -43,7 +45,11 @@ bool CanRunWithCapturedR();
 // SafeCallIntoR<cpp_type>([&]() { ... }).
 class MainRThread {
  public:
-  MainRThread() : initialized_(false), executor_(nullptr) {}
+  MainRThread()
+      : initialized_(false),
+        executor_(nullptr),
+        executing_safe_call_into_r_(false),
+        previous_signal_handler_(nullptr) {}
 
   // Call this method from the R thread (e.g., on package load)
   // to save an internal copy of the thread id.
@@ -61,6 +67,11 @@ class MainRThread {
   // Check if a SafeCallIntoR call is able to execute
   bool CanExecuteSafeCallIntoR() { return IsMainThread() || executor_ != nullptr; }
 
+  void SetExecutingSafeCallIntoR(bool executing) {
+    executing_safe_call_into_r_ = executing;
+  }
+  bool IsExecutingSafeCallIntoR() { return executing_safe_call_into_r_; }
+
   // The Executor that is running on the main R thread, if it exists
   arrow::internal::Executor*& Executor() { return executor_; }
 
@@ -75,22 +86,45 @@ class MainRThread {
   // Check if there is a saved error
   bool HasError() { return !status_.ok(); }
 
-  // Throw a cpp11::unwind_exception() if
+  // Throw an exception if there was an error executing on the main
+  // thread.
   void ClearError() {
     arrow::Status maybe_error_status = status_;
     ResetError();
     arrow::StopIfNotOk(maybe_error_status);
   }
 
+  void SetOverrideInterruptSignal(bool enabled);
+
+  bool IsOverridingInterruptSignal() { return previous_signal_handler_ != nullptr; }
+
+  void CallPreviousSignalHandler(int sig) { previous_signal_handler_(sig); }
+
  private:
   bool initialized_;
   std::thread::id thread_id_;
   arrow::Status status_;
   arrow::internal::Executor* executor_;
+  bool executing_safe_call_into_r_;
+  void (*previous_signal_handler_)(int);
 };
 
 // Retrieve the MainRThread singleton
 MainRThread& GetMainRThread();
+
+class SafeCallIntoRContext {
+ public:
+  SafeCallIntoRContext() { GetMainRThread().SetExecutingSafeCallIntoR(true); }
+
+  ~SafeCallIntoRContext() { GetMainRThread().SetExecutingSafeCallIntoR(false); }
+};
+
+class RunWithCapturedRContext {
+ public:
+  RunWithCapturedRContext() { GetMainRThread().SetOverrideInterruptSignal(true); }
+
+  ~RunWithCapturedRContext() { GetMainRThread().SetOverrideInterruptSignal(false); }
+};
 
 // Call into R and return a C++ object. Note that you can't return
 // a SEXP (use cpp11::as_cpp<T> to convert it to a C++ type inside
@@ -103,6 +137,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
     // If we're on the main thread, run the task immediately and let
     // the cpp11::unwind_exception be thrown since it will be caught
     // at the top level.
+    SafeCallIntoRContext context;
     return fun();
   } else if (main_r_thread.CanExecuteSafeCallIntoR()) {
     // If we are not on the main thread and have an Executor,
@@ -119,6 +154,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
       }
 
       try {
+        SafeCallIntoRContext context;
         return fun();
       } catch (cpp11::unwind_exception& e) {
         // Here we save the token and set the main R thread to an error state
@@ -169,6 +205,7 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
     return arrow::Status::AlreadyExists("Attempt to use more than one R Executor()");
   }
 
+  RunWithCapturedRContext context;
   GetMainRThread().ResetError();
 
   arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(

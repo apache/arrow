@@ -18,8 +18,16 @@
 #include "./arrow_types.h"
 #include "./safe-call-into-r.h"
 
+#include <csignal>
 #include <functional>
 #include <thread>
+
+// for SignalInterruptCondition()
+#ifdef _WIN32
+#include <Rembedded.h>
+#else
+#include <Rinterface.h>
+#endif
 
 MainRThread& GetMainRThread() {
   static MainRThread main_r_thread;
@@ -41,6 +49,38 @@ bool CanRunWithCapturedR() {
 #else
   return false;
 #endif
+}
+
+void SignalInterruptCondition() {
+#ifdef _WIN32
+  UserBreak = 1;
+  R_CheckUserInterrupt();
+#else
+  Rf_onintr();
+#endif
+}
+
+void OverridingSignalHandler(int sig) {
+  auto main_r_thread = GetMainRThread();
+
+  if (!main_r_thread.IsExecutingSafeCallIntoR() && !main_r_thread.HasError() &&
+      sig == SIGINT) {
+    main_r_thread.SetError(arrow::Status::Cancelled("User interrupt"));
+  } else {
+    main_r_thread.CallPreviousSignalHandler(sig);
+  }
+}
+
+void MainRThread::SetOverrideInterruptSignal(bool enabled) {
+  bool was_enabled = IsOverridingInterruptSignal();
+  if (enabled && !was_enabled) {
+    // enable override
+    previous_signal_handler_ = signal(SIGINT, &OverridingSignalHandler);
+  } else if (!enabled && was_enabled) {
+    // disable override
+    signal(SIGINT, previous_signal_handler_);
+    previous_signal_handler_ = nullptr;
+  }
 }
 
 // [[arrow::export]]
