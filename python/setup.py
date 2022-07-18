@@ -297,10 +297,10 @@ class build_ext(_build_ext):
             self.spawn(['cmake'] + cmake_options + [source_pyarrow_cpp])
             print("-- Finished cmake for pyarrow cpp")
             # run make & install
-            print("-- Running make build and install for pyarrow cpp")
+            print("-- Running cmake build and install for pyarrow cpp")
             self.spawn(['cmake', '--build', '.', '--target', 'install'] +
                        build_tool_args)
-            print("-- Finished make build and install for pyarrow cpp")
+            print("-- Finished cmake build and install for pyarrow cpp")
 
             # Move the libraries to the place expected by the Python build
             try:
