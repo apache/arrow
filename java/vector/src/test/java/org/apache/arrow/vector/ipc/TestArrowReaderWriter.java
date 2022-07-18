@@ -897,7 +897,7 @@ public class TestArrowReaderWriter {
     System.arraycopy(magicBytes, 0, data, 0, ArrowMagic.MAGIC_LENGTH);
     int footerLength = Integer.MAX_VALUE;
     byte[] footerLengthBytes =
-            ByteBuffer.allocate(4).order(ByteOrder.nativeOrder()).putInt(footerLength).array();
+            ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(footerLength).array();
     int footerOffset = data.length - ArrowMagic.MAGIC_LENGTH - 4;
     System.arraycopy(footerLengthBytes, 0, data, footerOffset, 4);
     System.arraycopy(magicBytes, 0, data, footerOffset + 4, ArrowMagic.MAGIC_LENGTH);
