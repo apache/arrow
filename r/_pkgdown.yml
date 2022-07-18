@@ -116,6 +116,7 @@ reference:
   - title: Multi-file datasets
     contents:
       - open_dataset
+      - add_filename
       - write_dataset
       - dataset_factory
       - hive_partition
