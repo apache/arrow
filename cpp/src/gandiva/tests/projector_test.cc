@@ -2704,17 +2704,15 @@ TEST_F(TestProjector, TestConvertFromInt) {
   // Create a row-batch with some sample data
   int num_records = 5;
 
-  auto array_a = MakeArrowArrayBinary(
-      {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-       {0x00, 0x00, static_cast<char>(0x88), static_cast<char>(0xB8), 0x00, 0x00, 0x00,
-        0x00},
-       {0x00, 0x0E, static_cast<char>(0xDC), 0x1C},
-       {0x07, 0x5B, static_cast<char>(0xCD), 0x15, 0x00, 0x00},
-       {0x00, static_cast<char>(0xAB), static_cast<char>(0xCD), static_cast<char>(0xEF)}},
-      {true, true, true, true, true});
+  auto array_a = MakeArrowArrayBinary({{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+                                       {0x00, 0x00, 0x15, 0x15, 0x00, 0x00, 0x00, 0x00},
+                                       {0x00, 0x0E, 0x15, 0x1C},
+                                       {0x07, 0x5B, 0x1C, 0x15, 0x00, 0x00},
+                                       {0x00, 0x5B, 0x00, 0x5B}},
+                                      {true, true, true, true, true});
 
   // expected output
-  auto exp_convert = MakeArrowArrayInt64({0, 35000, 973852, 123456789, 11259375},
+  auto exp_convert = MakeArrowArrayInt64({0, 5397, 922908, 123411477, 5963867},
                                          {true, true, true, true, true});
 
   // prepare input record batch
