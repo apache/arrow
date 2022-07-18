@@ -460,42 +460,39 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
   *os << "}";
 }
 
-std::shared_ptr<Table> MakeRandomTable(TableGenerationProperties properties) {
+std::shared_ptr<Table> MakeRandomTimeSeriesTable(
+    const TableGenerationProperties& properties) {
   int total_columns = properties.num_columns + 2;
   std::vector<std::shared_ptr<Array>> columns;
   columns.reserve(total_columns);
-  arrow::FieldVector field_vector = arrow::FieldVector();
+  arrow::FieldVector field_vector;
   field_vector.reserve(total_columns);
 
-  field_vector.push_back(std::make_shared<Field>("time", int64()));
-  field_vector.push_back(std::make_shared<Field>("id", int32()));
+  field_vector.push_back(field("time", int64()));
+  field_vector.push_back(field("id", int32()));
 
-  int num_rows = 0;
-  std::vector<int64_t> time_column;
-  std::vector<int32_t> id_column;
+  Int64Builder time_column_builder;
+  Int32Builder id_column_builder;
   for (int time = properties.start; time <= properties.end;
-         time += properties.time_frequency) {
+       time += properties.time_frequency) {
     for (int id = 0; id < properties.num_ids; id++) {
-      time_column.push_back(time);
-      id_column.push_back(id);
-      num_rows += 1;
+      time_column_builder.Append(time);
+      id_column_builder.Append(id);
     }
   }
-  std::shared_ptr<Array> time_array;
-  ArrayFromVector<Int64Type, int64_t>(int64(), time_column, &time_array);
-  columns.push_back(time_array);
-  std::shared_ptr<Array> id_array;
-  ArrayFromVector<Int32Type, int32_t>(int32(), id_column, &id_array);
-  columns.push_back(id_array);
+
+  int num_rows = time_column_builder.length();
+  columns.push_back(time_column_builder.Finish().ValueOrDie());
+  columns.push_back(id_column_builder.Finish().ValueOrDie());
 
   for (int i = 0; i < properties.num_columns; i++) {
-    std::ostringstream string_stream;
-    string_stream << properties.column_prefix << i;
-    field_vector.push_back(std::make_shared<Field>(string_stream.str(), float64()));
+    field_vector.push_back(
+        field(properties.column_prefix + std::to_string(i), float64()));
     random::RandomArrayGenerator rand = random::RandomArrayGenerator(properties.seed + i);
-    columns.push_back(rand.Float64(num_rows, -1e5, 1e5));
+    columns.push_back(
+        rand.Float64(num_rows, properties.min_column_value, properties.max_column_value));
   }
-  std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(field_vector);
+  std::shared_ptr<arrow::Schema> schema = arrow::schema(std::move(field_vector));
   return Table::Make(schema, columns, num_rows);
 }
 
