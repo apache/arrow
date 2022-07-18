@@ -288,6 +288,7 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
+            sys
       - name: Install MinIO
         shell: bash
         run: |
