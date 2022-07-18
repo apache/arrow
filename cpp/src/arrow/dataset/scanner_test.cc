@@ -1397,7 +1397,7 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
       batches.emplace_back(*batch);
 
       // augment scanned ExecBatch with columns for this fragment's guarantee
-      if (not guarantees.empty()) {
+      if (!guarantees.empty()) {
         auto extract_result = ExtractKnownFieldValues(guarantees[frag_ndx]);
         ARROW_WARN_NOT_OK(extract_result.status(), "ExtractKnownFieldValues failed");
         for (const auto& known_field : extract_result->map) {
