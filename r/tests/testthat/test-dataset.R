@@ -1360,4 +1360,9 @@ test_that("can add in augmented fields", {
     ds,
     c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file_name")
   )
+
+  expect_equal(
+    sort(unique(ds$file_name)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
 })
