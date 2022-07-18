@@ -17,11 +17,21 @@
 
 #pragma once
 
-// TODO explain this
-
 #include <google/protobuf/stubs/common.h>
 
-#if GOOGLE_PROTOBUF_VERSION >= 3020000
+// ARROW-17104: on recent protobuf versions, ABI differs between debug
+// and non-debug builds (keyed on NDEBUG).  We want to be able to compile
+// Arrow C++ in debug mode using non-debug builds of protobuf as provided
+// by package managers such as conda, homebrew, apt, etc.  Therefore we
+// need to make sure the offending header file is always included with
+// NDEBUG set (simulating a non-debug build).
+//
+// Note the workaround isn't needed (and may actually fail compiling) on MSVC.
+//
+// More details in upstream issue:
+// https://github.com/protocolbuffers/protobuf/issues/9947
+
+#if GOOGLE_PROTOBUF_VERSION >= 3020000 && !defined(_MSC_VER)
 
 #ifndef NDEBUG
 
@@ -37,6 +47,9 @@
 
 #endif
 
+// The offending header file:
+// google::protobuf::internal::InternalMetadata::~InternalMetadata()
+// is inlined in the header if NDEBUG is defined.
 #include <google/protobuf/metadata_lite.h>
 
 #ifndef GOOGLE_PROTOBUF_METADATA_LITE_H__
@@ -47,6 +60,13 @@
 #undef NDEBUG
 #endif
 
+// It's not enough to fixup header inclusion, we must also actually embed
+// the google::protobuf::internal::InternalMetadata::~InternalMetadata()
+// implementation explicitly in all Arrow DLLs that depend on protobuf.
+// To that aim, a macro is provided that can be used to define a dummy
+// internal (but exported) function to ensure ~InternalMetadata() is
+// codegen'ed.
+
 #define DEFINE_ABI_FIXUP_FOR_PROTOBUF()                                 \
   volatile ::google::protobuf::internal::InternalMetadata* dummy_pb_md; \
                                                                         \
@@ -55,7 +75,10 @@
     dummy_pb_md->~InternalMetadata();                                   \
   }
 
-#else  // GOOGLE_PROTOBUF_VERSION < 3020000
+#else  // GOOGLE_PROTOBUF_VERSION < 3020000 || defined(_MSC_VER)
+
+// No fixup needed. Also, the offending header file may not even exist
+// depending on how old protobuf is.
 
 #define DEFINE_ABI_FIXUP_FOR_PROTOBUF()
 

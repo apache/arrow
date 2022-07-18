@@ -18,6 +18,7 @@
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/engine/api.h>
+#include <arrow/engine/substrait/serde.h>
 
 #include <cstdlib>
 #include <iostream>

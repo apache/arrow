@@ -29,8 +29,8 @@
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
-#include "arrow/util/string_view.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace engine {
