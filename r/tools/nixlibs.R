@@ -25,7 +25,7 @@ test_mode <- exists("TESTING")
 # Check if version string has 4th component
 is_dev_version <- grepl("(\\d+\\.){3}\\d+", VERSION)
 
-if(is_dev_version){
+if (is_dev_version) {
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 } else {
   arrow_repo <- sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s/libarrow/", VERSION)
