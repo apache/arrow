@@ -79,6 +79,7 @@ def _parse_json_plan(plan):
         c_buf_plan = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buf_plan)
 
+
 def get_supported_functions():
     """
     Get a list of Substrait functions that the underlying
@@ -93,11 +94,11 @@ def get_supported_functions():
     cdef:
         ExtensionIdRegistry* c_id_registry
         std_vector[c_string] c_ids
-    
+
     c_id_registry = default_extension_id_registry()
     c_ids = c_id_registry.GetSupportedSubstraitFunctions()
 
     functions_list = []
     for c_id in c_ids:
-      functions_list.append(frombytes(c_id))
+        functions_list.append(frombytes(c_id))
     return functions_list
