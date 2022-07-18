@@ -713,6 +713,26 @@ test_that("head/tail", {
   expect_error(tail(ds, -1)) # Not yet implemented
 })
 
+
+test_that("unique returns data.frames", {
+  ds <- open_dataset(dataset_dir)
+  in_r_mem <- rbind(df1, df2)
+
+  expect_s3_class(unique(ds), "data.frame")
+  ## order not set by distinct so some sorting required
+  expect_equal(sort(unique(ds)$int), sort(unique(in_r_mem)$int))
+
+  ## on a arrow_dplyr_query
+  adq_eg <- ds %>%
+    select(fct) %>%
+    unique()
+  expect_s3_class(adq_eg, "data.frame")
+
+  expect_equal(unique(arrow_table(in_r_mem)), unique(in_r_mem))
+  expect_equal(unique(as_record_batch_reader(in_r_mem)), unique(in_r_mem))
+})
+
+
 test_that("Dataset [ (take by index)", {
   ds <- open_dataset(dataset_dir)
   # Taking only from one file
