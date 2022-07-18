@@ -49,6 +49,10 @@
 
 namespace arrow {
 namespace flight {
+
+using internal::FromProto;
+using internal::ToProto;
+
 namespace transport {
 namespace grpc {
 
@@ -252,7 +256,7 @@ class GrpcServiceHandler final : public FlightService::Service {
       if (!value) {
         break;
       }
-      GRPC_RETURN_NOT_OK(internal::ToProto(*value, &pb_value));
+      GRPC_RETURN_NOT_OK(ToProto(*value, &pb_value));
 
       // Blocking write
       if (!writer->Write(pb_value)) {
@@ -269,7 +273,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     // Write flight info to stream until listing is exhausted
     for (const UserType& value : values) {
       ProtoType pb_value;
-      GRPC_RETURN_NOT_OK(internal::ToProto(value, &pb_value));
+      GRPC_RETURN_NOT_OK(ToProto(value, &pb_value));
       // Blocking write
       if (!writer->Write(pb_value)) {
         // Write returns false if the stream is closed
@@ -370,7 +374,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
     Criteria criteria;
     if (request) {
-      SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &criteria));
+      SERVICE_RETURN_NOT_OK(flight_context, FromProto(*request, &criteria));
     }
     SERVICE_RETURN_NOT_OK(
         flight_context, impl_->base()->ListFlights(flight_context, &criteria, &listing));
@@ -392,7 +396,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
 
     FlightDescriptor descr;
-    SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
+    SERVICE_RETURN_NOT_OK(flight_context, FromProto(*request, &descr));
 
     std::unique_ptr<FlightInfo> info;
     SERVICE_RETURN_NOT_OK(flight_context,
@@ -404,7 +408,7 @@ class GrpcServiceHandler final : public FlightService::Service {
                                                             "Flight not found"));
     }
 
-    SERVICE_RETURN_NOT_OK(flight_context, internal::ToProto(*info, response));
+    SERVICE_RETURN_NOT_OK(flight_context, ToProto(*info, response));
     RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::OK);
   }
 
@@ -416,7 +420,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
 
     FlightDescriptor descr;
-    SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
+    SERVICE_RETURN_NOT_OK(flight_context, FromProto(*request, &descr));
 
     std::unique_ptr<SchemaResult> result;
     SERVICE_RETURN_NOT_OK(flight_context,
@@ -428,7 +432,7 @@ class GrpcServiceHandler final : public FlightService::Service {
                                                             "Flight not found"));
     }
 
-    SERVICE_RETURN_NOT_OK(flight_context, internal::ToProto(*result, response));
+    SERVICE_RETURN_NOT_OK(flight_context, ToProto(*result, response));
     RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::OK);
   }
 
@@ -440,7 +444,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
 
     Ticket ticket;
-    SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &ticket));
+    SERVICE_RETURN_NOT_OK(flight_context, FromProto(*request, &ticket));
 
     GetDataStream stream(writer);
     RETURN_WITH_MIDDLEWARE(flight_context,
@@ -486,7 +490,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoAction, context, flight_context));
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
     Action action;
-    SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &action));
+    SERVICE_RETURN_NOT_OK(flight_context, FromProto(*request, &action));
 
     std::unique_ptr<ResultStream> results;
     SERVICE_RETURN_NOT_OK(flight_context,
@@ -504,7 +508,7 @@ class GrpcServiceHandler final : public FlightService::Service {
         break;
       }
       pb::Result pb_result;
-      SERVICE_RETURN_NOT_OK(flight_context, internal::ToProto(*result, &pb_result));
+      SERVICE_RETURN_NOT_OK(flight_context, ToProto(*result, &pb_result));
       if (!writer->Write(pb_result)) {
         // Stream may be closed
         break;

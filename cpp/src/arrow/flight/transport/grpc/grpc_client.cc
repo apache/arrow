@@ -61,8 +61,11 @@
 #include "arrow/flight/types.h"
 
 namespace arrow {
-
 namespace flight {
+
+using internal::FromProto;
+using internal::ToProto;
+
 namespace transport {
 namespace grpc {
 
@@ -707,7 +710,7 @@ class GrpcClientImpl : public internal::ClientTransport {
   Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
                      std::unique_ptr<FlightListing>* listing) override {
     pb::Criteria pb_criteria;
-    RETURN_NOT_OK(internal::ToProto(criteria, &pb_criteria));
+    RETURN_NOT_OK(ToProto(criteria, &pb_criteria));
 
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
@@ -719,7 +722,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     pb::FlightInfo pb_info;
     while (!options.stop_token.IsStopRequested() && stream->Read(&pb_info)) {
       FlightInfo::Data info_data;
-      RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
+      RETURN_NOT_OK(FromProto(pb_info, &info_data));
       flights.emplace_back(std::move(info_data));
     }
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
@@ -731,7 +734,7 @@ class GrpcClientImpl : public internal::ClientTransport {
   Status DoAction(const FlightCallOptions& options, const Action& action,
                   std::unique_ptr<ResultStream>* results) override {
     pb::Action pb_action;
-    RETURN_NOT_OK(internal::ToProto(action, &pb_action));
+    RETURN_NOT_OK(ToProto(action, &pb_action));
 
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
@@ -743,7 +746,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     std::vector<Result> materialized_results;
     while (!options.stop_token.IsStopRequested() && stream->Read(&pb_result)) {
       Result result;
-      RETURN_NOT_OK(internal::FromProto(pb_result, &result));
+      RETURN_NOT_OK(FromProto(pb_result, &result));
       materialized_results.emplace_back(std::move(result));
     }
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
@@ -766,7 +769,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     pb::ActionType pb_type;
     ActionType type;
     while (!options.stop_token.IsStopRequested() && stream->Read(&pb_type)) {
-      RETURN_NOT_OK(internal::FromProto(pb_type, &type));
+      RETURN_NOT_OK(FromProto(pb_type, &type));
       types->emplace_back(std::move(type));
     }
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
@@ -780,7 +783,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     pb::FlightDescriptor pb_descriptor;
     pb::FlightInfo pb_response;
 
-    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+    RETURN_NOT_OK(ToProto(descriptor, &pb_descriptor));
 
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
@@ -789,7 +792,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(s);
 
     FlightInfo::Data info_data;
-    RETURN_NOT_OK(internal::FromProto(pb_response, &info_data));
+    RETURN_NOT_OK(FromProto(pb_response, &info_data));
     info->reset(new FlightInfo(std::move(info_data)));
     return Status::OK();
   }
@@ -799,7 +802,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     pb::FlightDescriptor pb_descriptor;
     pb::SchemaResult pb_response;
 
-    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+    RETURN_NOT_OK(ToProto(descriptor, &pb_descriptor));
 
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
@@ -808,14 +811,14 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(s);
 
     std::string str;
-    RETURN_NOT_OK(internal::FromProto(pb_response, &str));
+    RETURN_NOT_OK(FromProto(pb_response, &str));
     return arrow::internal::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                std::unique_ptr<internal::ClientDataStream>* out) override {
     pb::Ticket pb_ticket;
-    RETURN_NOT_OK(internal::ToProto(ticket, &pb_ticket));
+    RETURN_NOT_OK(ToProto(ticket, &pb_ticket));
 
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));

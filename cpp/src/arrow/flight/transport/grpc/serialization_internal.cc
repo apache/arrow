@@ -60,6 +60,9 @@
 
 namespace arrow {
 namespace flight {
+
+using internal::FromProto;
+
 namespace transport {
 namespace grpc {
 
@@ -352,8 +355,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
                                 "Unable to parse FlightDescriptor");
         }
         arrow::flight::FlightDescriptor descriptor;
-        GRPC_RETURN_NOT_OK(
-            arrow::flight::internal::FromProto(pb_descriptor, &descriptor));
+        GRPC_RETURN_NOT_OK(FromProto(pb_descriptor, &descriptor));
         out->descriptor.reset(new arrow::flight::FlightDescriptor(descriptor));
       } break;
       case pb::FlightData::kDataHeaderFieldNumber: {
