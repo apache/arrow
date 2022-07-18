@@ -260,6 +260,34 @@ ExecPlan <- R6Class("ExecPlan",
       )
     },
     ToString = function() ExecPlan_ToString(self),
+    ToStringWithSink = function(node) {
+      # final_node <- self$Build(.data)
+      # ExecPlan_ToStringWithSink(self, final_node)
+      assert_is(node, "ExecNode")
+
+      # Sorting and head/tail (if sorted) are handled in the SinkNode,
+      # created in ExecPlan_run
+      sorting <- node$extras$sort %||% list()
+      select_k <- node$extras$head %||% -1L
+      has_sorting <- length(sorting) > 0
+      if (has_sorting) {
+        if (!is.null(node$extras$tail)) {
+          # Reverse the sort order and take the top K, then after we'll reverse
+          # the resulting rows so that it is ordered as expected
+          sorting$orders <- !sorting$orders
+          select_k <- node$extras$tail
+        }
+        sorting$orders <- as.integer(sorting$orders)
+      }
+
+      out <- ExecPlan_ToStringWithSink(
+        self,
+        node,
+        sorting,
+        select_k
+      )
+      out
+    },
     Stop = function() ExecPlan_StopProducing(self)
   )
 )
