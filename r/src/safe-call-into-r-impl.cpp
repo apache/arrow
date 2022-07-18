@@ -65,6 +65,7 @@ void OverridingSignalHandler(int sig) {
 
   if (!main_r_thread.IsExecutingSafeCallIntoR() && !main_r_thread.HasError() &&
       sig == SIGINT) {
+    main_r_thread.RequestStopFromSignal(sig);
     main_r_thread.SetError(arrow::Status::Cancelled("User interrupt"));
   } else {
     main_r_thread.CallPreviousSignalHandler(sig);
@@ -76,10 +77,15 @@ void MainRThread::SetOverrideInterruptSignal(bool enabled) {
   if (enabled && !was_enabled) {
     // enable override
     previous_signal_handler_ = signal(SIGINT, &OverridingSignalHandler);
+    stop_source_ = arrow::ValueOrStop(arrow::SetSignalStopSource());
+    arrow::StopIfNotOk(arrow::RegisterCancellingSignalHandler({SIGINT}));
   } else if (!enabled && was_enabled) {
     // disable override
     signal(SIGINT, previous_signal_handler_);
     previous_signal_handler_ = nullptr;
+    arrow::UnregisterCancellingSignalHandler();
+    arrow::ResetSignalStopSource();
+    stop_source_ = nullptr;
   }
 }
 

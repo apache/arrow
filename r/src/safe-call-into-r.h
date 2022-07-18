@@ -21,6 +21,7 @@
 #include "./arrow_types.h"
 
 #include <arrow/io/interfaces.h>
+#include <arrow/util/cancel.h>
 #include <arrow/util/future.h>
 #include <arrow/util/thread_pool.h>
 
@@ -49,7 +50,8 @@ class MainRThread {
       : initialized_(false),
         executor_(nullptr),
         executing_safe_call_into_r_(false),
-        previous_signal_handler_(nullptr) {}
+        previous_signal_handler_(nullptr),
+        stop_source_(nullptr) {}
 
   // Call this method from the R thread (e.g., on package load)
   // to save an internal copy of the thread id.
@@ -100,6 +102,12 @@ class MainRThread {
 
   void CallPreviousSignalHandler(int sig) { previous_signal_handler_(sig); }
 
+  void RequestStopFromSignal(int sig) {
+    if (stop_source_ != nullptr) {
+      stop_source_->RequestStopFromSignal(sig);
+    }
+  }
+
  private:
   bool initialized_;
   std::thread::id thread_id_;
@@ -107,6 +115,7 @@ class MainRThread {
   arrow::internal::Executor* executor_;
   bool executing_safe_call_into_r_;
   void (*previous_signal_handler_)(int);
+  arrow::StopSource* stop_source_;
 };
 
 // Retrieve the MainRThread singleton
@@ -115,14 +124,12 @@ MainRThread& GetMainRThread();
 class SafeCallIntoRContext {
  public:
   SafeCallIntoRContext() { GetMainRThread().SetExecutingSafeCallIntoR(true); }
-
   ~SafeCallIntoRContext() { GetMainRThread().SetExecutingSafeCallIntoR(false); }
 };
 
 class RunWithCapturedRContext {
  public:
   RunWithCapturedRContext() { GetMainRThread().SetOverrideInterruptSignal(true); }
-
   ~RunWithCapturedRContext() { GetMainRThread().SetOverrideInterruptSignal(false); }
 };
 
