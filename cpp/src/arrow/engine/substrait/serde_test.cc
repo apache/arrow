@@ -1495,13 +1495,9 @@ TEST(Substrait, AggregateInvalidRel) {
     }],
   })"));
 
-  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
-  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
-  // invalid before registration
-  ExtensionSet ext_set_invalid(ext_id_reg);
   ASSERT_RAISES(Invalid,
                 DeserializePlans(
-                    *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
+                    *buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateInvalidFunction) {
