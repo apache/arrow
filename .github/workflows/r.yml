@@ -327,6 +327,12 @@ jobs:
         shell: Rscript {0}
         working-directory: r
         run: |
+          Sys.setenv(
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
+            MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            ARROW_R_DEV = TRUE,
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
+          )
           pak::pak("local::.")
           pak::pak("lintr")
           lintr::expect_lint_free()
