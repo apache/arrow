@@ -121,6 +121,14 @@ update_versions() {
   git add setup.py
   popd
 
+  pushd "${ARROW_DIR}/python/pyarrow/src"
+  sed -i.bak -E -e \
+    "s/^set\(ARROW_PYTHON_VERSION \".+\"\)/set(ARROW_PYTHON_VERSION \"${version}\")/" \
+    CMakeLists.txt
+  rm -f CMakeLists.txt.bak
+  git add CMakeLists.txt
+  popd
+
   pushd "${ARROW_DIR}/r"
   sed -i.bak -E -e \
     "s/^Version: .+/Version: ${r_version}/" \
