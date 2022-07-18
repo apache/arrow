@@ -380,6 +380,8 @@ int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
 // DirectFileOutputStream, change the Open, Write and Close methods from FileOutputStream
+// Uses DirectIO for writes. Will only write out things in 4096 byte blocks. Buffers leftover bytes
+// in an internal data structure, which will be padded to 4096 bytes and flushed upon call to close.
 
 class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
  public:
@@ -391,9 +393,9 @@ class DirectFileOutputStream::DirectFileOutputStreamImpl : public OSFile {
 };
 
 DirectFileOutputStream::DirectFileOutputStream() { 
-  uintptr_t mask = ~(uintptr_t)(511);
-  uint8_t *mem = static_cast<uint8_t *>(malloc(512 + 511));
-  cached_data = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+511) & ~(mask));
+  uintptr_t mask = (uintptr_t)(4095);
+  uint8_t *mem = static_cast<uint8_t *>(malloc(4096 + 4095));
+  cached_data = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+4095) & ~(mask));
   impl_.reset(new DirectFileOutputStreamImpl()); }
 
 DirectFileOutputStream::~DirectFileOutputStream() { internal::CloseFromDestructor(this); }
@@ -414,8 +416,8 @@ Result<std::shared_ptr<DirectFileOutputStream>> DirectFileOutputStream::Open(int
 Status DirectFileOutputStream::Close() { 
   // have to flush out the temprorary data
   if(cached_length > 0){
-    std::memset(cached_data + cached_length, 0, 512 - cached_length);
-    impl_->Write(cached_data, 512);
+    std::memset(cached_data + cached_length, 0, 4096 - cached_length);
+    impl_->Write(cached_data, 4096);
   }
   return impl_->Close(); }
 
@@ -425,18 +427,18 @@ Result<int64_t> DirectFileOutputStream::Tell() const { return impl_->Tell(); }
 
 Status DirectFileOutputStream::Write(const void* data, int64_t length) {
 
-  if (cached_length + length < 512)
+  if (cached_length + length < 4096)
   {
     std::memcpy(cached_data + cached_length, data, length);
     cached_length += length;
     return Status::OK();
   }
 
-  auto bytes_to_write = (cached_length + length) / 512 * 512;
+  auto bytes_to_write = (cached_length + length) / 4096 * 4096;
   auto bytes_leftover = cached_length + length - bytes_to_write;
-  uintptr_t mask = ~(uintptr_t)(511);
-  uint8_t *mem = static_cast<uint8_t *>(malloc(bytes_to_write + 511));
-  uint8_t * new_ptr = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+511) & ~(mask));
+  uintptr_t mask = (uintptr_t)(4095);
+  uint8_t *mem = static_cast<uint8_t *>(malloc(bytes_to_write + 4095));
+  uint8_t * new_ptr = reinterpret_cast<uint8_t *>( reinterpret_cast<uintptr_t>(mem+4095) & ~(mask));
   std::memcpy(new_ptr, cached_data, cached_length);
   std::memcpy(new_ptr + cached_length, data, bytes_to_write - cached_length);
   std::memset(cached_data, 0, cached_length); //this is not required.

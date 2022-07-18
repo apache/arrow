@@ -691,11 +691,11 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
 Result<std::shared_ptr<io::OutputStream>> OpenDirectIOOutputStreamGeneric(const std::string& path) {
   RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  // const bool write_only = true;
-  // ARROW_ASSIGN_OR_RAISE(
-  //     auto fd, ::arrow::internal::FileOpenWritable(fn, write_only, true, false));
-  // int raw_fd = fd.Detach();
-  auto maybe_stream = io::DirectFileOutputStream::Open(fn, false);
+  const bool write_only = true;
+  ARROW_ASSIGN_OR_RAISE(
+      auto fd, ::arrow::internal::FileOpenWritable(fn, write_only, true, false, true));
+  int raw_fd = fd.Detach();
+  auto maybe_stream = io::DirectFileOutputStream::Open(raw_fd);
   if (!maybe_stream.ok()) {
     ARROW_UNUSED(::arrow::internal::FileClose(raw_fd));
   }

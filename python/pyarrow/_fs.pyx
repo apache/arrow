@@ -973,6 +973,11 @@ cdef class LocalFileSystem(FileSystem):
     use_mmap : bool, default False
         Whether open_input_stream and open_input_file should return
         a mmap'ed file or a regular file.
+    use_directio : bool, default False
+        Whether open_output_stream will return an output stream with direct io.
+        Does not support open_append_stream.
+        Will only work on Linux. Slightly different write semantics. 
+        stream.write will only write 4096-byte aligned sectors. 
 
     Examples
     --------
