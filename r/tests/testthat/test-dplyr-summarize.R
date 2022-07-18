@@ -238,6 +238,7 @@ test_that("Group by any/all", {
 
 test_that("n_distinct() with many batches", {
   tf <- tempfile()
+
   write_parquet(dplyr::starwars, tf, chunk_size = 20)
 
   ds <- open_dataset(tf)
