@@ -726,7 +726,10 @@ class ClientBuilder {
     } else {
       return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
     }
-    if (options_.retry_strategy) {
+    if (!options_.retry_strategy_name.empty()) {
+      client_config_.retryStrategy =
+          Aws::Client::InitRetryStrategy(options_.retry_strategy_name)
+    } else if (options_.retry_strategy) {
       client_config_.retryStrategy =
           std::make_shared<WrappedRetryStrategy>(options_.retry_strategy);
     } else {

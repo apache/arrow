@@ -150,6 +150,11 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
+  /// Optional retry strategy name to load directly from the AWS SDK.
+  /// Overrides retry_strategy. Value is passed verbatim to InitRetryStrategy() cref:
+  /// https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_client.html
+  std::string retry_strategy_name;
+
   S3Options();
 
   /// Configure with the default AWS credentials provider chain.
