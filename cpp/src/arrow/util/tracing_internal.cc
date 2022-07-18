@@ -24,6 +24,8 @@
 #include <sstream>
 #include <thread>
 
+#include "arrow/util/protobuf_abi_fixup_internal.h"  // before any PB headers
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4522)
