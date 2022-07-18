@@ -611,7 +611,8 @@ TEST(TestArithmeticOps, TestSignIntFloatDouble) {
   EXPECT_EQ(sign_float64(-INFINITY), -1.0);
   EXPECT_TRUE(std::isnan(sign_float64(std::numeric_limits<double>::quiet_NaN())));
   EXPECT_EQ(sign_float64(-2147483647), -1.0);
-}  
+}
+
 TEST(TestArithmeticOps, TestCeilingFloatDouble) {
   // ceiling from floats
   EXPECT_EQ(ceiling_float32(6.6f), 7.0f);
