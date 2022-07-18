@@ -260,9 +260,10 @@ ExecPlan <- R6Class("ExecPlan",
       )
     },
     ToString = function() ExecPlan_ToString(self),
+    # SinkNodes (involved in arrange and/or head/tail operations) are created in
+    # ExecPlan_run, so we take a similar approach to expose them before calling
+    # the print method
     ToStringWithSink = function(node) {
-      # final_node <- self$Build(.data)
-      # ExecPlan_ToStringWithSink(self, final_node)
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,

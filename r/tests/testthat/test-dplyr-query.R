@@ -728,7 +728,8 @@ test_that("show_exec_plan(), show_query() and explain()", {
       head(3) %>%
       show_exec_plan(),
     # for some reason the FilterNode disappears when head/tail are involved +
-    # we do not have additional information regarding the SinkNode
+    # we do not have additional information regarding the SinkNode +
+    # the entry point is now a SourceNode and not a TableSourceNode
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "SinkNode.*",                #
@@ -745,12 +746,13 @@ test_that("show_exec_plan(), show_query() and explain()", {
       head(3) %>%
       show_query(),
     # for some reason the FilterNode disappears when head/tail are involved +
-    # we do not have additional information regarding the SinkNode
+    # we do not have additional information regarding the SinkNode +
+    # the entry point is now a SourceNode and not a TableSourceNode
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "SourceNode.*"          # the entry point
+      "SourceNode.*"               # the entry point
     )
   )
   expect_output(
@@ -761,12 +763,13 @@ test_that("show_exec_plan(), show_query() and explain()", {
       head(3) %>%
       explain(),
     # for some reason the FilterNode disappears when head/tail are involved +
-    # we do not have additional information regarding the SinkNode
+    # we do not have additional information regarding the SinkNode +
+    # the entry point is now a SourceNode and not a TableSourceNode
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "SourceNode.*"          # the entry point
+      "SourceNode.*"               # the entry point
     )
   )
 })
