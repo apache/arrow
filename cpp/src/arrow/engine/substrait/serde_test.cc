@@ -1461,8 +1461,8 @@ TEST(Substrait, AggregateBasic) {
   })"));
 
   auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
-  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
-                                            *buf, [] { return kNullConsumer; }));
+  ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                       DeserializePlans(*buf, [] { return kNullConsumer; }));
   auto agg_decl = sink_decls[0].inputs[0];
 
   const auto& agg_rel = agg_decl.get<compute::Declaration>();
@@ -1496,9 +1496,7 @@ TEST(Substrait, AggregateInvalidRel) {
     }],
   })"));
 
-  ASSERT_RAISES(Invalid,
-                DeserializePlans(
-                    *buf, [] { return kNullConsumer; }));
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateInvalidFunction) {
@@ -1559,9 +1557,7 @@ TEST(Substrait, AggregateInvalidFunction) {
     }],
   })"));
 
-  ASSERT_RAISES(Invalid,
-                DeserializePlans(
-                    *buf, [] { return kNullConsumer; }));
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateInvalidAggFuncArgs) {
@@ -1631,9 +1627,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
     }],
   })"));
 
-  ASSERT_RAISES(NotImplemented,
-                DeserializePlans(
-                    *buf, [] { return kNullConsumer; }));
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, AggregateWithFilter) {
@@ -1703,9 +1697,7 @@ TEST(Substrait, AggregateWithFilter) {
     }],
   })"));
 
-  ASSERT_RAISES(NotImplemented,
-                DeserializePlans(
-                    *buf, [] { return kNullConsumer; }));
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 }  // namespace engine
