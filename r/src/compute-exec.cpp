@@ -130,6 +130,41 @@ std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
   return plan->ToString();
 }
 
+// [[arrow::export]]
+std::string ExecPlan_ToStringWithSink(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node,
+    cpp11::list sort_options, int64_t head = -1) {
+  // For now, don't require R to construct SinkNodes.
+  // Instead, just pass the node we should collect as an argument.
+  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+
+  // Sorting uses a different sink node; there is no general sort yet
+  if (sort_options.size() > 0) {
+    if (head >= 0) {
+      // Use the SelectK node to take only what we need
+      MakeExecNodeOrStop(
+        "select_k_sink", plan.get(), {final_node.get()},
+        compute::SelectKSinkNodeOptions{
+          arrow::compute::SelectKOptions(
+            head, std::dynamic_pointer_cast<compute::SortOptions>(
+                make_compute_options("sort_indices", sort_options))
+          ->sort_keys),
+          &sink_gen});
+    } else {
+      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                         compute::OrderBySinkNodeOptions{
+                           *std::dynamic_pointer_cast<compute::SortOptions>(
+                               make_compute_options("sort_indices", sort_options)),
+                               &sink_gen});
+    }
+  } else {
+    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                       compute::SinkNodeOptions{&sink_gen});
+  }
+  return plan->ToString();
+}
+
 #if defined(ARROW_R_WITH_DATASET)
 
 #include <arrow/dataset/file_base.h>

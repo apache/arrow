@@ -420,6 +420,10 @@ ExecPlan_ToString <- function(plan) {
   .Call(`_arrow_ExecPlan_ToString`, plan)
 }
 
+ExecPlan_ToStringWithSink <- function(plan, final_node, sort_options, head) {
+  .Call(`_arrow_ExecPlan_ToStringWithSink`, plan, final_node, sort_options, head)
+}
+
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
 }
