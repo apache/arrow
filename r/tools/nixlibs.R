@@ -23,12 +23,14 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 test_mode <- exists("TESTING")
 
 # Check if version string has 4th component
-is_dev_version <- grepl("(\\d+\\.){3}\\d+", VERSION)
+dev_version <- package_version(VERSION)[1, 4]
 
-if (is_dev_version) {
-  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
-} else {
+# Small dev versions are added for R-only changes during CRAN submission.
+if (is.na(dev_version) || dev_version < 100) {
+  VERSION <- package_version(VERSION)[1, 1:3]
   arrow_repo <- sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s/libarrow/", VERSION)
+} else {
+  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 }
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
