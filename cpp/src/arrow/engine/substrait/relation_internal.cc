@@ -340,7 +340,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         return Status::Invalid("substrait::AggregateRel with no input relation");
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProto(aggregate.input(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto input,
+                            FromProto(aggregate.input(), ext_set, conversion_options));
 
       if (aggregate.groupings_size() > 1) {
         return Status::NotImplemented(
@@ -351,8 +352,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       auto group = aggregate.groupings(0);
       keys.reserve(group.grouping_expressions_size());
       for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
-        ARROW_ASSIGN_OR_RAISE(auto expr,
-                              FromProto(group.grouping_expressions(exp_id), ext_set));
+        ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(group.grouping_expressions(exp_id),
+                                                   ext_set, conversion_options));
         const auto* field_ref = expr.field_ref();
         if (field_ref) {
           keys.emplace_back(std::move(*field_ref));
@@ -381,8 +382,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           auto func_name = std::string(func_record.id.name);
           // aggregate target
           auto subs_func_args = agg_func.arguments(0);
-          ARROW_ASSIGN_OR_RAISE(auto field_expr,
-                                FromProto(subs_func_args.value(), ext_set));
+          ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(subs_func_args.value(),
+                                                           ext_set, conversion_options));
           auto target = field_expr.field_ref();
           if (!target) {
             return Status::Invalid(
