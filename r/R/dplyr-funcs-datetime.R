@@ -212,6 +212,7 @@ register_bindings_datetime_components <- function() {
   register_binding("lubridate::qday", function(x) {
     # We calculate day of quarter by flooring timestamp to beginning of quarter and
     # calculating days between beginning of quarter and timestamp/date in question.
+    # Since we use one one-based numbering we add one.
     floored_x <- build_expr("floor_temporal", x, options = list(unit = 9L))
     build_expr("days_between", floored_x, x) + Expression$scalar(1L)
   })
