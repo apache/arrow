@@ -42,5 +42,13 @@ archery crossbow submit \
     --arrow-version ${version_with_rc} \
     --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \
     --arrow-branch ${ARROW_BRANCH} \
-    --group packaging \
+    --group packaging
+
+# archery will add a comment to the automatically generated PR to track
+# the submitted jobs
+job_name=$(archery crossbow latest-prefix ${crossbow_job_prefix})
+archery crossbow report-pr \
+    --no-fetch \
+    --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \
+    --job-name ${job_name} \
     --track-on-pr-titled "WIP: [Release] Verify ${release_candidate_branch}"

@@ -16,7 +16,6 @@
 # under the License.
 
 from pathlib import Path
-import re
 import time
 
 import click
@@ -100,9 +99,6 @@ def check_config(obj, config_path):
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
-@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
-              help='OAuth token to create comments in the arrow repo. '
-                   'Only necessary if --track-on-pr-titled is set.')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
 @click.option('--dry-run/--commit', default=False,
@@ -110,12 +106,9 @@ def check_config(obj, config_path):
                    'committing them')
 @click.option('--no-push/--push', default=False,
               help='Don\'t push the changes')
-@click.option('--track-on-pr-titled', default=None,
-              help='Track the job submitted on PR with given title')
 @click.pass_obj
 def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
-           arrow_remote, arrow_branch, arrow_sha, fetch, dry_run, no_push,
-           github_token, track_on_pr_titled):
+           arrow_remote, arrow_branch, arrow_sha, fetch, dry_run, no_push):
     output = obj['output']
     queue, arrow = obj['queue'], obj['arrow']
 
@@ -153,24 +146,6 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     if fetch:
         queue.fetch()
     queue.put(job, prefix=job_prefix)
-    if track_on_pr_titled:
-        # Repo usually will be something like
-        # https://github.com/ursacomputing/crossbow.git
-        # We are only interested on ursacomputing/crossbow
-        github_regex = re.compile(r'^https:\/\/github\.com\/(.+).git$')
-        repo_name_match = github_regex.match(queue.remote_url).groups()
-        if repo_name_match:
-            report = CommentReport(job, crossbow_repo=repo_name_match[0])
-            target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
-            pull_request = target_arrow.github_pr(title=track_on_pr_titled,
-                                                  head=arrow_branch,
-                                                  github_token=github_token,
-                                                  create=False)
-            # render the response comment's content on the PR
-            pull_request.create_comment(report.show())
-            click.echo(f'Job is tracked on PR {pull_request.html_url}')
-        else:
-            click.echo('Job is not tracked on PR. Repo not found')
 
     if no_push:
         click.echo('Branches and commits created but not pushed: `{}`'
@@ -308,6 +283,42 @@ def status(obj, job_name, fetch, task_filters):
 
     report = ConsoleReport(job, task_filters=task_filters)
     report.show(output)
+
+
+@crossbow.command()
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set GitHub remote explicitly, which is going to be cloned '
+                   'on the CI services. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/raulcd/arrow.')
+@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
+              help='Crossbow repository on github to use')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
+              help='OAuth token to create comments in the arrow repo. '
+                   'Only necessary if --track-on-pr-titled is set.')
+@click.option('--job-name', required=True)
+@click.option('--track-on-pr-titled', default=None,
+              help='Track the job submitted on PR with given title')
+@click.pass_obj
+def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
+              track_on_pr_titled):
+    arrow = obj['arrow']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+    job = queue.get(job_name)
+
+    if track_on_pr_titled:
+        report = CommentReport(job, crossbow_repo=crossbow)
+        target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
+        pull_request = target_arrow.github_pr(title=track_on_pr_titled,
+                                              github_token=github_token,
+                                              create=False)
+        # render the response comment's content on the PR
+        pull_request.create_comment(report.show())
+        click.echo(f'Job is tracked on PR {pull_request.html_url}')
 
 
 @crossbow.command()
