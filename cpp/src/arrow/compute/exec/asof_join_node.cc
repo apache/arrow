@@ -426,6 +426,10 @@ class CompositeReferenceTable {
                 arrays.at(i_dst_col),
                 (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(
                     memory_pool, i_table, i_src_col)));
+          } else if (field_type->Equals(arrow::timestamp(TimeUnit::NANO, "UTC"))) {
+            ARROW_ASSIGN_OR_RAISE(
+                arrays.at(i_dst_col),
+                (MaterializeTimestampPrimitiveColumn<int64_t>(memory_pool, i_table, i_src_col)));
           } else {
             ARROW_RETURN_NOT_OK(
                 Status::Invalid("Unsupported data type: ", src_field->name()));
@@ -464,6 +468,25 @@ class CompositeReferenceTable {
                                                             size_t i_table,
                                                             col_index_t i_col) {
     Builder builder(memory_pool);
+    ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
+    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
+      const auto& ref = rows_[i_row].refs[i_table];
+      if (ref.batch) {
+        builder.UnsafeAppend(
+            ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]);
+      } else {
+        builder.UnsafeAppendNull();
+      }
+    }
+    std::shared_ptr<Array> result;
+    ARROW_RETURN_NOT_OK(builder.Finish(&result));
+    return result;
+  }
+
+template <class PrimitiveType>
+  Result<std::shared_ptr<Array>> MaterializeTimestampPrimitiveColumn(
+      MemoryPool* memory_pool, size_t i_table, col_index_t i_col) {
+    TimestampBuilder builder = TimestampBuilder(timestamp(TimeUnit::NANO, "UTC"), memory_pool);
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
@@ -630,8 +653,10 @@ class AsofJoinNode : public ExecNode {
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
         if (field->name() == on_field_name) {
-          if (kSupportedOnTypes_.find(field->type()) == kSupportedOnTypes_.end()) {
-            return Status::Invalid("Unsupported type for on key: ", field->name());
+          if (!field->type()->Equals(TimestampType(TimeUnit::NANO, "UTC")) &&
+              kSupportedOnTypes_.find(field->type()) == kSupportedOnTypes_.end()) {
+            return Status::Invalid("Unsupported type for on key: ",
+                                   field->type()->name());
           }
           // Only add on field from the left table
           if (j == 0) {
@@ -639,7 +664,8 @@ class AsofJoinNode : public ExecNode {
           }
         } else if (field->name() == by_field_name) {
           if (kSupportedByTypes_.find(field->type()) == kSupportedByTypes_.end()) {
-            return Status::Invalid("Unsupported type for by key: ", field->name());
+            return Status::Invalid("Unsupported type for by key: ",
+                                   field->type()->name());
           }
           // Only add by field from the left table
           if (j == 0) {
@@ -647,7 +673,7 @@ class AsofJoinNode : public ExecNode {
           }
         } else {
           if (kSupportedDataTypes_.find(field->type()) == kSupportedDataTypes_.end()) {
-            return Status::Invalid("Unsupported data type: ", field->name());
+            return Status::Invalid("Unsupported data type: ", field->type()->name());
           }
 
           fields.push_back(field);
