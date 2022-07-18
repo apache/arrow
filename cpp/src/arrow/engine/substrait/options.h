@@ -54,9 +54,9 @@ enum class ConversionStrictness {
   BEST_EFFORT,
 };
 
-/// Controls how to convert between Substrait and Acero representations of a plan.
+/// Options that control the conversion between Substrait and Acero representations of a plan.
 struct ConversionOptions {
-  /// Controls how strictly the converter is to adhere to the structure of the input.
+  /// \brief How strictly the converter should adhere to the structure of the input.
   ConversionStrictness strictness = ConversionStrictness::EXACT_ROUNDTRIP;
 };
 
