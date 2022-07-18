@@ -46,9 +46,9 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  message(STATUS "CPYARROW_HOME: ${CPYARROW_HOME}")
+  message(STATUS "PYARROW_CPP_HOME: ${PYARROW_CPP_HOME}")
   arrow_find_package(ARROW_PYTHON
-                     "${CPYARROW_HOME}"
+                     "${PYARROW_CPP_HOME}"
                      arrow_python
                      arrow/python/api.h
                      ArrowPython

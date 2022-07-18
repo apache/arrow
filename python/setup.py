@@ -93,7 +93,7 @@ class build_ext(_build_ext):
         _build_ext.build_extensions(self)
 
     def run(self):
-        self._run_cmake_arrow_python()
+        self._run_cmake_pyarrow_cpp()
         self._run_cmake()
         _build_ext.run(self)
 
@@ -228,7 +228,7 @@ class build_ext(_build_ext):
         '_hdfsio',
         'gandiva']
 
-    def _run_cmake_arrow_python(self):
+    def _run_cmake_pyarrow_cpp(self):
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
@@ -236,8 +236,8 @@ class build_ext(_build_ext):
 
         # The directory containing this setup.py
         source = os.path.dirname(os.path.abspath(__file__))
-        # The directory containing this C PyArrow CMakeLists.txt
-        source_cpyarrow = pjoin(source, "pyarrow/src_arrow")
+        # The directory containing this PyArrow cpp CMakeLists.txt
+        source_pyarrow_cpp = pjoin(source, "pyarrow/src_arrow")
 
         # The directory for the module being built
         build_cmd = self.get_finalized_command('build')
@@ -293,14 +293,14 @@ class build_ext(_build_ext):
                     '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
             # run cmake
-            print("-- Running cmake for arrow python")
-            self.spawn(['cmake'] + cmake_options + [source_cpyarrow])
-            print("-- Finished cmake for arrow python")
+            print("-- Running cmake for pyarrow cpp")
+            self.spawn(['cmake'] + cmake_options + [source_pyarrow_cpp])
+            print("-- Finished cmake for pyarrow cpp")
             # run make & install
-            print("-- Running make build and install for arrow python")
+            print("-- Running make build and install for pyarrow cpp")
             self.spawn(['cmake', '--build', '.', '--target', 'install'] +
                        build_tool_args)
-            print("-- Finished make build and install for arrow python")
+            print("-- Finished make build and install for pyarrow cpp")
 
             # Move the libraries to the place expected by the Python build
             try:
@@ -331,15 +331,15 @@ class build_ext(_build_ext):
                 pass
 
             # Copy headers tp python/pyarrow/include
-            arrow_python_include = pjoin(build_include, "arrow", "python")
+            pyarrow_cpp_include = pjoin(build_include, "arrow", "python")
             pyarrow_include = pjoin(
                 build_lib, "pyarrow", "include", "arrow", "python")
             if os.path.exists(pyarrow_include):
                 shutil.rmtree(pyarrow_include)
             print(
-                f"Copying include folder: {arrow_python_include}"
+                f"Copying include folder: {pyarrow_cpp_include}"
                 f" to {pyarrow_include}")
-            shutil.copytree(arrow_python_include, pyarrow_include)
+            shutil.copytree(pyarrow_cpp_include, pyarrow_include)
 
     def _run_cmake(self):
         # check if build_type is correctly passed / set
@@ -384,7 +384,7 @@ class build_ext(_build_ext):
             cmake_options = [
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
                 '-DPython3_EXECUTABLE=%s' % sys.executable,
-                '-DCPYARROW_HOME=' + str(pjoin(build_lib, "pyarrow")),
+                '-DPYARROW_CPP_HOME=' + str(pjoin(build_lib, "pyarrow")),
                 static_lib_option,
             ]
 
@@ -469,13 +469,13 @@ class build_ext(_build_ext):
                 shutil.move(pjoin(build_prefix, 'include'),
                             pjoin(build_lib, 'pyarrow'))
 
-                # We need to, again, add the C PyArrow include folder
-                build_cpyarrow_include = pjoin(saved_cwd, 'build/dist/include')
+                # We need to, again, add the PyArrow cpp include folder
+                build_pyarrow_cpp_include = pjoin(saved_cwd, 'build/dist/include')
                 if not os.path.isdir(
-                        pjoin(build_cpyarrow_include, "arrow", "python")):
+                        pjoin(build_pyarrow_cpp_include, "arrow", "python")):
                     self.mkpath(
-                        pjoin(build_cpyarrow_include, "arrow", "python"))
-                shutil.move(pjoin(build_cpyarrow_include, "arrow", "python"),
+                        pjoin(build_pyarrow_cpp_include, "arrow", "python"))
+                shutil.move(pjoin(build_pyarrow_cpp_include, "arrow", "python"),
                             pjoin(
                                 build_lib, "pyarrow", "include",
                                 "arrow", "python"))
@@ -527,15 +527,10 @@ class build_ext(_build_ext):
     def _bundle_arrow_cpp(self, build_prefix, build_lib):
         print(pjoin(build_lib, 'pyarrow'))
         move_shared_libs(build_prefix, build_lib, "arrow")
-        move_shared_libs(build_prefix, build_lib, "arrow_python")
         if self.with_cuda:
             move_shared_libs(build_prefix, build_lib, "arrow_cuda")
         if self.with_substrait:
             move_shared_libs(build_prefix, build_lib, "arrow_substrait")
-        if self.with_flight:
-            move_shared_libs(build_prefix, build_lib, "arrow_flight")
-            move_shared_libs(build_prefix, build_lib,
-                             "arrow_python_flight")
         if self.with_dataset:
             move_shared_libs(build_prefix, build_lib, "arrow_dataset")
         if self.with_plasma:
