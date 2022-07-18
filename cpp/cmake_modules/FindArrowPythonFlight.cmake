@@ -16,7 +16,7 @@
 # under the License.
 
 # - Find Arrow Python Flight
-#   (python/pyarrrow/src_arrow/flight.h, libarrow_python_flight.a, libarrow_python_flight.so)
+#   (arrow/python/flight.h, libarrow_python_flight.a, libarrow_python_flight.so)
 #
 # This module requires Arrow from which it uses
 #  arrow_find_package()
