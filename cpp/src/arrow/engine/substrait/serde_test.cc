@@ -1460,8 +1460,9 @@ TEST(Substrait, AggregateBasic) {
     }],
   })"));
 
+  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
-                                            *buf, [] { return kNullConsumer; });
+                                            *buf, [] { return kNullConsumer; }));
   auto agg_decl = sink_decls[0].inputs[0];
 
   const auto& agg_rel = agg_decl.get<compute::Declaration>();
