@@ -427,9 +427,9 @@ class CompositeReferenceTable {
                 (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(
                     memory_pool, i_table, i_src_col)));
           } else if (field_type->Equals(arrow::timestamp(TimeUnit::NANO, "UTC"))) {
-            ARROW_ASSIGN_OR_RAISE(
-                arrays.at(i_dst_col),
-                (MaterializeTimestampPrimitiveColumn<int64_t>(memory_pool, i_table, i_src_col)));
+            ARROW_ASSIGN_OR_RAISE(arrays.at(i_dst_col),
+                                  (MaterializeTimestampPrimitiveColumn<int64_t>(
+                                      memory_pool, i_table, i_src_col)));
           } else {
             ARROW_RETURN_NOT_OK(
                 Status::Invalid("Unsupported data type: ", src_field->name()));
@@ -464,10 +464,9 @@ class CompositeReferenceTable {
   }
 
   template <class Builder, class PrimitiveType>
-  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(MemoryPool* memory_pool,
+  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(Builder& builder,
                                                             size_t i_table,
                                                             col_index_t i_col) {
-    Builder builder(memory_pool);
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
@@ -483,23 +482,21 @@ class CompositeReferenceTable {
     return result;
   }
 
-template <class PrimitiveType>
+  template <class Builder, class PrimitiveType>
+  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(MemoryPool* memory_pool,
+                                                            size_t i_table,
+                                                            col_index_t i_col) {
+    Builder builder(memory_pool);
+    return MaterializePrimitiveColumn<Builder, PrimitiveType>(builder, i_table, i_col);
+  }
+
+  template <class PrimitiveType>
   Result<std::shared_ptr<Array>> MaterializeTimestampPrimitiveColumn(
       MemoryPool* memory_pool, size_t i_table, col_index_t i_col) {
-    TimestampBuilder builder = TimestampBuilder(timestamp(TimeUnit::NANO, "UTC"), memory_pool);
-    ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
-    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
-      const auto& ref = rows_[i_row].refs[i_table];
-      if (ref.batch) {
-        builder.UnsafeAppend(
-            ref.batch->column_data(i_col)->template GetValues<PrimitiveType>(1)[ref.row]);
-      } else {
-        builder.UnsafeAppendNull();
-      }
-    }
-    std::shared_ptr<Array> result;
-    ARROW_RETURN_NOT_OK(builder.Finish(&result));
-    return result;
+    TimestampBuilder builder =
+        TimestampBuilder(timestamp(TimeUnit::NANO, "UTC"), memory_pool);
+    return MaterializePrimitiveColumn<TimestampBuilder, PrimitiveType>(builder, i_table,
+                                                                       i_col);
   }
 };
 
