@@ -486,7 +486,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "FilterNode.*",                        # filter node
       "(dbl > 2).*",                         # filter expressions
       "chr != \"e\".*",
-      "TableSourceNode"                       # entry point
+      "TableSourceNode"                      # entry point
     )
   )
 
@@ -504,7 +504,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "FilterNode.*",                        # filter node
       "(dbl > 2).*",                         # filter expressions
       "chr != \"e\".*",
-      "TableSourceNode"                       # entry point
+      "TableSourceNode"                      # entry point
     )
   )
 
@@ -522,7 +522,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "FilterNode.*",                        # filter node
       "(dbl > 2).*",                         # filter expressions
       "chr != \"e\".*",
-      "TableSourceNode"                       # entry point
+      "TableSourceNode"                      # entry point
     )
   )
 
@@ -539,7 +539,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
       "(dbl > 2).*",                         # the filter expressions
       "chr != \"e\".*",
-      "TableSourceNode"                       # the entry point"
+      "TableSourceNode"                      # the entry point"
     )
   )
 
@@ -592,11 +592,11 @@ test_that("show_exec_plan(), show_query() and explain()", {
     regexp = paste0(
       "ExecPlan with .* nodes:.*",            # boiler plate for ExecPlan
       "ProjectNode.*",                        # output columns
-      "GroupByNode.*",                        # the group_by statement
-      "keys=.*lgl.*",                         # the key for the aggregations
-      "aggregates=.*hash_mean.*avg.*",        # the aggregations
-      "ProjectNode.*",                        # the input columns
-      "TableSourceNode"                       # the entry point
+      "GroupByNode.*",                        # group_by statement
+      "keys=.*lgl.*",                         # key for the aggregations
+      "aggregates=.*hash_mean.*avg.*",        # aggregations
+      "ProjectNode.*",                        # input columns
+      "TableSourceNode"                       # entry point
     )
   )
 
@@ -618,10 +618,10 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "ProjectNode.*",                          # output columns
       "HashJoinNode.*",                         # the join
       "ProjectNode.*",                          # input columns for the second table
-      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # the mutate
-      "TableSourceNode.*",                      # the second table
+      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # mutate
+      "TableSourceNode.*",                      # second table
       "ProjectNode.*",                          # input columns for the first table
-      "TableSourceNode"                         # the first table
+      "TableSourceNode"                         # first table
     )
   )
 
@@ -641,12 +641,12 @@ test_that("show_exec_plan(), show_query() and explain()", {
     regexp = paste0(
       "ExecPlan with .* nodes:.*",              # boiler plate for ExecPlan
       "ProjectNode.*",                          # output columns
-      "HashJoinNode.*",                         # the join
+      "HashJoinNode.*",                         # join
       "ProjectNode.*",                          # input columns for the second table
       "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # the mutate
-      "TableSourceNode.*",                      # the second table
+      "TableSourceNode.*",                      # second table
       "ProjectNode.*",                          # input columns for the first table
-      "TableSourceNode"                         # the first table
+      "TableSourceNode"                         # first table
     )
   )
 
@@ -666,12 +666,12 @@ test_that("show_exec_plan(), show_query() and explain()", {
     regexp = paste0(
       "ExecPlan with .* nodes:.*",              # boiler plate for ExecPlan
       "ProjectNode.*",                          # output columns
-      "HashJoinNode.*",                         # the join
+      "HashJoinNode.*",                         # join
       "ProjectNode.*",                          # input columns for the second table
-      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # the mutate
-      "TableSourceNode.*",                      # the second table
+      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # mutate
+      "TableSourceNode.*",                      # second table
       "ProjectNode.*",                          # input columns for the first table
-      "TableSourceNode"                         # the first table
+      "TableSourceNode"                         # first table
     )
   )
 
@@ -685,8 +685,8 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
       "OrderBySinkNode.*wt.*DESC.*", # arrange goes via the OrderBy sink node
       "ProjectNode.*",               # output columns
-      "FilterNode.*",                # the filter node
-      "TableSourceNode.*"            # the entry point
+      "FilterNode.*",                # filter node
+      "TableSourceNode.*"            # entry point
     )
   )
 
@@ -700,8 +700,8 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "ExecPlan with .* nodes:.*",    # boiler plate for ExecPlan
       "OrderBySinkNode.*wt.*DESC.*",  # arrange goes via the OrderBy sink node
       "ProjectNode.*",                # output columns
-      "FilterNode.*",                 # the filter node
-      "TableSourceNode.*"             # the entry point
+      "FilterNode.*",                 # filter node
+      "TableSourceNode.*"             # entry point
     )
   )
 
@@ -715,8 +715,8 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
       "OrderBySinkNode.*wt.*DESC.*", # arrange goes via the OrderBy sink node
       "ProjectNode.*",               # output columns
-      "FilterNode.*",                # the filter node
-      "TableSourceNode.*"            # the entry point
+      "FilterNode.*",                # filter node
+      "TableSourceNode.*"            # entry point
     )
   )
 
@@ -734,7 +734,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "SourceNode.*"               # the entry point
+      "SourceNode.*"               # entry point
     )
   )
 
@@ -752,7 +752,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "SourceNode.*"               # the entry point
+      "SourceNode.*"               # entry point
     )
   )
   expect_output(
@@ -769,7 +769,7 @@ test_that("show_exec_plan(), show_query() and explain()", {
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "SinkNode.*",                #
       "ProjectNode.*",             # output columns
-      "SourceNode.*"               # the entry point
+      "SourceNode.*"               # entry point
     )
   )
 })
