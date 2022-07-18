@@ -19,6 +19,10 @@
 
 // TODO explain this
 
+#include <google/protobuf/stubs/common.h>
+
+#if GOOGLE_PROTOBUF_VERSION >= 3020000
+
 #ifndef NDEBUG
 
 #ifdef GOOGLE_PROTOBUF_METADATA_LITE_H__
@@ -50,3 +54,9 @@
     using ::google::protobuf::internal::InternalMetadata;               \
     dummy_pb_md->~InternalMetadata();                                   \
   }
+
+#else  // GOOGLE_PROTOBUF_VERSION < 3020000
+
+#define DEFINE_ABI_FIXUP_FOR_PROTOBUF()
+
+#endif

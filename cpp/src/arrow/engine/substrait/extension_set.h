@@ -27,8 +27,6 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
 
-#include "arrow/util/hash_util.h"
-
 namespace arrow {
 namespace engine {
 

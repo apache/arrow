@@ -22,6 +22,10 @@
 #include <string>
 #include <vector>
 
+// FIXME there are too many inclusions here; besides, arrow/compute/exec/util.h
+// includes even more, including arrow/util/logging.h which is forbidden
+// in public headers.
+
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/type_fwd.h"

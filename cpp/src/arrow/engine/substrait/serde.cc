@@ -17,6 +17,8 @@
 
 #include "arrow/engine/substrait/serde.h"
 
+#include "arrow/buffer.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/plan_internal.h"
 #include "arrow/engine/substrait/relation_internal.h"
