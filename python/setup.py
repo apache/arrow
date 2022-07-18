@@ -477,10 +477,10 @@ class build_ext(_build_ext):
                     self.mkpath(
                         pjoin(build_pyarrow_cpp_include, "arrow", "python"))
                 shutil.move(pjoin(
-                                build_pyarrow_cpp_include, "arrow", "python"),
-                            pjoin(
-                                build_lib, "pyarrow", "include",
-                                "arrow", "python"))
+                    build_pyarrow_cpp_include, "arrow", "python"),
+                    pjoin(
+                    build_lib, "pyarrow", "include",
+                    "arrow", "python"))
 
             # Move the built C-extension to the place expected by the Python
             # build
