@@ -288,7 +288,11 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-            sys
+      - name: Install sys package
+        shell: Rscript {0}
+        # Adding this to extra-packages above causes pak to attempt to install
+        # the unix package for unknown reasons.
+        run: install.packages("sys")
       - name: Install MinIO
         shell: bash
         run: |
