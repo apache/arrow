@@ -82,19 +82,19 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
+          SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
+          SCCACHE_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
+          SCCACHE_KEY: {{' ${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
+          SCCACHE_PREFIX: sccache
           UBUNTU: {{ '${{ matrix.config.version }}' }}
-          SC_KEY: {{' ${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
-          SC_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
-          SC_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
-          SC_PREFIX: sccache
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run  \
-            -e AWS_SECRET_ACCESS_KEY=$SC_KEY \
-            -e AWS_ACCESS_KEY_ID=$SC_ID \
-            -e SCCACHE_BUCKET=$SC_BUCKET \
-            -e SCCACHE_S3_KEY_PREFIX=$SC_PREFIX \
+            -e AWS_ACCESS_KEY_ID=$SCCACHE_ID \
+            -e AWS_SECRET_ACCESS_KEY=$SCCACHE_KEY \
+            -e SCCACHE_BUCKET=$SCCACHE_BUCKET \
+            -e SCCACHE_S3_KEY_PREFIX=$SCCACHE_PREFIX \
             {{ '${{ matrix.config.os}}' }}-cpp-static
       - name: Bundle libarrow
         shell: bash
@@ -140,18 +140,19 @@ jobs:
 
           mkdir -p sccache
           tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory sccache
-
+          chmod +x sccache/sccache.exe
+          
           echo "$(pwd)/sccache" >> $GITHUB_PATH
-          echo "SCCACHE_PATH=$(pwd)/sccache/sccache.exe" >> $GITHUB_ENV
+          #echo "SCCACHE_PATH=$(pwd)/sccache/sccache.exe" >> $GITHUB_ENV
       - name: Build Arrow C++ with rtools40
         shell: bash
         env:
           ARROW_HOME: "arrow"
-          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
+          ARROW_USE_SCCACHE: ON
           AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
+          AWS_SECRET_ACCESS_KEY: {{ '${{ secrets.AWS_SECRET_ACCESS_KEY }}' }}
           SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
           SCCACHE_S3_KEY_PREFIX: 'sccache'
-          ARROW_USE_SCCACHE: ON
         run: arrow/ci/scripts/r_windows_build.sh
 
       - name: Upload binary artifact

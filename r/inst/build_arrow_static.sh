@@ -59,7 +59,7 @@ echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --sta
 
 mkdir -p sccache
 tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory sccache/
-chmod u+x sccache/sccache
+
 export PATH=$(pwd)/sccache:$PATH
 
 mkdir -p "${BUILD_DIR}"
@@ -96,7 +96,6 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
-    -DARROW_USE_SCCACHE=ON \
     ${EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR:-"Unix Makefiles"} \
     ${SOURCE_DIR}
