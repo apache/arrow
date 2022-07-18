@@ -29,15 +29,13 @@ endif()
 
 #
 # Define
-# ARROW_SOURCE_DIR: location of arrow/cpp
 # CMAKE_MODULE_PATH: location of cmake_modules in python
 #
 
 get_filename_component(PYARROW_SOURCE_DIR ${CMAKE_SOURCE_DIR} DIRECTORY)
 get_filename_component(PYTHON_SOURCE_DIR ${PYARROW_SOURCE_DIR} DIRECTORY)
-get_filename_component(ARROW_SOURCE ${PYTHON_SOURCE_DIR} DIRECTORY)
-set(ARROW_CPP_SOURCE_DIR "${ARROW_SOURCE}/cpp")
-set(ARROW_SOURCE_DIR "${ARROW_CPP_SOURCE_DIR}")
+get_filename_component(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR} DIRECTORY)
+set(ARROW_CPP_SOURCE_DIR "${ARROW_SOURCE_DIR}/cpp")
 
 # normalize ARROW_HOME path
 file(TO_CMAKE_PATH "$ENV{ARROW_HOME}" ARROW_HOME)
@@ -198,7 +196,7 @@ set(ARROW_CMAKE_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
 # Changing ARROW_SOURCE_DIR for sdist build
 # In this case cpp/cmake_modules doesn't exist
-if(NOT EXISTS "${ARROW_SOURCE_DIR}/cmake_modules/Find${MODULE}.cmake")
+if(NOT EXISTS "${ARROW_SOURCE_DIR}/cpp/cmake_modules/Find${MODULE}.cmake")
   set(ARROW_SOURCE_DIR ${PYTHON_SOURCE_DIR})
 endif()
 
