@@ -1611,6 +1611,112 @@ TEST_F(TestProjector, TestCastFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(out_int8, outputs.at(3));
 }
 
+TEST_F(TestProjector, TestSign) {
+  // input fields
+  auto field1 = field("f1", arrow::int32());
+  auto field2 = field("f2", arrow::int64());
+  auto field3 = field("f3", arrow::float32());
+  auto field4 = field("f4", arrow::float64());
+
+  // schema fields
+  auto schema1 = arrow::schema({field1});
+  auto schema2 = arrow::schema({field2});
+  auto schema3 = arrow::schema({field3});
+  auto schema4 = arrow::schema({field4});
+
+  // output fields
+  auto field5 = field("sign_int32", arrow::int32());
+  auto field6 = field("sign_int64", arrow::int64());
+  auto field7 = field("sign_float32", arrow::float32());
+  auto field8 = field("sign_float64", arrow::float64());
+
+  // Build expression
+  auto sign_int32 = TreeExprBuilder::MakeExpression("sign", {field1}, field5);
+  auto sign_int64 = TreeExprBuilder::MakeExpression("sign", {field2}, field6);
+  auto sign_float32 = TreeExprBuilder::MakeExpression("sign", {field3}, field7);
+  auto sign_float64 = TreeExprBuilder::MakeExpression("sign", {field4}, field8);
+
+  std::shared_ptr<Projector> projector1;
+
+  auto status = Projector::Make(schema1, {sign_int32}, TestConfiguration(), &projector1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  auto array1 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch1 = arrow::RecordBatch::Make(schema1, num_records, {array1});
+
+  auto out_int32 = MakeArrowArrayInt32({1, 1, 1, 1}, {true, true, true, true});
+
+  arrow::ArrayVector outputs1;
+
+  // Evaluate expression
+  status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_int32, outputs1.at(0));
+
+  std::shared_ptr<Projector> projector2;
+
+  status = Projector::Make(schema2, {sign_int64}, TestConfiguration(), &projector2);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  auto array2 = MakeArrowArrayInt64({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch2 = arrow::RecordBatch::Make(schema2, num_records, {array2});
+
+  auto out_int64 = MakeArrowArrayInt64({1, 1, 1, 1}, {true, true, true, true});
+
+  arrow::ArrayVector outputs2;
+
+  // Evaluate expression
+  status = projector2->Evaluate(*in_batch2, pool_, &outputs2);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs2.at(0));
+
+  std::shared_ptr<Projector> projector3;
+
+  status = Projector::Make(schema3, {sign_float32}, TestConfiguration(), &projector3);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  auto array3 = MakeArrowArrayFloat32({1.1f, 2.2f, 3.3f, 4.4f}, {true, true, true, true});
+  auto in_batch3 = arrow::RecordBatch::Make(schema3, num_records, {array3});
+
+  auto out_float32 =
+      MakeArrowArrayFloat32({1.0, 1.0, 1.0, 1.0}, {true, true, true, true});
+
+  arrow::ArrayVector outputs3;
+
+  // Evaluate expression
+  status = projector3->Evaluate(*in_batch3, pool_, &outputs3);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_float32, outputs3.at(0));
+
+  std::shared_ptr<Projector> projector4;
+
+  status = Projector::Make(schema4, {sign_float64}, TestConfiguration(), &projector4);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  auto array4 = MakeArrowArrayFloat64({1.1, 2.2, 3.3, 4.4}, {true, true, true, true});
+  auto in_batch4 = arrow::RecordBatch::Make(schema4, num_records, {array4});
+
+  auto out_float64 =
+      MakeArrowArrayFloat64({1.0, 1.0, 1.0, 1.0}, {true, true, true, true});
+
+  arrow::ArrayVector outputs4;
+
+  // // Evaluate expression
+  status = projector4->Evaluate(*in_batch4, pool_, &outputs4);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs4.at(0));
+}
+
 TEST_F(TestProjector, TestCastBitFunction) {
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
