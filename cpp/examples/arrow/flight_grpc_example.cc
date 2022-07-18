@@ -75,7 +75,7 @@ class HelloWorldServiceImpl : public HelloWorldService::Service {
   }
 };
 
-arrow::Status RunFlightGRPC() {
+arrow::Status RunFlightGrpc() {
   std::unique_ptr<flight::FlightServerBase> server;
   server.reset(new SimpleFlightServer());
 
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  auto status = RunFlightGRPC();
+  auto status = RunFlightGrpc();
   if (!status.ok()) {
     std::cerr << status.ToString() << std::endl;
     return EXIT_FAILURE;

@@ -115,15 +115,15 @@ arrow::Status RunSubstraitConsumer(int argc, char** argv) {
   // serialization of a substrait Plan
   auto maybe_serialized_plan = GetSubstraitFromServer(argv[1]).result();
   ARROW_RETURN_NOT_OK(maybe_serialized_plan.status());
-  std::shared_ptr<arrow::Buffer> serialized_plan =
-      std::move(maybe_serialized_plan).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> serialized_plan,
+                        std::move(maybe_serialized_plan));
 
   // Print the received plan to stdout as JSON
-  arrow::Result<std::string> maybe_plan_json =
-      eng::internal::SubstraitToJSON("Plan", *serialized_plan);
-  ARROW_RETURN_NOT_OK(maybe_plan_json.status());
+  ARROW_ASSIGN_OR_RAISE(auto plan_json,
+                        eng::internal::SubstraitToJSON("Plan", *serialized_plan));
+
   std::cout << std::string(50, '#') << " received substrait::Plan:" << std::endl;
-  std::cout << maybe_plan_json.ValueOrDie() << std::endl;
+  std::cout << plan_json << std::endl;
 
   // The data sink(s) for plans is/are implicit in substrait plans, but explicit in
   // Arrow. Therefore, deserializing a plan requires a factory for consumers: each
@@ -141,15 +141,13 @@ arrow::Status RunSubstraitConsumer(int argc, char** argv) {
   arrow::Result<std::vector<cp::Declaration>> maybe_decls =
       eng::DeserializePlans(*serialized_plan, consumer_factory);
   ARROW_RETURN_NOT_OK(maybe_decls.status());
-  std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(std::vector<cp::Declaration> decls, std::move(maybe_decls));
 
   // It's safe to drop the serialized plan; we don't leave references to its memory
   serialized_plan.reset();
 
   // Construct an empty plan (note: configure Function registry and ThreadPool here)
-  arrow::Result<std::shared_ptr<cp::ExecPlan>> maybe_plan = cp::ExecPlan::Make();
-  ARROW_RETURN_NOT_OK(maybe_plan.status());
-  std::shared_ptr<cp::ExecPlan> plan = std::move(maybe_plan).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   // Add decls to plan (note: configure ExecNode registry before this point)
   for (const cp::Declaration& decl : decls) {

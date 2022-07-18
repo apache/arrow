@@ -147,7 +147,7 @@ arrow::Status RunComputeRegister(int argc, char** argv) {
 
   auto maybe_plan = cp::ExecPlan::Make();
   ARROW_RETURN_NOT_OK(maybe_plan.status());
-  auto plan = maybe_plan.ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto plan, maybe_plan);
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> source_gen, sink_gen;
   ARROW_RETURN_NOT_OK(

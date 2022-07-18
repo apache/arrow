@@ -40,7 +40,7 @@ namespace fs = arrow::fs;
 namespace cp = arrow::compute;
 
 /**
- * @brief Run Example
+ * \brief Run Example
  *
  * ./debug/dataset-documentation-example file:///<some_path>/<some_directory> parquet
  */
@@ -74,10 +74,12 @@ arrow::Result<std::string> CreateExampleParquetDataset(
   // Create an Arrow Table
   ARROW_ASSIGN_OR_RAISE(auto table, CreateTable());
   // Write it into two Parquet files
-  auto output = filesystem->OpenOutputStream(base_path + "/data1.parquet").ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto output,
+                        filesystem->OpenOutputStream(base_path + "/data1.parquet"));
   ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
       *table->Slice(0, 5), arrow::default_memory_pool(), output, /*chunk_size=*/2048));
-  output = filesystem->OpenOutputStream(base_path + "/data2.parquet").ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(output,
+                        filesystem->OpenOutputStream(base_path + "/data2.parquet"));
   ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
       *table->Slice(5), arrow::default_memory_pool(), output, /*chunk_size=*/2048));
   return base_path;
@@ -93,12 +95,16 @@ arrow::Result<std::string> CreateExampleFeatherDataset(
   // Create an Arrow Table
   ARROW_ASSIGN_OR_RAISE(auto table, CreateTable());
   // Write it into two Feather files
-  auto output = filesystem->OpenOutputStream(base_path + "/data1.feather").ValueOrDie();
-  auto writer = arrow::ipc::MakeFileWriter(output.get(), table->schema()).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto output,
+                        filesystem->OpenOutputStream(base_path + "/data1.feather"));
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        arrow::ipc::MakeFileWriter(output.get(), table->schema()));
   ARROW_RETURN_NOT_OK(writer->WriteTable(*table->Slice(0, 5)));
   ARROW_RETURN_NOT_OK(writer->Close());
-  output = filesystem->OpenOutputStream(base_path + "/data2.feather").ValueOrDie();
-  writer = arrow::ipc::MakeFileWriter(output.get(), table->schema()).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(output,
+                        filesystem->OpenOutputStream(base_path + "/data2.feather"));
+  ARROW_ASSIGN_OR_RAISE(writer,
+                        arrow::ipc::MakeFileWriter(output.get(), table->schema()));
   ARROW_RETURN_NOT_OK(writer->WriteTable(*table->Slice(5)));
   ARROW_RETURN_NOT_OK(writer->Close());
   return base_path;
@@ -132,8 +138,8 @@ arrow::Result<std::string> CreateExampleParquetHivePartitionedDataset(
   auto table = arrow::Table::Make(schema, arrays);
   // Write it using Datasets
   auto dataset = std::make_shared<ds::InMemoryDataset>(table);
-  auto scanner_builder = dataset->NewScan().ValueOrDie();
-  auto scanner = scanner_builder->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
+  ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
 
   // The partition schema determines which fields are part of the partitioning.
   auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
@@ -154,24 +160,25 @@ arrow::Result<std::string> CreateExampleParquetHivePartitionedDataset(
 
 // (Doc section: Dataset discovery)
 // Read the whole dataset with the given format, without partitioning.
-std::shared_ptr<arrow::Table> ScanWholeDataset(
+arrow::Result<std::shared_ptr<arrow::Table>> ScanWholeDataset(
     const std::shared_ptr<fs::FileSystem>& filesystem,
     const std::shared_ptr<ds::FileFormat>& format, const std::string& base_dir) {
   // Create a dataset by scanning the filesystem for files
   fs::FileSelector selector;
   selector.base_dir = base_dir;
-  auto factory = ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
-                                                    ds::FileSystemFactoryOptions())
-                     .ValueOrDie();
-  auto dataset = factory->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(
+      auto factory, ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
+                                                       ds::FileSystemFactoryOptions()));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish());
   // Print out the fragments
-  for (const auto& fragment : dataset->GetFragments().ValueOrDie()) {
+  ARROW_ASSIGN_OR_RAISE(auto fragments, dataset->GetFragments())
+  for (const auto& fragment : fragments) {
     std::cout << "Found fragment: " << (*fragment)->ToString() << std::endl;
   }
   // Read the entire dataset as a Table
-  auto scan_builder = dataset->NewScan().ValueOrDie();
-  auto scanner = scan_builder->Finish().ValueOrDie();
-  return scanner->ToTable().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
+  ARROW_ASSIGN_OR_RAISE(auto scanner, scan_builder->Finish());
+  return scanner->ToTable();
 }
 // (Doc section: Dataset discovery)
 
@@ -185,15 +192,15 @@ arrow::Result<std::shared_ptr<arrow::Table>> FilterAndSelectDataset(
     const std::shared_ptr<ds::FileFormat>& format, const std::string& base_dir) {
   fs::FileSelector selector;
   selector.base_dir = base_dir;
-  auto factory = ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
-                                                    ds::FileSystemFactoryOptions())
-                     .ValueOrDie();
-  auto dataset = factory->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(
+      auto factory, ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
+                                                       ds::FileSystemFactoryOptions()));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish());
   // Read specified columns with a row filter
-  auto scan_builder = dataset->NewScan().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
   ARROW_RETURN_NOT_OK(scan_builder->Project({"b"}));
   ARROW_RETURN_NOT_OK(scan_builder->Filter(cp::less(cp::field_ref("b"), cp::literal(4))));
-  auto scanner = scan_builder->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scanner, scan_builder->Finish());
   return scanner->ToTable();
 }
 // (Doc section: Filtering data)
@@ -210,12 +217,12 @@ arrow::Result<std::shared_ptr<arrow::Table>> ProjectDataset(
     const std::shared_ptr<ds::FileFormat>& format, const std::string& base_dir) {
   fs::FileSelector selector;
   selector.base_dir = base_dir;
-  auto factory = ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
-                                                    ds::FileSystemFactoryOptions())
-                     .ValueOrDie();
-  auto dataset = factory->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(
+      auto factory, ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
+                                                       ds::FileSystemFactoryOptions()));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish());
   // Read specified columns with a row filter
-  auto scan_builder = dataset->NewScan().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
   ARROW_RETURN_NOT_OK(scan_builder->Project(
       {
           // Leave column "a" as-is.
@@ -227,7 +234,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> ProjectDataset(
           cp::equal(cp::field_ref("c"), cp::literal(1)),
       },
       {"a_renamed", "b_as_float32", "c_1"}));
-  auto scanner = scan_builder->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scanner, scan_builder->Finish());
   return scanner->ToTable();
 }
 // (Doc section: Projecting columns)
@@ -243,12 +250,12 @@ arrow::Result<std::shared_ptr<arrow::Table>> SelectAndProjectDataset(
     const std::shared_ptr<ds::FileFormat>& format, const std::string& base_dir) {
   fs::FileSelector selector;
   selector.base_dir = base_dir;
-  auto factory = ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
-                                                    ds::FileSystemFactoryOptions())
-                     .ValueOrDie();
-  auto dataset = factory->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(
+      auto factory, ds::FileSystemDatasetFactory::Make(filesystem, selector, format,
+                                                       ds::FileSystemFactoryOptions()));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish());
   // Read specified columns with a row filter
-  auto scan_builder = dataset->NewScan().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
   std::vector<std::string> names;
   std::vector<cp::Expression> exprs;
   // Read all the original columns.
@@ -260,7 +267,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> SelectAndProjectDataset(
   names.emplace_back("b_large");
   exprs.push_back(cp::greater(cp::field_ref("b"), cp::literal(1)));
   ARROW_RETURN_NOT_OK(scan_builder->Project(exprs, names));
-  auto scanner = scan_builder->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scanner, scan_builder->Finish());
   return scanner->ToTable();
 }
 // (Doc section: Projecting columns #2)
@@ -277,17 +284,18 @@ arrow::Result<std::shared_ptr<arrow::Table>> ScanPartitionedDataset(
   // We'll use Hive-style partitioning. We'll let Arrow Datasets infer the partition
   // schema.
   options.partitioning = ds::HivePartitioning::MakeFactory();
-  auto factory = ds::FileSystemDatasetFactory::Make(filesystem, selector, format, options)
-                     .ValueOrDie();
-  auto dataset = factory->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto factory, ds::FileSystemDatasetFactory::Make(
+                                          filesystem, selector, format, options));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish());
   // Print out the fragments
-  for (const auto& fragment : dataset->GetFragments().ValueOrDie()) {
+  ARROW_ASSIGN_OR_RAISE(auto fragments, dataset->GetFragments());
+  for (const auto& fragment : fragments) {
     std::cout << "Found fragment: " << (*fragment)->ToString() << std::endl;
     std::cout << "Partition expression: "
               << (*fragment)->partition_expression().ToString() << std::endl;
   }
-  auto scan_builder = dataset->NewScan().ValueOrDie();
-  auto scanner = scan_builder->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
+  ARROW_ASSIGN_OR_RAISE(auto scanner, scan_builder->Finish());
   return scanner->ToTable();
 }
 // (Doc section: Reading and writing partitioned data #2)
@@ -303,25 +311,26 @@ arrow::Result<std::shared_ptr<arrow::Table>> FilterPartitionedDataset(
   selector.recursive = true;
   ds::FileSystemFactoryOptions options;
   options.partitioning = ds::HivePartitioning::MakeFactory();
-  auto factory = ds::FileSystemDatasetFactory::Make(filesystem, selector, format, options)
-                     .ValueOrDie();
-  auto dataset = factory->Finish().ValueOrDie();
-  auto scan_builder = dataset->NewScan().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto factory, ds::FileSystemDatasetFactory::Make(
+                                          filesystem, selector, format, options));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish());
+  ARROW_ASSIGN_OR_RAISE(auto scan_builder, dataset->NewScan());
   // Filter based on the partition values. This will mean that we won't even read the
   // files whose partition expressions don't match the filter.
   ARROW_RETURN_NOT_OK(
       scan_builder->Filter(cp::equal(cp::field_ref("part"), cp::literal("b"))));
-  auto scanner = scan_builder->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto scanner, scan_builder->Finish());
   return scanner->ToTable();
 }
 // (Doc section: Reading and writing partitioned data #3)
 
 arrow::Status RunDatasetDocumentation(const std::string& format_name,
-                                      const std::string& root_path,
-                                      const std::string& mode,
-                                      const std::shared_ptr<arrow::fs::FileSystem>& fs) {
+                                      const std::string& uri, const std::string& mode) {
   std::string base_path;
   std::shared_ptr<ds::FileFormat> format;
+  std::string root_path;
+  ARROW_ASSIGN_OR_RAISE(auto fs, fs::FileSystemFromUri(uri, &root_path));
+
   if (format_name == "feather") {
     format = std::make_shared<ds::IpcFileFormat>();
     ARROW_ASSIGN_OR_RAISE(base_path, CreateExampleFeatherDataset(fs, root_path));
@@ -340,7 +349,7 @@ arrow::Status RunDatasetDocumentation(const std::string& format_name,
 
   std::shared_ptr<arrow::Table> table;
   if (mode == "no_filter") {
-    table = ScanWholeDataset(fs, format, base_path);
+    ARROW_ASSIGN_OR_RAISE(table, ScanWholeDataset(fs, format, base_path));
   } else if (mode == "filter") {
     ARROW_ASSIGN_OR_RAISE(table, FilterAndSelectDataset(fs, format, base_path));
   } else if (mode == "project") {
@@ -372,10 +381,8 @@ int main(int argc, char** argv) {
   std::string uri = argv[1];
   std::string format_name = argv[2];
   std::string mode = argc > 3 ? argv[3] : "no_filter";
-  std::string root_path;
-  auto fs = fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
 
-  auto status = RunDatasetDocumentation(format_name, root_path, mode, fs);
+  auto status = RunDatasetDocumentation(format_name, uri, mode);
   if (!status.ok()) {
     std::cerr << status.ToString() << std::endl;
     return EXIT_FAILURE;
