@@ -15,15 +15,14 @@ Google Cloud Storage (GCS). This vignette provides an overview of working with
 S3 and GCS data using Arrow.
 
 > In Windows and macOS binary packages, S3 and GCS support are included. On Linux when 
-installing from source, S3 support is not enabled by default, and it has 
+installing from source, S3 and GCS support is not enabled by default, and it has 
 additional system requirements. See `vignette("install", package = "arrow")` 
 for details.
 
 ## URIs
 
 File readers and writers (`read_parquet()`, `write_feather()`, et al.)
-accept an S3 URI as the source or destination file,
-as do `open_dataset()` and `write_dataset()`.
+accept a URI as the source or destination file, as do `open_dataset()` and `write_dataset()`.
 An S3 URI looks like:
 
 ```
@@ -41,18 +40,16 @@ For example, one of the NYC taxi data files used in `vignette("dataset", package
 
 ```
 s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet
-# Or in GCS:
-# gs://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet
+# Or in GCS (anonymous required on public buckets):
+# gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet
 ```
-
-
 
 Given this URI, you can pass it to `read_parquet()` just as if it were a local file path:
 
 ```r
 df <- read_parquet("s3://voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
 # Or in GCS:
-# df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
+df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
 ```
 
 Note that this will be slower to read than if the file were local,
@@ -70,9 +67,9 @@ s3://voltrondata-labs-datasets/nyc-taxi/?endpoint_override=https://storage.googl
 ```
 
 tells the `S3FileSystem` that it should allow the creation of new buckets and to 
-talk to Google Storage instead of S3. The latter is a neat trick that exists
-because GCS implements an S3-compatible API, but for better support for GCS use
-the GCSFileSystem with `gs://`.
+talk to Google Storage instead of S3. The latter works because GCS implements an 
+S3-compatible API--see [File systems that emulate S3](#file-systems-that-emulate-s3) 
+below--but for better support for GCS use the GCSFileSystem with `gs://`.
 
 In GCS, a useful option is `retry_limit_seconds`, which sets the number of seconds
 a request may spend retrying before returning an error. The current default is 
@@ -100,7 +97,7 @@ In the previous example, this would look like:
 ```r
 bucket <- s3_bucket("voltrondata-labs-datasets")
 # Or in GCS (anonymous = TRUE is required):
-# bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
+bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
 df <- read_parquet(bucket$path("nyc-taxi/year=2019/month=6/data.parquet"))
 ```
 
@@ -110,19 +107,25 @@ the `$ls()` method:
 ```r
 bucket$ls("nyc-taxi")
 # Or recursive:
-# bucket$ls("nyc-taxi", recursive = TRUE)
-# NOTE: in GCS, you must use recursive as directories often don't appear in ls results
+bucket$ls("nyc-taxi", recursive = TRUE)
 ```
+
+**NOTE**: in GCS, you *should always* use recursive as directories often don't appear in 
+`$ls()` results.
+
+<!-- TODO: update GCS note above if ARROW-17097 is addressed -->
 
 See `help(FileSystem)` for a list of options that `s3_bucket()`/`S3FileSystem$create()`
 and `gs_bucket()`/`GcsFileSystem$create()` can take.
 
-For S3, only the following options can be included in t`region`, `scheme`, `endpoint_override` can be encoded as query
-parameters in the URI (though `region` will be auto-detected in `s3_bucket()` or from the URI if omitted).
-`access_key` and `secret_key` can also be included,
-but other options are not supported in the URI.
+For S3, only the following options can be included in the URI as query parameters
+are `region`, `scheme`, `endpoint_override`, `access_key`, `secret_key`, `allow_bucket_creation`,
+and `allow_bucket_deletion`. For GCS, the supported parameters are `scheme`, `endpoint_override`,
+and `retry_limit_seconds`.
 
-The object that `s3_bucket()` returns is technically a `SubTreeFileSystem`, which holds a path and a file system to which it corresponds. `SubTreeFileSystem`s can be useful for holding a reference to a subdirectory somewhere (on S3 or elsewhere).
+The object that `s3_bucket()` and `gs_bucket()` return is technically a `SubTreeFileSystem`, 
+which holds a path and a file system to which it corresponds. `SubTreeFileSystem`s can be 
+useful for holding a reference to a subdirectory somewhere (on S3, GCS, or elsewhere).
 
 One way to get a subtree is to call the `$cd()` method on a `FileSystem`
 
@@ -158,7 +161,39 @@ for temporary access by passing the `role_arn` identifier to `S3FileSystem$creat
 
 ### GCS Authentication
 
-<!-- TODO -->
+To access public buckets, you must pass `anonymous = TRUE` or `anonymous` as the 
+user in a URI:
+
+```r
+bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
+fs <- GcsFileSystem$create(anonymous = TRUE)
+df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
+```
+
+To access private buckets, you can pass either `access_token` and `expiration`, for using
+temporary tokens designed for interactive use, or `json_credentials`, to directly reference 
+a service account credentials file desgined for application use. 
+Temporary tokens must be refreshed manually, while the latter method will handle refreshing
+authentication automatically.
+
+You can get token credentials with the [gargle](https://gargle.r-lib.org/index.html) library:
+
+```r
+library(gargle)
+
+token <- token_fetch()
+
+fs <- GcsFileSystem$create(
+  access_token=token$credentials$access_token,
+  expiration=Sys.time() + token$credentials$expires_in
+)
+```
+
+For service accounts, you can provide the path to the credentials file with the
+`json_credentials` or using the `GOOGLE_APPLICATION_CREDENTIALS` environment
+variable. See Google's guide to 
+[Authenticating as a service account](https://cloud.google.com/docs/authentication/production#create_service_account)
+for more information.
 
 ## Using a proxy server
 
