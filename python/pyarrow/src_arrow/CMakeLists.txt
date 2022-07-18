@@ -104,10 +104,10 @@ set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
 
 #
-# Arrow vs C PyArrow options
+# Arrow vs PyArrow cpp options
 #
 
-# Check all the options from Arrow and C PyArrow to be in line
+# Check all the options from Arrow and PyArrow cpp to be in line
 if(PYARROW_WITH_DATASET)
   find_package(ArrowDataset REQUIRED)
 endif()
