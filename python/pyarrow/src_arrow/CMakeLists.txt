@@ -241,7 +241,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
    # other solution is to link gRPC shared everywhere instead of statically only
    # in Flight)
   find_package(ArrowFlight REQUIRED)
-  include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/}/${ARROW_BUILD_DIR}/src")
+  # include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/}/${ARROW_BUILD_DIR}/src")
 
   set(FLIGHT_LINK_LIBS arrow_flight_shared)
 
