@@ -144,19 +144,19 @@ std::string ExecPlan_ToStringWithSink(
     if (head >= 0) {
       // Use the SelectK node to take only what we need
       MakeExecNodeOrStop(
-        "select_k_sink", plan.get(), {final_node.get()},
-        compute::SelectKSinkNodeOptions{
-          arrow::compute::SelectKOptions(
-            head, std::dynamic_pointer_cast<compute::SortOptions>(
-                make_compute_options("sort_indices", sort_options))
-          ->sort_keys),
-          &sink_gen});
+          "select_k_sink", plan.get(), {final_node.get()},
+          compute::SelectKSinkNodeOptions{
+            arrow::compute::SelectKOptions(
+                head, std::dynamic_pointer_cast<compute::SortOptions>(
+                    make_compute_options("sort_indices", sort_options))
+                    ->sort_keys),
+            &sink_gen});
     } else {
       MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
                          compute::OrderBySinkNodeOptions{
-                           *std::dynamic_pointer_cast<compute::SortOptions>(
-                               make_compute_options("sort_indices", sort_options)),
-                               &sink_gen});
+                             *std::dynamic_pointer_cast<compute::SortOptions>(
+                                 make_compute_options("sort_indices", sort_options)),
+                             &sink_gen});
     }
   } else {
     MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
