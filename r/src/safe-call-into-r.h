@@ -290,7 +290,7 @@ static inline arrow::Status RunWithCapturedRIfPossibleVoid(
     return true;
   });
   ARROW_RETURN_NOT_OK(result);
-  return arrow::Status::OK();
+  return result.ok();
 }
 
 #endif
