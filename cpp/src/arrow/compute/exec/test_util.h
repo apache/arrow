@@ -145,7 +145,7 @@ class Random64Bit {
   std::uniform_int_distribution<uint64_t> dist_;
 };
 
-// Specify properties of a table to be generated.
+/// Specify properties of a table to be generated.
 struct TableGenerationProperties {
   /// Indicates the amount of time between data points that lie between
   /// the start and end parameters.
