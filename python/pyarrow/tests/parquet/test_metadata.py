@@ -550,19 +550,25 @@ def test_metadata_schema_filesystem(tmpdir):
     schema = table.schema
 
     assert pq.read_metadata(file_path).equals(metadata)
-    assert pq.read_metadata(fname, filesystem=f'file:///{tmpdir}').equals(metadata)
+    assert pq.read_metadata(
+        fname, filesystem=f'file:///{tmpdir}').equals(metadata)
 
     assert pq.read_schema(file_path).equals(schema)
     assert pq.read_schema(fname, filesystem=f'file:///{tmpdir}').equals(schema)
 
     with util.change_cwd(tmpdir):
         # Pass `filesystem` arg
-        assert pq.read_metadata(fname, filesystem=LocalFileSystem()).equals(metadata)
-        assert pq.read_metadata(fname, filesystem=LocalFileSystem.get_instance()).equals(metadata)
+        assert pq.read_metadata(
+            fname, filesystem=LocalFileSystem()).equals(metadata)
+        assert pq.read_metadata(
+            fname, filesystem=LocalFileSystem.get_instance()).equals(metadata)
 
-        assert pq.read_schema(fname, filesystem=LocalFileSystem()).equals(schema)
-        assert pq.read_schema(fname, filesystem=LocalFileSystem.get_instance()).equals(schema)
+        assert pq.read_schema(
+            fname, filesystem=LocalFileSystem()).equals(schema)
+        assert pq.read_schema(
+            fname, filesystem=LocalFileSystem.get_instance()).equals(schema)
 
-        err_msg = '`filesystem` argument must be a FileSystem instance or a valid file system URI'
+        err_msg = ('`filesystem` argument must be a FileSystem'
+                   ' instance or a valid file system URI')
         with pytest.raises(TypeError, match=err_msg):
             pq.read_metadata(fname, filesystem=FileSystem())
