@@ -340,6 +340,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
 #if defined(ARROW_R_WITH_SUBSTRAIT)
 
 #include <arrow/engine/substrait/api.h>
+#include <arrow/engine/substrait/serde.h>
 
 // Just for example usage until a C++ method is available that implements
 // a RecordBatchReader output (ARROW-15849)
