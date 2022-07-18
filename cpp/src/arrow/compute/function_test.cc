@@ -230,9 +230,9 @@ void CheckAddDispatch(FunctionType* func, ExecType exec) {
   // Duplicate sig is okay
   ASSERT_OK(func->AddKernel(in_types1, out_type1, exec));
 
-  // Add given a descr
-  KernelType descr({float64(), float64()}, float64(), exec);
-  ASSERT_OK(func->AddKernel(descr));
+  // Add a kernel
+  KernelType kernel({float64(), float64()}, float64(), exec);
+  ASSERT_OK(func->AddKernel(kernel));
 
   ASSERT_EQ(4, func->num_kernels());
   ASSERT_EQ(4, func->kernels().size());
@@ -249,9 +249,9 @@ void CheckAddDispatch(FunctionType* func, ExecType exec) {
   KernelType invalid_kernel({boolean()}, boolean(), exec);
   ASSERT_RAISES(Invalid, func->AddKernel(invalid_kernel));
 
-  ASSERT_OK_AND_ASSIGN(const Kernel* kernel, func->DispatchExact({int32(), int32()}));
+  ASSERT_OK_AND_ASSIGN(const Kernel* dispatched, func->DispatchExact({int32(), int32()}));
   KernelSignature expected_sig(in_types1, out_type1);
-  ASSERT_TRUE(kernel->signature->Equals(expected_sig));
+  ASSERT_TRUE(dispatched->signature->Equals(expected_sig));
 
   // No kernel available
   ASSERT_RAISES(NotImplemented, func->DispatchExact({utf8(), utf8()}));
@@ -288,7 +288,7 @@ TEST(ArrayFunction, VarArgs) {
   ScalarKernel non_va_kernel(std::make_shared<KernelSignature>(va_args, int8()), ExecNYI);
   ASSERT_RAISES(Invalid, va_func.AddKernel(non_va_kernel));
 
-  std::vector<ValueDescr> args = {ValueDescr::Scalar(int8()), int8(), int8()};
+  std::vector<TypeHolder> args = {int8(), int8(), int8()};
   ASSERT_OK_AND_ASSIGN(const Kernel* kernel, va_func.DispatchExact(args));
   ASSERT_TRUE(kernel->signature->MatchesInputs(args));
 
@@ -319,7 +319,7 @@ Status NoopFinalize(KernelContext*, Datum*) { return Status::OK(); }
 TEST(ScalarAggregateFunction, DispatchExact) {
   ScalarAggregateFunction func("agg_test", Arity::Unary(), FunctionDoc::Empty());
 
-  std::vector<InputType> in_args = {ValueDescr::Array(int8())};
+  std::vector<InputType> in_args = {int8()};
   ScalarAggregateKernel kernel(std::move(in_args), int64(), NoopInit, NoopConsume,
                                NoopMerge, NoopFinalize);
   ASSERT_OK(func.AddKernel(kernel));
@@ -341,18 +341,14 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   kernel.signature = std::make_shared<KernelSignature>(in_args, float64());
   ASSERT_RAISES(Invalid, func.AddKernel(kernel));
 
-  std::vector<ValueDescr> dispatch_args = {ValueDescr::Array(int8())};
+  std::vector<TypeHolder> dispatch_args = {int8()};
   ASSERT_OK_AND_ASSIGN(const Kernel* selected_kernel, func.DispatchExact(dispatch_args));
   ASSERT_EQ(func.kernels()[0], selected_kernel);
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
 
-  // We declared that only arrays are accepted
-  dispatch_args[0] = {ValueDescr::Scalar(int8())};
-  ASSERT_RAISES(NotImplemented, func.DispatchExact(dispatch_args));
-
   // Didn't qualify the float64() kernel so this actually dispatches (even
   // though that may not be what you want)
-  dispatch_args[0] = {ValueDescr::Scalar(float64())};
+  dispatch_args[0] = {float64()};
   ASSERT_OK_AND_ASSIGN(selected_kernel, func.DispatchExact(dispatch_args));
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
 }

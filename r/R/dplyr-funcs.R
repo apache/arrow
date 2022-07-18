@@ -58,13 +58,26 @@ NULL
 #' @keywords internal
 #'
 register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  previous_fun <- if (fun_name %in% names(registry)) registry[[fun_name]] else NULL
+  unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
-  # setting fun to NULL removes existing functions from the registry
-  if (is.null(fun) && !is.null(previous_fun)) {
-    rm(list = c(fun_name), envir = registry, inherits = FALSE)
-  } else {
+  previous_fun <- registry[[unqualified_name]]
+
+  # if the unqualified name exists in the registry, warn
+  if (!is.null(fun) && !is.null(previous_fun)) {
+    warn(
+      paste0(
+        "A \"",
+        unqualified_name,
+        "\" binding already exists in the registry and will be overwritten.")
+    )
+  }
+
+  # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
+  if (grepl("::", fun_name)) {
+    registry[[unqualified_name]] <- fun
     registry[[fun_name]] <- fun
+  } else {
+    registry[[unqualified_name]] <- fun
   }
 
   invisible(previous_fun)
@@ -116,17 +129,16 @@ nse_funcs <- new.env(parent = emptyenv())
 agg_funcs <- new.env(parent = emptyenv())
 .cache <- new.env(parent = emptyenv())
 
-register_bindings_utils <- function() {
-  register_binding("::", function(lhs, rhs) {
-    lhs_name <- as.character(substitute(lhs))
-    rhs_name <- as.character(substitute(rhs))
+# we register 2 versions of the "::" binding - one for use with nse_funcs
+# (registered below) and another one for use with agg_funcs (registered in
+# dplyr-summarize.R)
+nse_funcs[["::"]] <- function(lhs, rhs) {
+  lhs_name <- as.character(substitute(lhs))
+  rhs_name <- as.character(substitute(rhs))
 
-    binding_name <- paste0(lhs_name, "::", rhs_name)
+  fun_name <- paste0(lhs_name, "::", rhs_name)
 
-    if (!is.null(nse_funcs[[binding_name]])) {
-      nse_funcs[[binding_name]]
-    } else {
-      asNamespace(lhs_name)[[rhs_name]]
-    }
-  })
+  # if we do not have a binding for pkg::fun, then fall back on to the
+  # regular pkg::fun function
+  nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
 }

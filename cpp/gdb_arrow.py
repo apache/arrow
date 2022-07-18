@@ -1406,13 +1406,12 @@ class FixedSizeBinaryScalarPrinter(BaseBinaryScalarPrinter):
 
     def to_string(self):
         size = self.type['byte_width_']
-        if not self.is_valid:
-            return f"{self._format_type()} of size {size}, null value"
         bufptr = BufferPtr(SharedPtr(self.val['value']).get())
         if bufptr.data is None:
             return f"{self._format_type()} of size {size}, <unallocated>"
+        nullness = '' if self.is_valid else 'null with '
         return (f"{self._format_type()} of size {size}, "
-                f"value {self._format_buf(bufptr)}")
+                f"{nullness}value {self._format_buf(bufptr)}")
 
 
 class DictionaryScalarPrinter(ScalarPrinter):
@@ -1450,6 +1449,8 @@ class StructScalarPrinter(ScalarPrinter):
         return 'map'
 
     def children(self):
+        if not self.is_valid:
+            return None
         eval_fields = StdVector(self.type['children_'])
         eval_values = StdVector(self.val['value'])
         for field, value in zip(eval_fields, eval_values):
@@ -1463,7 +1464,24 @@ class StructScalarPrinter(ScalarPrinter):
         return f"{self._format_type()}"
 
 
-class UnionScalarPrinter(ScalarPrinter):
+class SparseUnionScalarPrinter(ScalarPrinter):
+    """
+    Pretty-printer for arrow::UnionScalar and subclasses.
+    """
+
+    def to_string(self):
+        type_code = self.val['type_code'].cast(gdb.lookup_type('int'))
+        if not self.is_valid:
+            return (f"{self._format_type()} of type {self.type}, "
+                    f"type code {type_code}, null value")
+        eval_values = StdVector(self.val['value'])
+        child_id = self.val['child_id'].cast(gdb.lookup_type('int'))
+        return (f"{self._format_type()} of type code {type_code}, "
+                f"value {deref(eval_values[child_id])}")
+
+
+
+class DenseUnionScalarPrinter(ScalarPrinter):
     """
     Pretty-printer for arrow::UnionScalar and subclasses.
     """
@@ -1968,10 +1986,16 @@ class StructTypeClass(DataTypeClass):
     scalar_printer = StructScalarPrinter
 
 
-class UnionTypeClass(DataTypeClass):
+class DenseUnionTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = UnionTypePrinter
-    scalar_printer = UnionScalarPrinter
+    scalar_printer = DenseUnionScalarPrinter
+
+
+class SparseUnionTypeClass(DataTypeClass):
+    is_parametric = True
+    type_printer = UnionTypePrinter
+    scalar_printer = SparseUnionScalarPrinter
 
 
 class DictionaryTypeClass(DataTypeClass):
@@ -2037,8 +2061,8 @@ type_traits_by_id = {
     Type.MAP: DataTypeTraits(MapTypeClass, 'MapType'),
 
     Type.STRUCT: DataTypeTraits(StructTypeClass, 'StructType'),
-    Type.SPARSE_UNION: DataTypeTraits(UnionTypeClass, 'SparseUnionType'),
-    Type.DENSE_UNION: DataTypeTraits(UnionTypeClass, 'DenseUnionType'),
+    Type.SPARSE_UNION: DataTypeTraits(SparseUnionTypeClass, 'SparseUnionType'),
+    Type.DENSE_UNION: DataTypeTraits(DenseUnionTypeClass, 'DenseUnionType'),
 
     Type.DICTIONARY: DataTypeTraits(DictionaryTypeClass, 'DictionaryType'),
     Type.EXTENSION: DataTypeTraits(ExtensionTypeClass, 'ExtensionType'),

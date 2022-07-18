@@ -66,20 +66,44 @@ TEST(TestCumulativeSum, AllNulls) {
   }
 }
 
-using testing::HasSubstr;
+TEST(TestCumulativeSum, ScalarInput) {
+  CumulativeSumOptions no_start_no_skip;
+  CumulativeSumOptions no_start_do_skip(0, true);
+  CumulativeSumOptions has_start_no_skip(10);
+  CumulativeSumOptions has_start_do_skip(10, true);
 
-TEST(TestCumulativeSum, ScalarNotSupported) {
-  CumulativeSumOptions options;
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &no_start_no_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &no_start_no_skip);
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, HasSubstr("no kernel"),
-      CallFunction("cumulative_sum", {std::make_shared<Int64Scalar>(5)}, &options));
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[20]"), &has_start_no_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[20]"), &has_start_no_skip);
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, HasSubstr("no kernel"),
-      CallFunction("cumulative_sum_checked", {std::make_shared<Int64Scalar>(5)},
-                   &options));
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start_no_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start_no_skip);
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &has_start_no_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &has_start_no_skip);
+
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start_do_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start_do_skip);
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &has_start_do_skip);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &has_start_do_skip);
+  }
 }
+
+using testing::HasSubstr;
 
 template <typename ArrowType>
 void CheckCumulativeSumUnsignedOverflow() {

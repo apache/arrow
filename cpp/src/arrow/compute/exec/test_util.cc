@@ -67,6 +67,7 @@ struct DummyNode : ExecNode {
     for (size_t i = 0; i < input_labels_.size(); ++i) {
       input_labels_[i] = std::to_string(i);
     }
+    finished_.MarkFinished();
   }
 
   const char* kind_name() const override { return "Dummy"; }
@@ -111,8 +112,6 @@ struct DummyNode : ExecNode {
     }
   }
 
-  Future<> finished() override { return Future<>::MakeFinished(); }
-
  private:
   void AssertIsOutput(ExecNode* output) {
     auto it = std::find(outputs_.begin(), outputs_.end(), output);
@@ -143,16 +142,25 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
   return node;
 }
 
-ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
                             util::string_view json) {
   auto fields = ::arrow::internal::MapVector(
-      [](const ValueDescr& descr) { return field("", descr.type); }, descrs);
+      [](const TypeHolder& th) { return field("", th.GetSharedPtr()); }, types);
 
   ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
 
+  return batch;
+}
+
+ExecBatch ExecBatchFromJSON(const std::vector<TypeHolder>& types,
+                            const std::vector<ArgShape>& shapes, util::string_view json) {
+  DCHECK_EQ(types.size(), shapes.size());
+
+  ExecBatch batch = ExecBatchFromJSON(types, json);
+
   auto value_it = batch.values.begin();
-  for (const auto& descr : descrs) {
-    if (descr.shape == ValueDescr::SCALAR) {
+  for (ArgShape shape : shapes) {
+    if (shape == ArgShape::SCALAR) {
       if (batch.length == 0) {
         *value_it = MakeNullScalar(value_it->type());
       } else {
@@ -232,13 +240,13 @@ BatchesWithSchema MakeBatchesFromString(
     const std::vector<util::string_view>& json_strings, int multiplicity) {
   BatchesWithSchema out_batches{{}, schema};
 
-  std::vector<ValueDescr> descrs;
+  std::vector<TypeHolder> types;
   for (auto&& field : schema->fields()) {
-    descrs.emplace_back(field->type());
+    types.emplace_back(field->type());
   }
 
   for (auto&& s : json_strings) {
-    out_batches.batches.push_back(ExecBatchFromJSON(descrs, s));
+    out_batches.batches.push_back(ExecBatchFromJSON(types, s));
   }
 
   size_t batch_count = out_batches.batches.size();

@@ -451,7 +451,6 @@ s3_bucket <- function(bucket, ...) {
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
-#' @importFrom utils modifyList
 #' @export
 GcsFileSystem <- R6Class("GcsFileSystem",
   inherit = FileSystem

@@ -84,8 +84,7 @@ class ARROW_EXPORT ExecSpanIterator {
   /// \param[in] batch the input ExecBatch
   /// \param[in] max_chunksize the maximum length of each ExecSpan. Depending
   /// on the chunk layout of ChunkedArray.
-  Status Init(const ExecBatch& batch, ValueDescr::Shape output_shape = ValueDescr::ARRAY,
-              int64_t max_chunksize = kDefaultMaxChunksize);
+  Status Init(const ExecBatch& batch, int64_t max_chunksize = kDefaultMaxChunksize);
 
   /// \brief Compute the next span by updating the state of the
   /// previous span object. You must keep passing in the previous
@@ -101,6 +100,8 @@ class ARROW_EXPORT ExecSpanIterator {
   int64_t length() const { return length_; }
   int64_t position() const { return position_; }
 
+  bool have_all_scalars() const { return have_all_scalars_; }
+
  private:
   ExecSpanIterator(const std::vector<Datum>& args, int64_t length, int64_t max_chunksize);
 
@@ -108,6 +109,7 @@ class ARROW_EXPORT ExecSpanIterator {
 
   bool initialized_ = false;
   bool have_chunked_arrays_ = false;
+  bool have_all_scalars_ = false;
   const std::vector<Datum>* args_;
   std::vector<int> chunk_indexes_;
   std::vector<int64_t> value_positions_;
@@ -117,8 +119,8 @@ class ARROW_EXPORT ExecSpanIterator {
   // from the relative position within each chunk (which is in
   // value_positions_)
   std::vector<int64_t> value_offsets_;
-  int64_t position_;
-  int64_t length_;
+  int64_t position_ = 0;
+  int64_t length_ = 0;
   int64_t max_chunksize_;
 };
 
@@ -146,11 +148,6 @@ class DatumAccumulator : public ExecListener {
  private:
   std::vector<Datum> values_;
 };
-
-/// \brief Check that each Datum is of a "value" type, which means either
-/// SCALAR, ARRAY, or CHUNKED_ARRAY. If there are chunked inputs, then these
-/// inputs will be split into non-chunked ExecBatch values for execution
-Status CheckAllValues(const std::vector<Datum>& values);
 
 class ARROW_EXPORT KernelExecutor {
  public:

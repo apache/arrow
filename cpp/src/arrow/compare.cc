@@ -796,9 +796,16 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const UnionScalar& left) {
-    const auto& right = checked_cast<const UnionScalar&>(right_);
+  Status Visit(const DenseUnionScalar& left) {
+    const auto& right = checked_cast<const DenseUnionScalar&>(right_);
     result_ = ScalarEquals(*left.value, *right.value, options_, floating_approximate_);
+    return Status::OK();
+  }
+
+  Status Visit(const SparseUnionScalar& left) {
+    const auto& right = checked_cast<const SparseUnionScalar&>(right_);
+    result_ = ScalarEquals(*left.value[left.child_id], *right.value[right.child_id],
+                           options_, floating_approximate_);
     return Status::OK();
   }
 

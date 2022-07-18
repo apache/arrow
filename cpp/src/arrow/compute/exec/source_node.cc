@@ -75,6 +75,7 @@ struct SourceNode : ExecNode {
                         {"node.label", label()},
                         {"node.output_schema", output_schema()->ToString()},
                         {"node.detail", ToString()}});
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -96,66 +97,55 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    finished_ = Loop([this, executor, options] {
-                  std::unique_lock<std::mutex> lock(mutex_);
-                  int total_batches = batch_count_++;
-                  if (stop_requested_) {
-                    return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
-                  }
-                  lock.unlock();
+    started_ = true;
+    auto fut = Loop([this, options] {
+                 std::unique_lock<std::mutex> lock(mutex_);
+                 int total_batches = batch_count_++;
+                 if (stop_requested_) {
+                   return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
+                 }
+                 lock.unlock();
 
-                  return generator_().Then(
-                      [=](const util::optional<ExecBatch>& maybe_batch)
-                          -> Future<ControlFlow<int>> {
-                        std::unique_lock<std::mutex> lock(mutex_);
-                        if (IsIterationEnd(maybe_batch) || stop_requested_) {
-                          stop_requested_ = true;
-                          return Break(total_batches);
-                        }
-                        lock.unlock();
-                        ExecBatch batch = std::move(*maybe_batch);
-
-                        if (executor) {
-                          auto status = task_group_.AddTask(
-                              [this, executor, batch]() -> Result<Future<>> {
-                                return executor->Submit([=]() {
-                                  outputs_[0]->InputReceived(this, std::move(batch));
-                                  return Status::OK();
-                                });
-                              });
-                          if (!status.ok()) {
-                            outputs_[0]->ErrorReceived(this, std::move(status));
-                            return Break(total_batches);
-                          }
-                        } else {
-                          outputs_[0]->InputReceived(this, std::move(batch));
-                        }
-                        lock.lock();
-                        if (!backpressure_future_.is_finished()) {
-                          EVENT(span_, "Source paused due to backpressure");
-                          return backpressure_future_.Then(
-                              []() -> ControlFlow<int> { return Continue(); });
-                        }
-                        return Future<ControlFlow<int>>::MakeFinished(Continue());
-                      },
-                      [=](const Status& error) -> ControlFlow<int> {
-                        // NB: ErrorReceived is independent of InputFinished, but
-                        // ErrorReceived will usually prompt StopProducing which will
-                        // prompt InputFinished. ErrorReceived may still be called from a
-                        // node which was requested to stop (indeed, the request to stop
-                        // may prompt an error).
-                        std::unique_lock<std::mutex> lock(mutex_);
-                        stop_requested_ = true;
-                        lock.unlock();
-                        outputs_[0]->ErrorReceived(this, error);
-                        return Break(total_batches);
-                      },
-                      options);
-                }).Then([&](int total_batches) {
-      outputs_[0]->InputFinished(this, total_batches);
-      return task_group_.End();
-    });
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
+                 return generator_().Then(
+                     [=](const util::optional<ExecBatch>& maybe_batch)
+                         -> Future<ControlFlow<int>> {
+                       std::unique_lock<std::mutex> lock(mutex_);
+                       if (IsIterationEnd(maybe_batch) || stop_requested_) {
+                         stop_requested_ = true;
+                         return Break(total_batches);
+                       }
+                       lock.unlock();
+                       ExecBatch batch = std::move(*maybe_batch);
+                       RETURN_NOT_OK(plan_->ScheduleTask([=]() {
+                         outputs_[0]->InputReceived(this, std::move(batch));
+                         return Status::OK();
+                       }));
+                       lock.lock();
+                       if (!backpressure_future_.is_finished()) {
+                         EVENT(span_, "Source paused due to backpressure");
+                         return backpressure_future_.Then(
+                             []() -> ControlFlow<int> { return Continue(); });
+                       }
+                       return Future<ControlFlow<int>>::MakeFinished(Continue());
+                     },
+                     [=](const Status& error) -> ControlFlow<int> {
+                       std::unique_lock<std::mutex> lock(mutex_);
+                       stop_requested_ = true;
+                       lock.unlock();
+                       outputs_[0]->ErrorReceived(this, error);
+                       finished_.MarkFinished(error);
+                       return Break(total_batches);
+                     },
+                     options);
+               })
+                   .Then(
+                       [=](int total_batches) {
+                         outputs_[0]->InputFinished(this, total_batches);
+                         if (!finished_.is_finished()) finished_.MarkFinished();
+                       },
+                       {}, options);
+    if (!executor && finished_.is_finished()) return finished_.status();
+    RETURN_NOT_OK(plan_->AddFuture(fut));
     return Status::OK();
   }
 
@@ -196,17 +186,16 @@ struct SourceNode : ExecNode {
   void StopProducing() override {
     std::unique_lock<std::mutex> lock(mutex_);
     stop_requested_ = true;
+    if (!started_) finished_.MarkFinished();
   }
-
-  Future<> finished() override { return finished_; }
 
  private:
   std::mutex mutex_;
   int32_t backpressure_counter_{0};
   Future<> backpressure_future_ = Future<>::MakeFinished();
   bool stop_requested_{false};
+  bool started_ = false;
   int batch_count_{0};
-  util::AsyncTaskGroup task_group_;
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 

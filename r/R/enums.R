@@ -122,7 +122,7 @@ FileType <- enum("FileType",
 #' @export
 #' @rdname enums
 ParquetVersionType <- enum("ParquetVersionType",
-  PARQUET_1_0 = 0L, PARQUET_2_0 = 1L
+  PARQUET_1_0 = 0L, PARQUET_2_0 = 1L, PARQUET_2_4 = 2L, PARQUET_2_6 = 3L
 )
 
 #' @export

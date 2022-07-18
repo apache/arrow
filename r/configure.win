@@ -64,7 +64,7 @@ function configure_release() {
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
   PKG_LIBS="$PKG_LIBS -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies \
-            -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 ${BROTLI_LIBS} -lole32 \
+            -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
   # S3, GCS, and re2 support only for Rtools40 (i.e. R >= 4.0)

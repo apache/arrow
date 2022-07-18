@@ -212,47 +212,63 @@ jobs:
 
   test-linux-binary:
     needs: [source, linux-cpp]
-    name: Test binary {{ '${{ matrix.image }}' }}
+    name: Test binary {{ '${{ matrix.config.image }}' }}
     runs-on: ubuntu-latest
-    container: {{ '${{ matrix.image }}' }}
+    container: {{ '${{ matrix.config.image }}' }}
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - "rhub/ubuntu-gcc-release" # ubuntu-20.04 (focal)
-          - "rstudio/r-base:4.1-bionic"
-          - "rstudio/r-base:4.2-centos7"
-          - "rocker/r-ver:3.6.3" # for debian:buster (10)
-          - "rocker/r-ver" # ubuntu-20.04
-          - "rhub/fedora-clang-devel" # tests distro-map.csv, mapped to ubuntu-18.04
-          - "rocker/r-ubuntu:22.04" # tests openssl3 compatibility
+        config:
+          # If libarrow_binary is unset, we're testing that we're automatically
+          # choosing a binary on this OS. If libarrow_binary is TRUE, we're on
+          # an OS that is not in the allowlist, so we have to opt-in to use the
+          # binary. Other env vars used in r_docker_configure.sh can be added
+          # here (like devtoolset) and wired up in the later steps.
+          - {image: "rhub/debian-clang-devel", libarrow_binary: "TRUE"}
+          # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
+          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
+          - {image: "rhub/ubuntu-gcc-release"} # currently ubuntu-20.04 (focal)
+          - {image: "rocker/r-ubuntu:22.04"} # openssl3
+          - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
+          - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
+          - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
+          - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
+          - {image: "rstudio/r-base:4.2-centos7"}
+          # Even with devtoolset-8, binaries fail because glibc is older than
+          # what we build with on ubuntu-18.04 (uncomment to see the error)
+          # TODO(ARROW-16976): build binaries with older glibc
+          # - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
     steps:
+      # Get the arrow checkout just for the docker config scripts
+      # Don't need submodules for this (hence false arg to macro): they fail on
+      # actions/checkout for some reason in this context
+      {{ macros.github_checkout_arrow(1, false)|indent }}
       - name: Install system requirements
+        env:
+          ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh
+          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
-          if [ "`which dnf`" ]; then
-            dnf install -y libcurl-devel openssl-devel
-          elif [ "`which yum`" ]; then
-            yum install -y libcurl-devel openssl-devel
-          elif [ "`which zypper`" ]; then
-            zypper install -y libcurl-devel libopenssl-devel
-          else
-            apt-get update
-            apt-get install -y libcurl4-openssl-dev libssl-dev
-          fi
-
-          # Add R-devel to PATH
-          echo "/opt/R-devel/bin" >> $GITHUB_PATH
-
+          # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
+          echo "${RPREFIX}/bin" >> $GITHUB_PATH
+          export PATH="${RPREFIX}/bin:${PATH}"
+          cd arrow && ARROW_SOURCE_HOME=$(pwd) ./ci/scripts/r_docker_configure.sh
       {{ macros.github_setup_local_r_repo(true, false)|indent }}
       - name: Install arrow from our repo
         env:
-          ARROW_R_DEV: TRUE
+          ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
-          LIBARROW_BINARY: "TRUE"
-        shell: Rscript {0}
+          LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
+          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
+        shell: bash
         run: |
+          if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
+            # enable the devtoolset version to use it
+            source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
+          fi
+          Rscript -e '
           {{  macros.github_test_r_src_pkg()|indent(8) }}
+          '
 
   test-source:
     needs: source

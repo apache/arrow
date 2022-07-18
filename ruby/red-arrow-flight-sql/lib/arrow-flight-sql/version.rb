@@ -15,9 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#
-# arrow_jni
-#
-if(ARROW_ORC)
-  add_subdirectory(orc)
-endif()
+module ArrowFlightSQL
+  VERSION = "9.0.0-SNAPSHOT"
+
+  module Version
+    numbers, TAG = VERSION.split("-")
+    MAJOR, MINOR, MICRO = numbers.split(".").collect(&:to_i)
+    STRING = VERSION
+  end
+end

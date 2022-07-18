@@ -52,81 +52,77 @@ const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
   return example_parametric_types;
 }
 
-Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  ValueDescr result = descrs.front();
-  result.shape = GetBroadcastShape(descrs);
-  return result;
+Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types) {
+  return types.front();
 }
 
-Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  ValueDescr result = descrs.back();
-  result.shape = GetBroadcastShape(descrs);
-  return result;
+Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types) {
+  return types.back();
 }
 
-Result<ValueDescr> ListValuesType(KernelContext*, const std::vector<ValueDescr>& args) {
+Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& args) {
   const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
-  return ValueDescr(list_type.value_type(), GetBroadcastShape(args));
+  return list_type.value_type().get();
 }
 
-void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {
-  EnsureDictionaryDecoded(descrs->data(), descrs->size());
+void EnsureDictionaryDecoded(std::vector<TypeHolder>* types) {
+  EnsureDictionaryDecoded(types->data(), types->size());
 }
 
-void EnsureDictionaryDecoded(ValueDescr* begin, size_t count) {
+void EnsureDictionaryDecoded(TypeHolder* begin, size_t count) {
   auto* end = begin + count;
   for (auto it = begin; it != end; it++) {
-    if (it->type->id() == Type::DICTIONARY) {
-      it->type = checked_cast<const DictionaryType&>(*it->type).value_type();
+    if (it->id() == Type::DICTIONARY) {
+      *it = checked_cast<const DictionaryType&>(*it->type).value_type();
     }
   }
 }
 
-void ReplaceNullWithOtherType(std::vector<ValueDescr>* descrs) {
-  ReplaceNullWithOtherType(descrs->data(), descrs->size());
+void ReplaceNullWithOtherType(std::vector<TypeHolder>* types) {
+  ReplaceNullWithOtherType(types->data(), types->size());
 }
 
-void ReplaceNullWithOtherType(ValueDescr* first, size_t count) {
+void ReplaceNullWithOtherType(TypeHolder* first, size_t count) {
   DCHECK_EQ(count, 2);
 
-  ValueDescr* second = first++;
+  TypeHolder* second = first++;
   if (first->type->id() == Type::NA) {
-    first->type = second->type;
+    *first = *second;
     return;
   }
 
   if (second->type->id() == Type::NA) {
-    second->type = first->type;
+    *second = *first;
     return;
   }
 }
 
-void ReplaceTemporalTypes(const TimeUnit::type unit, std::vector<ValueDescr>* descrs) {
-  auto* end = descrs->data() + descrs->size();
+void ReplaceTemporalTypes(const TimeUnit::type unit, std::vector<TypeHolder>* types) {
+  auto* end = types->data() + types->size();
 
-  for (auto* it = descrs->data(); it != end; it++) {
+  for (auto* it = types->data(); it != end; it++) {
     switch (it->type->id()) {
       case Type::TIMESTAMP: {
         const auto& ty = checked_cast<const TimestampType&>(*it->type);
-        it->type = timestamp(unit, ty.timezone());
+        *it = timestamp(unit, ty.timezone());
         continue;
       }
       case Type::TIME32:
       case Type::TIME64: {
         if (unit > TimeUnit::MILLI) {
-          it->type = time64(unit);
+          *it = time64(unit);
         } else {
-          it->type = time32(unit);
+          *it = time32(unit);
         }
         continue;
       }
       case Type::DURATION: {
-        it->type = duration(unit);
+        *it = duration(unit);
         continue;
       }
       case Type::DATE32:
       case Type::DATE64: {
-        it->type = timestamp(unit);
+        *it = timestamp(unit);
         continue;
       }
       default:
@@ -135,29 +131,27 @@ void ReplaceTemporalTypes(const TimeUnit::type unit, std::vector<ValueDescr>* de
   }
 }
 
-void ReplaceTypes(const std::shared_ptr<DataType>& type,
-                  std::vector<ValueDescr>* descrs) {
-  ReplaceTypes(type, descrs->data(), descrs->size());
+void ReplaceTypes(const TypeHolder& replacement, std::vector<TypeHolder>* types) {
+  ReplaceTypes(replacement, types->data(), types->size());
 }
 
-void ReplaceTypes(const std::shared_ptr<DataType>& type, ValueDescr* begin,
-                  size_t count) {
+void ReplaceTypes(const TypeHolder& replacement, TypeHolder* begin, size_t count) {
   auto* end = begin + count;
   for (auto* it = begin; it != end; it++) {
-    it->type = type;
+    *it = replacement;
   }
 }
 
-std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
-  return CommonNumeric(descrs.data(), descrs.size());
+TypeHolder CommonNumeric(const std::vector<TypeHolder>& types) {
+  return CommonNumeric(types.data(), types.size());
 }
 
-std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
+TypeHolder CommonNumeric(const TypeHolder* begin, size_t count) {
   DCHECK_GT(count, 0) << "tried to find CommonNumeric type of an empty set";
 
   for (size_t i = 0; i < count; i++) {
-    const auto& descr = *(begin + i);
-    auto id = descr.type->id();
+    const auto& holder = *(begin + i);
+    auto id = holder.id();
     if (!is_floating(id) && !is_integer(id)) {
       // a common numeric type is only possible if all types are numeric
       return nullptr;
@@ -169,20 +163,20 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   }
 
   for (size_t i = 0; i < count; i++) {
-    const auto& descr = *(begin + i);
-    if (descr.type->id() == Type::DOUBLE) return float64();
+    const auto& holder = *(begin + i);
+    if (holder.id() == Type::DOUBLE) return float64();
   }
 
   for (size_t i = 0; i < count; i++) {
-    const auto& descr = *(begin + i);
-    if (descr.type->id() == Type::FLOAT) return float32();
+    const auto& holder = *(begin + i);
+    if (holder.id() == Type::FLOAT) return float32();
   }
 
   int max_width_signed = 0, max_width_unsigned = 0;
 
   for (size_t i = 0; i < count; i++) {
-    const auto& descr = *(begin + i);
-    auto id = descr.type->id();
+    const auto& holder = *(begin + i);
+    auto id = holder.id();
     auto max_width = &(is_signed_integer(id) ? max_width_signed : max_width_unsigned);
     *max_width = std::max(bit_width(id), *max_width);
   }
@@ -206,11 +200,11 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   return int8();
 }
 
-bool CommonTemporalResolution(const ValueDescr* begin, size_t count,
+bool CommonTemporalResolution(const TypeHolder* begin, size_t count,
                               TimeUnit::type* finest_unit) {
   bool is_time_unit = false;
   *finest_unit = TimeUnit::SECOND;
-  const ValueDescr* end = begin + count;
+  const TypeHolder* end = begin + count;
   for (auto it = begin; it != end; it++) {
     auto id = it->type->id();
     switch (id) {
@@ -255,13 +249,13 @@ bool CommonTemporalResolution(const ValueDescr* begin, size_t count,
   return is_time_unit;
 }
 
-std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) {
+TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
   TimeUnit::type finest_unit = TimeUnit::SECOND;
   const std::string* timezone = nullptr;
   bool saw_date32 = false;
   bool saw_date64 = false;
 
-  const ValueDescr* end = begin + count;
+  const TypeHolder* end = begin + count;
   for (auto it = begin; it != end; it++) {
     auto id = it->type->id();
     // a common timestamp is only possible if all types are timestamp like
@@ -276,13 +270,13 @@ std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) 
         continue;
       case Type::TIMESTAMP: {
         const auto& ty = checked_cast<const TimestampType&>(*it->type);
-        if (timezone && *timezone != ty.timezone()) return nullptr;
+        if (timezone && *timezone != ty.timezone()) return TypeHolder(nullptr);
         timezone = &ty.timezone();
         finest_unit = std::max(finest_unit, ty.unit());
         continue;
       }
       default:
-        return nullptr;
+        return TypeHolder(nullptr);
     }
   }
 
@@ -294,13 +288,13 @@ std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) 
   } else if (saw_date32) {
     return date32();
   }
-  return nullptr;
+  return TypeHolder(nullptr);
 }
 
-std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
+TypeHolder CommonBinary(const TypeHolder* begin, size_t count) {
   bool all_utf8 = true, all_offset32 = true, all_fixed_width = true;
 
-  const ValueDescr* end = begin + count;
+  const TypeHolder* end = begin + count;
   for (auto it = begin; it != end; ++it) {
     auto id = it->type->id();
     // a common varbinary type is only possible if all types are binary like
@@ -325,13 +319,13 @@ std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
         all_utf8 = false;
         continue;
       default:
-        return nullptr;
+        return TypeHolder(nullptr);
     }
   }
 
   if (all_fixed_width) {
     // At least for the purposes of comparison, no need to cast.
-    return nullptr;
+    return TypeHolder(nullptr);
   }
 
   if (all_utf8) {
@@ -343,18 +337,17 @@ std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count) {
   return large_binary();
 }
 
-Status CastBinaryDecimalArgs(DecimalPromotion promotion,
-                             std::vector<ValueDescr>* descrs) {
-  auto& left_type = (*descrs)[0].type;
-  auto& right_type = (*descrs)[1].type;
-  DCHECK(is_decimal(left_type->id()) || is_decimal(right_type->id()));
+Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>* types) {
+  const DataType& left_type = *(*types)[0];
+  const DataType& right_type = *(*types)[1];
+  DCHECK(is_decimal(left_type.id()) || is_decimal(right_type.id()));
 
   // decimal + float = float
-  if (is_floating(left_type->id())) {
-    right_type = left_type;
+  if (is_floating(left_type.id())) {
+    (*types)[1] = (*types)[0];
     return Status::OK();
-  } else if (is_floating(right_type->id())) {
-    left_type = right_type;
+  } else if (is_floating(right_type.id())) {
+    (*types)[0] = (*types)[1];
     return Status::OK();
   }
 
@@ -362,22 +355,22 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
   int32_t p1, s1, p2, s2;
 
   // decimal + integer = decimal
-  if (is_decimal(left_type->id())) {
-    auto decimal = checked_cast<const DecimalType*>(left_type.get());
-    p1 = decimal->precision();
-    s1 = decimal->scale();
+  if (is_decimal(left_type.id())) {
+    const auto& decimal = checked_cast<const DecimalType&>(left_type);
+    p1 = decimal.precision();
+    s1 = decimal.scale();
   } else {
-    DCHECK(is_integer(left_type->id()));
-    ARROW_ASSIGN_OR_RAISE(p1, MaxDecimalDigitsForInteger(left_type->id()));
+    DCHECK(is_integer(left_type.id()));
+    ARROW_ASSIGN_OR_RAISE(p1, MaxDecimalDigitsForInteger(left_type.id()));
     s1 = 0;
   }
-  if (is_decimal(right_type->id())) {
-    auto decimal = checked_cast<const DecimalType*>(right_type.get());
-    p2 = decimal->precision();
-    s2 = decimal->scale();
+  if (is_decimal(right_type.id())) {
+    const auto& decimal = checked_cast<const DecimalType&>(right_type);
+    p2 = decimal.precision();
+    s2 = decimal.scale();
   } else {
-    DCHECK(is_integer(right_type->id()));
-    ARROW_ASSIGN_OR_RAISE(p2, MaxDecimalDigitsForInteger(right_type->id()));
+    DCHECK(is_integer(right_type.id()));
+    ARROW_ASSIGN_OR_RAISE(p2, MaxDecimalDigitsForInteger(right_type.id()));
     s2 = 0;
   }
   if (s1 < 0 || s2 < 0) {
@@ -386,7 +379,7 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
 
   // decimal128 + decimal256 = decimal256
   Type::type casted_type_id = Type::DECIMAL128;
-  if (left_type->id() == Type::DECIMAL256 || right_type->id() == Type::DECIMAL256) {
+  if (left_type.id() == Type::DECIMAL256 || right_type.id() == Type::DECIMAL256) {
     casted_type_id = Type::DECIMAL256;
   }
 
@@ -414,15 +407,19 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion,
       DCHECK(false) << "Invalid DecimalPromotion value " << static_cast<int>(promotion);
   }
   ARROW_ASSIGN_OR_RAISE(
-      left_type, DecimalType::Make(casted_type_id, p1 + left_scaleup, s1 + left_scaleup));
-  ARROW_ASSIGN_OR_RAISE(right_type, DecimalType::Make(casted_type_id, p2 + right_scaleup,
-                                                      s2 + right_scaleup));
+      auto casted_left,
+      DecimalType::Make(casted_type_id, p1 + left_scaleup, s1 + left_scaleup));
+  ARROW_ASSIGN_OR_RAISE(
+      auto casted_right,
+      DecimalType::Make(casted_type_id, p2 + right_scaleup, s2 + right_scaleup));
+  (*types)[0] = casted_left;
+  (*types)[1] = casted_right;
   return Status::OK();
 }
 
-Status CastDecimalArgs(ValueDescr* begin, size_t count) {
+Status CastDecimalArgs(TypeHolder* begin, size_t count) {
   Type::type casted_type_id = Type::DECIMAL128;
-  auto* end = begin + count;
+  TypeHolder* end = begin + count;
 
   int32_t max_scale = 0;
   bool any_floating = false;
@@ -473,17 +470,17 @@ Status CastDecimalArgs(ValueDescr* begin, size_t count) {
     casted_type_id = Type::DECIMAL256;
   }
 
+  ARROW_ASSIGN_OR_RAISE(auto casted_ty,
+                        DecimalType::Make(casted_type_id, common_precision, max_scale));
   for (auto* it = begin; it != end; ++it) {
-    ARROW_ASSIGN_OR_RAISE(it->type,
-                          DecimalType::Make(casted_type_id, common_precision, max_scale));
+    *it = casted_ty;
   }
-
   return Status::OK();
 }
 
-bool HasDecimal(const std::vector<ValueDescr>& descrs) {
-  for (const auto& descr : descrs) {
-    if (is_decimal(descr.type->id())) {
+bool HasDecimal(const std::vector<TypeHolder>& types) {
+  for (const auto& th : types) {
+    if (is_decimal(th.id())) {
       return true;
     }
   }

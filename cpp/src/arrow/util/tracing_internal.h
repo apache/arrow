@@ -164,17 +164,8 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 #define END_SPAN(target_span) \
   ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())->End()
 
-#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture) \
-  target_future = target_future.Then(                                             \
-      [target_capture]() {                                                        \
-        MARK_SPAN(target_span, Status::OK());                                     \
-        END_SPAN(target_span);                                                    \
-      },                                                                          \
-      [target_capture](const Status& st) {                                        \
-        MARK_SPAN(target_span, st);                                               \
-        END_SPAN(target_span);                                                    \
-        return st;                                                                \
-      })
+#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future) \
+  target_future.SetSpan(&target_span)
 
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)                                \
   generator = ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator( \
@@ -207,7 +198,7 @@ class SpanImpl {};
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
-#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
+#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR(generator)
 #define WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(generator, name)

@@ -28,7 +28,13 @@ Java modules are regularly built and tested on macOS and Linux distributions.
 Java Compatibility
 ------------------
 
-Java modules are currently compatible with JDK 8, 9, 10, 11, 17, and 18, but only JDK 11 is tested in CI.
+Java modules are currently compatible with JDK 8, 9, 10, 11, 17, and 18.
+Currently, JDK 8, 11, 17, and 18 are tested in CI.
+
+When using Java 9 or later, some JDK internals must be exposed by
+adding ``--add-opens=java.base/java.nio=ALL-UNNAMED``. Otherwise,
+you may see errors like ``module java.base does not "opens
+java.nio" to unnamed module``.
 
 Installing from Maven
 ---------------------
@@ -101,12 +107,7 @@ transitive dependencies of Flight.
         </build>
     </project>
 
-When using Java 17 or later, some JDK internals must be exposed by
-adding ``--add-opens=java.base/java.nio=ALL-UNNAMED``. Otherwise,
-you may see errors like ``module java.base does not "opens
-java.nio" to unnamed module``.
-
-For example, when running unit tests through Maven:
+The ``--add-opens`` flag can be added when running unit tests through Maven:
 
 .. code-block::
 
@@ -123,7 +124,7 @@ For example, when running unit tests through Maven:
         </plugins>
     </build>
 
-Environment variables: To execute your Arrow Java main code.
+Or they can be added via environment variable, for example when executing your code:
 
 .. code-block::
 

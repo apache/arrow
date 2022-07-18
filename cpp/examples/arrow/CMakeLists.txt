@@ -17,6 +17,8 @@
 
 add_arrow_example(row_wise_conversion_example)
 
+add_arrow_example(rapidjson_row_converter)
+
 if(ARROW_COMPUTE)
   add_arrow_example(compute_register_example)
 endif()

@@ -41,12 +41,14 @@ but not limited to strings only)
 }
 
 \section{Usage}{
-\preformatted{a <- Array$create(x)
+
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{a <- Array$create(x)
 length(a)
 
 print(a)
 a == a
-}
+}\if{html}{\out{</div>}}
 }
 
 \section{Methods}{

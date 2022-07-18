@@ -210,21 +210,20 @@ std::shared_ptr<ScalarAggregateFunction> AddApproximateMedianAggKernels(
       "approximate_median", Arity::Unary(), approximate_median_doc,
       &default_scalar_aggregate_options);
 
-  auto sig =
-      KernelSignature::Make({InputType(ValueDescr::ANY)}, ValueDescr::Scalar(float64()));
+  auto sig = KernelSignature::Make({InputType::Any()}, float64());
 
   auto init = [tdigest_func](
                   KernelContext* ctx,
                   const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
-    std::vector<ValueDescr> inputs = args.inputs;
-    ARROW_ASSIGN_OR_RAISE(auto kernel, tdigest_func->DispatchBest(&inputs));
+    std::vector<TypeHolder> types = args.inputs;
+    ARROW_ASSIGN_OR_RAISE(auto kernel, tdigest_func->DispatchBest(&types));
     const auto& scalar_options =
         checked_cast<const ScalarAggregateOptions&>(*args.options);
     TDigestOptions options;
     // Default q = 0.5
     options.min_count = scalar_options.min_count;
     options.skip_nulls = scalar_options.skip_nulls;
-    KernelInitArgs new_args{kernel, inputs, &options};
+    KernelInitArgs new_args{kernel, types, &options};
     return kernel->init(ctx, new_args);
   };
 

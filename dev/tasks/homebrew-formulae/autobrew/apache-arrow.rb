@@ -31,6 +31,7 @@ class ApacheArrow < Formula
 
   # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
   depends_on "boost" => :build
+  depends_on "brotli"
   depends_on "cmake" => :build
   depends_on "aws-sdk-cpp"
   depends_on "lz4"
@@ -57,6 +58,8 @@ class ApacheArrow < Formula
       -DARROW_S3=ON
       -DARROW_USE_GLOG=OFF
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
+      -DARROW_WITH_BROTLI=ON
+      -DARROW_WITH_BZ2=ON
       -DARROW_WITH_LZ4=ON
       -DARROW_WITH_SNAPPY=ON
       -DARROW_WITH_ZLIB=ON

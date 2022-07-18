@@ -31,20 +31,19 @@ namespace internal {
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs) {
-  if (aggregates.size() != in_descrs.size()) {
+    const std::vector<TypeHolder>& in_types) {
+  if (aggregates.size() != in_types.size()) {
     return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
-                           in_descrs.size(), " arguments were provided.");
+                           in_types.size(), " arguments were provided.");
   }
 
-  std::vector<const HashAggregateKernel*> kernels(in_descrs.size());
+  std::vector<const HashAggregateKernel*> kernels(in_types.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto function,
                           ctx->func_registry()->GetFunction(aggregates[i].function));
-    ARROW_ASSIGN_OR_RAISE(
-        const Kernel* kernel,
-        function->DispatchExact({in_descrs[i], ValueDescr::Array(uint32())}));
+    ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
+                          function->DispatchExact({in_types[i], uint32()}));
     kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
   }
   return kernels;
@@ -52,7 +51,7 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
+    const std::vector<Aggregate>& aggregates, const std::vector<TypeHolder>& in_types) {
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
@@ -69,14 +68,13 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     }
 
     KernelContext kernel_ctx{ctx};
-    ARROW_ASSIGN_OR_RAISE(
-        states[i],
-        kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
-                                                     {
-                                                         in_descrs[i],
-                                                         ValueDescr::Array(uint32()),
-                                                     },
-                                                     options}));
+    ARROW_ASSIGN_OR_RAISE(states[i],
+                          kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
+                                                                       {
+                                                                           in_types[i],
+                                                                           uint32(),
+                                                                       },
+                                                                       options}));
   }
 
   return std::move(states);
@@ -86,19 +84,16 @@ Result<FieldVector> ResolveKernels(
     const std::vector<Aggregate>& aggregates,
     const std::vector<const HashAggregateKernel*>& kernels,
     const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<ValueDescr>& descrs) {
-  FieldVector fields(descrs.size());
+    const std::vector<TypeHolder>& types) {
+  FieldVector fields(types.size());
 
   for (size_t i = 0; i < kernels.size(); ++i) {
     KernelContext kernel_ctx{ctx};
     kernel_ctx.SetState(states[i].get());
 
-    ARROW_ASSIGN_OR_RAISE(auto descr, kernels[i]->signature->out_type().Resolve(
-                                          &kernel_ctx, {
-                                                           descrs[i],
-                                                           ValueDescr::Array(uint32()),
-                                                       }));
-    fields[i] = field(aggregates[i].function, std::move(descr.type));
+    ARROW_ASSIGN_OR_RAISE(auto type, kernels[i]->signature->out_type().Resolve(
+                                         &kernel_ctx, {types[i], uint32()}));
+    fields[i] = field(aggregates[i].function, type.GetSharedPtr());
   }
   return fields;
 }
@@ -122,18 +117,17 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     ARROW_ASSIGN_OR_RAISE(ExecBatch args_batch, ExecBatch::Make(arguments));
 
     // Construct and initialize HashAggregateKernels
-    auto argument_descrs = args_batch.GetDescriptors();
+    auto argument_types = args_batch.GetTypes();
 
-    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_descrs));
+    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_types));
 
     states.resize(task_group->parallelism());
     for (auto& state : states) {
-      ARROW_ASSIGN_OR_RAISE(state,
-                            InitKernels(kernels, ctx, aggregates, argument_descrs));
+      ARROW_ASSIGN_OR_RAISE(state, InitKernels(kernels, ctx, aggregates, argument_types));
     }
 
     ARROW_ASSIGN_OR_RAISE(
-        out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_descrs));
+        out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_types));
 
     ARROW_ASSIGN_OR_RAISE(
         argument_batch_iterator,
@@ -142,19 +136,19 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
   // Construct Groupers
   ARROW_ASSIGN_OR_RAISE(ExecBatch keys_batch, ExecBatch::Make(keys));
-  auto key_descrs = keys_batch.GetDescriptors();
+  auto key_types = keys_batch.GetTypes();
 
   std::vector<std::unique_ptr<Grouper>> groupers(task_group->parallelism());
   for (auto& grouper : groupers) {
-    ARROW_ASSIGN_OR_RAISE(grouper, Grouper::Make(key_descrs, ctx));
+    ARROW_ASSIGN_OR_RAISE(grouper, Grouper::Make(key_types, ctx));
   }
 
   std::mutex mutex;
   std::unordered_map<std::thread::id, size_t> thread_ids;
 
   int i = 0;
-  for (ValueDescr& key_descr : key_descrs) {
-    out_fields.push_back(field("key_" + std::to_string(i++), std::move(key_descr.type)));
+  for (const TypeHolder& key_type : key_types) {
+    out_fields.push_back(field("key_" + std::to_string(i++), key_type.GetSharedPtr()));
   }
 
   ARROW_ASSIGN_OR_RAISE(

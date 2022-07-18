@@ -140,13 +140,13 @@ struct UnsignedIntType<8> {
 struct InitStateVisitor {
   KernelContext* ctx;
   SetLookupOptions options;
-  const std::shared_ptr<DataType>& arg_type;
+  TypeHolder arg_type;
   std::unique_ptr<KernelState> result;
 
   InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args)
       : ctx(ctx),
         options(*checked_cast<const SetLookupOptions*>(args.options)),
-        arg_type(args.inputs[0].type) {}
+        arg_type(args.inputs[0]) {}
 
   template <typename Type>
   Status Init() {
@@ -183,7 +183,7 @@ struct InitStateVisitor {
   }
 
   Result<std::unique_ptr<KernelState>> GetResult() {
-    if (arg_type->id() == Type::TIMESTAMP &&
+    if (arg_type.id() == Type::TIMESTAMP &&
         options.value_set.type()->id() == Type::TIMESTAMP) {
       // Other types will fail when casting, so no separate check is needed
       const auto& ty1 = checked_cast<const TimestampType&>(*arg_type);
@@ -193,7 +193,7 @@ struct InitStateVisitor {
             "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
             ty1, " and ", ty2);
       }
-    } else if ((arg_type->id() == Type::STRING || arg_type->id() == Type::LARGE_STRING) &&
+    } else if ((arg_type.id() == Type::STRING || arg_type.id() == Type::LARGE_STRING) &&
                !is_base_binary_like(options.value_set.type()->id())) {
       // This is a bit of a hack, but don't implicitly cast from a non-binary
       // type to string, since most types support casting to string and that
@@ -203,10 +203,11 @@ struct InitStateVisitor {
     }
     if (!options.value_set.is_arraylike()) {
       return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
-    } else if (!options.value_set.type()->Equals(arg_type)) {
+    } else if (!options.value_set.type()->Equals(*arg_type)) {
       ARROW_ASSIGN_OR_RAISE(
           options.value_set,
-          Cast(options.value_set, CastOptions::Safe(arg_type), ctx->exec_context()));
+          Cast(options.value_set, CastOptions::Safe(arg_type.GetSharedPtr()),
+               ctx->exec_context()));
     }
 
     RETURN_NOT_OK(VisitTypeInline(*arg_type, this));
@@ -432,7 +433,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL128, Type::DECIMAL256,
                                          Type::FIXED_SIZE_BINARY};
   for (auto ty : other_types) {
-    kernel.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
+    kernel.signature = KernelSignature::Make({ty}, out_ty);
     DCHECK_OK(func->AddKernel(kernel));
   }
 }
@@ -505,7 +506,7 @@ class IndexInMetaBinary : public MetaFunction {
 struct SetLookupFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const override {
     EnsureDictionaryDecoded(values);
     return DispatchExact(*values);
   }
@@ -518,9 +519,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
-    isin_base.exec = TrivialScalarUnaryAsArraysExec(ExecIsIn,
-                                                    /*use_array_span=*/true,
-                                                    NullHandling::OUTPUT_NOT_NULL);
+    isin_base.exec = ExecIsIn;
     isin_base.null_handling = NullHandling::OUTPUT_NOT_NULL;
     auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), is_in_doc);
 
@@ -537,9 +536,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   {
     ScalarKernel index_in_base;
     index_in_base.init = InitSetLookup;
-    index_in_base.exec = TrivialScalarUnaryAsArraysExec(
-        ExecIndexIn,
-        /*use_array_span=*/true, NullHandling::COMPUTED_PREALLOCATE);
+    index_in_base.exec = ExecIndexIn;
     index_in_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     auto index_in =
         std::make_shared<SetLookupFunction>("index_in", Arity::Unary(), index_in_doc);

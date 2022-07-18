@@ -472,8 +472,7 @@ Toolchain Compatibility (Linux)
 
 The Python wheels for Linux are built using the
 `PyPA manylinux images <https://quay.io/organization/pypa>`_ which use
-the CentOS `devtoolset-8` or `devtoolset-9` depending on which manylinux
-wheel version (2010 or 2014) is being used. In addition to the other notes
+the CentOS `devtoolset-9`. In addition to the other notes
 above, if you are compiling C++ using these shared libraries, you will need
 to make sure you use a compatible toolchain as well or you might see a
 segfault during runtime.

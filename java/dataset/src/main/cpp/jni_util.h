@@ -30,6 +30,8 @@ namespace arrow {
 namespace dataset {
 namespace jni {
 
+JNIEnv* GetEnvOrAttach(JavaVM* vm);
+
 Status CheckException(JNIEnv* env);
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name);
@@ -90,6 +92,22 @@ void ReleaseNativeRef(jlong ref) {
   std::shared_ptr<T>* retrieved_ptr = reinterpret_cast<std::shared_ptr<T>*>(ref);
   delete retrieved_ptr;
 }
+
+// Indicate an exception thrown during calling Java method via JNI.
+// Not thread safe.
+class JavaErrorDetail : public StatusDetail {
+ public:
+  JavaErrorDetail(JavaVM* vm, jthrowable cause);
+  virtual ~JavaErrorDetail();
+
+  const char* type_id() const override;
+  std::string ToString() const override;
+  jthrowable GetCause() const;
+
+ private:
+  JavaVM* vm_;
+  jthrowable cause_;
+};
 
 /// Listener to act on reservations/unreservations from ReservationListenableMemoryPool.
 ///

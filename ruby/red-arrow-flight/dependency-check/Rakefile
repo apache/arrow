@@ -38,8 +38,9 @@ namespace :dependency do
                                     ArrowFlight::Version::MAJOR,
                                     ArrowFlight::Version::MINOR,
                                     ArrowFlight::Version::MICRO)
-      unless NativePackageInstaller.install(:debian => "libarrow-flight-glib-dev",
-                                            :redhat => "arrow-flight-glib-devel")
+      unless NativePackageInstaller.install(debian: "libarrow-flight-glib-dev",
+                                            fedora: "libarrow-flight-glib-devel",
+                                            redhat: "arrow-flight-glib-devel")
         exit(false)
       end
     end

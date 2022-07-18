@@ -75,7 +75,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
                            const std::vector<Aggregate>& aggregates) {
   ARROW_ASSIGN_OR_RAISE(auto key_batch, ExecBatch::Make(std::move(keys)));
 
-  ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_batch.GetDescriptors()));
+  ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_batch.GetTypes()));
 
   ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
@@ -305,19 +305,24 @@ TEST(Grouper, SupportedKeys) {
 }
 
 struct TestGrouper {
-  explicit TestGrouper(std::vector<ValueDescr> descrs) : descrs_(std::move(descrs)) {
-    grouper_ = Grouper::Make(descrs_).ValueOrDie();
+  explicit TestGrouper(std::vector<TypeHolder> types, std::vector<ArgShape> shapes = {})
+      : types_(std::move(types)), shapes_(std::move(shapes)) {
+    grouper_ = Grouper::Make(types_).ValueOrDie();
 
     FieldVector fields;
-    for (const auto& descr : descrs_) {
-      fields.push_back(field("", descr.type));
+    for (const auto& type : types_) {
+      fields.push_back(field("", type.GetSharedPtr()));
     }
     key_schema_ = schema(std::move(fields));
   }
 
   void ExpectConsume(const std::string& key_json, const std::string& expected) {
-    ExpectConsume(ExecBatchFromJSON(descrs_, key_json),
-                  ArrayFromJSON(uint32(), expected));
+    auto expected_arr = ArrayFromJSON(uint32(), expected);
+    if (shapes_.size() > 0) {
+      ExpectConsume(ExecBatchFromJSON(types_, shapes_, key_json), expected_arr);
+    } else {
+      ExpectConsume(ExecBatchFromJSON(types_, key_json), expected_arr);
+    }
   }
 
   void ExpectConsume(const std::vector<Datum>& key_values, Datum expected) {
@@ -336,7 +341,11 @@ struct TestGrouper {
   }
 
   void ExpectUniques(const std::string& uniques_json) {
-    ExpectUniques(ExecBatchFromJSON(descrs_, uniques_json));
+    if (shapes_.size() > 0) {
+      ExpectUniques(ExecBatchFromJSON(types_, shapes_, uniques_json));
+    } else {
+      ExpectUniques(ExecBatchFromJSON(types_, uniques_json));
+    }
   }
 
   void AssertEquivalentIds(const Datum& expected, const Datum& actual) {
@@ -422,7 +431,8 @@ struct TestGrouper {
     }
   }
 
-  std::vector<ValueDescr> descrs_;
+  std::vector<TypeHolder> types_;
+  std::vector<ArgShape> shapes_;
   std::shared_ptr<Schema> key_schema_;
   std::unique_ptr<Grouper> grouper_;
   ExecBatch uniques_ = ExecBatch({}, -1);
@@ -700,11 +710,11 @@ TEST(Grouper, ScalarValues) {
   // large_utf8 forces GrouperImpl over GrouperFastImpl
   for (const auto& str_type : {utf8(), large_utf8()}) {
     {
-      TestGrouper g({ValueDescr::Scalar(boolean()), ValueDescr::Scalar(int32()),
-                     ValueDescr::Scalar(decimal128(3, 2)),
-                     ValueDescr::Scalar(decimal256(3, 2)),
-                     ValueDescr::Scalar(fixed_size_binary(2)),
-                     ValueDescr::Scalar(str_type), ValueDescr::Array(int32())});
+      TestGrouper g(
+          {boolean(), int32(), decimal128(3, 2), decimal256(3, 2), fixed_size_binary(2),
+           str_type, int32()},
+          {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY});
       g.ExpectConsume(
           R"([
 [true, 1, "1.00", "2.00", "ab", "foo", 2],
@@ -715,7 +725,7 @@ TEST(Grouper, ScalarValues) {
     }
     {
       auto dict_type = dictionary(int32(), utf8());
-      TestGrouper g({ValueDescr::Scalar(dict_type), ValueDescr::Scalar(str_type)});
+      TestGrouper g({dict_type, str_type}, {ArgShape::SCALAR, ArgShape::SCALAR});
       const auto dict = R"(["foo", null])";
       g.ExpectConsume(
           {DictScalarFromJSON(dict_type, "0", dict), ScalarFromJSON(str_type, R"("")")},
@@ -846,9 +856,9 @@ TEST(GroupBy, CountOnly) {
 TEST(GroupBy, CountScalar) {
   BatchesWithSchema input;
   input.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
                         "[[1, 1], [1, 1], [1, 2], [1, 3]]"),
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
                         "[[null, 1], [null, 1], [null, 2], [null, 3]]"),
       ExecBatchFromJSON({int32(), int64()}, "[[2, 1], [3, 2], [4, 3]]"),
   };
@@ -1061,9 +1071,10 @@ TEST(GroupBy, MeanOnly) {
 TEST(GroupBy, SumMeanProductScalar) {
   BatchesWithSchema input;
   input.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+
                         "[[1, 1], [1, 1], [1, 2], [1, 3]]"),
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
                         "[[null, 1], [null, 1], [null, 2], [null, 3]]"),
       ExecBatchFromJSON({int32(), int64()}, "[[2, 1], [3, 2], [4, 3]]"),
   };
@@ -1450,11 +1461,12 @@ TEST(GroupBy, ApproximateMedian) {
 TEST(GroupBy, StddevVarianceTDigestScalar) {
   BatchesWithSchema input;
   input.batches = {
+      ExecBatchFromJSON({int32(), float32(), int64()},
+                        {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY},
+                        "[[1, 1.0, 1], [1, 1.0, 1], [1, 1.0, 2], [1, 1.0, 3]]"),
       ExecBatchFromJSON(
-          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
-          "[[1, 1.0, 1], [1, 1.0, 1], [1, 1.0, 2], [1, 1.0, 3]]"),
-      ExecBatchFromJSON(
-          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          {int32(), float32(), int64()},
+          {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY},
           "[[null, null, 1], [null, null, 1], [null, null, 2], [null, null, 3]]"),
       ExecBatchFromJSON({int32(), float32(), int64()},
                         "[[2, 2.0, 1], [3, 3.0, 2], [4, 4.0, 3]]"),
@@ -1499,14 +1511,16 @@ TEST(GroupBy, VarianceOptions) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON(
-          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
+          {int32(), float32(), int64()},
+          {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY},
           "[[1, 1.0, 1], [1, 1.0, 1], [1, 1.0, 2], [1, 1.0, 2], [1, 1.0, 3]]"),
-      ExecBatchFromJSON(
-          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
-          "[[1, 1.0, 4], [1, 1.0, 4]]"),
-      ExecBatchFromJSON(
-          {ValueDescr::Scalar(int32()), ValueDescr::Scalar(float32()), int64()},
-          "[[null, null, 1]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()},
+                        {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY},
+                        "[[1, 1.0, 4], [1, 1.0, 4]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()},
+                        {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY},
+
+                        "[[null, null, 1]]"),
       ExecBatchFromJSON({int32(), float32(), int64()}, "[[2, 2.0, 1], [3, 3.0, 2]]"),
       ExecBatchFromJSON({int32(), float32(), int64()}, "[[4, 4.0, 2], [2, 2.0, 4]]"),
       ExecBatchFromJSON({int32(), float32(), int64()}, "[[null, null, 4]]"),
@@ -1980,9 +1994,10 @@ TEST(GroupBy, MinOrMax) {
 TEST(GroupBy, MinMaxScalar) {
   BatchesWithSchema input;
   input.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+
                         "[[-1, 1], [-1, 1], [-1, 2], [-1, 3]]"),
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
                         "[[null, 1], [null, 1], [null, 2], [null, 3]]"),
       ExecBatchFromJSON({int32(), int64()}, "[[2, 1], [3, 2], [4, 3]]"),
   };
@@ -2102,9 +2117,10 @@ TEST(GroupBy, AnyAndAll) {
 TEST(GroupBy, AnyAllScalar) {
   BatchesWithSchema input;
   input.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(boolean()), int64()},
+      ExecBatchFromJSON({boolean(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+
                         "[[true, 1], [true, 1], [true, 2], [true, 3]]"),
-      ExecBatchFromJSON({ValueDescr::Scalar(boolean()), int64()},
+      ExecBatchFromJSON({boolean(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
                         "[[null, 1], [null, 1], [null, 2], [null, 3]]"),
       ExecBatchFromJSON({boolean(), int64()}, "[[true, 1], [false, 2], [null, 3]]"),
   };
@@ -2730,11 +2746,13 @@ TEST(GroupBy, OneBinaryTypes) {
 
 TEST(GroupBy, OneScalar) {
   BatchesWithSchema input;
-  input.batches = {ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
-                                     R"([[-1, 1], [-1, 1], [-1, 1], [-1, 1]])"),
-                   ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
-                                     R"([[null, 1], [null, 1], [null, 2], [null, 3]])"),
-                   ExecBatchFromJSON({int32(), int64()}, R"([[22, 1], [3, 2], [4, 3]])")};
+  input.batches = {
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+
+                        R"([[-1, 1], [-1, 1], [-1, 1], [-1, 1]])"),
+      ExecBatchFromJSON({int32(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+                        R"([[null, 1], [null, 1], [null, 2], [null, 3]])"),
+      ExecBatchFromJSON({int32(), int64()}, R"([[22, 1], [3, 2], [4, 3]])")};
   input.schema = schema({field("argument", int32()), field("key", int64())});
 
   for (bool use_threads : {true, false}) {

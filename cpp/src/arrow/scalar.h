@@ -53,8 +53,6 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
                              public util::EqualityComparable<Scalar> {
   virtual ~Scalar() = default;
 
-  explicit Scalar(std::shared_ptr<DataType> type) : type(std::move(type)) {}
-
   /// \brief The type of the scalar value
   std::shared_ptr<DataType> type;
 
@@ -108,9 +106,8 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   Status Accept(ScalarVisitor* visitor) const;
 
   /// \brief EXPERIMENTAL Enable obtaining shared_ptr<Scalar> from a const
-  /// Scalar& context. Implementation depends on enable_shared_from_this, but
-  /// we may change this in the future
-  std::shared_ptr<Scalar> Copy() const {
+  /// Scalar& context.
+  std::shared_ptr<Scalar> GetSharedPtr() const {
     return const_cast<Scalar*>(this)->shared_from_this();
   }
 
@@ -136,6 +133,9 @@ struct ARROW_EXPORT NullScalar : public Scalar {
 namespace internal {
 
 struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
+  explicit PrimitiveScalarBase(std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), false) {}
+
   using Scalar::Scalar;
   /// \brief Get a mutable pointer to the value of this scalar. May be null.
   virtual void* mutable_data() = 0;
@@ -311,14 +311,13 @@ struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
 struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
   using TypeClass = FixedSizeBinaryType;
 
-  FixedSizeBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type);
+  FixedSizeBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type,
+                        bool is_valid = true);
 
-  explicit FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value);
+  explicit FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
+                                 bool is_valid = true);
 
-  explicit FixedSizeBinaryScalar(std::string s);
-
-  explicit FixedSizeBinaryScalar(std::shared_ptr<DataType> type)
-      : BinaryScalar(std::move(type)) {}
+  explicit FixedSizeBinaryScalar(std::string s, bool is_valid = true);
 };
 
 template <typename T>
@@ -436,7 +435,8 @@ struct ARROW_EXPORT BaseListScalar : public Scalar {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Array>;
 
-  BaseListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type);
+  BaseListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
+                 bool is_valid = true);
 
   std::shared_ptr<Array> value;
 };
@@ -445,30 +445,30 @@ struct ARROW_EXPORT ListScalar : public BaseListScalar {
   using TypeClass = ListType;
   using BaseListScalar::BaseListScalar;
 
-  explicit ListScalar(std::shared_ptr<Array> value);
+  explicit ListScalar(std::shared_ptr<Array> value, bool is_valid = true);
 };
 
 struct ARROW_EXPORT LargeListScalar : public BaseListScalar {
   using TypeClass = LargeListType;
   using BaseListScalar::BaseListScalar;
 
-  explicit LargeListScalar(std::shared_ptr<Array> value);
+  explicit LargeListScalar(std::shared_ptr<Array> value, bool is_valid = true);
 };
 
 struct ARROW_EXPORT MapScalar : public BaseListScalar {
   using TypeClass = MapType;
   using BaseListScalar::BaseListScalar;
 
-  explicit MapScalar(std::shared_ptr<Array> value);
+  explicit MapScalar(std::shared_ptr<Array> value, bool is_valid = true);
 };
 
 struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
   using TypeClass = FixedSizeListType;
-  using BaseListScalar::BaseListScalar;
 
-  FixedSizeListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type);
+  FixedSizeListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
+                      bool is_valid = true);
 
-  explicit FixedSizeListScalar(std::shared_ptr<Array> value);
+  explicit FixedSizeListScalar(std::shared_ptr<Array> value, bool is_valid = true);
 };
 
 struct ARROW_EXPORT StructScalar : public Scalar {
@@ -479,37 +479,60 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 
   Result<std::shared_ptr<Scalar>> field(FieldRef ref) const;
 
-  StructScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)) {}
+  StructScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
+      : Scalar(std::move(type), is_valid), value(std::move(value)) {}
 
   static Result<std::shared_ptr<StructScalar>> Make(ValueType value,
                                                     std::vector<std::string> field_names);
-
-  explicit StructScalar(std::shared_ptr<DataType> type) : Scalar(std::move(type)) {}
 };
 
 struct ARROW_EXPORT UnionScalar : public Scalar {
-  using Scalar::Scalar;
-  using ValueType = std::shared_ptr<Scalar>;
-
-  ValueType value;
   int8_t type_code;
 
-  UnionScalar(int8_t type_code, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), false), type_code(type_code) {}
+  virtual const std::shared_ptr<Scalar>& child_value() const = 0;
 
-  UnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)), type_code(type_code) {}
+ protected:
+  UnionScalar(std::shared_ptr<DataType> type, int8_t type_code, bool is_valid)
+      : Scalar(std::move(type), is_valid), type_code(type_code) {}
 };
 
 struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
-  using UnionScalar::UnionScalar;
   using TypeClass = SparseUnionType;
+
+  // Even though only one of the union values is relevant for this scalar, we
+  // nonetheless construct a vector of scalars, one per union value, to have
+  // enough data to reconstruct a valid ArraySpan of length 1 from this scalar
+  using ValueType = std::vector<std::shared_ptr<Scalar>>;
+  ValueType value;
+
+  // The value index corresponding to the active type code
+  int child_id;
+
+  SparseUnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type);
+
+  const std::shared_ptr<Scalar>& child_value() const override {
+    return this->value[this->child_id];
+  }
+
+  /// \brief Construct a SparseUnionScalar from a single value, versus having
+  /// to construct a vector of scalars
+  static std::shared_ptr<Scalar> FromValue(std::shared_ptr<Scalar> value, int field_index,
+                                           std::shared_ptr<DataType> type);
 };
 
 struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
-  using UnionScalar::UnionScalar;
   using TypeClass = DenseUnionType;
+
+  // For DenseUnionScalar, we can make a valid ArraySpan of length 1 from this
+  // scalar
+  using ValueType = std::shared_ptr<Scalar>;
+  ValueType value;
+
+  const std::shared_ptr<Scalar>& child_value() const override { return this->value; }
+
+  DenseUnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
+      : UnionScalar(std::move(type), type_code, value->is_valid),
+        value(std::move(value)) {}
 };
 
 /// \brief A Scalar value for DictionaryType
@@ -549,17 +572,18 @@ struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
 /// The value is the underlying storage scalar.
 /// `is_valid` must only be true if `value` is non-null and `value->is_valid` is true
 struct ARROW_EXPORT ExtensionScalar : public Scalar {
-  using Scalar::Scalar;
   using TypeClass = ExtensionType;
   using ValueType = std::shared_ptr<Scalar>;
 
-  ExtensionScalar(std::shared_ptr<Scalar> storage, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(storage)) {}
+  ExtensionScalar(std::shared_ptr<Scalar> storage, std::shared_ptr<DataType> type,
+                  bool is_valid = true)
+      : Scalar(std::move(type), is_valid), value(std::move(storage)) {}
 
   template <typename Storage,
             typename = enable_if_t<std::is_base_of<Scalar, Storage>::value>>
-  ExtensionScalar(Storage&& storage, std::shared_ptr<DataType> type)
-      : ExtensionScalar(std::make_shared<Storage>(std::move(storage)), std::move(type)) {}
+  ExtensionScalar(Storage&& storage, std::shared_ptr<DataType> type, bool is_valid = true)
+      : ExtensionScalar(std::make_shared<Storage>(std::move(storage)), std::move(type),
+                        is_valid) {}
 
   std::shared_ptr<Scalar> value;
 };

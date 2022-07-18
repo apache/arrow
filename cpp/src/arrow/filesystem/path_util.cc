@@ -19,6 +19,7 @@
 #include <regex>
 
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -137,6 +138,13 @@ util::string_view RemoveLeadingSlash(util::string_view key) {
     key.remove_prefix(1);
   }
   return key;
+}
+
+Status AssertNoTrailingSlash(util::string_view key) {
+  if (key.back() == '/') {
+    return NotAFile(key);
+  }
+  return Status::OK();
 }
 
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
