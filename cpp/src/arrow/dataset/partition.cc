@@ -161,10 +161,10 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
     return PartitionedBatches{{batch}, {compute::literal(true)}};
   }
 
-  // assemble an ExecBatch of the key columns
-  compute::ExecBatch key_batch({}, batch->num_rows());
+  // assemble an ExecSpan of the key columns
+  compute::ExecSpan key_batch({}, batch->num_rows());
   for (int i : key_indices) {
-    key_batch.values.emplace_back(batch->column_data(i));
+    key_batch.values.emplace_back(ArraySpan(*batch->column_data(i)));
   }
 
   ARROW_ASSIGN_OR_RAISE(auto grouper, compute::Grouper::Make(key_batch.GetTypes()));

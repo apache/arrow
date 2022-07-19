@@ -25,6 +25,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -351,14 +352,14 @@ struct ARROW_EXPORT ArraySpan {
     }
   }
 
-  void AddOffset(int64_t offset) {
-    this->offset += offset;
-    this->null_count = kUnknownNullCount;
-  }
-
-  void SetOffset(int64_t offset) {
+  void SetSlice(int64_t offset, int64_t length) {
     this->offset = offset;
-    this->null_count = kUnknownNullCount;
+    this->length = length;
+    if (this->type->id() != Type::NA) {
+      this->null_count = kUnknownNullCount;
+    } else {
+      this->null_count = this->length;
+    }
   }
 
   /// \brief Return null count, or compute and set it if it's not known
