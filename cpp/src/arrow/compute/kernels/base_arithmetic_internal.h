@@ -383,7 +383,7 @@ struct Divide {
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                          Status* st) {
     if (right == Arg1()) {
-      *st = Status::Invalid("Divide by zero");
+      *st = Status::Invalid("divide by zero");
       return T();
     } else {
       return left / right;
@@ -422,64 +422,6 @@ struct DivideChecked {
   static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
                                          Status* st) {
     return Divide::Call<T>(ctx, left, right, st);
-  }
-};
-
-struct DivmodUtil {
-  template <typename T>
-  static constexpr enable_if_c_number<T> FastMod(T dividend, T divisor, T quotient) {
-    return dividend - quotient * divisor;
-  }
-
-  /// Create a StructType instance for Divmod kernels.
-  static std::shared_ptr<DataType> MakeDivmodOutType(
-      const std::shared_ptr<DataType>& ty) {
-    return struct_({field("quotient", ty), field("remainder", ty)});
-  }
-
-  template <typename T>
-  static enable_if_c_number<T, StructScalar> MakeDivmodStruct(T quotient, T remainder) {
-    ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
-    // TODO(edponce): How to only call MakeDivmodOutType once (before processing)?
-    // `Call()` is a static method and invoked directly so there is no state.
-    auto ty = CTypeTraits<T>::type_singleton();
-    return StructScalar(std::move(values), MakeDivmodOutType(ty));
-  }
-};
-
-struct Divmod {
-  template <typename OutType, typename Arg0, typename Arg1>
-  static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
-                                                           Arg1 right, Status* st) {
-    auto quotient = std::floor(Divide::Call<Arg0>(ctx, left, right, st));
-    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
-    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
-  }
-
-  template <typename OutType, typename Arg0, typename Arg1>
-  static enable_if_c_integer<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
-                                                      Arg1 right, Status* st) {
-    auto quotient = Divide::Call<Arg0>(ctx, left, right, st);
-    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
-    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
-  }
-};
-
-struct DivmodChecked {
-  template <typename OutType, typename Arg0, typename Arg1>
-  static enable_if_floating_point<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
-                                                           Arg1 right, Status* st) {
-    auto quotient = std::floor(DivideChecked::Call<Arg0>(ctx, left, right, st));
-    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
-    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
-  }
-
-  template <typename OutType, typename Arg0, typename Arg1>
-  static enable_if_c_integer<Arg0, StructScalar> Call(KernelContext* ctx, Arg0 left,
-                                                      Arg1 right, Status* st) {
-    auto quotient = DivideChecked::Call<Arg0>(ctx, left, right, st);
-    auto remainder = DivmodUtil::FastMod<Arg0>(left, right, quotient);
-    return DivmodUtil::MakeDivmodStruct(quotient, remainder);
   }
 };
 

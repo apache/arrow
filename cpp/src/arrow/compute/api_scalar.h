@@ -583,17 +583,18 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Calculate the quotient and remainder between two values. Array values must be
-/// the same length. If either argument is null the result will be null. If divisor is
-/// zero, an error will be raised.
+/// \brief Calculate the quotient and remainder between two values.
 ///
-/// \param[in] left the dividend
-/// \param[in] right the divisor
+/// Array values must be the same length. If either argument is null,
+/// then the result will be null. If divisor is zero, an error will be raised.
+///
+/// \param[in] dividend the dividend
+/// \param[in] divisor the divisor
 /// \param[in] options arithmetic options (enable/disable overflow checking), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise quotient and remainder
 ARROW_EXPORT
-Result<Datum> Divmod(const Datum& left, const Datum& right,
+Result<Datum> Divmod(const Datum& dividend, const Datum& divisor,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
 

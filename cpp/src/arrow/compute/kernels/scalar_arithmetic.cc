@@ -646,7 +646,7 @@ struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
   explicit RoundOptionsWrapper(OptionsType options) : OptionsWrapper(std::move(options)) {
     // Only positive exponents for powers of 10 are used because combining
     // multiply and division operations produced more stable rounding than
-    // using multiply-only.  Refer to NumPy's round implementation:
+    // using multiply-only. Refer to NumPy's round implementation:
     // https://github.com/numpy/numpy/blob/7b2f20b406d27364c812f7a81a9c901afbd3600c/numpy/core/src/multiarray/calculation.c#L589
     pow10 = RoundUtil::Pow10(std::abs(options.ndigits));
   }
@@ -706,7 +706,7 @@ struct RoundOptionsWrapper<RoundToMultipleOptions>
   }
 };
 
-template <typename ArrowType, RoundMode RndMode, typename Enable = void>
+template <typename ArrowType, RoundMode kRoundMode, typename Enable = void>
 struct Round {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundOptions>;
@@ -728,13 +728,13 @@ struct Round {
     auto frac = round_val - std::floor(round_val);
     if (frac != T(0)) {
       // Use std::round() if in tie-breaking mode and scaled value is not 0.5.
-      if ((RndMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
+      if ((kRoundMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
         round_val = std::round(round_val);
       } else {
-        round_val = RoundImpl<CType, RndMode>::Round(round_val);
+        round_val = RoundImpl<CType, kRoundMode>::Round(round_val);
       }
       // Equality check is ommitted so that the common case of 10^0 (integer rounding)
-      // uses multiply-only
+      // uses multiply-only.
       round_val = ndigits > 0 ? (round_val / pow10) : (round_val * pow10);
       if (!std::isfinite(round_val)) {
         *st = Status::Invalid("overflow occurred during rounding");
@@ -998,6 +998,83 @@ struct Trunc {
                                                          Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(arg);
+  }
+};
+
+// struct DivmodUtil {
+//   /// Create a StructType instance for Divmod kernels.
+//   static std::shared_ptr<DataType> MakeDivmodOutType(
+//       const std::shared_ptr<DataType>& ty) {
+//     return struct_({field("quotient", ty), field("remainder", ty)});
+//   }
+
+//   template <typename T>
+//   static enable_if_c_number<T, StructScalar> MakeDivmodStruct(T quotient, T remainder) {
+//     ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
+//     // TODO(edponce): How to only call MakeDivmodOutType once (before processing)?
+//     // `Call()` is a static method and invoked directly so there is no state.
+//     auto ty = CTypeTraits<T>::type_singleton();
+//     return StructScalar(std::move(values), MakeDivmodOutType(ty));
+//   }
+// };
+
+struct Divmod {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    auto quotient = std::floor(dividend / divisor);
+    auto remainder = dividend - quotient * divisor;
+    return {quotient, remainder};
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    auto quotient = dividend / divisor;
+    auto remainder = dividend - quotient * divisor;
+    return {quotient, remainder};
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    std::pair<Arg0, Arg0> pair;
+    *st = dividend.Divide(divisor).Value(&pair);
+    const auto& quotient = pair.first;
+    const auto& remainder = pair.second;
+    return {quotient, remainder};
+  }
+};
+
+struct DivmodChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    auto quotient = std::floor(DivideChecked::Call<Arg0>(ctx, dividend, divisor, st));
+    if (!st->ok) {
+        return {0, 0};
+    }
+    auto remainder = dividend - quotient * divisor;
+    return {quotient, remainder};
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    auto quotient = DivideChecked::Call<Arg0>(ctx, dividend, divisor, st);
+    if (!st->ok) {
+        return {0, 0};
+    }
+    auto remainder = dividend - quotient * divisor;
+    return {quotient, remainder};
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    std::pair<Arg0, Arg0> pair;
+    *st = dividend.Divide(divisor).Value(&pair);
+    if (!st->ok()) {
+      *st = Status::Invalid("division error");
+      return {T(), T()};
+    }
+    const auto& quotient = pair.first;
+    const auto& remainder = pair.second;
+    return {quotient, remainder};
   }
 };
 

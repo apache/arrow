@@ -226,6 +226,9 @@ using enable_if_decimal_value =
     enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
                 R>;
 
+template <typename T, typename R = T>
+using enable_if_c_number = enable_if_t<has_c_type<T>::value && !is_boolean_type<T>::value, R>;
+
 // ----------------------------------------------------------------------
 // Iteration / value access utilities
 
