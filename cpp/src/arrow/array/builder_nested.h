@@ -371,14 +371,14 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 /// \brief Builder class for fixed-length list array value types
 class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
  public:
-  /// Use this constructor to define the built array's type explicitly. If value_builder
-  /// has indeterminate type, this builder will also.
+  /// Use this constructor to infer the built array's type. If value_builder has
+  /// indeterminate type, this builder will also infer it.
   FixedSizeListBuilder(MemoryPool* pool,
                        std::shared_ptr<ArrayBuilder> const& value_builder,
                        int32_t list_size);
 
-  /// Use this constructor to infer the built array's type. If value_builder has
-  /// indeterminate type, this builder will also.
+  /// Use this constructor to define the built array's type explicitly. If value_builder
+  /// has indeterminate type, this builder will also infer it.
   FixedSizeListBuilder(MemoryPool* pool,
                        std::shared_ptr<ArrayBuilder> const& value_builder,
                        const std::shared_ptr<DataType>& type);
@@ -401,7 +401,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   /// \brief Vector append
   ///
-  /// If passed, valid_bytes wil be read and any zero byte
+  /// If passed, valid_bytes will be read and any zero byte
   /// will cause the corresponding slot to be null
   ///
   /// This function affects only the validity bitmap; the child values must be appended

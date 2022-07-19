@@ -1001,81 +1001,93 @@ struct Trunc {
   }
 };
 
-// struct DivmodUtil {
-//   /// Create a StructType instance for Divmod kernels.
-//   static std::shared_ptr<DataType> MakeDivmodOutType(
-//       const std::shared_ptr<DataType>& ty) {
-//     return struct_({field("quotient", ty), field("remainder", ty)});
-//   }
-
-//   template <typename T>
-//   static enable_if_c_number<T, StructScalar> MakeDivmodStruct(T quotient, T remainder) {
-//     ScalarVector values = {MakeScalar(quotient), MakeScalar(remainder)};
-//     // TODO(edponce): How to only call MakeDivmodOutType once (before processing)?
-//     // `Call()` is a static method and invoked directly so there is no state.
-//     auto ty = CTypeTraits<T>::type_singleton();
-//     return StructScalar(std::move(values), MakeDivmodOutType(ty));
-//   }
-// };
-
+// TODO(edponce): Move builders to function state and reset.
 struct Divmod {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
-    auto quotient = std::floor(dividend / divisor);
-    auto remainder = dividend - quotient * divisor;
-    return {quotient, remainder};
+  static enable_if_floating_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    T quotient = std::floor(dividend / divisor);
+    T remainder = dividend - quotient * divisor;
+
+    NumericBuilder<T> builder;
+    builder.Append(quotient);
+    builder.Append(remainder);
+    std::shared_ptr<Array> array;
+    builder.Finish(&array);
+    FixedSizeListScalar list(array, builder.type())
+    return list;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
-    auto quotient = dividend / divisor;
-    auto remainder = dividend - quotient * divisor;
-    return {quotient, remainder};
+  static enable_if_integer_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    T quotient = dividend / divisor;
+    T remainder = dividend - quotient * divisor;
+
+    NumericBuilder<T> builder;
+    builder.Append(quotient);
+    builder.Append(remainder);
+    std::shared_ptr<Array> array;
+    builder.Finish(&array);
+    FixedSizeListScalar list(array, builder.type())
+    return list;
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
-    std::pair<Arg0, Arg0> pair;
-    *st = dividend.Divide(divisor).Value(&pair);
-    const auto& quotient = pair.first;
-    const auto& remainder = pair.second;
-    return {quotient, remainder};
-  }
+  // template <typename T, typename Arg0, typename Arg1>
+  // static enable_if_decimal_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+  //   std::pair<T, T> pair;
+  //   *st = dividend.Divide(divisor).Value(&pair);
+  //   const auto& quotient = pair.first;
+  //   const auto& remainder = pair.second;
+  //   return {quotient, remainder};
+  // }
 };
 
 struct DivmodChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
-    auto quotient = std::floor(DivideChecked::Call<Arg0>(ctx, dividend, divisor, st));
+  static enable_if_floating_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    T quotient = std::floor(DivideChecked::Call<T, Arg0, Arg1>(ctx, dividend, divisor, st));
     if (!st->ok) {
         return {0, 0};
     }
-    auto remainder = dividend - quotient * divisor;
-    return {quotient, remainder};
+    T remainder = dividend - quotient * divisor;
+
+    NumericBuilder<T> builder;
+    builder.Append(quotient);
+    builder.Append(remainder);
+    std::shared_ptr<Array> array;
+    builder.Finish(&array);
+    FixedSizeListScalar list(array, builder.type())
+    return list;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
-    auto quotient = DivideChecked::Call<Arg0>(ctx, dividend, divisor, st);
+  static enable_if_integer_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+    T quotient = DivideChecked::Call<T, Arg0, Arg1>(ctx, dividend, divisor, st);
     if (!st->ok) {
         return {0, 0};
     }
-    auto remainder = dividend - quotient * divisor;
-    return {quotient, remainder};
+    T remainder = dividend - quotient * divisor;
+
+    NumericBuilder<T> builder;
+    builder.Append(quotient);
+    builder.Append(remainder);
+    std::shared_ptr<Array> array;
+    builder.Finish(&array);
+    FixedSizeListScalar list(array, builder.type())
+    return list;
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
-    std::pair<Arg0, Arg0> pair;
-    *st = dividend.Divide(divisor).Value(&pair);
-    if (!st->ok()) {
-      *st = Status::Invalid("division error");
-      return {T(), T()};
-    }
-    const auto& quotient = pair.first;
-    const auto& remainder = pair.second;
-    return {quotient, remainder};
-  }
+  // template <typename T, typename Arg0, typename Arg1>
+  // static enable_if_decimal_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
+  //   std::pair<T, T> pair;
+  //   *st = dividend.Divide(divisor).Value(&pair);
+  //   if (!st->ok()) {
+  //     *st = Status::Invalid("division error");
+  //     return {T(), T()};
+  //   }
+  //   const auto& quotient = pair.first;
+  //   const auto& remainder = pair.second;
+  //   return {quotient, remainder};
+  // }
 };
 
 // Generate a kernel given a bitwise arithmetic functor. Assumes the
