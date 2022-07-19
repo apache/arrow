@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#include "./safe-call-into-r.h"
 
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
