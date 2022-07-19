@@ -444,9 +444,7 @@ class ARROW_MUST_USE_TYPE Future {
   /// \brief Wait for the Future to complete
   void Wait() const {
     CheckValid();
-    if (!IsFutureFinished(impl_->state())) {
-      impl_->Wait();
-    }
+    impl_->Wait();
   }
 
   /// \brief Wait for the Future to complete, or for the timeout to expire
@@ -456,9 +454,6 @@ class ARROW_MUST_USE_TYPE Future {
   /// concurrently.
   bool Wait(double seconds) const {
     CheckValid();
-    if (IsFutureFinished(impl_->state())) {
-      return true;
-    }
     return impl_->Wait(seconds);
   }
 
