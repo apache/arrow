@@ -210,7 +210,7 @@ struct CountModer<BooleanType> {
 
     if (n >= 1) {
       // at most two bits are useful in mode buffer
-      bit_util::ClearBitmap(mode_buffer, 0, 8);
+      mode_buffer[0] = 0;
       const bool first_mode = counts[true] > counts[false];
       bit_util::SetBitTo(mode_buffer, 0, first_mode);
       count_buffer[0] = counts[first_mode];
