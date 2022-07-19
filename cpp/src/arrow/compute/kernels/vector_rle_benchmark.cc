@@ -120,6 +120,7 @@ static void RLEFilterBenchmark(benchmark::State& state, ValuesSet values,
                          benchmark::Counter::kIsRate);
 }
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 static void RLEFilterBaseline(benchmark::State& state, ValuesSet values,
                                RunLengthDistribution& distribution) {
   auto array = GenerateArray(values, distribution);
@@ -137,6 +138,7 @@ static void RLEFilterBaseline(benchmark::State& state, ValuesSet values,
       benchmark::Counter(static_cast<double>(state.iterations() * BENCHMARK_ARRAY_SIZE),
                          benchmark::Counter::kIsRate);
 }
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 static RunLengthDistribution only_single_distribition{{1}, {1}};
 static RunLengthDistribution only_1000_distribition{{1000}, {1}};
