@@ -650,6 +650,7 @@ class AsofJoinNode : public ExecNode {
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
         if (field->name() == on_field_name) {
+          // Equals must be used when checking for timestamp types.
           if (!field->type()->Equals(TimestampType(TimeUnit::NANO, "UTC")) &&
               kSupportedOnTypes_.find(field->type()) == kSupportedOnTypes_.end()) {
             return Status::Invalid("Unsupported type for on key: ",
