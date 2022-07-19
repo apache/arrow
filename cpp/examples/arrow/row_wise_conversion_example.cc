@@ -173,16 +173,16 @@ arrow::Result<std::vector<data_row>> ColumnarTableToVector(
 }
 
 arrow::Status RunRowConversion() {
-  std::vector<data_row> rows = {
+  std::vector<data_row> original_rows = {
       {1, 1, {10.0}}, {2, 3, {11.0, 12.0, 13.0}}, {3, 2, {15.0, 25.0}}};
   std::shared_ptr<arrow::Table> table;
-  std::vector<data_row> expected_rows;
+  std::vector<data_row> converted_rows;
 
-  ARROW_ASSIGN_OR_RAISE(table, VectorToColumnarTable(rows));
+  ARROW_ASSIGN_OR_RAISE(table, VectorToColumnarTable(original_rows));
 
-  ARROW_ASSIGN_OR_RAISE(expected_rows, ColumnarTableToVector(table));
+  ARROW_ASSIGN_OR_RAISE(converted_rows, ColumnarTableToVector(table));
 
-  assert(rows.size() == expected_rows.size());
+  assert(original_rows.size() == converted_rows.size());
 
   // Print out contents of table, should get
   // ID Components Component prices
@@ -192,7 +192,7 @@ arrow::Status RunRowConversion() {
   std::cout << std::left << std::setw(3) << "ID " << std::left << std::setw(11)
             << "Components " << std::left << std::setw(15) << "Component prices "
             << std::endl;
-  for (const auto& row : rows) {
+  for (const auto& row : converted_rows) {
     std::cout << std::left << std::setw(3) << row.id << std::left << std::setw(11)
               << row.components;
     for (const auto& cost : row.component_cost) {
