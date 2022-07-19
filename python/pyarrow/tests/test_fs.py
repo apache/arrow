@@ -1619,7 +1619,8 @@ def test_s3_real_aws():
     entries = fs.get_file_info(FileSelector(
         'voltrondata-labs-datasets/nyc-taxi'))
     assert len(entries) > 0
-    with fs.open_input_stream('voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet') as f:
+    key = 'voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
+    with fs.open_input_stream(key) as f:
         md = f.metadata()
         assert 'Content-Type' in md
         assert md['Last-Modified'] == b'2022-07-12T23:32:00Z'
