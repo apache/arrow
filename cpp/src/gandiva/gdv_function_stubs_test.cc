@@ -1026,7 +1026,7 @@ TEST(TestGdvFnStubs, TestToUtcTimezone) {
 
   // Failure case
   ts2 = to_utc_timezone_timestamp(context_ptr, ts, "America/LA", 10);
-  EXPECT_THAT(context.get_error(), "'America/LA' is an invalid time zone name.");
+  EXPECT_THAT(context.get_error(), "America/LA is an invalid time zone name.");
 }
 
 TEST(TestGdvFnStubs, TestFromUtcTimezone) {
@@ -1061,8 +1061,8 @@ TEST(TestGdvFnStubs, TestFromUtcTimezone) {
   EXPECT_EQ(ts2, 1520816400000);
 
   // Failure case
-  ts2 = from_utc_timezone_timestamp(context_ptr, ts, "Kolkata", 10);
-  EXPECT_THAT(context.get_error(), "'Kolkata' is an invalid time zone name.");
+  ts2 = from_utc_timezone_timestamp(context_ptr, ts, "India", 5);
+  EXPECT_THAT(context.get_error(), "India is an invalid time zone name.");
 }
 
 }  // namespace gandiva

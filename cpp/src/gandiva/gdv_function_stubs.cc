@@ -625,14 +625,8 @@ gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_mili
     gdv_timestamp offset = local_tz->get_info(tp).offset.count() * 1000;
     return time_miliseconds - static_cast<gdv_timestamp>(offset);
   } catch (...) {
-    auto msg_len = static_cast<int32_t>(strlen(timezone) + 50);
-    auto err_msg = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, msg_len));
-    if (err_msg == nullptr) {
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory");
-      return 0;
-    }
-    std::snprintf(err_msg, msg_len, "'%s' is an invalid time zone name.", timezone);
-    gdv_fn_context_set_error_msg(context, err_msg);
+    std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
+    gdv_fn_context_set_error_msg(context, e_msg.c_str());
     return 0;
   }
 }
@@ -652,14 +646,8 @@ gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
     gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count() * 1000;
     return time_miliseconds + static_cast<gdv_timestamp>(offset);
   } catch (...) {
-    auto msg_len = static_cast<int32_t>(strlen(timezone) + 50);
-    auto err_msg = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, msg_len));
-    if (err_msg == nullptr) {
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory");
-      return 0;
-    }
-    std::snprintf(err_msg, msg_len, "'%s' is an invalid time zone name.", timezone);
-    gdv_fn_context_set_error_msg(context, err_msg);
+    std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
+    gdv_fn_context_set_error_msg(context, e_msg.c_str());
     return 0;
   }
 }
