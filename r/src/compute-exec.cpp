@@ -126,12 +126,7 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 }
 
 // [[arrow::export]]
-std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
-  return plan->ToString();
-}
-
-// [[arrow::export]]
-std::string ExecPlan_ToStringWithSink(
+std::string ExecPlan_ToString(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
     int64_t head = -1) {
