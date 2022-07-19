@@ -33,7 +33,7 @@ import (
 )
 
 const alternateOrNA = -1
-const SIZELEN = 10 * 1024 * 1024
+const SIZELEN = 1024 * 1024
 
 func randomUint8(size, truePct int, sampleVals [2]uint8, seed uint64) []uint8 {
 	ret := make([]uint8, size)

@@ -56,49 +56,49 @@ agg_fun_output_type <- function(fun, input_type, hash) {
 }
 
 register_bindings_aggregate <- function() {
-  register_binding_agg("sum", function(..., na.rm = FALSE) {
+  register_binding_agg("base::sum", function(..., na.rm = FALSE) {
     list(
       fun = "sum",
       data = ensure_one_arg(list2(...), "sum"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("any", function(..., na.rm = FALSE) {
+  register_binding_agg("base::any", function(..., na.rm = FALSE) {
     list(
       fun = "any",
       data = ensure_one_arg(list2(...), "any"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("all", function(..., na.rm = FALSE) {
+  register_binding_agg("base::all", function(..., na.rm = FALSE) {
     list(
       fun = "all",
       data = ensure_one_arg(list2(...), "all"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("mean", function(x, na.rm = FALSE) {
+  register_binding_agg("base::mean", function(x, na.rm = FALSE) {
     list(
       fun = "mean",
       data = x,
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("sd", function(x, na.rm = FALSE, ddof = 1) {
+  register_binding_agg("stats::sd", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "stddev",
       data = x,
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
-  register_binding_agg("var", function(x, na.rm = FALSE, ddof = 1) {
+  register_binding_agg("stats::var", function(x, na.rm = FALSE, ddof = 1) {
     list(
       fun = "variance",
       data = x,
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
-  register_binding_agg("quantile", function(x, probs, na.rm = FALSE) {
+  register_binding_agg("stats::quantile", function(x, probs, na.rm = FALSE) {
     if (length(probs) != 1) {
       arrow_not_supported("quantile() with length(probs) != 1")
     }
@@ -116,7 +116,7 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, q = probs)
     )
   })
-  register_binding_agg("median", function(x, na.rm = FALSE) {
+  register_binding_agg("stats::median", function(x, na.rm = FALSE) {
     # TODO: Bind to the Arrow function that returns an exact median and remove
     # this warning (ARROW-14021)
     warn(
@@ -131,34 +131,50 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm)
     )
   })
-  register_binding_agg("n_distinct", function(..., na.rm = FALSE) {
+  register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
     list(
       fun = "count_distinct",
       data = ensure_one_arg(list2(...), "n_distinct"),
       options = list(na.rm = na.rm)
     )
   })
-  register_binding_agg("n", function() {
+  register_binding_agg("dplyr::n", function() {
     list(
       fun = "sum",
       data = Expression$scalar(1L),
       options = list()
     )
   })
-  register_binding_agg("min", function(..., na.rm = FALSE) {
+  register_binding_agg("base::min", function(..., na.rm = FALSE) {
     list(
       fun = "min",
       data = ensure_one_arg(list2(...), "min"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
-  register_binding_agg("max", function(..., na.rm = FALSE) {
+  register_binding_agg("base::max", function(..., na.rm = FALSE) {
     list(
       fun = "max",
       data = ensure_one_arg(list2(...), "max"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
+}
+
+# we register 2 versions of the "::" binding - one for use with agg_funcs
+# (registered below) and another one for use with nse_funcs
+# (registered in dplyr-funcs.R)
+agg_funcs[["::"]] <- function(lhs, rhs) {
+  lhs_name <- as.character(substitute(lhs))
+  rhs_name <- as.character(substitute(rhs))
+
+  fun_name <- paste0(lhs_name, "::", rhs_name)
+
+  # if we do not have a binding for pkg::fun, then fall back on to the
+  # nse_funcs (useful when we have a regular function inside an aggregating one)
+  # and then, if searching nse_funcs fails too, fall back to the
+  # regular `pkg::fun()` function
+  agg_funcs[[fun_name]] %||% nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
 }
 
 # The following S3 methods are registered on load if dplyr is present
@@ -348,7 +364,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
   # the list output from the Arrow hash_tdigest kernel to flatten it into a
   # column of type float64. We do that by modifying the unevaluated expression
   # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
-  if (hash && "quantile" %in% funs_in_expr) {
+  if (hash && any(c("quantile", "stats::quantile") %in% funs_in_expr)) {
     expr <- wrap_hash_quantile(expr)
     funs_in_expr <- all_funs(expr)
   }
@@ -464,7 +480,7 @@ wrap_hash_quantile <- function(expr) {
   if (length(expr) == 1) {
     return(expr)
   } else {
-    if (is.call(expr) && expr[[1]] == quote(quantile)) {
+    if (is.call(expr) && any(c(quote(quantile), quote(stats::quantile)) == expr[[1]])) {
       return(str2lang(paste0("arrow_list_element(", deparse1(expr), ", 0L)")))
     } else {
       return(as.call(lapply(expr, wrap_hash_quantile)))

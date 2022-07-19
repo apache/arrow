@@ -31,15 +31,6 @@
 
 namespace cp = ::arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
   const char* type_name() const override { return "ExampleFunctionOptionsType"; }
   std::string Stringify(const cp::FunctionOptions&) const override {
@@ -124,23 +115,23 @@ const cp::FunctionDoc func_doc{
     {"x"},
     "ExampleFunctionOptions"};
 
-int main(int argc, char** argv) {
+arrow::Status RunComputeRegister(int argc, char** argv) {
   const std::string name = "compute_register_example";
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), func_doc);
   cp::ScalarKernel kernel({arrow::int64()}, arrow::int64(), ExampleFunctionImpl);
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
-  ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
+  ARROW_RETURN_NOT_OK(func->AddKernel(std::move(kernel)));
 
   auto registry = cp::GetFunctionRegistry();
-  ABORT_ON_FAILURE(registry->AddFunction(std::move(func)));
+  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
 
   arrow::Int64Builder builder(arrow::default_memory_pool());
   std::shared_ptr<arrow::Array> arr;
-  ABORT_ON_FAILURE(builder.Append(42));
-  ABORT_ON_FAILURE(builder.Finish(&arr));
+  ARROW_RETURN_NOT_OK(builder.Append(42));
+  ARROW_RETURN_NOT_OK(builder.Finish(&arr));
   auto options = std::make_shared<ExampleFunctionOptions>();
   auto maybe_result = cp::CallFunction(name, {arr}, options.get());
-  ABORT_ON_FAILURE(maybe_result.status());
+  ARROW_RETURN_NOT_OK(maybe_result.status());
 
   std::cout << maybe_result->make_array()->ToString() << std::endl;
 
@@ -151,15 +142,15 @@ int main(int argc, char** argv) {
   std::cerr << maybe_serialized.status().ToString() << std::endl;
 
   auto exec_registry = cp::default_exec_factory_registry();
-  ABORT_ON_FAILURE(
+  ARROW_RETURN_NOT_OK(
       exec_registry->AddFactory("compute_register_example", ExampleExecNodeFactory));
 
   auto maybe_plan = cp::ExecPlan::Make();
-  ABORT_ON_FAILURE(maybe_plan.status());
-  auto plan = maybe_plan.ValueOrDie();
+  ARROW_RETURN_NOT_OK(maybe_plan.status());
+  ARROW_ASSIGN_OR_RAISE(auto plan, maybe_plan);
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> source_gen, sink_gen;
-  ABORT_ON_FAILURE(
+  ARROW_RETURN_NOT_OK(
       cp::Declaration::Sequence(
           {
               {"source", cp::SourceNodeOptions{arrow::schema({}), source_gen}},
@@ -168,6 +159,14 @@ int main(int argc, char** argv) {
           })
           .AddToPlan(plan.get())
           .status());
+  return arrow::Status::OK();
+}
 
+int main(int argc, char** argv) {
+  auto status = RunComputeRegister(argc, argv);
+  if (!status.ok()) {
+    std::cerr << status.ToString() << std::endl;
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }

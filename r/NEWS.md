@@ -24,7 +24,12 @@
 * `lubridate::parse_date_time()` datetime parser:
   * `orders` with year, month, day, hours, minutes, and seconds components are supported.
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
-* `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed. Use the `read/write_feather()` and `read/write_ipc_stream()` functions depending on whether you're working with the Arrow IPC file or stream format, respectively.
+* New functions `read_ipc_file()` and `write_ipc_file()` are added.
+  These functions are almost the same as `read_feather()` and `write_feather()`,
+  but differ in that they only target IPC files (Feather V2 files), not Feather V1 files.
+* `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed.
+  Instead of these, use the `read_ipc_file()` and `write_ipc_file()` for IPC files, or,
+  `read_ipc_stream()` and `write_ipc_stream()` for IPC streams.
 * `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps.
 
 # arrow 8.0.0

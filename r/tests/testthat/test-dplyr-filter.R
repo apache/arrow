@@ -400,3 +400,20 @@ test_that("filter() with .data pronoun", {
     tbl
   )
 })
+
+test_that("filter() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(dplyr::between(dbl, 1, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  skip_if_not_available("utf8proc")
+  compare_dplyr_binding(
+    .input %>%
+      filter(dbl > 2, stringr::str_length(verses) > 25) %>%
+      collect(),
+    tbl
+  )
+})

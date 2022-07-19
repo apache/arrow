@@ -58,15 +58,26 @@ NULL
 #' @keywords internal
 #'
 register_binding <- function(fun_name, fun, registry = nse_funcs) {
-  name <- gsub("^.*?::", "", fun_name)
-  namespace <- gsub("::.*$", "", fun_name)
+  unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
-  previous_fun <- if (name %in% names(registry)) registry[[name]] else NULL
+  previous_fun <- registry[[unqualified_name]]
 
-  if (is.null(fun) && !is.null(previous_fun)) {
-    rm(list = name, envir = registry, inherits = FALSE)
+  # if the unqualified name exists in the registry, warn
+  if (!is.null(fun) && !is.null(previous_fun)) {
+    warn(
+      paste0(
+        "A \"",
+        unqualified_name,
+        "\" binding already exists in the registry and will be overwritten.")
+    )
+  }
+
+  # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
+  if (grepl("::", fun_name)) {
+    registry[[unqualified_name]] <- fun
+    registry[[fun_name]] <- fun
   } else {
-    registry[[name]] <- fun
+    registry[[unqualified_name]] <- fun
   }
 
   invisible(previous_fun)
@@ -116,3 +127,17 @@ create_binding_cache <- function() {
 nse_funcs <- new.env(parent = emptyenv())
 agg_funcs <- new.env(parent = emptyenv())
 .cache <- new.env(parent = emptyenv())
+
+# we register 2 versions of the "::" binding - one for use with nse_funcs
+# (registered below) and another one for use with agg_funcs (registered in
+# dplyr-summarize.R)
+nse_funcs[["::"]] <- function(lhs, rhs) {
+  lhs_name <- as.character(substitute(lhs))
+  rhs_name <- as.character(substitute(rhs))
+
+  fun_name <- paste0(lhs_name, "::", rhs_name)
+
+  # if we do not have a binding for pkg::fun, then fall back on to the
+  # regular pkg::fun function
+  nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
+}
