@@ -149,9 +149,9 @@ struct SourceNode : ExecNode {
                    .Then(
                        [this, scan_task](int total_batches) mutable {
                          std::unique_lock<std::mutex> lock(mutex_);
-                         outputs_[0]->InputFinished(this, total_batches);
                          bool should_mark_finished = !finished_.is_finished();
                          lock.unlock();
+                         outputs_[0]->InputFinished(this, total_batches);
                          scan_task.MarkFinished();
                          if (should_mark_finished) {
                            finished_.MarkFinished();
@@ -199,7 +199,9 @@ struct SourceNode : ExecNode {
   void StopProducing() override {
     std::unique_lock<std::mutex> lock(mutex_);
     stop_requested_ = true;
-    if (!started_) finished_.MarkFinished();
+    if (!started_) {
+      finished_.MarkFinished();
+    }
   }
 
  private:
