@@ -524,6 +524,13 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("mask_show_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "gdv_mask_show_first_n_utf8_int32",
                      NativeFunction::kNeedsContext),
+      
+      NativeFunction("mask", {}, DataTypeVector{utf8(), utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "mask_utf8_utf8_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("mask", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "mask_default_utf8", NativeFunction::kNeedsContext)};
 
       NativeFunction("mask_show_last_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "gdv_mask_show_last_n_utf8_int32",
