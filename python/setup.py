@@ -309,26 +309,25 @@ class build_ext(_build_ext):
                 pass
 
             # helper function
-            def copy_libs(libname, folder_name):
-                if "python" in libname:
-                    libname_path = pjoin(build_lib, "pyarrow", libname)
-                    if os.path.exists(libname_path):
-                        os.remove(libname_path)
-                    print(
-                        f"Copying {pjoin(build_dir, folder_name, libname)}"
-                        f" to {pjoin(build_lib, 'pyarrow', libname)}")
-                    shutil.copy(pjoin(build_dir, folder_name, libname),
-                                pjoin(build_lib, "pyarrow"))
+            def copy_libs(folder_name):
+                for libname in os.listdir(pjoin(build_dir, folder_name)):
+                    if "python" in libname:
+                        libname_path = pjoin(build_lib, "pyarrow", libname)
+                        if os.path.exists(libname_path):
+                            os.remove(libname_path)
+                        print(
+                            f"Copying {pjoin(build_dir, folder_name, libname)}"
+                            f" to {pjoin(build_lib, 'pyarrow', libname)}")
+                        shutil.copy(pjoin(build_dir, folder_name, libname),
+                                    pjoin(build_lib, "pyarrow"))
 
             # Move libraries to python/pyarrow
-            for libname in os.listdir(pjoin(build_dir, 'lib')):
-                copy_libs(libname, 'lib')
             # For windows builds, move dll from bin
-            try:
-                for libname in os.listdir(pjoin(build_dir, 'bin')):
-                    copy_libs(libname, 'bin')
-            except OSError:
-                pass
+            for folder in ['lib', 'lib64', 'bin']:
+                try:
+                    copy_libs(folder)
+                except OSError:
+                    pass
 
             # Copy headers tp python/pyarrow/include
             pyarrow_cpp_include = pjoin(build_include, "arrow", "python")
