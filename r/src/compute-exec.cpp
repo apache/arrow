@@ -68,19 +68,19 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
     if (head >= 0) {
       // Use the SelectK node to take only what we need
       MakeExecNodeOrStop(
-        "select_k_sink", plan.get(), {final_node.get()},
-        compute::SelectKSinkNodeOptions{
-          arrow::compute::SelectKOptions(
-            head, std::dynamic_pointer_cast<compute::SortOptions>(
-                make_compute_options("sort_indices", sort_options))
-          ->sort_keys),
-          &sink_gen});
+          "select_k_sink", plan.get(), {final_node.get()},
+          compute::SelectKSinkNodeOptions{
+              arrow::compute::SelectKOptions(
+                  head, std::dynamic_pointer_cast<compute::SortOptions>(
+                            make_compute_options("sort_indices", sort_options))
+                            ->sort_keys),
+              &sink_gen});
     } else {
       MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
                          compute::OrderBySinkNodeOptions{
-                           *std::dynamic_pointer_cast<compute::SortOptions>(
-                               make_compute_options("sort_indices", sort_options)),
-                               &sink_gen});
+                             *std::dynamic_pointer_cast<compute::SortOptions>(
+                                 make_compute_options("sort_indices", sort_options)),
+                             &sink_gen});
     }
   } else {
     MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
@@ -90,15 +90,15 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
 
   // If the generator is destroyed before being completely drained, inform plan
   std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-    bool not_finished_yet =
-      plan->finished().TryAddCallback([&plan] {
-        return [plan](const arrow::Status&) {};
-      });
+                                        bool not_finished_yet =
+                                            plan->finished().TryAddCallback([&plan] {
+                                              return [plan](const arrow::Status&) {};
+                                            });
 
-    if (not_finished_yet) {
-      plan->StopProducing();
-    }
-  }};
+                                        if (not_finished_yet) {
+                                          plan->StopProducing();
+                                        }
+                                      }};
 
   // Attach metadata to the schema
   auto out_schema = final_node->output_schema();
@@ -108,11 +108,11 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
   }
 
   std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-    out;
+      out;
   out.first = plan;
   out.second = compute::MakeGeneratorReader(
-    out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
-    gc_memory_pool());
+      out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
+      gc_memory_pool());
   return out;
 }
 
