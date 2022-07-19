@@ -25,6 +25,13 @@ test_that("Write a feather file", {
   expect_identical(tib_out, tib)
 })
 
+test_that("write_ipc_file() returns its input", {
+  tib_out <- write_ipc_file(tib, feather_file)
+  expect_true(file.exists(feather_file))
+  # Input is returned unmodified
+  expect_identical(tib_out, tib)
+})
+
 expect_feather_roundtrip <- function(write_fun) {
   tf2 <- normalizePath(tempfile(), mustWork = FALSE)
   tf3 <- tempfile()
@@ -66,18 +73,25 @@ expect_feather_roundtrip <- function(write_fun) {
 test_that("feather read/write round trip", {
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 1))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, chunk_size = 32))
   if (codec_is_available("lz4")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "lz4"))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "lz4"))
   }
   if (codec_is_available("zstd")) {
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd"))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "zstd"))
     expect_feather_roundtrip(function(x, f) write_feather(x, f, compression = "zstd", compression_level = 3))
+    expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "zstd", compression_level = 3))
   }
 
   # Write from Arrow data structures
   expect_feather_roundtrip(function(x, f) write_feather(RecordBatch$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(RecordBatch$create(x), f))
   expect_feather_roundtrip(function(x, f) write_feather(Table$create(x), f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(Table$create(x), f))
 })
 
 test_that("write_feather option error handling", {
@@ -100,6 +114,21 @@ test_that("write_feather option error handling", {
     "Can only specify a 'compression_level' when 'compression' is 'zstd'"
   )
   expect_match_arg_error(write_feather(tib, tf, compression = "bz2"))
+  expect_false(file.exists(tf))
+})
+
+test_that("write_ipc_file option error handling", {
+  tf <- tempfile()
+  expect_false(file.exists(tf))
+  expect_error(
+    write_ipc_file(tib, tf, version = 1),
+    "unused argument \\(version = 1\\)"
+  )
+  expect_error(
+    write_ipc_file(tib, tf, compression_level = 1024),
+    "Can only specify a 'compression_level' when 'compression' is 'zstd'"
+  )
+  expect_match_arg_error(write_ipc_file(tib, tf, compression = "bz2"))
   expect_false(file.exists(tf))
 })
 
@@ -275,4 +304,8 @@ test_that("Error is created when feather reads a parquet file", {
     read_feather(system.file("v0.7.1.parquet", package = "arrow")),
     "Not a Feather V1 or Arrow IPC file"
   )
+})
+
+test_that("The read_ipc_file function is an alias of read_feather", {
+  expect_identical(read_ipc_file, read_feather)
 })

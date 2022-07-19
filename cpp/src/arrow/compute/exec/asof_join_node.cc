@@ -288,9 +288,9 @@ class InputState {
   // Schema associated with the input
   std::shared_ptr<Schema> schema_;
   // Total number of batches (only int because InputFinished uses int)
-  int total_batches_ = -1;
+  std::atomic<int> total_batches_{-1};
   // Number of batches processed so far (only int because InputFinished uses int)
-  int batches_processed_ = 0;
+  std::atomic<int> batches_processed_{0};
   // Index of the time col
   col_index_t time_col_index_;
   // Index of the key col

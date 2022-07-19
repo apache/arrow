@@ -172,7 +172,8 @@ arrow::Result<std::vector<data_row>> ColumnarTableToVector(
   return rows;
 }
 
-int main(int argc, char** argv) {
+
+arrow::Status RunRowConversion() {
   std::vector<data_row> original_rows = {
       {1, 1, {10.0}}, {2, 3, {11.0, 12.0, 13.0}}, {3, 2, {15.0, 25.0}}};
   std::shared_ptr<arrow::Table> table;
@@ -182,6 +183,11 @@ int main(int argc, char** argv) {
 
   arrow::Result<std::vector<data_row>> converted_rows_result = ColumnarTableToVector(table);
   std::vector<data_row> converted_rows = std::move(converted_rows_result).ValueOrDie();
+
+  ARROW_ASSIGN_OR_RAISE(table, VectorToColumnarTable(rows));
+
+  ARROW_ASSIGN_OR_RAISE(converted_rows, ColumnarTableToVector(table));
+
 
   assert(original_rows.size() == converted_rows.size());
 
@@ -200,6 +206,15 @@ int main(int argc, char** argv) {
       std::cout << std::left << std::setw(4) << cost;
     }
     std::cout << std::endl;
+  }
+  return arrow::Status::OK();
+}
+
+int main(int argc, char** argv) {
+  auto status = RunRowConversion();
+  if (!status.ok()) {
+    std::cerr << status.ToString() << std::endl;
+    return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
 }

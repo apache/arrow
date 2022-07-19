@@ -30,6 +30,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
@@ -63,12 +64,17 @@ struct ARROW_DS_EXPORT PartitionPathFormat {
 /// Paths are consumed from left to right. Paths must be relative to
 /// the root of a partition; path prefixes must be removed before passing
 /// the path to a partitioning for parsing.
-class ARROW_DS_EXPORT Partitioning {
+class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitioning> {
  public:
   virtual ~Partitioning() = default;
 
   /// \brief The name identifying the kind of partitioning
   virtual std::string type_name() const = 0;
+
+  //// \brief Return whether the partitionings are equal
+  virtual bool Equals(const Partitioning& other) const {
+    return schema_->Equals(other.schema_, /*check_metadata=*/false);
+  }
 
   /// \brief If the input batch shares any fields with this partitioning,
   /// produce sub-batches which satisfy mutually exclusive Expressions.
@@ -180,6 +186,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   const ArrayVector& dictionaries() const { return dictionaries_; }
 
+  bool Equals(const Partitioning& other) const override;
+
  protected:
   KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries,
                        KeyValuePartitioningOptions options)
@@ -222,6 +230,8 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
                                  KeyValuePartitioningOptions options = {});
 
   std::string type_name() const override { return "directory"; }
+
+  bool Equals(const Partitioning& other) const override;
 
   /// \brief Create a factory for a directory partitioning.
   ///
@@ -282,6 +292,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   static Result<util::optional<Key>> ParseKey(const std::string& segment,
                                               const HivePartitioningOptions& options);
 
+  bool Equals(const Partitioning& other) const override;
+
   /// \brief Create a factory for a hive partitioning.
   static std::shared_ptr<PartitioningFactory> MakeFactory(
       HivePartitioningFactoryOptions = {});
@@ -309,6 +321,8 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
         name_(std::move(name)) {}
 
   std::string type_name() const override { return name_; }
+
+  bool Equals(const Partitioning& other) const override { return false; }
 
   Result<compute::Expression> Parse(const std::string& path) const override {
     return parse_impl_(path);
@@ -351,6 +365,8 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
   ///     inferred.
   static std::shared_ptr<PartitioningFactory> MakeFactory(
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
+
+  bool Equals(const Partitioning& other) const override;
 
  private:
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;

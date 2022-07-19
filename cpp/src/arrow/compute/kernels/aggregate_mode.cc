@@ -26,6 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 
 namespace arrow {
 namespace compute {
@@ -58,7 +59,8 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
   int64_t* count_buffer = nullptr;
 
   if (n > 0) {
-    ARROW_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx->Allocate(n * sizeof(CType)));
+    const auto mode_buffer_size = bit_util::BytesForBits(n * mode_type->bit_width());
+    ARROW_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx->Allocate(mode_buffer_size));
     ARROW_ASSIGN_OR_RAISE(count_data->buffers[1], ctx->Allocate(n * sizeof(int64_t)));
     mode_buffer = mode_data->template GetMutableValues<CType>(1);
     count_buffer = count_data->template GetMutableValues<int64_t>(1);
@@ -201,18 +203,21 @@ struct CountModer<BooleanType> {
     const int64_t distinct_values = (this->counts[0] != 0) + (this->counts[1] != 0);
     const int64_t n = std::min(options.n, distinct_values);
 
-    bool* mode_buffer;
+    uint8_t* mode_buffer;
     int64_t* count_buffer;
     ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
-                          PrepareOutput<BooleanType>(n, ctx, type, out));
+                          (PrepareOutput<BooleanType, uint8_t>(n, ctx, type, out)));
 
     if (n >= 1) {
-      const bool index = counts[1] > counts[0];
-      mode_buffer[0] = index;
-      count_buffer[0] = counts[index];
+      // at most two bits are useful in mode buffer
+      mode_buffer[0] = 0;
+      const bool first_mode = counts[true] > counts[false];
+      bit_util::SetBitTo(mode_buffer, 0, first_mode);
+      count_buffer[0] = counts[first_mode];
       if (n == 2) {
-        mode_buffer[1] = !index;
-        count_buffer[1] = counts[!index];
+        const bool second_mode = !first_mode;
+        bit_util::SetBitTo(mode_buffer, 1, second_mode);
+        count_buffer[1] = counts[second_mode];
       }
     }
 
@@ -224,7 +229,7 @@ struct CountModer<BooleanType> {
     const ModeOptions& options = ModeState::Get(ctx);
     if ((!options.skip_nulls && values.GetNullCount() > 0) ||
         (values.length - values.null_count < options.min_count)) {
-      return PrepareOutput<BooleanType>(/*n=*/0, ctx, *out->type(), out).status();
+      return PrepareOutput<BooleanType, uint8_t>(0, ctx, *out->type(), out).status();
     }
     UpdateCounts(values);
     return WrapResult(ctx, options, *out->type(), out);
@@ -236,7 +241,7 @@ struct CountModer<BooleanType> {
     ExecResult result;
     if ((!options.skip_nulls && values.null_count() > 0) ||
         (values.length() - values.null_count() < options.min_count)) {
-      RETURN_NOT_OK(PrepareOutput<BooleanType>(/*n=*/0, ctx, *out->type(), &result));
+      RETURN_NOT_OK((PrepareOutput<BooleanType, uint8_t>(0, ctx, *out->type(), &result)));
     } else {
       UpdateCounts(values);
       RETURN_NOT_OK(WrapResult(ctx, options, *out->type(), &result));
