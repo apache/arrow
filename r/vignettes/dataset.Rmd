@@ -46,7 +46,7 @@ If your arrow build has S3 support, you can sync the data locally with:
 ```{r, eval = FALSE}
 arrow::copy_files("s3://voltrondata-labs-datasets/nyc-taxi", "nyc-taxi")
 # Alternatively, with GCS:
-# arrow::copy_files("gs://voltrondata-labs-datasets/nyc-taxi", "nyc-taxi")
+arrow::copy_files("gs://voltrondata-labs-datasets/nyc-taxi", "nyc-taxi")
 ```
 
 If your arrow build doesn't have S3 support, you can download the files
