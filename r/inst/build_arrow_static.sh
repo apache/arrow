@@ -49,7 +49,7 @@ fi
 
 # Install Sccache 
 source $ARROW_HOME/ci/scripts/install_sccache.sh unknown-linux-musl
-chmod u+x $SSCACHE_DIR/sccache
+
 export PATH=$SCCACHE_DIR:$PATH
 
 mkdir -p "${BUILD_DIR}"
