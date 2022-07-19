@@ -63,7 +63,7 @@ that are passed down to configure the underlying file system. They are separated
 by `&`. For example,
 
 ```
-s3://voltrondata-labs-datasets/nyc-taxi/?endpoint_override=https://storage.googleapis.com&allow_bucket_creation=true
+s3://voltrondata-labs-datasets/?endpoint_override=https%3A%2F%2Fstorage.googleapis.com&allow_bucket_creation=true
 ```
 
 tells the `S3FileSystem` that it should allow the creation of new buckets and to 
@@ -170,30 +170,12 @@ fs <- GcsFileSystem$create(anonymous = TRUE)
 df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
 ```
 
-To access private buckets, you can pass either `access_token` and `expiration`, for using
-temporary tokens designed for interactive use, or `json_credentials`, to directly reference 
-a service account credentials file desgined for application use. 
-Temporary tokens must be refreshed manually, while the latter method will handle refreshing
-authentication automatically.
+To access private buckets, you can pass either `access_token` and `expiration`, for using 
+temporary tokens generated elsewhere, or `json_credentials`, to reference a downloaded
+credentials file.
 
-You can get token credentials with the [gargle](https://gargle.r-lib.org/index.html) library:
-
-```r
-library(gargle)
-
-token <- token_fetch()
-
-fs <- GcsFileSystem$create(
-  access_token=token$credentials$access_token,
-  expiration=Sys.time() + token$credentials$expires_in
-)
-```
-
-For service accounts, you can provide the path to the credentials file with the
-`json_credentials` or using the `GOOGLE_APPLICATION_CREDENTIALS` environment
-variable. See Google's guide to 
-[Authenticating as a service account](https://cloud.google.com/docs/authentication/production#create_service_account)
-for more information.
+<!-- TODO(ARROW-16880): Describe what credentials to use for particular use cases
+and how to integrate with gargle library. -->
 
 ## Using a proxy server
 

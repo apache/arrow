@@ -1616,7 +1616,8 @@ def test_s3_real_aws():
     assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-2')
-    entries = fs.get_file_info(FileSelector('voltrondata-labs-datasets/nyc-taxi'))
+    entries = fs.get_file_info(FileSelector(
+        'voltrondata-labs-datasets/nyc-taxi'))
     assert len(entries) > 0
     with fs.open_input_stream('voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet') as f:
         md = f.metadata()
