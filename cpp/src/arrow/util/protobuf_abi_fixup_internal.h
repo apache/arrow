@@ -67,10 +67,20 @@
 // internal (but exported) function to ensure ~InternalMetadata() is
 // codegen'ed.
 
+// Disable optimizations on function so that ~InternalMetadata() is not
+// inlined (which would defeat the point).
+#if defined(__clang__)
+#define NO_OPTIMIZE __attribute__((optnone))
+#elif defined(__GNUC__)
+#define NO_OPTIMIZE __attribute__((optimize(0)))
+#else
+#define NO_OPTIMIZE
+#endif
+
 #define DEFINE_ABI_FIXUP_FOR_PROTOBUF()                                 \
   volatile ::google::protobuf::internal::InternalMetadata* dummy_pb_md; \
                                                                         \
-  void AbiFixupForProtobuf() {                                          \
+  NO_OPTIMIZE void AbiFixupForProtobuf() {                              \
     using ::google::protobuf::internal::InternalMetadata;               \
     dummy_pb_md->~InternalMetadata();                                   \
   }
