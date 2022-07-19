@@ -305,8 +305,7 @@ class RunLengthEncodedMatcher : public TypeMatcher {
   std::shared_ptr<TypeMatcher> encoded_type_matcher;
 };
 
-std::shared_ptr<TypeMatcher> RunLengthEncoded(
-    std::shared_ptr<TypeMatcher> encoded_type_matcher) {
+std::shared_ptr<TypeMatcher> RunLengthEncoded(std::shared_ptr<TypeMatcher> encoded_type_matcher) {
   return std::make_shared<RunLengthEncodedMatcher>(std::move(encoded_type_matcher));
 }
 

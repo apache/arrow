@@ -225,6 +225,14 @@ class TestFilterKernel : public ::testing::Test {
     values_sliced = values_sliced->Slice(3, values->length());
     filter_sliced = filter_sliced->Slice(2, filter->length());
     DoAssertFilter(values_sliced, filter_sliced, expected);
+
+    ARROW_SCOPED_TRACE("for run-length encoded values and filter");
+    // Check RLE
+    ASSERT_OK_AND_ASSIGN(auto values_rle, RunLengthEncode(values));
+    ASSERT_OK_AND_ASSIGN(auto filter_rle, RunLengthEncode(filter));
+    ASSERT_OK_AND_ASSIGN(auto expected_rle, RunLengthEncode(expected));
+    ASSERT_OK_AND_ASSIGN(auto values_sliced_and_rle, RunLengthEncode(values));
+    ASSERT_OK_AND_ASSIGN(auto filter_sliced_and_rle, RunLengthEncode(filter));
   }
 
   void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
