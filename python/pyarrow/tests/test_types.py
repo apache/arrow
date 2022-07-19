@@ -577,13 +577,23 @@ def test_struct_type():
 
     assert ty['b'] == ty[2]
 
+    assert ty['b'] == ty.field('b')
+
+    assert ty[2] == ty.field(2)
+
     # Not found
     with pytest.raises(KeyError):
         ty['c']
 
+    with pytest.raises(KeyError):
+        ty.field('c')
+
     # Neither integer nor string
     with pytest.raises(TypeError):
         ty[None]
+
+    with pytest.raises(TypeError):
+        ty.field(None)
 
     for a, b in zip(ty, fields):
         a == b
