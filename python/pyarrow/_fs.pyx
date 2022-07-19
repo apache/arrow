@@ -213,6 +213,8 @@ cdef class FileInfo(_Weakrefable):
 
     @property
     def is_file(self):
+        """
+        """
         return self.type == FileType.File
 
     @property
