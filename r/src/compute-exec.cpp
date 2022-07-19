@@ -125,10 +125,10 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
   return node->output_schema();
 }
 
-// [[arrow::export]]
-std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan,
-                              const std::shared_ptr<compute::ExecNode>& final_node,
-                              cpp11::list sort_options, int64_t head = -1) {
+std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
+ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
+                 const std::shared_ptr<compute::ExecNode>& final_node,
+                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
@@ -156,7 +156,40 @@ std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan,
     MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
                        compute::SinkNodeOptions{&sink_gen});
   }
-  return plan->ToString();
+  StopIfNotOk(plan->Validate());
+
+  // If the generator is destroyed before being completely drained, inform plan
+  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
+    bool not_finished_yet =
+      plan->finished().TryAddCallback([&plan] {
+        return [plan](const arrow::Status&) {};
+      });
+    if (not_finished_yet) {
+      plan->StopProducing();
+    }
+  }};
+  // Attach metadata to the schema
+  auto out_schema = final_node->output_schema();
+  if (metadata.size() > 0) {
+    auto kv = strings_to_kvm(metadata);
+    out_schema = out_schema->WithMetadata(kv);
+  }
+
+  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
+    out;
+  out.first = plan;
+  out.second = compute::MakeGeneratorReader(
+    out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
+    gc_memory_pool());
+  return out;
+}
+
+// [[arrow::export]]
+std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan,
+                              const std::shared_ptr<compute::ExecNode>& final_node,
+                              cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
+  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
+  return prepared_plan.first->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
