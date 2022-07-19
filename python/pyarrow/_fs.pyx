@@ -208,24 +208,11 @@ cdef class FileInfo(_Weakrefable):
         Returns
         -------
         type : FileType
-
-        Examples
-        --------
-        >>> file_info = local.get_file_info(path)
-        >>> file_info.type
-        <FileType.File: 2>
         """
         return _wrap_file_type(self.info.type())
 
     @property
     def is_file(self):
-        """
-        Examples
-        --------
-        >>> file_info = local.get_file_info(path)
-        >>> file_info.is_file
-        True
-        """
         return self.type == FileType.File
 
     @property
@@ -266,12 +253,6 @@ cdef class FileInfo(_Weakrefable):
         Returns
         -------
         size : int or None
-
-        Examples
-        --------
-        >>> file_info = local.get_file_info(path)
-        >>> file_info.size
-        4
         """
         cdef int64_t size
         size = self.info.size()
@@ -544,12 +525,6 @@ cdef class FileSystem(_Weakrefable):
     def type_name(self):
         """
         The filesystem's type name.
-
-        Examples
-        --------
-        >>> local = fs.LocalFileSystem()
-        >>> local.type_name
-        'local'
         """
         return frombytes(self.fs.type_name())
 
@@ -620,13 +595,6 @@ cdef class FileSystem(_Weakrefable):
             The path of the new directory.
         recursive : bool, default True
             Create nested directories as well.
-
-        Examples
-        --------
-        >>> local = fs.LocalFileSystem()
-        >>> local.create_dir(local_path + '/new_folder')
-        >>> local.get_file_info(local_path + '/new_folder')
-        <FileInfo for '/.../new_folder': type=FileType.Directory>
         """
         cdef c_string directory = _path_as_bytes(path)
         with nogil:
@@ -640,21 +608,6 @@ cdef class FileSystem(_Weakrefable):
         ----------
         path : str
             The path of the directory to be deleted.
-
-        Examples
-        --------
-        Create directory:
-
-        >>> local = fs.LocalFileSystem()
-        >>> local.create_dir(local_path + '/new_folder')
-        >>> local.get_file_info(local_path + '/new_folder')
-        <FileInfo for '/.../new_folder': type=FileType.Directory>
-
-        Delete the created directory:
-
-        >>> local.delete_dir(local_path + '/new_folder')
-        >>> local.get_file_info(local_path + '/new_folder')
-        <FileInfo for '/.../new_folder': type=FileType.NotFound>
         """
         cdef c_string directory = _path_as_bytes(path)
         with nogil:
@@ -678,24 +631,6 @@ cdef class FileSystem(_Weakrefable):
         missing_dir_ok : boolean, default False
             If False then an error is raised if path does
             not exist
-
-        Examples
-        --------
-        Create a directory and copy a file into it:
-
-        >>> local.create_dir(local_path + '/new_dir')
-        >>> local.copy_file(path,
-        ...                 local_path + '/new_dir/example_copy.dat')
-        >>> local.get_file_info(local_path + '/new_dir/example_copy.dat')
-        <FileInfo for '/.../new_dir/example_copy.dat': type=FileType.File, size=4>
-
-        Delete only the content of the directory and not the directory itself:
-
-        >>> local.delete_dir_contents(local_path + '/new_dir')
-        >>> local.get_file_info(local_path + '/new_dir/example_copy.dat')
-        <FileInfo for '/.../new_dir/example_copy.dat': type=FileType.NotFound>
-        >>> local.get_file_info(local_path + '/new_dir')
-        <FileInfo for '/.../new_dir': type=FileType.Directory>
         """
         cdef c_string directory = _path_as_bytes(path)
         if accept_root_dir and directory.strip(b"/") == b"":
@@ -790,21 +725,6 @@ cdef class FileSystem(_Weakrefable):
         ----------
         path : str
             The path of the file to be deleted.
-
-        Examples
-        --------
-        Create a file to delete:
-
-        >>> local.create_dir('/tmp/')
-        >>> local.copy_file(path,'/tmp/delete_example.dat')
-        >>> local.get_file_info('/tmp/delete_example.dat')
-        <FileInfo for '/tmp/delete_example.dat': type=FileType.File, size=4>
-
-        Delete a file:
-
-        >>> local.delete_file('/tmp/delete_example.dat')
-        >>> local.get_file_info('/tmp/delete_example.dat')
-        <FileInfo for '/tmp/delete_example.dat': type=FileType.NotFound>
         """
         cdef c_string file = _path_as_bytes(path)
         with nogil:
