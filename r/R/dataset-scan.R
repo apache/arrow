@@ -183,11 +183,13 @@ tail_from_batches <- function(batches, n) {
 #' @param FUN A function or `purrr`-style lambda expression to apply to each
 #' batch. It must return a RecordBatch or something coercible to one via
 #' `as_record_batch()'.
+#' @param .schema An optional [schema()]. If NULL, the schema will be inferred
+#'   from the first batch.
 #' @param ... Additional arguments passed to `FUN`
 #' @param .data.frame Deprecated argument, ignored
 #' @return An `arrow_dplyr_query`.
 #' @export
-map_batches <- function(X, FUN, ..., .data.frame = NULL) {
+map_batches <- function(X, FUN, ..., .schema = NULL, .data.frame = NULL) {
   if (!is.null(.data.frame)) {
     warning(
       "The .data.frame argument is deprecated. ",
@@ -197,25 +199,50 @@ map_batches <- function(X, FUN, ..., .data.frame = NULL) {
   }
   FUN <- as_mapper(FUN)
   reader <- as_record_batch_reader(X)
+  dots <- rlang::list2(...)
 
-  # TODO: for future consideration
-  # * Move eval to C++ and make it a generator so it can stream, not block
-  # * Accept an output schema argument: with that, we could make this lazy (via collapse)
-  batch <- reader$read_next_batch()
-  res <- vector("list", 1024)
-  i <- 0L
-  while (!is.null(batch)) {
-    i <- i + 1L
-    res[[i]] <- as_record_batch(FUN(batch, ...))
+  # If no schema is supplied, we have to evaluate the first batch here
+  if (is.null(.schema)) {
     batch <- reader$read_next_batch()
+    if (is.null(batch)) {
+      abort("Can't infer schema from a RecordBatchReader with zero batches")
+    }
+
+    first_result <- as_record_batch(do.call(FUN, c(list(batch, dots))))
+    .schema <- first_result$schema
+    fun <- function() {
+      if (!is.null(first_result)) {
+        result <- first_result
+        first_result <<- NULL
+        result
+      } else {
+        batch <- reader$read_next_batch()
+        if (is.null(batch)) {
+          NULL
+        } else {
+          as_record_batch(
+            do.call(FUN, c(list(batch, dots))),
+            schema = .schema
+          )
+        }
+      }
+    }
+  } else {
+    # otherwise, we can
+    fun <- function() {
+      batch <- reader$read_next_batch()
+      if (is.null(batch)) {
+        return(NULL)
+      }
+
+      as_record_batch(
+        do.call(FUN, c(list(batch, dots))),
+        schema = .schema
+      )
+    }
   }
 
-  # Trim list back
-  if (i < length(res)) {
-    res <- res[seq_len(i)]
-  }
-
-  RecordBatchReader$create(batches = res)
+  as_record_batch_reader(fun, schema = .schema)
 }
 
 #' @usage NULL

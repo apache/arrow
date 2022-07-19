@@ -638,6 +638,7 @@ test_that("map_batches", {
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ summarize(., min_int = min(int))) %>%
+      (function(x) x$read_table()) %>%
       arrange(min_int) %>%
       collect(),
     tibble(min_int = c(6L, 101L))
@@ -649,6 +650,7 @@ test_that("map_batches", {
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ record_batch(nrows = .$num_rows)) %>%
+      (function(x) x$read_table()) %>%
       pull(nrows) %>%
       sort(),
     c(5, 10)
@@ -658,6 +660,7 @@ test_that("map_batches", {
   expect_equal(
     ds %>%
       map_batches(~ count(., part)) %>%
+      (function(x) x$read_table()) %>%
       arrange(part) %>%
       collect(),
     tibble(part = c(1, 2), n = c(10, 10))
@@ -669,6 +672,7 @@ test_that("map_batches", {
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ .$Take(0)) %>%
+      (function(x) x$read_table()) %>%
       arrange(int) %>%
       collect(),
     tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
@@ -683,6 +687,7 @@ test_that("map_batches", {
         # as_mapper() can't handle %>%?
         ~ mutate(as.data.frame(.), lets = letters[int])
       ) %>%
+      (function(x) x$read_table()) %>%
       arrange(int) %>%
       collect(),
     tibble(int = 1:4, lets = letters[1:4])
