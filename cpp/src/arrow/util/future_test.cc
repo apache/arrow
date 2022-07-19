@@ -39,6 +39,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -523,6 +524,23 @@ TEST(FutureStressTest, TryAddCallback) {
 
     ASSERT_TRUE(finished);
     callback_adder.join();
+  }
+}
+
+TEST(FutureStressTest, DeleteAfterWait) {
+  constexpr int kNumTasks = 100;
+  for (int i = 0; i < kNumTasks; i++) {
+    {
+      std::unique_ptr<Future<>> future =
+          internal::make_unique<Future<>>(Future<>::Make());
+      std::thread t([&]() {
+        SleepABit();
+        future->MarkFinished();
+      });
+      ASSERT_TRUE(future->Wait(100));
+      future.reset();
+      t.join();
+    }
   }
 }
 

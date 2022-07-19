@@ -339,8 +339,8 @@ class ConcreteFutureImpl : public FutureImpl {
       if (waiter_ != nullptr) {
         waiter_->MarkFutureFinishedUnlocked(waiter_arg_, state);
       }
+      cv_.notify_all();
     }
-    cv_.notify_all();
     if (callbacks.empty()) return;
 
     // run callbacks, lock not needed since the future is finished by this
