@@ -38,7 +38,9 @@ random row access. Default is 64K. This option is not supported for V1.}
 "lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
 "uncompressed". "zstd" is the other available codec and generally has better
 compression ratios in exchange for slower read and write performance
-See \code{\link[=codec_is_available]{codec_is_available()}}. This option is not supported for V1.}
+See \code{\link[=codec_is_available]{codec_is_available()}}. This option is not supported for V1.
+If \code{compression} is not provided and \code{sink} is a file path with an extension
+of \code{.lz4} or \code{.zst}, the compression codec will be inferred from it.}
 
 \item{compression_level}{If \code{compression} is "zstd", you may
 specify an integer compression level. If omitted, the compression codec's

@@ -207,6 +207,23 @@ test_that("read_feather requires RandomAccessFile and errors nicely otherwise (A
   )
 })
 
+test_that("write_feather() detects compression from filename", {
+  skip_if_not_available("lz4")
+  explicit <- tempfile(fileext = ".arrow")
+  implicit <- tempfile(fileext = ".arrow.lz4")
+  write_feather(mtcars, explicit, compression = "lz4")
+  write_feather(mtcars, implicit)
+  expect_equal(file.size(explicit), file.size(implicit))
+})
+
+test_that("read_feather() handles compression in filename", {
+  skip_if_not_available("lz4")
+  df <- tibble::tibble(x = 1:5)
+  implicit <- tempfile(fileext = ".parquet.lz4")
+  write_feather(df, implicit)
+  expect_equal(read_feather(implicit), df)
+})
+
 test_that("read_feather() and write_feather() accept connection objects", {
   skip_if_not(CanRunWithCapturedR())
 

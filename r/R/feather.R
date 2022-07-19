@@ -40,6 +40,8 @@
 #' "uncompressed". "zstd" is the other available codec and generally has better
 #' compression ratios in exchange for slower read and write performance
 #' See [codec_is_available()]. This option is not supported for V1.
+#' If `compression` is not provided and `sink` is a file path with an extension
+#' of `.lz4` or `.zst`, the compression codec will be inferred from it.
 #' @param compression_level If `compression` is "zstd", you may
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
@@ -72,6 +74,17 @@ write_feather <- function(x,
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
+
+  if (missing(compression) && is.string(sink)) {
+    # IPC compression is in the writer itself, not by wrapping
+    # the sink in a CompressedOutputStream, which make_output_stream() does
+    # if the filename ends in a compression extension. So handle the ext
+    # here before passing to make_output_stream()
+    comp <- detect_compression(sink)
+    if (comp != "uncompressed") {
+      compression <- comp
+    }
+  }
   compression <- match.arg(compression)
   chunk_size <- as.integer(chunk_size)
   assert_that(chunk_size > 0)
@@ -116,7 +129,7 @@ write_feather <- function(x,
   x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
-    sink <- make_output_stream(sink)
+    sink <- make_output_stream(sink, compression = "uncompressed")
     on.exit(sink$close())
   }
   ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
@@ -165,7 +178,9 @@ write_ipc_file <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("d"))
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file, ...)
+    # Compression is handled inside the IPC file format, so we don't need
+    # to detect from the file extension and wrap in a CompressedInputStream
+    file <- make_readable_file(file, compression = "uncompressed", ...)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file)
