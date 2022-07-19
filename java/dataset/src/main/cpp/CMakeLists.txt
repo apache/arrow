@@ -64,5 +64,4 @@ add_arrow_test(dataset_jni_test
                EXTRA_INCLUDES
                ${JNI_INCLUDE_DIRS})
                
-install(FILES jni_util.h
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/jni/dataset")
+install(FILES jni_util.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/jni/dataset")
