@@ -177,7 +177,7 @@ arrow::Status RunRowConversion() {
   std::vector<data_row> original_rows = {
       {1, 1, {10.0}}, {2, 3, {11.0, 12.0, 13.0}}, {3, 2, {15.0, 25.0}}};
   std::shared_ptr<arrow::Table> table;
-  std::vector<data_row> converted_rows
+  std::vector<data_row> converted_rows,
 
   ARROW_ASSIGN_OR_RAISE(table, VectorToColumnarTable(original_rows));
 
