@@ -208,7 +208,7 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .data.frame = NULL) {
       abort("Can't infer schema from a RecordBatchReader with zero batches")
     }
 
-    first_result <- as_record_batch(do.call(FUN, c(list(batch, dots))))
+    first_result <- as_record_batch(do.call(FUN, c(list(batch), dots)))
     .schema <- first_result$schema
     fun <- function() {
       if (!is.null(first_result)) {
@@ -221,14 +221,13 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .data.frame = NULL) {
           NULL
         } else {
           as_record_batch(
-            do.call(FUN, c(list(batch, dots))),
+            do.call(FUN, c(list(batch), dots)),
             schema = .schema
           )
         }
       }
     }
   } else {
-    # otherwise, we can
     fun <- function() {
       batch <- reader$read_next_batch()
       if (is.null(batch)) {
@@ -236,7 +235,7 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .data.frame = NULL) {
       }
 
       as_record_batch(
-        do.call(FUN, c(list(batch, dots))),
+        do.call(FUN, c(list(batch), dots)),
         schema = .schema
       )
     }
