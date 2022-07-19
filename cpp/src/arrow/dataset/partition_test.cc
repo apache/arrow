@@ -458,9 +458,9 @@ TEST_F(TestPartitioning, HivePartitioning) {
 
 TEST_F(TestPartitioning, HivePartitioningEquals) {
   const auto& array_vector = ArrayVector();
-  std::vector<std::shared_ptr<arrow::Array>> other_vector(2);
-  other_vector.push_back(ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])"));
-  other_vector.push_back(ArrayFromJSON(utf8(), R"(["bar", "foo", "baz"])"));
+  ArrayVector other_vector(2);
+  other_vector[0] = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])");
+  other_vector[1] = ArrayFromJSON(utf8(), R"(["bar", "foo", "baz"])");
   auto part = std::make_shared<HivePartitioning>(
       schema({field("alpha", int32()), field("beta", float32())}), array_vector, "xyz");
   auto other_part = std::make_shared<HivePartitioning>(
