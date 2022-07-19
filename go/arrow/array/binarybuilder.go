@@ -180,7 +180,7 @@ func (b *BinaryBuilder) Resize(n int) {
 }
 
 func (b *BinaryBuilder) ResizeData(n int) {
-	b.values.length = 0
+	b.values.length = n
 }
 
 // NewArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder

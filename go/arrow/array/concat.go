@@ -26,6 +26,8 @@ import (
 	"github.com/apache/arrow/go/v9/arrow/bitutil"
 	"github.com/apache/arrow/go/v9/arrow/internal/debug"
 	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/internal/bitutils"
+	"github.com/apache/arrow/go/v9/internal/utils"
 )
 
 // Concatenate creates a new arrow.Array which is the concatenation of the
@@ -228,6 +230,85 @@ func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buff
 	return out, valuesRanges, nil
 }
 
+func unifyDictionaries(mem memory.Allocator, data []arrow.ArrayData, dt *arrow.DictionaryType) ([]*memory.Buffer, arrow.Array, error) {
+	unifier, err := NewDictionaryUnifier(mem, dt.ValueType)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer unifier.Release()
+
+	newLookup := make([]*memory.Buffer, len(data))
+	for i, d := range data {
+		dictArr := MakeFromData(d.Dictionary())
+		defer dictArr.Release()
+		newLookup[i], err = unifier.UnifyAndTranspose(dictArr)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	unified, err := unifier.GetResultWithIndexType(dt.IndexType)
+	if err != nil {
+		for _, b := range newLookup {
+			b.Release()
+		}
+		return nil, nil, err
+	}
+	return newLookup, unified, nil
+}
+
+func concatDictIndices(mem memory.Allocator, data []arrow.ArrayData, idxType arrow.FixedWidthDataType, transpositions []*memory.Buffer) (out *memory.Buffer, err error) {
+	defer func() {
+		if err != nil && out != nil {
+			out.Release()
+			out = nil
+		}
+	}()
+
+	idxWidth := idxType.BitWidth() / 8
+	outLen := 0
+	for i, d := range data {
+		outLen += d.Len()
+		defer transpositions[i].Release()
+	}
+
+	out = memory.NewResizableBuffer(mem)
+	out.Resize(outLen * idxWidth)
+
+	outData := out.Bytes()
+	for i, d := range data {
+		transposeMap := arrow.Int32Traits.CastFromBytes(transpositions[i].Bytes())
+		src := d.Buffers()[1].Bytes()
+		if d.Buffers()[0] == nil {
+			if err = utils.TransposeIntsBuffers(idxType, idxType, src, outData, d.Offset(), 0, d.Len(), transposeMap); err != nil {
+				return
+			}
+		} else {
+			rdr := bitutils.NewBitRunReader(d.Buffers()[0].Bytes(), int64(d.Offset()), int64(d.Len()))
+			pos := 0
+			for {
+				run := rdr.NextRun()
+				if run.Len == 0 {
+					break
+				}
+
+				if run.Set {
+					err = utils.TransposeIntsBuffers(idxType, idxType, src, outData, d.Offset()+pos, pos, int(run.Len), transposeMap)
+					if err != nil {
+						return
+					}
+				} else {
+					memory.Set(outData[pos:pos+(int(run.Len)*idxWidth)], 0x00)
+				}
+
+				pos += int(run.Len)
+			}
+		}
+		outData = outData[d.Len()*idxWidth:]
+	}
+	return
+}
+
 // concat is the implementation for actually performing the concatenation of the arrow.ArrayData
 // objects that we can call internally for nested types.
 func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, error) {
@@ -258,6 +339,42 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 			return nil, err
 		}
 		out.buffers[1] = bm
+	case *arrow.DictionaryType:
+		idxType := dt.IndexType.(arrow.FixedWidthDataType)
+		// two cases: all dictionaries are the same or we need to unify them
+		dictsSame := true
+		dict0 := MakeFromData(data[0].Dictionary())
+		defer dict0.Release()
+		for _, d := range data {
+			dict := MakeFromData(d.Dictionary())
+			if !Equal(dict0, dict) {
+				dict.Release()
+				dictsSame = false
+				break
+			}
+			dict.Release()
+		}
+
+		indexBuffers := gatherBuffersFixedWidthType(data, 1, idxType)
+		if dictsSame {
+			out.dictionary = dict0.Data().(*Data)
+			out.dictionary.Retain()
+			out.buffers[1] = concatBuffers(indexBuffers, mem)
+			break
+		}
+
+		indexLookup, unifiedDict, err := unifyDictionaries(mem, data, dt)
+		if err != nil {
+			return nil, err
+		}
+		defer unifiedDict.Release()
+		out.dictionary = unifiedDict.Data().(*Data)
+		out.dictionary.Retain()
+
+		out.buffers[1], err = concatDictIndices(mem, data, idxType, indexLookup)
+		if err != nil {
+			return nil, err
+		}
 	case arrow.FixedWidthDataType:
 		out.buffers[1] = concatBuffers(gatherBuffersFixedWidthType(data, 1, dt), mem)
 	case arrow.BinaryDataType:
