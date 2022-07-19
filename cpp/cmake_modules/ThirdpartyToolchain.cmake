@@ -4387,10 +4387,18 @@ macro(build_opentelemetry)
     list(APPEND OPENTELEMETRY_LIBRARIES opentelemetry-cpp::${_OPENTELEMETRY_LIB})
   endforeach()
 
+  # As protobuf has a different ABI depending on NDEBUG, the OpenTelemetry
+  # build type must follow the protobuf build type (ARROW-17104).
+  if(PROTOBUF_VENDORED)
+    set(OPENTELEMETRY_CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+  else()
+    set(OPENTELEMETRY_CMAKE_BUILD_TYPE Release)
+  endif()
+
   set(OPENTELEMETRY_CMAKE_ARGS
       ${EP_COMMON_TOOLCHAIN}
       "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
-      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DCMAKE_BUILD_TYPE=${OPENTELEMETRY_CMAKE_BUILD_TYPE}"
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
       -DBUILD_TESTING=OFF
