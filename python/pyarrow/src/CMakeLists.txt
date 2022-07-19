@@ -438,8 +438,8 @@ if(ARROW_BUILD_TESTS)
     endif()
 
   else()
-    message(STATUS "Tests for Arrow Python not build")
+    message(STATUS "Tests for PyArrow CPP not build")
     message(STATUS "Set -DGTest_SOURCE=BUNDLED when building Arrow C++
-                    to enable building tests for Arrow Python")
+                    to enable building tests for PyArrow CPP")
   endif()
 endif()
