@@ -333,43 +333,25 @@ cdef class FileSelector(_Weakrefable):
 
     Examples
     --------
-    Generate a file:
-
-    >>> from pyarrow import fs
-    >>> local = fs.LocalFileSystem()
-    >>> path_s = local_path + '/pyarrow-s-example.dat'
-    >>> with local.open_output_stream(path_s) as stream:
-    ...     stream.write(b'data')
-    4
-
-    Create new directory and subdirectory with copied data:
-
-    >>> # directory
-    >>> local.create_dir(local_path + '/alphabet')
-    >>> local.copy_file(path,
-    ...                 local_path + '/alphabet/pyarrow-s-example.dat')
-    >>> # subdirectory
-    >>> local.create_dir(local_path + '/alphabet/subdir')
-    >>> local.copy_file(path,
-    ...                 local_path + '/alphabet/subdir/pyarrow-s-example.dat')
-
     List the contents of a directory and subdirectories:
 
-    >>> selector_1 = fs.FileSelector(local_path + '/alphabet',
-    ...                              recursive=True)
-    >>> local.get_file_info(selector_1)
-    [<FileInfo for '/.../alphabet/subdir': type=FileType.Directory>, <FileInfo for '/.../alphabet/subdir/pyarrow-s-example.dat'...
+    >>> selector_1 = fs.FileSelector(local_path, recursive=True)
+    >>> local.get_file_info(selector_1) # doctest: +SKIP
+    [<FileInfo for 'tmp/alphabet/example.dat': type=FileType.File, size=4>,
+    <FileInfo for 'tmp/alphabet/subdir': type=FileType.Directory>,
+    <FileInfo for 'tmp/alphabet/subdir/example_copy.dat': type=FileType.File, size=4>]
 
     List only the contents of the base directory:
 
-    >>> selector_2 = fs.FileSelector(local_path + '/alphabet')
-    >>> local.get_file_info(selector_2)
-    [<FileInfo for '/.../alphabet/pyarrow-s-example.dat': type=FileType.File, size=4>, <FileInfo for '/.../alphabet/subdir'...]
+    >>> selector_2 = fs.FileSelector(local_path)
+    >>> local.get_file_info(selector_2) # doctest: +SKIP
+    [<FileInfo for 'tmp/alphabet/example.dat': type=FileType.File, size=4>,
+    <FileInfo for 'tmp/alphabet/subdir': type=FileType.Directory>]
 
     Return empty selection if the directory doesn't exist:
 
-    >>> selector_not_found = fs.FileSelector(local_path + '/missing',
-    ...                                      recursive=True, allow_not_found=True)
+    >>> selector_not_found = fs.FileSelector(local_path, recursive=True,
+    ...                                      allow_not_found=True)
     >>> local.get_file_info(selector_not_found)
     []
     """
