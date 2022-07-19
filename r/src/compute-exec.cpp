@@ -90,15 +90,15 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
 
   // If the generator is destroyed before being completely drained, inform plan
   std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-                                        bool not_finished_yet =
-                                            plan->finished().TryAddCallback([&plan] {
-                                              return [plan](const arrow::Status&) {};
-                                            });
+                                         bool not_finished_yet =
+                                             plan->finished().TryAddCallback([&plan] {
+                                               return [plan](const arrow::Status&) {};
+                                             });
 
-                                        if (not_finished_yet) {
-                                          plan->StopProducing();
-                                        }
-                                      }};
+                                         if (not_finished_yet) {
+                                           plan->StopProducing();
+                                         }
+                                       }};
 
   // Attach metadata to the schema
   auto out_schema = final_node->output_schema();
