@@ -899,6 +899,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
     std::pair<CType, CType> pair;
     *st = arg.Divide(multiple).Value(&pair);
     if (!st->ok()) return arg;
+    auto& quotient = pair.first;
     const auto& remainder = pair.second;
     if (remainder == 0) return arg;
     if (kRoundMode >= RoundMode::HALF_DOWN) {
@@ -909,25 +910,25 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
         // decimal value, but rather manipulating the multiple
         switch (kRoundMode) {
           case RoundMode::HALF_DOWN:
-            if (remainder.Sign() < 0) pair.first -= 1;
+            if (remainder.Sign() < 0) quotient -= 1;
             break;
           case RoundMode::HALF_UP:
-            if (remainder.Sign() >= 0) pair.first += 1;
+            if (remainder.Sign() >= 0) quotient += 1;
             break;
           case RoundMode::HALF_TOWARDS_ZERO:
             // Do nothing
             break;
           case RoundMode::HALF_TOWARDS_INFINITY:
-            pair.first += remainder.Sign() >= 0 ? 1 : -1;
+            quotient += remainder.Sign() >= 0 ? 1 : -1;
             break;
           case RoundMode::HALF_TO_EVEN:
-            if (pair.first.low_bits() % 2 != 0) {
-              pair.first += remainder.Sign() >= 0 ? 1 : -1;
+            if (quotient.low_bits() % 2 != 0) {
+              quotient += remainder.Sign() >= 0 ? 1 : -1;
             }
             break;
           case RoundMode::HALF_TO_ODD:
-            if (pair.first.low_bits() % 2 == 0) {
-              pair.first += remainder.Sign() >= 0 ? 1 : -1;
+            if (quotient.low_bits() % 2 == 0) {
+              quotient += remainder.Sign() >= 0 ? 1 : -1;
             }
             break;
           default:
@@ -936,12 +937,12 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
       } else if (remainder.Sign() >= 0) {
         // Positive, round up/down
         if (remainder > half_multiple) {
-          pair.first += 1;
+          quotient += 1;
         }
       } else {
         // Negative, round up/down
         if (remainder < neg_half_multiple) {
-          pair.first -= 1;
+          quotient -= 1;
         }
       }
     } else {
@@ -949,22 +950,22 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
       // decimal value, but rather manipulating the multiple
       switch (kRoundMode) {
         case RoundMode::DOWN:
-          if (remainder.Sign() < 0) pair.first -= 1;
+          if (remainder.Sign() < 0) quotient -= 1;
           break;
         case RoundMode::UP:
-          if (remainder.Sign() >= 0) pair.first += 1;
+          if (remainder.Sign() >= 0) quotient += 1;
           break;
         case RoundMode::TOWARDS_ZERO:
           // Do nothing
           break;
         case RoundMode::TOWARDS_INFINITY:
-          pair.first += remainder.Sign() >= 0 ? 1 : -1;
+          quotient += remainder.Sign() >= 0 ? 1 : -1;
           break;
         default:
           DCHECK(false);
       }
     }
-    CType round_val = pair.first * multiple;
+    CType round_val = quotient * multiple;
     if (!round_val.FitsInPrecision(ty.precision())) {
       *st = Status::Invalid("Rounded value ", round_val.ToString(ty.scale()),
                             " does not fit in precision of ", ty);
@@ -1013,7 +1014,7 @@ struct Divmod {
     builder.Append(remainder);
     std::shared_ptr<Array> array;
     builder.Finish(&array);
-    FixedSizeListScalar list(array, builder.type())
+    FixedSizeListScalar list(array);
     return list;
   }
 
@@ -1027,7 +1028,7 @@ struct Divmod {
     builder.Append(remainder);
     std::shared_ptr<Array> array;
     builder.Finish(&array);
-    FixedSizeListScalar list(array, builder.type())
+    FixedSizeListScalar list(array);
     return list;
   }
 
@@ -1045,34 +1046,39 @@ struct DivmodChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
     T quotient = std::floor(DivideChecked::Call<T, Arg0, Arg1>(ctx, dividend, divisor, st));
-    if (!st->ok) {
-        return {0, 0};
+    T remainder;
+    if (!st->ok()) {
+        quotient = 0;
+        remainder = 0;
+    } else {
+      remainder = dividend - quotient * divisor;
     }
-    T remainder = dividend - quotient * divisor;
 
     NumericBuilder<T> builder;
     builder.Append(quotient);
     builder.Append(remainder);
     std::shared_ptr<Array> array;
     builder.Finish(&array);
-    FixedSizeListScalar list(array, builder.type())
+    FixedSizeListScalar list(array);
     return list;
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_integer_value<T, FixedSizeListScalar> Call(KernelContext* ctx, Arg0 dividend, Arg1 divisor, Status* st) {
     T quotient = DivideChecked::Call<T, Arg0, Arg1>(ctx, dividend, divisor, st);
-    if (!st->ok) {
+    T remainder;
+    if (!st->ok()) {
         return {0, 0};
+    } else {
+      remainder = dividend - quotient * divisor;
     }
-    T remainder = dividend - quotient * divisor;
 
     NumericBuilder<T> builder;
     builder.Append(quotient);
     builder.Append(remainder);
     std::shared_ptr<Array> array;
     builder.Finish(&array);
-    FixedSizeListScalar list(array, builder.type())
+    FixedSizeListScalar list(array);
     return list;
   }
 
@@ -2330,14 +2336,14 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto divmod = MakeArithmeticFunctionStructOutType<Divmod>(
-      "divmod", divmod_doc, DivmodUtil::MakeDivmodOutType);
-  DCHECK_OK(registry->AddFunction(std::move(divmod)));
+  // auto divmod = MakeArithmeticFunctionStructOutType<Divmod>(
+  //     "divmod", divmod_doc, DivmodUtil::MakeDivmodOutType);
+  // DCHECK_OK(registry->AddFunction(std::move(divmod)));
 
-  // ----------------------------------------------------------------------
-  auto divmod_checked = MakeArithmeticFunctionNotNullStructOutType<DivmodChecked>(
-      "divmod_checked", divmod_checked_doc, DivmodUtil::MakeDivmodOutType);
-  DCHECK_OK(registry->AddFunction(std::move(divmod_checked)));
+  // // ----------------------------------------------------------------------
+  // auto divmod_checked = MakeArithmeticFunctionNotNullStructOutType<DivmodChecked>(
+  //     "divmod_checked", divmod_checked_doc, DivmodUtil::MakeDivmodOutType);
+  // DCHECK_OK(registry->AddFunction(std::move(divmod_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
