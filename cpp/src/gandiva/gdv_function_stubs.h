@@ -381,4 +381,17 @@ const char* mask_utf8_utf8(int64_t context, const char* in, int32_t length,
 
 GANDIVA_EXPORT
 const char* mask_utf8(int64_t context, const char* in, int32_t length, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* conv_int64_int32_int32(gdv_int64 context, gdv_int64 in, gdv_int32 from_base,
+                                   gdv_int32 to_base, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* conv_int32_int32_int32(gdv_int64 context, gdv_int32 in, gdv_int32 from_base,
+                                   gdv_int32 to_base, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* conv_utf8_int32_int32(gdv_int64 context, const char* in, int32_t in_len,
+                                  gdv_int32 from_base, gdv_int32 to_base,
+                                  int32_t* out_len);
 }

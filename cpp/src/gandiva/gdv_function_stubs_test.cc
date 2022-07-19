@@ -1341,4 +1341,108 @@ TEST(TestGdvFnStubs, TestMask) {
   EXPECT_EQ(std::string(result, out_len), expected);
 }
 
+TEST(TestGdvFnStubs, TestConv) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* value = conv_utf8_int32_int32(ctx_ptr, "1000101101", 10, 2, 10, &out_len);
+  std::string out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "557");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "ffa", 3, 16, 10, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "4090");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "4090", 4, 10, 16, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "FFA");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "zzzb", 4, 36, 8, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "6320347");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "a", 1, 16, 2, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "1010");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "6E", 2, 18, 8, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "172");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "-17", 3, 10, -18, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "-H");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "40", 2, 10, 10, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "40");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "000000000001", 12, 2, 10, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "1");
+
+  value = conv_utf8_int32_int32(ctx_ptr, "-000000000001", 13, 2, -10, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "-1");
+
+  // Test define limit out of range
+  int out_ranged_toBs;
+  int out_ranged_fomBs;
+
+  out_ranged_fomBs = 0;
+  value = conv_utf8_int32_int32(ctx_ptr, "40", 2, out_ranged_fomBs, 10, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("The numerical limit of this variable is out range"));
+  ctx.Reset();
+
+  out_ranged_toBs = std::numeric_limits<int>::min();
+  value = conv_utf8_int32_int32(ctx_ptr, "40", 2, 10, out_ranged_toBs, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("The numerical limit of this variable is out range"));
+  ctx.Reset();
+
+  out_ranged_toBs = 37;
+  value = conv_utf8_int32_int32(ctx_ptr, "40", 2, 10, out_ranged_toBs, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("The numerical limit of this variable is out range"));
+  ctx.Reset();
+
+  // Test Invalid Entry
+  value = conv_utf8_int32_int32(ctx_ptr, "123-4565", 8, 20, 10, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("This entry is invalid"));
+  ctx.Reset();
+
+  value = conv_utf8_int32_int32(ctx_ptr, "aaaa@#aa", 8, 36, 10, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("This entry is invalid"));
+  ctx.Reset();
+
+  value = conv_utf8_int32_int32(ctx_ptr, "ffe sdkl", 8, 36, 10, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("This entry is invalid"));
+  ctx.Reset();
+
+  value = conv_utf8_int32_int32(ctx_ptr, "01012", 5, 2, 10, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("This entry is invalid"));
+  ctx.Reset();
+
+  value = conv_utf8_int32_int32(ctx_ptr, "大路学路", 12, 36, 10, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("This entry is invalid"));
+  ctx.Reset();
+
+  // Test Int64 Conv Entry
+  value = conv_int64_int32_int32(ctx_ptr, 1000101101, 2, 10, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "557");
+
+  value = conv_int64_int32_int32(ctx_ptr, -17, 10, -16, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "-11");
+
+  value = conv_int64_int32_int32(ctx_ptr, 932, 35, 19, &out_len);
+  out_value = std::string(value, out_len);
+  EXPECT_EQ(out_value, "1BFH");
+
+  ctx.Reset();
+}
 }  // namespace gandiva

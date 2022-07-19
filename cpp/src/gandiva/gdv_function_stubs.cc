@@ -295,6 +295,239 @@ CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
 
+// Divide x by m as if x is an unsigned 64-bit integer. Examples:
+// unsignedLongDiv(-1, 2) == Long.MAX_VALUE unsignedLongDiv(6, 3) == 2
+// unsignedLongDiv(0, 5) == 0
+// param x: is treated as unsigned
+// param m: is treated as signed
+GDV_FORCE_INLINE
+int64_t unsigned_long_div(int64_t x, int32_t m) {
+  if (x >= 0) {
+    return x / m;
+  }
+  // Let uval be the value of the unsigned long with the same bits as x
+  // Two's complement => x = uval - 2*MAX - 2
+  // => uval = x + 2*MAX + 2
+  // Now, use the fact: (a+b)/c = a/c + b/c + (a%c+b%c)/c
+  return x / m + 2 * (LONG_MAX / m) + 2 / m + (x % m + 2 * (LONG_MAX % m) + 2 % m) / m;
+}
+
+// Convert value[] into a long. On overflow, return -1 (as mySQL does). If a
+// negative digit is found, ignore the suffix starting there.
+// param radix: must be between MIN_RADIX and MAX_RADIX
+// param fromPos: is the first element that should be considered
+// return the result should be treated as an unsigned 64-bit integer.
+GDV_FORCE_INLINE
+int64_t encode(int32_t radix, int32_t fromPos, const char* value, int32_t valueLen) {
+  int64_t val = 0;
+  int64_t bound = unsigned_long_div(-1 - radix, radix);
+
+  for (int i = fromPos; i < valueLen && value[i] >= 0; i++) {
+    if (val >= bound) {
+      if (unsigned_long_div(-1 - value[i], radix) < val) {
+        return -1;
+      }
+    }
+    val = val * radix + value[i];
+  }
+  return val;
+}
+
+// Decode val into value[].
+// param val: is treated as an unsigned 64-bit integer.
+// param radix: must be between MIN_RADIX and MAX_RADIX
+GDV_FORCE_INLINE
+void decode(uint64_t val, int32_t radix, char* value, int32_t valueLen) {
+  for (int i = 0; i < valueLen; i++) {
+    value[i] = static_cast<char>(0);
+  }
+
+  for (int i = valueLen - 1; val != 0; i--) {
+    uint64_t q = unsigned_long_div(val, radix);
+    value[i] = static_cast<char>((val - q * radix));
+    val = q;
+  }
+}
+
+// From Decimal to Any Base
+GDV_FORCE_INLINE
+char character_for_digit(int32_t value, int32_t radix) {
+  // This function is similar to Character.forDigit in Java
+  int digit = 0;
+  digit = value % radix;
+  if (digit < 10) {
+    return static_cast<char>(digit + '0');
+  } else {
+    return static_cast<char>(digit + 'A' - 10);
+  }
+}
+
+// From any base to Decimal
+GDV_FORCE_INLINE
+int64_t character_digit(char value, int32_t radix, int32_t& valid_entry) {
+  // This function is similar to Character.digit in Java
+  if ((radix <= 0) || (radix > 36)) {
+    valid_entry = -1;
+    return -1;
+  }
+
+  if (radix <= 10) {
+    if (value >= '0' && value < '0' + radix) {
+      return value - '0';
+    } else {
+      valid_entry = -1;
+      return -1;
+    }
+  } else if (value >= '0' && value <= '9') {
+    return value - '0';
+  } else if (value >= 'a' && value < 'a' + radix - 10) {
+    return value - 'a' + 10;
+  } else if (value >= 'A' && value < 'A' + radix - 10) {
+    return value - 'A' + 10;
+  }
+  valid_entry = -1;
+  return -1;
+}
+
+// Convert the bytes in value[] to the corresponding chars.
+// param radix: must be between MIN_RADIX and MAX_RADIX
+// param fromPos: is the first element that should be considered
+GDV_FORCE_INLINE
+void byte2char(int32_t radix, int32_t fromPos, char* value, int32_t valueLen) {
+  for (int i = fromPos; i < valueLen; i++) {
+    value[i] = static_cast<char>(character_for_digit(value[i], radix));
+  }
+}
+
+// Convert the chars in value[] to the corresponding integers. Convert invalid
+// characters to -1.
+// param radix: must be between MIN_RADIX and MAX_RADIX
+// param fromPos: is the first element that should be considered
+GDV_FORCE_INLINE
+void char2byte(int32_t radix, int32_t fromPos, char* value, int32_t valueLen,
+               int32_t* valid_entry) {
+  for (int i = fromPos; i < valueLen; i++) {
+    value[i] = static_cast<char>(character_digit(value[i], radix, *valid_entry));
+    if (*valid_entry != 1) {
+      break;
+    }
+  }
+}
+
+GANDIVA_EXPORT
+const char* conv_int64_int32_int32(int64_t context, int64_t in, int32_t from_base,
+                                   int32_t to_base, int32_t* out_len) {
+  std::string to_utf8 = std::to_string(in);
+  char* in_utf8 = &to_utf8[0];
+  auto in_utf8_len = static_cast<int32_t>(to_utf8.length());
+
+  return conv_utf8_int32_int32(context, in_utf8, in_utf8_len, from_base, to_base,
+                               out_len);
+}
+
+GANDIVA_EXPORT
+const char* conv_int32_int32_int32(int64_t context, int32_t in, int32_t from_base,
+                                   int32_t to_base, int32_t* out_len) {
+  std::string to_utf8 = std::to_string(in);
+  char* in_utf8 = &to_utf8[0];
+  auto in_utf8_len = static_cast<int32_t>(to_utf8.length());
+
+  return conv_utf8_int32_int32(context, in_utf8, in_utf8_len, from_base, to_base,
+                               out_len);
+}
+
+GANDIVA_EXPORT
+const char* conv_utf8_int32_int32(int64_t context, const char* in, int32_t in_len,
+                                  int32_t from_base, int32_t to_base, int32_t* out_len) {
+  if (in_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t valueLen = 64;
+  char* value = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, valueLen));
+  char* num = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
+
+  if (value == nullptr || num == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int fromBs = from_base;
+  int toBs = to_base;
+
+  if (fromBs < -36 || fromBs > 36 || fromBs == 0 || fromBs == 1 || abs(toBs) < -36 ||
+      abs(toBs) > 36 || abs(toBs) == 0 || abs(toBs) == 1) {
+    // Checking if the variable is in range limit
+    gdv_fn_context_set_error_msg(context,
+                                 "The numerical limit of this variable is out range");
+    *out_len = 0;
+    return "";
+  }
+
+  // Copying entry to new variable, for apply manipulations
+  memcpy(num, in, in_len);
+
+  // Validating if the entry is negative
+  gdv_boolean negative = (num[0] == '-');
+  int first = 0;
+  if (negative) {
+    first = 1;
+  }
+
+  for (int i = 1; i <= in_len - first; i++) {
+    // Making a copy the Num array in ending of Value array
+    value[valueLen - i] = num[in_len - i];
+  }
+
+  // Char to byte, this function calls one function similar to Character.digit in Java
+  int32_t valid_entry = 1;
+  char2byte(fromBs, valueLen - in_len + first, value, valueLen, &valid_entry);
+
+  // If valid_entry returns -1, had any problem with the entry, it is out of base or have
+  // invalid characters
+  if (valid_entry != 1) {
+    gdv_fn_context_set_error_msg(context, "This entry is invalid");
+    *out_len = 0;
+    return "";
+  }
+
+  // Return a long value with the entry value converted to base 10
+  int64_t val = encode(fromBs, valueLen - in_len + first, value, valueLen);
+
+  if (negative && toBs > 0) {
+    if (val < 0) {
+      val = -1;
+    } else {
+      val = -val;
+    }
+  }
+
+  if (toBs < 0 && val < 0) {
+    val = -val;
+    negative = true;
+  }
+
+  decode(val, abs(toBs), value, valueLen);
+
+  for (first = 0; first < valueLen - 1 && value[first] == 0; first++) {
+    // Find the first non-zero digit or the last digits if all are zero.
+    {}
+  }
+
+  // Byte to char, this function calls one function similar to Character.forDigit in Java
+  byte2char(abs(toBs), first, value, valueLen);
+
+  if (negative && toBs < 0) {
+    // Add signal if the entry value is negative
+    value[--first] = '-';
+  }
+
+  *out_len = valueLen - first;
+  return &value[first];
+}
+
 static constexpr int64_t kAesBlockSize = 16;  // bytes
 
 GANDIVA_EXPORT
@@ -1258,5 +1491,46 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   engine->AddGlobalMappingForFunc("mask_utf8", types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(mask_utf8));
+
+  // conv_function
+  // conv_function_int64
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // data
+      types->i32_type(),     // in_base
+      types->i32_type(),     // out_base
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("conv_int64_int32_int32",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(conv_int64_int32_int32));
+
+  // conv_function_int32
+  args = {
+      types->i64_type(),     // context
+      types->i32_type(),     // data
+      types->i32_type(),     // in_base
+      types->i32_type(),     // out_base
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("conv_int32_int32_int32",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(conv_int32_int32_int32));
+
+  // conv_function_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i32_type(),     // in_base
+      types->i32_type(),     // out_base
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("conv_utf8_int32_int32",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(conv_utf8_int32_int32));
 }
 }  // namespace gandiva
