@@ -128,8 +128,8 @@ class TestAzureFileSystem : public ::testing::Test {
             options_.account_blob_url + "container/somefile",
             options_.storage_credentials_provider);
     std::string s = "some data";
-    file_client->UploadFrom(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())),
-                           s.size());
+    file_client->UploadFrom(
+        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
   }
 
   void TearDown() override {
@@ -168,7 +168,8 @@ class TestAzureFileSystem : public ::testing::Test {
                                    size, download_options)
                       .Value;
     auto buf_data = std::move(buf->get());
-    auto expected_data = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(expected.data()), expected.size());
+    auto expected_data = std::make_shared<Buffer>(
+        reinterpret_cast<const uint8_t*>(expected.data()), expected.size());
     AssertBufferEqual(*buf_data, *expected_data);
   }
 };
@@ -183,35 +184,52 @@ TEST_F(TestAzureFileSystem, FromUri) {
   ASSERT_EQ(options.account_dfs_url, "https://testcontainer.dfs.core.windows.net/");
 
   // Sas Token
-  ASSERT_OK(uri.Parse("https://testcontainer.blob.core.windows.net/?dummy_sas_token"));
+  ASSERT_OK(uri.Parse(
+      "https://testcontainer.blob.core.windows.net/?dummy_sas_key=dummy_value"));
   ASSERT_OK_AND_ASSIGN(options, AzureOptions::FromUri(uri));
   ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Sas);
   ASSERT_EQ(options.account_dfs_url, "https://testcontainer.dfs.core.windows.net/");
-  ASSERT_EQ(options.sas_token, "?dummy_sas_token");
+  ASSERT_EQ(options.account_blob_url, "https://testcontainer.blob.core.windows.net/");
+  ASSERT_EQ(options.sas_token, "?dummy_sas_key=dummy_value");
 }
 
 TEST_F(TestAzureFileSystem, FromAccountKey) {
-  AzureOptions options = AzureOptions::FromAccountKey(GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key());
-  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::StorageCredentials);
+  auto options = AzureOptions::FromAccountKey(GetAzuriteEnv()->account_name(),
+                                              GetAzuriteEnv()->account_key())
+                     .ValueOrDie();
+  ASSERT_EQ(options.credentials_kind,
+            arrow::fs::AzureCredentialsKind::StorageCredentials);
   ASSERT_NE(options.storage_credentials_provider, nullptr);
 }
 
 TEST_F(TestAzureFileSystem, FromConnectionString) {
-  AzureOptions options = AzureOptions::FromConnectionString("DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;");
+  auto options =
+      AzureOptions::FromConnectionString(
+          "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey="
+          "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
+          "KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;")
+          .ValueOrDie();
   ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::ConnectionString);
   ASSERT_NE(options.connection_string, "");
 }
 
 TEST_F(TestAzureFileSystem, FromServicePrincipleCredential) {
-  AzureOptions options = AzureOptions::FromServicePrincipleCredential("dummy_account_name", "dummy_tenant_id", "dummy_client_id", "dummy_client_secret");
-  ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::ServicePrincipleCredentials);
+  auto options = AzureOptions::FromServicePrincipleCredential(
+                     "dummy_account_name", "dummy_tenant_id", "dummy_client_id",
+                     "dummy_client_secret")
+                     .ValueOrDie();
+  ASSERT_EQ(options.credentials_kind,
+            arrow::fs::AzureCredentialsKind::ServicePrincipleCredentials);
   ASSERT_NE(options.service_principle_credentials_provider, nullptr);
 }
 
 TEST_F(TestAzureFileSystem, FromSas) {
-  AzureOptions options = AzureOptions::FromSas("https://testcontainer.blob.core.windows.net/?dummy_sas_token");
+  auto options =
+      AzureOptions::FromSas(
+          "https://testcontainer.blob.core.windows.net/?dummy_sas_key=dummy_value")
+          .ValueOrDie();
   ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Sas);
-  ASSERT_NE(options.sas_token, "");
+  ASSERT_EQ(options.sas_token, "?dummy_sas_key=dummy_value");
 }
 
 TEST_F(TestAzureFileSystem, CreateDir) {
@@ -321,12 +339,14 @@ TEST_F(TestAzureFileSystem, Move) {
   ASSERT_RAISES(IOError,
                 fs_->Move("container/somedir/subdir", "container/newdir/newsub"));
   ASSERT_RAISES(IOError, fs_->Move("container/emptydir", "container/base.txt"));
-  ASSERT_RAISES(IOError, fs_->Move("container/nonexistent-directory", "container/base.txt"));
+  ASSERT_RAISES(IOError,
+                fs_->Move("container/nonexistent-directory", "container/base.txt"));
   ASSERT_OK_AND_ASSIGN(auto res, fs_->OpenOutputStream("container/somefile"));
   ASSERT_OK(res->Write("Changed the data"));
   ASSERT_RAISES(IOError, fs_->Move("container/base.txt", "container/somefile"));
   ASSERT_RAISES(IOError, fs_->Move("container/somefile", "container/base.txt"));
-  ASSERT_RAISES(IOError, fs_->Move("container/nonexistent-file.txt", "container/non-existentdir"));
+  ASSERT_RAISES(IOError,
+                fs_->Move("container/nonexistent-file.txt", "container/non-existentdir"));
 }
 
 TEST_F(TestAzureFileSystem, CopyFile) {
@@ -486,7 +506,8 @@ TEST_F(TestAzureFileSystem, OpenAppendStream) {
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenAppendStream("container/newfile1"));
   ASSERT_OK(stream->Write(", more data"));
   ASSERT_OK(stream->Close());
-  AssertObjectContents(gen2_client_.get(), "container", "newfile1", "append data, more data");
+  AssertObjectContents(gen2_client_.get(), "container", "newfile1",
+                       "append data, more data");
 }
 
 TEST_F(TestAzureFileSystem, DeleteDirContents) {

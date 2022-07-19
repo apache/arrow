@@ -73,37 +73,38 @@ struct ARROW_EXPORT AzureOptions {
 
   AzureOptions();
 
-  std::string GetAccountNameFromConnectionString(const std::string& connectionString);
+  Result<std::string> GetAccountNameFromConnectionString(
+      const std::string& connectionString);
 
-  void ConfigureAnonymousCredentials(const std::string& account_name);
+  Status ConfigureAnonymousCredentials(const std::string& account_name);
 
-  void ConfigureAccountKeyCredentials(const std::string& account_name,
-                                      const std::string& account_key);
+  Status ConfigureAccountKeyCredentials(const std::string& account_name,
+                                        const std::string& account_key);
 
-  void ConfigureConnectionStringCredentials(const std::string& connection_string);
+  Status ConfigureConnectionStringCredentials(const std::string& connection_string);
 
-  void ConfigureServicePrincipleCredentials(const std::string& account_name,
-                                            const std::string& tenant_id,
-                                            const std::string& client_id,
-                                            const std::string& client_secret);
+  Status ConfigureServicePrincipleCredentials(const std::string& account_name,
+                                              const std::string& tenant_id,
+                                              const std::string& client_id,
+                                              const std::string& client_secret);
 
-  void ConfigureSasCredentials(const std::string& sas_token);
+  Status ConfigureSasCredentials(const std::string& sas_token);
 
   bool Equals(const AzureOptions& other) const;
 
-  static AzureOptions FromAnonymous(const std::string account_name);
+  static Result<AzureOptions> FromAnonymous(const std::string& account_name);
 
-  static AzureOptions FromAccountKey(const std::string& account_name,
-                                     const std::string& account_key);
+  static Result<AzureOptions> FromAccountKey(const std::string& account_name,
+                                             const std::string& account_key);
 
-  static AzureOptions FromConnectionString(const std::string& connection_string);
+  // https://docs.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string
+  static Result<AzureOptions> FromConnectionString(const std::string& connection_string);
 
-  static AzureOptions FromServicePrincipleCredential(const std::string& account_name,
-                                                     const std::string& tenant_id,
-                                                     const std::string& client_id,
-                                                     const std::string& client_secret);
+  static Result<AzureOptions> FromServicePrincipleCredential(
+      const std::string& account_name, const std::string& tenant_id,
+      const std::string& client_id, const std::string& client_secret);
 
-  static AzureOptions FromSas(const std::string& uri);
+  static Result<AzureOptions> FromSas(const std::string& uri);
 
   static Result<AzureOptions> FromUri(const ::arrow::internal::Uri& uri,
                                       std::string* out_path = NULLPTR);
