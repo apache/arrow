@@ -47,11 +47,6 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
-# Install Sccache 
-source $ARROW_HOME/ci/scripts/install_sccache.sh unknown-linux-musl
-
-export PATH=$SCCACHE_DIR:$PATH
-
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \

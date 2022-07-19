@@ -417,7 +417,10 @@ services:
       LIBARROW_MINIMAL: "false"
       ARROW_MIMALLOC: "ON"
     volumes: *ubuntu-volumes
-    command: /bin/bash -c "
+    command: &arrow-static-cmd
+      /bin/bash -c "
+        source /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
+        export PATH=/sccache:$$PATH &&
         cd /arrow && r/inst/build_arrow_static.sh"
 
   centos-cpp-static:
@@ -439,9 +442,7 @@ services:
       ARROW_GCS: "OFF"
       ARROW_MIMALLOC: "OFF"
       ARROW_S3: "OFF"
-    command: >
-      /bin/bash -c "
-        cd /arrow && r/inst/build_arrow_static.sh"
+    command: *arrow-static-cmd
 
   ubuntu-cpp-bundled:
     # Arrow build with BUNDLED dependencies
