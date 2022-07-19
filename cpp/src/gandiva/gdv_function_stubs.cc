@@ -1212,7 +1212,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("mask_default_utf8", 
+  engine->AddGlobalMappingForFunc("mask_default_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(mask_default_utf8));
 }

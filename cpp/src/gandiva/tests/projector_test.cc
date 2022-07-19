@@ -3286,13 +3286,13 @@ TEST_F(TestProjector, TestMaskDefault) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array0 = MakeArrowArrayUtf8({"ABCcd-123", "A的Ççd-123", "abcd-Ⅷ", ""},
-                                   {true, true, true, true});
+  int num_records = 3;
+  auto array0 = MakeArrowArrayUtf8({"ABCcd-123", "A的Ççd-123", "abcd-Ⅷ"},
+                                   {true, true, true});
 
   // expected output
-  auto exp_mask = MakeArrowArrayUtf8({"XXXxx-nnn", "XxXxx-nnn", "xxxx-n", ""},
-                                     {true, true, true, true});
+  auto exp_mask = MakeArrowArrayUtf8({"XXXxx-nnn", "XxXxx-nnn", "xxxx-n"},
+                                     {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
