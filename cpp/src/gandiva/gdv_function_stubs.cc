@@ -590,19 +590,16 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
     int out_index = 0;
     for (int i = 0; i < data_len; ++i) {
       unsigned char char_single_byte = data[i];
-      if(char_single_byte >= 'A' && char_single_byte <= 'Z') {
+      if (char_single_byte >= 'A' && char_single_byte <= 'Z') {
         memcpy(out + out_index, upper, upper_length);
         out_index += upper_length;
-      }
-      else if(char_single_byte >= 'a' && char_single_byte <= 'z') {
+      } else if (char_single_byte >= 'a' && char_single_byte <= 'z') {
         memcpy(out + out_index, lower, lower_length);
         out_index += lower_length;
-      }
-      else if(isdigit(char_single_byte)) {
+      } else if (isdigit(char_single_byte)) {
         memcpy(out + out_index, num, num_length);
         out_index += num_length;
-      }
-      else {
+      } else {
         out[out_index] = char_single_byte;
         out_index++;
       }
@@ -1191,32 +1188,32 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   
   // mask_utf8_utf8_utf8_utf8
   args = {
-      types->i64_type(),                 // context
-      types->i8_ptr_type(),              // data
-      types->i32_type(),                 // data_len
-      types->i8_ptr_type(),              // upper
-      types->i32_type(),                 // upper_len
-      types->i8_ptr_type(),              // lower
-      types->i32_type(),                 // lower_len
-      types->i8_ptr_type(),              // num
-      types->i32_type(),                 // num_len
-      types->i32_ptr_type()              // out_length
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i8_ptr_type(),  // lower
+      types->i32_type(),     // lower_len
+      types->i8_ptr_type(),  // num
+      types->i32_type(),     // num_len
+      types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc(
-      "mask_utf8_utf8_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(mask_utf8_utf8_utf8_utf8));
+  engine->AddGlobalMappingForFunc("mask_utf8_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(mask_utf8_utf8_utf8_utf8));
 
   // mask_default_utf8
   args = {
-      types->i64_type(),                 // context
-      types->i8_ptr_type(),              // data
-      types->i32_type(),                 // data_len
-      types->i32_ptr_type()              // out_length
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc(
-      "mask_default_utf8", types->i8_ptr_type() /*return_type*/, args,
-      reinterpret_cast<void*>(mask_default_utf8));
+  engine->AddGlobalMappingForFunc("mask_default_utf8", 
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(mask_default_utf8));
 }
 }  // namespace gandiva

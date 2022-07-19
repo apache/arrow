@@ -3238,8 +3238,7 @@ TEST_F(TestProjector, TestMask) {
   auto res_mask = field("output", arrow::utf8());
 
   // Build expression
-  auto expr_mask =
-      TreeExprBuilder::MakeExpression("mask", {f0, f1, f2, f3}, res_mask);
+  auto expr_mask = TreeExprBuilder::MakeExpression("mask", {f0, f1, f2, f3}, res_mask);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {expr_mask}, TestConfiguration(), &projector);
@@ -3249,20 +3248,18 @@ TEST_F(TestProjector, TestMask) {
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
   auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123", "AßÇçd-123"},
                                    {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-", ""},
-                                   {true, true, true, true});
-  auto array2 = MakeArrowArrayUtf8({"x", "low", "l-", ""},
-                                   {true, true, true, true});
-  auto array3 = MakeArrowArrayUtf8({"n", "#", "<>", "[0-9]"},
-                                   {true, true, true, true});
+  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-", ""}, {true, true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"x", "low", "l-", ""}, {true, true, true, true});
+  auto array3 = MakeArrowArrayUtf8({"n", "#", "<>", "[0-9]"}, {true, true, true, true});
+
   // expected output
-  auto exp_mask = MakeArrowArrayUtf8({"XxXxx-nnn", "CAPlowCAPlowlow-###",
-                                      "Ç-l-Ç-l-l--<><><>", "-[0-9][0-9][0-9]"},
-                                     {true, true, true, true});
+  auto exp_mask = MakeArrowArrayUtf8(
+      {"XxXxx-nnn", "CAPlowCAPlowlow-###", "Ç-l-Ç-l-l--<><><>", "-[0-9][0-9][0-9]"},
+      {true, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2,
-                                           array3});
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2, array3});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
@@ -3282,12 +3279,10 @@ TEST_F(TestProjector, TestMaskDefault) {
   auto res_mask_default = field("output", arrow::utf8());
 
   // Build expression
-  auto expr_mask =
-      TreeExprBuilder::MakeExpression("mask", {f0}, res_mask_default);
+  auto expr_mask = TreeExprBuilder::MakeExpression("mask", {f0}, res_mask_default);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr_mask},
-                                TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {expr_mask}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
