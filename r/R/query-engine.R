@@ -285,6 +285,7 @@ ExecPlan <- R6Class("ExecPlan",
         self,
         node,
         sorting,
+        prepare_key_value_metadata(node$final_metadata()),
         select_k
       )
       out
