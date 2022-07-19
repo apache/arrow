@@ -299,26 +299,25 @@ def status(obj, job_name, fetch, task_filters):
               help='OAuth token to create comments in the arrow repo. '
                    'Only necessary if --track-on-pr-titled is set.')
 @click.option('--job-name', required=True)
-@click.option('--track-on-pr-titled', default=None,
+@click.option('--pr-title', required=True,
               help='Track the job submitted on PR with given title')
 @click.pass_obj
 def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
-              track_on_pr_titled):
+              pr_title):
     arrow = obj['arrow']
     queue = obj['queue']
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
 
-    if track_on_pr_titled:
-        report = CommentReport(job, crossbow_repo=crossbow)
-        target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
-        pull_request = target_arrow.github_pr(title=track_on_pr_titled,
-                                              github_token=github_token,
-                                              create=False)
-        # render the response comment's content on the PR
-        pull_request.create_comment(report.show())
-        click.echo(f'Job is tracked on PR {pull_request.html_url}')
+    report = CommentReport(job, crossbow_repo=crossbow)
+    target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
+    pull_request = target_arrow.github_pr(title=pr_title,
+                                          github_token=github_token,
+                                          create=False)
+    # render the response comment's content on the PR
+    pull_request.create_comment(report.show())
+    click.echo(f'Job is tracked on PR {pull_request.html_url}')
 
 
 @crossbow.command()

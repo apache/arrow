@@ -51,4 +51,4 @@ archery crossbow report-pr \
     --no-fetch \
     --arrow-remote "https://github.com/${ARROW_REPOSITORY}" \
     --job-name ${job_name} \
-    --track-on-pr-titled "WIP: [Release] Verify ${release_candidate_branch}"
+    --pr-title "WIP: [Release] Verify ${release_candidate_branch}"
