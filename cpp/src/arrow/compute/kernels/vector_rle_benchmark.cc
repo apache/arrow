@@ -26,6 +26,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/benchmark_util.h"
+#include "arrow/util/rle_encoding.h"
 
 namespace arrow {
 namespace compute {
@@ -85,6 +86,40 @@ static void RLEEncodeBenchmark(benchmark::State& state, ValuesSet values,
                          benchmark::Counter::kIsRate);
 }
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+static void RLEEncodeBaseline(benchmark::State& state, ValuesSet values,
+                               RunLengthDistribution& distribution) {
+  auto array = GenerateArray(values, distribution);
+  /* the parquet encoder does not support nulls on this level */
+  ARROW_CHECK(!array->data()->MayHaveNulls());
+
+  /* this benchmark currently only supports 32-bit values */
+  ARROW_CHECK_EQ(values.type->bit_width(), 32);
+
+  /* The parquet encoder requires a buffer upfront, create one for the maxmimum possible output size. */
+  size_t buffer_size = util::RleEncoder::MaxBufferSize(values.type->bit_width(), array->length());
+  std::vector<uint8_t> output_buffer(buffer_size);
+
+  const uint32_t *input_buffer = array->data()->GetValues<uint32_t>(1);
+
+  ExecContext ctx;
+  for (auto _ : state) {
+    util::RleEncoder encoder(output_buffer.data(), buffer_size, values.type->bit_width());
+    for (int64_t index = 0; index < array->length(); index++) {
+      // don't check for success since this may affect performance. The same operation is checked
+      // in the preparation phase of RLEDecodeBaseline.
+      /*bool result =*/ encoder.Put(input_buffer[index]);
+      /*ARROW_CHECK(result);*/
+    }
+    encoder.Flush();
+  }
+
+  state.counters["rows_per_second"] =
+      benchmark::Counter(static_cast<double>(state.iterations() * BENCHMARK_ARRAY_SIZE),
+                         benchmark::Counter::kIsRate);
+}
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
+
 static void RLEDecodeBenchmark(benchmark::State& state, ValuesSet values,
                                RunLengthDistribution& distribution) {
   auto array = GenerateArray(values, distribution);
@@ -99,6 +134,42 @@ static void RLEDecodeBenchmark(benchmark::State& state, ValuesSet values,
       benchmark::Counter(static_cast<double>(state.iterations() * BENCHMARK_ARRAY_SIZE),
                          benchmark::Counter::kIsRate);
 }
+
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+static void RLEDecodeBaseline(benchmark::State& state, ValuesSet values,
+                               RunLengthDistribution& distribution) {
+  auto array = GenerateArray(values, distribution);
+  /* the parquet encoder does not support nulls on this level */
+  ARROW_CHECK(!array->data()->MayHaveNulls());
+
+  /* this benchmark currently only supports 32-bit values */
+  ARROW_CHECK_EQ(values.type->bit_width(), 32);
+
+  /* The parquet encoder requires a buffer upfront, create one for the maxmimum possible output size. */
+  size_t encoded_buffer_size = util::RleEncoder::MaxBufferSize(values.type->bit_width(), array->length());
+  std::vector<uint8_t> encoded_buffer(encoded_buffer_size);
+  std::vector<uint32_t> output_buffer(array->length());
+
+  const uint32_t *input_buffer = array->data()->GetValues<uint32_t>(1);
+
+  util::RleEncoder encoder(encoded_buffer.data(), encoded_buffer_size, values.type->bit_width());
+  for (int64_t index = 0; index < array->length(); index++) {
+    bool result = encoder.Put(input_buffer[index]);
+    ARROW_CHECK(result);
+  }
+  encoder.Flush();
+
+  ExecContext ctx;
+  for (auto _ : state) {
+    util::RleDecoder decoder(encoded_buffer.data(), encoded_buffer_size, values.type->bit_width());
+    decoder.GetBatch(output_buffer.data(), array->length());
+  }
+
+  state.counters["rows_per_second"] =
+      benchmark::Counter(static_cast<double>(state.iterations() * BENCHMARK_ARRAY_SIZE),
+                         benchmark::Counter::kIsRate);
+}
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 static void RLEFilterBenchmark(benchmark::State& state, ValuesSet values,
                                RunLengthDistribution& distribution) {
@@ -150,8 +221,39 @@ static RunLengthDistribution equally_mixed_distribition{{1, 10, 100, 1000},
 
 BENCHMARK_CAPTURE(RLEEncodeBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
+BENCHMARK_CAPTURE(RLEEncodeBenchmark, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
+                  equally_mixed_distribition);
+BENCHMARK_CAPTURE(RLEEncodeBenchmark, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
+                  only_single_distribition);
+BENCHMARK_CAPTURE(RLEEncodeBenchmark, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
+                  only_1000_distribition);
+
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+BENCHMARK_CAPTURE(RLEEncodeBaseline, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
+                  equally_mixed_distribition);
+BENCHMARK_CAPTURE(RLEEncodeBaseline, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
+                  only_single_distribition);
+BENCHMARK_CAPTURE(RLEEncodeBaseline, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
+                  only_1000_distribition);
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
+
 BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
+BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
+                  equally_mixed_distribition);
+BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
+                  only_single_distribition);
+BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
+                  only_1000_distribition);
+
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+BENCHMARK_CAPTURE(RLEDecodeBaseline, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
+                  equally_mixed_distribition);
+BENCHMARK_CAPTURE(RLEDecodeBaseline, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
+                  only_single_distribition);
+BENCHMARK_CAPTURE(RLEDecodeBaseline, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
+                  only_1000_distribition);
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_single_distribition);
