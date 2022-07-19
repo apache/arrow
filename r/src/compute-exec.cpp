@@ -126,9 +126,9 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 }
 
 std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-  ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
-                   const std::shared_ptr<compute::ExecNode>& final_node,
-                   cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
+ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
+                 const std::shared_ptr<compute::ExecNode>& final_node,
+                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
