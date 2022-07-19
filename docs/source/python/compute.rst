@@ -237,10 +237,10 @@ In that case the result would be::
    n_legs: int64
    animal: string
    ----
-   id: [[3,1,2],[4]]
-   year: [[2019,2020,2022],[null]]
-   n_legs: [[5,null,null],[100]]
-   animal: [["Brittle stars",null,null],["Centipede"]]
+   id: [[3,1,2,4]]
+   year: [[2019,2020,2022,null]]
+   n_legs: [[5,null,null,100]]
+   animal: [["Brittle stars",null,null,"Centipede"]]
 
 It's also possible to provide additional join keys, so that the
 join happens on two keys instead of one. For example we can add

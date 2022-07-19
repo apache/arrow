@@ -343,7 +343,7 @@ struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
   using T = util::string_view;
   static T Unbox(const Scalar& val) {
     if (!val.is_valid) return util::string_view();
-    return util::string_view(*checked_cast<const BaseBinaryScalar&>(val).value);
+    return checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
   }
 };
 

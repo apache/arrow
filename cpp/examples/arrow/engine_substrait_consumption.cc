@@ -27,15 +27,6 @@
 namespace eng = arrow::engine;
 namespace cp = arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 class IgnoringConsumer : public cp::SinkNodeConsumer {
  public:
   explicit IgnoringConsumer(size_t tag) : tag_{tag} {}
@@ -119,26 +110,20 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
   return eng::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
-int main(int argc, char** argv) {
-  if (argc < 2) {
-    std::cout << "Please specify a parquet file to scan" << std::endl;
-    // Fake pass for CI
-    return EXIT_SUCCESS;
-  }
-
+arrow::Status RunSubstraitConsumer(int argc, char** argv) {
   // Plans arrive at the consumer serialized in a Buffer, using the binary protobuf
   // serialization of a substrait Plan
   auto maybe_serialized_plan = GetSubstraitFromServer(argv[1]).result();
-  ABORT_ON_FAILURE(maybe_serialized_plan.status());
-  std::shared_ptr<arrow::Buffer> serialized_plan =
-      std::move(maybe_serialized_plan).ValueOrDie();
+  ARROW_RETURN_NOT_OK(maybe_serialized_plan.status());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> serialized_plan,
+                        std::move(maybe_serialized_plan));
 
   // Print the received plan to stdout as JSON
-  arrow::Result<std::string> maybe_plan_json =
-      eng::internal::SubstraitToJSON("Plan", *serialized_plan);
-  ABORT_ON_FAILURE(maybe_plan_json.status());
+  ARROW_ASSIGN_OR_RAISE(auto plan_json,
+                        eng::internal::SubstraitToJSON("Plan", *serialized_plan));
+
   std::cout << std::string(50, '#') << " received substrait::Plan:" << std::endl;
-  std::cout << maybe_plan_json.ValueOrDie() << std::endl;
+  std::cout << plan_json << std::endl;
 
   // The data sink(s) for plans is/are implicit in substrait plans, but explicit in
   // Arrow. Therefore, deserializing a plan requires a factory for consumers: each
@@ -155,32 +140,46 @@ int main(int argc, char** argv) {
   // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
   arrow::Result<std::vector<cp::Declaration>> maybe_decls =
       eng::DeserializePlans(*serialized_plan, consumer_factory);
-  ABORT_ON_FAILURE(maybe_decls.status());
-  std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
+  ARROW_RETURN_NOT_OK(maybe_decls.status());
+  ARROW_ASSIGN_OR_RAISE(std::vector<cp::Declaration> decls, std::move(maybe_decls));
 
   // It's safe to drop the serialized plan; we don't leave references to its memory
   serialized_plan.reset();
 
   // Construct an empty plan (note: configure Function registry and ThreadPool here)
-  arrow::Result<std::shared_ptr<cp::ExecPlan>> maybe_plan = cp::ExecPlan::Make();
-  ABORT_ON_FAILURE(maybe_plan.status());
-  std::shared_ptr<cp::ExecPlan> plan = std::move(maybe_plan).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
 
   // Add decls to plan (note: configure ExecNode registry before this point)
   for (const cp::Declaration& decl : decls) {
-    ABORT_ON_FAILURE(decl.AddToPlan(plan.get()).status());
+    ARROW_RETURN_NOT_OK(decl.AddToPlan(plan.get()).status());
   }
 
   // Validate the plan and print it to stdout
-  ABORT_ON_FAILURE(plan->Validate());
+  ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << std::string(50, '#') << " produced arrow::ExecPlan:" << std::endl;
   std::cout << plan->ToString() << std::endl;
 
   // Start the plan...
   std::cout << std::string(50, '#') << " consuming batches:" << std::endl;
-  ABORT_ON_FAILURE(plan->StartProducing());
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
 
   // ... and wait for it to finish
-  ABORT_ON_FAILURE(plan->finished().status());
+  ARROW_RETURN_NOT_OK(plan->finished().status());
+  return arrow::Status::OK();
+}
+
+int main(int argc, char** argv) {
+  if (argc < 2) {
+    std::cout << "Please specify a parquet file to scan" << std::endl;
+    // Fake pass for CI
+    return EXIT_SUCCESS;
+  }
+
+  auto status = RunSubstraitConsumer(argc, argv);
+  if (!status.ok()) {
+    std::cerr << status.ToString() << std::endl;
+    return EXIT_FAILURE;
+  }
+
   return EXIT_SUCCESS;
 }

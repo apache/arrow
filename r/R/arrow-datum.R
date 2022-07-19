@@ -113,10 +113,10 @@ Ops.ArrowDatum <- function(e1, e2) {
 #' @export
 Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
   switch(.Generic,
-    abs = ,
+    abs = eval_array_expression("abs_checked", x),
+    ceiling = eval_array_expression("ceil", x),
     sign = ,
     floor = ,
-    ceiling = ,
     trunc = ,
     acos = ,
     asin = ,

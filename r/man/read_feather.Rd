@@ -2,9 +2,12 @@
 % Please edit documentation in R/feather.R
 \name{read_feather}
 \alias{read_feather}
-\title{Read a Feather file}
+\alias{read_ipc_file}
+\title{Read a Feather file (an Arrow IPC file)}
 \usage{
 read_feather(file, col_select = NULL, as_data_frame = TRUE, ...)
+
+read_ipc_file(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
 \item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
@@ -31,11 +34,13 @@ Arrow \link{Table} otherwise
 Feather provides binary columnar serialization for data frames.
 It is designed to make reading and writing data frames efficient,
 and to make sharing data across data analysis languages easy.
-This function reads both the original, limited specification of the format
-and the version 2 specification, which is the Apache Arrow IPC file format.
+\code{\link[=read_feather]{read_feather()}} can read both the Feather Version 1 (V1), a legacy version available starting in 2016,
+and the Version 2 (V2), which is the Apache Arrow IPC file format.
+\code{\link[=read_ipc_file]{read_ipc_file()}} is an alias of \code{\link[=read_feather]{read_feather()}}.
 }
 \examples{
-tf <- tempfile()
+# We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
+tf <- tempfile(fileext = ".arrow")
 on.exit(unlink(tf))
 write_feather(mtcars, tf)
 df <- read_feather(tf)

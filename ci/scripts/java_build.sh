@@ -36,41 +36,29 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   artifactory_dir="protoc-binary"
   group="com.google.protobuf"
   artifact="protoc"
-  ver="3.7.1"
+  ver="21.2"
   classifier="linux-s390_64"
   extension="exe"
-  target=${artifact}-${ver}-${classifier}.${extension}
+  # target=${artifact}-${ver}-${classifier}.${extension}
+  target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-  # protoc requires libprotoc.so.18 libprotobuf.so.18
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.18
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotobuf.so.18
+  # protoc requires libprotoc.so.* libprotobuf.so.*
+  libver="32"
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.${libver}
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotobuf.so.${libver}
   mkdir -p ${ARROW_HOME}/lib
-  cp lib*.so.18 ${ARROW_HOME}/lib
+  cp lib*.so.${libver} ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
   artifactory_dir="protoc-gen-grpc-java-binary"
   group="io.grpc"
   artifact="protoc-gen-grpc-java"
-  ver="1.30.2"
+  ver="1.47.0"
   classifier="linux-s390_64"
   extension="exe"
-  target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-
-  artifactory_dir="netty-binary"
-  group="io.netty"
-  artifact="netty-transport-native-unix-common"
-  ver="4.1.48.Final"
-  classifier="linux-s390_64"
-  extension="jar"
-  target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-  artifact="netty-transport-native-epoll"
-  extension="jar"
-  target=${artifact}-${ver}-${classifier}.${extension}
+  # target=${artifact}-${ver}-${classifier}.${extension}
+  target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 fi

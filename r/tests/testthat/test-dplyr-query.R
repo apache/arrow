@@ -295,6 +295,7 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
 })
 
 test_that("all_sources() finds all data sources in a query", {
+  skip_if_not_available("dataset")
   tab <- Table$create(a = 1)
   ds <- InMemoryDataset$create(tab)
   expect_equal(all_sources(tab), list(tab))
@@ -333,6 +334,7 @@ test_that("all_sources() finds all data sources in a query", {
 })
 
 test_that("query_on_dataset() looks at all data sources in a query", {
+  skip_if_not_available("dataset")
   tab <- Table$create(a = 1)
   ds <- InMemoryDataset$create(tab)
   expect_false(query_on_dataset(tab))
@@ -368,6 +370,7 @@ test_that("query_on_dataset() looks at all data sources in a query", {
 })
 
 test_that("query_can_stream()", {
+  skip_if_not_available("dataset")
   tab <- Table$create(a = 1)
   ds <- InMemoryDataset$create(tab)
   expect_true(query_can_stream(tab))

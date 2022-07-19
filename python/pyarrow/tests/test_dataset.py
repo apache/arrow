@@ -2928,9 +2928,9 @@ def test_incompatible_schema_hang(tempdir, dataset_reader):
     dataset = ds.dataset([str(fn)] * 100, schema=schema)
     assert dataset.schema.equals(schema)
     scanner = dataset_reader.scanner(dataset)
-    reader = scanner.to_reader()
     with pytest.raises(NotImplementedError,
                        match='Unsupported cast from int64 to null'):
+        reader = scanner.to_reader()
         reader.read_all()
 
 
