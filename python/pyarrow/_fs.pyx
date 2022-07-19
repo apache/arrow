@@ -1035,6 +1035,23 @@ cdef class PyFileSystem(FileSystem):
     ----------
     handler : FileSystemHandler
         The handler object implementing custom filesystem behavior.
+
+    Examples
+    --------
+    Create an fsspec-based filesystem object for GitHub:
+
+    >>> from fsspec.implementations import github
+    >>> gfs = github.GithubFileSystem('apache', 'arrow', sha='ec51aec4d15035f4d9d6a1c4346d0a2b9a37fb75')
+
+    Get a PyArrow FileSystem object:
+
+    >>> from pyarrow.fs import PyFileSystem, FSSpecHandler
+    >>> pa_fs = PyFileSystem(FSSpecHandler(gfs))
+
+    Use :func:`~pyarrow.fs.FileSystem` functionality ``get_file_info()``:
+
+    >>> pa_fs.get_file_info('README.md')
+    <FileInfo for 'README.md': type=FileType.File, size=5302>
     """
 
     def __init__(self, handler):
