@@ -163,6 +163,8 @@ BENCHMARK_CAPTURE(RLEFilterBenchmark, int_1000, ValuesSet(uint32(), {"1", "2", "
                   only_1000_distribition);
 BENCHMARK_CAPTURE(RLEFilterBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
+
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 BENCHMARK_CAPTURE(RLEFilterBaseline, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_single_distribition);
 BENCHMARK_CAPTURE(RLEFilterBaseline, int_12345, ValuesSet(uint32(), {"1", "2", "null"}),
@@ -175,6 +177,7 @@ BENCHMARK_CAPTURE(RLEFilterBaseline, int_1000, ValuesSet(uint32(), {"1", "2", "n
                   only_1000_distribition);
 BENCHMARK_CAPTURE(RLEFilterBaseline, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 }  // namespace compute
 }  // namespace arrow
