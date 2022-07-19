@@ -352,7 +352,8 @@ cdef class FileSelector(_Weakrefable):
 
     Return empty selection if the directory doesn't exist:
 
-    >>> selector_not_found = fs.FileSelector(local_path, recursive=True,
+    >>> selector_not_found = fs.FileSelector(local_path + '/missing',
+    ...                                      recursive=True,
     ...                                      allow_not_found=True)
     >>> local.get_file_info(selector_not_found)
     []
