@@ -48,19 +48,9 @@ else
 fi
 
 # Install Sccache 
-SCCACHE_BUILD=unknown-linux-musl
-SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.3.0/sccache-v0.3.0-x86_64-$SCCACHE_BUILD.tar.gz"
-
-# Download archive and checksum
-wget $SCCACHE_URL $SCCACHE_URL.sha256
-
-SCCACHE_ARCHIVE=$(echo *$SCCACHE_BUILD.tar.gz)
-echo "$(cat $SCCACHE_ARCHIVE.sha256) $SCCACHE_ARCHIVE" | sha256sum --check --status
-
-mkdir -p sccache
-tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory sccache/
-
-export PATH=$(pwd)/sccache:$PATH
+source $ARROW_HOME/ci/scripts/install_sccache.sh unknown-linux-musl
+chmod u+x $SSCACHE_DIR/sccache
+export PATH=$SCCACHE_DIR:$PATH
 
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
