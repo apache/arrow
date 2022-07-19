@@ -576,22 +576,22 @@ test_that("extract yday from timestamp", {
 
 test_that("extract qday from timestamp", {
   test_df <- tibble::tibble(
-    time = as.POSIXct(seq(as.Date("1999-12-31"), as.Date("2001-01-01"), by = "day"))
+    time = as.POSIXct(seq(as.Date("1999-12-31", tz = "UTC"), as.Date("2001-01-01", tz = "UTC"), by = "day"))
   )
+
   compare_dplyr_binding(
     .input %>%
-      mutate(x = qday(time)) %>%
+      transmute(x = qday(time)) %>%
       collect(),
-    test_df,
-    ignore_attr = "tzone"
+    test_df
   )
+
   compare_dplyr_binding(
     .input %>%
-      mutate(x = qday(as.POSIXct("2022-06-29 12:35"))) %>%
+      transmute(x = qday(as.POSIXct("2022-06-29 12:35"))) %>%
       collect(),
-    test_df,
-    ignore_attr = "tzone"
- )
+    test_df
+  )
 })
 
 test_that("extract hour from timestamp", {
