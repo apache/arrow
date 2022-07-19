@@ -20,8 +20,8 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "arrow/util/macros.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace rle_util {
