@@ -27,7 +27,6 @@ if (test_mode && is.na(VERSION)) {
   VERSION <- "8.0.0.9000"
 }
 
-# Check if version string has 4th component
 dev_version <- package_version(VERSION)[1, 4]
 
 # Small dev versions are added for R-only changes during CRAN submission.
