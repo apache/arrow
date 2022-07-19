@@ -313,7 +313,10 @@ jobs:
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
       - name: Install sccache
         shell: bash
-        run: arrow/ci/scripts/install_sccache.sh unknown-linux-musl
+        run: |
+          curl -s \
+            https://raw.githubusercontent.com/{{ arrow.github_repo }}/{{ arrow.head }}/ci/scripts/install_sccache.sh | \
+            bash -s unknown-linux-musl
       - run: sudo apt update && sudo apt install libcurl4-openssl-dev
       - name: Install arrow from nightly repo
         env:
@@ -336,6 +339,7 @@ jobs:
           AWS_ACCESS_KEY_ID: {{ '${{ secrets.AWS_ACCESS_KEY_ID }}' }}
           SCCACHE_BUCKET: {{ '${{ secrets.SCCACHE_BUCKET }}' }}
           SCCACHE_S3_KEY_PREFIX: 'sccache'
+        shell: Rscript {0}
         run: |
           {{ macros.github_test_r_src_pkg()|indent(8) }}
 
