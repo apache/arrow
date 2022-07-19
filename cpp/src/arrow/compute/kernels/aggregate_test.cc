@@ -2548,6 +2548,24 @@ void CheckModes(const Datum& array, const ModeOptions options,
   }
 }
 
+template <>
+void CheckModes<bool>(const Datum& array, const ModeOptions options,
+                      const std::vector<bool>& expected_modes,
+                      const std::vector<int64_t>& expected_counts) {
+  ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, options));
+  ValidateOutput(out);
+  const StructArray out_array(out.array());
+  ASSERT_EQ(out_array.length(), expected_modes.size());
+  ASSERT_EQ(out_array.num_fields(), 2);
+
+  const uint8_t* out_modes = out_array.field(0)->data()->GetValues<uint8_t>(1);
+  const int64_t* out_counts = out_array.field(1)->data()->GetValues<int64_t>(1);
+  for (int i = 0; i < out_array.length(); ++i) {
+    ASSERT_TRUE(expected_modes[i] == bit_util::GetBit(out_modes, i));
+    ASSERT_EQ(expected_counts[i], out_counts[i]);
+  }
+}
+
 template <typename T>
 class TestPrimitiveModeKernel : public ::testing::Test {
  public:
@@ -2642,6 +2660,7 @@ TEST_F(TestBooleanModeKernel, Basics) {
   this->AssertModeIs({"[true, null]", "[]", "[null, false]"}, false, 1);
   this->AssertModesEmpty({"[null, null]", "[]", "[null]"});
 
+  this->AssertModesAre("[true, false]", 2, {false, true}, {1, 1});
   this->AssertModesAre("[false, false, true, true, true, false]", 2, {false, true},
                        {3, 3});
   this->AssertModesAre("[true, null, false, false, null, true, null, null, true]", 100,
