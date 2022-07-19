@@ -919,22 +919,16 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return ExtensionArray
 
-    def scalar_as_py(self, scalar):
-        """Convert scalar to a Python type.
+    def __arrow_ext_scalar_class__(self):
+        """Return an extension scalar class for building scalars with this
+        extension type.
 
-        This method can be overridden in subclasses to customize what type
-        scalars are converted to.
-
-        Parameters
-        ----------
-        scalar : pyarrow.Scalar
-          Not-None Scalar of storage type to be converted to a Python object.
-
-        Returns
-        -------
-        Scalar value as a native Python object.
+        This method should return subclass of the ExtensionScalar class. By
+        default, if not specialized in the extension implementation, an
+        extension type scalar will be a built-in ExtensionScalar instance.
         """
-        return scalar.as_py()
+        return ExtensionScalar
+
 
 cdef class PyExtensionType(ExtensionType):
     """

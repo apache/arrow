@@ -290,11 +290,15 @@ Custom scalar conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you want scalars of your custom extension type to convert to a custom type when
-:meth:`ExtensionScalar.as_py()` is called, you can override the :meth:`ExtensionType.scalar_as_py()`
+:meth:`ExtensionScalar.as_py()` is called, you can override the :meth:`ExtensionScalar.as_py()` by subclassing :class:`ExtensionScalar`.
 method. For example, if we wanted the above example 3D point type to return a custom
 3D point class instead of a list, we would implement::
 
     Point3D = namedtuple("Point3D", ["x", "y", "z"])
+
+    class Point3DScalar(pa.ExtensionScalar):
+        def as_py(self) -> Point3D:
+            return Point3D(*self.value.as_py())
 
     class Point3DType(pa.PyExtensionType):
         def __init__(self):
@@ -303,8 +307,8 @@ method. For example, if we wanted the above example 3D point type to return a cu
         def __reduce__(self):
             return Point3DType, ()
 
-        def scalar_as_py(self, scalar: pa.ListScalar) -> Point3D:
-            return Point3D(*scalar.as_py())
+        def __arrow_ext_scalar_class__(self):
+            return Point3DScalar
 
 Arrays built using this extension type now provide scalars that convert to our ``Point3D`` class::
 
