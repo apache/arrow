@@ -210,7 +210,6 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
   ExecSpan span;
   while (span_iterator.Next(&span)) {
     if (span.length == 0) continue;
-    // TODO(wesm): investigate possibility of ExecPlans using ExecSpan
     input.batches.push_back(span.ToExecBatch());
   }
 

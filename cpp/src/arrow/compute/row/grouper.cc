@@ -295,7 +295,6 @@ struct GrouperFastImpl : Grouper {
     for (int icol = 0; icol < num_columns; ++icol) {
       if (key_types_[icol].id() == Type::DICTIONARY) {
         const ArraySpan& data = batch[icol].array;
-        // TODO(wesm): do not require ToArrayData here
         auto dict = MakeArray(data.dictionary().ToArrayData());
         if (dictionaries_[icol]) {
           if (!dictionaries_[icol]->Equals(dict)) {

@@ -171,8 +171,6 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       auto grouper = groupers[thread_index].get();
 
       // compute a batch of group ids
-      // TODO(wesm): refactor Grouper::Consume to write into preallocated
-      // memory
       ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
       // consume group ids with HashAggregateKernels
@@ -193,8 +191,6 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
   // Merge if necessary
   for (size_t thread_index = 1; thread_index < thread_ids.size(); ++thread_index) {
-    // TODO: Return ExecSpan from GetUniques; but need to figure out memory
-    // management strategy
     ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, groupers[thread_index]->GetUniques());
     ARROW_ASSIGN_OR_RAISE(Datum transposition,
                           groupers[0]->Consume(ExecSpan(other_keys)));

@@ -258,7 +258,7 @@ class ARROW_EXPORT OutputType {
   ///
   /// This function SHOULD _not_ be used to check for arity, that is to be
   /// performed one or more layers above.
-  typedef Result<TypeHolder> (*Resolver)(KernelContext*, const std::vector<TypeHolder>&);
+  using Resolver = Result<TypeHolder> (*)(KernelContext*, const std::vector<TypeHolder>&);
 
   /// \brief Output an exact type
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
@@ -500,7 +500,7 @@ struct Kernel {
 /// endeavor to write into pre-allocated memory if they are able, though for
 /// some kernels (e.g. in cases when a builder like StringBuilder) must be
 /// employed this may not be possible.
-typedef Status (*ArrayKernelExec)(KernelContext*, const ExecSpan&, ExecResult*);
+using ArrayKernelExec = Status (*)(KernelContext*, const ExecSpan&, ExecResult*);
 
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
@@ -548,7 +548,7 @@ struct VectorKernel : public Kernel {
 
   /// \brief Function for executing a stateful VectorKernel against a
   /// ChunkedArray input. Does not need to be defined for all VectorKernels
-  typedef Status (*ChunkedExec)(KernelContext*, const ExecBatch&, Datum* out);
+  using ChunkedExec = Status (*)(KernelContext*, const ExecBatch&, Datum* out);
 
   VectorKernel() = default;
 
@@ -609,10 +609,10 @@ struct VectorKernel : public Kernel {
 // ----------------------------------------------------------------------
 // ScalarAggregateKernel (for ScalarAggregateFunction)
 
-typedef Status (*ScalarAggregateConsume)(KernelContext*, const ExecSpan&);
-typedef Status (*ScalarAggregateMerge)(KernelContext*, KernelState&&, KernelState*);
+using ScalarAggregateConsume = Status (*)(KernelContext*, const ExecSpan&);
+using ScalarAggregateMerge = Status (*)(KernelContext*, KernelState&&, KernelState*);
 // Finalize returns Datum to permit multiple return values
-typedef Status (*ScalarAggregateFinalize)(KernelContext*, Datum*);
+using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 
 /// \brief Kernel data structure for implementations of
 /// ScalarAggregateFunction. The four necessary components of an aggregation
@@ -656,12 +656,12 @@ struct ScalarAggregateKernel : public Kernel {
 // ----------------------------------------------------------------------
 // HashAggregateKernel (for HashAggregateFunction)
 
-typedef Status (*HashAggregateResize)(KernelContext*, int64_t);
-typedef Status (*HashAggregateConsume)(KernelContext*, const ExecSpan&);
-typedef Status (*HashAggregateMerge)(KernelContext*, KernelState&&, const ArrayData&);
+using HashAggregateResize = Status (*)(KernelContext*, int64_t);
+using HashAggregateConsume = Status (*)(KernelContext*, const ExecSpan&);
+using HashAggregateMerge = Status (*)(KernelContext*, KernelState&&, const ArrayData&);
 
 // Finalize returns Datum to permit multiple return values
-typedef Status (*HashAggregateFinalize)(KernelContext*, Datum*);
+using HashAggregateFinalize = Status (*)(KernelContext*, Datum*);
 
 /// \brief Kernel data structure for implementations of
 /// HashAggregateFunction. The four necessary components of an aggregation

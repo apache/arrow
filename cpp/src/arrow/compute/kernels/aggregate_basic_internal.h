@@ -452,7 +452,6 @@ struct MinMaxImpl : public ScalarAggregator {
   Status ConsumeArray(const ArraySpan& arr_span) {
     StateType local;
 
-    // TODO(wesm): do not use ToArrayData
     ArrayType arr(arr_span.ToArrayData());
 
     const auto null_count = arr.null_count();
