@@ -187,7 +187,6 @@ test_that("s3_bucket", {
     capture.output(print(bucket)),
     "SubTreeFileSystem: s3://ursa-labs-r-test/"
   )
-  skip_on_os("windows") # FIXME
   expect_identical(bucket$base_path, "ursa-labs-r-test/")
 })
 
@@ -202,6 +201,5 @@ test_that("gs_bucket", {
     capture.output(print(bucket)),
     "SubTreeFileSystem: gs://voltrondata-labs-datasets/"
   )
-  skip_on_os("windows") # FIXME
   expect_identical(bucket$base_path, "voltrondata-labs-datasets/")
 })
