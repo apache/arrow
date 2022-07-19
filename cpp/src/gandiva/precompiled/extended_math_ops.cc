@@ -296,33 +296,23 @@ gdv_float64 bround_float64(gdv_float64 num) {
   return num - diff_num;
 }
 
-// rounds the number to the nearest integer
+// rounds the number using HALF_EVEN mode with precision
 FORCE_INLINE
 gdv_float64 bround_float64_int32(gdv_float64 num, gdv_int32 precision) {
-  // get multiplier to convert to the desired precision
+  // If scale is 0 return only integer part
+  if (precision == 0) {
+    return bround_float64(num);
+  }
+
+  // If scale is not 0, get scale multiplier
   gdv_float64 scale = get_scale_multiplier(precision);
 
   // set entry to desired precision
-  gdv_float64 scale_num = num * scale;
+  gdv_float64 scale_num = round_float64_int32((num * scale), 1);
+  scale_num = bround_float64(scale_num);
 
-  // catch integer part of the number
-  gdv_int32 round_num = floor(scale_num);
-  // truncate diff to catch only first value after decimal point
-  gdv_int32 diff_num = floor(10 * (round_num - scale_num));
-
-  // Applying the rounding rule
-  if ((diff_num != 5) && (diff_num != -5) && scale != 0) {
-    // If diff_num is not 5, we don't need to treat
-    return round_num / scale;
-  } else if (round_num % 2 == 0 && scale != 0) {
-    // Output is pair, only return it
-    return round_num / scale;
-  } else if (scale != 0) {
-    // returning round to the nearest pair integer
-    return round_num++ / scale;
-  }
-  // return 0.0 if scale is 0
-  return 0.0;
+  // Before get bround result, only divide for scale to get expected result
+  return scale_num / scale;
 }
 
 // rounds the number to the given scale
