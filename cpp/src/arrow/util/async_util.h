@@ -120,8 +120,12 @@ class ARROW_EXPORT AsyncTaskGroup {
   Status AddTaskIfNotEnded(std::function<Result<Future<>>()> task);
   /// Add a task that has already been started
   Status AddTask(const Future<>& task);
-  /// Same as AddTask but doesn't add the task if End() has been called.
-  Status AddTaskIfNotEnded(const Future<>& task);
+  /// \brief Attempts to add a task that has already been started to this group's tracking
+  ///
+  /// The return value must be paid attention to.  If the return value is false then the
+  /// task could not be added because the group had already ended and so the caller must
+  /// track the external task some other way.
+  Result<bool> AddTaskIfNotEnded(const Future<>& task);
   /// Signal that top level tasks are done being added
   ///
   /// It is allowed for tasks to be added after this call provided the future has not yet

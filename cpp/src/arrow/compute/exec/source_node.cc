@@ -85,6 +85,7 @@ struct SourceNode : ExecNode {
       if (stop_requested_) {
         return Status::OK();
       }
+      started_ = true;
     }
 
     CallbackOptions options;
@@ -97,7 +98,14 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    started_ = true;
+    ARROW_ASSIGN_OR_RAISE(util::optional<Future<>> maybe_scan_task,
+                          plan_->BeginExternalTask());
+    if (!maybe_scan_task) {
+      finished_.MarkFinished();
+      // Plan has already been aborted, no need to start scanning
+      return Status::OK();
+    }
+    Future<> scan_task = *maybe_scan_task;
     auto fut = Loop([this, options] {
                  std::unique_lock<std::mutex> lock(mutex_);
                  int total_batches = batch_count_++;
@@ -139,13 +147,18 @@ struct SourceNode : ExecNode {
                      options);
                })
                    .Then(
-                       [=](int total_batches) {
+                       [this, scan_task](int total_batches) mutable {
+                         std::unique_lock<std::mutex> lock(mutex_);
                          outputs_[0]->InputFinished(this, total_batches);
-                         if (!finished_.is_finished()) finished_.MarkFinished();
+                         bool should_mark_finished = !finished_.is_finished();
+                         lock.unlock();
+                         scan_task.MarkFinished();
+                         if (should_mark_finished) {
+                           finished_.MarkFinished();
+                         }
                        },
                        {}, options);
     if (!executor && finished_.is_finished()) return finished_.status();
-    RETURN_NOT_OK(plan_->AddFuture(fut));
     return Status::OK();
   }
 
