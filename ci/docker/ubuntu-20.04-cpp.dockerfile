@@ -68,6 +68,7 @@ RUN apt-get update -y -q && \
         ca-certificates \
         ccache \
         cmake \
+        curl \
         g++ \
         gcc \
         gdb \
