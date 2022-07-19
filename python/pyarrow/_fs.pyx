@@ -1033,7 +1033,7 @@ cdef class PyFileSystem(FileSystem):
     Create an fsspec-based filesystem object for GitHub:
 
     >>> from fsspec.implementations import github
-    >>> gfs = github.GithubFileSystem('apache', 'arrow')
+    >>> gfs = github.GithubFileSystem('apache', 'arrow', sha='ec51aec4d15035f4d9d6a1c4346d0a2b9a37fb75')
 
     Get a PyArrow FileSystem object:
 
