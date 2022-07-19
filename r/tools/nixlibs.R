@@ -22,6 +22,11 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 # TESTING is set in test-nixlibs.R; it won't be set when called from configure
 test_mode <- exists("TESTING")
 
+# Prevent error with binary selection during testing.
+if (test_mode && is.na(VERSION)) {
+  VERSION <- "8.0.0.9000"
+}
+
 # Check if version string has 4th component
 dev_version <- package_version(VERSION)[1, 4]
 
