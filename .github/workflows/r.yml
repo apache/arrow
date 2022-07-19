@@ -288,19 +288,15 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-      - name: Install sys package
-        shell: Rscript {0}
-        # Adding this to extra-packages above causes pak to attempt to install
-        # the unix package for unknown reasons.
-        run: install.packages("sys")
       - name: Install MinIO
         shell: bash
         run: |
-          mkdir -p /usr/local/bin
+          mkdir -p "$HOME/.local/bin"
           curl \
             --output /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
-          chmod +x /usr/local/bin/minio.exe
+          chmod +x "$HOME/.local/bin/minio.exe"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: ci/scripts/install_gcs_testbench.sh default
