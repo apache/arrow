@@ -98,6 +98,7 @@ Collate:
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
+    'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
     'dplyr-funcs-math.R'

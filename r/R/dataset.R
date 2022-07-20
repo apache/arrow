@@ -438,20 +438,3 @@ stop_if_no_datasets <- function() {
     stop("This build of the arrow package does not support Datasets", call. = FALSE)
   }
 }
-
-#' Add filename as dataset column
-#'
-#' @examplesIf requireNamespace("dplyr", quietly = TRUE)
-#' library(dplyr)
-#' tf <- tempfile()
-#' dir.create(tf)
-#' write_dataset(mtcars, tf, partitioning = "cyl")
-#'
-#' open_dataset(tf) %>%
-#'  mutate(filename = add_filename()) %>%
-#'  collect()
-#'
-#' @export
-add_filename <- function() {
-  Expression$field_ref("__filename")
-}
