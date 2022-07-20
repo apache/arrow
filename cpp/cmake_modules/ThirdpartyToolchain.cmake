@@ -4272,12 +4272,22 @@ macro(build_orc)
   get_target_property(ORC_LZ4_ROOT lz4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
 
+  set(ORC_CXX_FLAGS ${EP_CXX_FLAGS})
+  # As protobuf has a different ABI depending on NDEBUG, the ORC
+  # build type must follow the protobuf build type (ARROW-17104).
+  if(PROTOBUF_VENDORED)
+    string(APPEND ORC_CXX_FLAGS
+           "$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>: -DNDEBUG>")
+  else()
+    string(APPEND ORC_CXX_FLAGS " -DNDEBUG")
+  endif()
+
   # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
   # the protoc library.
   set(ORC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+      -DCMAKE_CXX_FLAGS=${ORC_CXX_FLAGS}
       -DSTOP_BUILD_ON_WARNING=OFF
       -DBUILD_LIBHDFSPP=OFF
       -DBUILD_JAVA=OFF
