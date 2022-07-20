@@ -69,7 +69,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// e.g. make an array of thread-locals off this.
   size_t max_concurrency() const;
 
-  /// \brief Starts an external task
+  /// \brief Start an external task
   ///
   /// This should be avoided if possible.  It is kept in for now for legacy
   /// purposes.  This should be called before the external task is started.  If
