@@ -247,7 +247,6 @@ services:
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /build/cpp/debug/arrow-threading-utility-test &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   conda-cpp-valgrind:
