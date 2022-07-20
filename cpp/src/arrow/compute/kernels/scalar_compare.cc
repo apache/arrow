@@ -158,23 +158,6 @@ struct Maximum {
 
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
-template <typename OutType, typename ArgType, typename Op>
-struct CompareTimestamps
-    : public applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op> {
-  using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
-
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
-    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
-    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
-      return Status::Invalid(
-          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
-          lhs, " and ", rhs);
-    }
-    return Base::Exec(ctx, batch, out);
-  }
-};
-
 template <typename T, typename Op>
 struct ComparePrimitive {
   static void Exec(const void* left_values_void, const void* right_values_void,
@@ -186,8 +169,8 @@ struct ComparePrimitive {
     bool temp_output[kBatchSize];
     for (int64_t j = 0; j < num_batches; ++j) {
       for (int i = 0; i < 8; ++i) {
-        temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++, *right_values++,
-                                              nullptr);
+        temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       *right_values++, nullptr);
       }
       *out_bitmap++ = (temp_output[0] | temp_output[1] << 1 | temp_output[2] << 2 |
                        temp_output[3] << 3 | temp_output[4] << 4 | temp_output[5] << 5 |
@@ -196,8 +179,8 @@ struct ComparePrimitive {
     int64_t bit_index = 0;
     for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
       bit_util::SetBitTo(out_bitmap, bit_index++,
-                         Op::template Call<bool, T, T>(nullptr, *left_values++, *right_values++,
-                                                       nullptr));
+                         Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       *right_values++, nullptr));
     }
   }
 };
@@ -263,13 +246,30 @@ struct CompareKernel {
 };
 
 template <typename Op>
-void AddPrimitiveCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  CompareFunc compare_func = GetPrimitiveCompare<Op>(ty->id());
+struct CompareTimestamps {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
+    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
+    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
+      return Status::Invalid(
+          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
+          lhs, " and ", rhs);
+    }
+    return CompareKernel<Int64Type>::Exec(ctx, batch, out);
+  }
+};
 
+ScalarKernel GetCompareKernel(InputType ty, CompareFunc func, ArrayKernelExec exec) {
   ScalarKernel kernel;
   kernel.signature = KernelSignature::Make({ty, ty}, boolean());
-  kernel.data = std::make_shared<CompareData>(compare_func);
-  kernel.exec = GeneratePhysicalNumeric<CompareKernel>(ty);
+  kernel.data = std::make_shared<CompareData>(func);
+  return kernel;
+}
+
+template <typename Op>
+void AddPrimitiveCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(ty);
+  ScalarKernel kernel = GetCompareKernel(ty, GetPrimitiveCompare<Op>(ty->id()), exec);
   DCHECK_OK(func->AddKernel(kernel));
 }
 
@@ -340,33 +340,31 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(),
-                              CompareTimestamps<BooleanType, TimestampType, Op>::Exec));
+    ScalarKernel kernel = GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT64),
+                                           CompareTimestamps<Op>::Exec);
+    DCHECK_OK(func->AddKernel(kernel));
   }
 
   // Duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
+    DCHECK_OK(func->AddKernel(
+        GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT64), exec)));
   }
 
   // Time32 and Time64
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int32());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int32());
+    DCHECK_OK(func->AddKernel(
+        GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT32), exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
+    DCHECK_OK(func->AddKernel(
+        GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT64), exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
