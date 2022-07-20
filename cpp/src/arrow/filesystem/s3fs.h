@@ -69,6 +69,9 @@ enum class S3CredentialsKind : int8_t {
   WebIdentity
 };
 
+// Enum representation of stock AWS retry strategies
+enum AwsStockRetryStrategy { Standard, Adaptive, Default, None };
+
 /// Pure virtual class for describing custom S3 retry strategies
 class S3RetryStrategy {
  public:
@@ -150,10 +153,10 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
-  /// Optional retry strategy name to load directly from the AWS SDK.
-  /// Overrides retry_strategy. Value is passed verbatim to InitRetryStrategy() cref:
+  /// Optional stock retry strategy name to instantiate from the AWS SDK.
+  /// Overrides retry_strategy. Values in enum correspond to strategies defined at:
   /// https://sdk.amazonaws.com/cpp/api/LATEST/namespace_aws_1_1_client.html
-  std::string retry_strategy_name;
+  AwsStockRetryStrategy stock_retry_strategy;
 
   S3Options();
 

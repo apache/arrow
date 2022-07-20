@@ -150,6 +150,12 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CS3CredentialsKind_WebIdentity \
             "arrow::fs::S3CredentialsKind::WebIdentity"
 
+    ctypedef enum CAwsStockRetryStrategy "arrow::fs::AwsStockRetryStrategy":
+        AwsStockRetryStrategy_Standard "arrow::fs::AwsStockRetryStrategy::Standard"
+        AwsStockRetryStrategy_Adaptive "arrow::fs::AwsStockRetryStrategy::Adaptive"
+        AwsStockRetryStrategy_Default "arrow::fs::AwsStockRetryStrategy::Default"
+        AwsStockRetryStrategy_None "arrow::fs::AwsStockRetryStrategy::None"
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
         c_string endpoint_override
