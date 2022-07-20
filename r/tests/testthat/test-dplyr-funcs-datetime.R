@@ -2425,6 +2425,12 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
   # we need expect_warning twice as both the arrow pipeline (because quiet =
   # FALSE is not supported) and the fallback dplyr/lubridate one throw
   # warnings (the lubridate one because quiet is FALSE)
+  # https://issues.apache.org/jira/browse/ARROW-17146
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  skip_if_not_available("re2")
+
   expect_warning(
     expect_warning(
       tibble(x = c("2022-05-19 13:46:51")) %>%
@@ -2436,6 +2442,16 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
       "`quiet = FALSE` not supported in Arrow"
     ),
     "All formats failed to parse"
+  )
+
+  expect_warning(
+    tibble(x = c("2022-05-19 13:46:51")) %>%
+      arrow_table() %>%
+      mutate(
+        x_dttm = ymd_hms(x, quiet = FALSE)
+      ) %>%
+      collect(),
+    "`quiet = FALSE` not supported in Arrow"
   )
 })
 
@@ -2462,6 +2478,11 @@ test_that("parse_date_time with truncated formats", {
             truncated_ymd_string,
             orders = "ymd_HMS",
             truncated = 3
+          ),
+        dttm2 =
+          ymd_hms(
+            truncated_ymd_string,
+            truncated = 3
           )
       ) %>%
       collect(),
@@ -2482,6 +2503,37 @@ test_that("parse_date_time with truncated formats", {
       collect(),
     test_truncation_df,
     warning = "a value for `truncated` > 4 not supported in Arrow"
+  )
+
+  # values for truncated greater than nchar(orders) - 3 not supported in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm =
+          ymd_hms(
+            truncated_ymd_string,
+            truncated = 5
+          )
+      ) %>%
+      collect(),
+    test_truncation_df,
+    warning = "a value for `truncated` > 4 not supported in Arrow"
+  )
+})
+
+test_that("parse_date_time with `locale != NULL` not supported", {
+  # parse_date_time currently doesn't take locale paramete which will be
+  # addressed in https://issues.apache.org/jira/browse/ARROW-17147
+  skip_if_not_available("re2")
+
+  expect_warning(
+    tibble(x = c("2022-05-19 13:46:51")) %>%
+      arrow_table() %>%
+      mutate(
+        x_dttm = ymd_hms(x, locale = "C")
+      ) %>%
+      collect(),
+    "`locale` not supported in Arrow"
   )
 })
 
