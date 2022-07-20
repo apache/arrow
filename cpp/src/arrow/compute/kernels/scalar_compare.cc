@@ -159,7 +159,7 @@ struct Maximum {
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
 template <int batch_size>
-void PackBits(const int* values, uint8_t* out) {
+void PackBits(const uint32_t* values, uint8_t* out) {
   for (int i = 0; i < batch_size / 8; ++i) {
     *out++ = (values[0] | values[1] << 1 | values[2] << 2 | values[3] << 3 |
               values[4] << 4 | values[5] << 5 | values[6] << 6 | values[7] << 7);
@@ -167,8 +167,9 @@ void PackBits(const int* values, uint8_t* out) {
   }
 }
 
-template <typename T, typename Op>
-struct ComparePrimitive {
+template <typename Type, typename Op>
+struct ComparePrimitiveArrayArray {
+  using T = typename Type::c_type;
   static void Exec(const void* left_values_void, const void* right_values_void,
                    int64_t length, void* out_bitmap_void) {
     const T* left_values = reinterpret_cast<const T*>(left_values_void);
@@ -176,7 +177,7 @@ struct ComparePrimitive {
     uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
     static constexpr int kBatchSize = 32;
     int64_t num_batches = length / kBatchSize;
-    int temp_output[kBatchSize];
+    uint32_t temp_output[kBatchSize];
     for (int64_t j = 0; j < num_batches; ++j) {
       for (int i = 0; i < kBatchSize; ++i) {
         temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
@@ -194,8 +195,9 @@ struct ComparePrimitive {
   }
 };
 
-template <typename T, typename Op>
-struct ComparePrimitiveAS {
+template <typename Type, typename Op>
+struct ComparePrimitiveArrayScalar {
+  using T = typename Type::c_type;
   static void Exec(const void* left_values_void, const void* right_value_void,
                    int64_t length, void* out_bitmap_void) {
     const T* left_values = reinterpret_cast<const T*>(left_values_void);
@@ -203,7 +205,7 @@ struct ComparePrimitiveAS {
     uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
     static constexpr int kBatchSize = 32;
     int64_t num_batches = length / kBatchSize;
-    int temp_output[kBatchSize];
+    uint32_t temp_output[kBatchSize];
     for (int64_t j = 0; j < num_batches; ++j) {
       for (int i = 0; i < kBatchSize; ++i) {
         temp_output[i] =
@@ -221,8 +223,9 @@ struct ComparePrimitiveAS {
   }
 };
 
-template <typename T, typename Op>
-struct ComparePrimitiveSA {
+template <typename Type, typename Op>
+struct ComparePrimitiveScalarArray {
+  using T = typename Type::c_type;
   static void Exec(const void* left_value_void, const void* right_values_void,
                    int64_t length, void* out_bitmap_void) {
     const T left_value = *reinterpret_cast<const T*>(left_value_void);
@@ -230,7 +233,7 @@ struct ComparePrimitiveSA {
     uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
     static constexpr int kBatchSize = 32;
     int64_t num_batches = length / kBatchSize;
-    int temp_output[kBatchSize];
+    uint32_t temp_output[kBatchSize];
     for (int64_t j = 0; j < num_batches; ++j) {
       for (int i = 0; i < kBatchSize; ++i) {
         temp_output[i] =
@@ -258,38 +261,6 @@ struct CompareData : public KernelState {
       : func_aa(func_aa), func_sa(func_sa), func_as(func_as) {}
 };
 
-template <template <typename...> class Generator, typename Op>
-BinaryKernel GetBinaryKernel(Type::type type) {
-  switch (type) {
-    case Type::INT8:
-      return Generator<int8_t, Op>::Exec;
-    case Type::INT16:
-      return Generator<int16_t, Op>::Exec;
-    case Type::INT32:
-    case Type::DATE32:
-      return Generator<int32_t, Op>::Exec;
-    case Type::INT64:
-    case Type::DURATION:
-    case Type::TIMESTAMP:
-    case Type::DATE64:
-      return Generator<int64_t, Op>::Exec;
-    case Type::UINT8:
-      return Generator<uint8_t, Op>::Exec;
-    case Type::UINT16:
-      return Generator<uint16_t, Op>::Exec;
-    case Type::UINT32:
-      return Generator<uint32_t, Op>::Exec;
-    case Type::UINT64:
-      return Generator<uint64_t, Op>::Exec;
-    case Type::FLOAT:
-      return Generator<float, Op>::Exec;
-    case Type::DOUBLE:
-      return Generator<double, Op>::Exec;
-    default:
-      return nullptr;
-  }
-}
-
 template <typename Type>
 struct CompareKernel {
   using T = typename Type::c_type;
@@ -297,7 +268,7 @@ struct CompareKernel {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
     DCHECK(kernel);
-    const auto kernel_data = static_cast<const CompareData*>(kernel->data.get());
+    const auto kernel_data = checked_cast<const CompareData*>(kernel->data.get());
 
     ArraySpan* out_arr = out->array_span();
 
@@ -352,9 +323,15 @@ ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
                               ArrayKernelExec exec) {
   ScalarKernel kernel;
   kernel.signature = KernelSignature::Make({ty, ty}, boolean());
-  BinaryKernel func_aa = GetBinaryKernel<ComparePrimitive, Op>(compare_type);
-  BinaryKernel func_sa = GetBinaryKernel<ComparePrimitiveSA, Op>(compare_type);
-  BinaryKernel func_as = GetBinaryKernel<ComparePrimitiveAS, Op>(compare_type);
+  BinaryKernel func_aa =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayArray, Op>(
+          compare_type);
+  BinaryKernel func_sa =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveScalarArray, Op>(
+          compare_type);
+  BinaryKernel func_as =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayScalar, Op>(
+          compare_type);
   kernel.data = std::make_shared<CompareData>(func_aa, func_sa, func_as);
   kernel.exec = exec;
   return kernel;
@@ -484,12 +461,12 @@ struct FlippedData : public CompareData {
   ArrayKernelExec unflipped_exec;
   explicit FlippedData(ArrayKernelExec unflipped_exec, BinaryKernel func_aa = nullptr,
                        BinaryKernel func_sa = nullptr, BinaryKernel func_as = nullptr)
-      : CompareData(func_aa, func_sa, func_as), unflipped_exec(unflipped_exec) {}
+      : CompareData{func_aa, func_sa, func_as}, unflipped_exec(unflipped_exec) {}
 };
 
 Status FlippedCompare(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
   const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
-  const auto kernel_data = static_cast<const FlippedData*>(kernel->data.get());
+  const auto kernel_data = checked_cast<const FlippedData*>(kernel->data.get());
   ExecSpan flipped_span = span;
   std::swap(flipped_span.values[0], flipped_span.values[1]);
   return kernel_data->unflipped_exec(ctx, flipped_span, out);
@@ -503,7 +480,7 @@ std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
     if (kernel->data) {
-      auto compare_data = static_cast<const CompareData*>(kernel->data.get());
+      auto compare_data = checked_cast<const CompareData*>(kernel->data.get());
       flipped_kernel.data =
           std::make_shared<FlippedData>(kernel->exec, compare_data->func_aa,
                                         compare_data->func_sa, compare_data->func_as);
