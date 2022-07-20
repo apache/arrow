@@ -62,6 +62,12 @@ x-ccache: &ccache
   CCACHE_MAXSIZE: 1G
   CCACHE_DIR: /ccache
 
+x-sccache: &sccache
+  AWS_ACCESS_KEY_ID:
+  AWS_SECRET_ACCESS_KEY:
+  SCCACHE_BUCKET:
+  SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
+
 # CPU/memory limit presets to pass to Docker.
 #
 # Usage: archery docker run --resource-limit=github <image>
@@ -411,7 +417,7 @@ services:
       - apparmor:unconfined
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       LIBARROW_MINIMAL: "false"
@@ -419,7 +425,7 @@ services:
     volumes: *ubuntu-volumes
     command: &arrow-static-cmd
       /bin/bash -c "
-        source /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
+        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
         export PATH=/sccache:$$PATH &&
         cd /arrow && r/inst/build_arrow_static.sh"
 
@@ -613,6 +619,8 @@ services:
       - .:/arrow:delegated
     command: >-
       /bin/bash -c "
+        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
+        export PATH=/sccache:$$PATH &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
 
