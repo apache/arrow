@@ -152,7 +152,17 @@ class TestLocalFSGenericMMap : public TestLocalFSGeneric<CommonPathFormatter> {
   }
 };
 
+class TestLocalFSGenericReuse : public TestLocalFSGeneric<CommonPathFormatter> {
+ protected:
+  LocalFileSystemOptions options() override {
+    auto options = LocalFileSystemOptions::Defaults();
+    options.reuse = false;
+    return options;
+  }
+};
+
 GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericMMap);
+GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericReuse);
 
 ////////////////////////////////////////////////////////////////////////////
 // Concrete LocalFileSystem tests

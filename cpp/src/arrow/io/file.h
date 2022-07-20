@@ -58,7 +58,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   ///
   /// The file descriptor becomes owned by the OutputStream, and will be closed
   /// on Close() or destruction.
-  static Result<std::shared_ptr<FileOutputStream>> Open(int fd);
+  static Result<std::shared_ptr<FileOutputStream>> Open(int fd, bool reuse = true);
 
   // OutputStream interface
   Status Close() override;

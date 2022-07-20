@@ -37,7 +37,7 @@ struct ARROW_EXPORT LocalFileSystemOptions {
   /// Whether OpenInputStream and OpenInputFile return a mmap'ed file,
   /// or a regular one.
   bool use_mmap = false;
-
+  bool reuse = true;
   /// \brief Initialize with defaults
   static LocalFileSystemOptions Defaults();
 

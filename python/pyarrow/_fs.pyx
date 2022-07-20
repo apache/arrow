@@ -782,6 +782,8 @@ cdef class LocalFileSystem(FileSystem):
     use_mmap : bool, default False
         Whether open_input_stream and open_input_file should return
         a mmap'ed file or a regular file.
+    reuse : bool, default True
+        If set to False, will use posix_fadvise to (try) not use the page cache.
 
     Examples
     --------
@@ -884,13 +886,14 @@ cdef class LocalFileSystem(FileSystem):
     <FileInfo for '/tmp/local_fs-copy.dat': type=FileType.NotFound>
     """
 
-    def __init__(self, *, use_mmap=False):
+    def __init__(self, *, use_mmap=False, reuse=True):
         cdef:
             CLocalFileSystemOptions opts
             shared_ptr[CLocalFileSystem] fs
 
         opts = CLocalFileSystemOptions.Defaults()
         opts.use_mmap = use_mmap
+        opts.reuse = reuse
 
         fs = make_shared[CLocalFileSystem](opts)
         self.init(<shared_ptr[CFileSystem]> fs)
@@ -908,7 +911,7 @@ cdef class LocalFileSystem(FileSystem):
     def __reduce__(self):
         cdef CLocalFileSystemOptions opts = self.localfs.options()
         return LocalFileSystem._reconstruct, (dict(
-            use_mmap=opts.use_mmap),)
+            use_mmap=opts.use_mmap, reuse=opts.reuse),)
 
 
 cdef class SubTreeFileSystem(FileSystem):

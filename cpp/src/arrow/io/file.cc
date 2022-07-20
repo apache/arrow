@@ -85,7 +85,7 @@ class OSFile {
 
   // This is different from OpenWritable(string, ...) in that it doesn't
   // truncate nor mandate a seekable file
-  Status OpenWritable(int fd) {
+  Status OpenWritable(int fd, bool reuse = true) {
     auto result = ::arrow::internal::FileGetSize(fd);
     if (result.ok()) {
       size_ = *result;
@@ -96,6 +96,7 @@ class OSFile {
     RETURN_NOT_OK(SetFileName(fd));
     mode_ = FileMode::WRITE;
     fd_ = FileDescriptor(fd);
+    reuse_ = reuse;
     return Status::OK();
   }
 
@@ -167,8 +168,17 @@ class OSFile {
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
-    return ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
+    if(reuse_){
+        return ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
                                         length);
+    } else {
+        auto status = ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
+                                        length);
+        posix_fadvise(fd_.fd(), written, length, POSIX_FADV_DONTNEED);
+        written += length;
+        return status;
+    }
+    
   }
 
   int fd() const { return fd_.fd(); }
@@ -207,6 +217,8 @@ class OSFile {
   FileDescriptor fd_;
   FileMode::type mode_;
   int64_t size_{-1};
+  bool reuse_;
+  int64_t written{0};
   // Whether ReadAt made the file position non-deterministic.
   std::atomic<bool> need_seeking_{false};
 };
@@ -346,7 +358,7 @@ class FileOutputStream::FileOutputStreamImpl : public OSFile {
     const bool truncate = !append;
     return OpenWritable(path, truncate, append, true /* write_only */);
   }
-  Status Open(int fd) { return OpenWritable(fd); }
+  Status Open(int fd, bool reuse) { return OpenWritable(fd, reuse); }
 };
 
 FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); }
@@ -360,9 +372,9 @@ Result<std::shared_ptr<FileOutputStream>> FileOutputStream::Open(const std::stri
   return stream;
 }
 
-Result<std::shared_ptr<FileOutputStream>> FileOutputStream::Open(int fd) {
+Result<std::shared_ptr<FileOutputStream>> FileOutputStream::Open(int fd, bool reuse) {
   auto stream = std::shared_ptr<FileOutputStream>(new FileOutputStream());
-  RETURN_NOT_OK(stream->impl_->Open(fd));
+  RETURN_NOT_OK(stream->impl_->Open(fd, reuse));
   return stream;
 }
 
