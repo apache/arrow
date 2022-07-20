@@ -175,18 +175,102 @@ struct CompareTimestamps
   }
 };
 
+template <typename T, typename Op>
+struct ComparePrimitive {
+  static void Exec(const void* left_values_void, const void* right_values_void,
+                   int64_t length, uint8_t* out_bitmap) {
+    const T* left_values = reinterpret_cast<const T*>(left_values_void);
+    const T* right_values = reinterpret_cast<const T*>(right_values_void);
+    static constexpr int kBatchSize = 8;
+    int64_t num_batches = length / kBatchSize;
+    bool temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < 8; ++i) {
+        temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++, *right_values++,
+                                              nullptr);
+      }
+      *out_bitmap++ = (temp_output[0] | temp_output[1] << 1 | temp_output[2] << 2 |
+                       temp_output[3] << 3 | temp_output[4] << 4 | temp_output[5] << 5 |
+                       temp_output[6] << 6 | temp_output[7] << 7);
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(out_bitmap, bit_index++,
+                         Op::template Call<bool, T, T>(nullptr, *left_values++, *right_values++,
+                                                       nullptr));
+    }
+  }
+};
+
+using CompareFunc = void (*)(const void*, const void*, int64_t, uint8_t*);
+
+struct CompareData : public KernelState {
+  CompareFunc func;
+  CompareData(CompareFunc func) : func(func) {}
+};
+
 template <typename Op>
-void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  auto exec =
-      GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
-  DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+CompareFunc GetPrimitiveCompare(Type::type type) {
+  switch (type) {
+    case Type::INT8:
+      return ComparePrimitive<int8_t, Op>::Exec;
+    case Type::INT16:
+      return ComparePrimitive<int16_t, Op>::Exec;
+    case Type::INT32:
+    case Type::DATE32:
+      return ComparePrimitive<int32_t, Op>::Exec;
+    case Type::INT64:
+    case Type::DURATION:
+    case Type::TIMESTAMP:
+    case Type::DATE64:
+      return ComparePrimitive<int64_t, Op>::Exec;
+    case Type::UINT8:
+      return ComparePrimitive<uint8_t, Op>::Exec;
+    case Type::UINT16:
+      return ComparePrimitive<uint16_t, Op>::Exec;
+    case Type::UINT32:
+      return ComparePrimitive<uint32_t, Op>::Exec;
+    case Type::UINT64:
+      return ComparePrimitive<uint64_t, Op>::Exec;
+    case Type::FLOAT:
+      return ComparePrimitive<float, Op>::Exec;
+    case Type::DOUBLE:
+      return ComparePrimitive<double, Op>::Exec;
+    default:
+      return nullptr;
+  }
 }
 
-template <typename InType, typename Op>
-void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(
-      func->AddKernel({ty, ty}, boolean(),
-                      applicator::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
+template <typename Type>
+struct CompareKernel {
+  using T = typename Type::c_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
+    DCHECK(kernel);
+    const auto kernel_data = static_cast<const CompareData*>(kernel->data.get());
+
+    ArraySpan* out_arr = out->array_span();
+
+    // TODO: implement path for offset not multiple of 8
+    DCHECK_EQ(out_arr->offset % 8, 0);
+
+    uint8_t* out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
+    kernel_data->func(batch[0].array.GetValues<T>(1), batch[1].array.GetValues<T>(1),
+                      batch.length, out_buffer);
+    return Status::OK();
+  }
+};
+
+template <typename Op>
+void AddPrimitiveCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  CompareFunc compare_func = GetPrimitiveCompare<Op>(ty->id());
+
+  ScalarKernel kernel;
+  kernel.signature = KernelSignature::Make({ty, ty}, boolean());
+  kernel.data = std::make_shared<CompareData>(compare_func);
+  kernel.exec = GeneratePhysicalNumeric<CompareKernel>(ty);
+  DCHECK_OK(func->AddKernel(kernel));
 }
 
 struct CompareFunction : ScalarFunction {
@@ -247,14 +331,11 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
       {boolean(), boolean()}, boolean(),
       applicator::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
 
-  for (const std::shared_ptr<DataType>& ty : IntTypes()) {
-    AddIntegerCompare<Op>(ty, func.get());
+  for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
+    AddPrimitiveCompare<Op>(ty, func.get());
   }
-  AddIntegerCompare<Op>(date32(), func.get());
-  AddIntegerCompare<Op>(date64(), func.get());
-
-  AddGenericCompare<FloatType, Op>(float32(), func.get());
-  AddGenericCompare<DoubleType, Op>(float64(), func.get());
+  AddPrimitiveCompare<Op>(date32(), func.get());
+  AddPrimitiveCompare<Op>(date64(), func.get());
 
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
