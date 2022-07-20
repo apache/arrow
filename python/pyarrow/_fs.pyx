@@ -106,16 +106,16 @@ cdef class FileInfo(_Weakrefable):
 
     >>> from pyarrow import fs
     >>> local = fs.LocalFileSystem()
-    >>> path_fi = local_path + '/pyarrow-fi-example.dat'
-    >>> with local.open_output_stream(path_fi) as stream:
+    >>> path_fs = local_path + '/pyarrow-fs-example.dat'
+    >>> with local.open_output_stream(path_fs) as stream:
     ...     stream.write(b'data')
     4
 
     Get FileInfo object using ``get_file_info()``:
 
-    >>> file_info = local.get_file_info(path_fi)
+    >>> file_info = local.get_file_info(path_fs)
     >>> file_info
-    <FileInfo for '.../pyarrow-fi-example.dat': type=FileType.File, size=4>
+    <FileInfo for '.../pyarrow-fs-example.dat': type=FileType.File, size=4>
 
     Inspect FileInfo attributes:
 
@@ -126,10 +126,10 @@ cdef class FileInfo(_Weakrefable):
     True
 
     >>> file_info.path
-    '/.../pyarrow-fi-example.dat'
+    '/.../pyarrow-fs-example.dat'
 
     >>> file_info.base_name
-    'pyarrow-fi-example.dat'
+    'pyarrow-fs-example.dat'
 
     >>> file_info.size
     4
