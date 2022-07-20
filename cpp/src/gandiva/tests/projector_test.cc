@@ -1779,6 +1779,68 @@ TEST_F(TestProjector, TestCeiling) {
   EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs2.at(0));
 }
 
+TEST_F(TestProjector, TestFloor) {
+  // input fields
+  auto field1 = field("f1", arrow::float32());
+  auto field2 = field("f2", arrow::float64());
+
+  // schema fields
+  auto schema1 = arrow::schema({field1});
+  auto schema2 = arrow::schema({field2});
+
+  // output fields
+  auto field3 = field("floor_float32", arrow::float32());
+  auto field4 = field("floor_float64", arrow::float64());
+
+  // Build expression
+  auto floor_float32 = TreeExprBuilder::MakeExpression("floor", {field1}, field3);
+  auto floor_float64 = TreeExprBuilder::MakeExpression("floor", {field2}, field4);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  std::shared_ptr<Projector> projector1;
+
+  auto status =
+      Projector::Make(schema1, {floor_float32}, TestConfiguration(), &projector1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  auto array1 = MakeArrowArrayFloat32({1.1f, 2.2f, 3.3f, 4.4f}, {true, true, true, true});
+  auto in_batch1 = arrow::RecordBatch::Make(schema1, num_records, {array1});
+
+  auto out_float32 =
+      MakeArrowArrayFloat32({1.0f, 2.0f, 3.0f, 4.0f}, {true, true, true, true});
+
+  arrow::ArrayVector outputs1;
+
+  // Evaluate expression
+  status = projector1->Evaluate(*in_batch1, pool_, &outputs1);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_float32, outputs1.at(0));
+
+  std::shared_ptr<Projector> projector2;
+
+  status = Projector::Make(schema2, {floor_float64}, TestConfiguration(), &projector2);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  auto array2 = MakeArrowArrayFloat64({1.1, 2.2, 3.3, 4.4}, {true, true, true, true});
+  auto in_batch2 = arrow::RecordBatch::Make(schema2, num_records, {array2});
+
+  auto out_float64 =
+      MakeArrowArrayFloat64({1.0, 2.0, 3.0, 4.0}, {true, true, true, true});
+
+  arrow::ArrayVector outputs2;
+
+  // Evaluate expression
+  status = projector2->Evaluate(*in_batch2, pool_, &outputs2);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_float64, outputs2.at(0));
+}
+
 TEST_F(TestProjector, TestCastBitFunction) {
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});

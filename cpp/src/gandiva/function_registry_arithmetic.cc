@@ -196,6 +196,9 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       // ceil functions
       UNARY_SAFE_NULL_IF_NULL(ceiling, {"ceil"}, float32, float32),
       UNARY_SAFE_NULL_IF_NULL(ceiling, {"ceil"}, float64, float64),
+      // floor functions
+      UNARY_SAFE_NULL_IF_NULL(floor, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(floor, {}, float64, float64),
 
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),
