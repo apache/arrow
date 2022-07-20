@@ -233,6 +233,13 @@ test_that("user-defined functions work during multi-threaded execution", {
 
   expect_identical(result$fun_result, example_df$value * 32)
 
+  # check an exec plan with head()
+  result <- open_dataset(tf_dataset) %>%
+    dplyr::mutate(fun_result = times_32(value)) %>%
+    head(11) %>%
+    dplyr::collect()
+  expect_equal(nrow(result), 11)
+
   # check a write_dataset()
   open_dataset(tf_dataset) %>%
     dplyr::mutate(fun_result = times_32(value)) %>%
