@@ -1773,6 +1773,15 @@ macro(build_substrait)
 
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
   set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  # As protobuf has a different ABI depending on NDEBUG, the Substrait
+  # build type must follow the protobuf build type (ARROW-17104).
+  if(PROTOBUF_VENDORED)
+    target_compile_definitions(substrait
+                               PRIVATE "$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:NDEBUG>"
+    )
+  else()
+    target_compile_definitions(substrait PRIVATE NDEBUG)
+  endif()
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
