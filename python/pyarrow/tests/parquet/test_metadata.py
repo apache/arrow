@@ -539,5 +539,6 @@ def test_metadata_equals():
         buf = out.getvalue()
 
     original_metadata = pq.read_metadata(pa.BufferReader(buf))
-    with pytest.raises(TypeError, match="Expected `other` to be of type FileMetaData"):
+    match="Argument 'other' has incorrect type"
+    with pytest.raises(TypeError, match=match):
         original_metadata.equals(None)

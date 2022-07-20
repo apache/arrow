@@ -667,7 +667,7 @@ cdef class FileMetaData(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, FileMetaData other):
+    def equals(self, FileMetaData other not None):
         """
         Return whether the two file metadata objects are equal.
 
@@ -680,10 +680,6 @@ cdef class FileMetaData(_Weakrefable):
         -------
         are_equal : bool
         """
-        if not isinstance(other, FileMetaData):
-            err_msg = ("Expected `other` to be of type FileMetaData"
-                       " but found " + str(type(other)))
-            raise TypeError(err_msg)
         return self._metadata.Equals(deref(other._metadata))
 
     @property
