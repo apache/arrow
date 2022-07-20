@@ -1072,7 +1072,8 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
 }
 
 Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
-                                        bool write_only, bool truncate, bool append) {
+                                        bool write_only, bool truncate, bool append,
+                                        bool sync) {
   FileDescriptor fd;
 
 #if defined(_WIN32)
@@ -1115,7 +1116,9 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
   fd = FileDescriptor(ret);
 #else
   int oflag = O_CREAT;
-
+  if (sync) {
+    oflag |= O_SYNC;
+  }
   if (truncate) {
     oflag |= O_TRUNC;
   }

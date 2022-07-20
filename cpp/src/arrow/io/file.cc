@@ -28,6 +28,7 @@
 #else
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <unistd.h>
 #include <unistd.h>  // IWYU pragma: keep
 #endif
 
@@ -168,17 +169,16 @@ class OSFile {
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
-    if(reuse_){
-        return ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
-                                        length);
+    if (reuse_) {
+      return ::arrow::internal::FileWrite(fd_.fd(),
+                                          reinterpret_cast<const uint8_t*>(data), length);
     } else {
-        auto status = ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
-                                        length);
-        posix_fadvise(fd_.fd(), written, length, POSIX_FADV_DONTNEED);
-        written += length;
-        return status;
+      auto status = ::arrow::internal::FileWrite(
+          fd_.fd(), reinterpret_cast<const uint8_t*>(data), length);
+      posix_fadvise(fd_.fd(), written, length, POSIX_FADV_DONTNEED);
+      written += length;
+      return status;
     }
-    
   }
 
   int fd() const { return fd_.fd(); }

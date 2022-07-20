@@ -191,6 +191,16 @@ def localfs_with_mmap(request, tempdir):
 
 
 @pytest.fixture
+def localfs_with_fadvise(request, tempdir):
+    return dict(
+        fs=LocalFileSystem(reuse=False),
+        pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
 def subtree_localfs(request, tempdir, localfs):
     return dict(
         fs=SubTreeFileSystem(str(tempdir), localfs['fs']),
@@ -365,6 +375,10 @@ def py_fsspec_s3fs(request, s3_server):
     pytest.param(
         pytest.lazy_fixture('localfs_with_mmap'),
         id='LocalFileSystem(use_mmap=True)'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('localfs_with_fadvise'),
+        id='LocalFileSystem(reuse=False)'
     ),
     pytest.param(
         pytest.lazy_fixture('subtree_localfs'),
@@ -1005,7 +1019,7 @@ def test_open_output_stream_metadata(fs, pathfn):
 
 def test_localfs_options():
     # LocalFileSystem instantiation
-    LocalFileSystem(use_mmap=False)
+    LocalFileSystem(use_mmap=False, reuse=True)
 
     with pytest.raises(TypeError):
         LocalFileSystem(xxx=False)
