@@ -185,40 +185,97 @@ struct ComparePrimitive {
   }
 };
 
+template <typename T, typename Op>
+struct ComparePrimitiveAS {
+  static void Exec(const void* left_values_void, const void* right_value_void,
+                   int64_t length, uint8_t* out_bitmap) {
+    const T* left_values = reinterpret_cast<const T*>(left_values_void);
+    const T right_value = *reinterpret_cast<const T*>(right_value_void);
+    static constexpr int kBatchSize = 8;
+    int64_t num_batches = length / kBatchSize;
+    bool temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < 8; ++i) {
+        temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       right_value, nullptr);
+      }
+      *out_bitmap++ = (temp_output[0] | temp_output[1] << 1 | temp_output[2] << 2 |
+                       temp_output[3] << 3 | temp_output[4] << 4 | temp_output[5] << 5 |
+                       temp_output[6] << 6 | temp_output[7] << 7);
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(out_bitmap, bit_index++,
+                         Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       right_value, nullptr));
+    }
+  }
+};
+
+template <typename T, typename Op>
+struct ComparePrimitiveSA {
+  static void Exec(const void* left_value_void, const void* right_values_void,
+                   int64_t length, uint8_t* out_bitmap) {
+    const T left_value = *reinterpret_cast<const T*>(left_value_void);
+    const T* right_values = reinterpret_cast<const T*>(right_values_void);
+    static constexpr int kBatchSize = 8;
+    int64_t num_batches = length / kBatchSize;
+    bool temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < 8; ++i) {
+        temp_output[i] = Op::template Call<bool, T, T>(nullptr, left_value,
+                                                       *right_values++, nullptr);
+      }
+      *out_bitmap++ = (temp_output[0] | temp_output[1] << 1 | temp_output[2] << 2 |
+                       temp_output[3] << 3 | temp_output[4] << 4 | temp_output[5] << 5 |
+                       temp_output[6] << 6 | temp_output[7] << 7);
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(out_bitmap, bit_index++,
+                         Op::template Call<bool, T, T>(nullptr, left_value,
+                                                       *right_values++, nullptr));
+    }
+  }
+};
+
 using CompareFunc = void (*)(const void*, const void*, int64_t, uint8_t*);
 
 struct CompareData : public KernelState {
-  CompareFunc func;
-  CompareData(CompareFunc func) : func(func) {}
+  CompareFunc func_aa;
+  CompareFunc func_sa;
+  CompareFunc func_as;
+  CompareData(CompareFunc func_aa, CompareFunc func_sa, CompareFunc func_as)
+      : func_aa(func_aa), func_sa(func_sa), func_as(func_as) {}
 };
 
-template <typename Op>
+template <template <typename...> class Generator, typename Op>
 CompareFunc GetPrimitiveCompare(Type::type type) {
   switch (type) {
     case Type::INT8:
-      return ComparePrimitive<int8_t, Op>::Exec;
+      return Generator<int8_t, Op>::Exec;
     case Type::INT16:
-      return ComparePrimitive<int16_t, Op>::Exec;
+      return Generator<int16_t, Op>::Exec;
     case Type::INT32:
     case Type::DATE32:
-      return ComparePrimitive<int32_t, Op>::Exec;
+      return Generator<int32_t, Op>::Exec;
     case Type::INT64:
     case Type::DURATION:
     case Type::TIMESTAMP:
     case Type::DATE64:
-      return ComparePrimitive<int64_t, Op>::Exec;
+      return Generator<int64_t, Op>::Exec;
     case Type::UINT8:
-      return ComparePrimitive<uint8_t, Op>::Exec;
+      return Generator<uint8_t, Op>::Exec;
     case Type::UINT16:
-      return ComparePrimitive<uint16_t, Op>::Exec;
+      return Generator<uint16_t, Op>::Exec;
     case Type::UINT32:
-      return ComparePrimitive<uint32_t, Op>::Exec;
+      return Generator<uint32_t, Op>::Exec;
     case Type::UINT64:
-      return ComparePrimitive<uint64_t, Op>::Exec;
+      return Generator<uint64_t, Op>::Exec;
     case Type::FLOAT:
-      return ComparePrimitive<float, Op>::Exec;
+      return Generator<float, Op>::Exec;
     case Type::DOUBLE:
-      return ComparePrimitive<double, Op>::Exec;
+      return Generator<double, Op>::Exec;
     default:
       return nullptr;
   }
@@ -239,8 +296,18 @@ struct CompareKernel {
     DCHECK_EQ(out_arr->offset % 8, 0);
 
     uint8_t* out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
-    kernel_data->func(batch[0].array.GetValues<T>(1), batch[1].array.GetValues<T>(1),
-                      batch.length, out_buffer);
+    if (batch[0].is_array() && batch[1].is_array()) {
+      kernel_data->func_aa(batch[0].array.GetValues<T>(1), batch[1].array.GetValues<T>(1),
+                           batch.length, out_buffer);
+    } else if (batch[1].is_scalar()) {
+      T value = UnboxScalar<Type>::Unbox(*batch[1].scalar);
+      kernel_data->func_as(batch[0].array.GetValues<T>(1), &value,
+                           batch.length, out_buffer);
+    } else {
+      T value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
+      kernel_data->func_sa(&value, batch[1].array.GetValues<T>(1),
+                           batch.length, out_buffer);
+    }
     return Status::OK();
   }
 };
@@ -259,17 +326,23 @@ struct CompareTimestamps {
   }
 };
 
-ScalarKernel GetCompareKernel(InputType ty, CompareFunc func, ArrayKernelExec exec) {
+
+template <typename Op>
+ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type, ArrayKernelExec exec) {
   ScalarKernel kernel;
   kernel.signature = KernelSignature::Make({ty, ty}, boolean());
-  kernel.data = std::make_shared<CompareData>(func);
+  CompareFunc func_aa = GetPrimitiveCompare<ComparePrimitive, Op>(compare_type);
+  CompareFunc func_sa = GetPrimitiveCompare<ComparePrimitiveSA, Op>(compare_type);
+  CompareFunc func_as = GetPrimitiveCompare<ComparePrimitiveAS, Op>(compare_type);
+  kernel.data = std::make_shared<CompareData>(func_aa, func_sa, func_as);
+  kernel.exec = exec;
   return kernel;
 }
 
 template <typename Op>
 void AddPrimitiveCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(ty);
-  ScalarKernel kernel = GetCompareKernel(ty, GetPrimitiveCompare<Op>(ty->id()), exec);
+  ScalarKernel kernel = GetCompareKernel<Op>(ty, ty->id(), exec);
   DCHECK_OK(func->AddKernel(kernel));
 }
 
@@ -340,8 +413,8 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    ScalarKernel kernel = GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT64),
-                                           CompareTimestamps<Op>::Exec);
+    ScalarKernel kernel = GetCompareKernel<Op>(in_type, Type::INT64,
+                                               CompareTimestamps<Op>::Exec);
     DCHECK_OK(func->AddKernel(kernel));
   }
 
@@ -350,7 +423,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
     InputType in_type(match::DurationTypeUnit(unit));
     ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
     DCHECK_OK(func->AddKernel(
-        GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT64), exec)));
+        GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   // Time32 and Time64
@@ -358,13 +431,13 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
     InputType in_type(match::Time32TypeUnit(unit));
     ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int32());
     DCHECK_OK(func->AddKernel(
-        GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT32), exec)));
+        GetCompareKernel<Op>(in_type, Type::INT32, exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
     ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
     DCHECK_OK(func->AddKernel(
-        GetCompareKernel(in_type, GetPrimitiveCompare<Op>(Type::INT64), exec)));
+        GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
