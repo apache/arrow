@@ -103,7 +103,6 @@ struct ARROW_EXPORT S3Options {
   /// server).
   std::string region;
 
-
   /// if unset (or any value less than 0), the AWS SDK default values will be used.
   /// request_timeout default 3 seconds
   /// If less/equal zero then this property is ignored and the default is used

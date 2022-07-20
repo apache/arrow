@@ -725,7 +725,6 @@ class ClientBuilder {
       client_config_.connectTimeoutMs = std::lround(options_.connect_timeout * 1000);
     }
 
-
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
       client_config_.scheme = Aws::Http::Scheme::HTTP;
