@@ -40,6 +40,8 @@ namespace compute {
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
+  // This allows operators to rely on signed 16-bit indices
+  static const uint32_t kMaxBatchSize = 1 << 15;
   using NodeVector = std::vector<ExecNode*>;
 
   virtual ~ExecPlan() = default;

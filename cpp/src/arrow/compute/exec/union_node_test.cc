@@ -138,9 +138,6 @@ TEST_F(TestUnionNode, TestNonEmpty) {
     }
   }
 }
-TEST_F(TestUnionNode, TestWithAnEmptyBatch) {
-  this->CheckUnionExecNode(/*num_input_nodes*/ 2, /*num_batches=*/0, /*parallel=*/false);
-}
 
 TEST_F(TestUnionNode, TestEmpty) {
   this->CheckUnionExecNode(/*num_input_nodes*/ 0, /*num_batches=*/0, /*parallel=*/false);
