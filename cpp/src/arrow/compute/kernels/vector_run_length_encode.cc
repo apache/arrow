@@ -20,8 +20,11 @@ struct EncodeDecodeCommonExec {
     }
   };
 
-  EncodeDecodeCommonExec(KernelContext* kernel_context, const ExecSpan& span, ExecResult* result)
-      : kernel_context{kernel_context}, input_array{span.values[0].array}, exec_result{result} {
+  EncodeDecodeCommonExec(KernelContext* kernel_context, const ExecSpan& span,
+                         ExecResult* result)
+      : kernel_context{kernel_context},
+        input_array{span.values[0].array},
+        exec_result{result} {
     ARROW_DCHECK(span.num_values() == 1);
   }
 
@@ -139,22 +142,24 @@ struct RunLengthEncodeExec
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
       validity_buffer_size = bit_util::BytesForBits(num_values_output);
-      ARROW_ASSIGN_OR_RAISE(validity_buffer,
-                            AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          validity_buffer,
+          AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(bit_util::BytesForBits(num_values_output *
                                                                 ArrowType().bit_width()),
                                          this->kernel_context->memory_pool()));
-    ARROW_ASSIGN_OR_RAISE(
-        auto run_lengths_buffer,
-        AllocateBuffer(num_values_output * sizeof(int64_t), this->kernel_context->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
+                          AllocateBuffer(num_values_output * sizeof(int64_t),
+                                         this->kernel_context->memory_pool()));
 
-    ArrayData *output_array_data = this->exec_result->array_data().get();
+    ArrayData* output_array_data = this->exec_result->array_data().get();
     output_array_data->length = this->input_array.length;
     output_array_data->buffers.resize(1);
     auto child_array_data =
-        ArrayData::Make(const_cast<DataType*>(this->input_array.type)->shared_from_this(), num_values_output);
+        ArrayData::Make(const_cast<DataType*>(this->input_array.type)->shared_from_this(),
+                        num_values_output);
     output_array_data->buffers[0] = std::move(run_lengths_buffer);
     child_array_data->buffers.push_back(std::move(validity_buffer));
     child_array_data->buffers.push_back(std::move(values_buffer));
@@ -251,8 +256,9 @@ struct RunLengthDecodeExec
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
       validity_buffer_size = bit_util::BytesForBits(num_values_output);
-      ARROW_ASSIGN_OR_RAISE(validity_buffer,
-                            AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          validity_buffer,
+          AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(bit_util::BytesForBits(num_values_output *
@@ -291,7 +297,8 @@ struct RunLengthDecodeExec
           this->output_position++;
         }
       } else {  // !valid
-        bit_util::SetBitsTo(this->output_validity, this->output_position, run_length, false);
+        bit_util::SetBitsTo(this->output_validity, this->output_position, run_length,
+                            false);
         this->output_position += run_length;
         output_null_count += run_length;
       }
@@ -339,16 +346,16 @@ void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
 
   for (const auto& ty : NumericTypes()) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
-    auto sig = KernelSignature::Make({InputType(ty)},
-                                     OutputType(std::make_shared<RunLengthEncodedType>(ty)));
+    auto sig = KernelSignature::Make(
+        {InputType(ty)}, OutputType(std::make_shared<RunLengthEncodedType>(ty)));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
   {
     const auto ty = boolean();
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
-    auto sig = KernelSignature::Make({InputType(ty)},
-                                     OutputType(std::make_shared<RunLengthEncodedType>(ty)));
+    auto sig = KernelSignature::Make(
+        {InputType(ty)}, OutputType(std::make_shared<RunLengthEncodedType>(ty)));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
@@ -363,8 +370,7 @@ void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
   for (const auto& ty : NumericTypes()) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
     auto input_type = std::make_shared<RunLengthEncodedType>(ty);
-    auto sig = KernelSignature::Make({InputType(input_type)},
-                                     OutputType({ty}));
+    auto sig = KernelSignature::Make({InputType(input_type)}, OutputType({ty}));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
@@ -372,8 +378,7 @@ void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
     const auto ty = boolean();
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
     auto input_type = std::make_shared<RunLengthEncodedType>(ty);
-    auto sig = KernelSignature::Make({InputType(input_type)},
-                                     OutputType(ty));
+    auto sig = KernelSignature::Make({InputType(input_type)}, OutputType(ty));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
