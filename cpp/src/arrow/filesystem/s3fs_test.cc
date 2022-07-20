@@ -20,6 +20,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -234,6 +235,7 @@ class S3OptionsTest : public AwsTestMixin {};
 TEST_F(S3OptionsTest, FromUri) {
   std::string path;
   S3Options options;
+  S3Options retry_options;
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
   ASSERT_EQ(options.region, "");
@@ -283,6 +285,38 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Invalid option
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
+
+  // Retry strategy selection
+  retry_options = S3Options::FromUri("s3://mybucket/", &path);
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Standard;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  static_assert(std::is_same<decltype(options.retry_strategy),
+                             AWS::Client::StandardRetryStrategy>::value,
+                "options.retry_strategy must be AWS::Client::StandardRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Adaptive;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  static_assert(std::is_same<decltype(options.retry_strategy),
+                             AWS::Client::AdaptiveRetryStrategy>::value,
+                "options.retry_strategy must be AWS::Client::AdaptiveRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Default;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  static_assert(std::is_same<decltype(options.retry_strategy),
+                             AWS::Client::DefaultRetryStrategy>::value,
+                "options.retry_strategy must be AWS::Client::DefaultRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.None;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  static_assert(
+      std::is_same<decltype(options.retry_strategy), ConnectRetryStrategy>::value,
+      "options.retry_strategy must be ConnectRetryStrategy");
+
+  retry_options.retry_strategy = std::make_shared<ShortRetryStrategy>();
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  static_assert(
+      std::is_same<decltype(options.retry_strategy), WrappedRetryStrategy>::value,
+      "options.retry_strategy must be WrappedRetryStrategy of a ShortRetryStrategy");
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
