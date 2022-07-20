@@ -1365,4 +1365,16 @@ test_that("can add in augmented fields", {
     sort(unique(ds$file_name)),
     list.files(hive_dir, full.names = TRUE, recursive = TRUE)
   )
+
+  # errors appropriately with ArrowTabular objects
+  expect_error(
+    arrow_table(mtcars) %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = paste(
+      "Augmented dataset fields such as 'filename' must",
+      "only be used with Dataset, and not ArrowTabular objects"
+    )
+  )
+
 })

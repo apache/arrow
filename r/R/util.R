@@ -143,8 +143,8 @@ handle_parquet_io_error <- function(e, format, call) {
       msg,
       i = "Did you mean to specify a 'format' other than the default (parquet)?"
     )
+    abort(msg, call = call)
   }
-  abort(msg, call = call)
 }
 
 as_writable_table <- function(x) {
@@ -217,8 +217,22 @@ handle_csv_read_error <- function(e, schema, call) {
         "header being read in as data."
       )
     )
+    abort(msg, call = call)
   }
-  abort(msg, call = call)
+}
+
+handle_augmented_field_misuse <- function(e, call) {
+  msg <- conditionMessage(e)
+  if (grepl("No match for FieldRef.Name(__filename)", msg, fixed = TRUE)) {
+    msg <- c(
+      msg,
+      i = paste(
+        "Augmented dataset fields such as 'filename' must only be used",
+        "with Dataset, and not ArrowTabular objects"
+      )
+    )
+    abort(msg, call = call)
+  }
 }
 
 is_compressed <- function(compression) {
