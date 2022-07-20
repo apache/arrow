@@ -964,8 +964,6 @@ struct FailFunctor<VectorKernel::ChunkedExec> {
   }
 };
 
-Status ExecFail(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
-
 // GD for numeric types (integer and floating point)
 template <template <typename...> class Generator, typename Type0,
           typename KernelType = ArrayKernelExec, typename... Args>
@@ -1009,7 +1007,7 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1037,7 +1035,7 @@ ArrayKernelExec GenerateInteger(detail::GetTypeId get_id) {
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1068,7 +1066,7 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1104,8 +1102,9 @@ KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
   }
 }
 
-template <template <typename... Args> class Generator, typename... Args>
-ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+template <typename ReturnType, template <typename... Args> class Generator,
+          typename... Args>
+ReturnType GeneratePhysicalNumericGeneric(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Int8Type, Args...>::Exec;
@@ -1135,8 +1134,12 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
       return Generator<DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
+}
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+  return GeneratePhysicalNumericGeneric<ArrayKernelExec, Generator, Args...>(get_id);
 }
 
 // Generate a kernel given a templated functor for decimal types
@@ -1149,7 +1152,7 @@ ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
       return Generator<Decimal256Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1169,7 +1172,7 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
       return Generator<Type0, Int64Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1249,7 +1252,7 @@ ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
       return Generator<LargeStringType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1270,7 +1273,7 @@ ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
       return Generator<Type0, LargeBinaryType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1288,7 +1291,7 @@ ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
       return Generator<Type0, LargeStringType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1312,7 +1315,7 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
       return Generator<Type0, TimestampType, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1328,7 +1331,7 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
       return Generator<Type0, Decimal256Type, Args...>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
