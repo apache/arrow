@@ -38,8 +38,9 @@
 #' @param compression Name of compression codec to use, if any. Default is
 #' "lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
 #' "uncompressed". "zstd" is the other available codec and generally has better
-#' compression ratios in exchange for slower read and write performance
-#' See [codec_is_available()]. This option is not supported for V1.
+#' compression ratios in exchange for slower read and write performance.
+#' "lz4" is shorthand for the "lz4_frame" codec.
+#' See [codec_is_available()] for details. This option is not supported for V1.
 #' If `compression` is not provided and `sink` is a file path with an extension
 #' of `.lz4` or `.zst`, the compression codec will be inferred from it.
 #' @param compression_level If `compression` is "zstd", you may
@@ -69,13 +70,13 @@ write_feather <- function(x,
                           sink,
                           version = 2,
                           chunk_size = 65536L,
-                          compression = c("default", "lz4", "uncompressed", "zstd"),
+                          compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
                           compression_level = NULL) {
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
 
-  if (missing(compression) && is.string(sink)) {
+  if (missing(compression)) {
     # IPC compression is in the writer itself, not by wrapping
     # the sink in a CompressedOutputStream, which make_output_stream() does
     # if the filename ends in a compression extension. So handle the ext
@@ -129,7 +130,7 @@ write_feather <- function(x,
   x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
-    sink <- make_output_stream(sink, compression = "uncompressed")
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
   ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)

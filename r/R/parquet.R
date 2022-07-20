@@ -162,17 +162,13 @@ write_parquet <- function(x,
   x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
-    if (missing(compression) && is.string(sink)) {
-      # Parquet handles compression in the writer itself, not by wrapping
-      # the sink in a CompressedOutputStream, which make_output_stream() does
-      # if the filename ends in a compression extension. So handle the ext
-      # here before passing to make_output_stream()
+    if (missing(compression)) {
       comp <- detect_compression(sink)
       if (comp != "uncompressed") {
         compression <- comp
       }
     }
-    sink <- make_output_stream(sink, compression = "uncompressed")
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
 

@@ -298,7 +298,7 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   file
 }
 
-make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
+make_output_stream <- function(x) {
   if (inherits(x, "connection")) {
     if (!isOpen(x)) {
       open(x, "wb")
@@ -309,48 +309,34 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
 
   if (inherits(x, "SubTreeFileSystem")) {
     filesystem <- x$base_fs
-    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject file names
-    # with trailing slashes, so we need to remove it here.
-    x <- sub("/$", "", x$base_path)
+    # SubTreeFileSystem adds a slash to base_path, but filesystems will reject
+    # file names with trailing slashes, so we need to remove it here.
+    path <- sub("/$", "", x$base_path)
+    filesystem$OpenOutputStream(path)
   } else if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
-    filesystem <- fs_and_path$fs
-    x <- fs_and_path$path
-  }
-
-  if (is.null(compression)) {
-    # Infer compression from sink
-    compression <- detect_compression(x)
-  }
-  # "lz4" is the convenience
-  if (compression == "lz4") {
-    compression <- "lz4_frame"
-  }
-
-  assert_that(is.string(x))
-  if (is.null(filesystem)) {
-    stream <- FileOutputStream$create(x)
+    fs_and_path$fs$OpenOutputStream(fs_and_path$path)
   } else {
-    stream <- filesystem$OpenOutputStream(x)
+    assert_that(is.string(x))
+    FileOutputStream$create(x)
   }
-  if (is_compressed(compression)) {
-    stream <- CompressedOutputStream$create(stream, codec = compression)
-  }
-  stream
 }
 
 detect_compression <- function(path) {
+  if (inherits(path, "SubTreeFileSystem")) {
+    path <- path$base_path
+  }
   if (!is.string(path)) {
     return("uncompressed")
   }
 
-  # Remove any trailing slashes, which FileSystem$from_uri may add
+  # Remove any trailing slashes, which SubTreeFileSystem may add
   path <- sub("/$", "", path)
 
   switch(tools::file_ext(path),
     bz2 = "bz2",
     gz = "gzip",
-    lz4 = "lz4",
+    lz4 = "lz4_frame",
     zst = "zstd",
     snappy = "snappy",
     "uncompressed"

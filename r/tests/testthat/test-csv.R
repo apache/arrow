@@ -585,6 +585,21 @@ test_that("read/write compressed file successfully", {
   )
 })
 
+test_that("read/write compressed filesystem path", {
+  skip_if_not_available("zstd")
+  tfzst <- tempfile(fileext = ".csv.zst")
+  fs <- SubTreeFileSystem$create(paste0("file://", tfzst))
+  write_csv_arrow(tbl, fs)
+
+  tf <- tempfile(fileext = ".csv")
+  write_csv_arrow(tbl, tf)
+  expect_lt(file.size(tfzst), file.size(tf))
+  expect_identical(
+    read_csv_arrow(fs),
+    tbl
+  )
+})
+
 test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {
   tbl <- tibble::tibble(time = c("2018-10-07 19:04:05.000", "2018-10-07 19:04:05.001"))
   tf <- tempfile()
