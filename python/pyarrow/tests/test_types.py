@@ -644,6 +644,7 @@ def test_union_type():
     def check_fields(ty, fields):
         assert ty.num_fields == len(fields)
         assert [ty[i] for i in range(ty.num_fields)] == fields
+        assert [ty.field(i) for i in range(ty.num_fields)] == fields
 
     fields = [pa.field('x', pa.list_(pa.int32())),
               pa.field('y', pa.binary())]
