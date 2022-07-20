@@ -40,6 +40,7 @@ RUN apt-get update -y -q && \
         ccache \
         clang-${llvm} \
         cmake \
+        curl \
         g++ \
         gcc \
         gdb \

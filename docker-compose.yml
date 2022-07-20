@@ -270,7 +270,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -282,8 +282,10 @@ services:
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+    command: &conda-cpp-command
+      ["/arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
+        export PATH=$$(pwd)/sccache:$$PATH &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   conda-cpp-valgrind:
@@ -304,7 +306,7 @@ services:
         arch: ${ARCH}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
@@ -317,9 +319,7 @@ services:
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
     volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
+    command: *conda-cpp-comand
 
   debian-cpp:
     # Usage:
@@ -340,7 +340,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &debian-volumes
@@ -349,6 +349,8 @@ services:
     # integration_skyhook.sh is a no-op unless skyhook is on.
     command: &cpp-command >
       /bin/bash -c "
+        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
+        export PATH=$$(pwd)/sccache:$$PATH &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_skyhook.sh /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
@@ -381,7 +383,7 @@ services:
       - apparmor:unconfined
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &ubuntu-volumes
@@ -426,7 +428,7 @@ services:
     command: &arrow-static-cmd
       /bin/bash -c "
         /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
-        export PATH=/sccache:$$PATH &&
+        export PATH=$$(pwd)/sccache:$$PATH &&
         cd /arrow && r/inst/build_arrow_static.sh"
 
   centos-cpp-static:
@@ -465,7 +467,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       CMAKE_GENERATOR: "Unix Makefiles"
     volumes: *ubuntu-volumes
@@ -563,7 +565,7 @@ services:
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
       ARROW_BUILD_STATIC: "OFF"
@@ -594,7 +596,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
       Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
@@ -622,9 +624,10 @@ services:
     command: >-
       /bin/bash -c "
         /arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
-        export PATH=/sccache:$$PATH &&
+        export PATH=$$(pwd)/sccache:$$PATH &&
         /arrow/ci/scripts/conan_setup.sh &&
-        /arrow/ci/scripts/conan_build.sh /arrow /build"
+        /arrow/ci/scripts/conan_build.sh /arrow /build &&
+        sccache --show-stats"
 
   ############################### C GLib ######################################
 
@@ -762,10 +765,12 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
     volumes: *conda-volumes
     command: &python-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/install_sccache.sh unknown-linux-musl &&
+        export PATH=$$(pwd)/sccache:$$PATH &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
@@ -1045,16 +1050,13 @@ services:
         pandas: ${PANDAS}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*ccache, *sscache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
       PYTEST_ARGS:  # inherit
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
-    command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+    command: *python-conda-command
 
   conda-python-docs:
     # Usage:
