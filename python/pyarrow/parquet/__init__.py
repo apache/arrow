@@ -19,6 +19,7 @@
 from collections import defaultdict
 from concurrent import futures
 from functools import partial, reduce
+from contextlib import nullcontext
 
 import json
 from collections.abc import Collection
@@ -3417,10 +3418,13 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
       serialized_size: 561
     """
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
-    if filesystem is not None:
-        where = filesystem.open_input_file(where)
-    return ParquetFile(where, memory_map=memory_map,
-                       decryption_properties=decryption_properties).metadata
+    source = filesystem.open_input_file(
+        where) if filesystem is not None else nullcontext()
+
+    with source:
+        file = ParquetFile(where, memory_map=memory_map,
+                           decryption_properties=decryption_properties)
+        return file.metadata
 
 
 def read_schema(where, memory_map=False, decryption_properties=None,
@@ -3457,8 +3461,11 @@ def read_schema(where, memory_map=False, decryption_properties=None,
     animal: string
     """
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
-    if filesystem is not None:
-        where = filesystem.open_input_file(where)
-    return ParquetFile(
-        where, memory_map=memory_map,
-        decryption_properties=decryption_properties).schema.to_arrow_schema()
+    source = filesystem.open_input_file(
+        where) if filesystem is not None else nullcontext()
+
+    with source:
+        file = ParquetFile(
+            source, memory_map=memory_map,
+            decryption_properties=decryption_properties)
+        return file.schema.to_arrow_schema()
