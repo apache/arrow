@@ -296,12 +296,6 @@ TEST_F(S3OptionsTest, FromUri) {
                              AWS::Client::StandardRetryStrategy>::value,
                 "options.retry_strategy must be AWS::Client::StandardRetryStrategy");
 
-  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Adaptive;
-  ASSERT_OK_AND_ASSIGN(options, retry_options);
-  static_assert(std::is_same<decltype(options.retry_strategy),
-                             AWS::Client::AdaptiveRetryStrategy>::value,
-                "options.retry_strategy must be AWS::Client::AdaptiveRetryStrategy");
-
   retry_options.stock_retry_strategy = AwsStockRetryStrategy.Default;
   ASSERT_OK_AND_ASSIGN(options, retry_options);
   static_assert(std::is_same<decltype(options.retry_strategy),

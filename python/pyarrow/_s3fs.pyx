@@ -99,9 +99,9 @@ cdef class S3FileSystem(FileSystem):
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
 
-    When S3FileSystem creates new buckets (assuming allow_bucket_creation is 
-    True), it does not pass any non-default settings. In AWS S3, the bucket and 
-    all objects will be not publicly visible, and will have no bucket policies 
+    When S3FileSystem creates new buckets (assuming allow_bucket_creation is
+    True), it does not pass any non-default settings. In AWS S3, the bucket and
+    all objects will be not publicly visible, and will have no bucket policies
     and no resource tags. To have more control over how buckets are created,
     use a different API to create them.
 
@@ -157,14 +157,14 @@ cdef class S3FileSystem(FileSystem):
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
     allow_bucket_creation : bool, default False
-        Whether to allow CreateDir at the bucket-level. This option may also be 
+        Whether to allow CreateDir at the bucket-level. This option may also be
         passed in a URI query parameter.
     allow_bucket_deletion : bool, default False
-        Whether to allow DeleteDir at the bucket-level. This option may also be 
+        Whether to allow DeleteDir at the bucket-level. This option may also be
         passed in a URI query parameter.
     stock_retry_strategy : enum, default CAwsStockRetryStrategy.None
         The name of the AWS stock retry strategy to use with S3.  Valid values
-        are 'Standard', 'Default', 'Adaptive', 'None'. Ignore with 'None'.
+        are 'Standard', 'Default', 'None'. Ignore with 'None'.
 
     Examples
     --------

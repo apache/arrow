@@ -152,7 +152,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     ctypedef enum CAwsStockRetryStrategy "arrow::fs::AwsStockRetryStrategy":
         AwsStockRetryStrategy_Standard "arrow::fs::AwsStockRetryStrategy::Standard"
-        AwsStockRetryStrategy_Adaptive "arrow::fs::AwsStockRetryStrategy::Adaptive"
         AwsStockRetryStrategy_Default "arrow::fs::AwsStockRetryStrategy::Default"
         AwsStockRetryStrategy_None "arrow::fs::AwsStockRetryStrategy::None"
 
