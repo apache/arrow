@@ -263,7 +263,7 @@ ExecPlan <- R6Class("ExecPlan",
     # SinkNodes (involved in arrange and/or head/tail operations) are created in
     # ExecPlan_run and are not captured by the regular print method. We take a
     # similar approach to expose them before calling the print method.
-    ToString = function(node) {
+    BuildAndShow = function(node) {
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
@@ -281,14 +281,13 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      out <- ExecPlan_ToString(
+      ExecPlan_BuildAndShow(
         self,
         node,
         sorting,
         prepare_key_value_metadata(node$final_metadata()),
         select_k
       )
-      out
     },
     Stop = function() ExecPlan_StopProducing(self)
   )

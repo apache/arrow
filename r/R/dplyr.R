@@ -242,7 +242,7 @@ show_exec_plan <- function(x) {
   adq <- as_adq(x)
   plan <- ExecPlan$create()
   final_node <- plan$Build(adq)
-  cat(plan$ToString(final_node))
+  cat(plan$BuildAndShow(final_node))
   invisible(x)
 }
 
