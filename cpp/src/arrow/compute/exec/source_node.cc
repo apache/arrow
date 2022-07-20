@@ -98,14 +98,12 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    ARROW_ASSIGN_OR_RAISE(util::optional<Future<>> maybe_scan_task,
-                          plan_->BeginExternalTask());
-    if (!maybe_scan_task) {
+    ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->BeginExternalTask());
+    if (!scan_task.is_valid()) {
       finished_.MarkFinished();
       // Plan has already been aborted, no need to start scanning
       return Status::OK();
     }
-    Future<> scan_task = *maybe_scan_task;
     auto fut = Loop([this, options] {
                  std::unique_lock<std::mutex> lock(mutex_);
                  int total_batches = batch_count_++;
