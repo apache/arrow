@@ -921,7 +921,7 @@ def memory_map(path, mode='r'):
     ----------
     path : str
     mode : {'r', 'r+', 'w'}, default 'r'
-        Whether the file is opened for reading ('r+'), writing ('w')
+        Whether the file is opened for reading ('r'), writing ('w')
         or both ('r+').
 
     Returns
