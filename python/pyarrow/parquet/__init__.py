@@ -19,7 +19,6 @@
 from collections import defaultdict
 from concurrent import futures
 from functools import partial, reduce
-from contextlib import nullcontext
 
 import json
 from collections.abc import Collection
