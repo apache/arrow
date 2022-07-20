@@ -2992,6 +2992,49 @@ TEST_F(TestProjector, TestUCase) {
   EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestSubstringIndex) {
+  auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::utf8());
+  auto field3 = field("f3", arrow::int32());
+  auto schema = arrow::schema({field1, field2, field3});
+
+  // output fields
+  auto substring_index = field("substring", arrow::utf8());
+
+  // Build expression
+  auto substring_expr = TreeExprBuilder::MakeExpression(
+      "substring_index", {field1, field2, field3}, substring_index);
+
+  std::shared_ptr<Projector> projector;
+
+  auto status =
+      Projector::Make(schema, {substring_expr}, TestConfiguration(), &projector);
+
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+
+  auto array1 = MakeArrowArrayUtf8({"www||mysql||com", "www||mysql||com", "S;DCGS;JO!L"},
+                                   {true, true, true});
+
+  auto array2 = MakeArrowArrayUtf8({"||", "||", ";"}, {true, true, true});
+
+  auto array3 = MakeArrowArrayInt32({2, -2, -1}, {true, true, true});
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array1, array2, array3});
+
+  auto out_1 = MakeArrowArrayUtf8({"www||mysql", "com", "DCGS;JO!L"}, {true, true, true});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_1, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestLCase) {
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});

@@ -515,8 +515,11 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("translate", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "translate_utf8_utf8_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("substring_index", {}, DataTypeVector{utf8(), utf8(), int32()},
+                     utf8(), kResultNullIfNull, "gdv_fn_substring_index",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
   return string_fn_registry_;
 }
 
