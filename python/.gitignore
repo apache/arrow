@@ -6,6 +6,7 @@ Makefile
 cmake_install.cmake
 build/
 Testing/
+.hypothesis/
 
 # Python stuff
 
