@@ -18,6 +18,7 @@ package scalar
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"github.com/apache/arrow/go/v9/arrow"
@@ -321,4 +322,187 @@ func NewStructScalarWithNames(val []Scalar, names []string) (*Struct, error) {
 		fields[i] = arrow.Field{Name: n, Type: val[i].DataType(), Nullable: true}
 	}
 	return NewStructScalar(val, arrow.StructOf(fields...)), nil
+}
+
+type Dictionary struct {
+	scalar
+
+	Value struct {
+		Index Scalar
+		Dict  arrow.Array
+	}
+}
+
+func NewNullDictScalar(dt arrow.DataType) *Dictionary {
+	ret := &Dictionary{scalar: scalar{dt, false}}
+	ret.Value.Index = MakeNullScalar(dt.(*arrow.DictionaryType).IndexType)
+	ret.Value.Dict = nil
+	return ret
+}
+
+func NewDictScalar(index Scalar, dict arrow.Array) *Dictionary {
+	ret := &Dictionary{scalar: scalar{&arrow.DictionaryType{IndexType: index.DataType(), ValueType: dict.DataType()}, index.IsValid()}}
+	ret.Value.Index = index
+	ret.Value.Dict = dict
+	ret.Retain()
+	return ret
+}
+
+func (s *Dictionary) Retain() {
+	if r, ok := s.Value.Index.(Releasable); ok {
+		r.Retain()
+	}
+	if s.Value.Dict != (arrow.Array)(nil) {
+		s.Value.Dict.Retain()
+	}
+}
+
+func (s *Dictionary) Release() {
+	if r, ok := s.Value.Index.(Releasable); ok {
+		r.Release()
+	}
+	if s.Value.Dict != (arrow.Array)(nil) {
+		s.Value.Dict.Release()
+	}
+}
+
+func (s *Dictionary) Validate() (err error) {
+	dt, ok := s.Type.(*arrow.DictionaryType)
+	if !ok {
+		return errors.New("arrow/scalar: dictionary scalar should have type Dictionary")
+	}
+
+	if s.Value.Index == (Scalar)(nil) {
+		return fmt.Errorf("%s scalar doesn't have an index value", dt)
+	}
+
+	if err = s.Value.Index.Validate(); err != nil {
+		return fmt.Errorf("%s scalar fails validation for index value: %w", dt, err)
+	}
+
+	if !arrow.TypeEqual(s.Value.Index.DataType(), dt.IndexType) {
+		return fmt.Errorf("%s scalar should have an index value of type %s, got %s",
+			dt, dt.IndexType, s.Value.Index.DataType())
+	}
+
+	if s.IsValid() && !s.Value.Index.IsValid() {
+		return fmt.Errorf("non-null %s scalar has null index value", dt)
+	}
+
+	if !s.IsValid() && s.Value.Index.IsValid() {
+		return fmt.Errorf("null %s scalar has non-null index value", dt)
+	}
+
+	if !s.IsValid() {
+		return
+	}
+
+	if s.Value.Dict == (arrow.Array)(nil) {
+		return fmt.Errorf("%s scalar doesn't have a dictionary value", dt)
+	}
+
+	if !arrow.TypeEqual(s.Value.Dict.DataType(), dt.ValueType) {
+		return fmt.Errorf("%s scalar's value type doesn't match dict type: got %s", dt, s.Value.Dict.DataType())
+	}
+
+	return
+}
+
+func (s *Dictionary) ValidateFull() (err error) {
+	if err = s.Validate(); err != nil {
+		return
+	}
+
+	if !s.Value.Index.IsValid() {
+		return nil
+	}
+
+	max := s.Value.Dict.Len() - 1
+	switch idx := s.Value.Index.value().(type) {
+	case int8:
+		if idx < 0 || int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	case uint8:
+		if int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	case int16:
+		if idx < 0 || int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	case uint16:
+		if int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	case int32:
+		if idx < 0 || int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	case uint32:
+		if int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	case int64:
+		if idx < 0 || int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	case uint64:
+		if int(idx) > max {
+			err = fmt.Errorf("%s scalar index value out of bounds: %d", s.DataType(), idx)
+		}
+	}
+
+	return
+}
+
+func (s *Dictionary) String() string {
+	if !s.Valid {
+		return "null"
+	}
+
+	return s.Value.Dict.String() + "[" + s.Value.Index.String() + "]"
+}
+
+func (s *Dictionary) equals(rhs Scalar) bool {
+	return s.Value.Index.equals(rhs.(*Dictionary).Value.Index) &&
+		array.Equal(s.Value.Dict, rhs.(*Dictionary).Value.Dict)
+}
+
+func (s *Dictionary) CastTo(arrow.DataType) (Scalar, error) {
+	return nil, fmt.Errorf("cast from scalar %s not implemented", s.DataType())
+}
+
+func (s *Dictionary) GetEncodedValue() (Scalar, error) {
+	dt := s.Type.(*arrow.DictionaryType)
+	if !s.IsValid() {
+		return MakeNullScalar(dt.ValueType), nil
+	}
+
+	var idxValue int
+	switch dt.IndexType.ID() {
+	case arrow.INT8:
+		idxValue = int(s.Value.Index.value().(int8))
+	case arrow.UINT8:
+		idxValue = int(s.Value.Index.value().(uint8))
+	case arrow.INT16:
+		idxValue = int(s.Value.Index.value().(int16))
+	case arrow.UINT16:
+		idxValue = int(s.Value.Index.value().(uint16))
+	case arrow.INT32:
+		idxValue = int(s.Value.Index.value().(int32))
+	case arrow.UINT32:
+		idxValue = int(s.Value.Index.value().(uint32))
+	case arrow.INT64:
+		idxValue = int(s.Value.Index.value().(int64))
+	case arrow.UINT64:
+		idxValue = int(s.Value.Index.value().(uint64))
+	default:
+		return nil, fmt.Errorf("unimplemented dictionary type %s", dt.IndexType)
+	}
+	return GetScalar(s.Value.Dict, idxValue)
+}
+
+func (s *Dictionary) value() interface{} {
+	return s.Value.Index.value()
 }
