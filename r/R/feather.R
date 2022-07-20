@@ -161,7 +161,7 @@ write_ipc_file <- function(x,
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters, passed to [make_readable_file()].
+#' @inheritParams make_readable_file
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
@@ -177,11 +177,13 @@ write_ipc_file <- function(x,
 #' dim(df)
 #' # Can select columns
 #' df <- read_feather(tf, col_select = starts_with("d"))
-read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE) {
   if (!inherits(file, "RandomAccessFile")) {
     # Compression is handled inside the IPC file format, so we don't need
     # to detect from the file extension and wrap in a CompressedInputStream
-    file <- make_readable_file(file, compression = "uncompressed", ...)
+    # TODO: Why is this the only read_format() functions that allows passing
+    # mmap to make_readable_file?
+    file <- make_readable_file(file, mmap)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file)

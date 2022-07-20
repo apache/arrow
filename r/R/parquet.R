@@ -41,7 +41,7 @@ read_parquet <- function(file,
   if (!inherits(file, "RandomAccessFile")) {
     # Compression is handled inside the parquet file format, so we don't need
     # to detect from the file extension and wrap in a CompressedInputStream
-    file <- make_readable_file(file, compression = "uncompressed")
+    file <- make_readable_file(file)
     on.exit(file$close())
   }
   reader <- ParquetFileReader$create(file, props = props, ...)
