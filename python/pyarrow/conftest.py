@@ -17,6 +17,7 @@
 
 import pytest
 from pyarrow import Codec
+from pyarrow import fs
 
 groups = [
     'brotli',
@@ -241,3 +242,25 @@ def _docdir(request):
 
     else:
         yield
+
+
+# Define doctest_namespace for fs module docstring import
+@pytest.fixture(autouse=True)
+def add_fs(doctest_namespace, request, tmp_path):
+
+    # Trigger ONLY for the doctests
+    doctest_m = request.config.option.doctestmodules
+    doctest_c = getattr(request.config.option, "doctest_cython", False)
+
+    if doctest_m or doctest_c:
+        # fs import
+        doctest_namespace["fs"] = fs
+
+        # Creation of an object and file with data
+        local = fs.LocalFileSystem()
+        path = tmp_path / 'fileinfo.dat'
+        with local.open_output_stream(str(path)) as stream:
+            stream.write(b'data')
+        doctest_namespace["local"] = local
+        doctest_namespace["local_path"] = tmp_path
+    yield
