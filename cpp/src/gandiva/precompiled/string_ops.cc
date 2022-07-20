@@ -3038,11 +3038,6 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
 FORCE_INLINE
 int32_t find_in_set_utf8_utf8(int64_t context, const char* to_find, int32_t to_find_len,
                               const char* string_list, int32_t string_list_len) {
-  // Return 0 if entry len = 0
-  if (to_find_len == 0 || string_list_len == 0) {
-    return 0;
-  }
-
   // Return 0 if to search entry have commas
   if (is_substr_utf8_utf8(to_find, to_find_len, reinterpret_cast<const char*>(","), 1)) {
     return 0;

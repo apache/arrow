@@ -2717,5 +2717,11 @@ TEST(TestStringOps, TestFindInSet) {
   EXPECT_EQ(result, 0);
   result = find_in_set_utf8_utf8(ctx_ptr, "C", 1, "A,B,,,,,,,C,,,,,", 16);
   EXPECT_EQ(result, 9);
+  result = find_in_set_utf8_utf8(ctx_ptr, "", 0, "", 0);
+  EXPECT_EQ(result, 1);
+  result = find_in_set_utf8_utf8(ctx_ptr, "", 0, " ", 1);
+  EXPECT_EQ(result, 0);
+  result = find_in_set_utf8_utf8(ctx_ptr, " ", 1, "", 0);
+  EXPECT_EQ(result, 0);
 }
 }  // namespace gandiva
