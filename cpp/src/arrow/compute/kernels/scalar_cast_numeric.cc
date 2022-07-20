@@ -41,18 +41,16 @@ namespace internal {
 Status CastIntegerToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
   if (!options.allow_int_overflow) {
-    if (batch[0].is_array()) {
-      RETURN_NOT_OK(IntegersCanFit(batch[0].array, *out->type()));
-    } else {
-      RETURN_NOT_OK(IntegersCanFit(*batch[0].scalar, *out->type()));
-    }
+    RETURN_NOT_OK(IntegersCanFit(batch[0].array, *out->type()));
   }
-  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
+                           out->array_span());
   return Status::OK();
 }
 
 Status CastFloatingToFloating(KernelContext*, const ExecSpan& batch, ExecResult* out) {
-  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
+                           out->array_span());
   return Status::OK();
 }
 
@@ -63,7 +61,7 @@ Status CastFloatingToFloating(KernelContext*, const ExecSpan& batch, ExecResult*
 template <typename InType, typename OutType, typename InT = typename InType::c_type,
           typename OutT = typename OutType::c_type>
 ARROW_DISABLE_UBSAN("float-cast-overflow")
-Status CheckFloatTruncation(const ExecValue& input, const ExecResult& output) {
+Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
   auto WasTruncated = [&](OutT out_val, InT in_val) -> bool {
     return static_cast<InT>(out_val) != in_val;
   };
@@ -72,31 +70,17 @@ Status CheckFloatTruncation(const ExecValue& input, const ExecResult& output) {
   };
   auto GetErrorMessage = [&](InT val) {
     return Status::Invalid("Float value ", val, " was truncated converting to ",
-                           *output.type());
+                           *output.type);
   };
 
-  if (input.is_scalar()) {
-    DCHECK(output.is_scalar());
-    const auto& in_scalar = input.scalar_as<typename TypeTraits<InType>::ScalarType>();
-    const auto& out_scalar =
-        checked_cast<typename TypeTraits<OutType>::ScalarType&>(*output.scalar());
-    if (WasTruncatedMaybeNull(out_scalar.value, in_scalar.value, out_scalar.is_valid)) {
-      return GetErrorMessage(in_scalar.value);
-    }
-    return Status::OK();
-  }
+  const InT* in_data = input.GetValues<InT>(1);
+  const OutT* out_data = output.GetValues<OutT>(1);
 
-  const ArraySpan& in_array = input.array;
-  const ArraySpan& out_array = *output.array_span();
-
-  const InT* in_data = in_array.GetValues<InT>(1);
-  const OutT* out_data = out_array.GetValues<OutT>(1);
-
-  const uint8_t* bitmap = in_array.buffers[0].data;
-  OptionalBitBlockCounter bit_counter(bitmap, in_array.offset, in_array.length);
+  const uint8_t* bitmap = input.buffers[0].data;
+  OptionalBitBlockCounter bit_counter(bitmap, input.offset, input.length);
   int64_t position = 0;
-  int64_t offset_position = in_array.offset;
-  while (position < in_array.length) {
+  int64_t offset_position = input.offset;
+  while (position < input.length) {
     BitBlockCount block = bit_counter.NextBlock();
     bool block_out_of_bounds = false;
     if (block.popcount == block.length) {
@@ -112,7 +96,7 @@ Status CheckFloatTruncation(const ExecValue& input, const ExecResult& output) {
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
-      if (in_array.GetNullCount() > 0) {
+      if (input.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
           if (WasTruncatedMaybeNull(out_data[i], in_data[i],
                                     bit_util::GetBit(bitmap, offset_position + i))) {
@@ -136,8 +120,8 @@ Status CheckFloatTruncation(const ExecValue& input, const ExecResult& output) {
 }
 
 template <typename InType>
-Status CheckFloatToIntTruncationImpl(const ExecValue& input, const ExecResult& output) {
-  switch (output.type()->id()) {
+Status CheckFloatToIntTruncationImpl(const ArraySpan& input, const ArraySpan& output) {
+  switch (output.type->id()) {
     case Type::INT8:
       return CheckFloatTruncation<InType, Int8Type>(input, output);
     case Type::INT16:
@@ -164,9 +148,9 @@ Status CheckFloatToIntTruncationImpl(const ExecValue& input, const ExecResult& o
 Status CheckFloatToIntTruncation(const ExecValue& input, const ExecResult& output) {
   switch (input.type()->id()) {
     case Type::FLOAT:
-      return CheckFloatToIntTruncationImpl<FloatType>(input, output);
+      return CheckFloatToIntTruncationImpl<FloatType>(input.array, *output.array_span());
     case Type::DOUBLE:
-      return CheckFloatToIntTruncationImpl<DoubleType>(input, output);
+      return CheckFloatToIntTruncationImpl<DoubleType>(input.array, *output.array_span());
     default:
       break;
   }
@@ -176,7 +160,8 @@ Status CheckFloatToIntTruncation(const ExecValue& input, const ExecResult& outpu
 
 Status CastFloatingToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
-  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0], out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out->type()->id(), batch[0].array,
+                           out->array_span());
   if (!options.allow_float_truncate) {
     RETURN_NOT_OK(CheckFloatToIntTruncation(batch[0], *out));
   }
@@ -265,7 +250,8 @@ Status CastIntegerToFloating(KernelContext* ctx, const ExecSpan& batch, ExecResu
   if (!options.allow_float_truncate) {
     RETURN_NOT_OK(CheckForIntegerToFloatingTruncation(batch[0], out_type));
   }
-  CastNumberToNumberUnsafe(batch[0].type()->id(), out_type, batch[0], out);
+  CastNumberToNumberUnsafe(batch[0].type()->id(), out_type, batch[0].array,
+                           out->array_span());
   return Status::OK();
 }
 

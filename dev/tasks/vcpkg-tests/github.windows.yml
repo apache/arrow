@@ -28,6 +28,8 @@ jobs:
   test-vcpkg-win:
     name: Install build deps with vcpkg and build Arrow C++
     runs-on: windows-2019
+    env:
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
     steps:
       - name: Checkout Arrow
         run: |
@@ -55,6 +57,22 @@ jobs:
           CALL bootstrap-vcpkg.bat -win64 -disableMetrics
           CALL vcpkg integrate install
           CALL setx PATH "%PATH%;C:\vcpkg"
+      - name: Setup NuGet Credentials
+        shell: bash
+        env: 
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+        run: |
+          `vcpkg fetch nuget | tail -n 1` \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "$GITHUB_TOKEN" \
+
+          `vcpkg fetch nuget | tail -n 1` \
+            setapikey "$GITHUB_TOKEN" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Install Dependencies with vcpkg and Build Arrow C++
         shell: cmd
         run: |

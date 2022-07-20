@@ -83,30 +83,29 @@ read_parquet <- function(file,
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param chunk_size how many rows of data to write to disk at once. This
-#' directly corresponds to how many rows will be in each row group in parquet.
-#' If `NULL`, a best guess will be made for optimal size (based on the number of
-#'  columns and number of rows), though if the data has fewer than 250 million
-#'  cells (rows x cols), then the total number of rows is used.
-#' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
-#'   are coerced to character.
+#'    directly corresponds to how many rows will be in each row group in
+#'    parquet. If `NULL`, a best guess will be made for optimal size (based on
+#'    the number of columns and number of rows), though if the data has fewer
+#'    than 250 million cells (rows x cols), then the total number of rows is
+#'    used.
+#' @param version parquet version: "1.0", "2.0" (deprecated), "2.4" (default),
+#'    "2.6", or "latest" (currently equivalent to 2.6). Numeric values are
+#'    coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
-#' @param compression_level compression level. Meaning depends on compression algorithm
-#' @param use_dictionary Specify if we should use dictionary encoding. Default `TRUE`
-#' @param write_statistics Specify if we should write statistics. Default `TRUE`
+#' @param compression_level compression level. Meaning depends on compression
+#'    algorithm
+#' @param use_dictionary logical: use dictionary encoding? Default `TRUE`
+#' @param write_statistics logical: include statistics? Default `TRUE`
 #' @param data_page_size Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.
-#' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format. Default `FALSE`.
+#' @param use_deprecated_int96_timestamps logical: write timestamps to INT96
+#'    Parquet format, which has been deprecated? Default `FALSE`.
 #' @param coerce_timestamps Cast timestamps a particular resolution. Can be
 #'   `NULL`, "ms" or "us". Default `NULL` (no casting)
-#' @param allow_truncated_timestamps Allow loss of data when coercing timestamps to a
-#'    particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
-#'    to "ms", do not raise an exception
-#' @param properties A `ParquetWriterProperties` object, used instead of the options
-#'    enumerated in this function's signature. Providing `properties` as an argument
-#'    is deprecated; if you need to assemble `ParquetWriterProperties` outside
-#'    of `write_parquet()`, use `ParquetFileWriter` instead.
-#' @param arrow_properties A `ParquetArrowWriterProperties` object. Like
-#'    `properties`, this argument is deprecated.
+#' @param allow_truncated_timestamps logical: Allow loss of data when coercing
+#'    timestamps to a particular resolution. E.g. if microsecond or nanosecond
+#'    data is lost when coercing to "ms", do not raise an exception. Default
+#'    `FALSE`.
 #'
 #' @details The parameters `compression`, `compression_level`, `use_dictionary` and
 #'   `write_statistics` support various patterns:
@@ -128,7 +127,7 @@ read_parquet <- function(file,
 #' Note that "uncompressed" columns may still have dictionary encoding.
 #'
 #' @return the input `x` invisibly.
-#'
+#' @seealso [ParquetFileWriter] for a lower-level interface to Parquet writing.
 #' @examplesIf arrow_with_parquet()
 #' tf1 <- tempfile(fileext = ".parquet")
 #' write_parquet(data.frame(x = 1:5), tf1)
@@ -143,7 +142,7 @@ write_parquet <- function(x,
                           sink,
                           chunk_size = NULL,
                           # writer properties
-                          version = NULL,
+                          version = "2.4",
                           compression = default_parquet_compression(),
                           compression_level = NULL,
                           use_dictionary = NULL,
@@ -152,9 +151,7 @@ write_parquet <- function(x,
                           # arrow writer properties
                           use_deprecated_int96_timestamps = FALSE,
                           coerce_timestamps = NULL,
-                          allow_truncated_timestamps = FALSE,
-                          properties = NULL,
-                          arrow_properties = NULL) {
+                          allow_truncated_timestamps = FALSE) {
   x_out <- x
   x <- as_writable_table(x)
 
@@ -163,24 +160,10 @@ write_parquet <- function(x,
     on.exit(sink$close())
   }
 
-  # Deprecation warnings
-  if (!is.null(properties)) {
-    warning(
-      "Providing 'properties' is deprecated. If you need to assemble properties outside ",
-      "this function, use ParquetFileWriter instead."
-    )
-  }
-  if (!is.null(arrow_properties)) {
-    warning(
-      "Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties ",
-      "outside this function, use ParquetFileWriter instead."
-    )
-  }
-
   writer <- ParquetFileWriter$create(
     x$schema,
     sink,
-    properties = properties %||% ParquetWriterProperties$create(
+    properties = ParquetWriterProperties$create(
       names(x),
       version = version,
       compression = compression,
@@ -189,7 +172,7 @@ write_parquet <- function(x,
       write_statistics = write_statistics,
       data_page_size = data_page_size
     ),
-    arrow_properties = arrow_properties %||% ParquetArrowWriterProperties$create(
+    arrow_properties = ParquetArrowWriterProperties$create(
       use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
       coerce_timestamps = coerce_timestamps,
       allow_truncated_timestamps = allow_truncated_timestamps
@@ -238,19 +221,35 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
 
 valid_parquet_version <- c(
   "1.0" = ParquetVersionType$PARQUET_1_0,
-  "2.0" = ParquetVersionType$PARQUET_2_0
+  "2.0" = ParquetVersionType$PARQUET_2_0,
+  "2.4" = ParquetVersionType$PARQUET_2_4,
+  "2.6" = ParquetVersionType$PARQUET_2_6,
+  "latest" = ParquetVersionType$PARQUET_2_6
 )
 
-make_valid_version <- function(version, valid_versions = valid_parquet_version) {
+make_valid_parquet_version <- function(version, valid_versions = valid_parquet_version) {
   if (is_integerish(version)) {
-    version <- as.character(version)
+    version <- as.numeric(version)
   }
-  tryCatch(
-    valid_versions[[match.arg(version, choices = names(valid_versions))]],
-    error = function(cond) {
-      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call. = FALSE)
-    }
-  )
+  if (is.numeric(version)) {
+    version <- format(version, nsmall = 1)
+  }
+
+  if (!is.string(version)) {
+    stop(
+      "`version` must be one of ", oxford_paste(names(valid_versions), "or"),
+      call. = FALSE
+    )
+  }
+  out <- valid_versions[[arg_match(version, values = names(valid_versions))]]
+
+  if (identical(out, ParquetVersionType$PARQUET_2_0)) {
+    warning(
+      'Parquet format version "2.0" is deprecated. Use "2.4" or "2.6" to select format features.',
+      call. = FALSE
+    )
+  }
+  out
 }
 
 #' @title ParquetWriterProperties class
@@ -300,7 +299,7 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder",
   inherit = ArrowObject,
   public = list(
     set_version = function(version) {
-      parquet___WriterProperties___Builder__version(self, make_valid_version(version))
+      parquet___WriterProperties___Builder__version(self, make_valid_parquet_version(version))
     },
     set_compression = function(column_names, compression) {
       compression <- compression_from_name(compression)

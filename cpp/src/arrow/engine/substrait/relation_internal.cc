@@ -19,6 +19,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec/options.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/plan.h"
@@ -26,6 +27,7 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 
 namespace arrow {
@@ -50,8 +52,8 @@ Status CheckRelCommon(const RelMessage& rel) {
   return Status::OK();
 }
 
-Result<compute::Declaration> FromProto(const substrait::Rel& rel,
-                                       const ExtensionSet& ext_set) {
+Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
+                                  const ExtensionSet& ext_set) {
   static bool dataset_init = false;
   if (!dataset_init) {
     dataset_init = true;
@@ -66,6 +68,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       ARROW_ASSIGN_OR_RAISE(auto base_schema, FromProto(read.base_schema(), ext_set));
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
+      scan_options->use_threads = true;
 
       if (read.has_filter()) {
         ARROW_ASSIGN_OR_RAISE(scan_options->filter, FromProto(read.filter(), ext_set));
@@ -106,17 +109,16 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
           path = item.uri_path_glob();
         }
 
-        if (item.format() ==
-            substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET) {
-          format = std::make_shared<dataset::ParquetFileFormat>();
-        } else if (util::string_view{path}.ends_with(".arrow")) {
-          format = std::make_shared<dataset::IpcFileFormat>();
-        } else if (util::string_view{path}.ends_with(".feather")) {
-          format = std::make_shared<dataset::IpcFileFormat>();
-        } else {
-          return Status::NotImplemented(
-              "substrait::ReadRel::LocalFiles::FileOrFiles::format "
-              "other than FILE_FORMAT_PARQUET");
+        switch (item.file_format_case()) {
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kParquet:
+            format = std::make_shared<dataset::ParquetFileFormat>();
+            break;
+          case substrait::ReadRel_LocalFiles_FileOrFiles::kArrow:
+            format = std::make_shared<dataset::IpcFileFormat>();
+            break;
+          default:
+            return Status::NotImplemented(
+                "unknown substrait::ReadRel::LocalFiles::FileOrFiles::file_format");
         }
 
         if (!util::string_view{path}.starts_with("file:///")) {
@@ -178,10 +180,13 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
                                                  std::move(filesystem), std::move(files),
                                                  std::move(format), {}));
 
+      auto num_columns = static_cast<int>(base_schema->fields().size());
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(std::move(base_schema)));
 
-      return compute::Declaration{
-          "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}};
+      return DeclarationInfo{
+          compute::Declaration{
+              "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}},
+          num_columns};
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {
@@ -198,10 +203,12 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       }
       ARROW_ASSIGN_OR_RAISE(auto condition, FromProto(filter.condition(), ext_set));
 
-      return compute::Declaration::Sequence({
-          std::move(input),
-          {"filter", compute::FilterNodeOptions{std::move(condition)}},
-      });
+      return DeclarationInfo{
+          compute::Declaration::Sequence({
+              std::move(input.declaration),
+              {"filter", compute::FilterNodeOptions{std::move(condition)}},
+          }),
+          input.num_columns};
     }
 
     case substrait::Rel::RelTypeCase::kProject: {
@@ -213,16 +220,25 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       }
       ARROW_ASSIGN_OR_RAISE(auto input, FromProto(project.input(), ext_set));
 
+      // NOTE: Substrait ProjectRels *append* columns, while Acero's project node replaces
+      // them. Therefore, we need to prefix all the current columns for compatibility.
       std::vector<compute::Expression> expressions;
+      expressions.reserve(input.num_columns + project.expressions().size());
+      for (int i = 0; i < input.num_columns; i++) {
+        expressions.emplace_back(compute::field_ref(FieldRef(i)));
+      }
       for (const auto& expr : project.expressions()) {
         expressions.emplace_back();
         ARROW_ASSIGN_OR_RAISE(expressions.back(), FromProto(expr, ext_set));
       }
 
-      return compute::Declaration::Sequence({
-          std::move(input),
-          {"project", compute::ProjectNodeOptions{std::move(expressions)}},
-      });
+      auto num_columns = static_cast<int>(expressions.size());
+      return DeclarationInfo{
+          compute::Declaration::Sequence({
+              std::move(input.declaration),
+              {"project", compute::ProjectNodeOptions{std::move(expressions)}},
+          }),
+          num_columns};
     }
 
     case substrait::Rel::RelTypeCase::kJoin: {
@@ -302,9 +318,10 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       join_options.join_type = join_type;
       join_options.key_cmp = {join_key_cmp};
       compute::Declaration join_dec{"hashjoin", std::move(join_options)};
-      join_dec.inputs.emplace_back(std::move(left));
-      join_dec.inputs.emplace_back(std::move(right));
-      return std::move(join_dec);
+      auto num_columns = left.num_columns + right.num_columns;
+      join_dec.inputs.emplace_back(std::move(left.declaration));
+      join_dec.inputs.emplace_back(std::move(right.declaration));
+      return DeclarationInfo{std::move(join_dec), num_columns};
     }
 
     default:

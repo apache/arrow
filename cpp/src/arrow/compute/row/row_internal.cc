@@ -110,6 +110,10 @@ void RowTableMetadata::FromColumnMetadataVector(
         }
         return left < right;
       });
+  inverse_column_order.resize(num_cols);
+  for (uint32_t i = 0; i < num_cols; ++i) {
+    inverse_column_order[column_order[i]] = i;
+  }
 
   row_alignment = in_row_alignment;
   string_alignment = in_string_alignment;

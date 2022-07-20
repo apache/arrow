@@ -18,8 +18,6 @@
 ARG FROM=amazonlinux:2
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 ARG DEBUG
 
 RUN \

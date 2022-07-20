@@ -23,7 +23,6 @@
 {{ macros.github_header() }}
 
 env:
-  ARROW_FLIGHT: OFF
   ARROW_JEMALLOC: OFF
   CC: "clang"
   CMAKE_BUILD_TYPE: release
@@ -136,6 +135,10 @@ jobs:
           $PYTHON -m venv test-arm64-env
           source test-arm64-env/bin/activate
           pip install --upgrade pip wheel
+          # libffi has to be installed on the m1 runner which causes issues with 
+          # the cffi wheel. We build cffi with the flags pointing to the correct libffi location.
+          LDFLAGS=-L$(brew --prefix libffi)/lib CFLAGS=-I$(brew --prefix libffi)/include \
+            arch -arm64 pip install cffi --no-binary :all:
           arch -arm64 pip install -r arrow/python/requirements-wheel-test.txt
           PYTHON=python arch -arm64 arrow/ci/scripts/install_gcs_testbench.sh default
           arch -arm64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow

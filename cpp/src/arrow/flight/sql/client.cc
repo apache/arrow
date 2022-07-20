@@ -15,12 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Platform-specific defines
+#include "arrow/flight/platform.h"
+
 #include "arrow/flight/sql/client.h"
 
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
-#include "arrow/flight/sql/FlightSql.pb.h"
+#include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"

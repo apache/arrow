@@ -41,7 +41,7 @@ test_that("do_exec_plan_substrait can evaluate a simple plan", {
             "items": [
               {
                 "uri_file": "file://%s",
-                "format": "FILE_FORMAT_PARQUET"
+                "parquet": {}
               }
             ]
           }

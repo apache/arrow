@@ -196,10 +196,11 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
           field("value", std::move(value_nullable.first), value_nullable.second));
     }
 
-    case ::substrait::Type::kUserDefinedTypeReference: {
-      uint32_t anchor = type.user_defined_type_reference();
+    case ::substrait::Type::kUserDefined: {
+      const auto& user_defined = type.user_defined();
+      uint32_t anchor = user_defined.type_reference();
       ARROW_ASSIGN_OR_RAISE(auto type_record, ext_set.DecodeType(anchor));
-      return std::make_pair(std::move(type_record.type), true);
+      return std::make_pair(std::move(type_record.type), IsNullable(user_defined));
     }
 
     default:
@@ -389,7 +390,11 @@ struct DataTypeToProtoImpl {
   template <typename T>
   Status EncodeUserDefined(const T& t) {
     ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set_->EncodeType(t));
-    type_->set_user_defined_type_reference(anchor);
+    auto user_defined = internal::make_unique<::substrait::Type_UserDefined>();
+    user_defined->set_type_reference(anchor);
+    user_defined->set_nullability(nullable_ ? ::substrait::Type::NULLABILITY_NULLABLE
+                                            : ::substrait::Type::NULLABILITY_REQUIRED);
+    type_->set_allocated_user_defined(user_defined.release());
     return Status::OK();
   }
 

@@ -33,8 +33,6 @@
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
-#' * `use_async`: logical: deprecated, this field no longer has any effect on
-#'    behavior.
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
@@ -45,7 +43,6 @@
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
-#' - `$UseAsync(use_async)`: logical: deprecated, has no effect
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
 #' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
@@ -73,18 +70,10 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
-                           use_async = NULL,
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
   stop_if_no_datasets()
-
-  if (!is.null(use_async)) {
-    .Deprecated(msg = paste(
-      "The parameter 'use_async' is deprecated",
-      "and will be removed in a future release."
-    ))
-  }
 
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (is_collapsed(dataset)) {
@@ -256,13 +245,6 @@ ScannerBuilder <- R6Class("ScannerBuilder",
     },
     UseThreads = function(threads = option_use_threads()) {
       dataset___ScannerBuilder__UseThreads(self, threads)
-      self
-    },
-    UseAsync = function(use_async = TRUE) {
-      .Deprecated(msg = paste(
-        "The function 'UseAsync' is deprecated and",
-        "will be removed in a future release."
-      ))
       self
     },
     BatchSize = function(batch_size) {

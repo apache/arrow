@@ -249,7 +249,8 @@ TEST(Relation, Filter) {
 }
 
 TEST(Relation, AggregateSimple) {
-  ASSERT_THAT(ConvertJSON<ir::Relation>(R"({
+  ASSERT_THAT(
+      ConvertJSON<ir::Relation>(R"({
             "impl": {
                 id: {id: 1},
                 "groupings": [
@@ -347,28 +348,22 @@ TEST(Relation, AggregateSimple) {
             },
             "impl_type": "Aggregate"
 })"),
-              ResultWith(Eq(Declaration::Sequence({
-                  {"catalog_source",
-                   CatalogSourceNodeOptions{"tbl", schema({
-                                                       field("foo", int32()),
-                                                       field("bar", int64()),
-                                                       field("baz", float64()),
-                                                   })},
-                   "0"},
-                  {"aggregate",
-                   AggregateNodeOptions{/*aggregates=*/{
-                                            {"sum", nullptr},
-                                            {"mean", nullptr},
-                                        },
-                                        /*targets=*/{1, 2},
-                                        /*names=*/
-                                        {
-                                            "sum FieldRef.FieldPath(1)",
-                                            "mean FieldRef.FieldPath(2)",
-                                        },
-                                        /*keys=*/{0}},
-                   "1"},
-              }))));
+      ResultWith(Eq(Declaration::Sequence({
+          {"catalog_source",
+           CatalogSourceNodeOptions{"tbl", schema({
+                                               field("foo", int32()),
+                                               field("bar", int64()),
+                                               field("baz", float64()),
+                                           })},
+           "0"},
+          {"aggregate",
+           AggregateNodeOptions{/*aggregates=*/{
+                                    {"sum", nullptr, 1, "sum FieldRef.FieldPath(1)"},
+                                    {"mean", nullptr, 2, "mean FieldRef.FieldPath(2)"},
+                                },
+                                /*keys=*/{0}},
+           "1"},
+      }))));
 }
 
 TEST(Relation, AggregateWithHaving) {
@@ -564,14 +559,8 @@ TEST(Relation, AggregateWithHaving) {
           {"filter", FilterNodeOptions{less(field_ref(0), literal<int8_t>(3))}, "1"},
           {"aggregate",
            AggregateNodeOptions{/*aggregates=*/{
-                                    {"sum", nullptr},
-                                    {"mean", nullptr},
-                                },
-                                /*targets=*/{1, 2},
-                                /*names=*/
-                                {
-                                    "sum FieldRef.FieldPath(1)",
-                                    "mean FieldRef.FieldPath(2)",
+                                    {"sum", nullptr, 1, "sum FieldRef.FieldPath(1)"},
+                                    {"mean", nullptr, 2, "mean FieldRef.FieldPath(2)"},
                                 },
                                 /*keys=*/{0}},
            "2"},

@@ -887,6 +887,7 @@ Status GcsFileSystem::CopyFile(const std::string& src, const std::string& dest) 
 
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const std::string& path) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
@@ -897,12 +898,14 @@ Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     return Status::IOError("Cannot open directory '", info.path(),
                            "' as an input stream");
   }
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   return impl_->OpenInputStream(p, gcs::Generation(), gcs::ReadFromOffset());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     const std::string& path) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
@@ -924,6 +927,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     return Status::IOError("Cannot open directory '", info.path(),
                            "' as an input stream");
   }
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   auto metadata = impl_->GetObjectMetadata(p);
   ARROW_GCS_RETURN_NOT_OK(metadata.status());
@@ -941,6 +945,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   return impl_->OpenOutputStream(p, metadata);
 }

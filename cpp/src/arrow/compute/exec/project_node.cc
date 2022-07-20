@@ -67,7 +67,7 @@ class ProjectNode : public MapNode {
         ARROW_ASSIGN_OR_RAISE(
             expr, expr.Bind(*inputs[0]->output_schema(), plan->exec_context()));
       }
-      fields[i] = field(std::move(names[i]), expr.type());
+      fields[i] = field(std::move(names[i]), expr.type()->GetSharedPtr());
       ++i;
     }
     return plan->EmplaceNode<ProjectNode>(plan, std::move(inputs),
@@ -82,7 +82,7 @@ class ProjectNode : public MapNode {
     for (size_t i = 0; i < exprs_.size(); ++i) {
       util::tracing::Span span;
       START_COMPUTE_SPAN(span, "Project",
-                         {{"project.descr", exprs_[i].descr().ToString()},
+                         {{"project.type", exprs_[i].type()->ToString()},
                           {"project.length", target.length},
                           {"project.expression", exprs_[i].ToString()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,

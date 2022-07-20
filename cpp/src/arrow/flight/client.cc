@@ -377,10 +377,7 @@ class ClientStreamWriter : public FlightStreamWriter {
     if (closed_) return;
     // Implicitly Close() on destruction, though it's best if the
     // application closes explicitly
-    auto status = Close();
-    if (!status.ok()) {
-      ARROW_LOG(WARNING) << "Close() failed: " << status.ToString();
-    }
+    ARROW_WARN_NOT_OK(Close(), "Close() failed");
   }
 
   Status Begin(const std::shared_ptr<Schema>& schema,
@@ -513,11 +510,7 @@ class ClientStreamWriter : public FlightStreamWriter {
 FlightClient::FlightClient() : closed_(false), write_size_limit_bytes_(0) {}
 
 FlightClient::~FlightClient() {
-  auto st = Close();
-  if (!st.ok()) {
-    ARROW_LOG(WARNING) << "FlightClient::~FlightClient(): Close() failed: "
-                       << st.ToString();
-  }
+  ARROW_WARN_NOT_OK(Close(), "FlightClient::~FlightClient(): Close() failed");
 }
 
 arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(

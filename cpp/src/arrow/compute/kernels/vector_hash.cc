@@ -469,7 +469,7 @@ class DictionaryHashKernel : public HashKernel {
       auto in_dict_array = arr.ToArray();
       ARROW_ASSIGN_OR_RAISE(
           auto tmp, arrow::internal::checked_cast<const DictionaryArray&>(*in_dict_array)
-                        .Transpose(arr.type->Copy(), out_dict, transpose));
+                        .Transpose(arr.type->GetSharedPtr(), out_dict, transpose));
       return indices_kernel_->Append(*tmp->data());
     }
 
@@ -525,7 +525,7 @@ Result<std::unique_ptr<HashKernel>> HashInitImpl(KernelContext* ctx,
                                                  const KernelInitArgs& args) {
   using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernel;
   auto result = ::arrow::internal::make_unique<HashKernelType>(
-      args.inputs[0].type, args.options, ctx->memory_pool());
+      args.inputs[0].GetSharedPtr(), args.options, ctx->memory_pool());
   RETURN_NOT_OK(result->Reset());
   return std::move(result);
 }
@@ -698,20 +698,22 @@ Status ValueCountsFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out
   return Status::OK();
 }
 
-ValueDescr DictEncodeOutput(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  return ValueDescr::Array(dictionary(int32(), descrs[0].type));
+Result<TypeHolder> DictEncodeOutput(KernelContext*,
+                                    const std::vector<TypeHolder>& types) {
+  return dictionary(int32(), types[0].GetSharedPtr());
 }
 
-ValueDescr ValueCountsOutput(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  return ValueDescr::Array(struct_(
-      {field(kValuesFieldName, descrs[0].type), field(kCountsFieldName, int64())}));
+Result<TypeHolder> ValueCountsOutput(KernelContext*,
+                                     const std::vector<TypeHolder>& types) {
+  return struct_({field(kValuesFieldName, types[0].GetSharedPtr()),
+                  field(kCountsFieldName, int64())});
 }
 
 template <typename Action>
 void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) {
   for (const auto& ty : PrimitiveTypes()) {
     base.init = GetHashInit<Action>(ty->id());
-    base.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
+    base.signature = KernelSignature::Make({ty}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
 
@@ -720,19 +722,19 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
                            timestamp(TimeUnit::SECOND), fixed_size_binary(0)};
   for (const auto& ty : parametric_types) {
     base.init = GetHashInit<Action>(ty->id());
-    base.signature = KernelSignature::Make({InputType::Array(ty->id())}, out_ty);
+    base.signature = KernelSignature::Make({ty->id()}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
 
   for (auto t : {Type::DECIMAL128, Type::DECIMAL256}) {
     base.init = GetHashInit<Action>(t);
-    base.signature = KernelSignature::Make({InputType::Array(t)}, out_ty);
+    base.signature = KernelSignature::Make({t}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
 
   for (const auto& ty : IntervalTypes()) {
     base.init = GetHashInit<Action>(ty->id());
-    base.signature = KernelSignature::Make({InputType::Array(ty)}, out_ty);
+    base.signature = KernelSignature::Make({ty}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
 }
@@ -771,13 +773,12 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   base.finalize = UniqueFinalize;
   base.output_chunked = false;
   auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), unique_doc);
-  AddHashKernels<UniqueAction>(unique.get(), base, OutputType(FirstType));
+  AddHashKernels<UniqueAction>(unique.get(), base, FirstType);
 
   // Dictionary unique
   base.init = DictionaryHashInit<UniqueAction>;
   base.finalize = UniqueFinalizeDictionary;
-  base.signature =
-      KernelSignature::Make({InputType::Array(Type::DICTIONARY)}, OutputType(FirstType));
+  base.signature = KernelSignature::Make({Type::DICTIONARY}, FirstType);
   DCHECK_OK(unique->AddKernel(base));
 
   DCHECK_OK(registry->AddFunction(std::move(unique)));
@@ -788,14 +789,12 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   base.finalize = ValueCountsFinalize;
   auto value_counts =
       std::make_shared<VectorFunction>("value_counts", Arity::Unary(), value_counts_doc);
-  AddHashKernels<ValueCountsAction>(value_counts.get(), base,
-                                    OutputType(ValueCountsOutput));
+  AddHashKernels<ValueCountsAction>(value_counts.get(), base, ValueCountsOutput);
 
   // Dictionary value counts
   base.init = DictionaryHashInit<ValueCountsAction>;
   base.finalize = ValueCountsFinalizeDictionary;
-  base.signature = KernelSignature::Make({InputType::Array(Type::DICTIONARY)},
-                                         OutputType(ValueCountsOutput));
+  base.signature = KernelSignature::Make({Type::DICTIONARY}, ValueCountsOutput);
   DCHECK_OK(value_counts->AddKernel(base));
 
   DCHECK_OK(registry->AddFunction(std::move(value_counts)));
@@ -810,7 +809,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   auto dict_encode = std::make_shared<VectorFunction>(
       "dictionary_encode", Arity::Unary(), dictionary_encode_doc,
       GetDefaultDictionaryEncodeOptions());
-  AddHashKernels<DictEncodeAction>(dict_encode.get(), base, OutputType(DictEncodeOutput));
+  AddHashKernels<DictEncodeAction>(dict_encode.get(), base, DictEncodeOutput);
 
   // Calling dictionary_encode on dictionary input not supported, but if it
   // ends up being needed (or convenience), a kernel could be added to make it

@@ -363,7 +363,7 @@ against Arrow on Windows additionally need this definition. The Unix builds do
 not use the macro.
 
 In addition if using ``-DARROW_FLIGHT=ON``, ``ARROW_FLIGHT_STATIC`` needs to
-be defined.
+be defined, and similarly for ``-DARROW_FLIGHT_SQL=ON``.
 
 .. code-block:: cmake
 
@@ -372,9 +372,17 @@ be defined.
    find_package(Arrow REQUIRED)
 
    add_executable(my_example my_example.cc)
-   target_link_libraries(my_example PRIVATE arrow_static arrow_flight_static)
+   target_link_libraries(my_example
+                         PRIVATE
+                         arrow_static
+                         arrow_flight_static
+                         arrow_flight_sql_static)
 
-   target_compile_definitions(my_example PUBLIC ARROW_STATIC ARROW_FLIGHT_STATIC)
+   target_compile_definitions(my_example
+                              PUBLIC
+                              ARROW_STATIC
+                              ARROW_FLIGHT_STATIC
+                              ARROW_FLIGHT_SQL_STATIC)
 
 Downloading the Timezone Database
 =================================

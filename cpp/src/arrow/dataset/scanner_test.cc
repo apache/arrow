@@ -662,11 +662,18 @@ TEST_P(TestScanner, ScanBatchesFailure) {
           [](const EnumeratedRecordBatch& batch) { return batch.record_batch.value; }))
           << "ScanBatchesUnordered() did not raise an error";
     }
-    ASSERT_OK_AND_ASSIGN(auto tagged_batch_it, scanner->ScanBatches());
-    EXPECT_TRUE(CheckIteratorRaises(
-        batch, std::move(tagged_batch_it),
-        [](const TaggedRecordBatch& batch) { return batch.record_batch; }))
-        << "ScanBatches() did not raise an error";
+
+    auto maybe_tagged_batch_it = scanner->ScanBatches();
+    if (!maybe_tagged_batch_it.ok()) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
+                                      std::move(maybe_tagged_batch_it));
+    } else {
+      ASSERT_OK_AND_ASSIGN(auto tagged_batch_it, std::move(maybe_tagged_batch_it));
+      EXPECT_TRUE(CheckIteratorRaises(
+          batch, std::move(tagged_batch_it),
+          [](const TaggedRecordBatch& batch) { return batch.record_batch; }))
+          << "ScanBatches() did not raise an error";
+    }
   };
 
   // Case 1: failure when getting next scan task
@@ -748,10 +755,16 @@ TEST_P(TestScanner, FromReader) {
   AssertScannerEquals(target_reader.get(), scanner.get());
 
   // Such datasets can only be scanned once (but you can get fragments multiple times)
-  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
-      batch_it.Next());
+  auto maybe_batch_it = scanner->ScanBatches();
+  if (maybe_batch_it.ok()) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
+        (*maybe_batch_it).Next());
+  } else {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
+        std::move(maybe_batch_it));
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
@@ -1837,11 +1850,9 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // pipe the projection into a scalar aggregate node
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * aggregate,
-      compute::MakeExecNode(
-          "aggregate", plan.get(), {project},
-          compute::AggregateNodeOptions{{compute::internal::Aggregate{"sum", nullptr}},
-                                        /*targets=*/{"a * 2"},
-                                        /*names=*/{"sum(a * 2)"}}));
+      compute::MakeExecNode("aggregate", plan.get(), {project},
+                            compute::AggregateNodeOptions{{compute::Aggregate{
+                                "sum", nullptr, "a * 2", "sum(a * 2)"}}}));
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
@@ -1927,12 +1938,11 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // pipe the projection into a grouped aggregate node
   ASSERT_OK_AND_ASSIGN(
       compute::ExecNode * aggregate,
-      compute::MakeExecNode("aggregate", plan.get(), {project},
-                            compute::AggregateNodeOptions{
-                                {compute::internal::Aggregate{"hash_sum", nullptr}},
-                                /*targets=*/{"a * 2"},
-                                /*names=*/{"sum(a * 2)"},
-                                /*keys=*/{"b"}}));
+      compute::MakeExecNode(
+          "aggregate", plan.get(), {project},
+          compute::AggregateNodeOptions{
+              {compute::Aggregate{"hash_sum", nullptr, "a * 2", "sum(a * 2)"}},
+              /*keys=*/{"b"}}));
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;

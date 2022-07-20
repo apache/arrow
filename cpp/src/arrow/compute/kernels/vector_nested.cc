@@ -158,13 +158,12 @@ class ListParentIndicesFunction : public MetaFunction {
 void RegisterVectorNested(FunctionRegistry* registry) {
   auto flatten =
       std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), list_flatten_doc);
-  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LIST)}, OutputType(ListValuesType),
+  DCHECK_OK(flatten->AddKernel({Type::LIST}, OutputType(ListValuesType),
                                ListFlatten<ListType>));
-  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::FIXED_SIZE_LIST)},
-                               OutputType(ListValuesType),
+  DCHECK_OK(flatten->AddKernel({Type::FIXED_SIZE_LIST}, OutputType(ListValuesType),
                                ListFlatten<FixedSizeListType>));
-  DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LARGE_LIST)},
-                               OutputType(ListValuesType), ListFlatten<LargeListType>));
+  DCHECK_OK(flatten->AddKernel({Type::LARGE_LIST}, OutputType(ListValuesType),
+                               ListFlatten<LargeListType>));
   DCHECK_OK(registry->AddFunction(std::move(flatten)));
 
   DCHECK_OK(registry->AddFunction(std::make_shared<ListParentIndicesFunction>()));

@@ -47,17 +47,6 @@ constexpr Unsigned to_unsigned(T signed_) {
   return static_cast<Unsigned>(signed_);
 }
 
-// Augment a unary ArrayKernelExec which supports only array-like inputs
-// with support for scalar inputs. Scalars will be transformed to 1-long arrays
-// with the scalar's value (or null if the scalar is null) as its only
-// element. This 1-long array will be passed to the original exec, then the
-// only element of the resulting array will be extracted as the output
-// scalar. This could be far more efficient, but instead of optimizing this
-// it'd be better to support scalar inputs "upstream" in original exec.
-ArrayKernelExec TrivialScalarUnaryAsArraysExec(
-    ArrayKernelExec exec, bool use_array_span = true,
-    NullHandling::type null_handling = NullHandling::INTERSECTION);
-
 // Return (min, max) of a numerical array, ignore nulls.
 // For empty array, return the maximal number limit as 'min', and minimal limit as 'max'.
 template <typename T>

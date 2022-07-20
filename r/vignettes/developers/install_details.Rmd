@@ -94,13 +94,14 @@ you'll need to install them before installing the R package.
 
 If libarrow is not found on the system, the R package installation 
 script will next attempt to download prebuilt libarrow binaries
-that match your both your local operating system and arrow R package version.
-The libarrow binaries will only be retrieved if you have set the environment variable
-`LIBARROW_BINARY` or `NOT_CRAN`.
+that match your both your local operating system, required 
+dependencies (e.g. openssl version) and arrow R package version. 
 
-If found, they will be downloaded and bundled when your R package compiles.
-For a list of supported distributions and versions,
-see the [arrow-r-nightly](https://github.com/ursa-labs/arrow-r-nightly/blob/master/README.md) project.
+These are used automatically on many Linux distributions (x86_64 architecture only),
+according to the [allowlist](https://github.com/apache/arrow/blob/master/r/tools/nixlibs-allowlist.txt).
+If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN`
+environment variable before you call `install.packages()`. If found, they will be
+downloaded and bundled when your R package compiles.
 
 #### Building from source
 

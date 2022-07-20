@@ -44,7 +44,7 @@ namespace compute {
 namespace {
 
 void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
-                        const std::vector<internal::Aggregate>& aggs,
+                        const std::vector<Aggregate>& aggs,
                         const std::vector<int>& target_field_ids, int indent = 0) {
   *ss << "aggregates=[" << std::endl;
   for (size_t i = 0; i < aggs.size(); i++) {
@@ -64,8 +64,7 @@ class ScalarAggregateNode : public ExecNode {
  public:
   ScalarAggregateNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                       std::shared_ptr<Schema> output_schema,
-                      std::vector<int> target_field_ids,
-                      std::vector<internal::Aggregate> aggs,
+                      std::vector<int> target_field_ids, std::vector<Aggregate> aggs,
                       std::vector<const ScalarAggregateKernel*> kernels,
                       std::vector<std::vector<std::unique_ptr<KernelState>>> states)
       : ExecNode(plan, std::move(inputs), {"target"},
@@ -89,12 +88,12 @@ class ScalarAggregateNode : public ExecNode {
     std::vector<const ScalarAggregateKernel*> kernels(aggregates.size());
     std::vector<std::vector<std::unique_ptr<KernelState>>> states(kernels.size());
     FieldVector fields(kernels.size());
-    const auto& field_names = aggregate_options.names;
     std::vector<int> target_field_ids(kernels.size());
 
     for (size_t i = 0; i < kernels.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match,
-                            FieldRef(aggregate_options.targets[i]).FindOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(
+          auto match,
+          FieldRef(aggregate_options.aggregates[i].target).FindOne(input_schema));
       target_field_ids[i] = match[0];
 
       ARROW_ASSIGN_OR_RAISE(
@@ -105,8 +104,7 @@ class ScalarAggregateNode : public ExecNode {
                                aggregates[i].function);
       }
 
-      auto in_type = ValueDescr::Array(input_schema.field(target_field_ids[i])->type());
-
+      TypeHolder in_type(input_schema.field(target_field_ids[i])->type().get());
       ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, function->DispatchExact({in_type}));
       kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
 
@@ -115,7 +113,7 @@ class ScalarAggregateNode : public ExecNode {
       }
 
       KernelContext kernel_ctx{exec_ctx};
-      states[i].resize(ThreadIndexer::Capacity());
+      states[i].resize(plan->max_concurrency());
       RETURN_NOT_OK(Kernel::InitAll(&kernel_ctx,
                                     KernelInitArgs{kernels[i],
                                                    {
@@ -126,10 +124,10 @@ class ScalarAggregateNode : public ExecNode {
 
       // pick one to resolve the kernel signature
       kernel_ctx.SetState(states[i][0].get());
-      ARROW_ASSIGN_OR_RAISE(
-          auto descr, kernels[i]->signature->out_type().Resolve(&kernel_ctx, {in_type}));
+      ARROW_ASSIGN_OR_RAISE(auto out_type, kernels[i]->signature->out_type().Resolve(
+                                               &kernel_ctx, {in_type}));
 
-      fields[i] = field(field_names[i], std::move(descr.type));
+      fields[i] = field(aggregate_options.aggregates[i].name, out_type.GetSharedPtr());
     }
 
     return plan->EmplaceNode<ScalarAggregateNode>(
@@ -170,7 +168,7 @@ class ScalarAggregateNode : public ExecNode {
                                     {"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
 
-    auto thread_index = get_thread_index_();
+    auto thread_index = plan_->GetThreadIndex();
 
     if (ErrorIfNotOk(DoConsume(std::move(batch), thread_index))) return;
 
@@ -198,8 +196,6 @@ class ScalarAggregateNode : public ExecNode {
                        {{"node.label", label()},
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
-    finished_ = Future<>::Make();
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     // Scalar aggregates will only output a single batch
     outputs_[0]->InputFinished(this, 1);
     return Status::OK();
@@ -225,8 +221,6 @@ class ScalarAggregateNode : public ExecNode {
     }
     inputs_[0]->StopProducing(this);
   }
-
-  Future<> finished() override { return finished_; }
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {
@@ -263,12 +257,11 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   const std::vector<int> target_field_ids_;
-  const std::vector<internal::Aggregate> aggs_;
+  const std::vector<Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
 
   std::vector<std::vector<std::unique_ptr<KernelState>>> states_;
 
-  ThreadIndexer get_thread_index_;
   AtomicCounter input_counter_;
 };
 
@@ -276,7 +269,7 @@ class GroupByNode : public ExecNode {
  public:
   GroupByNode(ExecNode* input, std::shared_ptr<Schema> output_schema, ExecContext* ctx,
               std::vector<int> key_field_ids, std::vector<int> agg_src_field_ids,
-              std::vector<internal::Aggregate> aggs,
+              std::vector<Aggregate> aggs,
               std::vector<const HashAggregateKernel*> agg_kernels)
       : ExecNode(input->plan(), {input}, {"groupby"}, std::move(output_schema),
                  /*num_outputs=*/1),
@@ -285,6 +278,19 @@ class GroupByNode : public ExecNode {
         agg_src_field_ids_(std::move(agg_src_field_ids)),
         aggs_(std::move(aggs)),
         agg_kernels_(std::move(agg_kernels)) {}
+
+  Status Init() override {
+    output_task_group_id_ = plan_->RegisterTaskGroup(
+        [this](size_t, int64_t task_id) {
+          OutputNthBatch(task_id);
+          return Status::OK();
+        },
+        [this](size_t) {
+          finished_.MarkFinished();
+          return Status::OK();
+        });
+    return Status::OK();
+  }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -295,7 +301,6 @@ class GroupByNode : public ExecNode {
     const auto& keys = aggregate_options.keys;
     // Copy (need to modify options pointer below)
     auto aggs = aggregate_options.aggregates;
-    const auto& field_names = aggregate_options.names;
 
     // Get input schema
     auto input_schema = input->output_schema();
@@ -310,39 +315,37 @@ class GroupByNode : public ExecNode {
     // Find input field indices for aggregates
     std::vector<int> agg_src_field_ids(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto match,
-                            aggregate_options.targets[i].FindOne(*input_schema));
+      ARROW_ASSIGN_OR_RAISE(auto match, aggs[i].target.FindOne(*input_schema));
       agg_src_field_ids[i] = match[0];
     }
 
     // Build vector of aggregate source field data types
-    DCHECK_EQ(aggregate_options.targets.size(), aggs.size());
-    std::vector<ValueDescr> agg_src_descrs(aggs.size());
+    std::vector<TypeHolder> agg_src_types(aggs.size());
     for (size_t i = 0; i < aggs.size(); ++i) {
       auto agg_src_field_id = agg_src_field_ids[i];
-      agg_src_descrs[i] =
-          ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
+      agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
     }
 
     auto ctx = input->plan()->exec_context();
 
     // Construct aggregates
     ARROW_ASSIGN_OR_RAISE(auto agg_kernels,
-                          internal::GetKernels(ctx, aggs, agg_src_descrs));
+                          internal::GetKernels(ctx, aggs, agg_src_types));
 
     ARROW_ASSIGN_OR_RAISE(auto agg_states,
-                          internal::InitKernels(agg_kernels, ctx, aggs, agg_src_descrs));
+                          internal::InitKernels(agg_kernels, ctx, aggs, agg_src_types));
 
     ARROW_ASSIGN_OR_RAISE(
         FieldVector agg_result_fields,
-        internal::ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_descrs));
+        internal::ResolveKernels(aggs, agg_kernels, agg_states, ctx, agg_src_types));
 
     // Build field vector for output schema
     FieldVector output_fields{keys.size() + aggs.size()};
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < aggs.size(); ++i) {
-      output_fields[i] = agg_result_fields[i]->WithName(field_names[i]);
+      output_fields[i] =
+          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
     }
     size_t base = aggs.size();
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -363,7 +366,7 @@ class GroupByNode : public ExecNode {
                        {{"group_by", ToStringExtra()},
                         {"node.label", label()},
                         {"batch.length", batch.length}});
-    size_t thread_index = get_thread_index_();
+    size_t thread_index = plan_->GetThreadIndex();
     if (thread_index >= local_states_.size()) {
       return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
                                 local_states_.size(), ")");
@@ -470,47 +473,32 @@ class GroupByNode : public ExecNode {
     std::move(out_keys.values.begin(), out_keys.values.end(),
               out_data.values.begin() + agg_kernels_.size());
     state->grouper.reset();
-
-    if (output_counter_.SetTotal(
-            static_cast<int>(bit_util::CeilDiv(out_data.length, output_batch_size())))) {
-      // this will be hit if out_data.length == 0
-      finished_.MarkFinished();
-    }
     return out_data;
   }
 
-  void OutputNthBatch(int n) {
+  void OutputNthBatch(int64_t n) {
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
 
     int64_t batch_size = output_batch_size();
     outputs_[0]->InputReceived(this, out_data_.Slice(batch_size * n, batch_size));
-
-    if (output_counter_.Increment()) {
-      finished_.MarkFinished();
-    }
   }
 
   Status OutputResult() {
-    RETURN_NOT_OK(Merge());
-    ARROW_ASSIGN_OR_RAISE(out_data_, Finalize());
-
-    int num_output_batches = *output_counter_.total();
-    outputs_[0]->InputFinished(this, num_output_batches);
-
-    auto executor = ctx_->executor();
-    for (int i = 0; i < num_output_batches; ++i) {
-      if (executor) {
-        // bail if StopProducing was called
-        if (finished_.is_finished()) break;
-
-        auto plan = this->plan()->shared_from_this();
-        RETURN_NOT_OK(executor->Spawn([plan, this, i] { OutputNthBatch(i); }));
-      } else {
-        OutputNthBatch(i);
+    // To simplify merging, ensure that the first grouper is nonempty
+    for (size_t i = 0; i < local_states_.size(); i++) {
+      if (local_states_[i].grouper) {
+        std::swap(local_states_[i], local_states_[0]);
+        break;
       }
     }
 
+    RETURN_NOT_OK(Merge());
+    ARROW_ASSIGN_OR_RAISE(out_data_, Finalize());
+
+    int64_t num_output_batches = bit_util::CeilDiv(out_data_.length, output_batch_size());
+    outputs_[0]->InputFinished(this, static_cast<int>(num_output_batches));
+    RETURN_NOT_OK(plan_->StartTaskGroup(output_task_group_id_, num_output_batches));
     return Status::OK();
   }
 
@@ -560,10 +548,8 @@ class GroupByNode : public ExecNode {
                        {{"node.label", label()},
                         {"node.detail", ToString()},
                         {"node.kind", kind_name()}});
-    finished_ = Future<>::Make();
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
 
-    local_states_.resize(ThreadIndexer::Capacity());
+    local_states_.resize(plan_->max_concurrency());
     return Status::OK();
   }
 
@@ -581,16 +567,11 @@ class GroupByNode : public ExecNode {
     EVENT(span_, "StopProducing");
     DCHECK_EQ(output, outputs_[0]);
 
-    ARROW_UNUSED(input_counter_.Cancel());
-    if (output_counter_.Cancel()) {
-      finished_.MarkFinished();
-    }
+    if (input_counter_.Cancel()) finished_.MarkFinished();
     inputs_[0]->StopProducing(this);
   }
 
   void StopProducing() override { StopProducing(outputs_[0]); }
-
-  Future<> finished() override { return finished_; }
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {
@@ -613,7 +594,7 @@ class GroupByNode : public ExecNode {
   };
 
   ThreadLocalState* GetLocalState() {
-    size_t thread_index = get_thread_index_();
+    size_t thread_index = plan_->GetThreadIndex();
     return &local_states_[thread_index];
   }
 
@@ -624,26 +605,24 @@ class GroupByNode : public ExecNode {
     if (state->grouper != nullptr) return Status::OK();
 
     // Build vector of key field data types
-    std::vector<ValueDescr> key_descrs(key_field_ids_.size());
+    std::vector<TypeHolder> key_types(key_field_ids_.size());
     for (size_t i = 0; i < key_field_ids_.size(); ++i) {
       auto key_field_id = key_field_ids_[i];
-      key_descrs[i] = ValueDescr(input_schema->field(key_field_id)->type());
+      key_types[i] = input_schema->field(key_field_id)->type().get();
     }
 
     // Construct grouper
-    ARROW_ASSIGN_OR_RAISE(state->grouper, Grouper::Make(key_descrs, ctx_));
+    ARROW_ASSIGN_OR_RAISE(state->grouper, Grouper::Make(key_types, ctx_));
 
     // Build vector of aggregate source field data types
-    std::vector<ValueDescr> agg_src_descrs(agg_kernels_.size());
+    std::vector<TypeHolder> agg_src_types(agg_kernels_.size());
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       auto agg_src_field_id = agg_src_field_ids_[i];
-      agg_src_descrs[i] =
-          ValueDescr(input_schema->field(agg_src_field_id)->type(), ValueDescr::ARRAY);
+      agg_src_types[i] = input_schema->field(agg_src_field_id)->type().get();
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        state->agg_states,
-        internal::InitKernels(agg_kernels_, ctx_, aggs_, agg_src_descrs));
+    ARROW_ASSIGN_OR_RAISE(state->agg_states, internal::InitKernels(agg_kernels_, ctx_,
+                                                                   aggs_, agg_src_types));
 
     return Status::OK();
   }
@@ -657,14 +636,14 @@ class GroupByNode : public ExecNode {
   }
 
   ExecContext* ctx_;
+  int output_task_group_id_;
 
   const std::vector<int> key_field_ids_;
   const std::vector<int> agg_src_field_ids_;
-  const std::vector<internal::Aggregate> aggs_;
+  const std::vector<Aggregate> aggs_;
   const std::vector<const HashAggregateKernel*> agg_kernels_;
 
-  ThreadIndexer get_thread_index_;
-  AtomicCounter input_counter_, output_counter_;
+  AtomicCounter input_counter_;
 
   std::vector<ThreadLocalState> local_states_;
   ExecBatch out_data_;

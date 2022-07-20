@@ -511,8 +511,8 @@ std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
 }
 
 // [[dataset::export]]
-int64_t dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner) {
-  return ValueOrStop(scanner->CountRows());
+r_vec_size dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner) {
+  return r_vec_size(ValueOrStop(scanner->CountRows()));
 }
 
 #endif

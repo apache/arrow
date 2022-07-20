@@ -828,8 +828,8 @@ TEST_F(TestIfElseKernel, ParameterizedTypes) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented,
       ::testing::HasSubstr("Function 'if_else' has no kernel matching input types "
-                           "(array[bool], array[timestamp[ms, tz=America/New_York]], "
-                           "array[timestamp[s, tz=America/Phoenix]]"),
+                           "(bool, timestamp[ms, tz=America/New_York], "
+                           "timestamp[s, tz=America/Phoenix]"),
       CallFunction("if_else",
                    {cond, ArrayFromJSON(type0, "[0]"), ArrayFromJSON(type1, "[1]")}));
 }
@@ -1018,17 +1018,20 @@ TYPED_TEST(TestIfElseDict, DifferentDictionaries) {
   CheckDictionary("if_else", {MakeNullScalar(boolean()), values1, values2});
 }
 
-template <typename Type>
-class TestCaseWhenNumeric : public ::testing::Test {};
-
-TYPED_TEST_SUITE(TestCaseWhenNumeric, IfElseNumericBasedTypes);
-
 Datum MakeStruct(const std::vector<Datum>& conds) {
-  EXPECT_OK_AND_ASSIGN(auto result, CallFunction("make_struct", conds));
-  return result;
+  if (conds.size() == 0) {
+    // The tests below want a struct scalar when no condition values passed,
+    // not a StructArray of length 0
+    ScalarVector value;
+    return std::make_shared<StructScalar>(value, struct_({}));
+  } else {
+    EXPECT_OK_AND_ASSIGN(Datum result, CallFunction("make_struct", conds));
+    return result;
+  }
 }
 
-TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
+template <typename TypeParam>
+void TestCaseWhenFixedSize() {
   auto type = default_type_instance<TypeParam>();
   auto cond_true = ScalarFromJSON(boolean(), "true");
   auto cond_false = ScalarFromJSON(boolean(), "false");
@@ -1128,13 +1131,15 @@ TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
 
     // Error cases
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("cond struct must not be null"),
-        CallFunction(
-            "case_when",
-            {Datum(std::make_shared<StructScalar>(struct_({field("", boolean())}))),
-             Datum(scalar1)}));
+        Invalid,
+        ::testing::HasSubstr("cond struct must not be a null scalar or "
+                             "have top-level nulls"),
+        CallFunction("case_when",
+                     {MakeNullScalar(struct_({field("", boolean())})), Datum(scalar1)}));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("cond struct must not have top-level nulls"),
+        Invalid,
+        ::testing::HasSubstr("cond struct must not be a null scalar or "
+                             "have top-level nulls"),
         CallFunction("case_when",
                      {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)),
                       Datum(values1)}));
@@ -1215,18 +1220,27 @@ TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
 
     // Error cases
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("cond struct must not be null"),
-        CallFunction(
-            "case_when",
-            {Datum(std::make_shared<StructScalar>(struct_({field("", boolean())}))),
-             Datum(scalar1)}));
+        Invalid,
+        ::testing::HasSubstr("cond struct must not be a null scalar or "
+                             "have top-level nulls"),
+        CallFunction("case_when",
+                     {MakeNullScalar(struct_({field("", boolean())})), Datum(scalar1)}));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("cond struct must not have top-level nulls"),
+        Invalid,
+        ::testing::HasSubstr("cond struct must not be a null scalar or "
+                             "have top-level nulls"),
         CallFunction("case_when",
                      {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)),
                       Datum(values1)}));
   }
 }
+
+template <typename Type>
+class TestCaseWhenNumeric : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestCaseWhenNumeric, IfElseNumericBasedTypes);
+
+TYPED_TEST(TestCaseWhenNumeric, FixedSize) { TestCaseWhenFixedSize<TypeParam>(); }
 
 TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
   // More minimal test to check type coverage
@@ -3389,7 +3403,7 @@ TEST(TestChoose, FixedSizeBinary) {
 
 TEST(TestChooseKernel, DispatchBest) {
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction("choose"));
-  auto Check = [&](std::vector<ValueDescr> original_values) {
+  auto Check = [&](std::vector<TypeHolder> original_values) {
     auto values = original_values;
     ARROW_EXPECT_OK(function->DispatchBest(&values));
     return values;
@@ -3400,12 +3414,12 @@ TEST(TestChooseKernel, DispatchBest) {
   for (auto ty :
        {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64()}) {
     // Index always promoted to int64
-    EXPECT_EQ((std::vector<ValueDescr>{int64(), ty}), Check({ty, ty}));
-    EXPECT_EQ((std::vector<ValueDescr>{int64(), int64(), int64()}),
+    EXPECT_EQ((std::vector<TypeHolder>{int64(), ty}), Check({ty, ty}));
+    EXPECT_EQ((std::vector<TypeHolder>{int64(), int64(), int64()}),
               Check({ty, ty, int64()}));
   }
   // Other arguments promoted separately from index
-  EXPECT_EQ((std::vector<ValueDescr>{int64(), int32(), int32()}),
+  EXPECT_EQ((std::vector<TypeHolder>{int64(), int32(), int32()}),
             Check({int8(), int32(), uint8()}));
 }
 

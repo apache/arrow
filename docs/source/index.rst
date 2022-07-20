@@ -80,6 +80,7 @@ target environment.**
    format/CDataInterface
    format/CStreamInterface
    format/Other
+   format/Glossary
 
 .. _toc.development:
 

@@ -59,13 +59,6 @@ LD_LIBRARY_PATH), and relies on some environment variables.
 If ``CLASSPATH`` is not set, then it will be set automatically if the
 ``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
 
-You can also use libhdfs3, a thirdparty C++ library for HDFS from Pivotal Labs:
-
-.. code-block:: python
-
-   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path,
-                       driver='libhdfs3')
-
 HDFS API
 ~~~~~~~~
 

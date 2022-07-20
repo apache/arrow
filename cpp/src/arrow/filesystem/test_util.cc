@@ -899,6 +899,9 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
 
   ASSERT_RAISES(Invalid, stream->Write("x"));  // Stream is closed
 
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenOutputStream("CD/ghi/"));
+
   // Storing metadata along file
   auto metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
                                          {"x-arrow/filesystem-test", "fr_FR"});
@@ -930,6 +933,9 @@ void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
   }
 
   std::shared_ptr<io::OutputStream> stream;
+
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenAppendStream("abc/"));
 
   if (allow_append_to_new_file()) {
     ASSERT_OK_AND_ASSIGN(stream, fs->OpenAppendStream("abc"));
@@ -974,6 +980,9 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_OK(stream->Close());
   ASSERT_RAISES(Invalid, stream->Read(1));  // Stream is closed
 
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenInputStream("AB/abc/"));
+
   // File does not exist
   AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("AB/def"));
   AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("def"));
@@ -1008,6 +1017,15 @@ void GenericFileSystemTest::TestOpenInputStreamWithFileInfo(FileSystem* fs) {
   // (same, with incomplete FileInfo)
   info.set_type(FileType::Unknown);
   AssertRaisesWithErrno(ENOENT, fs->OpenInputStream(info));
+
+  // Trailing slash rejected
+  auto maybe_info = fs->GetFileInfo("AB/abc/");
+  if (maybe_info.ok()) {
+    ASSERT_OK_AND_ASSIGN(info, maybe_info);
+    ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+  } else {
+    ASSERT_RAISES(IOError, maybe_info);
+  }
 
   // Cannot open directory
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
@@ -1044,6 +1062,9 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_OK(file->Close());
   ASSERT_RAISES(Invalid, file->ReadAt(1, 1));  // Stream is closed
 
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenInputFile("AB/abc/"));
+
   // File does not exist
   AssertRaisesWithErrno(ENOENT, fs->OpenInputFile("AB/def"));
   AssertRaisesWithErrno(ENOENT, fs->OpenInputFile("def"));
@@ -1067,6 +1088,9 @@ void GenericFileSystemTest::TestOpenInputFileAsync(FileSystem* fs) {
 
   // File does not exist
   AssertRaisesWithErrno(ENOENT, fs->OpenInputFileAsync("AB/def").result());
+
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenInputFileAsync("AB/abc/").result());
 }
 
 void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
@@ -1095,6 +1119,15 @@ void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
   // (same, with incomplete FileInfo)
   info.set_type(FileType::Unknown);
   AssertRaisesWithErrno(ENOENT, fs->OpenInputFile(info));
+
+  // Trailing slash rejected
+  auto maybe_info = fs->GetFileInfo("AB/abc/");
+  if (maybe_info.ok()) {
+    ASSERT_OK_AND_ASSIGN(info, maybe_info);
+    ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+  } else {
+    ASSERT_RAISES(IOError, maybe_info);
+  }
 
   // Cannot open directory
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));

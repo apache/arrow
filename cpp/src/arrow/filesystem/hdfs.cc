@@ -48,12 +48,7 @@ class HadoopFileSystem::Impl {
   Impl(HdfsOptions options, const io::IOContext& io_context)
       : options_(std::move(options)), io_context_(io_context) {}
 
-  ~Impl() {
-    Status st = Close();
-    if (!st.ok()) {
-      ARROW_LOG(WARNING) << "Failed to disconnect hdfs client: " << st.ToString();
-    }
-  }
+  ~Impl() { ARROW_WARN_NOT_OK(Close(), "Failed to disconnect hdfs client"); }
 
   Status Init() {
     io::internal::LibHdfsShim* driver_shim;

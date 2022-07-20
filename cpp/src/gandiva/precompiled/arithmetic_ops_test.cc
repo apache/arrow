@@ -576,4 +576,41 @@ TEST(TestArithmeticOps, TestBigIntCastFloatDouble) {
   EXPECT_EQ(castBIGINT_float64(-2147483647), -2147483647);
 }
 
+TEST(TestArithmeticOps, TestSignIntFloatDouble) {
+  // sign from int32
+  EXPECT_EQ(sign_int32(43), 1);
+  EXPECT_EQ(sign_int32(-54), -1);
+  EXPECT_EQ(sign_int32(63), 1);
+  EXPECT_EQ(sign_int32(INT32_MAX), 1);
+  EXPECT_EQ(sign_int32(INT32_MIN), -1);
+
+  // sign from int64
+  EXPECT_EQ(sign_int64(90), 1);
+  EXPECT_EQ(sign_int64(-7), -1);
+  EXPECT_EQ(sign_int64(INT64_MAX), 1);
+  EXPECT_EQ(sign_int64(INT64_MIN), -1);
+
+  // sign from floats
+  EXPECT_EQ(sign_float32(6.6f), 1.0f);
+  EXPECT_EQ(sign_float32(-6.6f), -1.0f);
+  EXPECT_EQ(sign_float32(-6.3f), -1.0f);
+  EXPECT_EQ(sign_float32(0.0f), 0.0f);
+  EXPECT_EQ(sign_float32(-0.0f), 0.0f);
+  EXPECT_EQ(sign_float32(INFINITY), 1.0f);
+  EXPECT_EQ(sign_float32(-INFINITY), -1.0f);
+
+  // sign from doubles
+  EXPECT_EQ(sign_float64(6.6), 1.0);
+  EXPECT_EQ(sign_float64(-6.6), -1.0);
+  EXPECT_EQ(sign_float64(-6.3), -1.0);
+  EXPECT_EQ(sign_float64(0.0), 0);
+  EXPECT_EQ(sign_float64(-0), 0);
+  EXPECT_EQ(sign_float64(999999.99999999999999999999999), 1.0);
+  EXPECT_EQ(sign_float64(-999999.99999999999999999999999), -1.0);
+  EXPECT_EQ(sign_float64(INFINITY), 1.0);
+  EXPECT_EQ(sign_float64(-INFINITY), -1.0);
+  EXPECT_TRUE(std::isnan(sign_float64(std::numeric_limits<double>::quiet_NaN())));
+  EXPECT_EQ(sign_float64(-2147483647), -1.0);
+}
+
 }  // namespace gandiva

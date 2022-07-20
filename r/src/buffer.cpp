@@ -28,13 +28,13 @@ void Buffer__ZeroPadding(const std::shared_ptr<arrow::Buffer>& buffer) {
 }
 
 // [[arrow::export]]
-int64_t Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer) {
-  return buffer->capacity();
+r_vec_size Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return r_vec_size(buffer->capacity());
 }
 
 // [[arrow::export]]
-int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer) {
-  return buffer->size();
+r_vec_size Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return r_vec_size(buffer->size());
 }
 
 // [[arrow::export]]

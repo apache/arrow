@@ -29,6 +29,9 @@ public interface DictionaryProvider {
   /** Return the dictionary for the given ID. */
   Dictionary lookup(long id);
 
+  /** Get all dictionary IDs. */
+  Set<Long> getDictionaryIds();
+
   /**
    * Implementation of {@link DictionaryProvider} that is backed by a hash-map.
    */
@@ -50,6 +53,7 @@ public interface DictionaryProvider {
       map.put(dictionary.getEncoding().getId(), dictionary);
     }
 
+    @Override
     public final Set<Long> getDictionaryIds() {
       return map.keySet();
     }

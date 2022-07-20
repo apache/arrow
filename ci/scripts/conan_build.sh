@@ -31,11 +31,17 @@ conan_args=()
 if [ -n "${ARROW_CONAN_PARQUET:-}" ]; then
   conan_args+=(--options arrow:parquet=${ARROW_CONAN_PARQUET})
 fi
+if [ -n "${ARROW_CONAN_WITH_BROTLI:-}" ]; then
+  conan_args+=(--options arrow:with_brotli=${ARROW_CONAN_WITH_BROTLI})
+fi
 if [ -n "${ARROW_CONAN_WITH_JEMALLOC:-}" ]; then
   conan_args+=(--options arrow:with_jemalloc=${ARROW_CONAN_WITH_JEMALLOC})
 fi
 if [ -n "${ARROW_CONAN_WITH_LZ4:-}" ]; then
   conan_args+=(--options arrow:with_lz4=${ARROW_CONAN_WITH_LZ4})
+fi
+if [ -n "${ARROW_CONAN_WITH_SNAPPY:-}" ]; then
+  conan_args+=(--options arrow:with_snappy=${ARROW_CONAN_WITH_SNAPPY})
 fi
 
 version=$(grep '^set(ARROW_VERSION ' ${ARROW_HOME}/cpp/CMakeLists.txt | \

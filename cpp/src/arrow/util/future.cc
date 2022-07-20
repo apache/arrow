@@ -314,22 +314,34 @@ class ConcreteFutureImpl : public FutureImpl {
   }
 
   void DoMarkFinishedOrFailed(FutureState state) {
+    std::vector<CallbackRecord> callbacks;
+    std::shared_ptr<FutureImpl> self;
     {
       // Lock the hypothetical waiter first, and the future after.
       // This matches the locking order done in FutureWaiter constructor.
       std::unique_lock<std::mutex> waiter_lock(global_waiter_mutex);
       std::unique_lock<std::mutex> lock(mutex_);
+#ifdef ARROW_WITH_OPENTELEMETRY
+      if (this->span_) {
+        util::tracing::Span& span = *span_;
+        END_SPAN(span);
+      }
+#endif
 
       DCHECK(!IsFutureFinished(state_)) << "Future already marked finished";
+      if (!callbacks_.empty()) {
+        callbacks = std::move(callbacks_);
+        auto self_inner = shared_from_this();
+        self = std::move(self_inner);
+      }
+
       state_ = state;
       if (waiter_ != nullptr) {
         waiter_->MarkFutureFinishedUnlocked(waiter_arg_, state);
       }
     }
     cv_.notify_all();
-
-    auto callbacks = std::move(callbacks_);
-    auto self = shared_from_this();
+    if (callbacks.empty()) return;
 
     // run callbacks, lock not needed since the future is finished by this
     // point so nothing else can modify the callbacks list and it is safe

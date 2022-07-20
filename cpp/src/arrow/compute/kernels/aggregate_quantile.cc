@@ -174,7 +174,7 @@ struct SortQuantiler {
     // copy all chunks to a buffer, ignore nulls and nans
     std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
     FillBuffer(options, values, values.length, values.GetNullCount(), &in_buffer);
-    return ComputeQuantile(ctx, options, values.type->Copy(), in_buffer, out);
+    return ComputeQuantile(ctx, options, values.type->GetSharedPtr(), in_buffer, out);
   }
 
   Status Exec(KernelContext* ctx, const ChunkedArray& values, Datum* out) {
@@ -546,13 +546,13 @@ struct QuantileExecutorChunked {
   }
 };
 
-Result<ValueDescr> ResolveOutput(KernelContext* ctx,
-                                 const std::vector<ValueDescr>& args) {
+Result<TypeHolder> ResolveOutput(KernelContext* ctx,
+                                 const std::vector<TypeHolder>& types) {
   const QuantileOptions& options = QuantileState::Get(ctx);
   if (IsDataPoint(options)) {
-    return ValueDescr::Array(args[0].type);
+    return types[0];
   } else {
-    return ValueDescr::Array(float64());
+    return float64();
   }
 }
 

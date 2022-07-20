@@ -176,7 +176,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
     ds %>%
       filter(int == "fff", part == 1) %>%
       collect(),
-    "'equal' has no kernel matching input types .array.int32., scalar.string.."
+    "'equal' has no kernel matching input types .int32, string."
   )
 })
 

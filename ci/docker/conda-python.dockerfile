@@ -24,7 +24,7 @@ ARG python=3.8
 COPY ci/conda_env_python.txt \
      ci/conda_env_sphinx.txt \
      /arrow/ci/
-RUN mamba install -q \
+RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
         $([ "$python" == "3.7" ] && echo "pickle5") \

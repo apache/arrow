@@ -162,6 +162,17 @@ cdef class S3FileSystem(FileSystem):
     allow_bucket_deletion : bool, default False
         Whether to allow DeleteDir at the bucket-level. This option may also be 
         passed in a URI query parameter.
+
+    Examples
+    --------
+    >>> from pyarrow import fs
+    >>> s3 = fs.S3FileSystem(region='us-west-2')
+    >>> s3.get_file_info(fs.FileSelector(
+    ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
+    ... ))
+    [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
+
+    For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
 
     cdef:
@@ -223,6 +234,10 @@ cdef class S3FileSystem(FileSystem):
 
             options = CS3Options.Anonymous()
         elif role_arn:
+            if session_name is None:
+                session_name = ''
+            if external_id is None:
+                external_id = ''
 
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
