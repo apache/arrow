@@ -158,23 +158,32 @@ struct Maximum {
 
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
+template <int batch_size>
+void PackBits(const int* values, uint8_t* out) {
+  for (int i = 0; i < batch_size / 8; ++i) {
+    *out++ = (values[0] | values[1] << 1 | values[2] << 2 | values[3] << 3 |
+              values[4] << 4 | values[5] << 5 | values[6] << 6 | values[7] << 7);
+    values += 8;
+  }
+}
+
 template <typename T, typename Op>
 struct ComparePrimitive {
   static void Exec(const void* left_values_void, const void* right_values_void,
-                   int64_t length, uint8_t* out_bitmap) {
+                   int64_t length, void* out_bitmap_void) {
     const T* left_values = reinterpret_cast<const T*>(left_values_void);
     const T* right_values = reinterpret_cast<const T*>(right_values_void);
-    static constexpr int kBatchSize = 8;
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
     int64_t num_batches = length / kBatchSize;
-    bool temp_output[kBatchSize];
+    int temp_output[kBatchSize];
     for (int64_t j = 0; j < num_batches; ++j) {
-      for (int i = 0; i < 8; ++i) {
+      for (int i = 0; i < kBatchSize; ++i) {
         temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
                                                        *right_values++, nullptr);
       }
-      *out_bitmap++ = (temp_output[0] | temp_output[1] << 1 | temp_output[2] << 2 |
-                       temp_output[3] << 3 | temp_output[4] << 4 | temp_output[5] << 5 |
-                       temp_output[6] << 6 | temp_output[7] << 7);
+      PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
     }
     int64_t bit_index = 0;
     for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
@@ -188,26 +197,26 @@ struct ComparePrimitive {
 template <typename T, typename Op>
 struct ComparePrimitiveAS {
   static void Exec(const void* left_values_void, const void* right_value_void,
-                   int64_t length, uint8_t* out_bitmap) {
+                   int64_t length, void* out_bitmap_void) {
     const T* left_values = reinterpret_cast<const T*>(left_values_void);
     const T right_value = *reinterpret_cast<const T*>(right_value_void);
-    static constexpr int kBatchSize = 8;
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
     int64_t num_batches = length / kBatchSize;
-    bool temp_output[kBatchSize];
+    int temp_output[kBatchSize];
     for (int64_t j = 0; j < num_batches; ++j) {
-      for (int i = 0; i < 8; ++i) {
-        temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
-                                                       right_value, nullptr);
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] =
+            Op::template Call<bool, T, T>(nullptr, *left_values++, right_value, nullptr);
       }
-      *out_bitmap++ = (temp_output[0] | temp_output[1] << 1 | temp_output[2] << 2 |
-                       temp_output[3] << 3 | temp_output[4] << 4 | temp_output[5] << 5 |
-                       temp_output[6] << 6 | temp_output[7] << 7);
+      PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
     }
     int64_t bit_index = 0;
     for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
-      bit_util::SetBitTo(out_bitmap, bit_index++,
-                         Op::template Call<bool, T, T>(nullptr, *left_values++,
-                                                       right_value, nullptr));
+      bit_util::SetBitTo(
+          out_bitmap, bit_index++,
+          Op::template Call<bool, T, T>(nullptr, *left_values++, right_value, nullptr));
     }
   }
 };
@@ -215,31 +224,31 @@ struct ComparePrimitiveAS {
 template <typename T, typename Op>
 struct ComparePrimitiveSA {
   static void Exec(const void* left_value_void, const void* right_values_void,
-                   int64_t length, uint8_t* out_bitmap) {
+                   int64_t length, void* out_bitmap_void) {
     const T left_value = *reinterpret_cast<const T*>(left_value_void);
     const T* right_values = reinterpret_cast<const T*>(right_values_void);
-    static constexpr int kBatchSize = 8;
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
     int64_t num_batches = length / kBatchSize;
-    bool temp_output[kBatchSize];
+    int temp_output[kBatchSize];
     for (int64_t j = 0; j < num_batches; ++j) {
-      for (int i = 0; i < 8; ++i) {
-        temp_output[i] = Op::template Call<bool, T, T>(nullptr, left_value,
-                                                       *right_values++, nullptr);
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] =
+            Op::template Call<bool, T, T>(nullptr, left_value, *right_values++, nullptr);
       }
-      *out_bitmap++ = (temp_output[0] | temp_output[1] << 1 | temp_output[2] << 2 |
-                       temp_output[3] << 3 | temp_output[4] << 4 | temp_output[5] << 5 |
-                       temp_output[6] << 6 | temp_output[7] << 7);
+      PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
     }
     int64_t bit_index = 0;
     for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
-      bit_util::SetBitTo(out_bitmap, bit_index++,
-                         Op::template Call<bool, T, T>(nullptr, left_value,
-                                                       *right_values++, nullptr));
+      bit_util::SetBitTo(
+          out_bitmap, bit_index++,
+          Op::template Call<bool, T, T>(nullptr, left_value, *right_values++, nullptr));
     }
   }
 };
 
-using CompareFunc = void (*)(const void*, const void*, int64_t, uint8_t*);
+using CompareFunc = void (*)(const void*, const void*, int64_t, void*);
 
 struct CompareData : public KernelState {
   CompareFunc func_aa;
@@ -301,12 +310,12 @@ struct CompareKernel {
                            batch.length, out_buffer);
     } else if (batch[1].is_scalar()) {
       T value = UnboxScalar<Type>::Unbox(*batch[1].scalar);
-      kernel_data->func_as(batch[0].array.GetValues<T>(1), &value,
-                           batch.length, out_buffer);
+      kernel_data->func_as(batch[0].array.GetValues<T>(1), &value, batch.length,
+                           out_buffer);
     } else {
       T value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
-      kernel_data->func_sa(&value, batch[1].array.GetValues<T>(1),
-                           batch.length, out_buffer);
+      kernel_data->func_sa(&value, batch[1].array.GetValues<T>(1), batch.length,
+                           out_buffer);
     }
     return Status::OK();
   }
@@ -326,9 +335,9 @@ struct CompareTimestamps {
   }
 };
 
-
 template <typename Op>
-ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type, ArrayKernelExec exec) {
+ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
+                              ArrayKernelExec exec) {
   ScalarKernel kernel;
   kernel.signature = KernelSignature::Make({ty, ty}, boolean());
   CompareFunc func_aa = GetPrimitiveCompare<ComparePrimitive, Op>(compare_type);
@@ -413,8 +422,8 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    ScalarKernel kernel = GetCompareKernel<Op>(in_type, Type::INT64,
-                                               CompareTimestamps<Op>::Exec);
+    ScalarKernel kernel =
+        GetCompareKernel<Op>(in_type, Type::INT64, CompareTimestamps<Op>::Exec);
     DCHECK_OK(func->AddKernel(kernel));
   }
 
@@ -422,22 +431,19 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
-    DCHECK_OK(func->AddKernel(
-        GetCompareKernel<Op>(in_type, Type::INT64, exec)));
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   // Time32 and Time64
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
     ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int32());
-    DCHECK_OK(func->AddKernel(
-        GetCompareKernel<Op>(in_type, Type::INT32, exec)));
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT32, exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
     ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
-    DCHECK_OK(func->AddKernel(
-        GetCompareKernel<Op>(in_type, Type::INT64, exec)));
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
