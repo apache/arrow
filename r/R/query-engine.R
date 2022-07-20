@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+# nolint start: cyclocomp_linter,
 ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
@@ -275,6 +276,8 @@ ExecPlan <- R6Class("ExecPlan",
     Stop = function() ExecPlan_StopProducing(self)
   )
 )
+# nolint end.
+
 ExecPlan$create <- function(use_threads = option_use_threads()) {
   ExecPlan_create(use_threads)
 }
