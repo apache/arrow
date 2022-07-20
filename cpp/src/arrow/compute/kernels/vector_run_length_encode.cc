@@ -156,6 +156,7 @@ struct RunLengthEncodeExec
 
     ArrayData* output_array_data = this->exec_result->array_data().get();
     output_array_data->length = this->input_array.length;
+    output_array_data->offset = 0;
     output_array_data->buffers.resize(1);
     auto child_array_data =
         ArrayData::Make(const_cast<DataType*>(this->input_array.type)->shared_from_this(),
@@ -265,6 +266,7 @@ struct RunLengthDecodeExec
     ArrayData* output_array_data = this->exec_result->array_data().get();
     output_array_data->length = num_values_output;
     output_array_data->buffers.resize(2);
+    output_array_data->offset = 0;
     output_array_data->buffers[0] = std::move(validity_buffer);
     output_array_data->buffers[1] = std::move(values_buffer);
 
