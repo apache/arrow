@@ -158,15 +158,6 @@ struct Maximum {
 
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
-template <int batch_size>
-void PackBits(const uint32_t* values, uint8_t* out) {
-  for (int i = 0; i < batch_size / 8; ++i) {
-    *out++ = (values[0] | values[1] << 1 | values[2] << 2 | values[3] << 3 |
-              values[4] << 4 | values[5] << 5 | values[6] << 6 | values[7] << 7);
-    values += 8;
-  }
-}
-
 template <typename Type, typename Op>
 struct ComparePrimitiveArrayArray {
   using T = typename Type::c_type;
@@ -183,7 +174,7 @@ struct ComparePrimitiveArrayArray {
         temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
                                                        *right_values++, nullptr);
       }
-      PackBits<kBatchSize>(temp_output, out_bitmap);
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
       out_bitmap += kBatchSize / 8;
     }
     int64_t bit_index = 0;
@@ -211,7 +202,7 @@ struct ComparePrimitiveArrayScalar {
         temp_output[i] =
             Op::template Call<bool, T, T>(nullptr, *left_values++, right_value, nullptr);
       }
-      PackBits<kBatchSize>(temp_output, out_bitmap);
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
       out_bitmap += kBatchSize / 8;
     }
     int64_t bit_index = 0;
@@ -239,7 +230,7 @@ struct ComparePrimitiveScalarArray {
         temp_output[i] =
             Op::template Call<bool, T, T>(nullptr, left_value, *right_values++, nullptr);
       }
-      PackBits<kBatchSize>(temp_output, out_bitmap);
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
       out_bitmap += kBatchSize / 8;
     }
     int64_t bit_index = 0;
