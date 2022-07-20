@@ -417,3 +417,139 @@ build_strptime_exprs <- function(x, formats) {
     )
   )
 }
+
+
+parse_period_unit <- function(x) {
+
+  # the regexp matches against fractional units, but per lubridate
+  # supports integer multiples of a known unit only
+  match_info <- regexpr(
+    pattern = " *(?<multiple>[0-9.,]+)? *(?<unit>[^ \t\n]+)",
+    text = x[[1]],
+    perl = TRUE
+  )
+
+  capture_start <- attr(match_info, "capture.start")
+  capture_length <- attr(match_info, "capture.length")
+  capture_end <- capture_start + capture_length - 1L
+
+  str_unit <- substr(x, capture_start[[2]], capture_end[[2]])
+  str_multiple <- substr(x, capture_start[[1]], capture_end[[1]])
+
+  known_units <- c("nanosecond", "microsecond", "millisecond", "second",
+                   "minute", "hour", "day", "week", "month", "quarter", "year")
+
+  # match the period unit
+  str_unit_start <- substr(str_unit, 1, 3)
+  unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
+
+  if (any(is.na(unit))) {
+    abort(sprintf("Unknown unit '%s'", str_unit))
+  }
+
+  # empty string in multiple interpreted as 1
+  if (capture_length[[1]] == 0) {
+    multiple <- 1L
+
+  } else {
+
+    # special cases: interpret fractions of 1 second as integer
+    # multiples of nanoseconds, microseconds, or milliseconds
+    # to mirror lubridate syntax
+    multiple <- as.numeric(str_multiple)
+
+    if (unit == 3L && multiple < 10^-6) {
+      unit <- 0L
+      multiple <- 10^9 * multiple
+    }
+    if (unit == 3L && multiple < 10^-3) {
+      unit <- 1L
+      multiple <- 10^6 * multiple
+    }
+    if (unit == 3L && multiple < 1) {
+      unit <- 2L
+      multiple <- 10^3 * multiple
+    }
+
+    multiple <- as.integer(multiple)
+  }
+
+
+  # more special cases: lubridate imposes sensible maximum
+  # values on the number of seconds, minutes and hours
+  if (unit == 3L && multiple > 60) {
+    abort("Rounding with second > 60 is not supported")
+  }
+  if (unit == 4L && multiple > 60) {
+    abort("Rounding with minute > 60 is not supported")
+  }
+  if (unit == 5L && multiple > 24) {
+    abort("Rounding with hour > 24 is not supported")
+  }
+
+  return(list(unit = unit, multiple = multiple))
+}
+
+
+# handles round/ceil/floor when unit is week and week_start is
+# a non-standard value (not Monday or Sunday)
+shift_temporal_to_week <- function(fn, x, week_start, options) {
+
+  if (week_start == 7) { # Sunday
+    options$week_starts_monday <- FALSE
+    return(Expression$create(fn, x, options = options))
+  }
+
+  if (week_start == 1) { # Monday
+    options$week_starts_monday <- TRUE
+    return(Expression$create(fn, x, options = options))
+  }
+
+  # other cases use offset-from-Monday
+  options$week_starts_monday <- TRUE
+  offset <- as.integer(week_start) - 1
+
+  is_date32 <- inherits(x, "Date") ||
+    (inherits(x, "Expression") && x$type_id() == Type$DATE32)
+
+  if (is_date32) {
+    shifted_date <- shift_date32_to_week(fn, x, offset, options = options)
+  } else {
+    shifted_date <- shift_timestamp_to_week(fn, x, offset, options = options)
+  }
+  return(shifted_date)
+}
+
+# timestamp input should remain timestamp
+shift_timestamp_to_week <- function(fn, x, offset, options) {
+
+  offset_seconds <- build_expr(
+    "cast",
+    Scalar$create(offset * 86400L, int64()),
+    options = cast_options(to_type = duration(unit = "s"))
+  )
+  shift_offset <- build_expr(fn, x - offset_seconds, options = options)
+  return(shift_offset + offset_seconds)
+}
+
+# to avoid date32 types being cast to timestamp during the temporal
+# arithmetic, the offset logic needs to use the count in days and
+# use integer arithmetic: this feels inelegant, but it ensures that
+# temporal rounding functions remain type stable
+shift_date32_to_week <- function(fn, x, offset, options) {
+
+  # offset the date
+  offset <- Expression$scalar(Scalar$create(offset, int32()))
+  x_int <- build_expr("cast", x, options = cast_options(to_type = int32()))
+  x_int_offset <- x_int - offset
+  x_offset <- build_expr("cast", x_int_offset, options = cast_options(to_type = date32()))
+
+  # apply round/floor/ceil
+  shift_offset <- build_expr(fn, x_offset, options = options)
+
+  # undo offset and return
+  shift_int_offset <- build_expr("cast", shift_offset, options = cast_options(to_type = int32()))
+  shift_int <- shift_int_offset + offset
+  shift <- build_expr("cast", shift_int, options = cast_options(to_type = date32()))
+  return(shift)
+}
