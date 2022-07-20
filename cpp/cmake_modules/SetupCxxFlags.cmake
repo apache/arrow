@@ -600,7 +600,10 @@ endif()
 #   -O2: Enable all compiler optimizations
 #   Debug symbols are stripped for reduced binary size. Add
 #   -DARROW_CXXFLAGS="-g" to add them
+
 if(NOT MSVC)
+  string(REPLACE "-O3 -DNDEBUG" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+
   if(ARROW_GGDB_DEBUG)
     set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
     set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
