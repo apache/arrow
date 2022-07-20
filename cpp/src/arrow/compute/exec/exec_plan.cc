@@ -89,10 +89,11 @@ struct ExecPlanImpl : public ExecPlan {
   Status ScheduleTask(std::function<Status()> fn) {
     auto executor = exec_context_->executor();
     if (!executor) return fn();
-    // Atomically submit fn to the executor, and if successful
-    // add it to the task group.
-    return task_group_.AddTaskIfNotEnded(
-        [executor, fn]() { return executor->Submit(std::move(fn)); });
+    // Adds a task which submits fn to the executor and tracks its progress.  If we're
+    // already stopping then the task is ignored and fn is not executed.
+    return task_group_
+        .AddTaskIfNotEnded([executor, fn]() { return executor->Submit(std::move(fn)); })
+        .status();
   }
 
   Status ScheduleTask(std::function<Status(size_t)> fn) {
