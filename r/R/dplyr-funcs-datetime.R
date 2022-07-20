@@ -587,13 +587,15 @@ register_bindings_datetime_parsers <- function() {
 
   parser_map_factory <- function(order) {
     force(order)
-    function(x, tz = NULL) {
+    function(x, quiet = TRUE, tz = NULL, locale = NULL, truncated = 0) {
+      if (!is.null(locale)) {
+        arrow_not_supported("`locale`")
+      }
       # Parsers returning datetimes return UTC by default and never return dates.
       if (is.null(tz) && nchar(order) > 3) {
         tz <- "UTC"
       }
-
-      parse_x <- call_binding("parse_date_time", x, order, tz)
+      parse_x <- call_binding("parse_date_time", x, order, tz, truncated, quiet)
       if (is.null(tz)) {
         # we cast so we can mimic the behaviour of the `tz` argument in lubridate
         # "If NULL (default), a Date object is returned. Otherwise a POSIXct with

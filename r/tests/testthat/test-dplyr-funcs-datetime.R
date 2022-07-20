@@ -2284,6 +2284,26 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     test_dates_times
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms("2022-07-19 20:24:43"),
+        ymd_hm_dttm = ymd_hm("2022-07-19 20:24"),
+        ymd_h_dttm = ymd_h("2022-07-19 20"),
+        dmy_hms_dttm = dmy_hms("19-07-2022 20:24:43"),
+        dmy_hm_dttm = dmy_hm("19-07-2022 20:24"),
+        dmy_h_dttm = dmy_h("19-07-2022 20"),
+        mdy_hms_dttm = mdy_hms("07-19-2022 20:24:43"),
+        mdy_hm_dttm = mdy_hm("07-19-2022 20:24"),
+        mdy_h_dttm = mdy_h("07-19-2022 20"),
+        ydm_hms_dttm = ydm_hms("2022-19-07 20:24:43"),
+        ydm_hm_dttm = ydm_hm("2022-19-07 20:24"),
+        ydm_h_dttm = ydm_h("2022-19-07 20")
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
   # test ymd_ims
   compare_dplyr_binding(
     .input %>%
@@ -2375,6 +2395,26 @@ test_that("parse_date_time with month names and HMS", {
         ydm_hms_dttm = ydm_hms(ydm_hms_string),
         ydm_hm_dttm  = ydm_hm(ydm_hm_string),
         ydm_h_dttm   = ydm_h(ydm_h_string)
+      ) %>%
+      collect(),
+    test_dates_times2
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms("2022-June-19 20:24:43"),
+        ymd_hm_dttm = ymd_hm("2022-June-19 20:24"),
+        ymd_h_dttm = ymd_h("2022-June-19 20"),
+        dmy_hms_dttm = dmy_hms("19-June-2022 20:24:43"),
+        dmy_hm_dttm = dmy_hm("19-June-2022 20:24"),
+        dmy_h_dttm = dmy_h("19-June-2022 20"),
+        mdy_hms_dttm = mdy_hms("June-19-2022 20:24:43"),
+        mdy_hm_dttm = mdy_hm("June-19-2022 20:24"),
+        mdy_h_dttm = mdy_h("June-19-2022 20"),
+        ydm_hms_dttm = ydm_hms("2022-19-June 20:24:43"),
+        ydm_hm_dttm = ydm_hm("2022-19-June 20:24"),
+        ydm_h_dttm = ydm_h("2022-19-June 20")
       ) %>%
       collect(),
     test_dates_times2
