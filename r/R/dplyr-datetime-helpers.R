@@ -418,9 +418,19 @@ build_strptime_exprs <- function(x, formats) {
   )
 }
 
-
+# This function parses the "unit" argument to round_date, floor_date, and
+# ceiling_date. The input x is a single string like "second", "3 seconds",
+# "10 microseconds" or "2 secs" used to specify the size of the unit to
+# which the temporal data should be rounded. The matching rules implemented
+# are designed to mirror lubridate exactly: it extracts the numeric multiple
+# from the start of the string (preseumed to be 1 if no number is present)
+# and selects the unit by looking at the first 3 characters only. This choice
+# ensures that "secs", "second", "microsecs" etc are all valid, but it is
+# very permissive and would interpret "mickeys" as microseconds. This
+# permissive implementation mirrors the corresponding implementation in
+# lubridate. The return value is a list with integer-valued components
+# "multiple" and  "unit"
 parse_period_unit <- function(x) {
-
   # the regexp matches against fractional units, but per lubridate
   # supports integer multiples of a known unit only
   match_info <- regexpr(
@@ -474,7 +484,6 @@ parse_period_unit <- function(x) {
     multiple <- as.integer(multiple)
   }
 
-
   # more special cases: lubridate imposes sensible maximum
   # values on the number of seconds, minutes and hours
   if (unit == 3L && multiple > 60) {
@@ -487,14 +496,12 @@ parse_period_unit <- function(x) {
     abort("Rounding with hour > 24 is not supported")
   }
 
-  return(list(unit = unit, multiple = multiple))
+  list(unit = unit, multiple = multiple)
 }
-
 
 # handles round/ceil/floor when unit is week and week_start is
 # a non-standard value (not Monday or Sunday)
 shift_temporal_to_week <- function(fn, x, week_start, options) {
-
   if (week_start == 7) { # Sunday
     options$week_starts_monday <- FALSE
     return(Expression$create(fn, x, options = options))
@@ -517,19 +524,20 @@ shift_temporal_to_week <- function(fn, x, week_start, options) {
   } else {
     shifted_date <- shift_timestamp_to_week(fn, x, offset, options = options)
   }
-  return(shifted_date)
+
+  shifted_date
 }
 
 # timestamp input should remain timestamp
 shift_timestamp_to_week <- function(fn, x, offset, options) {
-
   offset_seconds <- build_expr(
     "cast",
     Scalar$create(offset * 86400L, int64()),
     options = cast_options(to_type = duration(unit = "s"))
   )
   shift_offset <- build_expr(fn, x - offset_seconds, options = options)
-  return(shift_offset + offset_seconds)
+
+  shift_offset + offset_seconds
 }
 
 # to avoid date32 types being cast to timestamp during the temporal
@@ -537,7 +545,6 @@ shift_timestamp_to_week <- function(fn, x, offset, options) {
 # use integer arithmetic: this feels inelegant, but it ensures that
 # temporal rounding functions remain type stable
 shift_date32_to_week <- function(fn, x, offset, options) {
-
   # offset the date
   offset <- Expression$scalar(Scalar$create(offset, int32()))
   x_int <- build_expr("cast", x, options = cast_options(to_type = int32()))
@@ -550,6 +557,6 @@ shift_date32_to_week <- function(fn, x, offset, options) {
   # undo offset and return
   shift_int_offset <- build_expr("cast", shift_offset, options = cast_options(to_type = int32()))
   shift_int <- shift_int_offset + offset
-  shift <- build_expr("cast", shift_int, options = cast_options(to_type = date32()))
-  return(shift)
+
+  build_expr("cast", shift_int, options = cast_options(to_type = date32()))
 }
