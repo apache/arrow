@@ -119,7 +119,6 @@ struct SourceNode : ExecNode {
                          -> Future<ControlFlow<int>> {
                        std::unique_lock<std::mutex> lock(mutex_);
                        if (IsIterationEnd(maybe_batch) || stop_requested_) {
-                         stop_requested_ = true;
                          return Break(total_batches);
                        }
                        lock.unlock();
@@ -137,25 +136,16 @@ struct SourceNode : ExecNode {
                        return Future<ControlFlow<int>>::MakeFinished(Continue());
                      },
                      [=](const Status& error) -> ControlFlow<int> {
-                       std::unique_lock<std::mutex> lock(mutex_);
-                       stop_requested_ = true;
-                       lock.unlock();
                        outputs_[0]->ErrorReceived(this, error);
-                       finished_.MarkFinished(error);
                        return Break(total_batches);
                      },
                      options);
                })
                    .Then(
                        [this, scan_task](int total_batches) mutable {
-                         std::unique_lock<std::mutex> lock(mutex_);
-                         bool should_mark_finished = !finished_.is_finished();
-                         lock.unlock();
                          outputs_[0]->InputFinished(this, total_batches);
                          scan_task.MarkFinished();
-                         if (should_mark_finished) {
-                           finished_.MarkFinished();
-                         }
+                         finished_.MarkFinished();
                        },
                        {}, options);
     if (!executor && finished_.is_finished()) return finished_.status();

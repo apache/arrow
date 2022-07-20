@@ -537,7 +537,7 @@ TEST(FutureStressTest, DeleteAfterWait) {
         SleepABit();
         future->MarkFinished();
       });
-      ASSERT_TRUE(future->Wait(100));
+      ASSERT_TRUE(future->Wait(arrow::kDefaultAssertFinishesWaitSeconds));
       future.reset();
       t.join();
     }

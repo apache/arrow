@@ -73,12 +73,13 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   ///
   /// This should be avoided if possible.  It is kept in for now for legacy
   /// purposes.  This should be called before the external task is started.  If
-  /// a future is returned then it should be marked complete when the external
-  /// task has finished.
+  /// a valid future is returned then it should be marked complete when the
+  /// external task has finished.
   ///
-  /// \return nullopt if the plan has already ended, otherwise this returns
-  ///         a future that must be completed when the external task finishes
-  Result<util::optional<Future<>>> BeginExternalTask();
+  /// \return an invalid future if the plan has already ended, otherwise this
+  ///         returns a future that must be completed when the external task
+  ///         finishes.
+  Result<Future<>> BeginExternalTask();
 
   /// \brief Add a single function as a task to the plan's task group.
   ///

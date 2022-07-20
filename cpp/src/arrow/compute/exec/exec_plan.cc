@@ -74,14 +74,16 @@ struct ExecPlanImpl : public ExecPlan {
     return nodes_.back().get();
   }
 
-  Result<util::optional<Future<>>> BeginExternalTask() {
+  Result<Future<>> BeginExternalTask() {
     Future<> completion_future = Future<>::Make();
     ARROW_ASSIGN_OR_RAISE(bool task_added,
                           task_group_.AddTaskIfNotEnded(completion_future));
     if (task_added) {
       return std::move(completion_future);
     }
-    return util::nullopt;
+    // Return an invalid future if we were already finished to signal to the
+    // caller that they should not begin the task
+    return Future<>{};
   }
 
   Status ScheduleTask(std::function<Status()> fn) {
@@ -363,7 +365,7 @@ const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->si
 size_t ExecPlan::GetThreadIndex() { return ToDerived(this)->GetThreadIndex(); }
 size_t ExecPlan::max_concurrency() const { return ToDerived(this)->max_concurrency(); }
 
-Result<util::optional<Future<>>> ExecPlan::BeginExternalTask() {
+Result<Future<>> ExecPlan::BeginExternalTask() {
   return ToDerived(this)->BeginExternalTask();
 }
 

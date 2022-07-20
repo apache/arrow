@@ -339,6 +339,9 @@ class ConcreteFutureImpl : public FutureImpl {
       if (waiter_ != nullptr) {
         waiter_->MarkFutureFinishedUnlocked(waiter_arg_, state);
       }
+      // We need to notify while holding the lock.  This notify often triggers
+      // waiters to delete the future and it is not safe to delete a cv_ while
+      // it is performing a notify_all
       cv_.notify_all();
     }
     if (callbacks.empty()) return;
