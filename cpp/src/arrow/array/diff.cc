@@ -633,6 +633,10 @@ class MakeFormatterImpl {
     return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 
+  Status Visit(const RunLengthEncodedType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
   template <typename T, bool AddEpoch>
   Formatter MakeTimeFormatter(const std::string& fmt_str) {
     return [fmt_str](const Array& array, int64_t index, std::ostream* os) {
