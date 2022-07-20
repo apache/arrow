@@ -126,7 +126,7 @@ struct ReplaceMaskImpl<
     std::shared_ptr<Scalar> null_scalar;
     if (!mask.is_valid) {
       // Output = null
-      null_scalar = MakeNullScalar(out->type()->Copy());
+      null_scalar = MakeNullScalar(out->type()->GetSharedPtr());
       source.SetScalar(null_scalar.get());
     } else if (mask.value) {
       // Output = replacement
@@ -238,7 +238,7 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
       // Output = null
       ARROW_ASSIGN_OR_RAISE(
           auto replacement_array,
-          MakeArrayOfNull(array.type->Copy(), array.length, ctx->memory_pool()));
+          MakeArrayOfNull(array.type->GetSharedPtr(), array.length, ctx->memory_pool()));
       out->value = std::move(replacement_array->data());
       return replacements_offset;
     } else if (mask.value) {
@@ -269,7 +269,7 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
                                        const ArraySpan& mask, int64_t mask_offset,
                                        ExecValue replacements,
                                        int64_t replacements_offset, ExecResult* out) {
-    BuilderType builder(array.type->Copy(), ctx->memory_pool());
+    BuilderType builder(array.type->GetSharedPtr(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(array.length));
     RETURN_NOT_OK(builder.ReserveData(array.buffers[2].size));
     int64_t source_offset = 0;
@@ -312,7 +312,7 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
     std::shared_ptr<ArrayData> temp_output;
     RETURN_NOT_OK(builder.FinishInternal(&temp_output));
     // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
-    temp_output->type = array.type->Copy();
+    temp_output->type = array.type->GetSharedPtr();
     out->value = std::move(temp_output);
     return replacements_offset;
   }
@@ -376,9 +376,8 @@ struct ReplaceMask {
   }
 
   static std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
-    return KernelSignature::Make(
-        {InputType::Array(get_id.id), InputType(boolean()), InputType(get_id.id)},
-        OutputType(FirstType));
+    return KernelSignature::Make({InputType(get_id.id), boolean(), InputType(get_id.id)},
+                                 FirstType);
   }
 };
 
@@ -545,7 +544,7 @@ struct FillNullImpl<Type, enable_if_base_binary<Type>> {
                      int64_t* last_valid_value_offset) {
     ArrayData* out_arr = out->array_data().get();
 
-    BuilderType builder(current_chunk.type->Copy(), ctx->memory_pool());
+    BuilderType builder(current_chunk.type->GetSharedPtr(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(current_chunk.length));
     RETURN_NOT_OK(builder.ReserveData(current_chunk.buffers[2].size));
     int64_t array_value_index = direction == 1 ? 0 : current_chunk.length - 1;
@@ -620,7 +619,7 @@ struct FillNullImpl<Type, enable_if_base_binary<Type>> {
     RETURN_NOT_OK(builder.Finish(&temp_output));
     out->value = std::move(temp_output->data());
     // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
-    out->array_data()->type = current_chunk.type->Copy();
+    out->array_data()->type = current_chunk.type->GetSharedPtr();
     return Status::OK();
   }
 };
@@ -668,7 +667,7 @@ struct FillNullForward {
   }
 
   static std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
-    return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
+    return KernelSignature::Make({InputType(get_id.id)}, FirstType);
   }
 };
 
@@ -748,7 +747,7 @@ struct FillNullBackward {
   }
 
   static std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
-    return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
+    return KernelSignature::Make({InputType(get_id.id)}, FirstType);
   }
 };
 

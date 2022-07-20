@@ -170,6 +170,7 @@ type BinaryBuilderIFace interface {
 	ReserveData(int)
 	Retain()
 	Resize(int)
+	ResizeData(int)
 	Release()
 	DataLen() int
 	Value(int) []byte
@@ -216,6 +217,7 @@ func (BinaryMemoTable) TypeTraits() TypeTraits {
 func (s *BinaryMemoTable) Reset() {
 	s.tbl.Reset(32)
 	s.builder.Resize(0)
+	s.builder.ResizeData(0)
 	s.builder.Reserve(int(32))
 	s.builder.ReserveData(int(32) * 4)
 	s.nullIdx = KeyNotFound
@@ -370,12 +372,13 @@ func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int32) {
 
 	first := b.findOffset(0)
 	delta := b.findOffset(start)
-	for i := start; i < b.Size(); i++ {
+	sz := b.Size()
+	for i := start; i < sz; i++ {
 		offset := int32(b.findOffset(i) - delta)
 		out[i-start] = offset
 	}
 
-	out[b.Size()-start] = int32(b.builder.DataLen() - (int(delta) - int(first)))
+	out[sz-start] = int32(b.builder.DataLen() - (int(delta) - int(first)))
 }
 
 // CopyValues copies the raw binary data bytes out, out should be a []byte

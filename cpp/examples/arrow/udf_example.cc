@@ -31,15 +31,6 @@
 
 namespace cp = ::arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 template <typename TYPE,
           typename = typename std::enable_if<arrow::is_number_type<TYPE>::value |
                                              arrow::is_boolean_type<TYPE>::value |
@@ -75,10 +66,8 @@ arrow::Status SampleFunction(cp::KernelContext* ctx, const cp::ExecSpan& batch,
 arrow::Status Execute() {
   const std::string name = "add_three";
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Ternary(), func_doc);
-  cp::ScalarKernel kernel(
-      {cp::InputType::Array(arrow::int64()), cp::InputType::Array(arrow::int64()),
-       cp::InputType::Array(arrow::int64())},
-      arrow::int64(), SampleFunction);
+  cp::ScalarKernel kernel({arrow::int64(), arrow::int64(), arrow::int64()},
+                          arrow::int64(), SampleFunction);
 
   kernel.mem_allocation = cp::MemAllocation::PREALLOCATE;
   kernel.null_handling = cp::NullHandling::INTERSECTION;

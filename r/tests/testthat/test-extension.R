@@ -183,7 +183,7 @@ test_that("vctrs extension type works", {
   expect_r6_class(type, "VctrsExtensionType")
   expect_identical(type$ptype(), vctrs::vec_ptype(custom_vctr))
   expect_true(type$Equals(type))
-  expect_match(type$ToString(), "arrow_custom_test")
+  expect_identical(type$ToString(), "<arrow_custom_test[0]>")
 
   array_in <- vctrs_extension_array(custom_vctr)
   expect_true(array_in$type$Equals(type))

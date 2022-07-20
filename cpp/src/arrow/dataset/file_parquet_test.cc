@@ -218,6 +218,8 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
 
+TEST_F(TestParquetFileFormat, FragmentEquals) { TestFragmentEquals(); }
+
 TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;

@@ -46,8 +46,8 @@ namespace compute {
 /// Does not support nested types
 class RowTableEncoder {
  public:
-  void Init(const std::vector<KeyColumnMetadata>& cols, LightContext* ctx,
-            int row_alignment, int string_alignment);
+  void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
+            int string_alignment);
 
   const RowTableMetadata& row_metadata() { return row_metadata_; }
   // GrouperFastImpl right now needs somewhat intrusive visibility into RowTableEncoder
@@ -84,7 +84,8 @@ class RowTableEncoder {
   /// for the call to DecodeVaryingLengthBuffers
   void DecodeFixedLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                 int64_t num_rows, const RowTableImpl& rows,
-                                std::vector<KeyColumnArray>* cols);
+                                std::vector<KeyColumnArray>* cols, int64_t hardware_flags,
+                                util::TempVectorStack* temp_stack);
 
   /// \brief Decode the varlength columns of a row table into column storage
   /// \param start_row_input The starting row to decode
@@ -94,7 +95,9 @@ class RowTableEncoder {
   /// \param cols The column arrays to decode into
   void DecodeVaryingLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                   int64_t num_rows, const RowTableImpl& rows,
-                                  std::vector<KeyColumnArray>* cols);
+                                  std::vector<KeyColumnArray>* cols,
+                                  int64_t hardware_flags,
+                                  util::TempVectorStack* temp_stack);
 
  private:
   /// Prepare column array vectors.
@@ -106,8 +109,6 @@ class RowTableEncoder {
   /// - varying-length columns only
   void PrepareKeyColumnArrays(int64_t start_row, int64_t num_rows,
                               const std::vector<KeyColumnArray>& cols_in);
-
-  LightContext* ctx_;
 
   // Data initialized once, based on data types of key columns
   RowTableMetadata row_metadata_;

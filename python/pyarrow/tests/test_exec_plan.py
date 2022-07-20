@@ -134,20 +134,24 @@ def test_table_join_collisions():
 
     result = ep._perform_join(
         "full outer", t1, ["colA", "colB"], t2, ["colA", "colB"])
-    assert result.combine_chunks() == pa.table([
-        [1, 2, 6, None],
-        [10, 20, 60, None],
-        ["a", "b", "f", None],
-        [10, 20, None, 99],
-        ["A", "B", None, "Z"],
-        [300, 200, None, 100],
-        [1, 2, None, 99],
+    result = result.combine_chunks()
+    result = result.sort_by("colUniq")
+    assert result == pa.table([
+        [None, 2, 1, 6],
+        [None, 20, 10, 60],
+        [None, "b", "a", "f"],
+        [99, 20, 10, None],
+        ["Z", "B", "A", None],
+        [100, 200, 300, None],
+        [99, 2, 1, None],
     ], names=["colA", "colB", "colVals", "colB", "colVals", "colUniq", "colA"])
 
     result = ep._perform_join("full outer", t1, "colA",
                               t2, "colA", right_suffix="_r",
                               coalesce_keys=False)
-    assert result.combine_chunks() == pa.table({
+    result = result.combine_chunks()
+    result = result.sort_by("colA")
+    assert result == pa.table({
         "colA": [1, 2, 6, None],
         "colB": [10, 20, 60, None],
         "colVals": ["a", "b", "f", None],
@@ -160,7 +164,9 @@ def test_table_join_collisions():
     result = ep._perform_join("full outer", t1, "colA",
                               t2, "colA", right_suffix="_r",
                               coalesce_keys=True)
-    assert result.combine_chunks() == pa.table({
+    result = result.combine_chunks()
+    result = result.sort_by("colA")
+    assert result == pa.table({
         "colA": [1, 2, 6, 99],
         "colB": [10, 20, 60, None],
         "colVals": ["a", "b", "f", None],
@@ -185,7 +191,9 @@ def test_table_join_keys_order():
     result = ep._perform_join("full outer", t1, "colA", t2, "colX",
                               left_suffix="_l", right_suffix="_r",
                               coalesce_keys=True)
-    assert result.combine_chunks() == pa.table({
+    result = result.combine_chunks()
+    result = result.sort_by("colA")
+    assert result == pa.table({
         "colB": [10, 20, 60, None],
         "colA": [1, 2, 6, 99],
         "colVals_l": ["a", "b", "f", None],

@@ -209,8 +209,7 @@ struct ARROW_EXPORT ExecBatch {
   /// case, it would have scalar rows with length greater than 1.
   ///
   /// If the array values are of length 0 then the length is 0 regardless of
-  /// whether any values are Scalar. In general ExecBatch objects are produced
-  /// by ExecBatchIterator which by design does not yield length-0 batches.
+  /// whether any values are Scalar.
   int64_t length = 0;
 
   /// \brief The sum of bytes in each buffer referenced by the batch
@@ -235,12 +234,11 @@ struct ARROW_EXPORT ExecBatch {
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
 
-  /// \brief A convenience for returning the ValueDescr objects (types and
-  /// shapes) from the batch.
-  std::vector<ValueDescr> GetDescriptors() const {
-    std::vector<ValueDescr> result;
+  /// \brief A convenience for returning the types from the batch.
+  std::vector<TypeHolder> GetTypes() const {
+    std::vector<TypeHolder> result;
     for (const auto& value : this->values) {
-      result.emplace_back(value.descr());
+      result.emplace_back(value.type());
     }
     return result;
   }
@@ -254,19 +252,16 @@ inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
 struct ExecValue {
-  enum Kind { ARRAY, SCALAR };
-  Kind kind = ARRAY;
-  ArraySpan array;
-  const Scalar* scalar;
+  ArraySpan array = {};
+  const Scalar* scalar = NULLPTR;
 
   ExecValue(Scalar* scalar)  // NOLINT implicit conversion
-      : kind(SCALAR), scalar(scalar) {}
+      : scalar(scalar) {}
 
   ExecValue(ArraySpan array)  // NOLINT implicit conversion
-      : kind(ARRAY), array(std::move(array)) {}
+      : array(std::move(array)) {}
 
-  ExecValue(const ArrayData& array)  // NOLINT implicit conversion
-      : kind(ARRAY) {
+  ExecValue(const ArrayData& array) {  // NOLINT implicit conversion
     this->array.SetMembers(array);
   }
 
@@ -278,29 +273,19 @@ struct ExecValue {
 
   int64_t length() const { return this->is_array() ? this->array.length : 1; }
 
-  bool is_array() const { return this->kind == ARRAY; }
-  bool is_scalar() const { return this->kind == SCALAR; }
+  bool is_array() const { return this->scalar == NULLPTR; }
+  bool is_scalar() const { return !this->is_array(); }
 
   void SetArray(const ArrayData& array) {
-    this->kind = ARRAY;
     this->array.SetMembers(array);
+    this->scalar = NULLPTR;
   }
 
-  void SetScalar(const Scalar* scalar) {
-    this->kind = SCALAR;
-    this->scalar = scalar;
-  }
+  void SetScalar(const Scalar* scalar) { this->scalar = scalar; }
 
   template <typename ExactType>
   const ExactType& scalar_as() const {
     return ::arrow::internal::checked_cast<const ExactType&>(*this->scalar);
-  }
-
-  /// XXX: here only temporarily until type resolution can be cleaned
-  /// up to not use ValueDescr
-  ValueDescr descr() const {
-    ValueDescr::Shape shape = this->is_array() ? ValueDescr::ARRAY : ValueDescr::SCALAR;
-    return ValueDescr(const_cast<DataType*>(this->type())->shared_from_this(), shape);
   }
 
   /// XXX: here temporarily for compatibility with datum, see
@@ -314,7 +299,7 @@ struct ExecValue {
   }
 
   const DataType* type() const {
-    if (this->kind == ARRAY) {
+    if (this->is_array()) {
       return array.type;
     } else {
       return scalar->type.get();
@@ -324,29 +309,21 @@ struct ExecValue {
 
 struct ARROW_EXPORT ExecResult {
   // The default value of the variant is ArraySpan
-  // TODO(wesm): remove Scalar output modality in ARROW-16577
-  util::Variant<ArraySpan, std::shared_ptr<ArrayData>, std::shared_ptr<Scalar>> value;
+  util::Variant<ArraySpan, std::shared_ptr<ArrayData>> value;
 
   int64_t length() const {
     if (this->is_array_span()) {
       return this->array_span()->length;
-    } else if (this->is_array_data()) {
-      return this->array_data()->length;
     } else {
-      // Should not reach here
-      return 1;
+      return this->array_data()->length;
     }
   }
 
   const DataType* type() const {
-    switch (this->value.index()) {
-      case 0:
-        return this->array_span()->type;
-      case 1:
-        return this->array_data()->type.get();
-      default:
-        // scalar
-        return this->scalar()->type.get();
+    if (this->is_array_span()) {
+      return this->array_span()->type;
+    } else {
+      return this->array_data()->type.get();
     }
   }
 
@@ -360,12 +337,6 @@ struct ARROW_EXPORT ExecResult {
   }
 
   bool is_array_data() const { return this->value.index() == 1; }
-
-  const std::shared_ptr<Scalar>& scalar() const {
-    return util::get<std::shared_ptr<Scalar>>(this->value);
-  }
-
-  bool is_scalar() const { return this->value.index() == 2; }
 };
 
 /// \brief A "lightweight" column batch object which contains no
@@ -395,46 +366,32 @@ struct ARROW_EXPORT ExecSpan {
     }
   }
 
-  bool is_all_scalar() const {
-    for (const ExecValue& value : this->values) {
-      if (value.is_array()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   /// \brief Return the value at the i-th index
   template <typename index_type>
   inline const ExecValue& operator[](index_type i) const {
     return values[i];
   }
 
-  void AddOffset(int64_t offset) {
-    for (ExecValue& value : values) {
-      if (value.kind == ExecValue::ARRAY) {
-        value.array.AddOffset(offset);
-      }
-    }
-  }
-
-  void SetOffset(int64_t offset) {
-    for (ExecValue& value : values) {
-      if (value.kind == ExecValue::ARRAY) {
-        value.array.SetOffset(offset);
-      }
-    }
-  }
-
   /// \brief A convenience for the number of values / arguments.
   int num_values() const { return static_cast<int>(values.size()); }
 
-  // XXX: eliminate the need for ValueDescr; copied temporarily from
-  // ExecBatch
-  std::vector<ValueDescr> GetDescriptors() const {
-    std::vector<ValueDescr> result;
+  std::vector<TypeHolder> GetTypes() const {
+    std::vector<TypeHolder> result;
     for (const auto& value : this->values) {
-      result.emplace_back(value.descr());
+      result.emplace_back(value.type());
+    }
+    return result;
+  }
+
+  ExecBatch ToExecBatch() const {
+    ExecBatch result;
+    result.length = this->length;
+    for (const ExecValue& value : this->values) {
+      if (value.is_array()) {
+        result.values.push_back(value.array.ToArrayData());
+      } else {
+        result.values.push_back(value.scalar->GetSharedPtr());
+      }
     }
     return result;
   }

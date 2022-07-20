@@ -26,6 +26,9 @@ pushd ${source_dir}
 
 printenv
 
+# Run the nixlibs.R test suite, which is not included in the installed package
+ ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+
 # Before release, we always copy the relevant parts of the cpp source into the
 # package. In some CI checks, we will use this version of the source:
 # this is done by setting ARROW_SOURCE_HOME to something other than "/arrow"

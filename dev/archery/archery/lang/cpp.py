@@ -222,7 +222,6 @@ class CppConfiguration:
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
         yield ("ARROW_GCS", truthifier(self.with_gcs))
         yield ("ARROW_HDFS", truthifier(self.with_hdfs))
-        yield ("ARROW_HIVESERVER2", truthifier(self.with_hiveserver2))
         yield ("ARROW_IPC", truthifier(self.with_ipc))
         yield ("ARROW_JSON", truthifier(self.with_json))
         yield ("ARROW_JNI", truthifier(self.with_jni))

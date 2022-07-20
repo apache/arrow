@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/flight/sql/types.h"
+#include "arrow/flight/sql/visibility.h"
 
 namespace arrow {
 namespace flight {
@@ -26,7 +27,7 @@ namespace internal {
 
 /// \brief Auxiliary class used to populate GetSqlInfo's DenseUnionArray with different
 /// data types.
-class SqlInfoResultAppender {
+class ARROW_FLIGHT_SQL_EXPORT SqlInfoResultAppender {
  public:
   /// \brief Append a string to the DenseUnionBuilder.
   /// \param[in] value Value to be appended.

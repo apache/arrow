@@ -29,9 +29,11 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/config.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/tracing.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -263,6 +265,10 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
   static std::unique_ptr<FutureImpl> Make();
   static std::unique_ptr<FutureImpl> MakeFinished(FutureState state);
 
+#ifdef ARROW_WITH_OPENTELEMETRY
+  void SetSpan(util::tracing::Span* span) { span_ = span; }
+#endif
+
   // Future API
   void MarkFinished();
   void MarkFailed();
@@ -294,6 +300,9 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
     CallbackOptions options;
   };
   std::vector<CallbackRecord> callbacks_;
+#ifdef ARROW_WITH_OPENTELEMETRY
+  util::tracing::Span* span_ = NULLPTR;
+#endif
 };
 
 // An object that waits on multiple futures at once.  Only one waiter
@@ -377,6 +386,10 @@ class ARROW_MUST_USE_TYPE Future {
   // for a valid Future.  This constructor is mostly for the convenience
   // of being able to presize a vector of Futures.
   Future() = default;
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+  void SetSpan(util::tracing::Span* span) { impl_->SetSpan(span); }
+#endif
 
   // Consumer API
 

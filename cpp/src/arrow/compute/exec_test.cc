@@ -659,149 +659,17 @@ TEST_F(TestPropagateNullsSpans, NullOutputTypeNoop) {
 }
 
 // ----------------------------------------------------------------------
-// ExecBatchIterator
-
-class TestExecBatchIterator : public TestComputeInternals {
- public:
-  void SetupIterator(std::vector<Datum> args,
-                     int64_t max_chunksize = kDefaultMaxChunksize) {
-    ASSERT_OK_AND_ASSIGN(iterator_,
-                         ExecBatchIterator::Make(std::move(args), max_chunksize));
-  }
-  void CheckIteration(const std::vector<Datum>& args, int chunksize,
-                      const std::vector<int>& ex_batch_sizes) {
-    SetupIterator(args, chunksize);
-    ExecBatch batch;
-    int64_t position = 0;
-    for (size_t i = 0; i < ex_batch_sizes.size(); ++i) {
-      ASSERT_EQ(position, iterator_->position());
-      ASSERT_TRUE(iterator_->Next(&batch));
-      ASSERT_EQ(ex_batch_sizes[i], batch.length);
-
-      for (size_t j = 0; j < args.size(); ++j) {
-        switch (args[j].kind()) {
-          case Datum::SCALAR:
-            ASSERT_TRUE(args[j].scalar()->Equals(batch[j].scalar()));
-            break;
-          case Datum::ARRAY:
-            AssertArraysEqual(*args[j].make_array()->Slice(position, batch.length),
-                              *batch[j].make_array());
-            break;
-          case Datum::CHUNKED_ARRAY: {
-            const ChunkedArray& carr = *args[j].chunked_array();
-            if (batch.length == 0) {
-              ASSERT_EQ(0, carr.length());
-            } else {
-              auto arg_slice = carr.Slice(position, batch.length);
-              // The sliced ChunkedArrays should only ever be 1 chunk
-              ASSERT_EQ(1, arg_slice->num_chunks());
-              AssertArraysEqual(*arg_slice->chunk(0), *batch[j].make_array());
-            }
-          } break;
-          default:
-            break;
-        }
-      }
-      position += ex_batch_sizes[i];
-    }
-    // Ensure that the iterator is exhausted
-    ASSERT_FALSE(iterator_->Next(&batch));
-
-    ASSERT_EQ(iterator_->length(), iterator_->position());
-  }
-
- protected:
-  std::unique_ptr<ExecBatchIterator> iterator_;
-};
-
-TEST_F(TestExecBatchIterator, Basics) {
-  const int64_t length = 100;
-
-  // Simple case with a single chunk
-  std::vector<Datum> args = {Datum(GetInt32Array(length)), Datum(GetFloat64Array(length)),
-                             Datum(std::make_shared<Int32Scalar>(3))};
-  SetupIterator(args);
-
-  ExecBatch batch;
-  ASSERT_TRUE(iterator_->Next(&batch));
-  ASSERT_EQ(3, batch.values.size());
-  ASSERT_EQ(3, batch.num_values());
-  ASSERT_EQ(length, batch.length);
-
-  std::vector<ValueDescr> descrs = batch.GetDescriptors();
-  ASSERT_EQ(ValueDescr::Array(int32()), descrs[0]);
-  ASSERT_EQ(ValueDescr::Array(float64()), descrs[1]);
-  ASSERT_EQ(ValueDescr::Scalar(int32()), descrs[2]);
-
-  AssertArraysEqual(*args[0].make_array(), *batch[0].make_array());
-  AssertArraysEqual(*args[1].make_array(), *batch[1].make_array());
-  ASSERT_TRUE(args[2].scalar()->Equals(batch[2].scalar()));
-
-  ASSERT_EQ(length, iterator_->position());
-  ASSERT_FALSE(iterator_->Next(&batch));
-
-  // Split into chunks of size 16
-  CheckIteration(args, /*chunksize=*/16, {16, 16, 16, 16, 16, 16, 4});
-}
-
-TEST_F(TestExecBatchIterator, InputValidation) {
-  std::vector<Datum> args = {Datum(GetInt32Array(10)), Datum(GetInt32Array(9))};
-  ASSERT_RAISES(Invalid, ExecBatchIterator::Make(args));
-
-  args = {Datum(GetInt32Array(9)), Datum(GetInt32Array(10))};
-  ASSERT_RAISES(Invalid, ExecBatchIterator::Make(args));
-
-  args = {Datum(GetInt32Array(10))};
-  ASSERT_OK_AND_ASSIGN(auto iterator, ExecBatchIterator::Make(args));
-  ASSERT_EQ(10, iterator->max_chunksize());
-}
-
-TEST_F(TestExecBatchIterator, ChunkedArrays) {
-  std::vector<Datum> args = {Datum(GetInt32Chunked({0, 20, 10})),
-                             Datum(GetInt32Chunked({15, 15})), Datum(GetInt32Array(30)),
-                             Datum(std::make_shared<Int32Scalar>(5)),
-                             Datum(MakeNullScalar(boolean()))};
-
-  CheckIteration(args, /*chunksize=*/10, {10, 5, 5, 10});
-  CheckIteration(args, /*chunksize=*/20, {15, 5, 10});
-  CheckIteration(args, /*chunksize=*/30, {15, 5, 10});
-}
-
-TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
-  auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
-
-  auto CheckArgs = [&](const std::vector<Datum>& args) {
-    auto iterator = ExecBatchIterator::Make(args).ValueOrDie();
-    ExecBatch batch;
-    ASSERT_FALSE(iterator->Next(&batch));
-  };
-
-  // Zero-length ChunkedArray with zero chunks
-  std::vector<Datum> args = {Datum(carr)};
-  CheckArgs(args);
-
-  // Zero-length array
-  args = {Datum(GetInt32Array(0))};
-  CheckArgs(args);
-
-  // ChunkedArray with single empty chunk
-  args = {Datum(GetInt32Chunked({0}))};
-  CheckArgs(args);
-}
-
-// ----------------------------------------------------------------------
 // ExecSpanIterator tests
 
 class TestExecSpanIterator : public TestComputeInternals {
  public:
   void SetupIterator(const ExecBatch& batch,
-                     ValueDescr::Shape output_shape = ValueDescr::ARRAY,
                      int64_t max_chunksize = kDefaultMaxChunksize) {
-    ASSERT_OK(iterator_.Init(batch, output_shape, max_chunksize));
+    ASSERT_OK(iterator_.Init(batch, max_chunksize));
   }
   void CheckIteration(const ExecBatch& input, int chunksize,
                       const std::vector<int>& ex_batch_sizes) {
-    SetupIterator(input, ValueDescr::ARRAY, chunksize);
+    SetupIterator(input, chunksize);
     ExecSpan batch;
     int64_t position = 0;
     for (size_t i = 0; i < ex_batch_sizes.size(); ++i) {
@@ -902,8 +770,10 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
-    ASSERT_OK(iterator.Init(batch, ValueDescr::ARRAY));
+    ASSERT_OK(iterator.Init(batch));
     ExecSpan iter_span;
+    ASSERT_TRUE(iterator.Next(&iter_span));
+    ASSERT_EQ(0, iter_span.length);
     ASSERT_FALSE(iterator.Next(&iter_span));
   };
 
@@ -1045,11 +915,13 @@ Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   return Status::OK();
 }
 
-// TODO: remove this / refactor it in ARROW-16577
 Status ExecAddInt32(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const Int32Scalar& arg0 = batch[0].scalar_as<Int32Scalar>();
-  const Int32Scalar& arg1 = batch[1].scalar_as<Int32Scalar>();
-  out->value = std::make_shared<Int32Scalar>(arg0.value + arg1.value);
+  const int32_t* left_data = batch[0].array.GetValues<int32_t>(1);
+  const int32_t* right_data = batch[1].array.GetValues<int32_t>(1);
+  int32_t* out_data = out->array_span()->GetValues<int32_t>(1);
+  for (int64_t i = 0; i < batch.length; ++i) {
+    *out_data++ = *left_data++ + *right_data++;
+  }
   return Status::OK();
 }
 
@@ -1078,16 +950,15 @@ class TestCallScalarFunction : public TestComputeInternals {
                                                  /*doc=*/FunctionDoc::Empty());
 
     // Add a few kernels. Our implementation only accepts arrays
-    ASSERT_OK(func->AddKernel({InputType::Array(uint8())}, uint8(), ExecCopyArraySpan));
-    ASSERT_OK(func->AddKernel({InputType::Array(int32())}, int32(), ExecCopyArraySpan));
-    ASSERT_OK(
-        func->AddKernel({InputType::Array(float64())}, float64(), ExecCopyArraySpan));
+    ASSERT_OK(func->AddKernel({uint8()}, uint8(), ExecCopyArraySpan));
+    ASSERT_OK(func->AddKernel({int32()}, int32(), ExecCopyArraySpan));
+    ASSERT_OK(func->AddKernel({float64()}, float64(), ExecCopyArraySpan));
     ASSERT_OK(registry->AddFunction(func));
 
     // A version which doesn't want the executor to call PropagateNulls
     auto func2 = std::make_shared<ScalarFunction>(
         "test_copy_computed_bitmap", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
-    ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecComputedBitmap);
+    ScalarKernel kernel({uint8()}, uint8(), ExecComputedBitmap);
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     ASSERT_OK(func2->AddKernel(kernel));
     ASSERT_OK(registry->AddFunction(func2));
@@ -1103,7 +974,7 @@ class TestCallScalarFunction : public TestComputeInternals {
     auto f2 = std::make_shared<ScalarFunction>(
         "test_nopre_validity_or_data", Arity::Unary(), /*doc=*/FunctionDoc::Empty());
 
-    ScalarKernel kernel({InputType::Array(uint8())}, uint8(), ExecNoPreallocatedData);
+    ScalarKernel kernel({uint8()}, uint8(), ExecNoPreallocatedData);
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     ASSERT_OK(f1->AddKernel(kernel));
 
@@ -1123,7 +994,7 @@ class TestCallScalarFunction : public TestComputeInternals {
     auto func = std::make_shared<ScalarFunction>("test_stateful", Arity::Unary(),
                                                  /*doc=*/FunctionDoc::Empty());
 
-    ScalarKernel kernel({InputType::Array(int32())}, int32(), ExecStateful, InitStateful);
+    ScalarKernel kernel({int32()}, int32(), ExecStateful, InitStateful);
     ASSERT_OK(func->AddKernel(kernel));
     ASSERT_OK(registry->AddFunction(func));
   }
@@ -1133,8 +1004,7 @@ class TestCallScalarFunction : public TestComputeInternals {
 
     auto func = std::make_shared<ScalarFunction>("test_scalar_add_int32", Arity::Binary(),
                                                  /*doc=*/FunctionDoc::Empty());
-    ASSERT_OK(func->AddKernel({InputType::Scalar(int32()), InputType::Scalar(int32())},
-                              int32(), ExecAddInt32));
+    ASSERT_OK(func->AddKernel({int32(), int32()}, int32(), ExecAddInt32));
     ASSERT_OK(registry->AddFunction(func));
   }
 };
@@ -1154,8 +1024,9 @@ TEST_F(TestCallScalarFunction, ArgumentValidation) {
   ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
 
   // Cannot do scalar
-  args = {Datum(std::make_shared<Int32Scalar>(5))};
-  ASSERT_RAISES(NotImplemented, CallFunction("test_copy", args));
+  Datum d1_scalar(std::make_shared<Int32Scalar>(5));
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("test_copy", {d1}));
+  ASSERT_OK_AND_ASSIGN(result, CallFunction("test_copy", {d1_scalar}));
 }
 
 TEST_F(TestCallScalarFunction, PreallocationCases) {

@@ -129,15 +129,51 @@ test_that("write_parquet() can truncate timestamps", {
   expect_equal(as.data.frame(tab), as.data.frame(new))
 })
 
-test_that("make_valid_version()", {
-  expect_equal(make_valid_version("1.0"), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version("2.0"), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version()", {
+  expect_equal(
+    make_valid_parquet_version("1.0"),
+    ParquetVersionType$PARQUET_1_0
+  )
+  expect_deprecated(
+    expect_equal(
+      make_valid_parquet_version("2.0"),
+      ParquetVersionType$PARQUET_2_0
+    )
+  )
+  expect_equal(
+    make_valid_parquet_version("2.4"),
+    ParquetVersionType$PARQUET_2_4
+  )
+  expect_equal(
+    make_valid_parquet_version("2.6"),
+    ParquetVersionType$PARQUET_2_6
+  )
+  expect_equal(
+    make_valid_parquet_version("latest"),
+    ParquetVersionType$PARQUET_2_6
+  )
 
-  expect_equal(make_valid_version(1), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2), ParquetVersionType$PARQUET_2_0)
+  expect_equal(make_valid_parquet_version(1), ParquetVersionType$PARQUET_1_0)
+  expect_deprecated(
+    expect_equal(make_valid_parquet_version(2), ParquetVersionType$PARQUET_2_0)
+  )
+  expect_equal(make_valid_parquet_version(1.0), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_parquet_version(2.4), ParquetVersionType$PARQUET_2_4)
+})
 
-  expect_equal(make_valid_version(1.0), ParquetVersionType$PARQUET_1_0)
-  expect_equal(make_valid_version(2.0), ParquetVersionType$PARQUET_2_0)
+test_that("make_valid_parquet_version() input validation", {
+  expect_error(
+    make_valid_parquet_version("0.3.14"),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(NULL),
+    "`version` must be one of"
+  )
+  expect_error(
+    make_valid_parquet_version(c("2", "4")),
+    "`version` must be one of"
+  )
 })
 
 test_that("write_parquet() defaults to snappy compression", {
@@ -239,7 +275,7 @@ test_that("write_parquet() handles version argument", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
-  purrr::walk(list("1.0", "2.0", 1.0, 2.0, 1L, 2L), ~ {
+  purrr::walk(list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L), ~ {
     write_parquet(df, tf, version = .x)
     expect_identical(read_parquet(tf), df)
   })

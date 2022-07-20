@@ -45,9 +45,10 @@ unless required_pkg_config_package([
                                      Arrow::Version::MICRO,
                                    ],
                                    debian: "libarrow-dev",
-                                   redhat: "arrow-devel",
+                                   fedora: "libarrow-devel",
                                    homebrew: "apache-arrow",
-                                   msys2: "arrow")
+                                   msys2: "arrow",
+                                   redhat: "arrow-devel")
   exit(false)
 end
 
@@ -58,9 +59,10 @@ unless required_pkg_config_package([
                                      Arrow::Version::MICRO,
                                    ],
                                    debian: "libarrow-glib-dev",
-                                   redhat: "arrow-glib-devel",
+                                   fedora: "libarrow-glib-devel",
                                    homebrew: "apache-arrow-glib",
-                                   msys2: "arrow")
+                                   msys2: "arrow",
+                                   redhat: "arrow-glib-devel")
   exit(false)
 end
 

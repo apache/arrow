@@ -175,6 +175,7 @@ func (e *ExtensionArrayBase) setData(data *Data) {
 	// our underlying storage needs to reference the same data buffers (no copying)
 	// but should have the storage type's datatype, so we create a Data for it.
 	storageData := NewData(extType.StorageType(), data.length, data.buffers, data.childData, data.nulls, data.offset)
+	storageData.SetDictionary(data.dictionary)
 	defer storageData.Release()
 	e.storage = MakeFromData(storageData).(arraymarshal)
 }
@@ -239,9 +240,8 @@ func (b *ExtensionBuilder) NewExtensionArray() ExtensionArray {
 	storage := b.Builder.NewArray()
 	defer storage.Release()
 
-	data := NewData(b.dt, storage.Len(), storage.Data().Buffers(), storage.Data().Children(), storage.Data().NullN(), 0)
-	defer data.Release()
-	return NewExtensionData(data)
+	storage.Data().(*Data).dtype = b.dt
+	return NewExtensionData(storage.Data())
 }
 
 var (

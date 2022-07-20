@@ -18,19 +18,22 @@
 class Decimal256ArrayTest < Test::Unit::TestCase
   sub_test_case(".new") do
     test("build") do
-      data_type = Arrow::Decimal256DataType.new(3, 1)
       values = [
         10.1,
         nil,
         "10.1",
         BigDecimal("10.1"),
+        BigDecimal("1.11"),
+        BigDecimal("1"),
       ]
-      array = Arrow::Decimal256Array.new(data_type, values)
+      array = Arrow::Decimal256Array.new({precision: 3, scale: 1}, values)
       assert_equal([
                      BigDecimal("10.1"),
                      nil,
                      BigDecimal("10.1"),
                      BigDecimal("10.1"),
+                     BigDecimal("1.1"),
+                     BigDecimal("1"),
                    ],
                    array.to_a)
     end

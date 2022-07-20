@@ -231,6 +231,12 @@ func (b *StringBuilder) Reserve(n int) {
 	b.builder.Reserve(n)
 }
 
+// ReserveData ensures there is enough space for appending n bytes
+// by checking the capacity and resizing the data buffer if necessary.
+func (b *StringBuilder) ReserveData(n int) {
+	b.builder.ReserveData(n)
+}
+
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *StringBuilder) Resize(n int) {

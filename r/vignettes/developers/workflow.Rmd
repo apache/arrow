@@ -7,7 +7,6 @@ knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 The Arrow R package uses several additional development tools:
 
 * [`lintr`](https://github.com/r-lib/lintr) for code analysis
-  - for the time being, the R package uses a custom version of lintr - `jonkeane/lintr@arrow-branch`
 * [`styler`](https://styler.r-lib.org) for code styling
 * [`pkgdown`](https://pkgdown.r-lib.org) for building the website
 * [`roxygen2`](https://roxygen2.r-lib.org) for documenting the package
@@ -16,8 +15,7 @@ The Arrow R package uses several additional development tools:
 You can install all these additional dependencies by running:
 
 ```r
-remotes::install_github("jonkeane/lintr@arrow-branch")
-install.packages(c("styler", "pkgdown", "roxygen2"))
+install.packages(c("lintr", "styler", "pkgdown", "roxygen2"))
 ```
 
 

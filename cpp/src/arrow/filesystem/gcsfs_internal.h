@@ -32,26 +32,26 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
-Status ToArrowStatus(const google::cloud::Status& s);
+ARROW_EXPORT Status ToArrowStatus(const google::cloud::Status& s);
 
-int ErrnoFromStatus(const google::cloud::Status& s);
+ARROW_EXPORT int ErrnoFromStatus(const google::cloud::Status& s);
 
-Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
+ARROW_EXPORT Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<google::cloud::storage::PredefinedAcl> ToPredefinedAcl(
+ARROW_EXPORT Result<google::cloud::storage::PredefinedAcl> ToPredefinedAcl(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
+ARROW_EXPORT Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
+ARROW_EXPORT Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
+ARROW_EXPORT Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     google::cloud::storage::ObjectMetadata const& m);
 
-std::int64_t Depth(arrow::util::string_view path);
+ARROW_EXPORT std::int64_t Depth(arrow::util::string_view path);
 
 }  // namespace internal
 }  // namespace fs

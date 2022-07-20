@@ -217,16 +217,31 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
 
     index_column_metadata = []
     if preserve_index is not False:
+        non_str_index_names = []
         for level, arrow_type, descriptor in zip(index_levels, index_types,
                                                  index_descriptors):
             if isinstance(descriptor, dict):
                 # The index is represented in a non-serialized fashion,
                 # e.g. RangeIndex
                 continue
-            metadata = get_column_metadata(level, name=level.name,
-                                           arrow_type=arrow_type,
-                                           field_name=descriptor)
+
+            if level.name is not None and not isinstance(level.name, str):
+                non_str_index_names.append(level.name)
+
+            metadata = get_column_metadata(
+                level,
+                name=_column_name_to_strings(level.name),
+                arrow_type=arrow_type,
+                field_name=descriptor,
+            )
             index_column_metadata.append(metadata)
+
+        if len(non_str_index_names) > 0:
+            warnings.warn(
+                f"The DataFrame has non-str index name `{non_str_index_names}`"
+                " which will be converted to string"
+                " and not roundtrip correctly.",
+                UserWarning, stacklevel=4)
 
         column_indexes = []
 
@@ -325,7 +340,7 @@ def _index_level_name(index, i, column_names):
     name : str
     """
     if index.name is not None and index.name not in column_names:
-        return index.name
+        return _column_name_to_strings(index.name)
     else:
         return '__index_level_{:d}__'.format(i)
 

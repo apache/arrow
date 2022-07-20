@@ -32,36 +32,29 @@ namespace compute {
 namespace internal {
 namespace {
 
-struct IsValidOperator {
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    Scalar* output = out->scalar().get();
-    checked_cast<BooleanScalar*>(output)->value = in.is_valid;
+Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& arr = batch[0].array;
+  ArraySpan* out_span = out->array_span();
+  if (arr.type->id() == Type::NA) {
+    // Input is all nulls => output is entirely false.
+    bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
+                        false);
     return Status::OK();
   }
 
-  static Status Call(KernelContext* ctx, const ArraySpan& arr, ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
-    if (arr.type->id() == Type::NA) {
-      // Input is all nulls => output is entirely false.
-      bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
-                          false);
-      return Status::OK();
-    }
-
-    DCHECK_EQ(out_span->offset, 0);
-    DCHECK_LE(out_span->length, arr.length);
-    if (arr.MayHaveNulls()) {
-      // We could do a zero-copy optimization, but it isn't worth the added complexity
-      ::arrow::internal::CopyBitmap(arr.buffers[0].data, arr.offset, arr.length,
-                                    out_span->buffers[1].data, out_span->offset);
-    } else {
-      // Input has no nulls => output is entirely true.
-      bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
-                          true);
-    }
-    return Status::OK();
+  DCHECK_EQ(out_span->offset, 0);
+  DCHECK_LE(out_span->length, arr.length);
+  if (arr.MayHaveNulls()) {
+    // We could do a zero-copy optimization, but it isn't worth the added complexity
+    ::arrow::internal::CopyBitmap(arr.buffers[0].data, arr.offset, arr.length,
+                                  out_span->buffers[1].data, out_span->offset);
+  } else {
+    // Input has no nulls => output is entirely true.
+    bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
+                        true);
   }
-};
+  return Status::OK();
+}
 
 struct IsFiniteOperator {
   template <typename OutType, typename InType>
@@ -79,102 +72,51 @@ struct IsInfOperator {
 
 using NanOptionsState = OptionsWrapper<NullOptions>;
 
-struct IsNullOperator {
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    Scalar* output = out->scalar().get();
-
-    const auto& options = NanOptionsState::Get(ctx);
-    bool* out_value = &checked_cast<BooleanScalar*>(output)->value;
-
-    if (in.is_valid) {
-      if (options.nan_is_null && is_floating(in.type->id())) {
-        switch (in.type->id()) {
-          case Type::FLOAT:
-            *out_value = std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
-            break;
-          case Type::DOUBLE:
-            *out_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
-            break;
-          default:
-            return Status::NotImplemented("NaN detection not implemented for type ",
-                                          in.type->ToString());
-        }
-      } else {
-        *out_value = false;
-      }
-    } else {
-      *out_value = true;
+template <typename T>
+static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_offset) {
+  const T* data = arr.GetValues<T>(1);
+  for (int64_t i = 0; i < arr.length; ++i) {
+    if (std::isnan(data[i])) {
+      bit_util::SetBit(out_bitmap, i + out_offset);
     }
+  }
+}
 
+Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& arr = batch[0].array;
+  ArraySpan* out_span = out->array_span();
+  if (arr.type->id() == Type::NA) {
+    bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
+                        true);
     return Status::OK();
   }
 
-  template <typename T>
-  static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_offset) {
-    const T* data = arr.GetValues<T>(1);
-    for (int64_t i = 0; i < arr.length; ++i) {
-      if (std::isnan(data[i])) {
-        bit_util::SetBit(out_bitmap, i + out_offset);
-      }
-    }
+  const auto& options = NanOptionsState::Get(ctx);
+  uint8_t* out_bitmap = out_span->buffers[1].data;
+  if (arr.GetNullCount() > 0) {
+    // Input has nulls => output is the inverted null (validity) bitmap.
+    InvertBitmap(arr.buffers[0].data, arr.offset, arr.length, out_bitmap,
+                 out_span->offset);
+  } else {
+    // Input has no nulls => output is entirely false.
+    bit_util::SetBitsTo(out_bitmap, out_span->offset, out_span->length, false);
   }
 
-  static Status Call(KernelContext* ctx, const ArraySpan& arr, ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
-
-    const auto& options = NanOptionsState::Get(ctx);
-    uint8_t* out_bitmap = out_span->buffers[1].data;
-    if (arr.GetNullCount() > 0) {
-      // Input has nulls => output is the inverted null (validity) bitmap.
-      InvertBitmap(arr.buffers[0].data, arr.offset, arr.length, out_bitmap,
-                   out_span->offset);
-    } else {
-      // Input has no nulls => output is entirely false.
-      bit_util::SetBitsTo(out_bitmap, out_span->offset, out_span->length, false);
+  if (is_floating(arr.type->id()) && options.nan_is_null) {
+    switch (arr.type->id()) {
+      case Type::FLOAT:
+        SetNanBits<float>(arr, out_bitmap, out_span->offset);
+        break;
+      case Type::DOUBLE:
+        SetNanBits<double>(arr, out_bitmap, out_span->offset);
+        break;
+      default:
+        return Status::NotImplemented("NaN detection not implemented for type ",
+                                      arr.type->ToString());
     }
-
-    if (is_floating(arr.type->id()) && options.nan_is_null) {
-      switch (arr.type->id()) {
-        case Type::FLOAT:
-          SetNanBits<float>(arr, out_bitmap, out_span->offset);
-          break;
-        case Type::DOUBLE:
-          SetNanBits<double>(arr, out_bitmap, out_span->offset);
-          break;
-        default:
-          return Status::NotImplemented("NaN detection not implemented for type ",
-                                        arr.type->ToString());
-      }
-    }
-    return Status::OK();
   }
-};
-
-struct TrueUnlessNullOperator {
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    BooleanScalar* output = checked_cast<BooleanScalar*>(out->scalar().get());
-    output->is_valid = in.is_valid;
-    output->value = true;
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const ArraySpan& arr, ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
-    if (out_span->buffers[0].data) {
-      // If there is a validity bitmap computed above the kernel
-      // invocation, we copy it to the output buffers
-      ::arrow::internal::CopyBitmap(out_span->buffers[0].data, out_span->offset,
-                                    out_span->length, out_span->buffers[1].data,
-                                    out_span->offset);
-    } else {
-      // But for all-valid inputs, the engine will skip allocating a
-      // validity bitmap, so we set everything to true
-      bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
-                          true);
-    }
-    return Status::OK();
-  }
-};
+  return Status::OK();
+}
 
 struct IsNanOperator {
   template <typename OutType, typename InType>
@@ -208,10 +150,6 @@ void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction*
 
 template <bool kConstant>
 Status ConstBoolExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  if (batch[0].is_scalar()) {
-    checked_cast<BooleanScalar*>(out->scalar().get())->value = kConstant;
-    return Status::OK();
-  }
   ArraySpan* array = out->array_span();
   bit_util::SetBitsTo(array->buffers[1].data, array->offset, array->length, kConstant);
   return Status::OK();
@@ -271,29 +209,21 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc 
   return func;
 }
 
-Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return applicator::SimpleUnary<IsValidOperator>(ctx, batch, out);
-}
-
-Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const ExecValue& arg0 = batch[0];
-  if (arg0.type()->id() == Type::NA) {
-    if (arg0.is_scalar()) {
-      out->value = std::make_shared<BooleanScalar>(true);
-    } else {
-      // Data is preallocated
-      ArraySpan* out_arr = out->array_span();
-      bit_util::SetBitsTo(out_arr->buffers[1].data, out_arr->offset, out_arr->length,
-                          true);
-    }
-    return Status::OK();
-  } else {
-    return applicator::SimpleUnary<IsNullOperator>(ctx, batch, out);
-  }
-}
-
 Status TrueUnlessNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return applicator::SimpleUnary<TrueUnlessNullOperator>(ctx, batch, out);
+  ArraySpan* out_span = out->array_span();
+  if (out_span->buffers[0].data) {
+    // If there is a validity bitmap computed above the kernel
+    // invocation, we copy it to the output buffers
+    ::arrow::internal::CopyBitmap(out_span->buffers[0].data, out_span->offset,
+                                  out_span->length, out_span->buffers[1].data,
+                                  out_span->offset);
+  } else {
+    // But for all-valid inputs, the engine will skip allocating a
+    // validity bitmap, so we set everything to true
+    bit_util::SetBitsTo(out_span->buffers[1].data, out_span->offset, out_span->length,
+                        true);
+  }
+  return Status::OK();
 }
 
 const FunctionDoc is_valid_doc(
@@ -331,15 +261,15 @@ const FunctionDoc is_nan_doc("Return true if NaN",
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
   static auto kNullOptions = NullOptions::Defaults();
-  MakeFunction("is_valid", is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
+  MakeFunction("is_valid", is_valid_doc, {InputType::Any()}, boolean(), IsValidExec,
                registry, NullHandling::OUTPUT_NOT_NULL,
                /*can_write_into_slices=*/false);
 
-  MakeFunction("is_null", is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec, registry,
-               NullHandling::OUTPUT_NOT_NULL,
+  MakeFunction("is_null", is_null_doc, {InputType::Any()}, boolean(), IsNullExec,
+               registry, NullHandling::OUTPUT_NOT_NULL,
                /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
-  MakeFunction("true_unless_null", true_unless_null_doc, {ValueDescr::ANY}, boolean(),
+  MakeFunction("true_unless_null", true_unless_null_doc, {InputType::Any()}, boolean(),
                TrueUnlessNullExec, registry, NullHandling::INTERSECTION,
                /*can_write_into_slices=*/false);
 

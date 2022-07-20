@@ -381,13 +381,21 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 }
 
 bool S3Options::Equals(const S3Options& other) const {
+  const int64_t default_metadata_size = default_metadata ? default_metadata->size() : 0;
+  const bool default_metadata_equals =
+      default_metadata_size
+          ? (other.default_metadata && other.default_metadata->Equals(*default_metadata))
+          : (!other.default_metadata || other.default_metadata->size() == 0);
   return (region == other.region && endpoint_override == other.endpoint_override &&
-          scheme == other.scheme && background_writes == other.background_writes &&
+          scheme == other.scheme && role_arn == other.role_arn &&
+          session_name == other.session_name && external_id == other.external_id &&
+          load_frequency == other.load_frequency &&
+          proxy_options.Equals(other.proxy_options) &&
+          credentials_kind == other.credentials_kind &&
+          background_writes == other.background_writes &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
-          credentials_kind == other.credentials_kind &&
-          proxy_options.Equals(other.proxy_options) &&
-          GetAccessKey() == other.GetAccessKey() &&
+          default_metadata_equals && GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
           GetSessionToken() == other.GetSessionToken());
 }
@@ -2161,6 +2169,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
                                                          S3FileSystem* fs) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(s));
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
 
@@ -2171,6 +2180,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
                                                          S3FileSystem* fs) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
     if (info.type() == FileType::NotFound) {
       return ::arrow::fs::internal::PathNotFound(info.path());
     }
@@ -2529,6 +2539,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
     const std::string& s, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(s));
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 

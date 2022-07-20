@@ -109,6 +109,9 @@ if(ARROW_DEFINE_OPTIONS)
 
   define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
 
+  define_option(ARROW_POSITION_INDEPENDENT_CODE
+                "Whether to create position-independent target" ON)
+
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)

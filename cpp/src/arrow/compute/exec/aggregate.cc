@@ -22,6 +22,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -30,20 +31,19 @@ namespace internal {
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
     ExecContext* ctx, const std::vector<Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs) {
-  if (aggregates.size() != in_descrs.size()) {
+    const std::vector<TypeHolder>& in_types) {
+  if (aggregates.size() != in_types.size()) {
     return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
-                           in_descrs.size(), " arguments were provided.");
+                           in_types.size(), " arguments were provided.");
   }
 
-  std::vector<const HashAggregateKernel*> kernels(in_descrs.size());
+  std::vector<const HashAggregateKernel*> kernels(in_types.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto function,
                           ctx->func_registry()->GetFunction(aggregates[i].function));
-    ARROW_ASSIGN_OR_RAISE(
-        const Kernel* kernel,
-        function->DispatchExact({in_descrs[i], ValueDescr::Array(uint32())}));
+    ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
+                          function->DispatchExact({in_types[i], uint32()}));
     kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
   }
   return kernels;
@@ -51,11 +51,13 @@ Result<std::vector<const HashAggregateKernel*>> GetKernels(
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
-    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
+    const std::vector<Aggregate>& aggregates, const std::vector<TypeHolder>& in_types) {
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    const FunctionOptions* options = aggregates[i].options.get();
+    const FunctionOptions* options =
+        arrow::internal::checked_cast<const FunctionOptions*>(
+            aggregates[i].options.get());
 
     if (options == nullptr) {
       // use known default options for the named function if possible
@@ -66,14 +68,13 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     }
 
     KernelContext kernel_ctx{ctx};
-    ARROW_ASSIGN_OR_RAISE(
-        states[i],
-        kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
-                                                     {
-                                                         in_descrs[i],
-                                                         ValueDescr::Array(uint32()),
-                                                     },
-                                                     options}));
+    ARROW_ASSIGN_OR_RAISE(states[i],
+                          kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
+                                                                       {
+                                                                           in_types[i],
+                                                                           uint32(),
+                                                                       },
+                                                                       options}));
   }
 
   return std::move(states);
@@ -83,19 +84,16 @@ Result<FieldVector> ResolveKernels(
     const std::vector<Aggregate>& aggregates,
     const std::vector<const HashAggregateKernel*>& kernels,
     const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
-    const std::vector<ValueDescr>& descrs) {
-  FieldVector fields(descrs.size());
+    const std::vector<TypeHolder>& types) {
+  FieldVector fields(types.size());
 
   for (size_t i = 0; i < kernels.size(); ++i) {
     KernelContext kernel_ctx{ctx};
     kernel_ctx.SetState(states[i].get());
 
-    ARROW_ASSIGN_OR_RAISE(auto descr, kernels[i]->signature->out_type().Resolve(
-                                          &kernel_ctx, {
-                                                           descrs[i],
-                                                           ValueDescr::Array(uint32()),
-                                                       }));
-    fields[i] = field(aggregates[i].function, std::move(descr.type));
+    ARROW_ASSIGN_OR_RAISE(auto type, kernels[i]->signature->out_type().Resolve(
+                                         &kernel_ctx, {types[i], uint32()}));
+    fields[i] = field(aggregates[i].function, type.GetSharedPtr());
   }
   return fields;
 }
@@ -112,57 +110,53 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   std::vector<std::vector<std::unique_ptr<KernelState>>> states;
   FieldVector out_fields;
 
-  using arrow::compute::detail::ExecBatchIterator;
-  std::unique_ptr<ExecBatchIterator> argument_batch_iterator;
+  using arrow::compute::detail::ExecSpanIterator;
+  ExecSpanIterator argument_iterator;
 
+  ExecBatch args_batch;
   if (!arguments.empty()) {
-    ARROW_ASSIGN_OR_RAISE(ExecBatch args_batch, ExecBatch::Make(arguments));
+    ARROW_ASSIGN_OR_RAISE(args_batch, ExecBatch::Make(arguments));
 
     // Construct and initialize HashAggregateKernels
-    auto argument_descrs = args_batch.GetDescriptors();
+    auto argument_types = args_batch.GetTypes();
 
-    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_descrs));
+    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_types));
 
     states.resize(task_group->parallelism());
     for (auto& state : states) {
-      ARROW_ASSIGN_OR_RAISE(state,
-                            InitKernels(kernels, ctx, aggregates, argument_descrs));
+      ARROW_ASSIGN_OR_RAISE(state, InitKernels(kernels, ctx, aggregates, argument_types));
     }
 
     ARROW_ASSIGN_OR_RAISE(
-        out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_descrs));
+        out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_types));
 
-    ARROW_ASSIGN_OR_RAISE(
-        argument_batch_iterator,
-        ExecBatchIterator::Make(args_batch.values, ctx->exec_chunksize()));
+    RETURN_NOT_OK(argument_iterator.Init(args_batch, ctx->exec_chunksize()));
   }
 
   // Construct Groupers
   ARROW_ASSIGN_OR_RAISE(ExecBatch keys_batch, ExecBatch::Make(keys));
-  auto key_descrs = keys_batch.GetDescriptors();
+  auto key_types = keys_batch.GetTypes();
 
   std::vector<std::unique_ptr<Grouper>> groupers(task_group->parallelism());
   for (auto& grouper : groupers) {
-    ARROW_ASSIGN_OR_RAISE(grouper, Grouper::Make(key_descrs, ctx));
+    ARROW_ASSIGN_OR_RAISE(grouper, Grouper::Make(key_types, ctx));
   }
 
   std::mutex mutex;
   std::unordered_map<std::thread::id, size_t> thread_ids;
 
   int i = 0;
-  for (ValueDescr& key_descr : key_descrs) {
-    out_fields.push_back(field("key_" + std::to_string(i++), std::move(key_descr.type)));
+  for (const TypeHolder& key_type : key_types) {
+    out_fields.push_back(field("key_" + std::to_string(i++), key_type.GetSharedPtr()));
   }
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto key_batch_iterator,
-      ExecBatchIterator::Make(keys_batch.values, ctx->exec_chunksize()));
+  ExecSpanIterator key_iterator;
+  RETURN_NOT_OK(key_iterator.Init(keys_batch, ctx->exec_chunksize()));
 
   // start "streaming" execution
-  ExecBatch key_batch, argument_batch;
-  while ((argument_batch_iterator == NULLPTR ||
-          argument_batch_iterator->Next(&argument_batch)) &&
-         key_batch_iterator->Next(&key_batch)) {
+  ExecSpan key_batch, argument_batch;
+  while ((arguments.empty() || argument_iterator.Next(&argument_batch)) &&
+         key_iterator.Next(&key_batch)) {
     if (key_batch.length == 0) continue;
 
     task_group->Append([&, key_batch, argument_batch] {
@@ -183,9 +177,10 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       for (size_t i = 0; i < kernels.size(); ++i) {
         KernelContext batch_ctx{ctx};
         batch_ctx.SetState(states[thread_index][i].get());
-        ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make({argument_batch[i], id_batch}));
+        ExecSpan kernel_batch({argument_batch[i], *id_batch.array()},
+                              argument_batch.length);
         RETURN_NOT_OK(kernels[i]->resize(&batch_ctx, grouper->num_groups()));
-        RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, batch));
+        RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, kernel_batch));
       }
 
       return Status::OK();
@@ -197,7 +192,8 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   // Merge if necessary
   for (size_t thread_index = 1; thread_index < thread_ids.size(); ++thread_index) {
     ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, groupers[thread_index]->GetUniques());
-    ARROW_ASSIGN_OR_RAISE(Datum transposition, groupers[0]->Consume(other_keys));
+    ARROW_ASSIGN_OR_RAISE(Datum transposition,
+                          groupers[0]->Consume(ExecSpan(other_keys)));
     groupers[thread_index].reset();
 
     for (size_t idx = 0; idx < kernels.size(); ++idx) {

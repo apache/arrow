@@ -371,16 +371,6 @@ Status RunIfElseScalar(const BooleanScalar& cond, const ExecValue& left,
                        const ExecValue& right, ExecResult* out,
                        const CopyArrayData& copy_array_data,
                        const BroadcastScalar& broadcast_scalar) {
-  if (left.is_scalar() && right.is_scalar()) {  // output will be a scalar
-    if (cond.is_valid) {
-      const Scalar* which_scalar = cond.value ? left.scalar : right.scalar;
-      out->value = which_scalar->Copy();
-    } else {
-      out->value = MakeNullScalar(left.type()->Copy());
-    }
-    return Status::OK();
-  }
-
   // either left or right is an array. Output is always an array`
   ArraySpan* out_array = out->array_span();
   if (!cond.is_valid) {
@@ -389,6 +379,8 @@ Status RunIfElseScalar(const BooleanScalar& cond, const ExecValue& left,
                           out_array->length);
     return Status::OK();
   }
+
+  // One of left or right is an array
 
   // cond is a non-null scalar
   const auto& valid_data = cond.value ? left : right;
@@ -653,22 +645,13 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
 static Status IfElseGenericSXXCall(KernelContext* ctx, const BooleanScalar& cond,
                                    const ExecValue& left, const ExecValue& right,
                                    ExecResult* out) {
-  if (left.is_scalar() && right.is_scalar()) {
-    if (cond.is_valid) {
-      const Scalar* which_scalar = cond.value ? left.scalar : right.scalar;
-      out->value = which_scalar->Copy();
-    } else {
-      out->value = MakeNullScalar(left.type()->Copy());
-    }
-    return Status::OK();
-  }
-  // either left or right is an array. Output is always an array
+  // Either left or right is an array
   int64_t out_arr_len = std::max(left.length(), right.length());
   if (!cond.is_valid) {
     // cond is null; just create a null array
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Array> result,
-        MakeArrayOfNull(left.type()->Copy(), out_arr_len, ctx->memory_pool()));
+        MakeArrayOfNull(left.type()->GetSharedPtr(), out_arr_len, ctx->memory_pool()));
     out->value = std::move(result->data());
     return Status::OK();
   }
@@ -1063,8 +1046,8 @@ struct NestedIfElseExec {
   static Status RunLoop(KernelContext* ctx, const ArraySpan& cond, ExecResult* out,
                         HandleLeft&& handle_left, HandleRight&& handle_right) {
     std::unique_ptr<ArrayBuilder> raw_builder;
-    RETURN_NOT_OK(
-        MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
+    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
+                                        &raw_builder));
     RETURN_NOT_OK(raw_builder->Reserve(out->length()));
 
     const auto* cond_data = cond.buffers[1].data;
@@ -1169,14 +1152,9 @@ struct ResolveIfElseExec {
 template <typename AllocateMem>
 struct ResolveIfElseExec<NullType, AllocateMem> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    // if all are scalars, return a null scalar
-    if (batch[0].is_scalar() && batch[1].is_scalar() && batch[2].is_scalar()) {
-      out->value = MakeNullScalar(null());
-    } else {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
-                            MakeArrayOfNull(null(), batch.length, ctx->memory_pool()));
-      out->value = std::move(result->data());
-    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
+                          MakeArrayOfNull(null(), batch.length, ctx->memory_pool()));
+    out->value = std::move(result->data());
     return Status::OK();
   }
 };
@@ -1184,29 +1162,29 @@ struct ResolveIfElseExec<NullType, AllocateMem> {
 struct IfElseFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
 
     using arrow::compute::detail::DispatchExactImpl;
     // Do not DispatchExact here because it'll let through something like (bool,
     // timestamp[s], timestamp[s, "UTC"])
 
-    // if 0th descriptor is null, replace with bool
-    if (values->at(0).type->id() == Type::NA) {
-      values->at(0).type = boolean();
+    // if 0th type is null, replace with bool
+    if (types->at(0).id() == Type::NA) {
+      (*types)[0] = boolean();
     }
 
-    // if-else 0'th descriptor is bool, so skip it
-    ValueDescr* left_arg = &(*values)[1];
+    // if-else 0'th type is bool, so skip it
+    TypeHolder* left_arg = &(*types)[1];
     constexpr size_t num_args = 2;
 
     internal::ReplaceNullWithOtherType(left_arg, num_args);
 
     // If both are identical dictionary types, dispatch to the dictionary kernel
     // TODO(ARROW-14105): apply implicit casts to dictionary types too
-    ValueDescr* right_arg = &(*values)[2];
-    if (is_dictionary(left_arg->type->id()) && left_arg->type->Equals(right_arg->type)) {
-      auto kernel = DispatchExactImpl(this, *values);
+    TypeHolder* right_arg = &(*types)[2];
+    if (is_dictionary(left_arg->id()) && left_arg->type->Equals(*right_arg->type)) {
+      auto kernel = DispatchExactImpl(this, *types);
       DCHECK(kernel);
       return kernel;
     }
@@ -1219,13 +1197,13 @@ struct IfElseFunction : ScalarFunction {
       internal::ReplaceTypes(type, left_arg, num_args);
     } else if (auto type = internal::CommonBinary(left_arg, num_args)) {
       internal::ReplaceTypes(type, left_arg, num_args);
-    } else if (HasDecimal(*values)) {
+    } else if (HasDecimal(*types)) {
       RETURN_NOT_OK(CastDecimalArgs(left_arg, num_args));
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
@@ -1252,7 +1230,7 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
       auto unit = checked_cast<const TimestampType&>(*type).unit();
       sig = KernelSignature::Make(
           {boolean(), match::TimestampTypeUnit(unit), match::TimestampTypeUnit(unit)},
-          OutputType(LastType));
+          LastType);
     } else {
       sig = KernelSignature::Make({boolean(), type, type}, type);
     }
@@ -1285,8 +1263,7 @@ void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
 template <typename T>
 void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function) {
   auto type_id = T::type_id;
-  ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)},
-                      OutputType(LastType),
+  ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)}, LastType,
                       ResolveIfElseExec<T, /*AllocateMem=*/std::false_type>::Exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
@@ -1299,8 +1276,8 @@ void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
   for (const auto type_id :
        {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST, Type::STRUCT,
         Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
-    ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)},
-                        OutputType(LastType), NestedIfElseExec::Exec);
+    ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)}, LastType,
+                        NestedIfElseExec::Exec);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     kernel.can_write_into_slices = false;
@@ -1384,21 +1361,21 @@ void CopyOneValue(const ExecValue& in_values, const int64_t in_offset, uint8_t* 
 struct CaseWhenFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     // The first function is a struct of booleans, where the number of fields in the
     // struct is either equal to the number of other arguments or is one less.
-    RETURN_NOT_OK(CheckArity(*values));
-    auto first_type = (*values)[0].type;
+    RETURN_NOT_OK(CheckArity(types->size()));
+    auto first_type = (*types)[0].type;
     if (first_type->id() != Type::STRUCT) {
       return Status::TypeError("case_when: first argument must be STRUCT, not ",
                                *first_type);
     }
     auto num_fields = static_cast<size_t>(first_type->num_fields());
-    if (num_fields < values->size() - 2 || num_fields >= values->size()) {
+    if (num_fields < types->size() - 2 || num_fields >= types->size()) {
       return Status::Invalid(
           "case_when: number of struct fields must be equal to or one less than count of "
           "remaining arguments (",
-          values->size() - 1, "), got: ", first_type->num_fields());
+          types->size() - 1, "), got: ", first_type->num_fields());
     }
     for (const auto& field : first_type->fields()) {
       if (field->type()->id() != Type::BOOL) {
@@ -1409,18 +1386,17 @@ struct CaseWhenFunction : ScalarFunction {
     }
 
     // TODO(ARROW-14105): also apply casts to dictionary indices/values
-    if (is_dictionary((*values)[1].type->id()) &&
-        std::all_of(values->begin() + 2, values->end(), [&](const ValueDescr& descr) {
-          return descr.type->Equals(*(*values)[1].type);
-        })) {
-      auto kernel = DispatchExactImpl(this, *values);
+    if (is_dictionary((*types)[1].id()) &&
+        std::all_of(types->begin() + 2, types->end(),
+                    [&](const TypeHolder& type) { return type == (*types)[1]; })) {
+      auto kernel = DispatchExactImpl(this, *types);
       DCHECK(kernel);
       return kernel;
     }
 
-    EnsureDictionaryDecoded(values);
-    ValueDescr* first_arg = &(*values)[1];
-    const size_t num_args = values->size() - 1;
+    EnsureDictionaryDecoded(types);
+    TypeHolder* first_arg = &(*types)[1];
+    const size_t num_args = types->size() - 1;
     if (auto type = CommonNumeric(first_arg, num_args)) {
       ReplaceTypes(type, first_arg, num_args);
     }
@@ -1430,11 +1406,11 @@ struct CaseWhenFunction : ScalarFunction {
     if (auto type = CommonTemporal(first_arg, num_args)) {
       ReplaceTypes(type, first_arg, num_args);
     }
-    if (HasDecimal(*values)) {
+    if (HasDecimal(*types)) {
       RETURN_NOT_OK(CastDecimalArgs(first_arg, num_args));
     }
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
@@ -1462,16 +1438,11 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult*
       break;
     }
   }
-  if (out->is_scalar()) {
-    out->value =
-        result.is_scalar() ? result.scalar->Copy() : MakeNullScalar(out->type()->Copy());
-    return Status::OK();
-  }
 
   std::shared_ptr<Scalar> temp;
   if (!has_result) {
     // All conditions false, no 'else' argument
-    temp = MakeNullScalar(out->type()->Copy());
+    temp = MakeNullScalar(out->type()->GetSharedPtr());
     result = temp.get();
   }
 
@@ -1517,7 +1488,9 @@ template <typename Type>
 Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& conds_array = batch[0].array;
   if (conds_array.GetNullCount() > 0) {
-    return Status::Invalid("cond struct must not have top-level nulls");
+    return Status::Invalid(
+        "cond struct must not be a null scalar or "
+        "have top-level nulls");
   }
   ArraySpan* output = out->array_span();
   const int64_t out_offset = output->offset;
@@ -1667,17 +1640,11 @@ Status ExecVarWidthScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch,
       break;
     }
   }
-  if (out->is_scalar()) {
-    DCHECK(result.is_scalar() || !has_result);
-    out->value =
-        result.is_scalar() ? result.scalar->Copy() : MakeNullScalar(out->type()->Copy());
-    return Status::OK();
-  }
   if (!has_result) {
     // All conditions false, no 'else' argument
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Array> array,
-        MakeArrayOfNull(out->type()->Copy(), batch.length, ctx->memory_pool()));
+        MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length, ctx->memory_pool()));
     out->value = std::move(array->data());
   } else if (result.is_scalar()) {
     ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*result.scalar, batch.length,
@@ -1697,8 +1664,8 @@ static Status ExecVarWidthArrayCaseWhenImpl(
   const ArraySpan& conds_array = batch[0].array;
   const bool have_else_arg = conds_array.type->num_fields() < (batch.num_values() - 1);
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(
-      MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
+  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
+                                      &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
@@ -1920,10 +1887,6 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
     if (batch[0].is_scalar()) {
       return ExecVarWidthScalarCaseWhen(ctx, batch, out);
     }
-    return ExecArray(ctx, batch, out);
-  }
-
-  static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return ExecVarWidthArrayCaseWhen(ctx, batch, out, ReserveNoData);
   }
 };
@@ -1949,49 +1912,37 @@ struct CaseWhenFunctor<DictionaryType> {
 struct CoalesceFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
     using arrow::compute::detail::DispatchExactImpl;
 
     // TODO(ARROW-14105): also apply casts to dictionary indices/values
-    if (is_dictionary((*values)[0].type->id()) &&
-        std::all_of(values->begin() + 1, values->end(), [&](const ValueDescr& descr) {
-          return descr.type->Equals(*(*values)[0].type);
-        })) {
-      auto kernel = DispatchExactImpl(this, *values);
+    if (is_dictionary((*types)[0].id()) &&
+        std::all_of(types->begin() + 1, types->end(),
+                    [&](const TypeHolder& type) { return type == (*types)[0]; })) {
+      auto kernel = DispatchExactImpl(this, *types);
       DCHECK(kernel);
       return kernel;
     }
 
     // Do not DispatchExact here since we want to rescale decimals if necessary
-    EnsureDictionaryDecoded(values);
-    if (auto type = CommonNumeric(values->data(), values->size())) {
-      ReplaceTypes(type, values);
+    EnsureDictionaryDecoded(types);
+    if (auto type = CommonNumeric(types->data(), types->size())) {
+      ReplaceTypes(type, types);
     }
-    if (auto type = CommonBinary(values->data(), values->size())) {
-      ReplaceTypes(type, values);
+    if (auto type = CommonBinary(types->data(), types->size())) {
+      ReplaceTypes(type, types);
     }
-    if (auto type = CommonTemporal(values->data(), values->size())) {
-      ReplaceTypes(type, values);
+    if (auto type = CommonTemporal(types->data(), types->size())) {
+      ReplaceTypes(type, types);
     }
-    if (HasDecimal(*values)) {
-      RETURN_NOT_OK(CastDecimalArgs(values->data(), values->size()));
+    if (HasDecimal(*types)) {
+      RETURN_NOT_OK(CastDecimalArgs(types->data(), types->size()));
     }
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
-
-// Implement a 'coalesce' (SQL) operator for any number of scalar inputs
-Status ExecScalarCoalesce(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  for (const auto& value : batch.values) {
-    if (value.scalar->is_valid) {
-      out->value = value.scalar->Copy();
-      break;
-    }
-  }
-  return Status::OK();
-}
 
 // Helper: copy from a source value into all null slots of the output
 template <typename Type>
@@ -2187,13 +2138,6 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, const ExecValue& left,
 template <typename Type>
 Status ExecBinaryCoalesce(KernelContext* ctx, const ExecValue& left,
                           const ExecValue& right, int64_t length, ExecResult* out) {
-  // TODO(wesm): remove the scalar output path
-  if (left.is_scalar() && right.is_scalar()) {
-    // Both scalar
-    out->value = (left.scalar->is_valid ? left : right).scalar->Copy();
-    return Status::OK();
-  }
-
   ArraySpan* output = out->array_span();
   const int64_t out_offset = output->offset;
   uint8_t* out_valid = output->buffers[0].data;
@@ -2275,8 +2219,8 @@ static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecSpan& batch
     break;
   }
   std::unique_ptr<ArrayBuilder> raw_builder;
-  RETURN_NOT_OK(
-      MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
+  RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
+                                      &raw_builder));
   RETURN_NOT_OK(raw_builder->Reserve(batch.length));
   RETURN_NOT_OK(reserve_data(raw_builder.get()));
 
@@ -2303,7 +2247,7 @@ static Status ExecVarWidthCoalesceImpl(KernelContext* ctx, const ExecSpan& batch
   }
   ARROW_ASSIGN_OR_RAISE(auto temp_output, raw_builder->Finish());
   out->value = std::move(temp_output->data());
-  out->array_data()->type = batch[0].type()->Copy();
+  out->array_data()->type = batch[0].type()->GetSharedPtr();
   return Status::OK();
 }
 
@@ -2326,12 +2270,7 @@ struct CoalesceFunctor {
     if (batch.num_values() == 2) {
       return ExecBinaryCoalesce<Type>(ctx, batch[0], batch[1], batch.length, out);
     }
-    for (const auto& value : batch.values) {
-      if (value.is_array()) {
-        return ExecArrayCoalesce<Type>(ctx, batch, out);
-      }
-    }
-    return ExecScalarCoalesce(ctx, batch, out);
+    return ExecArrayCoalesce<Type>(ctx, batch, out);
   }
 };
 
@@ -2352,12 +2291,7 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
       // Specialized implementation for common case ('fill_null' operation)
       return ExecArrayScalar(ctx, batch[0].array, *batch[1].scalar, out);
     }
-    for (const auto& value : batch.values) {
-      if (value.is_array()) {
-        return ExecArray(ctx, batch, out);
-      }
-    }
-    return ExecScalarCoalesce(ctx, batch, out);
+    return ExecArray(ctx, batch, out);
   }
 
   static Status ExecArrayScalar(KernelContext* ctx, const ArraySpan& left,
@@ -2368,7 +2302,7 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
       out->value = left.ToArrayData();
       return Status::OK();
     }
-    BuilderType builder(left.type->Copy(), ctx->memory_pool());
+    BuilderType builder(left.type->GetSharedPtr(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(left.length));
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(right);
     const offset_type* offsets = left.GetValues<offset_type>(1);
@@ -2387,7 +2321,7 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
 
     ARROW_ASSIGN_OR_RAISE(auto temp_output, builder.Finish());
     out->value = std::move(temp_output->data());
-    out->array_data()->type = left.type->Copy();
+    out->array_data()->type = left.type->GetSharedPtr();
     return Status::OK();
   }
 
@@ -2424,12 +2358,7 @@ struct CoalesceFunctor<
                       !is_union_type<Type>::value>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.num_values()));
-    for (const auto& value : batch.values) {
-      if (value.is_array()) {
-        return ExecArray(ctx, batch, out);
-      }
-    }
-    return ExecScalarCoalesce(ctx, batch, out);
+    return ExecArray(ctx, batch, out);
   }
 
   static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -2437,33 +2366,34 @@ struct CoalesceFunctor<
   }
 };
 
+const Scalar& GetUnionScalar(const DenseUnionType&, const Scalar& value) {
+  return *checked_cast<const DenseUnionScalar&>(value).value;
+}
+
+const Scalar& GetUnionScalar(const SparseUnionType&, const Scalar& value) {
+  const auto& union_scalar = checked_cast<const SparseUnionScalar&>(value);
+  return *union_scalar.value[union_scalar.child_id];
+}
+
 template <typename Type>
 struct CoalesceFunctor<Type, enable_if_union<Type>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // Unions don't have top-level nulls, so a specialized implementation is needed
     RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.num_values()));
 
-    for (const auto& value : batch.values) {
-      if (value.is_array()) {
-        return ExecArray(ctx, batch, out);
-      }
-    }
-    return ExecScalar(ctx, batch, out);
-  }
-
-  static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     std::unique_ptr<ArrayBuilder> raw_builder;
-    RETURN_NOT_OK(
-        MakeBuilderExactIndex(ctx->memory_pool(), out->type()->Copy(), &raw_builder));
+    RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
+                                        &raw_builder));
     RETURN_NOT_OK(raw_builder->Reserve(batch.length));
 
-    const UnionType& type = checked_cast<const UnionType&>(*out->type());
+    const auto& type = checked_cast<const Type&>(*out->type());
     for (int64_t i = 0; i < batch.length; i++) {
       bool set = false;
       for (const auto& value : batch.values) {
         if (value.is_scalar()) {
-          const auto& scalar = checked_cast<const UnionScalar&>(*value.scalar);
-          if (scalar.is_valid && scalar.value->is_valid) {
+          const Scalar& scalar = *value.scalar;
+          const auto& union_scalar = GetUnionScalar(type, scalar);
+          if (scalar.is_valid && union_scalar.is_valid) {
             RETURN_NOT_OK(raw_builder->AppendScalar(scalar));
             set = true;
             break;
@@ -2502,18 +2432,6 @@ struct CoalesceFunctor<Type, enable_if_union<Type>> {
     out->value = std::move(temp_output->data());
     return Status::OK();
   }
-
-  static Status ExecScalar(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    for (const auto& value : batch.values) {
-      const auto& scalar = checked_cast<const UnionScalar&>(*value.scalar);
-      // Union scalars can have top-level validity
-      if (scalar.is_valid && scalar.value->is_valid) {
-        out->value = value.scalar->Copy();
-        break;
-      }
-    }
-    return Status::OK();
-  }
 };
 
 template <typename Type>
@@ -2525,7 +2443,7 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
     if (out->is_array_span()) {
       // TODO(wesm): more graceful implementation than using
       // MakeNullScalar, which is a little bit lazy
-      std::shared_ptr<Scalar> source = MakeNullScalar(out->type()->Copy());
+      std::shared_ptr<Scalar> source = MakeNullScalar(out->type()->GetSharedPtr());
       ArraySpan* output = out->array_span();
       ExecValue copy_source;
       copy_source.SetScalar(source.get());
@@ -2541,16 +2459,10 @@ Status ExecScalarChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
     return Status::IndexError("choose: index ", index, " out of range");
   }
   auto source = batch[index + 1];
-  if (out->is_scalar()) {
-    // All inputs to choose were scalar values
-    out->value = source.scalar->Copy();
-  } else {
-    ArraySpan* output = out->array_span();
-    CopyValues<Type>(source, /*row=*/0, batch.length,
-                     output->GetValues<uint8_t>(0, /*absolute_offset=*/0),
-                     output->GetValues<uint8_t>(1, /*absolute_offset=*/0),
-                     output->offset);
-  }
+  ArraySpan* output = out->array_span();
+  CopyValues<Type>(source, /*row=*/0, batch.length,
+                   output->GetValues<uint8_t>(0, /*absolute_offset=*/0),
+                   output->GetValues<uint8_t>(1, /*absolute_offset=*/0), output->offset);
   return Status::OK();
 }
 
@@ -2616,9 +2528,9 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
       const Scalar& index_scalar = *batch[0].scalar;
       if (!index_scalar.is_valid) {
         if (out->is_array_data()) {
-          ARROW_ASSIGN_OR_RAISE(
-              std::shared_ptr<Array> temp_array,
-              MakeArrayOfNull(out->type()->Copy(), batch.length, ctx->memory_pool()));
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> temp_array,
+                                MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length,
+                                                ctx->memory_pool()));
           out->value = std::move(temp_array->data());
         }
         return Status::OK();
@@ -2629,15 +2541,10 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
       }
       const ExecValue& source = batch.values[index + 1];
       if (source.is_scalar()) {
-        if (out->is_array_data()) {
-          ARROW_ASSIGN_OR_RAISE(
-              std::shared_ptr<Array> temp_array,
-              MakeArrayFromScalar(*source.scalar, batch.length, ctx->memory_pool()));
-          out->value = std::move(temp_array->data());
-        } else {
-          DCHECK(out->is_scalar());
-          out->value = source.scalar->Copy();
-        }
+        ARROW_ASSIGN_OR_RAISE(
+            std::shared_ptr<Array> temp_array,
+            MakeArrayFromScalar(*source.scalar, batch.length, ctx->memory_pool()));
+        out->value = std::move(temp_array->data());
       } else {
         DCHECK(out->is_array_data());
         // source is an array
@@ -2648,10 +2555,13 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
     }
 
     // Row-wise implementation
-    BuilderType builder(out->type()->Copy(), ctx->memory_pool());
+    BuilderType builder(out->type()->GetSharedPtr(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     int64_t reserve_data = 0;
-    for (const auto& value : batch.values) {
+
+    // The first value in the batch is the index array which is int64
+    for (int i = 1; i < batch.num_values(); ++i) {
+      const ExecValue& value = batch[i];
       if (value.is_scalar()) {
         if (!value.scalar->is_valid) continue;
         const auto row_length =
@@ -2681,7 +2591,7 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
         }));
     std::shared_ptr<Array> temp_output;
     RETURN_NOT_OK(builder.Finish(&temp_output));
-    std::shared_ptr<DataType> actual_result_type = out->type()->Copy();
+    std::shared_ptr<DataType> actual_result_type = out->type()->GetSharedPtr();
     out->value = std::move(temp_output->data());
     // Builder type != logical type due to GenerateTypeAgnosticVarBinaryBase
     out->array_data()->type = std::move(actual_result_type);
@@ -2711,29 +2621,30 @@ struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
 struct ChooseFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
     // The first argument is always int64 or promoted to it. The kernel is dispatched
     // based on the type of the rest of the arguments.
-    RETURN_NOT_OK(CheckArity(*values));
-    EnsureDictionaryDecoded(values);
-    if (values->front().type->id() != Type::INT64) {
-      values->front().type = int64();
+    RETURN_NOT_OK(CheckArity(types->size()));
+    EnsureDictionaryDecoded(types);
+    if (types->front().id() != Type::INT64) {
+      (*types)[0] = int64();
     }
-    if (auto type = CommonNumeric(values->data() + 1, values->size() - 1)) {
-      for (auto it = values->begin() + 1; it != values->end(); it++) {
-        it->type = type;
+    if (auto type = CommonNumeric(types->data() + 1, types->size() - 1)) {
+      for (auto it = types->begin() + 1; it != types->end(); it++) {
+        *it = type;
       }
     }
-    if (auto kernel = DispatchExactImpl(this, {values->back()})) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, {types->front(), types->back()})) {
+      return kernel;
+    }
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(
-      KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)},
-                            OutputType(LastType),
+      KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
                             /*is_varargs=*/true),
       exec);
   if (is_fixed_width(get_id.id)) {
@@ -2766,7 +2677,7 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
 
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
-  ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, OutputType(FirstType),
+  ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, FirstType,
                                             /*is_varargs=*/true),
                       exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -2785,10 +2696,9 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                      detail::GetTypeId get_id, ArrayKernelExec exec) {
-  ScalarKernel kernel(
-      KernelSignature::Make({Type::INT64, InputType(get_id.id)}, OutputType(LastType),
-                            /*is_varargs=*/true),
-      exec);
+  ScalarKernel kernel(KernelSignature::Make({Type::INT64, InputType(get_id.id)}, LastType,
+                                            /*is_varargs=*/true),
+                      exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = is_fixed_width(get_id.id);

@@ -51,14 +51,20 @@ have_gandiva=yes
 have_glib=yes
 have_parquet=yes
 have_python=yes
+have_arrow_libs=no
 install_command="dnf install -y --enablerepo=crb"
+uninstall_command="dnf remove -y"
+clean_command="dnf clean"
+info_command="dnf info --enablerepo=crb"
 
 echo "::group::Prepare repository"
 
 case "${distribution}-${distribution_version}" in
   almalinux-8)
     distribution_prefix="almalinux"
+    have_arrow_libs=yes
     install_command="dnf install -y --enablerepo=powertools"
+    info_command="dnf info --enablerepo=powertools"
     ;;
   almalinux-*)
     distribution_prefix="almalinux"
@@ -70,7 +76,13 @@ case "${distribution}-${distribution_version}" in
     have_flight=no
     have_gandiva=no
     have_python=no
+    if [ "$(arch)" != "aarch64" ]; then
+      have_arrow_libs=yes
+    fi
     install_command="yum install -y"
+    uninstall_command="yum remove -y"
+    clean_command="yum clean"
+    info_command="yum info"
     amazon-linux-extras install epel -y
     ;;
   centos-7)
@@ -80,12 +92,17 @@ case "${distribution}-${distribution_version}" in
     have_flight=no
     have_gandiva=no
     have_python=no
+    have_arrow_libs=yes
     install_command="yum install -y"
+    uninstall_command="yum remove -y"
+    clean_command="yum clean"
+    info_command="yum info"
     ;;
   centos-8)
     distribution_prefix="centos"
     repository_version+="-stream"
     install_command="dnf install -y --enablerepo=powertools"
+    info_command="dnf info --enablerepo=powertools"
     ;;
   centos-*)
     distribution_prefix="centos"
@@ -206,6 +223,11 @@ if [ "${have_flight}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
   echo "::endgroup::"
+
+  echo "::group::Test Apache Arrow Flight SQL"
+  ${install_command} --enablerepo=epel arrow-flight-sql-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-sql-glib-doc-${package_version}
+  echo "::endgroup::"
 fi
 
 if [ "${have_python}" = "yes" ]; then
@@ -244,3 +266,20 @@ if [ "${have_parquet}" = "yes" ]; then
   fi
   echo "::endgroup::"
 fi
+
+echo "::group::Test coexistence with old library"
+${uninstall_command} apache-arrow-release
+if ${install_command} \
+     https://apache.jfrog.io/artifactory/arrow/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
+  ${clean_command} all
+  if [ "${have_arrow_libs}" = "yes" ]; then
+    ${install_command} arrow-libs
+  else
+    major_version=$(echo ${VERSION} | grep -E -o '^[0-9]+')
+    previous_major_version="$((${major_version} - 1))"
+    if ${info_command} arrow${previous_major_version}-libs; then
+      ${install_command} arrow${previous_major_version}-libs
+    fi
+  fi
+fi
+echo "::endgroup::"

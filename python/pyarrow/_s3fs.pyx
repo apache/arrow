@@ -44,6 +44,10 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     ----------
     log_level : S3LogLevel
         level of logging
+
+    Examples
+    --------
+    >>> fs.initialize_s3(fs.S3LogLevel.Error) # doctest: +SKIP
     """
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
@@ -70,8 +74,8 @@ def resolve_s3_region(bucket):
 
     Examples
     --------
-    >>> resolve_s3_region('ursa-labs-taxi-data')
-    'us-east-2'
+    >>> fs.resolve_s3_region('registry.opendata.aws')
+    'us-east-1'
     """
     cdef:
         c_string c_bucket
@@ -162,6 +166,17 @@ cdef class S3FileSystem(FileSystem):
     allow_bucket_deletion : bool, default False
         Whether to allow DeleteDir at the bucket-level. This option may also be 
         passed in a URI query parameter.
+
+    Examples
+    --------
+    >>> from pyarrow import fs
+    >>> s3 = fs.S3FileSystem(region='us-west-2')
+    >>> s3.get_file_info(fs.FileSelector(
+    ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
+    ... ))
+    [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
+
+    For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
 
     cdef:
@@ -223,6 +238,10 @@ cdef class S3FileSystem(FileSystem):
 
             options = CS3Options.Anonymous()
         elif role_arn:
+            if session_name is None:
+                session_name = ''
+            if external_id is None:
+                external_id = ''
 
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),

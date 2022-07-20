@@ -20,10 +20,9 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/compute-definition.h>
 
 G_BEGIN_DECLS
-
-typedef struct _GArrowCastOptions GArrowCastOptions;
 
 #define GARROW_TYPE_SCALAR (garrow_scalar_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowScalar,

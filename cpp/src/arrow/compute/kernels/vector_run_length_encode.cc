@@ -20,8 +20,11 @@ struct EncodeDecodeCommonExec {
     }
   };
 
-  EncodeDecodeCommonExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result)
-      : input_array{span.values[0].array}, pool{ctx->memory_pool()}, exec_result{result} {
+  EncodeDecodeCommonExec(KernelContext* kernel_context, const ExecSpan& span,
+                         ExecResult* result)
+      : kernel_context{kernel_context},
+        input_array{span.values[0].array},
+        exec_result{result} {
     ARROW_DCHECK(span.num_values() == 1);
   }
 
@@ -45,8 +48,8 @@ struct EncodeDecodeCommonExec {
     (reinterpret_cast<CType*>(output_values))[output_position] = element.value;
   }
 
+  KernelContext* kernel_context;
   const ArraySpan input_array;
-  MemoryPool* pool;
   ExecResult* exec_result;
   const uint8_t* input_validity;
   const void* input_values;
@@ -139,24 +142,26 @@ struct RunLengthEncodeExec
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
       validity_buffer_size = bit_util::BytesForBits(num_values_output);
-      ARROW_ASSIGN_OR_RAISE(validity_buffer,
-                            AllocateBuffer(validity_buffer_size, this->pool));
+      ARROW_ASSIGN_OR_RAISE(
+          validity_buffer,
+          AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(bit_util::BytesForBits(num_values_output *
                                                                 ArrowType().bit_width()),
-                                         this->pool));
-    ARROW_ASSIGN_OR_RAISE(
-        auto run_lengths_buffer,
-        AllocateBuffer(num_values_output * sizeof(int64_t), this->pool));
+                                         this->kernel_context->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
+                          AllocateBuffer(num_values_output * sizeof(int64_t),
+                                         this->kernel_context->memory_pool()));
 
-    auto output_type =
-        std::make_shared<RunLengthEncodedType>(this->input_array.type->Copy());
-    auto output_array_data =
-        ArrayData::Make(std::move(output_type), this->input_array.length);
+    ArrayData* output_array_data = this->exec_result->array_data().get();
+    output_array_data->length = this->input_array.length;
+    output_array_data->offset = 0;
+    output_array_data->buffers.resize(1);
     auto child_array_data =
-        ArrayData::Make(this->input_array.type->Copy(), num_values_output);
-    output_array_data->buffers.push_back(std::move(run_lengths_buffer));
+        ArrayData::Make(const_cast<DataType*>(this->input_array.type)->shared_from_this(),
+                        num_values_output);
+    output_array_data->buffers[0] = std::move(run_lengths_buffer);
     child_array_data->buffers.push_back(std::move(validity_buffer));
     child_array_data->buffers.push_back(std::move(values_buffer));
 
@@ -192,8 +197,6 @@ struct RunLengthEncodeExec
     }
     output_run_lengths[this->output_position - 1] = this->input_array.length;
     ARROW_DCHECK(this->output_position == num_values_output);
-
-    this->exec_result->value = output_array_data;
     return Status::OK();
   }
 
@@ -245,26 +248,27 @@ struct RunLengthDecodeExec
     const int64_t num_values_input = child_array.length - common_physical_offset;
     ARROW_DCHECK_GT(num_values_input, 0);
     const int64_t num_values_output = this->input_array.length;
-    auto& input_type =
-        checked_cast<const arrow::RunLengthEncodedType&>(*this->input_array.type);
-    auto output_type = input_type.encoded_type();
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
     int64_t validity_buffer_size = 0;
     if (has_validity_buffer) {
       validity_buffer_size = bit_util::BytesForBits(num_values_output);
-      ARROW_ASSIGN_OR_RAISE(validity_buffer,
-                            AllocateBuffer(validity_buffer_size, this->pool));
+      ARROW_ASSIGN_OR_RAISE(
+          validity_buffer,
+          AllocateBuffer(validity_buffer_size, this->kernel_context->memory_pool()));
     }
     ARROW_ASSIGN_OR_RAISE(auto values_buffer,
                           AllocateBuffer(bit_util::BytesForBits(num_values_output *
                                                                 ArrowType().bit_width()),
-                                         this->pool));
+                                         this->kernel_context->memory_pool()));
 
-    auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
-    output_array_data->buffers.push_back(std::move(validity_buffer));
-    output_array_data->buffers.push_back(std::move(values_buffer));
+    ArrayData* output_array_data = this->exec_result->array_data().get();
+    output_array_data->length = num_values_output;
+    output_array_data->buffers.resize(2);
+    output_array_data->offset = 0;
+    output_array_data->buffers[0] = std::move(validity_buffer);
+    output_array_data->buffers[1] = std::move(values_buffer);
 
     this->output_validity = output_array_data->template GetMutableValues<uint8_t>(0);
     this->output_values = output_array_data->template GetMutableValues<CType>(1);
@@ -302,8 +306,6 @@ struct RunLengthDecodeExec
     }
     ARROW_DCHECK(this->output_position == num_values_output);
     output_array_data->null_count.store(output_null_count);
-
-    this->exec_result->value = output_array_data;
     return Status::OK();
   }
 
@@ -337,28 +339,22 @@ static const FunctionDoc run_length_decode_doc(
     "Run-length array", ("Return a decoded version of a run-length-encoded input array."),
     {"array"}, "RunLengthDecodeOptions");
 
-static Result<ValueDescr> ResolveEncodeOutput(KernelContext*,
-                                              const std::vector<ValueDescr>& descrs) {
-  auto output_type = std::make_shared<RunLengthEncodedType>(descrs[0].type);
-  return ValueDescr(output_type, ValueDescr::ARRAY);
-}
-
 void RegisterVectorRunLengthEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_length_encode", Arity::Unary(),
                                                    run_length_encode_doc);
 
   for (const auto& ty : NumericTypes()) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
-    auto sig = KernelSignature::Make({InputType(ty, ValueDescr::ARRAY)},
-                                     OutputType(ResolveEncodeOutput));
+    auto sig = KernelSignature::Make(
+        {InputType(ty)}, OutputType(std::make_shared<RunLengthEncodedType>(ty)));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
   {
     const auto ty = boolean();
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthEncodeGenerator>(ty);
-    auto sig = KernelSignature::Make({InputType(ty, ValueDescr::ARRAY)},
-                                     OutputType(ResolveEncodeOutput));
+    auto sig = KernelSignature::Make(
+        {InputType(ty)}, OutputType(std::make_shared<RunLengthEncodedType>(ty)));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
@@ -373,8 +369,7 @@ void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
   for (const auto& ty : NumericTypes()) {
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
     auto input_type = std::make_shared<RunLengthEncodedType>(ty);
-    auto sig = KernelSignature::Make({InputType(input_type, ValueDescr::ARRAY)},
-                                     OutputType({ty, ValueDescr::ARRAY}));
+    auto sig = KernelSignature::Make({InputType(input_type)}, OutputType({ty}));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
@@ -382,8 +377,7 @@ void RegisterVectorRunLengthDecode(FunctionRegistry* registry) {
     const auto ty = boolean();
     auto exec = GenerateTypeAgnosticPrimitive<RunLengthDecodeGenerator>(ty);
     auto input_type = std::make_shared<RunLengthEncodedType>(ty);
-    auto sig = KernelSignature::Make({InputType(input_type, ValueDescr::ARRAY)},
-                                     OutputType({ty, ValueDescr::ARRAY}));
+    auto sig = KernelSignature::Make({InputType(input_type)}, OutputType(ty));
     VectorKernel kernel(sig, exec);
     DCHECK_OK(function->AddKernel(std::move(kernel)));
   }
