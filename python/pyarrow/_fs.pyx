@@ -1157,6 +1157,7 @@ cdef class SubTreeFileSystem(FileSystem):
 
     Delete the file and directory:
 
+    >>> subtree.delete_file('sub_tree_fs.dat')
     >>> local.delete_dir('/tmp/sub_tree')
     >>> local.delete_file('/tmp/local_fs.dat')
 
