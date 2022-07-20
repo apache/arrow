@@ -27,6 +27,7 @@
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/server.h"
 #include "arrow/flight/sql/types.h"
+#include "arrow/flight/sql/visibility.h"
 #include "arrow/util/optional.h"
 
 namespace arrow {
@@ -39,43 +40,43 @@ namespace sql {
 /// @{
 
 /// \brief A SQL query.
-struct StatementQuery {
+struct ARROW_FLIGHT_SQL_EXPORT StatementQuery {
   /// \brief The SQL query.
   std::string query;
 };
 
 /// \brief A SQL update query.
-struct StatementUpdate {
+struct ARROW_FLIGHT_SQL_EXPORT StatementUpdate {
   /// \brief The SQL query.
   std::string query;
 };
 
 /// \brief A request to execute a query.
-struct StatementQueryTicket {
+struct ARROW_FLIGHT_SQL_EXPORT StatementQueryTicket {
   /// \brief The server-generated opaque identifier for the query.
   std::string statement_handle;
 };
 
 /// \brief A prepared query statement.
-struct PreparedStatementQuery {
+struct ARROW_FLIGHT_SQL_EXPORT PreparedStatementQuery {
   /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
 /// \brief A prepared update statement.
-struct PreparedStatementUpdate {
+struct ARROW_FLIGHT_SQL_EXPORT PreparedStatementUpdate {
   /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
 /// \brief A request to fetch server metadata.
-struct GetSqlInfo {
+struct ARROW_FLIGHT_SQL_EXPORT GetSqlInfo {
   /// \brief A list of metadata IDs to fetch.
   std::vector<int32_t> info;
 };
 
 /// \brief A request to list database schemas.
-struct GetDbSchemas {
+struct ARROW_FLIGHT_SQL_EXPORT GetDbSchemas {
   /// \brief An optional database catalog to filter on.
   util::optional<std::string> catalog;
   /// \brief An optional database schema to filter on.
@@ -83,7 +84,7 @@ struct GetDbSchemas {
 };
 
 /// \brief A request to list database tables.
-struct GetTables {
+struct ARROW_FLIGHT_SQL_EXPORT GetTables {
   /// \brief An optional database catalog to filter on.
   util::optional<std::string> catalog;
   /// \brief An optional database schema to filter on.
@@ -97,33 +98,33 @@ struct GetTables {
 };
 
 /// \brief A request to get SQL data type information.
-struct GetXdbcTypeInfo {
+struct ARROW_FLIGHT_SQL_EXPORT GetXdbcTypeInfo {
   /// \brief A specific SQL type ID to fetch information about.
   util::optional<int> data_type;
 };
 
 /// \brief A request to list primary keys of a table.
-struct GetPrimaryKeys {
+struct ARROW_FLIGHT_SQL_EXPORT GetPrimaryKeys {
   /// \brief The given table.
   TableRef table_ref;
 };
 
 /// \brief A request to list foreign key columns referencing primary key
 ///   columns of a table.
-struct GetExportedKeys {
+struct ARROW_FLIGHT_SQL_EXPORT GetExportedKeys {
   /// \brief The given table.
   TableRef table_ref;
 };
 
 /// \brief A request to list foreign keys of a table.
-struct GetImportedKeys {
+struct ARROW_FLIGHT_SQL_EXPORT GetImportedKeys {
   /// \brief The given table.
   TableRef table_ref;
 };
 
 /// \brief A request to list foreign key columns of a table that
 ///   reference columns in a given parent table.
-struct GetCrossReference {
+struct ARROW_FLIGHT_SQL_EXPORT GetCrossReference {
   /// \brief The parent table (the one containing referenced columns).
   TableRef pk_table_ref;
   /// \brief The foreign table (for which foreign key columns will be listed).
@@ -131,19 +132,19 @@ struct GetCrossReference {
 };
 
 /// \brief A request to create a new prepared statement.
-struct ActionCreatePreparedStatementRequest {
+struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementRequest {
   /// \brief The SQL query.
   std::string query;
 };
 
 /// \brief A request to close a prepared statement.
-struct ActionClosePreparedStatementRequest {
+struct ARROW_FLIGHT_SQL_EXPORT ActionClosePreparedStatementRequest {
   /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
 };
 
 /// \brief The result of creating a new prepared statement.
-struct ActionCreatePreparedStatementResult {
+struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
   /// \brief The schema of the query results, if applicable.
   std::shared_ptr<Schema> dataset_schema;
   /// \brief The schema of the query parameters, if applicable.
@@ -160,6 +161,7 @@ struct ActionCreatePreparedStatementResult {
 ///
 /// \param[in] statement_handle      The statement handle that will originate the ticket.
 /// \return                          The parsed ticket as an string.
+ARROW_FLIGHT_SQL_EXPORT
 arrow::Result<std::string> CreateStatementQueryTicket(
     const std::string& statement_handle);
 
@@ -167,7 +169,7 @@ arrow::Result<std::string> CreateStatementQueryTicket(
 ///
 /// Applications should subclass this class and override the virtual
 /// methods declared on this class.
-class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
+class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
  private:
   SqlInfoResultMap sql_info_id_to_result_;
 
@@ -488,7 +490,7 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
 };
 
 /// \brief Auxiliary class containing all Schemas used on Flight SQL.
-class ARROW_EXPORT SqlSchema {
+class ARROW_FLIGHT_SQL_EXPORT SqlSchema {
  public:
   /// \brief Get the Schema used on GetCatalogs response.
   /// \return The default schema template.

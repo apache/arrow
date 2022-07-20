@@ -447,8 +447,7 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>>
 template <typename Type>
 void AddCrossUnitCast(CastFunction* func) {
   ScalarKernel kernel;
-  kernel.exec = TrivialScalarUnaryAsArraysExec(CastFunctor<Type, Type>::Exec,
-                                               /*use_array_span=*/true);
+  kernel.exec = CastFunctor<Type, Type>::Exec;
   kernel.signature = KernelSignature::Make({InputType(Type::type_id)}, kOutputTargetType);
   DCHECK_OK(func->AddKernel(Type::type_id, std::move(kernel)));
 }

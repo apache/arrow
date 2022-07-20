@@ -174,7 +174,7 @@ struct SortQuantiler {
     // copy all chunks to a buffer, ignore nulls and nans
     std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
     FillBuffer(options, values, values.length, values.GetNullCount(), &in_buffer);
-    return ComputeQuantile(ctx, options, values.type->Copy(), in_buffer, out);
+    return ComputeQuantile(ctx, options, values.type->GetSharedPtr(), in_buffer, out);
   }
 
   Status Exec(KernelContext* ctx, const ChunkedArray& values, Datum* out) {
@@ -471,45 +471,6 @@ struct ExactQuantiler<InType, enable_if_t<is_decimal_type<InType>::value>> {
   SortQuantiler<InType> impl;
 };
 
-template <typename T>
-Status ScalarQuantile(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
-  const QuantileOptions& options = QuantileState::Get(ctx);
-  using CType = typename TypeTraits<T>::CType;
-  ArrayData* output = out->array_data().get();
-  output->length = options.q.size();
-  auto out_type = IsDataPoint(options) ? scalar.type : float64();
-  ARROW_ASSIGN_OR_RAISE(output->buffers[1],
-                        ctx->Allocate(output->length * out_type->byte_width()));
-
-  if (!scalar.is_valid || options.min_count > 1) {
-    output->null_count = output->length;
-    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(output->length));
-    bit_util::SetBitsTo(output->buffers[0]->mutable_data(), /*offset=*/0, output->length,
-                        false);
-    if (IsDataPoint(options)) {
-      CType* out_buffer = output->template GetMutableValues<CType>(1);
-      std::fill(out_buffer, out_buffer + output->length, CType(0));
-    } else {
-      double* out_buffer = output->template GetMutableValues<double>(1);
-      std::fill(out_buffer, out_buffer + output->length, 0.0);
-    }
-    return Status::OK();
-  }
-  output->null_count = 0;
-  if (IsDataPoint(options)) {
-    CType* out_buffer = output->template GetMutableValues<CType>(1);
-    for (int64_t i = 0; i < output->length; i++) {
-      out_buffer[i] = UnboxScalar<T>::Unbox(scalar);
-    }
-  } else {
-    double* out_buffer = output->template GetMutableValues<double>(1);
-    for (int64_t i = 0; i < output->length; i++) {
-      out_buffer[i] = DataPointToDouble(UnboxScalar<T>::Unbox(scalar), *scalar.type);
-    }
-  }
-  return Status::OK();
-}
-
 Status CheckQuantileOptions(KernelContext* ctx) {
   if (ctx->state() == nullptr) {
     return Status::Invalid("Quantile requires QuantileOptions");
@@ -531,9 +492,6 @@ template <typename OutputTypeUnused, typename InType>
 struct QuantileExecutor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckQuantileOptions(ctx));
-    if (batch[0].is_scalar()) {
-      return ScalarQuantile<InType>(ctx, *batch[0].scalar, out);
-    }
     return ExactQuantiler<InType>().impl.Exec(ctx, batch[0].array, out);
   }
 };
@@ -546,13 +504,13 @@ struct QuantileExecutorChunked {
   }
 };
 
-Result<ValueDescr> ResolveOutput(KernelContext* ctx,
-                                 const std::vector<ValueDescr>& args) {
+Result<TypeHolder> ResolveOutput(KernelContext* ctx,
+                                 const std::vector<TypeHolder>& types) {
   const QuantileOptions& options = QuantileState::Get(ctx);
   if (IsDataPoint(options)) {
-    return ValueDescr::Array(args[0].type);
+    return types[0];
   } else {
-    return ValueDescr::Array(float64());
+    return float64();
   }
 }
 

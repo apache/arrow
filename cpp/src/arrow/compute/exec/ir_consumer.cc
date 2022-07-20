@@ -531,7 +531,7 @@ Result<Declaration> Convert(const ir::Relation& rel) {
       ARROW_ASSIGN_OR_RAISE(auto arg,
                             Convert(*aggregate->rel()).As<Declaration::Input>());
 
-      AggregateNodeOptions opts{{}, {}, {}};
+      AggregateNodeOptions opts{{}, {}};
 
       if (!aggregate->measures()) return UnexpectedNullField("Aggregate.measures");
       for (const ir::Expression* m : *aggregate->measures()) {
@@ -550,9 +550,8 @@ Result<Declaration> Convert(const ir::Relation& rel) {
               "Support for non-FieldRef arguments to Aggregate.measures");
         }
 
-        opts.aggregates.push_back({call->function_name, nullptr});
-        opts.targets.push_back(*target);
-        opts.names.push_back(call->function_name + " " + target->ToString());
+        opts.aggregates.push_back({call->function_name, nullptr, *target,
+                                   call->function_name + " " + target->ToString()});
       }
 
       if (!aggregate->groupings()) return UnexpectedNullField("Aggregate.groupings");

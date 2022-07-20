@@ -26,6 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 
 namespace arrow {
 namespace compute {
@@ -58,13 +59,15 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
   int64_t* count_buffer = nullptr;
 
   if (n > 0) {
-    ARROW_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx->Allocate(n * sizeof(CType)));
+    const auto mode_buffer_size = bit_util::BytesForBits(n * mode_type->bit_width());
+    ARROW_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx->Allocate(mode_buffer_size));
     ARROW_ASSIGN_OR_RAISE(count_data->buffers[1], ctx->Allocate(n * sizeof(int64_t)));
     mode_buffer = mode_data->template GetMutableValues<CType>(1);
     count_buffer = count_data->template GetMutableValues<int64_t>(1);
   }
 
-  out->value = ArrayData::Make(type.Copy(), n, {nullptr}, {mode_data, count_data}, 0);
+  out->value =
+      ArrayData::Make(type.GetSharedPtr(), n, {nullptr}, {mode_data, count_data}, 0);
   return std::make_pair(mode_buffer, count_buffer);
 }
 
@@ -200,18 +203,21 @@ struct CountModer<BooleanType> {
     const int64_t distinct_values = (this->counts[0] != 0) + (this->counts[1] != 0);
     const int64_t n = std::min(options.n, distinct_values);
 
-    bool* mode_buffer;
+    uint8_t* mode_buffer;
     int64_t* count_buffer;
     ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
-                          PrepareOutput<BooleanType>(n, ctx, type, out));
+                          (PrepareOutput<BooleanType, uint8_t>(n, ctx, type, out)));
 
     if (n >= 1) {
-      const bool index = counts[1] > counts[0];
-      mode_buffer[0] = index;
-      count_buffer[0] = counts[index];
+      // at most two bits are useful in mode buffer
+      mode_buffer[0] = 0;
+      const bool first_mode = counts[true] > counts[false];
+      bit_util::SetBitTo(mode_buffer, 0, first_mode);
+      count_buffer[0] = counts[first_mode];
       if (n == 2) {
-        mode_buffer[1] = !index;
-        count_buffer[1] = counts[!index];
+        const bool second_mode = !first_mode;
+        bit_util::SetBitTo(mode_buffer, 1, second_mode);
+        count_buffer[1] = counts[second_mode];
       }
     }
 
@@ -223,7 +229,7 @@ struct CountModer<BooleanType> {
     const ModeOptions& options = ModeState::Get(ctx);
     if ((!options.skip_nulls && values.GetNullCount() > 0) ||
         (values.length - values.null_count < options.min_count)) {
-      return PrepareOutput<BooleanType>(/*n=*/0, ctx, *out->type(), out).status();
+      return PrepareOutput<BooleanType, uint8_t>(0, ctx, *out->type(), out).status();
     }
     UpdateCounts(values);
     return WrapResult(ctx, options, *out->type(), out);
@@ -235,7 +241,7 @@ struct CountModer<BooleanType> {
     ExecResult result;
     if ((!options.skip_nulls && values.null_count() > 0) ||
         (values.length() - values.null_count() < options.min_count)) {
-      RETURN_NOT_OK(PrepareOutput<BooleanType>(/*n=*/0, ctx, *out->type(), &result));
+      RETURN_NOT_OK((PrepareOutput<BooleanType, uint8_t>(0, ctx, *out->type(), &result)));
     } else {
       UpdateCounts(values);
       RETURN_NOT_OK(WrapResult(ctx, options, *out->type(), &result));
@@ -410,31 +416,6 @@ struct Moder<InType, enable_if_decimal<InType>> {
   SortModer<InType> impl;
 };
 
-template <typename T>
-Status ScalarMode(KernelContext* ctx, const Scalar& scalar, ExecResult* out) {
-  using CType = typename TypeTraits<T>::CType;
-
-  const ModeOptions& options = ModeState::Get(ctx);
-  if ((!options.skip_nulls && !scalar.is_valid) ||
-      (static_cast<uint32_t>(scalar.is_valid) < options.min_count)) {
-    return PrepareOutput<T>(/*n=*/0, ctx, *out->type(), out).status();
-  }
-
-  if (scalar.is_valid) {
-    bool called = false;
-    return Finalize<T>(ctx, *out->type(), out, [&]() {
-      if (!called) {
-        called = true;
-        return std::pair<CType, uint64_t>(UnboxScalar<T>::Unbox(scalar), 1);
-      }
-      return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
-    });
-  }
-  return Finalize<T>(ctx, *out->type(), out, []() {
-    return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
-  });
-}
-
 Status CheckOptions(KernelContext* ctx) {
   if (ctx->state() == nullptr) {
     return Status::Invalid("Mode requires ModeOptions");
@@ -450,9 +431,6 @@ template <typename OutTypeUnused, typename InType>
 struct ModeExecutor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckOptions(ctx));
-    if (batch[0].is_scalar()) {
-      return ScalarMode<InType>(ctx, *batch[0].scalar, out);
-    }
     return Moder<InType>().impl.Exec(ctx, batch, out);
   }
 };
@@ -465,9 +443,9 @@ struct ModeExecutorChunked {
   }
 };
 
-Result<ValueDescr> ModeType(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  return ValueDescr::Array(
-      struct_({field(kModeFieldName, descrs[0].type), field(kCountFieldName, int64())}));
+Result<TypeHolder> ModeType(KernelContext*, const std::vector<TypeHolder>& types) {
+  return struct_(
+      {field(kModeFieldName, types[0].GetSharedPtr()), field(kCountFieldName, int64())});
 }
 
 VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type, ArrayKernelExec exec,
@@ -485,8 +463,7 @@ VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type, ArrayKernel
     default: {
       auto out_type =
           struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
-      kernel.signature = KernelSignature::Make({InputType(in_type->id())},
-                                               ValueDescr::Array(std::move(out_type)));
+      kernel.signature = KernelSignature::Make({in_type->id()}, std::move(out_type));
       break;
     }
   }

@@ -191,11 +191,11 @@ As `startsWith()` requires options, direct mapping is not appropriate.
 If the function cannot be mapped directly, some extra work may be needed to 
 ensure that calling the arrow version of the function results in the same result
 as calling the R version of the function.  In this case, the function will need 
-adding to the `nse_funcs` list in `arrow/r/R/dplyr-functions.R`.  Here is how 
-this might look for `startsWith()`:
+adding to the `nse_funcs` function registry. Here is how this might look for 
+`startsWith()`:
 
 ```{r, eval = FALSE}
-register_binding("startsWith", function(x, prefix) {
+register_binding("base::startsWith", function(x, prefix) {
   Expression$create(
     "starts_with",
     x,
@@ -210,6 +210,15 @@ subject matter (e.g., `R/dplyr-funcs-math.R`, `R/dplyr-funcs-string.R`): find th
 closest analog to the function whose binding is being defined and define the
 new binding in a similar location. For example, the binding for `startsWith()`
 is registered in `dplyr-funcs-string.R` next to the binding for `endsWith()`.
+
+Note: we use the namespace-qualified name (i.e. `"base::startsWith"`) for a 
+binding. This will register the same binding both as `startsWith()` and as 
+`base::startsWith()`, which will allow us to use the `pkg::` prefix in a call.
+
+```{r}
+arrow_table(starwars) %>%
+  filter(stringr::str_detect(name, "Darth"))
+```
 
 Hint:  you can use `call_function()` to call a compute function directly from R.
 This might be useful if you want to experiment with a compute function while 

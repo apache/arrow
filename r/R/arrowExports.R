@@ -432,8 +432,8 @@ ExecNode_Project <- function(input, exprs, names) {
   .Call(`_arrow_ExecNode_Project`, input, exprs, names)
 }
 
-ExecNode_Aggregate <- function(input, options, target_names, out_field_names, key_names) {
-  .Call(`_arrow_ExecNode_Aggregate`, input, options, target_names, out_field_names, key_names)
+ExecNode_Aggregate <- function(input, options, key_names) {
+  .Call(`_arrow_ExecNode_Aggregate`, input, options, key_names)
 }
 
 ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right) {
@@ -1288,6 +1288,10 @@ fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
+fs___GcsFileSystem__Make <- function(anonymous, options) {
+  .Call(`_arrow_fs___GcsFileSystem__Make`, anonymous, options)
+}
+
 io___Readable__Read <- function(x, nbytes) {
   .Call(`_arrow_io___Readable__Read`, x, nbytes)
 }
@@ -2007,3 +2011,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

@@ -25,6 +25,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -262,6 +263,11 @@ struct ARROW_EXPORT ArraySpan {
   int64_t offset = 0;
   BufferSpan buffers[3];
 
+  // 16 bytes of scratch space to enable this ArraySpan to be a view onto
+  // scalar values including binary scalars (where we need to create a buffer
+  // that looks like two 32-bit or 64-bit offsets)
+  uint64_t scratch_space[2];
+
   ArraySpan() = default;
 
   explicit ArraySpan(const DataType* type, int64_t length) : type(type), length(length) {}
@@ -269,9 +275,7 @@ struct ARROW_EXPORT ArraySpan {
   ArraySpan(const ArrayData& data) {  // NOLINT implicit conversion
     SetMembers(data);
   }
-  ArraySpan(const Scalar& data) {  // NOLINT implicit converstion
-    FillFromScalar(data);
-  }
+  explicit ArraySpan(const Scalar& data) { FillFromScalar(data); }
 
   /// If dictionary-encoded, put dictionary in the first entry
   std::vector<ArraySpan> child_data;
@@ -286,12 +290,6 @@ struct ARROW_EXPORT ArraySpan {
     this->buffers[index].data = const_cast<uint8_t*>(buffer->data());
     this->buffers[index].size = buffer->size();
     this->buffers[index].owner = &buffer;
-  }
-
-  void ClearBuffer(int index) {
-    this->buffers[index].data = NULLPTR;
-    this->buffers[index].size = 0;
-    this->buffers[index].owner = NULLPTR;
   }
 
   const ArraySpan& dictionary() const { return child_data[0]; }
@@ -339,21 +337,25 @@ struct ARROW_EXPORT ArraySpan {
   std::shared_ptr<Array> ToArray() const;
 
   std::shared_ptr<Buffer> GetBuffer(int index) const {
-    if (this->buffers[index].owner == NULLPTR) {
-      return NULLPTR;
+    const BufferSpan& buf = this->buffers[index];
+    if (buf.owner) {
+      return *buf.owner;
+    } else if (buf.data != NULLPTR) {
+      // Buffer points to some memory without an owning buffer
+      return std::make_shared<Buffer>(buf.data, buf.size);
     } else {
-      return *this->buffers[index].owner;
+      return NULLPTR;
     }
   }
 
-  void AddOffset(int64_t offset) {
-    this->offset += offset;
-    this->null_count = kUnknownNullCount;
-  }
-
-  void SetOffset(int64_t offset) {
+  void SetSlice(int64_t offset, int64_t length) {
     this->offset = offset;
-    this->null_count = kUnknownNullCount;
+    this->length = length;
+    if (this->type->id() != Type::NA) {
+      this->null_count = kUnknownNullCount;
+    } else {
+      this->null_count = this->length;
+    }
   }
 
   /// \brief Return null count, or compute and set it if it's not known
@@ -363,6 +365,8 @@ struct ARROW_EXPORT ArraySpan {
 };
 
 namespace internal {
+
+void FillZeroLengthArray(const DataType* type, ArraySpan* span);
 
 /// Construct a zero-copy view of this ArrayData with the given type.
 ///

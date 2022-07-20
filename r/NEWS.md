@@ -19,10 +19,19 @@
 
 # arrow 8.0.0.9000
 
+* The `arrow.dev_repo` for nightly builds of the R package and prebuilt
+  libarrow binaries is now https://nightlies.apache.org/arrow/r/.
 * `lubridate::parse_date_time()` datetime parser:
-  * currently parses only `orders` with year, month, and day components. In a future release `orders` support for other datetime components (such as hours, minutes, seconds, etc) will be added.
-  * strings with no separators (e.g. `"20210917"`) could be ambiguous and are not yet supported.
+  * `orders` with year, month, day, hours, minutes, and seconds components are supported.
   * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+* New functions `read_ipc_file()` and `write_ipc_file()` are added.
+  These functions are almost the same as `read_feather()` and `write_feather()`,
+  but differ in that they only target IPC files (Feather V2 files), not Feather V1 files.
+* `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed.
+  Instead of these, use the `read_ipc_file()` and `write_ipc_file()` for IPC files, or,
+  `read_ipc_stream()` and `write_ipc_stream()` for IPC streams.
+* `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps.
+* added `lubridate::qday()` (day of quarter)
 
 # arrow 8.0.0
 
@@ -51,7 +60,7 @@
 
 ## Enhancements to date and time support
 
-* `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")` 
+* `read_csv_arrow()`'s readr-style type `T` is mapped to `timestamp(unit = "ns")`
   instead of `timestamp(unit = "s")`.
 * For Arrow dplyr queries, added additional `{lubridate}` features and fixes:
   * New component extraction functions:
@@ -77,7 +86,7 @@
   * `strptime()` returns `NA` instead of erroring in case of format mismatch,
     just like `base::strptime()`.
 * Timezone operations are supported on Windows if the
-  [tzdb package](https://cran.r-project.org/web/packages/tzdb/index.html) is also
+  [tzdb package](https://cran.r-project.org/package=tzdb) is also
   installed.
 
 ## Extensibility
@@ -87,14 +96,14 @@
   record batches, arrays, chunked arrays, record batch readers, schemas, and
   data types. This allows other packages to define custom conversions from their
   types to Arrow objects, including extension arrays.
-* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types) 
+* Custom [extension types and arrays](https://arrow.apache.org/docs/format/Columnar.html#extension-types)
   can be created and registered, allowing other packages to
   define their own array types. Extension arrays wrap regular Arrow array types and
   provide customized behavior and/or storage. See description and an example with
   `?new_extension_type`.
-* Implemented a generic extension type and as_arrow_array() methods for all objects where     
-  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a 
-  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted 
+* Implemented a generic extension type and as_arrow_array() methods for all objects where
+  `vctrs::vec_is()` returns TRUE (i.e., any object that can be used as a column in a
+  `tibble::tibble()`), provided that the underlying `vctrs::vec_data()` can be converted
   to an Arrow Array.
 
 ## Concatenation Support

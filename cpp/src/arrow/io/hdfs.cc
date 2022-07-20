@@ -228,7 +228,9 @@ HdfsReadableFile::HdfsReadableFile(const io::IOContext& io_context) {
   impl_.reset(new HdfsReadableFileImpl(io_context.pool()));
 }
 
-HdfsReadableFile::~HdfsReadableFile() { ARROW_WARN_NOT_OK(impl_->Close()); }
+HdfsReadableFile::~HdfsReadableFile() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close HdfsReadableFile");
+}
 
 Status HdfsReadableFile::Close() { return impl_->Close(); }
 
@@ -314,7 +316,9 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
 HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); }
 
-HdfsOutputStream::~HdfsOutputStream() { ARROW_WARN_NOT_OK(impl_->Close()); }
+HdfsOutputStream::~HdfsOutputStream() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close HdfsOutputStream");
+}
 
 Status HdfsOutputStream::Close() { return impl_->Close(); }
 

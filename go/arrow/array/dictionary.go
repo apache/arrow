@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -387,7 +388,6 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String))
 	case arrow.NULL:
 	default:
-		debug.Assert(false, "unimplemented dictionary value type")
 		err = fmt.Errorf("unimplemented dictionary value type, %s", dt)
 	}
 
@@ -693,12 +693,31 @@ func (b *dictionaryBuilder) ResetFull() {
 func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
 
 // UnmarshalJSON is not yet implemented for dictionary builders and will always error.
-func (b *dictionaryBuilder) UnmarshalJSON([]byte) error {
-	return errors.New("unmarshal json to dictionary not yet implemented")
+func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("dictionary builder must upack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error {
-	return errors.New("unmarshal json to dictionary not yet implemented")
+	bldr := NewBuilder(b.mem, b.dt.ValueType)
+	defer bldr.Release()
+
+	if err := bldr.unmarshal(dec); err != nil {
+		return err
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	return b.AppendArray(arr)
 }
 
 func (b *dictionaryBuilder) unmarshalOne(dec *json.Decoder) error {
@@ -732,49 +751,8 @@ func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, 
 	indices = idxarr.Data().(*Data)
 	indices.Retain()
 
-	dictBuffers := make([]*memory.Buffer, 2)
-
-	dictLength := b.memoTable.Size() - offset
-	dictBuffers[1] = memory.NewResizableBuffer(b.mem)
-	defer dictBuffers[1].Release()
-
-	if bintbl, ok := b.memoTable.(*hashing.BinaryMemoTable); ok {
-		switch b.dt.ValueType.ID() {
-		case arrow.BINARY, arrow.STRING:
-			dictBuffers = append(dictBuffers, memory.NewResizableBuffer(b.mem))
-			defer dictBuffers[2].Release()
-
-			dictBuffers[1].Resize(arrow.Int32SizeBytes * (dictLength + 1))
-			offsets := arrow.Int32Traits.CastFromBytes(dictBuffers[1].Bytes())
-			bintbl.CopyOffsetsSubset(offset, offsets)
-
-			valuesz := offsets[len(offsets)-1] - offsets[0]
-			dictBuffers[2].Resize(int(valuesz))
-			bintbl.CopyValuesSubset(offset, dictBuffers[2].Bytes())
-		default: // fixed size
-			bw := int(bitutil.BytesForBits(int64(b.dt.ValueType.(arrow.FixedWidthDataType).BitWidth())))
-			dictBuffers[1].Resize(dictLength * bw)
-			bintbl.CopyFixedWidthValues(offset, bw, dictBuffers[1].Bytes())
-		}
-	} else {
-		dictBuffers[1].Resize(b.memoTable.TypeTraits().BytesRequired(dictLength))
-		b.memoTable.WriteOutSubset(offset, dictBuffers[1].Bytes())
-	}
-
-	var nullcount int
-	if idx, ok := b.memoTable.GetNull(); ok && idx >= offset {
-		dictBuffers[0] = memory.NewResizableBuffer(b.mem)
-		defer dictBuffers[0].Release()
-
-		nullcount = 1
-
-		dictBuffers[0].Resize(int(bitutil.BytesForBits(int64(dictLength))))
-		memory.Set(dictBuffers[0].Bytes(), 0xFF)
-		bitutil.ClearBit(dictBuffers[0].Bytes(), idx)
-	}
-
 	b.deltaOffset = b.memoTable.Size()
-	dict = NewData(b.dt.ValueType, dictLength, dictBuffers, nil, nullcount, 0)
+	dict, err = getDictArrayData(b.mem, b.dt.ValueType, b.memoTable, offset)
 	b.reset()
 	return
 }
@@ -1286,6 +1264,363 @@ func (b *DayTimeDictionaryBuilder) InsertDictValues(arr *DayTimeInterval) (err e
 		data = data[arrow.DayTimeIntervalSizeBytes:]
 	}
 	return
+}
+
+func IsTrivialTransposition(transposeMap []int32) bool {
+	for i, t := range transposeMap {
+		if t != int32(i) {
+			return false
+		}
+	}
+	return true
+}
+
+func TransposeDictIndices(mem memory.Allocator, data arrow.ArrayData, inType, outType arrow.DataType, dict arrow.ArrayData, transposeMap []int32) (arrow.ArrayData, error) {
+	// inType may be different from data->dtype if data is ExtensionType
+	if inType.ID() != arrow.DICTIONARY || outType.ID() != arrow.DICTIONARY {
+		return nil, errors.New("arrow/array: expected dictionary type")
+	}
+
+	var (
+		inDictType   = inType.(*arrow.DictionaryType)
+		outDictType  = outType.(*arrow.DictionaryType)
+		inIndexType  = inDictType.IndexType
+		outIndexType = outDictType.IndexType.(arrow.FixedWidthDataType)
+	)
+
+	if inIndexType.ID() == outIndexType.ID() && IsTrivialTransposition(transposeMap) {
+		// index type and values will be identical, we can reuse the existing buffers
+		return NewDataWithDictionary(outType, data.Len(), []*memory.Buffer{data.Buffers()[0], data.Buffers()[1]},
+			data.NullN(), data.Offset(), dict.(*Data)), nil
+	}
+
+	// default path: compute the transposed indices as a new buffer
+	outBuf := memory.NewResizableBuffer(mem)
+	outBuf.Resize(data.Len() * int(bitutil.BytesForBits(int64(outIndexType.BitWidth()))))
+	defer outBuf.Release()
+
+	// shift null buffer if original offset is non-zero
+	var nullBitmap *memory.Buffer
+	if data.Offset() != 0 && data.NullN() != 0 {
+		nullBitmap = memory.NewResizableBuffer(mem)
+		nullBitmap.Resize(int(bitutil.BytesForBits(int64(data.Len()))))
+		bitutil.CopyBitmap(data.Buffers()[0].Bytes(), data.Offset(), data.Len(), nullBitmap.Bytes(), 0)
+		defer nullBitmap.Release()
+	} else {
+		nullBitmap = data.Buffers()[0]
+	}
+
+	outData := NewDataWithDictionary(outType, data.Len(),
+		[]*memory.Buffer{nullBitmap, outBuf}, data.NullN(), 0, dict.(*Data))
+	err := utils.TransposeIntsBuffers(inIndexType, outIndexType,
+		data.Buffers()[1].Bytes(), outBuf.Bytes(), data.Offset(), outData.offset, data.Len(), transposeMap)
+	return outData, err
+}
+
+// DictionaryUnifier defines the interface used for unifying, and optionally producing
+// transposition maps for, multiple dictionary arrays incrementally.
+type DictionaryUnifier interface {
+	// Unify adds the provided array of dictionary values to be unified.
+	Unify(arrow.Array) error
+	// UnifyAndTranspose adds the provided array of dictionary values,
+	// just like Unify but returns an allocated buffer containing a mapping
+	// to transpose dictionary indices.
+	UnifyAndTranspose(dict arrow.Array) (transposed *memory.Buffer, err error)
+	// GetResult returns the dictionary type (choosing the smallest index type
+	// that can represent all the values) and the new unified dictionary.
+	//
+	// Calling GetResult clears the existing dictionary from the unifier so it
+	// can be reused by calling Unify/UnifyAndTranspose again with new arrays.
+	GetResult() (outType arrow.DataType, outDict arrow.Array, err error)
+	// GetResultWithIndexType is like GetResult, but allows specifying the type
+	// of the dictionary indexes rather than letting the unifier pick. If the
+	// passed in index type isn't large enough to represent all of the dictionary
+	// values, an error will be returned instead. The new unified dictionary
+	// is returned.
+	GetResultWithIndexType(indexType arrow.DataType) (arrow.Array, error)
+	// Release should be called to clean up any allocated scrach memo-table used
+	// for building the unified dictionary.
+	Release()
+}
+
+type unifier struct {
+	mem       memory.Allocator
+	valueType arrow.DataType
+	memoTable hashing.MemoTable
+}
+
+// NewDictionaryUnifier constructs and returns a new dictionary unifier for dictionaries
+// of valueType, using the provided allocator for allocating the unified dictionary
+// and the memotable used for building it.
+//
+// This will only work for non-nested types currently. a nested valueType or dictionary type
+// will result in an error.
+func NewDictionaryUnifier(alloc memory.Allocator, valueType arrow.DataType) (DictionaryUnifier, error) {
+	memoTable, err := createMemoTable(alloc, valueType)
+	if err != nil {
+		return nil, err
+	}
+	return &unifier{
+		mem:       alloc,
+		valueType: valueType,
+		memoTable: memoTable,
+	}, nil
+}
+
+func (u *unifier) Release() {
+	if bin, ok := u.memoTable.(*hashing.BinaryMemoTable); ok {
+		bin.Release()
+	}
+}
+
+func (u *unifier) Unify(dict arrow.Array) (err error) {
+	if !arrow.TypeEqual(u.valueType, dict.DataType()) {
+		return fmt.Errorf("dictionary type different from unifier: %s, expected: %s", dict.DataType(), u.valueType)
+	}
+
+	valFn := getvalFn(dict)
+	for i := 0; i < dict.Len(); i++ {
+		if dict.IsNull(i) {
+			u.memoTable.GetOrInsertNull()
+			continue
+		}
+
+		if _, _, err = u.memoTable.GetOrInsert(valFn(i)); err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func (u *unifier) UnifyAndTranspose(dict arrow.Array) (transposed *memory.Buffer, err error) {
+	if !arrow.TypeEqual(u.valueType, dict.DataType()) {
+		return nil, fmt.Errorf("dictionary type different from unifier: %s, expected: %s", dict.DataType(), u.valueType)
+	}
+
+	transposed = memory.NewResizableBuffer(u.mem)
+	transposed.Resize(arrow.Int32Traits.BytesRequired(dict.Len()))
+
+	newIdxes := arrow.Int32Traits.CastFromBytes(transposed.Bytes())
+	valFn := getvalFn(dict)
+	for i := 0; i < dict.Len(); i++ {
+		if dict.IsNull(i) {
+			idx, _ := u.memoTable.GetOrInsertNull()
+			newIdxes[i] = int32(idx)
+			continue
+		}
+
+		idx, _, err := u.memoTable.GetOrInsert(valFn(i))
+		if err != nil {
+			transposed.Release()
+			return nil, err
+		}
+		newIdxes[i] = int32(idx)
+	}
+	return
+}
+
+func (u *unifier) GetResult() (outType arrow.DataType, outDict arrow.Array, err error) {
+	dictLen := u.memoTable.Size()
+	var indexType arrow.DataType
+	switch {
+	case dictLen <= math.MaxInt8:
+		indexType = arrow.PrimitiveTypes.Int8
+	case dictLen <= math.MaxInt16:
+		indexType = arrow.PrimitiveTypes.Int16
+	case dictLen <= math.MaxInt32:
+		indexType = arrow.PrimitiveTypes.Int32
+	default:
+		indexType = arrow.PrimitiveTypes.Int64
+	}
+	outType = &arrow.DictionaryType{IndexType: indexType, ValueType: u.valueType}
+
+	dictData, err := getDictArrayData(u.mem, u.valueType, u.memoTable, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	u.memoTable.Reset()
+
+	defer dictData.Release()
+	outDict = MakeFromData(dictData)
+	return
+}
+
+func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array, error) {
+	dictLen := u.memoTable.Size()
+	var toobig bool
+	switch indexType.ID() {
+	case arrow.UINT8:
+		toobig = dictLen > math.MaxUint8
+	case arrow.INT8:
+		toobig = dictLen > math.MaxInt8
+	case arrow.UINT16:
+		toobig = dictLen > math.MaxUint16
+	case arrow.INT16:
+		toobig = dictLen > math.MaxInt16
+	case arrow.UINT32:
+		toobig = dictLen > math.MaxUint32
+	case arrow.INT32:
+		toobig = dictLen > math.MaxInt32
+	case arrow.UINT64:
+		toobig = uint64(dictLen) > uint64(math.MaxUint64)
+	case arrow.INT64:
+	default:
+		return nil, fmt.Errorf("arrow/array: invalid dictionary index type: %s, must be integral", indexType)
+	}
+	if toobig {
+		return nil, errors.New("arrow/array: cannot combine dictionaries. unified dictionary requires a larger index type")
+	}
+
+	dictData, err := getDictArrayData(u.mem, u.valueType, u.memoTable, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	u.memoTable.Reset()
+
+	defer dictData.Release()
+	return MakeFromData(dictData), nil
+}
+
+func unifyRecursive(mem memory.Allocator, typ arrow.DataType, chunks []*Data) (changed bool, err error) {
+	debug.Assert(len(chunks) != 0, "must provide non-zero length chunk slice")
+	var extType arrow.DataType
+
+	if typ.ID() == arrow.EXTENSION {
+		extType = typ
+		typ = typ.(arrow.ExtensionType).StorageType()
+	}
+
+	if nestedTyp, ok := typ.(arrow.NestedType); ok {
+		children := make([]*Data, len(chunks))
+		for i, f := range nestedTyp.Fields() {
+			for j, c := range chunks {
+				children[j] = c.childData[i].(*Data)
+			}
+
+			childChanged, err := unifyRecursive(mem, f.Type, children)
+			if err != nil {
+				return false, err
+			}
+			if childChanged {
+				// only when unification actually occurs
+				for j := range chunks {
+					chunks[j].childData[i] = children[j]
+				}
+				changed = true
+			}
+		}
+	}
+
+	if typ.ID() == arrow.DICTIONARY {
+		dictType := typ.(*arrow.DictionaryType)
+		var (
+			uni     DictionaryUnifier
+			newDict arrow.Array
+		)
+		// unify any nested dictionaries first, but the unifier doesn't support
+		// nested dictionaries yet so this would fail.
+		uni, err = NewDictionaryUnifier(mem, dictType.ValueType)
+		if err != nil {
+			return changed, err
+		}
+		defer uni.Release()
+		transposeMaps := make([]*memory.Buffer, len(chunks))
+		for i, c := range chunks {
+			debug.Assert(c.dictionary != nil, "missing dictionary data for dictionary array")
+			arr := MakeFromData(c.dictionary)
+			defer arr.Release()
+			if transposeMaps[i], err = uni.UnifyAndTranspose(arr); err != nil {
+				return
+			}
+			defer transposeMaps[i].Release()
+		}
+
+		if newDict, err = uni.GetResultWithIndexType(dictType.IndexType); err != nil {
+			return
+		}
+		defer newDict.Release()
+
+		for j := range chunks {
+			chnk, err := TransposeDictIndices(mem, chunks[j], typ, typ, newDict.Data(), arrow.Int32Traits.CastFromBytes(transposeMaps[j].Bytes()))
+			if err != nil {
+				return changed, err
+			}
+			chunks[j].Release()
+			chunks[j] = chnk.(*Data)
+			if extType != nil {
+				chunks[j].dtype = extType
+			}
+		}
+		changed = true
+	}
+
+	return
+}
+
+// UnifyChunkedDicts takes a chunked array of dictionary type and will unify
+// the dictionary across all of the chunks with the returned chunked array
+// having all chunks share the same dictionary.
+//
+// The return from this *must* have Release called on it unless an error is returned
+// in which case the *arrow.Chunked will be nil.
+//
+// If there is 1 or fewer chunks, then nothing is modified and this function will just
+// call Retain on the passed in Chunked array (so Release can safely be called on it).
+// The same is true if the type of the array is not a dictionary or if no changes are
+// needed for all of the chunks to be using the same dictionary.
+func UnifyChunkedDicts(alloc memory.Allocator, chnkd *arrow.Chunked) (*arrow.Chunked, error) {
+	if len(chnkd.Chunks()) <= 1 {
+		chnkd.Retain()
+		return chnkd, nil
+	}
+
+	chunksData := make([]*Data, len(chnkd.Chunks()))
+	for i, c := range chnkd.Chunks() {
+		c.Data().Retain()
+		chunksData[i] = c.Data().(*Data)
+	}
+	changed, err := unifyRecursive(alloc, chnkd.DataType(), chunksData)
+	if err != nil || !changed {
+		for _, c := range chunksData {
+			c.Release()
+		}
+		if err == nil {
+			chnkd.Retain()
+		} else {
+			chnkd = nil
+		}
+		return chnkd, err
+	}
+
+	chunks := make([]arrow.Array, len(chunksData))
+	for i, c := range chunksData {
+		chunks[i] = MakeFromData(c)
+		defer chunks[i].Release()
+		c.Release()
+	}
+
+	return arrow.NewChunked(chnkd.DataType(), chunks), nil
+}
+
+// UnifyTableDicts performs UnifyChunkedDicts on each column of the table so that
+// any dictionary column will have the dictionaries of its chunks unified.
+//
+// The returned Table should always be Release'd unless a non-nil error was returned,
+// in which case the table returned will be nil.
+func UnifyTableDicts(alloc memory.Allocator, table arrow.Table) (arrow.Table, error) {
+	cols := make([]arrow.Column, table.NumCols())
+	for i := 0; i < int(table.NumCols()); i++ {
+		chnkd, err := UnifyChunkedDicts(alloc, table.Column(i).Data())
+		if err != nil {
+			return nil, err
+		}
+		defer chnkd.Release()
+		cols[i] = *arrow.NewColumn(table.Schema().Field(i), chnkd)
+		defer cols[i].Release()
+	}
+	return NewTable(table.Schema(), cols, table.NumRows()), nil
 }
 
 var (

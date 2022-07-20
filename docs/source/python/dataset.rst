@@ -386,7 +386,7 @@ useful for testing or benchmarking.
     from pyarrow import fs
 
     # By default, MinIO will listen for unencrypted HTTP traffic.
-    minio = fs.S3FileSystem(scheme="http", endpoint="localhost:9000")
+    minio = fs.S3FileSystem(scheme="http", endpoint_override="localhost:9000")
     dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=minio,
                          partitioning=["year", "month"])
 

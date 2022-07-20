@@ -195,12 +195,18 @@ See $.data for the source Arrow object",
   # Component "total": Mean relative difference: 0.9230769
   # Component "extra": Mean relative difference: 0.9230769
   expect_equal(
-    q %>% head(1) %>% collect(),
+    q %>%
+      arrange(lgl) %>%
+      head(1) %>%
+      collect(),
     tibble::tibble(lgl = FALSE, total = 8L, extra = 40)
   )
-  skip("TODO (ARROW-1XXXX): implement sorting option about where NAs go")
+  skip("TODO (ARROW-16630): make sure BottomK can handle NA ordering")
   expect_equal(
-    q %>% tail(1) %>% collect(),
+    q %>%
+      arrange(lgl) %>%
+      tail(1) %>%
+      collect(),
     tibble::tibble(lgl = NA, total = 25L, extra = 125)
   )
 })

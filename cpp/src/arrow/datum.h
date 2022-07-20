@@ -40,66 +40,6 @@ class ChunkedArray;
 class RecordBatch;
 class Table;
 
-/// \brief A descriptor type that gives the shape (array or scalar) and
-/// DataType of a Value, but without the data
-struct ARROW_EXPORT ValueDescr {
-  std::shared_ptr<DataType> type;
-  enum Shape {
-    /// \brief Either Array or Scalar
-    ANY,
-
-    /// \brief Array type
-    ARRAY,
-
-    /// \brief Only Scalar arguments supported
-    SCALAR
-  };
-
-  Shape shape;
-
-  ValueDescr() : shape(ANY) {}
-
-  ValueDescr(std::shared_ptr<DataType> type, ValueDescr::Shape shape)
-      : type(std::move(type)), shape(shape) {}
-
-  ValueDescr(std::shared_ptr<DataType> type)  // NOLINT implicit conversion
-      : type(std::move(type)), shape(ValueDescr::ANY) {}
-
-  /// \brief Convenience constructor for ANY descr
-  static ValueDescr Any(std::shared_ptr<DataType> type) {
-    return ValueDescr(std::move(type), ANY);
-  }
-
-  /// \brief Convenience constructor for Value::ARRAY descr
-  static ValueDescr Array(std::shared_ptr<DataType> type) {
-    return ValueDescr(std::move(type), ARRAY);
-  }
-
-  /// \brief Convenience constructor for Value::SCALAR descr
-  static ValueDescr Scalar(std::shared_ptr<DataType> type) {
-    return ValueDescr(std::move(type), SCALAR);
-  }
-
-  bool operator==(const ValueDescr& other) const {
-    if (shape != other.shape) return false;
-    if (type == other.type) return true;
-    return type && type->Equals(other.type);
-  }
-
-  bool operator!=(const ValueDescr& other) const { return !(*this == other); }
-
-  std::string ToString() const;
-  static std::string ToString(const std::vector<ValueDescr>&);
-
-  ARROW_EXPORT friend void PrintTo(const ValueDescr&, std::ostream*);
-};
-
-/// \brief For use with scalar functions, returns the broadcasted Value::Shape
-/// given a vector of value descriptors. Return SCALAR unless any value is
-/// ARRAY
-ARROW_EXPORT
-ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args);
-
 /// \class Datum
 /// \brief Variant type for various Arrow C++ data structures
 struct ARROW_EXPORT Datum {
@@ -248,14 +188,6 @@ struct ARROW_EXPORT Datum {
   bool is_value() const { return this->is_arraylike() || this->is_scalar(); }
 
   int64_t null_count() const;
-
-  /// \brief Return the shape (array or scalar) and type for supported kinds
-  /// (ARRAY, CHUNKED_ARRAY, and SCALAR). Debug asserts otherwise
-  ValueDescr descr() const;
-
-  /// \brief Return the shape (array or scalar) for supported kinds (ARRAY,
-  /// CHUNKED_ARRAY, and SCALAR). Debug asserts otherwise
-  ValueDescr::Shape shape() const;
 
   /// \brief The value type of the variant, if any
   ///

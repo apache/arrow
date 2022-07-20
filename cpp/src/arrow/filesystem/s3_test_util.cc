@@ -33,8 +33,8 @@
 // boost/asio/detail/socket_types.hpp implicitly is included.
 #include <boost/asio/io_context.hpp>
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
-// cpp/cmake_modules/BuildUtils.cmake for details.
+// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
+// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
 #include <boost/process.hpp>
 
 #include "arrow/filesystem/s3_test_util.h"

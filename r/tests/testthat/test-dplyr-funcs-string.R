@@ -23,6 +23,14 @@ library(lubridate)
 library(stringr)
 library(stringi)
 
+tbl <- example_data
+# Add some better string data
+tbl$verses <- verses[[1]]
+# c(" a ", "  b  ", "   c   ", ...) increasing padding
+# nchar =   3  5  7  9 11 13 15 17 19 21
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
+tbl$some_grouping <- rep(c(1, 2), 5)
+
 test_that("paste, paste0, and str_c", {
   df <- tibble(
     v = c("A", "B", "C"),
@@ -37,7 +45,10 @@ test_that("paste, paste0, and str_c", {
   # no NAs in data
   compare_dplyr_binding(
     .input %>%
-      transmute(paste(v, w)) %>%
+      transmute(
+        a = paste(v, w),
+        a2 = base::paste(v, w)
+      ) %>%
       collect(),
     df
   )
@@ -49,13 +60,18 @@ test_that("paste, paste0, and str_c", {
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(paste0(v, w)) %>%
+      transmute(
+        a = paste0(v, w),
+        a2 = base::paste0(v, w)) %>%
       collect(),
     df
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(str_c(v, w)) %>%
+      transmute(
+        a = str_c(v, w),
+        a2 = stringr::str_c(v, w)
+      ) %>%
       collect(),
     df
   )
@@ -236,6 +252,13 @@ test_that("grepl", {
         collect(),
       df
     )
+    # with namespacing
+    compare_dplyr_binding(
+      .input %>%
+        filter(base::grepl("Foo", x, fixed = fixed)) %>%
+        collect(),
+      df
+    )
   }
 })
 
@@ -283,7 +306,10 @@ test_that("str_detect", {
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+      transmute(
+        a = str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE)),
+        a2 = stringr::str_detect(x, regex("^f[A-Z]{2}", ignore_case = TRUE))
+      ) %>%
       collect(),
     df
   )
@@ -372,6 +398,22 @@ test_that("sub and gsub with ignore.case = TRUE and fixed = TRUE", {
   )
 })
 
+test_that("sub and gsub with namespacing", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(verses_new = base::gsub("o", "u", verses, fixed = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(verses_new = base::sub("o", "u", verses, fixed = TRUE)) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("str_replace and str_replace_all", {
   df <- tibble(x = c("Foo", "bar"))
 
@@ -404,13 +446,19 @@ test_that("str_replace and str_replace_all", {
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_replace_all(x, fixed("o"), "u")) %>%
+      transmute(
+        x = str_replace_all(x, fixed("o"), "u"),
+        x2 = stringr::str_replace_all(x, fixed("o"), "u")
+      ) %>%
       collect(),
     df
   )
   compare_dplyr_binding(
     .input %>%
-      transmute(x = str_replace(x, fixed("O"), "u")) %>%
+      transmute(
+        x = str_replace(x, fixed("O"), "u"),
+        x2 = stringr::str_replace(x, fixed("O"), "u")
+      ) %>%
       collect(),
     df
   )
@@ -443,14 +491,20 @@ test_that("strsplit and str_split", {
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(x = strsplit(x, " +and +")) %>%
+      mutate(
+        a = strsplit(x, " +and +"),
+        a2 = base::strsplit(x, " +and +")
+      ) %>%
       collect(),
     df,
     ignore_attr = TRUE
   )
   compare_dplyr_binding(
     .input %>%
-      mutate(x = str_split(x, "and")) %>%
+      mutate(
+        a = str_split(x, "and"),
+        a2 = stringr::str_split(x, "and")
+      ) %>%
       collect(),
     df,
     ignore_attr = TRUE
@@ -511,7 +565,10 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
       transmute(
         x_lower = str_to_lower(x),
         x_upper = str_to_upper(x),
-        x_title = str_to_title(x)
+        x_title = str_to_title(x),
+        x_lower_nmspc = stringr::str_to_lower(x),
+        x_upper_nmspc = stringr::str_to_upper(x),
+        x_title_nmspc = stringr::str_to_title(x)
       ) %>%
       collect(),
     df
@@ -802,6 +859,14 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
+  # with namespacing
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      mutate(x = stringr::str_like(x, "baz")) %>%
+      collect(),
+    tibble(x = c(FALSE, FALSE))
+  )
 
   # Match - entire string
   expect_equal(
@@ -882,7 +947,10 @@ test_that("str_pad", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = str_pad(x, width = 31, side = "both")) %>%
+      mutate(
+        a = str_pad(x, width = 31, side = "both"),
+        a2 = stringr::str_pad(x, width = 31, side = "both")
+      ) %>%
       collect(),
     df
   )
@@ -949,7 +1017,10 @@ test_that("substr", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = substr(x, -5, -1)) %>%
+      mutate(
+        y = substr(x, -5, -1),
+        y2 = base::substr(x, -5, -1)
+      ) %>%
       collect(),
     df
   )
@@ -972,7 +1043,10 @@ test_that("substring", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = substring(x, 1, 6)) %>%
+      mutate(
+        y = substring(x, 1, 6),
+        y2 = base::substring(x, 1, 6)
+      ) %>%
       collect(),
     df
   )
@@ -1046,7 +1120,10 @@ test_that("str_sub", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(y = str_sub(x, -5, -1)) %>%
+      mutate(
+        y = str_sub(x, -5, -1),
+        y2 = stringr::str_sub(x, -5, -1)
+      ) %>%
       collect(),
     df
   )
@@ -1097,6 +1174,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     .input %>%
       transmute(
         a = str_starts(x, "b.*"),
+        a2 = stringr::str_starts(x, "b.*"),
         b = str_starts(x, "b.*", negate = TRUE),
         c = str_starts(x, fixed("b")),
         d = str_starts(x, fixed("b"), negate = TRUE)
@@ -1137,6 +1215,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     .input %>%
       transmute(
         a = str_ends(x, "r"),
+        a2 = stringr::str_ends(x, "r"),
         b = str_ends(x, "r", negate = TRUE),
         c = str_ends(x, fixed("r")),
         d = str_ends(x, fixed("r"), negate = TRUE)
@@ -1144,6 +1223,7 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
       collect(),
     df
   )
+
   compare_dplyr_binding(
     .input %>%
       filter(startsWith(x, "b")) %>%
@@ -1176,7 +1256,9 @@ test_that("str_starts, str_ends, startsWith, endsWith", {
     .input %>%
       transmute(
         a = startsWith(x, "b"),
-        b = endsWith(x, "r")
+        b = endsWith(x, "r"),
+        a2 = base::startsWith(x, "b"),
+        b2 = base::endsWith(x, "r")
       ) %>%
       collect(),
     df
@@ -1191,7 +1273,10 @@ test_that("str_count", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(a_count = str_count(cities, pattern = "a")) %>%
+      mutate(
+        a_count = str_count(cities, pattern = "a"),
+        a_count_nmspc = stringr::str_count(cities, pattern = "a")
+      ) %>%
       collect(),
     df
   )
@@ -1240,5 +1325,75 @@ test_that("str_count", {
       mutate(dots_count = str_count(dots, fixed("."))) %>%
       collect(),
     df
+  )
+})
+
+test_that("base::tolower and base::toupper", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        verse_to_upper = toupper(verses),
+        verse_to_lower = tolower(verses),
+        verse_to_upper_nmspc = base::toupper(verses),
+        verse_to_lower_nmspc = base::tolower(verses)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("namespaced unary and binary string functions", {
+  # str_length and stringi::stri_reverse
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        verse_length = stringr::str_length(verses),
+        reverses_verse = stringi::stri_reverse(verses)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  # stringr::str_dup and base::strrep
+  df <- tibble(x = c("foo1", " \tB a R\n", "!apACHe aRroW!"))
+  for (times in 0:8) {
+    compare_dplyr_binding(
+      .input %>%
+        mutate(x = base::strrep(x, times)) %>%
+        collect(),
+      df
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        mutate(x = stringr::str_dup(x, times)) %>%
+        collect(),
+      df
+    )
+  }
+})
+
+test_that("nchar with namespacing", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(verses_nchar = base::nchar(verses)) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("str_trim()", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        left_trim_padded_string = str_trim(padded_strings, "left"),
+        right_trim_padded_string = str_trim(padded_strings, "right"),
+        both_trim_padded_string = str_trim(padded_strings, "both"),
+        left_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "left"),
+        right_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "right"),
+        both_trim_padded_string_nmspc = stringr::str_trim(padded_strings, "both")
+      ) %>%
+      collect(),
+    tbl
   )
 })

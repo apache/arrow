@@ -79,51 +79,35 @@ static const FunctionDoc kEmptyFunctionDoc{};
 
 const FunctionDoc& FunctionDoc::Empty() { return kEmptyFunctionDoc; }
 
-static Status CheckArityImpl(const Function& function, int passed_num_args,
-                             const char* passed_num_args_label) {
-  if (function.arity().is_varargs && passed_num_args < function.arity().num_args) {
-    return Status::Invalid("VarArgs function '", function.name(), "' needs at least ",
-                           function.arity().num_args, " arguments but ",
-                           passed_num_args_label, " only ", passed_num_args);
+static Status CheckArityImpl(const Function& func, int num_args) {
+  if (func.arity().is_varargs && num_args < func.arity().num_args) {
+    return Status::Invalid("VarArgs function '", func.name(), "' needs at least ",
+                           func.arity().num_args, " arguments but only ", num_args,
+                           " passed");
   }
 
-  if (!function.arity().is_varargs && passed_num_args != function.arity().num_args) {
-    return Status::Invalid("Function '", function.name(), "' accepts ",
-                           function.arity().num_args, " arguments but ",
-                           passed_num_args_label, " ", passed_num_args);
-  }
-
-  return Status::OK();
-}
-
-Status Function::CheckArity(const std::vector<InputType>& in_types) const {
-  return CheckArityImpl(*this, static_cast<int>(in_types.size()), "kernel accepts");
-}
-
-Status Function::CheckArity(const std::vector<ValueDescr>& descrs) const {
-  return CheckArityImpl(*this, static_cast<int>(descrs.size()),
-                        "attempted to look up kernel(s) with");
-}
-
-static Status CheckOptions(const Function& function, const FunctionOptions* options) {
-  if (options == nullptr && function.doc().options_required) {
-    return Status::Invalid("Function '", function.name(),
-                           "' cannot be called without options");
+  if (!func.arity().is_varargs && num_args != func.arity().num_args) {
+    return Status::Invalid("Function '", func.name(), "' accepts ", func.arity().num_args,
+                           " arguments but ", num_args, " passed");
   }
   return Status::OK();
+}
+
+Status Function::CheckArity(size_t num_args) const {
+  return CheckArityImpl(*this, static_cast<int>(num_args));
 }
 
 namespace detail {
 
-Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>& descrs) {
+Status NoMatchingKernel(const Function* func, const std::vector<TypeHolder>& types) {
   return Status::NotImplemented("Function '", func->name(),
                                 "' has no kernel matching input types ",
-                                ValueDescr::ToString(descrs));
+                                TypeHolder::ToString(types));
 }
 
 template <typename KernelType>
 const KernelType* DispatchExactImpl(const std::vector<KernelType*>& kernels,
-                                    const std::vector<ValueDescr>& values) {
+                                    const std::vector<TypeHolder>& values) {
   const KernelType* kernel_matches[SimdLevel::MAX] = {nullptr};
 
   // Validate arity
@@ -159,7 +143,7 @@ const KernelType* DispatchExactImpl(const std::vector<KernelType*>& kernels,
 }
 
 const Kernel* DispatchExactImpl(const Function* func,
-                                const std::vector<ValueDescr>& values) {
+                                const std::vector<TypeHolder>& values) {
   if (func->kind() == Function::SCALAR) {
     return DispatchExactImpl(checked_cast<const ScalarFunction*>(func)->kernels(),
                              values);
@@ -186,11 +170,11 @@ const Kernel* DispatchExactImpl(const Function* func,
 }  // namespace detail
 
 Result<const Kernel*> Function::DispatchExact(
-    const std::vector<ValueDescr>& values) const {
+    const std::vector<TypeHolder>& values) const {
   if (kind_ == Function::META) {
     return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
   }
-  RETURN_NOT_OK(CheckArity(values));
+  RETURN_NOT_OK(CheckArity(values.size()));
 
   if (auto kernel = detail::DispatchExactImpl(this, values)) {
     return kernel;
@@ -198,75 +182,92 @@ Result<const Kernel*> Function::DispatchExact(
   return detail::NoMatchingKernel(this, values);
 }
 
-Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) const {
+Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) const {
   // TODO(ARROW-11508) permit generic conversions here
   return DispatchExact(*values);
 }
 
-Result<Datum> Function::Execute(const std::vector<Datum>& args,
-                                const FunctionOptions* options, ExecContext* ctx) const {
-  return ExecuteInternal(args, /*passed_length=*/-1, options, ctx);
+namespace {
+
+Status CheckAllArrayOrScalar(const std::vector<Datum>& values) {
+  for (const auto& value : values) {
+    if (!value.is_value()) {
+      return Status::Invalid("Tried executing function with non-value type: ",
+                             value.ToString());
+    }
+  }
+  return Status::OK();
 }
 
-Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
-                                ExecContext* ctx) const {
-  return ExecuteInternal(batch.values, batch.length, options, ctx);
+Status CheckOptions(const Function& function, const FunctionOptions* options) {
+  if (options == nullptr && function.doc().options_required) {
+    return Status::Invalid("Function '", function.name(),
+                           "' cannot be called without options");
+  }
+  return Status::OK();
 }
 
-Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
-                                        int64_t passed_length,
-                                        const FunctionOptions* options,
-                                        ExecContext* ctx) const {
+Result<Datum> ExecuteInternal(const Function& func, std::vector<Datum> args,
+                              int64_t passed_length, const FunctionOptions* options,
+                              ExecContext* ctx) {
+  std::unique_ptr<ExecContext> default_ctx;
   if (options == nullptr) {
-    RETURN_NOT_OK(CheckOptions(*this, options));
-    options = default_options();
+    RETURN_NOT_OK(CheckOptions(func, options));
+    options = func.default_options();
   }
   if (ctx == nullptr) {
-    ExecContext default_ctx;
-    return ExecuteInternal(args, passed_length, options, &default_ctx);
+    default_ctx.reset(new ExecContext());
+    ctx = default_ctx.get();
   }
 
   util::tracing::Span span;
 
-  START_COMPUTE_SPAN(span, name(),
-                     {{"function.name", name()},
+  START_COMPUTE_SPAN(span, func.name(),
+                     {{"function.name", func.name()},
                       {"function.options", options ? options->ToString() : "<NULLPTR>"},
-                      {"function.kind", kind()}});
+                      {"function.kind", func.kind()}});
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
-  RETURN_NOT_OK(detail::CheckAllValues(args));
-  std::vector<ValueDescr> inputs(args.size());
+  RETURN_NOT_OK(CheckAllArrayOrScalar(args));
+  std::vector<TypeHolder> in_types(args.size());
   for (size_t i = 0; i != args.size(); ++i) {
-    inputs[i] = args[i].descr();
+    in_types[i] = args[i].type().get();
   }
 
   std::unique_ptr<detail::KernelExecutor> executor;
-  if (kind() == Function::SCALAR) {
+  if (func.kind() == Function::SCALAR) {
     executor = detail::KernelExecutor::MakeScalar();
-  } else if (kind() == Function::VECTOR) {
+  } else if (func.kind() == Function::VECTOR) {
     executor = detail::KernelExecutor::MakeVector();
-  } else if (kind() == Function::SCALAR_AGGREGATE) {
+  } else if (func.kind() == Function::SCALAR_AGGREGATE) {
     executor = detail::KernelExecutor::MakeScalarAggregate();
   } else {
     return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
 
-  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
-  ARROW_ASSIGN_OR_RAISE(std::vector<Datum> args_with_casts, Cast(args, inputs, ctx));
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, func.DispatchBest(&in_types));
+
+  // Cast arguments if necessary
+  for (size_t i = 0; i != args.size(); ++i) {
+    if (in_types[i] != args[i].type()) {
+      ARROW_ASSIGN_OR_RAISE(args[i], Cast(args[i], CastOptions::Safe(in_types[i]), ctx));
+    }
+  }
+
+  KernelContext kernel_ctx{ctx, kernel};
 
   std::unique_ptr<KernelState> state;
-  KernelContext kernel_ctx{ctx, kernel};
   if (kernel->init) {
-    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
+    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, in_types, options}));
     kernel_ctx.SetState(state.get());
   }
 
-  RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
+  RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, in_types, options}));
 
   detail::DatumAccumulator listener;
 
-  ExecBatch input(std::move(args_with_casts), /*length=*/0);
+  ExecBatch input(std::move(args), /*length=*/0);
   if (input.num_values() == 0) {
     if (passed_length != -1) {
       input.length = passed_length;
@@ -275,9 +276,13 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
     bool all_same_length = false;
     int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
     input.length = inferred_length;
-    if (kind() == Function::SCALAR) {
-      DCHECK(passed_length == -1 || passed_length == inferred_length);
-    } else if (kind() == Function::VECTOR) {
+    if (func.kind() == Function::SCALAR) {
+      if (passed_length != -1 && passed_length != inferred_length) {
+        return Status::Invalid(
+            "Passed batch length for execution did not match actual"
+            " length of values for scalar function execution");
+      }
+    } else if (func.kind() == Function::VECTOR) {
       auto vkernel = static_cast<const VectorKernel*>(kernel);
       if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
         return Status::Invalid("Vector kernel arguments must all be the same length");
@@ -287,12 +292,25 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
   RETURN_NOT_OK(executor->Execute(input, &listener));
   const auto out = executor->WrapResults(input.values, listener.values());
 #ifndef NDEBUG
-  DCHECK_OK(executor->CheckResultType(out, name_.c_str()));
+  DCHECK_OK(executor->CheckResultType(out, func.name().c_str()));
 #endif
   return out;
 }
 
+}  // namespace
+
+Result<Datum> Function::Execute(const std::vector<Datum>& args,
+                                const FunctionOptions* options, ExecContext* ctx) const {
+  return ExecuteInternal(*this, args, /*passed_length=*/-1, options, ctx);
+}
+
+Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
+                                ExecContext* ctx) const {
+  return ExecuteInternal(*this, batch.values, batch.length, options, ctx);
+}
+
 namespace {
+
 Status ValidateFunctionSummary(const std::string& s) {
   if (s.find('\n') != s.npos) {
     return Status::Invalid("summary contains a newline");
@@ -347,7 +365,7 @@ Status Function::Validate() const {
 
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
-  RETURN_NOT_OK(CheckArity(in_types));
+  RETURN_NOT_OK(CheckArity(in_types.size()));
 
   if (arity_.is_varargs && in_types.size() != 1) {
     return Status::Invalid("VarArgs signatures must have exactly one input type");
@@ -359,7 +377,7 @@ Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out
 }
 
 Status ScalarFunction::AddKernel(ScalarKernel kernel) {
-  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types().size()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -369,7 +387,7 @@ Status ScalarFunction::AddKernel(ScalarKernel kernel) {
 
 Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
-  RETURN_NOT_OK(CheckArity(in_types));
+  RETURN_NOT_OK(CheckArity(in_types.size()));
 
   if (arity_.is_varargs && in_types.size() != 1) {
     return Status::Invalid("VarArgs signatures must have exactly one input type");
@@ -381,7 +399,7 @@ Status VectorFunction::AddKernel(std::vector<InputType> in_types, OutputType out
 }
 
 Status VectorFunction::AddKernel(VectorKernel kernel) {
-  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types().size()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -390,7 +408,7 @@ Status VectorFunction::AddKernel(VectorKernel kernel) {
 }
 
 Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
-  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types().size()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -399,7 +417,7 @@ Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
 }
 
 Status HashAggregateFunction::AddKernel(HashAggregateKernel kernel) {
-  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types().size()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
@@ -410,8 +428,7 @@ Status HashAggregateFunction::AddKernel(HashAggregateKernel kernel) {
 Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const {
-  RETURN_NOT_OK(
-      CheckArityImpl(*this, static_cast<int>(args.size()), "attempted to Execute with"));
+  RETURN_NOT_OK(CheckArityImpl(*this, static_cast<int>(args.size())));
   RETURN_NOT_OK(CheckOptions(*this, options));
 
   if (options == nullptr) {

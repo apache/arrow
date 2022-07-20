@@ -254,36 +254,37 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   return data;
 }
 
-void RowEncoder::Init(const std::vector<ValueDescr>& column_types, ExecContext* ctx) {
+void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
 
   for (size_t i = 0; i < column_types.size(); ++i) {
-    const auto& column_type = column_types[i].type;
-
-    if (column_type->id() == Type::BOOL) {
+    const TypeHolder& type = column_types[i];
+    if (type.id() == Type::BOOL) {
       encoders_[i] = std::make_shared<BooleanKeyEncoder>();
       continue;
     }
 
-    if (column_type->id() == Type::DICTIONARY) {
+    if (type.id() == Type::DICTIONARY) {
       encoders_[i] =
-          std::make_shared<DictionaryKeyEncoder>(column_type, ctx->memory_pool());
+          std::make_shared<DictionaryKeyEncoder>(type.GetSharedPtr(), ctx->memory_pool());
       continue;
     }
 
-    if (is_fixed_width(column_type->id())) {
-      encoders_[i] = std::make_shared<FixedWidthKeyEncoder>(column_type);
+    if (is_fixed_width(type.id())) {
+      encoders_[i] = std::make_shared<FixedWidthKeyEncoder>(type.GetSharedPtr());
       continue;
     }
 
-    if (is_binary_like(column_type->id())) {
-      encoders_[i] = std::make_shared<VarLengthKeyEncoder<BinaryType>>(column_type);
+    if (is_binary_like(type.id())) {
+      encoders_[i] =
+          std::make_shared<VarLengthKeyEncoder<BinaryType>>(type.GetSharedPtr());
       continue;
     }
 
-    if (is_large_binary_like(column_type->id())) {
-      encoders_[i] = std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(column_type);
+    if (is_large_binary_like(type.id())) {
+      encoders_[i] =
+          std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(type.GetSharedPtr());
       continue;
     }
 

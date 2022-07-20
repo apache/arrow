@@ -66,25 +66,6 @@ void InitCastTable() {
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
 
-// Private version of GetCastFunction with better error reporting
-// if the input type is known.
-Result<std::shared_ptr<CastFunction>> GetCastFunctionInternal(
-    const std::shared_ptr<DataType>& to_type, const DataType* from_type = nullptr) {
-  internal::EnsureInitCastTable();
-  auto it = internal::g_cast_table.find(static_cast<int>(to_type->id()));
-  if (it == internal::g_cast_table.end()) {
-    if (from_type != nullptr) {
-      return Status::NotImplemented("Unsupported cast from ", *from_type, " to ",
-                                    *to_type,
-                                    " (no available cast function for target type)");
-    } else {
-      return Status::NotImplemented("Unsupported cast to ", *to_type,
-                                    " (no available cast function for target type)");
-    }
-  }
-  return it->second;
-}
-
 const FunctionDoc cast_doc{"Cast values to another data type",
                            ("Behavior when values wouldn't fit in the target type\n"
                             "can be controlled through CastOptions."),
@@ -116,10 +97,13 @@ class CastMetaFunction : public MetaFunction {
     if (args[0].type()->Equals(*cast_options->to_type)) {
       return args[0];
     }
-    ARROW_ASSIGN_OR_RAISE(
-        std::shared_ptr<CastFunction> cast_func,
-        GetCastFunctionInternal(cast_options->to_type, args[0].type().get()));
-    return cast_func->Execute(args, options, ctx);
+    Result<std::shared_ptr<CastFunction>> result =
+        GetCastFunction(*cast_options->to_type);
+    if (!result.ok()) {
+      Status s = result.status();
+      return s.WithMessage(s.message(), " from ", *args[0].type());
+    }
+    return (*result)->Execute(args, options, ctx);
   }
 };
 
@@ -139,18 +123,6 @@ void RegisterScalarCast(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<CastMetaFunction>()));
   DCHECK_OK(registry->AddFunctionOptionsType(kCastOptionsType));
 }
-}  // namespace internal
-
-CastOptions::CastOptions(bool safe)
-    : FunctionOptions(internal::kCastOptionsType),
-      allow_int_overflow(!safe),
-      allow_time_truncate(!safe),
-      allow_time_overflow(!safe),
-      allow_decimal_truncate(!safe),
-      allow_float_truncate(!safe),
-      allow_invalid_utf8(!safe) {}
-
-constexpr char CastOptions::kTypeName[];
 
 CastFunction::CastFunction(std::string name, Type::type out_type_id)
     : ScalarFunction(std::move(name), Arity::Unary(), FunctionDoc::Empty()),
@@ -177,18 +149,18 @@ Status CastFunction::AddKernel(Type::type in_type_id, std::vector<InputType> in_
 }
 
 Result<const Kernel*> CastFunction::DispatchExact(
-    const std::vector<ValueDescr>& values) const {
-  RETURN_NOT_OK(CheckArity(values));
+    const std::vector<TypeHolder>& types) const {
+  RETURN_NOT_OK(CheckArity(types.size()));
 
   std::vector<const ScalarKernel*> candidate_kernels;
   for (const auto& kernel : kernels_) {
-    if (kernel.signature->MatchesInputs(values)) {
+    if (kernel.signature->MatchesInputs(types)) {
       candidate_kernels.push_back(&kernel);
     }
   }
 
   if (candidate_kernels.size() == 0) {
-    return Status::NotImplemented("Unsupported cast from ", values[0].type->ToString(),
+    return Status::NotImplemented("Unsupported cast from ", types[0].type->ToString(),
                                   " to ", ToTypeName(out_type_id_), " using function ",
                                   this->name());
   }
@@ -213,26 +185,43 @@ Result<const Kernel*> CastFunction::DispatchExact(
   return candidate_kernels[0];
 }
 
+Result<std::shared_ptr<CastFunction>> GetCastFunction(const DataType& to_type) {
+  internal::EnsureInitCastTable();
+  auto it = internal::g_cast_table.find(static_cast<int>(to_type.id()));
+  if (it == internal::g_cast_table.end()) {
+    return Status::NotImplemented("Unsupported cast to ", to_type);
+  }
+  return it->second;
+}
+
+}  // namespace internal
+
+CastOptions::CastOptions(bool safe)
+    : FunctionOptions(internal::kCastOptionsType),
+      allow_int_overflow(!safe),
+      allow_time_truncate(!safe),
+      allow_time_overflow(!safe),
+      allow_decimal_truncate(!safe),
+      allow_float_truncate(!safe),
+      allow_invalid_utf8(!safe) {}
+
+constexpr char CastOptions::kTypeName[];
+
 Result<Datum> Cast(const Datum& value, const CastOptions& options, ExecContext* ctx) {
   return CallFunction("cast", {value}, &options, ctx);
 }
 
-Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
+Result<Datum> Cast(const Datum& value, const TypeHolder& to_type,
                    const CastOptions& options, ExecContext* ctx) {
   CastOptions options_with_to_type = options;
   options_with_to_type.to_type = to_type;
   return Cast(value, options_with_to_type, ctx);
 }
 
-Result<std::shared_ptr<Array>> Cast(const Array& value, std::shared_ptr<DataType> to_type,
+Result<std::shared_ptr<Array>> Cast(const Array& value, const TypeHolder& to_type,
                                     const CastOptions& options, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result, Cast(Datum(value), to_type, options, ctx));
   return result.make_array();
-}
-
-Result<std::shared_ptr<CastFunction>> GetCastFunction(
-    const std::shared_ptr<DataType>& to_type) {
-  return internal::GetCastFunctionInternal(to_type);
 }
 
 bool CanCast(const DataType& from_type, const DataType& to_type) {
@@ -242,7 +231,7 @@ bool CanCast(const DataType& from_type, const DataType& to_type) {
     return false;
   }
 
-  const CastFunction* function = it->second.get();
+  const internal::CastFunction* function = it->second.get();
   DCHECK_EQ(function->out_type_id(), to_type.id());
 
   for (auto from_id : function->in_type_ids()) {
@@ -251,22 +240,6 @@ bool CanCast(const DataType& from_type, const DataType& to_type) {
   }
 
   return false;
-}
-
-Result<std::vector<Datum>> Cast(std::vector<Datum> datums, std::vector<ValueDescr> descrs,
-                                ExecContext* ctx) {
-  for (size_t i = 0; i != datums.size(); ++i) {
-    if (descrs[i] != datums[i].descr()) {
-      if (descrs[i].shape != datums[i].shape()) {
-        return Status::NotImplemented("casting between Datum shapes");
-      }
-
-      ARROW_ASSIGN_OR_RAISE(datums[i],
-                            Cast(datums[i], CastOptions::Safe(descrs[i].type), ctx));
-    }
-  }
-
-  return datums;
 }
 
 }  // namespace compute

@@ -38,7 +38,11 @@ class TestLargeStringScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal(<<-STRING.strip, @scalar.to_s)
+[
+  "Hello"
+]
+                 STRING
   end
 
   def test_value

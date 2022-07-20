@@ -38,8 +38,8 @@ namespace :dependency do
                                     ArrowCUDA::Version::MAJOR,
                                     ArrowCUDA::Version::MINOR,
                                     ArrowCUDA::Version::MICRO)
-      unless NativePackageInstaller.install(:debian => "libarrow-cuda-glib-dev",
-                                            :redhat => "arrow-cuda-glib-devel")
+      unless NativePackageInstaller.install(debian: "libarrow-cuda-glib-dev",
+                                            redhat: "arrow-cuda-glib-devel")
         exit(false)
       end
     end

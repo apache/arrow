@@ -183,6 +183,6 @@ XML. To download, you can use the following batch script:
 By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
 but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
 
-   arrow::ArrowGlobalOptions options;
-   options.tz_db_path = "path/to/tzdata";
+   arrow::GlobalOptions options;
+   options.timezone_db_path = "path/to/tzdata";
    ARROW_RETURN_NOT_OK(arrow::Initialize(options));

@@ -399,13 +399,20 @@ test_that("filter() with .data pronoun", {
       collect(),
     tbl
   )
+})
 
-  skip("test now faulty - code no longer gives error & outputs a empty tibble")
-  # but there is an error if we don't override the masking with `.env`
-  compare_dplyr_error(
+test_that("filter() with namespaced functions", {
+  compare_dplyr_binding(
     .input %>%
-      filter(.data$dbl > chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      filter(dplyr::between(dbl, 1, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  skip_if_not_available("utf8proc")
+  compare_dplyr_binding(
+    .input %>%
+      filter(dbl > 2, stringr::str_length(verses) > 25) %>%
       collect(),
     tbl
   )

@@ -603,11 +603,17 @@ TEST(MakeStruct, Scalar) {
   EXPECT_THAT(MakeStructor({i32, f64, str}),
               ResultWith(Datum(*StructScalar::Make({i32, f64, str}, {"0", "1", "2"}))));
 
-  // No field names or input values is fine
-  EXPECT_THAT(MakeStructor({}), ResultWith(Datum(*StructScalar::Make({}, {}))));
-
   // Three field names but one input value
   EXPECT_THAT(MakeStructor({str}, {"i", "f", "s"}), Raises(StatusCode::Invalid));
+
+  // ARROW-16757: No input values yields empty struct array of length 1
+  ScalarVector value;
+  auto empty_scalar = std::make_shared<StructScalar>(value, struct_({}));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> empty_result,
+                       MakeArrayFromScalar(*empty_scalar, 0));
+  ASSERT_OK_AND_ASSIGN(Datum empty_actual,
+                       CallFunction("make_struct", std::vector<Datum>({})));
+  AssertDatumsEqual(Datum(empty_result), empty_actual);
 }
 
 TEST(MakeStruct, Array) {

@@ -29,7 +29,8 @@ test_that("if_else and ifelse", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = if_else(int > 5, 1, 0)
+        y = if_else(int > 5, 1, 0),
+        y2 = dplyr::if_else(int > 6, 1, 0)
       ) %>%
       collect(),
     tbl
@@ -65,7 +66,8 @@ test_that("if_else and ifelse", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        y = ifelse(int > 5, 1, 0)
+        y = ifelse(int > 5, 1, 0),
+        y2 = base::ifelse(int > 6, 1, 0)
       ) %>%
       collect(),
     tbl
@@ -192,6 +194,18 @@ test_that("case_when()", {
     tbl
   )
 
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      filter(dplyr::case_when(
+        dbl + int - 1.1 == dbl2 ~ TRUE,
+        NA ~ NA,
+        TRUE ~ FALSE
+      ) & !is.na(dbl2)) %>%
+      collect(),
+    tbl
+  )
+
   # dplyr::case_when() errors if values on right side of formulas do not have
   # exactly the same type, but the Arrow case_when kernel allows compatible types
   expect_equal(
@@ -298,6 +312,20 @@ test_that("coalesce()", {
         cwx = coalesce(w, x),
         cwxy = coalesce(w, x, y),
         cwxyz = coalesce(w, x, y, z)
+      ) %>%
+      collect(),
+    df
+  )
+
+  # with namespacing
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        cw = dplyr::coalesce(w),
+        cz = dplyr::coalesce(z),
+        cwx = dplyr::coalesce(w, x),
+        cwxy = dplyr::coalesce(w, x, y),
+        cwxyz = dplyr::coalesce(w, x, y, z)
       ) %>%
       collect(),
     df

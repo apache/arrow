@@ -95,18 +95,11 @@ inline Bitmap GetBitmap(const ArraySpan& arr, int index) {
   return Bitmap{arr.buffers[index].data, arr.offset, arr.length};
 }
 
-struct InvertOp {
-  static Status Call(KernelContext* ctx, const Scalar& in, ExecResult* out) {
-    *checked_cast<BooleanScalar*>(out->scalar().get()) = InvertScalar(in);
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const ArraySpan& in, ExecResult* out) {
-    ArraySpan* out_span = out->array_span();
-    GetBitmap(*out_span, 1).CopyFromInverted(GetBitmap(in, 1));
-    return Status::OK();
-  }
-};
+Status InvertOpExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  ArraySpan* out_span = out->array_span();
+  GetBitmap(*out_span, 1).CopyFromInverted(GetBitmap(batch[0].array, 1));
+  return Status::OK();
+}
 
 template <typename Op>
 struct Commutative {
@@ -118,16 +111,6 @@ struct Commutative {
 
 struct AndOp : Commutative<AndOp> {
   using Commutative<AndOp>::Call;
-
-  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                     ExecResult* out) {
-    if (left.is_valid && right.is_valid) {
-      checked_cast<BooleanScalar*>(out->scalar().get())->value =
-          checked_cast<const BooleanScalar&>(left).value &&
-          checked_cast<const BooleanScalar&>(right).value;
-    }
-    return Status::OK();
-  }
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
@@ -152,20 +135,6 @@ struct AndOp : Commutative<AndOp> {
 
 struct KleeneAndOp : Commutative<KleeneAndOp> {
   using Commutative<KleeneAndOp>::Call;
-
-  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                     ExecResult* out) {
-    bool left_true = left.is_valid && checked_cast<const BooleanScalar&>(left).value;
-    bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
-
-    bool right_true = right.is_valid && checked_cast<const BooleanScalar&>(right).value;
-    bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
-
-    Scalar* out_scalar = out->scalar().get();
-    checked_cast<BooleanScalar*>(out_scalar)->value = left_true && right_true;
-    out_scalar->is_valid = left_false || right_false || (left_true && right_true);
-    return Status::OK();
-  }
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
@@ -228,17 +197,6 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
 struct OrOp : Commutative<OrOp> {
   using Commutative<OrOp>::Call;
 
-  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                     ExecResult* out) {
-    Scalar* out_scalar = out->scalar().get();
-    if (left.is_valid && right.is_valid) {
-      checked_cast<BooleanScalar*>(out_scalar)->value =
-          checked_cast<const BooleanScalar&>(left).value ||
-          checked_cast<const BooleanScalar&>(right).value;
-    }
-    return Status::OK();
-  }
-
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
     ArraySpan* out_span = out->array_span();
@@ -262,20 +220,6 @@ struct OrOp : Commutative<OrOp> {
 
 struct KleeneOrOp : Commutative<KleeneOrOp> {
   using Commutative<KleeneOrOp>::Call;
-
-  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                     ExecResult* out) {
-    Scalar* out_scalar = out->scalar().get();
-    bool left_true = left.is_valid && checked_cast<const BooleanScalar&>(left).value;
-    bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
-
-    bool right_true = right.is_valid && checked_cast<const BooleanScalar&>(right).value;
-    bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
-
-    checked_cast<BooleanScalar*>(out_scalar)->value = left_true || right_true;
-    out_scalar->is_valid = left_true || right_true || (left_false && right_false);
-    return Status::OK();
-  }
 
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
@@ -339,17 +283,6 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
 struct XorOp : Commutative<XorOp> {
   using Commutative<XorOp>::Call;
 
-  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                     ExecResult* out) {
-    Scalar* out_scalar = out->scalar().get();
-    if (left.is_valid && right.is_valid) {
-      checked_cast<BooleanScalar*>(out_scalar)->value =
-          checked_cast<const BooleanScalar&>(left).value ^
-          checked_cast<const BooleanScalar&>(right).value;
-    }
-    return Status::OK();
-  }
-
   static Status Call(KernelContext* ctx, const ArraySpan& left, const Scalar& right,
                      ExecResult* out) {
     ArraySpan* out_span = out->array_span();
@@ -372,11 +305,6 @@ struct XorOp : Commutative<XorOp> {
 };
 
 struct AndNotOp {
-  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                     ExecResult* out) {
-    return AndOp::Call(ctx, left, InvertScalar(right), out);
-  }
-
   static Status Call(KernelContext* ctx, const Scalar& left, const ArraySpan& right,
                      ExecResult* out) {
     ArraySpan* out_span = out->array_span();
@@ -404,11 +332,6 @@ struct AndNotOp {
 };
 
 struct KleeneAndNotOp {
-  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                     ExecResult* out) {
-    return KleeneAndOp::Call(ctx, left, InvertScalar(right), out);
-  }
-
   static Status Call(KernelContext* ctx, const Scalar& left, const ArraySpan& right,
                      ExecResult* out) {
     ArraySpan* out_span = out->array_span();
@@ -560,7 +483,7 @@ namespace internal {
 
 void RegisterScalarBoolean(FunctionRegistry* registry) {
   // These functions can write into sliced output bitmaps
-  MakeFunction("invert", 1, applicator::SimpleUnary<InvertOp>, invert_doc, registry);
+  MakeFunction("invert", 1, InvertOpExec, invert_doc, registry);
   MakeFunction("and", 2, applicator::SimpleBinary<AndOp>, and_doc, registry);
   MakeFunction("and_not", 2, applicator::SimpleBinary<AndNotOp>, and_not_doc, registry);
   MakeFunction("or", 2, applicator::SimpleBinary<OrOp>, or_doc, registry);

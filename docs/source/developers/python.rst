@@ -94,7 +94,7 @@ The test groups currently include:
 * ``dataset``: Apache Arrow Dataset tests
 * ``flight``: Flight RPC tests
 * ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
-* ``hdfs``: tests that use libhdfs or libhdfs3 to access the Hadoop filesystem
+* ``hdfs``: tests that use libhdfs to access the Hadoop filesystem
 * ``hypothesis``: tests that use the ``hypothesis`` module for generating
   random test cases. Note that ``--hypothesis`` doesn't work due to a quirk
   with pytest, so you have to pass ``--enable-hypothesis``
@@ -309,7 +309,7 @@ created above (stored in ``$ARROW_HOME``):
    $ make install
    $ popd
 
-There are a number of optional components that can can be switched ON by
+There are a number of optional components that can be switched ON by
 adding flags with ``ON``:
 
 * ``ARROW_CUDA``: Support for CUDA-enabled GPUs

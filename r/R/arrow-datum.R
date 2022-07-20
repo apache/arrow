@@ -26,6 +26,16 @@ ArrowDatum <- R6Class("ArrowDatum",
       opts <- cast_options(safe, ...)
       opts$to_type <- as_type(target_type)
       call_function("cast", self, options = opts)
+    },
+    SortIndices = function(descending = FALSE) {
+      assert_that(is.logical(descending))
+      assert_that(length(descending) == 1L)
+      assert_that(!is.na(descending))
+      call_function(
+        "sort_indices",
+        self,
+        options = list(names = "", orders = as.integer(descending))
+      )
     }
   )
 )
@@ -55,8 +65,8 @@ is.na.ArrowDatum <- function(x) {
 #' @export
 is.nan.ArrowDatum <- function(x) {
   if (x$type_id() %in% TYPES_WITH_NAN) {
-    # TODO: if an option is added to the is_nan kernel to treat NA as NaN,
-    # use that to simplify the code here (ARROW-13366)
+    # TODO(ARROW-13366): if an option is added to the is_nan kernel to treat NA
+    # as NaN, use that to simplify the code here
     call_function("is_nan", x) & call_function("is_valid", x)
   } else {
     Scalar$create(FALSE)$as_array(length(x))
@@ -103,10 +113,10 @@ Ops.ArrowDatum <- function(e1, e2) {
 #' @export
 Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
   switch(.Generic,
-    abs = ,
+    abs = eval_array_expression("abs_checked", x),
+    ceiling = eval_array_expression("ceil", x),
     sign = ,
     floor = ,
-    ceiling = ,
     trunc = ,
     acos = ,
     asin = ,
@@ -123,7 +133,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
       x,
       options = list(ndigits = digits, round_mode = RoundMode$HALF_TO_EVEN)
     ),
-    sqrt = eval_array_expression("power_checked", x, 0.5),
+    sqrt = eval_array_expression("sqrt_checked", x),
     exp = eval_array_expression("power_checked", exp(1), x),
     signif = ,
     expm1 = ,
@@ -336,7 +346,7 @@ sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = NA, ...) {
   # Arrow always sorts nulls at the end of the array. This corresponds to
   # sort(na.last = TRUE). For the other two cases (na.last = NA and
   # na.last = FALSE) we need to use workarounds.
-  # TODO: Implement this more cleanly after ARROW-12063
+  # TODO(ARROW-14085): use NullPlacement ArraySortOptions instead of this workaround
   if (is.na(na.last)) {
     # Filter out NAs before sorting
     x <- x$Filter(!is.na(x))

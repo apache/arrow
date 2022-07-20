@@ -304,10 +304,12 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
       if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(Append());
         const int64_t slot_length = offsets[row + 1] - offsets[row];
+        // Add together the inner StructArray offset to the Map/List offset
+        int64_t key_value_offset = array.child_data[0].offset + offsets[row];
         ARROW_RETURN_NOT_OK(key_builder_->AppendArraySlice(
-            array.child_data[0].child_data[0], offsets[row], slot_length));
+            array.child_data[0].child_data[0], key_value_offset, slot_length));
         ARROW_RETURN_NOT_OK(item_builder_->AppendArraySlice(
-            array.child_data[0].child_data[1], offsets[row], slot_length));
+            array.child_data[0].child_data[1], key_value_offset, slot_length));
       } else {
         ARROW_RETURN_NOT_OK(AppendNull());
       }

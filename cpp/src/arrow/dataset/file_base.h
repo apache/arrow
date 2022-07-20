@@ -46,7 +46,7 @@ namespace dataset {
 
 /// \brief The path and filesystem where an actual file is located or a buffer which can
 /// be read like a file
-class ARROW_DS_EXPORT FileSource {
+class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
  public:
   FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
@@ -114,6 +114,9 @@ class ARROW_DS_EXPORT FileSource {
   Result<std::shared_ptr<io::InputStream>> OpenCompressed(
       util::optional<Compression::type> compression = util::nullopt) const;
 
+  /// \brief equality comparison with another FileSource
+  bool Equals(const FileSource& other) const;
+
  private:
   static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
     return Status::Invalid("Called Open() on an uninitialized FileSource");
@@ -179,7 +182,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 };
 
 /// \brief A Fragment that is stored in a file with a known format
-class ARROW_DS_EXPORT FileFragment : public Fragment {
+class ARROW_DS_EXPORT FileFragment : public Fragment,
+                                     public util::EqualityComparable<FileFragment> {
  public:
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
@@ -192,6 +196,8 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
+
+  bool Equals(const FileFragment& other) const;
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,

@@ -63,16 +63,17 @@
     break;                                                                \
   }
 
-#define FLOAT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                      \
-  case TYPE_CLASS##Type::type_id: {                                       \
-    auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder); \
-    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                   \
-      ARROW_RETURN_NOT_OK(builder->AppendNull());                         \
-      break;                                                              \
-    }                                                                     \
-    const double value = sqlite3_column_double(STMT, COLUMN);             \
-    ARROW_RETURN_NOT_OK(builder->Append(value));                          \
-    break;                                                                \
+#define FLOAT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                          \
+  case TYPE_CLASS##Type::type_id: {                                           \
+    auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder);     \
+    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                       \
+      ARROW_RETURN_NOT_OK(builder->AppendNull());                             \
+      break;                                                                  \
+    }                                                                         \
+    const double value = sqlite3_column_double(STMT, COLUMN);                 \
+    ARROW_RETURN_NOT_OK(                                                      \
+        builder->Append(static_cast<const TYPE_CLASS##Type::c_type>(value))); \
+    break;                                                                    \
   }
 
 namespace arrow {
