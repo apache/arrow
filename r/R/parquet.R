@@ -36,6 +36,12 @@
 read_parquet <- function(file,
                          col_select = NULL,
                          as_data_frame = TRUE,
+                         # TODO: for consistency with other readers/writers,
+                         # these properties should be enumerated as args here,
+                         # and ParquetArrowReaderProperties$create() should
+                         # accept them, as with ParquetWriterProperties.
+                         # Assembling `props` yourself is something you do with
+                         # ParquetFileReader but not here.
                          props = ParquetArrowReaderProperties$create(),
                          ...) {
   if (!inherits(file, "RandomAccessFile")) {
