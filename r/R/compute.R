@@ -391,9 +391,9 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
   fun <- as_function(fun)
 
   # Create a small wrapper function that is easier to call from C++.
-  # This wrapper could be implemented in C/C++ to reduce evaluation
-  # overhead and generate prettier backtraces when errors occur
-  # (probably using a similar approach to purrr).
+  # TODO(ARROW-17148): This wrapper could be implemented in C/C++ to
+  # reduce evaluation overhead and generate prettier backtraces when
+  # errors occur (probably using a similar approach to purrr).
   if (auto_convert) {
     wrapper_fun <- function(context, args) {
       args <- lapply(args, as.vector)
@@ -406,18 +406,22 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
     }
   }
 
+  # in_type can be a list() if registering multiple kernels at once
   if (is.list(in_type)) {
     in_type <- lapply(in_type, as_scalar_function_in_type)
   } else {
     in_type <- list(as_scalar_function_in_type(in_type))
   }
 
+  # out_type can be a list() if registering multiple kernels at once
   if (is.list(out_type)) {
     out_type <- lapply(out_type, as_scalar_function_out_type)
   } else {
     out_type <- list(as_scalar_function_out_type(out_type))
   }
 
+  # recycle out_type (which is frequently length 1 even if multiple kernels
+  # are being registered at once)
   out_type <- rep_len(out_type, length(in_type))
 
   structure(
@@ -430,6 +434,10 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
   )
 }
 
+# This function sanitizes the in_type argument for arrow_scalar_function(),
+# which can be a data type (e.g., int32()), a field for a unary function
+# or a schema() for functions accepting more than one argument. C++ expects
+# a schema().
 as_scalar_function_in_type <- function(x) {
   if (inherits(x, "Field")) {
     schema(x)
@@ -440,6 +448,9 @@ as_scalar_function_in_type <- function(x) {
   }
 }
 
+# This function sanitizes the out_type argument for arrow_scalar_function(),
+# which can be a data type (e.g., int32()) or a function of the input types.
+# C++ currently expects a function.
 as_scalar_function_out_type <- function(x) {
   if (is.function(x)) {
     x

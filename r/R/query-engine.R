@@ -209,6 +209,12 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
+      # If we are going to return a Table anyway, we do this in one step and
+      # entirely in one C++ call to ensure that we can execute user-defined
+      # functions from the worker threads spawned by the ExecPlan. If not, we
+      # use ExecPlan_run which returns a RecordBatchReader that can be
+      # manipulated in R code (but that right now won't work with
+      # user-defined functions).
       exec_fun <- if (as_table) ExecPlan_read_table else ExecPlan_run
       out <- exec_fun(
         self,
