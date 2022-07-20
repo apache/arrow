@@ -615,6 +615,8 @@ services:
     image: conanio/${CONAN}
     shm_size: *shm-size
     ulimits: *ulimits
+    environment:
+      <<: *sccache
     volumes:
       - .:/arrow:delegated
     command: >-
