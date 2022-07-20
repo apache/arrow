@@ -107,27 +107,6 @@ if [ ${UPLOAD_PYTHON} -gt 0 ]; then
 fi
 if [ ${UPLOAD_R} -gt 0 ]; then
   rake_tasks+=(r:rc)
-  # The R libarrow binaries have to be converted to the correct dir structure
-  pushd $artifact_dir/r-binary-packages
-  # Cleanup from previous runs
-  rm -rf libarrow || echo Nothing to remove.
-  # R package binaries are distributed via CRAN
-  rm  r-pkg* || echo Nothing to remove.
-  r_src_files=$(ls r-lib*)
-  # Decode relative path from file name.
-  # r-lib__libarrow__bin__centos-7__arrow-8.0.0.zip 
-  # --> libarrow/bin/centos-7/arrow-8.0.0.zip
-  r_dest_files=($(echo $r_src_files | sed 's/r-lib__//g; s/__/\//g'))
-  r_src_files=($r_src_files)
-
-  mkdir -p $(dirname ${r_dest_files[@]})
-  r_length=${#r_dest_files[@]}
-
-  for (( i=0; i<${r_length}; i++ ));
-  do
-    cp ${r_src_files[$i]} ${r_dest_files[$i]}
-  done
-  popd
 fi
 if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
   rake_tasks+=(apt:rc)

@@ -1816,24 +1816,9 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
           Pathname(artifacts_dir).glob(target_files_glob) do |path|
             next if path.directory?
-            # /.../${JOB_ID}/.../file ->
-            # ${JOB_ID}/.../file
-            #
-            # e.g.:
-            #   /.../test-ubuntu-default-docs/docs.tar.gz ->
-            #   test-ubuntu-default-docs/docs.tar.gz
-            relative_path = path.relative_path_from(artifacts_dir)
-            # ${JOB_ID}/.../file ->
-            # .../file
-            #
-            # e.g.:
-            #   test-ubuntu-default-docs/docs.tar.gz ->
-            #   docs.tar.gz
-            relative_path =
-              relative_path.relative_path_from(relative_path.dirname)
             destination_path = [
               rc_dir,
-              relative_path.to_s,
+              path.basename.to_s,
             ].join("/")
             copy_artifact(path, destination_path, progress_reporter)
           end
@@ -1915,12 +1900,65 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               "{python-sdist,wheel-*}/**/*")
   end
 
+  def define_r_rc_tasks(label, id, rc_dir)
+    directory rc_dir
+
+    namespace id do
+      namespace :rc do
+        desc "Prepare #{label} packages"
+        task :prepare => rc_dir do
+          progress_label = "Preparing #{label}"
+          progress_reporter = ProgressReporter.new(progress_label)
+
+          pattern = "r-binary-packages/r-lib*.{zip,tgz}"
+          Pathname(artifacts_dir).glob(pattern) do |path|
+            destination_path = [
+              rc_dir,
+              # r-lib__libarrow__bin__centos-7__arrow-8.0.0.zip
+              # --> libarrow/bin/centos-7/arrow-8.0.0.zip
+              path.basename.to_s.gsub(/\Ar-lib__/, "").gsub(/__/, "/"),
+            ].join("/")
+            copy_artifact(path, destination_path, progress_reporter)
+          end
+
+          progress_reporter.finish
+        end
+
+        desc "Sign #{label} packages"
+        task :sign => rc_dir do
+          sign_dir(label, rc_dir)
+        end
+
+        desc "Upload #{label} packages"
+        task :upload do
+          uploader =
+            ArtifactoryUploader.new(api_key: artifactory_api_key,
+                                    destination_prefix: full_version,
+                                    distribution: id.to_s,
+                                    rc: rc,
+                                    source: rc_dir,
+                                    staging: staging?)
+          uploader.upload
+        end
+      end
+
+      desc "Release RC #{label} packages"
+      rc_tasks = [
+        "#{id}:rc:prepare",
+        "#{id}:rc:sign",
+        "#{id}:rc:upload",
+      ]
+      task :rc => rc_tasks
+    end
+  end
+
   def define_r_tasks
-    define_generic_data_tasks("R",
-                              :r,
-                              "#{rc_dir}/r/#{full_version}",
-                              "#{release_dir}/r/#{full_version}",
-                              "r-binary-packages/**/*")
+    label = "R"
+    id = :r
+    r_rc_dir = "#{rc_dir}/r/#{full_version}"
+    r_release_dir = "#{release_dir}/r/#{full_version}"
+    define_r_rc_tasks(label, id, r_rc_dir)
+    define_generic_data_release_tasks(label, id, r_release_dir)
   end
 
   def define_summary_tasks
