@@ -27,6 +27,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/hashing.h"
 
+#include "arrow/array/builder_primitive.h"
+#include "arrow/compute/exec/key_hash.h"
+
 namespace arrow {
 namespace internal {
 
@@ -62,7 +65,22 @@ static std::vector<std::string> MakeStrings(int32_t n_values, int32_t min_length
   return values;
 }
 
-static void HashIntegers(benchmark::State& state) {  // NOLINT non-const reference
+static void HashIntegers32(benchmark::State& state) {  // NOLINT non-const reference
+  const std::vector<int32_t> values = MakeIntegers<int32_t>(10000);
+
+  while (state.KeepRunning()) {
+    hash_t total = 0;
+    for (const int32_t v : values) {
+      total += ScalarHelper<int32_t, 0>::ComputeHash(v);
+      total += ScalarHelper<int32_t, 1>::ComputeHash(v);
+    }
+    benchmark::DoNotOptimize(total);
+  }
+  state.SetBytesProcessed(2 * state.iterations() * values.size() * sizeof(int32_t));
+  state.SetItemsProcessed(2 * state.iterations() * values.size());
+}
+
+static void HashIntegers64(benchmark::State& state) {  // NOLINT non-const reference
   const std::vector<int64_t> values = MakeIntegers<int64_t>(10000);
 
   while (state.KeepRunning()) {
@@ -75,6 +93,42 @@ static void HashIntegers(benchmark::State& state) {  // NOLINT non-const referen
   }
   state.SetBytesProcessed(2 * state.iterations() * values.size() * sizeof(int64_t));
   state.SetItemsProcessed(2 * state.iterations() * values.size());
+}
+
+static void FastHashIntegers32(benchmark::State& state) {  // NOLINT non-const reference
+  const std::vector<int32_t> values = MakeIntegers<int32_t>(10000);
+
+  arrow::Int32Builder builder;
+  ASSERT_OK(builder.Reserve(values.size()));
+  ASSERT_OK(builder.AppendValues(values));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_array, builder.Finish());
+
+  while (state.KeepRunning()) {
+    ASSERT_OK_AND_ASSIGN(Datum hash_result,
+                         compute::CallFunction("fast_hash_32", {values_array}));
+    benchmark::DoNotOptimize(hash_result);
+  }
+
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int32_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
+static void FastHashIntegers64(benchmark::State& state) {  // NOLINT non-const reference
+  const std::vector<int64_t> values = MakeIntegers<int64_t>(10000);
+
+  arrow::Int64Builder builder;
+  ASSERT_OK(builder.Reserve(values.size()));
+  ASSERT_OK(builder.AppendValues(values));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_array, builder.Finish());
+
+  while (state.KeepRunning()) {
+    ASSERT_OK_AND_ASSIGN(Datum hash_result,
+                         compute::CallFunction("fast_hash_64", {values_array}));
+    benchmark::DoNotOptimize(hash_result);
+  }
+
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void BenchmarkStringHashing(benchmark::State& state,  // NOLINT non-const reference
@@ -114,10 +168,16 @@ static void HashLargeStrings(benchmark::State& state) {  // NOLINT non-const ref
 // ----------------------------------------------------------------------
 // Benchmark declarations
 
-BENCHMARK(HashIntegers);
+// Uses "Standard" hash functions (wrapper around xxHash)
+BENCHMARK(HashIntegers32);
+BENCHMARK(HashIntegers64);
 BENCHMARK(HashSmallStrings);
 BENCHMARK(HashMediumStrings);
 BENCHMARK(HashLargeStrings);
+
+// Uses "FastHash" hash functions (wrapper around xxHash-like alg)
+BENCHMARK(FastHashIntegers32);
+BENCHMARK(FastHashIntegers64);
 
 }  // namespace internal
 }  // namespace arrow
