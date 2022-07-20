@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source_file("helper-filesystems.R")
-
 if (arrow_with_s3() && nzchar(Sys.which("minio"))) {
   minio_dir <- Sys.getenv("MINIO_DATA_DIR", tempfile())
   minio_key <- "minioadmin"

@@ -17,8 +17,6 @@
 
 skip_if_not_available("gcs")
 
-source_file("helper-filesystems.R")
-
 test_that("FileSystem$from_uri with gs://", {
   fs_and_path <- FileSystem$from_uri("gs://my/test/bucket/")
   expect_r6_class(fs_and_path$fs, "GcsFileSystem")
