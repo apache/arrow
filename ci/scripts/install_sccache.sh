@@ -25,6 +25,16 @@ if [  "$#" -lt 1 -o "$#" -gt 3 ]; then
     exit 1
 fi
 
+if ! [ "$SCCACHE_BUCKET" -o "$GITHUB_ACTIONS" ]; then
+    # On Github Actions we only set envvars in the step they are used in so
+    # install anyway but skip install locally or in docker tasks without 
+    # backend configuration to not override ccache.
+    echo "No sccache config detected, skipping install."
+    echo "If you have configured a non S3 storage backend or want to force"\
+        "local use,  set SCCACHE_BUCKET."
+    exit 0
+fi
+
 BUILD=$1
 ARCH=${2:-x86_64}
 VERSION=${3:-0.3.0}
