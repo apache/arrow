@@ -247,9 +247,6 @@ struct RunLengthDecodeExec
     const int64_t num_values_input = child_array.length - common_physical_offset;
     ARROW_DCHECK_GT(num_values_input, 0);
     const int64_t num_values_output = this->input_array.length;
-    auto& input_type =
-        checked_cast<const arrow::RunLengthEncodedType&>(*this->input_array.type);
-    auto output_type = input_type.encoded_type();
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
@@ -265,9 +262,11 @@ struct RunLengthDecodeExec
                                                                 ArrowType().bit_width()),
                                          this->kernel_context->memory_pool()));
 
-    auto output_array_data = ArrayData::Make(std::move(output_type), num_values_output);
-    output_array_data->buffers.push_back(std::move(validity_buffer));
-    output_array_data->buffers.push_back(std::move(values_buffer));
+    ArrayData* output_array_data = this->exec_result->array_data().get();
+    output_array_data->length = num_values_output;
+    output_array_data->buffers.resize(2);
+    output_array_data->buffers[0] = std::move(validity_buffer);
+    output_array_data->buffers[1] = std::move(values_buffer);
 
     this->output_validity = output_array_data->template GetMutableValues<uint8_t>(0);
     this->output_values = output_array_data->template GetMutableValues<CType>(1);
@@ -305,8 +304,6 @@ struct RunLengthDecodeExec
     }
     ARROW_DCHECK(this->output_position == num_values_output);
     output_array_data->null_count.store(output_null_count);
-
-    this->exec_result->value = output_array_data;
     return Status::OK();
   }
 
