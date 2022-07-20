@@ -440,7 +440,7 @@ services:
     volumes:
       - .:/arrow:delegated
     environment:
-      <<: *ccache
+      <<: [*ccache, *sccache]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
