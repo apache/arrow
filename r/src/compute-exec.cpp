@@ -77,19 +77,19 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
                             ->sort_keys),
               &sink_gen});
     } else {
-      node = MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
-                         compute::OrderBySinkNodeOptions{
-                             *std::dynamic_pointer_cast<compute::SortOptions>(
-                                 make_compute_options("sort_indices", sort_options)),
-                             &sink_gen});
+      node =
+          MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                             compute::OrderBySinkNodeOptions{
+                                 *std::dynamic_pointer_cast<compute::SortOptions>(
+                                     make_compute_options("sort_indices", sort_options)),
+                                 &sink_gen});
     }
   } else {
     node = MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
-                       compute::SinkNodeOptions{&sink_gen});
+                              compute::SinkNodeOptions{&sink_gen});
   }
 
-  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<compute::ExecNode>>
-    out;
+  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<compute::ExecNode>> out;
   out.first = plan;
   out.second = node;
   return out;
