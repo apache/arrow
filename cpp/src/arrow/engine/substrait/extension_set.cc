@@ -443,18 +443,21 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     // ARROW-15535.
     for (util::string_view name : {
              "add",
+             "and",
+             "count",
              "equal",
-             "is_not_distinct_from",
+             "greater",
+             "greater_equal",
              "hash_count",
+             "is_not_distinct_from",
+             "less",
+             "less_equal",
              "like",
              "min",
-             "and",
-             "less_equal",
-             "subtract",
-             "multiply",
-             "sum",
              "mean",
-             "count",
+             "multiply",
+             "subtract",
+             "sum",
          }) {
       DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
     }
