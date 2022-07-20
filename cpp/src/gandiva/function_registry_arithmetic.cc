@@ -203,6 +203,11 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       // floor functions
       UNARY_SAFE_NULL_IF_NULL(floor, {}, float32, float32),
       UNARY_SAFE_NULL_IF_NULL(floor, {}, float64, float64),
+      // sqrt functions
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, int32, float64),
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, int64, float64),
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, float32, float64),
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, float64, float64),
 
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),

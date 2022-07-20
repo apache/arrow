@@ -511,6 +511,16 @@ FLOOR(float32)
 FLOOR(float64)
 
 #undef FLOOR
+#define SQRT(TYPE) \
+  FORCE_INLINE     \
+  gdv_float64 sqrt_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(sqrt(in1)); }
+
+SQRT(int32)
+SQRT(int64)
+SQRT(float32)
+SQRT(float64)
+
+#undef SQRT
 
 #undef NUMERIC_FUNCTION
 #undef NUMERIC_TYPES
