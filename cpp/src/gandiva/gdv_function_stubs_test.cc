@@ -1283,8 +1283,12 @@ TEST(TestGdvFnStubs, TestMask) {
   const char* result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1,
                                                 "x", 1, "n", 1, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
-  const char* result_def = mask_default_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
-  EXPECT_EQ(std::string(result_def, out_len), expected);
+  result = mask_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = mask_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
 
   data = "QwErTy:4)ß";
   expected = "U-l-U-l-U-l-:#)l-";
@@ -1292,24 +1296,28 @@ TEST(TestGdvFnStubs, TestMask) {
   result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "U-", 2, "l-", 2,
                                     "#", 1, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
+  expected = "U-l-U-l-U-l-:n)l-";
+  result =
+      mask_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "U-", 2, "l-", 2, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  expected = "U-xU-xU-x:n)x";
+  result = mask_utf8_utf8(ctx_ptr, data.c_str(), data_len, "U-", 2, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
   expected = "XxXxXx:n)x";
-  result_def = mask_default_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
-  EXPECT_EQ(std::string(result_def, out_len), expected);
+  result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
 
   data = "";
   expected = "";
   data_len = static_cast<int32_t>(data.length());
-  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "U-", 2, "l-", 2,
-                                    "#", 1, &out_len);
-  EXPECT_EQ(std::string(result, out_len), expected);
-  result_def = mask_default_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
-  EXPECT_EQ(std::string(result_def, out_len), expected);
-
-  data = "QwErTy:4)ß";
-  expected = "l-l-l-:#)l-";
-  data_len = static_cast<int32_t>(data.length());
-  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, "l-", 2, "#",
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 2, "n",
                                     1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = mask_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, "x", 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = mask_utf8_utf8(ctx_ptr, data.c_str(), data_len, "X", 1, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  result = mask_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
 
   data = "QwErTy:4)ß";
@@ -1317,6 +1325,12 @@ TEST(TestGdvFnStubs, TestMask) {
   data_len = static_cast<int32_t>(data.length());
   result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, "", 0, "", 0,
                                     &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  expected = ":n)";
+  result = mask_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, "", 0, &out_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+  expected = "xxx:n)x";
+  result = mask_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
 
   data = "hunny-BEE-5121";

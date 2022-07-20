@@ -3244,17 +3244,17 @@ TEST_F(TestProjector, TestMask) {
   auto status = Projector::Make(schema, {expr_mask}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
-  // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
-  auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123", "AßÇçd-123"},
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"},
                                    {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-", ""}, {true, true, true, true});
-  auto array2 = MakeArrowArrayUtf8({"x", "low", "l-", ""}, {true, true, true, true});
-  auto array3 = MakeArrowArrayUtf8({"n", "#", "<>", "[0-9]"}, {true, true, true, true});
+  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"x", "low", "l-"}, {true, true, true, true});
+  auto array3 = MakeArrowArrayUtf8({"n", "#", "[0-9]"}, {true, true, true, true});
 
   // expected output
   auto exp_mask = MakeArrowArrayUtf8(
-      {"XxXxx-nnn", "CAPlowCAPlowlow-###", "Ç-l-Ç-l-l--<><><>", "-[0-9][0-9][0-9]"},
+      {"XxXxx-nnn", "CAPlowCAPlowlow-###", "Ç-l-Ç-l-l--[0-9][0-9][0-9]"},
       {true, true, true, true});
 
   // prepare input record batch

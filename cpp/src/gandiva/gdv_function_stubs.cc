@@ -656,7 +656,22 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
 }
 
 GANDIVA_EXPORT
-const char* mask_default_utf8(int64_t context, const char* in, int32_t length,
+const char* mask_utf8_utf8_utf8(int64_t context, const char* in, int32_t length,
+                                const char* upper, int32_t upper_len, const char* lower,
+                                int32_t lower_len, int32_t* out_len) {
+  return mask_utf8_utf8_utf8_utf8(context, in, length, upper, upper_len, lower, lower_len,
+                                  "n", 1, out_len);
+}
+
+GANDIVA_EXPORT
+const char* mask_utf8_utf8(int64_t context, const char* in, int32_t length,
+                           const char* upper, int32_t upper_len, int32_t* out_len) {
+  return mask_utf8_utf8_utf8_utf8(context, in, length, upper, upper_len, "x", 1, "n", 1,
+                                  out_len);
+}
+
+GANDIVA_EXPORT
+const char* mask_utf8(int64_t context, const char* in, int32_t length,
                               int32_t* out_len) {
   return mask_utf8_utf8_utf8_utf8(context, in, length, "X", 1, "x", 1, "n", 1, out_len);
 }
@@ -1204,7 +1219,36 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(mask_utf8_utf8_utf8_utf8));
 
-  // mask_default_utf8
+  // mask_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i8_ptr_type(),  // lower
+      types->i32_type(),     // lower_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("mask_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(mask_utf8_utf8_utf8));
+
+    // mask_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i8_ptr_type(),  // upper
+      types->i32_type(),     // upper_len
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc("mask_utf8_utf8", types->i8_ptr_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(mask_utf8_utf8));
+
+  // mask_utf8
   args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // data
@@ -1212,8 +1256,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()  // out_length
   };
 
-  engine->AddGlobalMappingForFunc("mask_default_utf8",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(mask_default_utf8));
+  engine->AddGlobalMappingForFunc("mask_utf8", types->i8_ptr_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(mask_utf8));
 }
 }  // namespace gandiva
