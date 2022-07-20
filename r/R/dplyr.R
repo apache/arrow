@@ -112,7 +112,10 @@ print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
   types <- map_chr(x$selected_columns, function(expr) {
     name <- expr$field_name
-    if (nzchar(name)) {
+    # special augmented field containing fragment filename
+    if (name == "__filename") {
+      "string"
+    } else if (nzchar(name)) {
       # Just a field_ref, so look up in the schema
       schm$GetFieldByName(name)$type$ToString()
     } else {
