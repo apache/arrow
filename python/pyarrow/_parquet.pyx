@@ -680,9 +680,10 @@ cdef class FileMetaData(_Weakrefable):
         -------
         are_equal : bool
         """
-        err_msg = lambda: ("Expected `other` to be of type FileMetaData"
-                           " but found " + str(type(other)))
-        assert isinstance(other, FileMetaData), err_msg()
+        if not isinstance(other, FileMetaData):
+            err_msg = ("Expected `other` to be of type FileMetaData"
+                       " but found " + str(type(other)))
+            raise TypeError(err_msg)
         return self._metadata.Equals(deref(other._metadata))
 
     @property
