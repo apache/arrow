@@ -408,16 +408,16 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
 
   # in_type can be a list() if registering multiple kernels at once
   if (is.list(in_type)) {
-    in_type <- lapply(in_type, as_scalar_function_in_type)
+    in_type <- lapply(in_type, in_type_as_schema)
   } else {
-    in_type <- list(as_scalar_function_in_type(in_type))
+    in_type <- list(in_type_as_schema(in_type))
   }
 
   # out_type can be a list() if registering multiple kernels at once
   if (is.list(out_type)) {
-    out_type <- lapply(out_type, as_scalar_function_out_type)
+    out_type <- lapply(out_type, out_type_as_function)
   } else {
-    out_type <- list(as_scalar_function_out_type(out_type))
+    out_type <- list(out_type_as_function(out_type))
   }
 
   # recycle out_type (which is frequently length 1 even if multiple kernels
@@ -438,7 +438,7 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
 # which can be a data type (e.g., int32()), a field for a unary function
 # or a schema() for functions accepting more than one argument. C++ expects
 # a schema().
-as_scalar_function_in_type <- function(x) {
+in_type_as_schema <- function(x) {
   if (inherits(x, "Field")) {
     schema(x)
   } else if (inherits(x, "DataType")) {
@@ -451,7 +451,7 @@ as_scalar_function_in_type <- function(x) {
 # This function sanitizes the out_type argument for arrow_scalar_function(),
 # which can be a data type (e.g., int32()) or a function of the input types.
 # C++ currently expects a function.
-as_scalar_function_out_type <- function(x) {
+out_type_as_function <- function(x) {
   if (is.function(x)) {
     x
   } else {
