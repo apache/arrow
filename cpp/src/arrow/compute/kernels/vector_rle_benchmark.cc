@@ -87,8 +87,8 @@ static void RLEEncodeBenchmark(benchmark::State& state, ValuesSet values,
 }
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-static void RLEEncodeRefence(benchmark::State& state, ValuesSet values,
-                             RunLengthDistribution& distribution) {
+static void RLEEncodeReference(benchmark::State& state, ValuesSet values,
+                               RunLengthDistribution& distribution) {
   auto array = GenerateArray(values, distribution);
   // the parquet encoder does not support nulls on this level
   ARROW_CHECK(!array->data()->MayHaveNulls());
@@ -109,7 +109,7 @@ static void RLEEncodeRefence(benchmark::State& state, ValuesSet values,
     util::RleEncoder encoder(output_buffer.data(), buffer_size, values.type->bit_width());
     for (int64_t index = 0; index < array->length(); index++) {
       // don't check for success since this may affect performance. The same operation is
-      // checked in the preparation phase of RLEDecodeRefence.
+      // checked in the preparation phase of RLEDecodeReference.
       /*bool result =*/encoder.Put(input_buffer[index]);
       /*ARROW_CHECK(result);*/
     }
@@ -138,8 +138,8 @@ static void RLEDecodeBenchmark(benchmark::State& state, ValuesSet values,
 }
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-static void RLEDecodeRefence(benchmark::State& state, ValuesSet values,
-                             RunLengthDistribution& distribution) {
+static void RLEDecodeReference(benchmark::State& state, ValuesSet values,
+                               RunLengthDistribution& distribution) {
   auto array = GenerateArray(values, distribution);
   /* the parquet encoder does not support nulls on this level */
   ARROW_CHECK(!array->data()->MayHaveNulls());
@@ -198,8 +198,8 @@ static void RLEFilterBenchmark(benchmark::State& state, ValuesSet values,
 }
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-static void RLEFilterRefence(benchmark::State& state, ValuesSet values,
-                             RunLengthDistribution& distribution) {
+static void RLEFilterReference(benchmark::State& state, ValuesSet values,
+                               RunLengthDistribution& distribution) {
   auto array = GenerateArray(values, distribution);
   auto filter =
       GenerateArray(ValuesSet(boolean(), {"true", "false", "null"}), distribution);
@@ -234,11 +234,11 @@ BENCHMARK_CAPTURE(RLEEncodeBenchmark, int_nonnull_1000, ValuesSet(uint32(), {"1"
                   only_1000_distribition);
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-BENCHMARK_CAPTURE(RLEEncodeRefence, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
+BENCHMARK_CAPTURE(RLEEncodeReference, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
                   equally_mixed_distribition);
-BENCHMARK_CAPTURE(RLEEncodeRefence, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
+BENCHMARK_CAPTURE(RLEEncodeReference, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
                   only_single_distribition);
-BENCHMARK_CAPTURE(RLEEncodeRefence, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
+BENCHMARK_CAPTURE(RLEEncodeReference, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
                   only_1000_distribition);
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
@@ -252,11 +252,11 @@ BENCHMARK_CAPTURE(RLEDecodeBenchmark, int_nonnull_1000, ValuesSet(uint32(), {"1"
                   only_1000_distribition);
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-BENCHMARK_CAPTURE(RLEDecodeRefence, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
+BENCHMARK_CAPTURE(RLEDecodeReference, int_nonnull_mixed, ValuesSet(uint32(), {"1", "2"}),
                   equally_mixed_distribition);
-BENCHMARK_CAPTURE(RLEDecodeRefence, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
+BENCHMARK_CAPTURE(RLEDecodeReference, int_nonnull_single, ValuesSet(uint32(), {"1", "2"}),
                   only_single_distribition);
-BENCHMARK_CAPTURE(RLEDecodeRefence, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
+BENCHMARK_CAPTURE(RLEDecodeReference, int_nonnull_1000, ValuesSet(uint32(), {"1", "2"}),
                   only_1000_distribition);
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
@@ -274,17 +274,17 @@ BENCHMARK_CAPTURE(RLEFilterBenchmark, int_mixed, ValuesSet(uint32(), {"1", "2", 
                   equally_mixed_distribition);
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-BENCHMARK_CAPTURE(RLEFilterRefence, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
+BENCHMARK_CAPTURE(RLEFilterReference, int_single, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_single_distribition);
-BENCHMARK_CAPTURE(RLEFilterRefence, int_12345, ValuesSet(uint32(), {"1", "2", "null"}),
+BENCHMARK_CAPTURE(RLEFilterReference, int_12345, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_12345_distribition);
-BENCHMARK_CAPTURE(RLEFilterRefence, int_10, ValuesSet(uint32(), {"1", "2", "null"}),
+BENCHMARK_CAPTURE(RLEFilterReference, int_10, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_10_distribition);
-BENCHMARK_CAPTURE(RLEFilterRefence, int_100, ValuesSet(uint32(), {"1", "2", "null"}),
+BENCHMARK_CAPTURE(RLEFilterReference, int_100, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_100_distribition);
-BENCHMARK_CAPTURE(RLEFilterRefence, int_1000, ValuesSet(uint32(), {"1", "2", "null"}),
+BENCHMARK_CAPTURE(RLEFilterReference, int_1000, ValuesSet(uint32(), {"1", "2", "null"}),
                   only_1000_distribition);
-BENCHMARK_CAPTURE(RLEFilterRefence, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
+BENCHMARK_CAPTURE(RLEFilterReference, int_mixed, ValuesSet(uint32(), {"1", "2", "null"}),
                   equally_mixed_distribition);
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
