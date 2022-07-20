@@ -248,18 +248,18 @@ struct ComparePrimitiveSA {
   }
 };
 
-using CompareFunc = void (*)(const void*, const void*, int64_t, void*);
+using BinaryKernel = void (*)(const void*, const void*, int64_t, void*);
 
 struct CompareData : public KernelState {
-  CompareFunc func_aa;
-  CompareFunc func_sa;
-  CompareFunc func_as;
-  CompareData(CompareFunc func_aa, CompareFunc func_sa, CompareFunc func_as)
+  BinaryKernel func_aa;
+  BinaryKernel func_sa;
+  BinaryKernel func_as;
+  CompareData(BinaryKernel func_aa, BinaryKernel func_sa, BinaryKernel func_as)
       : func_aa(func_aa), func_sa(func_sa), func_as(func_as) {}
 };
 
 template <template <typename...> class Generator, typename Op>
-CompareFunc GetPrimitiveCompare(Type::type type) {
+BinaryKernel GetBinaryKernel(Type::type type) {
   switch (type) {
     case Type::INT8:
       return Generator<int8_t, Op>::Exec;
@@ -302,9 +302,17 @@ struct CompareKernel {
     ArraySpan* out_arr = out->array_span();
 
     // TODO: implement path for offset not multiple of 8
-    DCHECK_EQ(out_arr->offset % 8, 0);
+    const bool out_is_byte_aligned = out_arr->offset % 8 == 0;
 
-    uint8_t* out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
+    std::shared_ptr<Buffer> out_buffer_tmp;
+    uint8_t* out_buffer;
+    if (out_is_byte_aligned) {
+      out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
+    } else {
+      ARROW_ASSIGN_OR_RAISE(out_buffer_tmp,
+                            ctx->Allocate(bit_util::BytesForBits(batch.length)));
+      out_buffer = out_buffer_tmp->mutable_data();
+    }
     if (batch[0].is_array() && batch[1].is_array()) {
       kernel_data->func_aa(batch[0].array.GetValues<T>(1), batch[1].array.GetValues<T>(1),
                            batch.length, out_buffer);
@@ -316,6 +324,10 @@ struct CompareKernel {
       T value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
       kernel_data->func_sa(&value, batch[1].array.GetValues<T>(1), batch.length,
                            out_buffer);
+    }
+    if (!out_is_byte_aligned) {
+      ::arrow::internal::CopyBitmap(out_buffer, /*offset=*/0, batch.length,
+                                    out_arr->buffers[1].data, out_arr->offset);
     }
     return Status::OK();
   }
@@ -340,9 +352,9 @@ ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
                               ArrayKernelExec exec) {
   ScalarKernel kernel;
   kernel.signature = KernelSignature::Make({ty, ty}, boolean());
-  CompareFunc func_aa = GetPrimitiveCompare<ComparePrimitive, Op>(compare_type);
-  CompareFunc func_sa = GetPrimitiveCompare<ComparePrimitiveSA, Op>(compare_type);
-  CompareFunc func_as = GetPrimitiveCompare<ComparePrimitiveAS, Op>(compare_type);
+  BinaryKernel func_aa = GetBinaryKernel<ComparePrimitive, Op>(compare_type);
+  BinaryKernel func_sa = GetBinaryKernel<ComparePrimitiveSA, Op>(compare_type);
+  BinaryKernel func_as = GetBinaryKernel<ComparePrimitiveAS, Op>(compare_type);
   kernel.data = std::make_shared<CompareData>(func_aa, func_sa, func_as);
   kernel.exec = exec;
   return kernel;
@@ -468,30 +480,37 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   return func;
 }
 
-struct FlippedData : public KernelState {
+struct FlippedData : public CompareData {
   ArrayKernelExec unflipped_exec;
-  explicit FlippedData(ArrayKernelExec unflipped_exec) : unflipped_exec(unflipped_exec) {}
+  explicit FlippedData(ArrayKernelExec unflipped_exec, BinaryKernel func_aa = nullptr,
+                       BinaryKernel func_sa = nullptr, BinaryKernel func_as = nullptr)
+      : CompareData(func_aa, func_sa, func_as), unflipped_exec(unflipped_exec) {}
 };
 
-Status FlippedBinaryExec(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
+Status FlippedCompare(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
   const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
-  DCHECK(kernel);
   const auto kernel_data = static_cast<const FlippedData*>(kernel->data.get());
-
   ExecSpan flipped_span = span;
   std::swap(flipped_span.values[0], flipped_span.values[1]);
   return kernel_data->unflipped_exec(ctx, flipped_span, out);
 }
 
-std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
-                                                    const ScalarFunction& func,
-                                                    FunctionDoc doc) {
+std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
+                                                   const ScalarFunction& func,
+                                                   FunctionDoc doc) {
   auto flipped_func =
       std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
-    flipped_kernel.data = std::make_shared<FlippedData>(kernel->exec);
-    flipped_kernel.exec = FlippedBinaryExec;
+    if (kernel->data) {
+      auto compare_data = static_cast<const CompareData*>(kernel->data.get());
+      flipped_kernel.data =
+          std::make_shared<FlippedData>(kernel->exec, compare_data->func_aa,
+                                        compare_data->func_sa, compare_data->func_as);
+    } else {
+      flipped_kernel.data = std::make_shared<FlippedData>(kernel->exec);
+    }
+    flipped_kernel.exec = FlippedCompare;
     DCHECK_OK(flipped_func->AddKernel(std::move(flipped_kernel)));
   }
   return flipped_func;
@@ -908,8 +927,8 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   auto greater_equal =
       MakeCompareFunction<GreaterEqual>("greater_equal", greater_equal_doc);
 
-  auto less = MakeFlippedFunction("less", *greater, less_doc);
-  auto less_equal = MakeFlippedFunction("less_equal", *greater_equal, less_equal_doc);
+  auto less = MakeFlippedCompare("less", *greater, less_doc);
+  auto less_equal = MakeFlippedCompare("less_equal", *greater_equal, less_equal_doc);
   DCHECK_OK(registry->AddFunction(std::move(less)));
   DCHECK_OK(registry->AddFunction(std::move(less_equal)));
   DCHECK_OK(registry->AddFunction(std::move(greater)));
