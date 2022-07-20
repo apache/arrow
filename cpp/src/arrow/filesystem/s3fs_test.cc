@@ -236,6 +236,8 @@ TEST_F(S3OptionsTest, FromUri) {
   std::string path;
   S3Options options;
   S3Options retry_options;
+  ClientBuilder builder;
+  S3Client client;
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
   ASSERT_EQ(options.region, "");
@@ -317,6 +319,35 @@ TEST_F(S3OptionsTest, FromUri) {
   static_assert(
       std::is_same<decltype(options.retry_strategy), WrappedRetryStrategy>::value,
       "options.retry_strategy must be WrappedRetryStrategy of a ShortRetryStrategy");
+
+  // Test the S3 client is built with the correct retry strategy
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Standard;
+  // retry_strategy will be overriden by stock_retry_strategy
+  retry_options.retry_strategy = std::make_shared<ShortRetryStrategy>();
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  builder = std::make_shared<ClientBuilder>(options);
+  client = builder.BuildClient();
+  static_assert(std::is_same<decltype(client.retry_strategy),
+                             AWS::Client::StandardRetryStrategy>::value,
+                "client.retry_strategy must be AWS::Client::StandardRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.None;
+  retry_options.retry_strategy = std::make_shared<ShortRetryStrategy>();
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  builder = std::make_shared<ClientBuilder>(options);
+  client = builder.BuildClient();
+  static_assert(
+      std::is_same<decltype(options.retry_strategy), WrappedRetryStrategy>::value,
+      "options.retry_strategy must be WrappedRetryStrategy of a ShortRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.None;
+  retry_options.retry_strategy = NULL;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  builder = std::make_shared<ClientBuilder>(options);
+  client = builder.BuildClient();
+  static_assert(
+      std::is_same<decltype(client.retry_strategy), ConnectRetryStrategy>::value,
+      "client.retry_strategy must be ConnectRetryStrategy");
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
