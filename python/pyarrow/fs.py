@@ -227,16 +227,28 @@ def copy_files(source, destination,
 
     Examples
     --------
-    Copy an S3 bucket's files to a local directory:
+    Inspect an S3 bucket's files:
 
-    >>> copy_files("s3://your-bucket-name",
-    ...            "local-directory") # doctest: +SKIP
+    >>> s3, path = fs.FileSystem.from_uri(
+    ...            "s3://registry.opendata.aws/roda/ndjson/")
+    >>> selector = fs.FileSelector(path)
+    >>> s3.get_file_info(selector)
+    [<FileInfo for 'registry.opendata.aws/roda/ndjson/index.ndjson':...]
 
-    Using a FileSystem object:
+    Copy one file from S3 bucket to a local directory:
 
-    >>> copy_files("your-bucket-name", "local-directory",
-    ...            source_filesystem=S3FileSystem(...)) # doctest: +SKIP
+    >>> fs.copy_files("s3://registry.opendata.aws/roda/ndjson/index.ndjson",
+    ...               "file:///{}/index_copy.ndjson".format(local_path))
 
+    >>> fs.LocalFileSystem().get_file_info(str(local_path)+
+    ...                                    '/index_copy.ndjson')
+    <FileInfo for '.../index_copy.ndjson': type=FileType.File, size=...>
+
+    Copy file using a FileSystem object:
+
+    >>> fs.copy_files("registry.opendata.aws/roda/ndjson/index.ndjson",
+    ...               "file:///{}/index_copy.ndjson".format(local_path),
+    ...               source_filesystem=fs.S3FileSystem())
     """
     source_fs, source_path = _resolve_filesystem_and_path(
         source, source_filesystem

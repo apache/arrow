@@ -15,19 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Write data in the Feather format
+#' Write a Feather file (an Arrow IPC file)
 #'
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
-#' This function writes both the original, limited specification of the format
-#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#' [write_feather()] can write both the Feather Version 1 (V1),
+#' a legacy version available starting in 2016, and the Version 2 (V2),
+#' which is the Apache Arrow IPC file format.
+#' The default version is V2.
+#' V1 files are distinct from Arrow IPC files and lack many feathures,
+#' such as the ability to store all Arrow data tyeps, and compression support.
+#' [write_ipc_file()] can only write V2 files.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
-#' @param version integer Feather file version. Version 2 is the current.
-#' Version 1 is the more limited legacy format.
+#' @param version integer Feather file version, Version 1 or Version 2. Version 2 is the default.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
 #' should have in the file. Use a smaller `chunk_size` when you need faster
 #' random row access. Default is 64K. This option is not supported for V1.
@@ -46,9 +50,18 @@
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
 #' @examples
-#' tf <- tempfile()
-#' on.exit(unlink(tf))
-#' write_feather(mtcars, tf)
+#' # We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
+#' tf1 <- tempfile(fileext = ".feather")
+#' tf2 <- tempfile(fileext = ".arrow")
+#' tf3 <- tempfile(fileext = ".arrow")
+#' on.exit({
+#'   unlink(tf1)
+#'   unlink(tf2)
+#'   unlink(tf3)
+#' })
+#' write_feather(mtcars, tf1, version = 1)
+#' write_feather(mtcars, tf2)
+#' write_ipc_file(mtcars, tf3)
 #' @include arrow-object.R
 write_feather <- function(x,
                           sink,
@@ -110,13 +123,27 @@ write_feather <- function(x,
   invisible(x_out)
 }
 
-#' Read a Feather file
+#' @rdname write_feather
+#' @export
+write_ipc_file <- function(x,
+                           sink,
+                           chunk_size = 65536L,
+                           compression = c("default", "lz4", "uncompressed", "zstd"),
+                           compression_level = NULL) {
+  mc <- match.call()
+  mc$version <- 2
+  mc[[1]] <- get("write_feather", envir = asNamespace("arrow"))
+  eval.parent(mc)
+}
+
+#' Read a Feather file (an Arrow IPC file)
 #'
 #' Feather provides binary columnar serialization for data frames.
 #' It is designed to make reading and writing data frames efficient,
 #' and to make sharing data across data analysis languages easy.
-#' This function reads both the original, limited specification of the format
-#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#' [read_feather()] can read both the Feather Version 1 (V1), a legacy version available starting in 2016,
+#' and the Version 2 (V2), which is the Apache Arrow IPC file format.
+#' [read_ipc_file()] is an alias of [read_feather()].
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
@@ -128,7 +155,8 @@ write_feather <- function(x,
 #' @export
 #' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
 #' @examples
-#' tf <- tempfile()
+#' # We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
+#' tf <- tempfile(fileext = ".arrow")
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
 #' df <- read_feather(tf)
@@ -157,6 +185,10 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   }
   out
 }
+
+#' @rdname read_feather
+#' @export
+read_ipc_file <- read_feather
 
 #' @title FeatherReader class
 #' @rdname FeatherReader

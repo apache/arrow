@@ -490,6 +490,23 @@ SIGN(float32)
 SIGN(float64)
 
 #undef SIGN
+#define CEILING(TYPE) \
+  FORCE_INLINE        \
+  gdv_##TYPE ceiling_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(ceil(in1)); }
+
+CEILING(float32)
+CEILING(float64)
+
+#undef CEILING
+
+#define FLOOR(TYPE) \
+  FORCE_INLINE      \
+  gdv_##TYPE floor_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(floor(in1)); }
+
+FLOOR(float32)
+FLOOR(float64)
+
+#undef FLOOR
 
 #undef NUMERIC_FUNCTION
 #undef NUMERIC_TYPES

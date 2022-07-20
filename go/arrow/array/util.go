@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/apache/arrow/go/v9/arrow"
 	"github.com/apache/arrow/go/v9/arrow/bitutil"
@@ -281,4 +282,20 @@ func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable 
 	}
 
 	return NewData(valueType, dictLen, buffers, nil, nullcount, 0), nil
+}
+
+func DictArrayFromJSON(mem memory.Allocator, dt *arrow.DictionaryType, indicesJSON, dictJSON string) (arrow.Array, error) {
+	indices, _, err := FromJSON(mem, dt.IndexType, strings.NewReader(indicesJSON))
+	if err != nil {
+		return nil, err
+	}
+	defer indices.Release()
+
+	dict, _, err := FromJSON(mem, dt.ValueType, strings.NewReader(dictJSON))
+	if err != nil {
+		return nil, err
+	}
+	defer dict.Release()
+
+	return NewDictionaryArray(dt, indices, dict), nil
 }

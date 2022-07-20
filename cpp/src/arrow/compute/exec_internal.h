@@ -39,39 +39,6 @@ static constexpr int64_t kDefaultMaxChunksize = std::numeric_limits<int64_t>::ma
 
 namespace detail {
 
-/// \brief Break std::vector<Datum> into a sequence of ExecBatch for kernel
-/// execution
-class ARROW_EXPORT ExecBatchIterator {
- public:
-  /// \brief Construct iterator and do basic argument validation
-  ///
-  /// \param[in] args the Datum argument, must be all array-like or scalar
-  /// \param[in] max_chunksize the maximum length of each ExecBatch. Depending
-  /// on the chunk layout of ChunkedArray.
-  static Result<std::unique_ptr<ExecBatchIterator>> Make(
-      std::vector<Datum> args, int64_t max_chunksize = kDefaultMaxChunksize);
-
-  /// \brief Compute the next batch. Always returns at least one batch. Return
-  /// false if the iterator is exhausted
-  bool Next(ExecBatch* batch);
-
-  int64_t length() const { return length_; }
-
-  int64_t position() const { return position_; }
-
-  int64_t max_chunksize() const { return max_chunksize_; }
-
- private:
-  ExecBatchIterator(std::vector<Datum> args, int64_t length, int64_t max_chunksize);
-
-  std::vector<Datum> args_;
-  std::vector<int> chunk_indexes_;
-  std::vector<int64_t> chunk_positions_;
-  int64_t position_;
-  int64_t length_;
-  int64_t max_chunksize_;
-};
-
 /// \brief Break std::vector<Datum> into a sequence of non-owning
 /// ExecSpan for kernel execution. The lifetime of the Datum vector
 /// must be longer than the lifetime of this object
@@ -84,7 +51,11 @@ class ARROW_EXPORT ExecSpanIterator {
   /// \param[in] batch the input ExecBatch
   /// \param[in] max_chunksize the maximum length of each ExecSpan. Depending
   /// on the chunk layout of ChunkedArray.
-  Status Init(const ExecBatch& batch, int64_t max_chunksize = kDefaultMaxChunksize);
+  /// \param[in] promote_if_all_scalars if all of the values are scalars,
+  /// return them in each ExecSpan as ArraySpan of length 1. This must be set
+  /// to true for Scalar and Vector executors but false for Aggregators
+  Status Init(const ExecBatch& batch, int64_t max_chunksize = kDefaultMaxChunksize,
+              bool promote_if_all_scalars = true);
 
   /// \brief Compute the next span by updating the state of the
   /// previous span object. You must keep passing in the previous
@@ -110,6 +81,7 @@ class ARROW_EXPORT ExecSpanIterator {
   bool initialized_ = false;
   bool have_chunked_arrays_ = false;
   bool have_all_scalars_ = false;
+  bool promote_if_all_scalars_ = true;
   const std::vector<Datum>* args_;
   std::vector<int> chunk_indexes_;
   std::vector<int64_t> value_positions_;

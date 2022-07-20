@@ -174,10 +174,12 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * N);
 }
 
-void BM_ExecBatchIterator(benchmark::State& state) {
-  // Measure overhead related to splitting ExecBatch into smaller ExecBatches
-  // for parallelism or more optimal CPU cache affinity
+void BM_ExecSpanIterator(benchmark::State& state) {
+  // Measure overhead related to splitting ExecBatch into smaller non-owning
+  // ExecSpans for parallelism or more optimal CPU cache affinity
   random::RandomArrayGenerator rag(kSeed);
+
+  using ::arrow::compute::detail::ExecSpanIterator;
 
   const int64_t length = 1 << 20;
   const int num_fields = 32;
@@ -187,22 +189,24 @@ void BM_ExecBatchIterator(benchmark::State& state) {
     args[i] = rag.Int64(length, 0, 100)->data();
   }
 
+  ExecBatch batch(args, length);
+
   const int64_t blocksize = state.range(0);
+  ExecSpanIterator it;
   for (auto _ : state) {
-    std::unique_ptr<detail::ExecBatchIterator> it =
-        *detail::ExecBatchIterator::Make(args, blocksize);
-    ExecBatch batch;
-    while (it->Next(&batch)) {
+    ABORT_NOT_OK(it.Init(batch, blocksize));
+    ExecSpan span;
+    while (it.Next(&span)) {
       for (int i = 0; i < num_fields; ++i) {
-        auto data = batch.values[i].array()->buffers[1]->data();
+        auto data = span[i].array.buffers[1].data;
         benchmark::DoNotOptimize(data);
       }
     }
-    benchmark::DoNotOptimize(batch);
+    benchmark::DoNotOptimize(span);
   }
   // Provides comparability across blocksizes by looking at the iterations per
   // second. So 1000 iterations/second means that input splitting associated
-  // with ExecBatchIterator takes up 1ms every time.
+  // with ExecSpanIterator takes up 1ms every time.
   state.SetItemsProcessed(state.iterations());
 }
 
@@ -211,7 +215,7 @@ BENCHMARK(BM_CastDispatchBaseline);
 BENCHMARK(BM_AddDispatch);
 BENCHMARK(BM_ExecuteScalarFunctionOnScalar);
 BENCHMARK(BM_ExecuteScalarKernelOnScalar);
-BENCHMARK(BM_ExecBatchIterator)->RangeMultiplier(4)->Range(1024, 64 * 1024);
+BENCHMARK(BM_ExecSpanIterator)->RangeMultiplier(4)->Range(1024, 64 * 1024);
 
 }  // namespace compute
 }  // namespace arrow

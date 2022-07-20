@@ -336,6 +336,94 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
   return out;
 }
 
+// Substring_index
+GDV_FORCE_INLINE
+const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt_len,
+                                   const char* pat, int32_t pat_len, int32_t cnt,
+                                   int32_t* out_len) {
+  if (txt_len == 0 || pat_len == 0 || cnt == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, txt_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  std::vector<int> lps(pat_len);
+  int len = 0;
+
+  lps[0] = 0;  // lps[0] is always 0
+
+  // the loop calculates lps[i] for i = 1 to M-1
+  int i = 1;
+  while (i < pat_len) {
+    if (pat[i] == pat[len]) {
+      len++;
+      lps[i] = len;
+      i++;
+    } else {
+      // (pat[i] != pat[len])
+      // This is tricky. Consider the example.
+      // AAACAAAA and i = 7. The idea is similar
+      // to search step.
+      if (len != 0) {
+        len = lps[len - 1];
+
+        // Also, note that we do not increment
+        // i here
+      } else {
+        // if (len == 0)
+        lps[i] = 0;
+        i++;
+      }
+    }
+  }
+
+  std::vector<int> occ;
+
+  i = 0;      // index for txt[]
+  int j = 0;  // index for pat[]
+  while (i < txt_len) {
+    if (pat[j] == txt[i]) {
+      j++;
+      i++;
+    }
+
+    if (j == pat_len) {
+      occ.push_back(i - j);
+      j = lps[j - 1];
+    } else if (i < txt_len && pat[j] != txt[i]) {
+      // mismatch after j matches
+      // Do not match lps[0..lps[j-1]] characters,
+      // they will match anyway
+      if (j != 0)
+        j = lps[j - 1];
+      else
+        i = i + 1;
+    }
+  }
+
+  if (static_cast<int32_t>(abs(cnt)) <= static_cast<int32_t>(occ.size()) && cnt > 0) {
+    memcpy(out, txt, occ[cnt - 1]);
+    *out_len = occ[cnt - 1];
+    return out;
+  } else if (static_cast<int32_t>(abs(cnt)) <= static_cast<int32_t>(occ.size()) &&
+             cnt < 0) {
+    int32_t temp = static_cast<int32_t>(abs(cnt));
+    memcpy(out, txt + occ[temp - 1] + pat_len, txt_len - occ[temp - 1] - pat_len);
+    *out_len = txt_len - occ[temp - 1] - pat_len;
+    return out;
+  } else {
+    *out_len = txt_len;
+    memcpy(out, txt, txt_len);
+    return out;
+  }
+}
+
 // Any codepoint, except the ones for lowercase letters, uppercase letters,
 // titlecase letters, decimal digits and letter numbers categories will be
 // considered as word separators.
@@ -854,6 +942,21 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_upper_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_upper_utf8));
+
+  // gdv_fn_substring_index
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // txt
+      types->i32_type(),      // txt_len
+      types->i8_ptr_type(),   // pat
+      types->i32_type(),      // pat_len
+      types->i32_type(),      // cnt
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_substring_index",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_substring_index));
 
   // gdv_fn_initcap_utf8
   args = {
