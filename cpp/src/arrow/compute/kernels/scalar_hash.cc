@@ -47,7 +47,8 @@ namespace {
 // Function documentation
 const FunctionDoc fast_hash_32_doc{
     "Construct a hash for every element of the input argument",
-    ("This function uses an xxHash-like algorithm.\n"
+    ("An element-wise function that uses an xxHash-like algorithm.\n"
+     "This function is not suitable for cryptographic purposes.\n"
      "Hash results are 32-bit and emitted for each valid row.\n"
      "Null (or invalid) rows emit a null in the output."),
     {"hash_input"}};
@@ -85,7 +86,7 @@ struct FastHash32Scalar {
     ARROW_RETURN_NOT_OK(builder.AppendValues(hash_results));
     ARROW_ASSIGN_OR_RAISE(auto result_array, builder.Finish());
 
-    out->value = result_array->data();
+    out->value = ArraySpan{*(result_array->data())};
     return Status::OK();
   }
 
