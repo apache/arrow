@@ -263,6 +263,10 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
       # Infer compression from the file path
       compression <- detect_compression(file)
     }
+    # "lz4" is the convenience
+    if (compression == "lz4") {
+      compression <- "lz4_frame"
+    }
 
     if (!is.null(filesystem)) {
       file <- filesystem$OpenInputFile(file)
@@ -318,17 +322,21 @@ make_output_stream <- function(x, filesystem = NULL, compression = NULL) {
     # Infer compression from sink
     compression <- detect_compression(x)
   }
+  # "lz4" is the convenience
+  if (compression == "lz4") {
+    compression <- "lz4_frame"
+  }
 
   assert_that(is.string(x))
-  if (is.null(filesystem) && is_compressed(compression)) {
-    CompressedOutputStream$create(x) ## compressed local
-  } else if (is.null(filesystem) && !is_compressed(compression)) {
-    FileOutputStream$create(x) ## uncompressed local
-  } else if (!is.null(filesystem) && is_compressed(compression)) {
-    CompressedOutputStream$create(filesystem$OpenOutputStream(x)) ## compressed remote
+  if (is.null(filesystem)) {
+    stream <- FileOutputStream$create(x)
   } else {
-    filesystem$OpenOutputStream(x) ## uncompressed remote
+    stream <- filesystem$OpenOutputStream(x)
   }
+  if (is_compressed(compression)) {
+    stream <- CompressedOutputStream$create(stream, codec = compression)
+  }
+  stream
 }
 
 detect_compression <- function(path) {
