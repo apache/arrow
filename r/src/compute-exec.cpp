@@ -55,19 +55,20 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
       });
 }
 
-std::shared_ptr<compute::ExecPlan> ExecPlan_prepare(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
+std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<compute::ExecNode>>
+ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
+                 const std::shared_ptr<compute::ExecNode>& final_node,
+                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+  std::shared_ptr<compute::ExecNode> node;
 
   // Sorting uses a different sink node; there is no general sort yet
   if (sort_options.size() > 0) {
     if (head >= 0) {
       // Use the SelectK node to take only what we need
-      MakeExecNodeOrStop(
+      node = MakeExecNodeOrStop(
           "select_k_sink", plan.get(), {final_node.get()},
           compute::SelectKSinkNodeOptions{
               arrow::compute::SelectKOptions(
@@ -76,17 +77,22 @@ std::shared_ptr<compute::ExecPlan> ExecPlan_prepare(
                             ->sort_keys),
               &sink_gen});
     } else {
-      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+      node = MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
                          compute::OrderBySinkNodeOptions{
                              *std::dynamic_pointer_cast<compute::SortOptions>(
                                  make_compute_options("sort_indices", sort_options)),
                              &sink_gen});
     }
   } else {
-    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+    node = MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
                        compute::SinkNodeOptions{&sink_gen});
   }
-  return plan;
+
+  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<compute::ExecNode>>
+    out;
+  out.first = plan;
+  out.second = node;
+  return out;
 }
 
 // [[arrow::export]]
@@ -165,7 +171,7 @@ std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan,
                               cpp11::list sort_options, cpp11::strings metadata,
                               int64_t head = -1) {
   auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  return prepared_plan->ToString();
+  return prepared_plan.first->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
