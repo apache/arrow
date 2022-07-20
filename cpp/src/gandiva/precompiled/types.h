@@ -229,6 +229,8 @@ gdv_float32 sign_float32(gdv_float32 in);
 gdv_float64 sign_float64(gdv_float64 in);
 gdv_float32 ceiling_float32(gdv_float32 in);
 gdv_float64 ceiling_float64(gdv_float64 in);
+gdv_float32 floor_float32(gdv_float32 in);
+gdv_float64 floor_float64(gdv_float64 in);
 
 gdv_float32 round_float32(gdv_float32);
 gdv_float64 round_float64(gdv_float64);
