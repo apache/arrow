@@ -329,6 +329,8 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     } else if (type_id == Type::LARGE_LIST) {
       SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
                                    value_length);
+    } else if (type_id == Type::RUN_LENGTH_ENCODED) {
+      assert(false); // TODO: implement for RLE
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
@@ -404,6 +406,16 @@ int64_t ArraySpan::GetNullCount() const {
     this->null_count = precomputed;
   }
   return precomputed;
+}
+
+bool ArraySpan::MayHaveNulls() const {
+  if (type->id() == Type::RUN_LENGTH_ENCODED) {
+    return child_data[0].MayHaveNulls();
+  } else {
+    // If an ArrayData is slightly malformed it may have kUnknownNullCount set
+    // but no buffer
+    return null_count != 0 && buffers[0].data != NULLPTR;
+  }
 }
 
 int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
