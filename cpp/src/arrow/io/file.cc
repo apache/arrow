@@ -152,6 +152,7 @@ class OSFile {
     Status st = ::arrow::internal::FileSeek(fd_.fd(), pos);
     if (st.ok()) {
       need_seeking_.store(false);
+      offset_ = pos;
     }
     return st;
   }
@@ -169,16 +170,23 @@ class OSFile {
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
+#ifdef __linux__
     if (reuse_) {
       return ::arrow::internal::FileWrite(fd_.fd(),
                                           reinterpret_cast<const uint8_t*>(data), length);
     } else {
       auto status = ::arrow::internal::FileWrite(
           fd_.fd(), reinterpret_cast<const uint8_t*>(data), length);
-      posix_fadvise(fd_.fd(), written, length, POSIX_FADV_DONTNEED);
-      written += length;
+      posix_fadvise(fd_.fd(), offset_, length, POSIX_FADV_DONTNEED);
+      offset_ += length;
       return status;
     }
+#else
+    // the posix_fadvise is not implemented on other filesystems.
+    // there could be alternative ways of getting this working but not implemented here.
+    return ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
+                                        length);
+#endif
   }
 
   int fd() const { return fd_.fd(); }
@@ -218,7 +226,7 @@ class OSFile {
   FileMode::type mode_;
   int64_t size_{-1};
   bool reuse_;
-  int64_t written{0};
+  int64_t offset_{0};
   // Whether ReadAt made the file position non-deterministic.
   std::atomic<bool> need_seeking_{false};
 };

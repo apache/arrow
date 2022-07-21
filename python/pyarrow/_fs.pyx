@@ -784,6 +784,7 @@ cdef class LocalFileSystem(FileSystem):
         a mmap'ed file or a regular file.
     reuse : bool, default True
         If set to False, will use posix_fadvise to (try) not use the page cache.
+        This will only work on Linux!!
 
     Examples
     --------
