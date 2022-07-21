@@ -389,7 +389,7 @@ register_scalar_function <- function(name, fun, in_type, out_type,
 }
 
 arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) {
-  fun <- as_function(fun)
+  assert_that(is.function(fun))
 
   # Create a small wrapper function that is easier to call from C++.
   # TODO(ARROW-17148): This wrapper could be implemented in C/C++ to
