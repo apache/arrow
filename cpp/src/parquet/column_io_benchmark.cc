@@ -130,7 +130,7 @@ std::shared_ptr<Int64Reader> BuildReader(std::shared_ptr<Buffer>& buffer,
                                          int64_t num_values, Compression::type codec,
                                          ColumnDescriptor* schema) {
   auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
-  std::unique_ptr<PageReader> page_reader = PageReader::Open(source, num_values, codec);
+  std::unique_ptr<PageReader> page_reader = PageReader::Open(source, num_values, codec, false);
   return std::static_pointer_cast<Int64Reader>(
       ColumnReader::Make(schema, std::move(page_reader)));
 }
