@@ -85,7 +85,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     std::unique_ptr<PageReader> page_reader =
-        PageReader::Open(std::move(source), num_rows, compression);
+        PageReader::Open(std::move(source), num_rows, compression, false);
     reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
         ColumnReader::Make(this->descr_, std::move(page_reader)));
   }

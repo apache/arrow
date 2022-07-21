@@ -90,7 +90,7 @@ class TestPageSerde : public ::testing::Test {
     EndStream();
 
     auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
-    page_reader_ = PageReader::Open(stream, num_rows, codec);
+    page_reader_ = PageReader::Open(stream, num_rows, codec, false);
   }
 
   void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,

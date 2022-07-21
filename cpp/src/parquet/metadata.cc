@@ -58,6 +58,13 @@ const ApplicationVersion& ApplicationVersion::PARQUET_MR_FIXED_STATS_VERSION() {
   return version;
 }
 
+const ApplicationVersion& ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION() {
+  // Parquet 1.5.1 had this problem, and after that we switched to the
+  // application name "parquet-cpp-arrow", so this version is fake.
+  static ApplicationVersion version("parquet-cpp", 2, 0, 0);
+  return version;
+}
+
 std::string ParquetVersionToString(ParquetVersion::type ver) {
   switch (ver) {
     case ParquetVersion::PARQUET_1_0:
