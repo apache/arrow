@@ -72,7 +72,7 @@ def test_run_serialized_query(tmpdir):
         ]
     }
     """
-    # TODO: replace with ipc when the support is finalized in C++
+
     file_name = "read_data.arrow"
     table = pa.table([[1, 2, 3, 4, 5]], names=['foo'])
     path = _write_dummy_data_to_disk(tmpdir, file_name, table)
