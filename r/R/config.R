@@ -55,6 +55,6 @@ set_io_thread_count <- function(num_threads) {
 #'
 #' @return The previous value of `enabled`, invisibly
 #' @export
-arrow_enable_cancel_from_interrupt <- function(enabled = TRUE) {
+enable_cancel_from_interrupt <- function(enabled = TRUE) {
   invisible(SetEnableSignalStopSource(enabled))
 }
