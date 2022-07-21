@@ -23,8 +23,8 @@
 #include <vector>
 
 #include "arrow/csv/options.h"
-#include "common.h"
 #include "arrow/util/macros.h"
+#include "common.h"
 
 namespace arrow {
 namespace py {
