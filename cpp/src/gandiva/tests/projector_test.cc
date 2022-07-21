@@ -3328,7 +3328,7 @@ TEST_F(TestProjector, TestMaskUpper) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = 
+  auto array0 =
       MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"}, {true, true, true});
   auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
 
