@@ -2844,12 +2844,17 @@ TEST_F(TestProjector, TestNextDay) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 2;
-  auto array0 = MakeArrowArrayDate64({1636366834000, 1636366834000}, {true, true});
+  int num_records = 4;
+  auto array0 =
+      MakeArrowArrayDate64({1636366834000, 1636366834000, 1636366834000, 1636366834000},
+                           {true, true, true, true});
 
-  auto array1 = MakeArrowArrayUtf8({"FRIDAY", "FRI"}, {true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"FRIDAY", "FRI", "friday", "fRi"}, {true, true, true, true});
   // expected output
-  auto exp = MakeArrowArrayDate64({1636675200000, 1636675200000}, {true, true});
+  auto exp =
+      MakeArrowArrayDate64({1636675200000, 1636675200000, 1636675200000, 1636675200000},
+                           {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});

@@ -261,8 +261,22 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
     const auto& presentDate = extractDow_timestamp(tp.MillisSinceEpoch());               \
                                                                                          \
     int dateSearch = 0;                                                                  \
+                                                                                         \
+    /* To skip entries out of patterns range */                                          \
+    if (in_len > 9) {                                                                    \
+      gdv_fn_context_set_error_msg(context, "The weekday in this entry is invalid");     \
+      return 0;                                                                          \
+    }                                                                                    \
+                                                                                         \
+    char* up = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));    \
+                                                                                         \
+    /* Putting to upper for working as case-insensitive */                               \
+    for (int i = 0; i < in_len; i++) {                                                   \
+      up[i] = toupper(in[i]);                                                            \
+    }                                                                                    \
+                                                                                         \
     for (int n = 0; n < 7; n++) {                                                        \
-      if (is_substr_utf8_utf8(WEEK[n], WEEK_LEN[n], in, in_len)) {                       \
+      if (is_substr_utf8_utf8(WEEK[n], WEEK_LEN[n], up, in_len)) {                       \
         dateSearch = n + 1;                                                              \
         break;                                                                           \
       }                                                                                  \
