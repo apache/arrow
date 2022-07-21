@@ -3226,7 +3226,7 @@ TEST_F(TestProjector, TestMaskShowFirstLastN) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_show_last_n, outputs.at(1));
 }
 
-TEST_F(TestProjector, TestMask) {
+TEST_F(TestProjector, TestMaskAll) {
   // schema for input fields
   auto f0 = field("f0", arrow::utf8());
   auto f1 = field("f1", arrow::utf8());
@@ -3247,15 +3247,15 @@ TEST_F(TestProjector, TestMask) {
   // Create a row-batch with some sample data
   int num_records = 3;
   auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"},
-                                   {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true, true});
-  auto array2 = MakeArrowArrayUtf8({"x", "low", "l-"}, {true, true, true, true});
-  auto array3 = MakeArrowArrayUtf8({"n", "#", "[0-9]"}, {true, true, true, true});
+                                   {true, true, true});
+  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"x", "low", "l-"}, {true, true, true});
+  auto array3 = MakeArrowArrayUtf8({"n", "#", "[0-9]"}, {true, true, true});
 
   // expected output
   auto exp_mask = MakeArrowArrayUtf8(
       {"XxXxx-nnn", "CAPlowCAPlowlow-###", "Ç-l-Ç-l-l--[0-9][0-9][0-9]"},
-      {true, true, true, true});
+      {true, true, true});
 
   // prepare input record batch
   auto in_batch =
@@ -3267,7 +3267,85 @@ TEST_F(TestProjector, TestMask) {
   EXPECT_TRUE(status.ok());
 
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_show_first_n, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestMaskUpperLower) {
+  // schema for input fields
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::utf8());
+  auto f2 = field("f2", arrow::utf8());
+  auto schema = arrow::schema({f0, f1, f2});
+
+  // output fields
+  auto res_mask = field("output", arrow::utf8());
+
+  // Build expression
+  auto expr_mask = TreeExprBuilder::MakeExpression("mask", {f0, f1, f2}, res_mask);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_mask}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"},
+                                   {true, true, true});
+  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"x", "low", "l-"}, {true, true, true});
+
+  // expected output
+  auto exp_mask = MakeArrowArrayUtf8(
+      {"XxXxx-nnn", "CAPlowCAPlowlow-nnn", "Ç-l-Ç-l-l--nnn"}, {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
+}
+
+TEST_F(TestProjector, TestMaskUpper) {
+  // schema for input fields
+  auto f0 = field("f0", arrow::utf8());
+  auto f1 = field("f1", arrow::utf8());
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto res_mask = field("output", arrow::utf8());
+
+  // Build expression
+  auto expr_mask = TreeExprBuilder::MakeExpression("mask", {f0, f1}, res_mask);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr_mask}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"},
+                                   {true, true, true,});
+  auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
+
+  // expected output
+  auto exp_mask = MakeArrowArrayUtf8({"XxXxx-nnn", "CAPxCAPxx-nnn", "Ç-xÇ-xx-nnn"},
+                                     {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestMaskDefault) {
@@ -3305,4 +3383,5 @@ TEST_F(TestProjector, TestMaskDefault) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_mask, outputs.at(0));
 }
+
 }  // namespace gandiva

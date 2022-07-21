@@ -1172,6 +1172,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("to_utc_timezone_timestamp",
                                   types->i64_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(to_utc_timezone_timestamp));
+
   // from_utc_timezone_timestamp
   args = {
       types->i64_type(),     // context
@@ -1200,7 +1201,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_mask_show_last_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
       reinterpret_cast<void*>(gdv_mask_show_last_n_utf8_int32));
-  
+
   // mask_utf8_utf8_utf8_utf8
   args = {
       types->i64_type(),     // context
