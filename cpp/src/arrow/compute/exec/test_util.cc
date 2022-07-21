@@ -473,15 +473,15 @@ std::shared_ptr<Table> MakeRandomTimeSeriesTable(
 
   Int64Builder time_column_builder;
   Int32Builder id_column_builder;
-  for (int time = properties.start; time <= properties.end;
+  for (int64_t time = properties.start; time <= properties.end;
        time += properties.time_frequency) {
-    for (int id = 0; id < properties.num_ids; id++) {
-      time_column_builder.Append(time);
-      id_column_builder.Append(id);
+    for (int32_t id = 0; id < properties.num_ids; id++) {
+      Status time_col_append_status = time_column_builder.Append(time);
+      Status id_col_append_status = id_column_builder.Append(id);
     }
   }
 
-  int num_rows = time_column_builder.length();
+  int64_t num_rows = time_column_builder.length();
   columns.push_back(time_column_builder.Finish().ValueOrDie());
   columns.push_back(id_column_builder.Finish().ValueOrDie());
 
