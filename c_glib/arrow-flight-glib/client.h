@@ -52,6 +52,20 @@ GARROW_AVAILABLE_IN_5_0
 GAFlightCallOptions *
 gaflight_call_options_new(void);
 
+GARROW_AVAILABLE_IN_9_0
+void
+gaflight_call_options_add_header(GAFlightCallOptions *options,
+                                 const gchar *name,
+                                 const gchar *value);
+GARROW_AVAILABLE_IN_9_0
+void
+gaflight_call_options_clear_headers(GAFlightCallOptions *options);
+GARROW_AVAILABLE_IN_9_0
+void
+gaflight_call_options_foreach_header(GAFlightCallOptions *options,
+                                     GAFlightHeaderFunc func,
+                                     gpointer user_data);
+
 
 #define GAFLIGHT_TYPE_CLIENT_OPTIONS (gaflight_client_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightClientOptions,

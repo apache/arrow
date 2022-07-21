@@ -108,6 +108,63 @@ gaflight_call_options_new(void)
     g_object_new(GAFLIGHT_TYPE_CALL_OPTIONS, NULL));
 }
 
+/**
+ * gaflight_call_options_add_header:
+ * @options: A #GAFlightCallOptions.
+ * @name: A header name.
+ * @value: A header value.
+ *
+ * Add a header.
+ *
+ * Since: 9.0.0
+ */
+void
+gaflight_call_options_add_header(GAFlightCallOptions *options,
+                                 const gchar *name,
+                                 const gchar *value)
+{
+  auto flight_options = gaflight_call_options_get_raw(options);
+  flight_options->headers.emplace_back(name, value);
+}
+
+/**
+ * gaflight_call_options_clear_headers:
+ * @options: A #GAFlightCallOptions.
+ *
+ * Clear all headers.
+ *
+ * Since: 9.0.0
+ */
+void
+gaflight_call_options_clear_headers(GAFlightCallOptions *options)
+{
+  auto flight_options = gaflight_call_options_get_raw(options);
+  flight_options->headers.clear();
+}
+
+/**
+ * gaflight_call_options_foreach_header:
+ * @options: A #GAFlightCallOptions.
+ * @func: (scope call): The user's callback function.
+ * @user_data: (closure): Data for @func.
+ *
+ * Iterates over all header in the options.
+ *
+ * Since: 9.0.0
+ */
+void
+gaflight_call_options_foreach_header(GAFlightCallOptions *options,
+                                     GAFlightHeaderFunc func,
+                                     gpointer user_data)
+{
+  auto flight_options = gaflight_call_options_get_raw(options);
+  for (const auto &header : flight_options->headers) {
+    auto &key = header.first;
+    auto &value = header.second;
+    func(key.c_str(), value.c_str(), user_data);
+  }
+}
+
 
 typedef struct GAFlightClientOptionsPrivate_ {
   arrow::flight::FlightClientOptions options;

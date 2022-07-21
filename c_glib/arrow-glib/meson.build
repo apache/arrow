@@ -277,6 +277,7 @@ if have_gi
                                       extra_args: [
                                         '--warn-all',
                                       ],
+                                      fatal_warnings: true,
                                       header: 'arrow-glib/arrow-glib.h',
                                       identifier_prefix: 'GArrow',
                                       includes: [
