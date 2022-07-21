@@ -435,12 +435,14 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
   fun_formals_have_dots <- any(names(formals(fun)) == "...")
   if (!fun_formals_have_dots && length(formals(fun)) != expected_n_args) {
     abort(
-      glue::glue(
+      sprintf(
         paste0(
-          "Expected `fun` to accept {expected_n_args} argument(s)\n",
-          "but found a function that acccepts {length(formals(fun))} argument(s)\n",
+          "Expected `fun` to accept %d argument(s)\n",
+          "but found a function that acccepts %d argument(s)\n",
           "Did you forget to include `context` as the first argument?"
-        )
+        ),
+        expected_n_args,
+        length(formals(fun))
       )
     )
   }
