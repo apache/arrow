@@ -29,6 +29,7 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/light_array.h"
 
 namespace arrow {
 namespace internal {
@@ -131,6 +132,67 @@ static void FastHashIntegers64(benchmark::State& state) {  // NOLINT non-const r
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
+static void Hashing64Integers(benchmark::State& state) {  // NOLINT non-const reference
+  const std::vector<int64_t> values = MakeIntegers<int64_t>(10000);
+
+  arrow::Int64Builder builder;
+  util::TempVectorStack stack_memallocator;
+  compute::LightContext hash_ctx;
+
+  // build the array
+  ASSERT_OK(builder.Reserve(values.size()));
+  ASSERT_OK(builder.AppendValues(values));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_array, builder.Finish());
+
+  // initialize the stack allocator
+  ASSERT_OK(
+      stack_memallocator.Init(compute::default_exec_context()->memory_pool(),
+                              3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
+
+  // allocate memory for results
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Buffer> hash_buffer,
+                       AllocateBuffer(values.size() * sizeof(uint64_t)));
+
+  // run the benchmark
+  while (state.KeepRunning()) {
+    // Prepare input data structure for propagation to hash function
+    ASSERT_OK_AND_ASSIGN(
+        compute::KeyColumnArray input_keycol,
+        compute::ColumnArrayFromArrayData(values_array->data(), 0, values.size()));
+
+    hash_ctx.hardware_flags =
+        compute::default_exec_context()->cpu_info()->hardware_flags();
+    hash_ctx.stack = &stack_memallocator;
+
+    compute::Hashing64::HashMultiColumn(
+        {input_keycol}, &hash_ctx,
+        reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
+
+    // benchmark::DoNotOptimize(hash_buffer);
+  }
+
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
+static void XxHashIntegers64(benchmark::State& state) {  // NOLINT non-const reference
+  const std::vector<int64_t> values = MakeIntegers<int64_t>(10000);
+
+  arrow::Int64Builder builder;
+  ASSERT_OK(builder.Reserve(values.size()));
+  ASSERT_OK(builder.AppendValues(values));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_array, builder.Finish());
+
+  while (state.KeepRunning()) {
+    ASSERT_OK_AND_ASSIGN(Datum hash_result,
+                         compute::CallFunction("xx_hash", {values_array}));
+    benchmark::DoNotOptimize(hash_result);
+  }
+
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int64_t));
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
 static void BenchmarkStringHashing(benchmark::State& state,  // NOLINT non-const reference
                                    const std::vector<std::string>& values) {
   uint64_t total_size = 0;
@@ -169,15 +231,19 @@ static void HashLargeStrings(benchmark::State& state) {  // NOLINT non-const ref
 // Benchmark declarations
 
 // Uses "Standard" hash functions (wrapper around xxHash)
-BENCHMARK(HashIntegers32);
-BENCHMARK(HashIntegers64);
 BENCHMARK(HashSmallStrings);
 BENCHMARK(HashMediumStrings);
 BENCHMARK(HashLargeStrings);
 
+BENCHMARK(HashIntegers32);
+BENCHMARK(HashIntegers64);
+
 // Uses "FastHash" hash functions (wrapper around xxHash-like alg)
 BENCHMARK(FastHashIntegers32);
 BENCHMARK(FastHashIntegers64);
+
+BENCHMARK(Hashing64Integers);
+BENCHMARK(XxHashIntegers64);
 
 }  // namespace internal
 }  // namespace arrow
