@@ -425,6 +425,26 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
   # are being registered at once)
   out_type <- rep_len(out_type, length(in_type))
 
+  # check n_kernels and number of args in fun
+  n_kernels <- length(in_type)
+  if (n_kernels == 0) {
+    abort("Can't register user-defined scalar function with 0 kernels")
+  }
+
+  expected_n_args <- in_type[[1]]$num_fields + 1L
+  fun_formals_have_dots <- any(names(formals(fun)) == "...")
+  if (!fun_formals_have_dots && length(formals(fun)) != expected_n_args) {
+    abort(
+      glue::glue(
+        paste0(
+          "Expected `fun` to accept {expected_n_args} argument(s)\n",
+          "but found a function that acccepts {length(formals(fun))} argument(s)\n",
+          "Did you forget to include `context` as the first argument?"
+        )
+      )
+    )
+  }
+
   structure(
     list(
       wrapper_fun = wrapper_fun,

@@ -181,7 +181,17 @@ test_that("register_user_defined_function() errors for unsupported specification
       list(),
       list()
     ),
-    "Can't register user-defined function with zero kernels"
+    "Can't register user-defined scalar function with 0 kernels"
+  )
+
+  expect_error(
+    register_scalar_function(
+      "wrong_n_args",
+      function(x) NULL,
+      int32(),
+      int32()
+    ),
+    "Expected `fun` to accept 2 argument\\(s\\)"
   )
 
   expect_error(
