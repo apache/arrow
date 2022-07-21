@@ -208,10 +208,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
 
+    // Prior to Arrow 3.0.0, is_compressed was always set to false in column headers,
+    // even if compression was used. See ARROW-17100.
+    bool compression_always_true = file_metadata_->writer_version().VersionLt(
+        ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION());
+
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool());
+                              compression_always_true, properties_.memory_pool());
     }
 
     if (file_decryptor_ == nullptr) {
@@ -222,11 +227,6 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     if (i > kEncryptedRowGroupsLimit) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
-
-    // Prior to Arrow 3.0.0, is_compressed was always set to false in column headers,
-    // even if compression was used. See ARROW-17100.
-    bool compression_always_true = file_metadata_->writer_version().VersionLt(
-        ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION());
 
     // The column is encrypted
     std::shared_ptr<Decryptor> meta_decryptor;

@@ -3943,6 +3943,19 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
+TEST(TestArrowReaderAdHoc, OldDataPageV2) {
+  // ARROW-17100
+  const char* c_root = std::getenv("ARROW_TEST_DATA");
+  if (!c_root) {
+    GTEST_SKIP() << "ARROW_TEST_DATA not set.";
+  }
+  std::stringstream ss;
+  ss << c_root << "/"
+     << "parquet/arrow-17100/data.parquet";
+  std::string path = ss.str();
+  TryReadDataFile(path);
+}
+
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<DataType>>> {};
