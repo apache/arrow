@@ -595,34 +595,41 @@ endif()
 # For CMAKE_BUILD_TYPE=Debug
 #   -ggdb: Enable gdb debugging
 # For CMAKE_BUILD_TYPE=FastDebug
-#   Same as DEBUG, except with some optimizations on.
+#   Same as Debug, except with some optimizations on.
 # For CMAKE_BUILD_TYPE=Release
 #   -O2: Enable all compiler optimizations
-#   Debug symbols are stripped for reduced binary size. Add
-#   -DARROW_CXXFLAGS="-g" to add them
+#   Debug symbols are stripped for reduced binary size.
+# For CMAKE_BUILD_TYPE=RelWithDebInfo
+#   Same as Release, except with debug symbols enabled.
 
 if(NOT MSVC)
-  string(REPLACE "-O3 -DNDEBUG" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+  string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+
+  set(RELEASE_OPTIMIZATIONS "-O2")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(RELEASE_OPTIMIZATIONS "${RELEASE_OPTIMIZATIONS} -ftree-vectorize")
+  endif()
 
   if(ARROW_GGDB_DEBUG)
     set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
     set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
     set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-    set(C_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} -O2")
+    set(C_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_OPTIMIZATIONS}")
     set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
     set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-    set(CXX_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} -O2")
+    set(CXX_FLAGS_RELWITHDEBINFO "-g${ARROW_DEBUG_SYMBOL_TYPE} ${RELEASE_OPTIMIZATIONS}")
   else()
     set(C_FLAGS_DEBUG "-g -O0")
     set(C_FLAGS_FASTDEBUG "-g -O1")
-    set(C_FLAGS_RELWITHDEBINFO "-g -O2")
+    set(C_FLAGS_RELWITHDEBINFO "-g ${RELEASE_OPTIMIZATIONS}")
     set(CXX_FLAGS_DEBUG "-g -O0")
     set(CXX_FLAGS_FASTDEBUG "-g -O1")
-    set(CXX_FLAGS_RELWITHDEBINFO "-g -O2")
+    set(CXX_FLAGS_RELWITHDEBINFO "-g ${RELEASE_OPTIMIZATIONS}")
   endif()
 
-  set(C_FLAGS_RELEASE "-O2 -DNDEBUG")
-  set(CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+  set(C_FLAGS_RELEASE "${RELEASE_OPTIMIZATIONS}")
+  set(CXX_FLAGS_RELEASE "${RELEASE_OPTIMIZATIONS}")
 endif()
 
 set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
