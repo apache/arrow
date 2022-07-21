@@ -109,6 +109,9 @@ struct RunLengthEncodeExec
     if (this->input_array.length == 0) {
       return Status::NotImplemented("TODO");
     }
+    if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("run-length encoded arrays can only have a number of elements that can be represented as a 32-bit signed integer");
+    }
     this->input_validity = this->input_array.buffers[0].data;
     this->input_values = this->input_array.buffers[1].data;
     this->input_values_physical_offset = this->input_array.offset;
@@ -137,6 +140,7 @@ struct RunLengthEncodeExec
       }
     }
 
+
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
     int64_t validity_buffer_size = 0;
@@ -151,7 +155,7 @@ struct RunLengthEncodeExec
                                                                 ArrowType().bit_width()),
                                          this->kernel_context->memory_pool()));
     ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
-                          AllocateBuffer(num_values_output * sizeof(int64_t),
+                          AllocateBuffer(num_values_output * sizeof(int32_t),
                                          this->kernel_context->memory_pool()));
 
     ArrayData* output_array_data = this->exec_result->array_data().get();
@@ -170,7 +174,7 @@ struct RunLengthEncodeExec
 
     this->output_validity = child_array_data->template GetMutableValues<uint8_t>(0);
     this->output_values = child_array_data->template GetMutableValues<uint8_t>(1);
-    output_run_lengths = output_array_data->template GetMutableValues<int64_t>(0);
+    output_run_lengths = output_array_data->template GetMutableValues<int32_t>(0);
     output_array_data->child_data.push_back(std::move(child_array_data));
 
     if (has_validity_buffer) {
@@ -200,7 +204,7 @@ struct RunLengthEncodeExec
     return Status::OK();
   }
 
-  int64_t* output_run_lengths;
+  int32_t* output_run_lengths;
 };
 
 template <typename Type>
@@ -235,7 +239,7 @@ struct RunLengthDecodeExec
     this->input_validity = child_array.buffers[0].data;
     this->input_values = child_array.buffers[1].data;
     input_accumulated_run_length =
-        reinterpret_cast<const int64_t*>(this->input_array.buffers[0].data);
+        reinterpret_cast<const int32_t*>(this->input_array.buffers[0].data);
 
     const int64_t logical_offset = this->input_array.offset;
     // common_physical_offset is the physical equivalent to the logical offset that is
@@ -282,18 +286,18 @@ struct RunLengthDecodeExec
     this->input_position = 0;
     this->output_position = 0;
     int64_t output_null_count = 0;
-    int64_t run_start = logical_offset;
+    int32_t run_start = static_cast<int32_t>(logical_offset);
     for (this->input_position = 0; this->input_position < num_values_input;
          this->input_position++) {
-      int64_t run_end =
+      int32_t run_end =
           input_accumulated_run_length[common_physical_offset + this->input_position];
       ARROW_DCHECK_LT(run_start, run_end);
-      int64_t run_length = run_end - run_start;
+      int32_t run_length = run_end - run_start;
       run_start = run_end;
 
       Element element = this->ReadValue();
       if (element.valid) {
-        for (int64_t run_element = 0; run_element < run_length; run_element++) {
+        for (int32_t run_element = 0; run_element < run_length; run_element++) {
           this->WriteValue(element);
           this->output_position++;
         }
@@ -309,7 +313,7 @@ struct RunLengthDecodeExec
     return Status::OK();
   }
 
-  const int64_t* input_accumulated_run_length;
+  const int32_t* input_accumulated_run_length;
 };
 
 template <typename Type>

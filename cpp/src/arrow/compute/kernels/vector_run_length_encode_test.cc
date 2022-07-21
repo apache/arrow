@@ -28,7 +28,7 @@ namespace compute {
 struct RLETestData {
   static RLETestData JSON(std::shared_ptr<DataType> data_type, std::string input_json,
                           std::string expected_values_json,
-                          std::vector<int64_t> expected_run_lengths,
+                          std::vector<int32_t> expected_run_lengths,
                           int64_t input_offset = 0) {
     auto input_array = ArrayFromJSON(data_type, input_json);
     return {.input = input_array->Slice(input_offset),
@@ -54,7 +54,7 @@ struct RLETestData {
 
   std::shared_ptr<Array> input;
   std::shared_ptr<Array> expected_values;
-  std::vector<int64_t> expected_run_lengths;
+  std::vector<int32_t> expected_run_lengths;
   // only used for gtest output
   std::string string;
 };
@@ -72,15 +72,15 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
   auto encoded = encoded_datum.array();
-  const int64_t* run_lengths_buffer = encoded->GetValues<int64_t>(0);
-  ASSERT_EQ(std::vector<int64_t>(run_lengths_buffer,
+  const int32_t* run_lengths_buffer = encoded->GetValues<int32_t>(0);
+  ASSERT_EQ(std::vector<int32_t>(run_lengths_buffer,
                                  run_lengths_buffer + encoded->child_data[0]->length),
             data.expected_run_lengths);
   auto values_array = MakeArray(encoded->child_data[0]);
   ASSERT_OK(values_array->ValidateFull());
   ASSERT_TRUE(values_array->Equals(data.expected_values));
   ASSERT_EQ(encoded->buffers[0]->size(),
-            data.expected_run_lengths.size() * sizeof(uint64_t));
+            data.expected_run_lengths.size() * sizeof(int32_t));
   ASSERT_EQ(encoded->length, data.input->length());
   ASSERT_EQ(*encoded->type, RunLengthEncodedType(data.input->type()));
   ASSERT_EQ(encoded->null_count, data.input->null_count());
@@ -113,15 +113,15 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
 TEST_P(TestRunLengthEncode, DecodeWithOffsetInChildArray) {
   auto data = GetParam();
 
-  const int64_t first_run_length = data.expected_run_lengths[0];
+  const int32_t first_run_length = data.expected_run_lengths[0];
   auto parent = ArrayData::Make(run_length_encoded(data.input->type()),
                                 data.input->length() - first_run_length);
   parent->child_data.push_back(data.expected_values->Slice(1)->data());
   ASSERT_OK_AND_ASSIGN(
       auto run_length_buffer,
-      AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int64_t)));
-  int64_t* run_length_buffer_data =
-      reinterpret_cast<int64_t*>(run_length_buffer->mutable_data());
+      AllocateBuffer((data.expected_run_lengths.size() - 1) * sizeof(int32_t)));
+  int32_t* run_length_buffer_data =
+      reinterpret_cast<int32_t*>(run_length_buffer->mutable_data());
   for (size_t index = 0; index < data.expected_run_lengths.size() - 1; index++) {
     run_length_buffer_data[index] =
         data.expected_run_lengths[index + 1] - first_run_length;
