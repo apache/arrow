@@ -341,7 +341,7 @@ test_that("dplyr method not implemented messages", {
   )
 })
 
-test_that("show_exec_plan(), show_query() and explain() with datasets", {
+test_that("show_exec_plan() with datasets", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
   # minimal test
@@ -350,6 +350,7 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "SinkNode.*",                 # final node
       "ProjectNode.*",              # output columns
       "SourceNode"                  # entry point
     )
@@ -363,6 +364,7 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "SinkNode.*",                 # final node
       "ProjectNode.*",              # output columns
       "FilterNode.*",               # filter node
       "int > 6.*cast.*",            # filtering expressions + auto-casting of part
@@ -378,6 +380,7 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "SinkNode.*",                 # final node
       "ProjectNode.*",              # output columns
       "GroupByNode.*",              # group by node
       "keys=.*part.*",              # key for aggregations
@@ -409,13 +412,91 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       arrange(chr) %>%
       head() %>%
       show_exec_plan(),
-    # for some reason the FilterNode disappears when head/tail are involved +
-    # we do not have additional information regarding the SinkNode
+    # we expect 2 chained ExecPlans here due to arrange being a pipeline breaker
+    # sink node and head effectively starting a new ExecPlan
     regexp = paste0(
+      # first ExecPlan (up to and including arrange)
       "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "SinkNode.*",                 #
+      "OrderBySinkNode.*",          # the arrange sink node
+      "ProjectNode.*",              # output columns
+      "FilterNode.*filter=lgl.*",   # filter node
+      "SourceNode.*",               # entry point
+      # second ExecPlan (head)
+      "SinkNode.*",                 # the output node
       "ProjectNode.*",              # output columns
       "SourceNode"                  # entry point
     )
+  )
+})
+
+test_that("how_query() and explain() with datasets", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  # minimal test
+  expect_snapshot(
+    ds %>%
+      show_query()
+  )
+  expect_snapshot(
+    ds %>%
+      explain()
+  )
+
+  # filter and select
+  expect_snapshot(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6L & part == 1) %>%
+      show_query()
+  )
+  expect_snapshot(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6L & part == 1) %>%
+      explain()
+  )
+
+  # group_by and summarise
+  expect_snapshot(
+    ds %>%
+      group_by(part) %>%
+      summarise(avg = mean(int)) %>%
+      show_query()
+  )
+  expect_snapshot(
+    ds %>%
+      group_by(part) %>%
+      summarise(avg = mean(int)) %>%
+      explain()
+  )
+
+  # filter + arrange
+  expect_snapshot(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      show_query()
+  )
+  expect_snapshot(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      explain()
+  )
+
+  # filter + arrange + head
+  expect_snapshot(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      head() %>%
+      show_query()
+  )
+  expect_snapshot(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      head() %>%
+      explain()
   )
 })
