@@ -454,7 +454,14 @@ parse_period_unit <- function(x) {
   unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
 
   if (any(is.na(unit))) {
-    abort(sprintf("Unknown unit '%s'", str_unit))
+    abort(
+      sprintf(
+        "Invalid period name: '%s'",
+        str_unit,
+        ". Known units are",
+        oxford_paste(known_units, "and")
+      )
+    )
   }
 
   # empty string in multiple interpreted as 1
@@ -499,8 +506,12 @@ parse_period_unit <- function(x) {
   list(unit = unit, multiple = multiple)
 }
 
-# handles round/ceil/floor when unit is week and week_start is
-# a non-standard value (not Monday or Sunday)
+# This function handles round/ceil/floor when unit is week. The fn argument
+# specifies which of the temporal rounding functions (round_date, etc) is to
+# be applied, x is the data argument to the rounding function, week_start is
+# an integer indicating which day of the week is the start date. The C++
+# library natively handles Sunday and Monday so in those cases we pass the
+# week_starts_monday option through. Other week_start values are handled here
 shift_temporal_to_week <- function(fn, x, week_start, options) {
   if (week_start == 7) { # Sunday
     options$week_starts_monday <- FALSE
@@ -512,7 +523,9 @@ shift_temporal_to_week <- function(fn, x, week_start, options) {
     return(Expression$create(fn, x, options = options))
   }
 
-  # other cases use offset-from-Monday
+  # other cases use offset-from-Monday: to ensure type-stable output there
+  # are two separate helpers, one to handle date32 input and the other to
+  # handle timestamps
   options$week_starts_monday <- TRUE
   offset <- as.integer(week_start) - 1
 

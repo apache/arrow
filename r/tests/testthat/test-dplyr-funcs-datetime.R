@@ -2388,22 +2388,11 @@ year_of_dates <- tibble::tibble(
 
 # test case used to check we catch week boundaries for all week_start values
 fortnight <- tibble::tibble(
-  date = as.Date(c(
-    "2022-04-04", # Monday
-    "2022-04-05", # Tuesday
-    "2022-04-06", # Wednesday
-    "2022-04-07", # Thursday
-    "2022-04-08", # Friday
-    "2022-04-09", # Saturday
-    "2022-04-10", # Sunday
-    "2022-04-11", # Monday
-    "2022-04-12", # Tuesday
-    "2022-04-13", # Wednesday
-    "2022-04-14", # Thursday
-    "2022-04-15", # Friday
-    "2022-04-16", # Saturday
-    "2022-04-17"  # Sunday
-  )),
+  date = seq(
+    from = as.Date("2022-04-04"),
+    to = as.Date("2022-04-17"),
+    by = "day"
+  ),
   datetime = as.POSIXct(date)
 )
 
@@ -2449,7 +2438,6 @@ tz_times <- tibble::tibble(
   kat_time = as.POSIXct(datestrings, tz = "Asia/Kathmandu")      # UTC +5:45 (no DST)
 )
 
-
 test_that("timestamp round/floor/ceiling works for a minimal test", {
 
   compare_dplyr_binding(
@@ -2493,7 +2481,6 @@ test_that("timestamp round/floor/ceiling accepts period unit abbreviation", {
   check_period_abbreviation("month", synonyms = c("months", "mon", "mons"))
 })
 
-
 test_that("temporal round/floor/ceiling accepts periods with multiple units", {
 
   check_multiple_unit_period <- function(unit, multiplier) {
@@ -2516,7 +2503,6 @@ test_that("temporal round/floor/ceiling accepts periods with multiple units", {
     }
   }
 })
-
 
 # Test helper functions for checking equivalence of outputs regardless of
 # the unit specified. The lubridate_unit argument allows for cases where
@@ -2564,7 +2550,6 @@ check_timestamp_rounding <- function(data, unit, lubridate_unit = unit, ...) {
     ...
   )
 }
-
 
 test_that("date round/floor/ceil works for units of 1 day or less", {
 
@@ -2634,7 +2619,6 @@ check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...)
   )
 }
 
-
 test_that("date round/floor/ceil works for units: month/quarter/year", {
 
   # these test cases are affected by lubridate issue 1051 so we bypass
@@ -2652,7 +2636,6 @@ test_that("date round/floor/ceil works for units: month/quarter/year", {
 # misinterpreted as 64-bit temporal array" bug (ARROW-16142). The easiest
 # solution is to never use an arrow array of length greater than 1.
 # https://issues.apache.org/jira/browse/ARROW-16142
-
 
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
   expect_equal(
@@ -2707,7 +2690,6 @@ test_that("timestamp round/floor/ceil works for week units (non-standard week_st
 
 })
 
-
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
 
   # directly compare arrow to lubridate for floor and ceiling
@@ -2756,8 +2738,6 @@ test_that("date round/floor/ceil works for week units (non-standard week_start)"
 
 })
 
-
-
 # Test helper used to check that the change_on_boundary argument to
 # ceiling_date behaves identically to the lubridate version. It takes
 # unit as an argument to run tests separately for different rounding units
@@ -2777,7 +2757,6 @@ check_boundary_with_unit <- function(unit, ...) {
   )
 
   # dates
-
   expect_equal(
     boundary_times %>%
       arrow_table() %>%
@@ -2807,7 +2786,6 @@ test_that("ceiling_date() applies change_on_boundary correctly", {
   check_boundary_with_unit("day")
 })
 
-
 # In lubridate, an error is thrown when 60 sec/60 min/24 hour thresholds are
 # exceeded. Checks that arrow mimics this behaviour and throws an identically
 # worded error message
@@ -2831,7 +2809,6 @@ test_that("temporal round/floor/ceil period unit maxima are enforced", {
   )
 
 })
-
 
 # one method to test that temporal rounding takes place in local time is to
 # use lubridate as a ground truth and compare arrow results to lubridate
