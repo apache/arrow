@@ -139,15 +139,7 @@ def test_cython_api(tmpdir):
             pa.get_library_dirs() +
             [subprocess_env.get(var, '')] + [str(tmpdir)]
         )
-        print("str(tmpdir) = ", str(tmpdir))
-        print("str(tmpdir) =  contents:")
-        print(sorted(os.listdir(str(tmpdir))))
-        print()
-        print("pa.get_library_dirs() = ", pa.get_library_dirs())
-        print("pa.get_library_dirs() contents:")
-        for d in pa.get_library_dirs():
-            print(f"* {d!r}: {sorted(os.listdir(d))}")
-            print()
+
         subprocess.check_call([sys.executable, '-c', code],
                               stdout=subprocess.PIPE,
                               env=subprocess_env)
