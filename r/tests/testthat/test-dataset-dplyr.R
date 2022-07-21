@@ -470,7 +470,7 @@ test_that("how_query() and explain() with datasets", {
       explain()
   )
 
-  # filter & arrange
+  # filter and arrange
   expect_snapshot(
     ds %>%
       filter(lgl) %>%
@@ -484,7 +484,7 @@ test_that("how_query() and explain() with datasets", {
       explain()
   )
 
-  # filter & arrange & head
+  # filter and arrange and head
   expect_snapshot(
     ds %>%
       filter(lgl) %>%
