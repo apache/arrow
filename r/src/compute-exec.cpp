@@ -139,13 +139,8 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 }
 
 // [[arrow::export]]
-std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan,
-                                  const std::shared_ptr<compute::ExecNode>& final_node,
-                                  cpp11::list sort_options, cpp11::strings metadata,
-                                  int64_t head = -1) {
-  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  arrow::StopIfNotOk(prepared_plan.first->StartProducing());
-  return prepared_plan.first->ToString();
+std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
+  return plan->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
