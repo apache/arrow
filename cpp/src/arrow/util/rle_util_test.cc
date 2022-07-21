@@ -39,5 +39,10 @@ TEST(TestRleUtil, FindPhysicalOffsetTest) {
   ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 3, 3), 1);
 }
 
+TEST(TestRleUtil, FindPhysicalIndexTest) {
+  ASSERT_EQ(FindPhysicalIndex((const int32_t[]){1, 10, 20, 30, 40}, 5, 2, 15, 14), 3);
+  ASSERT_EQ(FindPhysicalIndex((const int32_t[]){1, 10, 20, 30, 40}, 5, 2, 15, 15), 4);
+}
+
 }  // namespace rle_util
 }  // namespace arrow

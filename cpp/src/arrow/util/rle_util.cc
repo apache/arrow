@@ -12,6 +12,14 @@ int64_t FindPhysicalOffset(const int32_t* accumulated_run_lengths,
   return std::distance(accumulated_run_lengths, it);
 }
 
+int64_t FindPhysicalIndex(const int32_t* accumulated_run_lengths,
+                          int64_t physical_length, int64_t physical_offset, int64_t logical_offset, int64_t logical_index) {
+  auto it = std::upper_bound(accumulated_run_lengths + physical_offset,
+                             accumulated_run_lengths + physical_offset + physical_length,
+                             logical_index + logical_offset);
+  return std::distance(accumulated_run_lengths, it);
+}
+
 void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
   auto& child = array->child_data[0];
   auto builder = MakeBuilder(child->type).ValueOrDie();
