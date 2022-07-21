@@ -165,11 +165,11 @@ endif()
 # We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Needed gdb flags
+# Needed compiler flags
 include(SetupCxxFlags)
 
 #
-# shred/static link libs
+# Shared/static link libs
 #
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared)
@@ -418,15 +418,7 @@ if(ARROW_BUILD_TESTS)
     target_include_directories(${TEST_NAME} SYSTEM PUBLIC "${ARROW_PYTHON_INCLUDES}")
 
     # Add the test
-    if(ARROW_TEST_MEMCHECK)
-      add_test(${TEST_NAME}
-              bash
-              -c
-              "cd '${CMAKE_SOURCE_DIR}'; \
-                valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
-                  --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
-                  --error-exitcode=1 ${TEST_PATH} ${ARG_TEST_ARGUMENTS}")
-    elseif(WIN32)
+    if(WIN32)
       add_test(${TEST_NAME} ${TEST_PATH})
     else()
       add_test(${TEST_NAME}

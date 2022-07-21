@@ -21,15 +21,15 @@
 #include <iomanip>
 
 #include "arrow/array.h"
-#include "arrow_to_python_internal.h"
-#include "common.h"
-#include "helpers.h"
-#include "platform.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow_to_python_internal.h"
+#include "common.h"
+#include "helpers.h"
+#include "platform.h"
 
 namespace arrow {
 namespace py {

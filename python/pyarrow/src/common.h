@@ -21,10 +21,10 @@
 #include <utility>
 
 #include "arrow/buffer.h"
-#include "pyarrow.h"
-#include "visibility.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
+#include "pyarrow.h"
+#include "visibility.h"
 
 namespace arrow {
 

@@ -46,7 +46,6 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  message(STATUS "PYARROW_CPP_HOME: ${PYARROW_CPP_HOME}")
   arrow_find_package(ARROW_PYTHON
                      "${PYARROW_CPP_HOME}"
                      arrow_python
