@@ -142,6 +142,28 @@ configure_tzdb <- function() {
   })
 }
 
+# Clean up the StopSource that was registered in .onLoad() so that if the
+# package is reloaded we don't get an error from C++ informing us that
+# a StopSource has already been set up.
+.onUnload <- function(...) {
+  DeinitializeMainRThread()
+}
+
+# While .onUnload should be sufficient, devtools::load_all() does not call it
+# (but it does call .onDetach()). It is safe to call DeinitializeMainRThread()
+# more than once.
+.onDetach <- function(...) {
+  DeinitializeMainRThread()
+}
+
+on_old_windows <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+
+  is_32bit && is_old_r && is_windows
+}
+
 
 # True when the OS is linux + and the R version is development
 # helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran

@@ -30,6 +30,9 @@ MainRThread& MainRThread::GetInstance() {
 // [[arrow::export]]
 void InitializeMainRThread() { MainRThread::GetInstance().Initialize(); }
 
+// [[arrow::export]]
+void DeinitializeMainRThread() { MainRThread::GetInstance().Deinitialize(); }
+
 bool CanRunWithCapturedR() {
 #if defined(HAS_UNWIND_PROTECT)
   static int on_old_windows = -1;
