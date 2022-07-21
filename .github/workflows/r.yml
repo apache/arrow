@@ -90,8 +90,12 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          # Setting a non-default and non-probable Marquesas French Polynesia time
-          # it has both with a .45 offset and very very few people who live there.
+          # TZ was set to a non-default and non-probable Marquesas French Polynesia
+          # (it has both with a .45 offset and very very few people who live there)
+          # time here. The build was failing with the following warning (probably
+          # raised to error) in them:
+          #   System has not been booted with systemd as init system (PID 1). Can't operate.
+          #   Failed to connect to bus: Host is down
           archery docker run -e TZ="" -e ARROW_R_FORCE_TESTS=${{ matrix.force-tests }} ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
