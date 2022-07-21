@@ -72,7 +72,7 @@ set(Python3_FIND_REGISTRY "LAST")
 set(Python3_FIND_FRAMEWORK "LAST")
 
 find_package(Python3Alt 3.7 REQUIRED)
-include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} src)
+include_directories(SYSTEM ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS} ${ARROW_INCLUDE_DIR} src)
 
 add_custom_target(arrow_python-all)
 add_custom_target(arrow_python)
@@ -241,7 +241,6 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
    # other solution is to link gRPC shared everywhere instead of statically only
    # in Flight)
   find_package(ArrowFlight REQUIRED)
-  include_directories("${ARROW_CPP_SOURCE_DIR}/src" "${ARROW_CPP_SOURCE_DIR}/${ARROW_BUILD_DIR}/src")
 
   set(FLIGHT_LINK_LIBS arrow_flight_shared)
 
