@@ -467,8 +467,8 @@ class build_ext(_build_ext):
                 shutil.move(pjoin(build_prefix, 'include'),
                             pjoin(build_lib, 'pyarrow'))
 
-                # As the pyarrow/include file has been deleted in the previous step
-                # we need to, again, add the PyArrow cpp include folder also
+                # pyarrow/include file is first deleted in the previous step
+                # so we need to add the PyArrow cpp include folder again
                 build_pyarrow_cpp_include = pjoin(
                     saved_cwd, 'build/dist/include')
                 shutil.move(pjoin(
