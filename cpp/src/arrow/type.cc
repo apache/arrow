@@ -2374,14 +2374,32 @@ std::string Decimal256Type::ToString() const {
 namespace {
 
 std::vector<std::shared_ptr<DataType>> g_signed_int_types;
+std::vector<const DataType*> g_signed_int_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_unsigned_int_types;
+std::vector<const DataType*> g_unsigned_int_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_int_types;
+std::vector<const DataType*> g_int_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_floating_types;
+std::vector<const DataType*> g_floating_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
+std::vector<const DataType*> g_numeric_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
+std::vector<const DataType*> g_base_binary_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
+std::vector<const DataType*> g_temporal_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_interval_types;
+std::vector<const DataType*> g_internal_types_ptrs;
+
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
+std::vector<const DataType*> g_primitive_types_ptrs;
+
 std::once_flag static_data_initialized;
 
 template <typename T>
@@ -2439,59 +2457,59 @@ void InitStaticData() {
 
 }  // namespace
 
-const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
+const std::vector<const DataType*>& BaseBinaryTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_base_binary_types;
+  return g_base_binary_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& BinaryTypes() {
+const std::vector<const DataType*>& BinaryTypes() {
   static DataTypeVector types = {binary(), large_binary()};
   return types;
 }
 
-const std::vector<std::shared_ptr<DataType>>& StringTypes() {
+const std::vector<const DataType*>& StringTypes() {
   static DataTypeVector types = {utf8(), large_utf8()};
   return types;
 }
 
-const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {
+const std::vector<const DataType*>& SignedIntTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_signed_int_types;
+  return g_signed_int_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes() {
+const std::vector<const DataType*>& UnsignedIntTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_unsigned_int_types;
+  return g_unsigned_int_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& IntTypes() {
+const std::vector<const DataType*>& IntTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_int_types;
+  return g_int_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes() {
+const std::vector<const DataType*>& FloatingPointTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_floating_types;
+  return g_floating_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& NumericTypes() {
+const std::vector<const DataType*>& NumericTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_numeric_types;
+  return g_numeric_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& TemporalTypes() {
+const std::vector<const DataType*>& TemporalTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_temporal_types;
+  return g_temporal_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
+const std::vector<const DataType*>& IntervalTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_interval_types;
+  return g_interval_types_ptrs;
 }
 
-const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
+const std::vector<const DataType*>& PrimitiveTypes() {
   std::call_once(static_data_initialized, InitStaticData);
-  return g_primitive_types;
+  return g_primitive_types_ptrs;
 }
 
 const std::vector<TimeUnit::type>& TimeUnit::values() {

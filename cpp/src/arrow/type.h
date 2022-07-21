@@ -2124,31 +2124,31 @@ std::string ToString(TimeUnit::type unit);
 // Helpers to get instances of data types based on general categories
 
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
+const std::vector<const DataType*>& SignedIntTypes();
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
+const std::vector<const DataType*>& UnsignedIntTypes();
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& IntTypes();
+const std::vector<const DataType*>& IntTypes();
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+const std::vector<const DataType*>& FloatingPointTypes();
 // Number types without boolean
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& NumericTypes();
+const std::vector<const DataType*>& NumericTypes();
 // Binary and string-like types (except fixed-size binary)
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes();
+const std::vector<const DataType*>& BaseBinaryTypes();
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
+const std::vector<const DataType*>& BinaryTypes();
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& StringTypes();
+const std::vector<const DataType*>& StringTypes();
 // Temporal types including time and timestamps for each unit
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& TemporalTypes();
+const std::vector<const DataType*>& TemporalTypes();
 // Interval types
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
+const std::vector<const DataType*>& IntervalTypes();
 // Integer, floating point, base binary, and temporal
 ARROW_EXPORT
-const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
+const std::vector<const DataType*>& PrimitiveTypes();
 
 }  // namespace arrow

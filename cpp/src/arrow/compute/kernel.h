@@ -239,7 +239,7 @@ class ARROW_EXPORT InputType {
   Kind kind_;
 
   // For EXACT_TYPE Kind
-  std::shared_ptr<DataType> type_;
+  const DataType* type_;
 
   // For USE_TYPE_MATCHER Kind
   std::shared_ptr<TypeMatcher> type_matcher_;
@@ -262,11 +262,15 @@ class ARROW_EXPORT OutputType {
 
   /// \brief Output an exact type
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
-      : kind_(FIXED), type_(std::move(type)) {}
+    : kind_(FIXED), type_(type.get()) {}
+
+  /// \brief Output an exact type
+  OutputType(const DataType* type)  // NOLINT implicit construction
+    : kind_(FIXED), type_(type) {}
 
   /// \brief Output a computed type depending on actual input types
   OutputType(Resolver resolver)  // NOLINT implicit construction
-      : kind_(COMPUTED), resolver_(std::move(resolver)) {}
+    : kind_(COMPUTED), resolver_(std::move(resolver)) {}
 
   OutputType(const OutputType& other) {
     this->kind_ = other.kind_;
@@ -276,7 +280,7 @@ class ARROW_EXPORT OutputType {
 
   OutputType(OutputType&& other) {
     this->kind_ = other.kind_;
-    this->type_ = std::move(other.type_);
+    this->type_ = other.type_;
     this->resolver_ = other.resolver_;
   }
 
@@ -290,7 +294,7 @@ class ARROW_EXPORT OutputType {
                              const std::vector<TypeHolder>& args) const;
 
   /// \brief The exact output value type for the FIXED kind.
-  const std::shared_ptr<DataType>& type() const;
+  const DataType* type() const;
 
   /// \brief For use with COMPUTED resolution strategy. It may be more
   /// convenient to invoke this with OutputType::Resolve returned from this
@@ -308,7 +312,7 @@ class ARROW_EXPORT OutputType {
   ResolveKind kind_;
 
   // For FIXED resolution
-  std::shared_ptr<DataType> type_;
+  const DataType* type_;
 
   // For COMPUTED resolution
   Resolver resolver_ = NULLPTR;
