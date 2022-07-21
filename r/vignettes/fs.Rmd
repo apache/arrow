@@ -96,7 +96,7 @@ In the previous example, this would look like:
 
 ```r
 bucket <- s3_bucket("voltrondata-labs-datasets")
-# Or in GCS (anonymous = TRUE is required):
+# Or in GCS (anonymous = TRUE is required if credentials are not configured):
 bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
 df <- read_parquet(bucket$path("nyc-taxi/year=2019/month=6/data.parquet"))
 ```
@@ -161,18 +161,25 @@ for temporary access by passing the `role_arn` identifier to `S3FileSystem$creat
 
 ### GCS Authentication
 
-To access public buckets, you must pass `anonymous = TRUE` or `anonymous` as the 
-user in a URI:
+The simplest way to authenticate with GCS is to run the [gcloud](https://cloud.google.com/sdk/docs/)
+command to setup application default credentials:
+
+```
+gcloud auth application-default login
+```
+
+To manually configure credentials, you can pass either `access_token` and `expiration`, for using 
+temporary tokens generated elsewhere, or `json_credentials`, to reference a downloaded
+credentials file.
+
+If you haven't configured credentials, then to access *public* buckets, you 
+must pass `anonymous = TRUE` or `anonymous` as the user in a URI:
 
 ```r
 bucket <- gs_bucket("voltrondata-labs-datasets", anonymous = TRUE)
 fs <- GcsFileSystem$create(anonymous = TRUE)
 df <- read_parquet("gs://anonymous@voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/data.parquet")
 ```
-
-To access private buckets, you can pass either `access_token` and `expiration`, for using 
-temporary tokens generated elsewhere, or `json_credentials`, to reference a downloaded
-credentials file.
 
 <!-- TODO(ARROW-16880): Describe what credentials to use for particular use cases
 and how to integrate with gargle library. -->
