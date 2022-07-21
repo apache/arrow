@@ -27,7 +27,9 @@
 
 namespace arrow {
 namespace compute {
+
 constexpr auto kSeed = 0x0ff1ce;
+constexpr int32_t kDictionarySize = 20;  // a typical dictionary size
 
 static void ArraySortIndicesBenchmark(benchmark::State& state,
                                       const std::shared_ptr<Array>& values) {
@@ -61,20 +63,20 @@ static void ArraySortIndicesInt64DictBenchmark(benchmark::State& state, int64_t 
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
-  const int32_t dict_values_size = 20;  // a typical dictionary size
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto dict_values = rand.Int64(dict_values_size, min, max, args.null_proportion / 2);
+  auto dict_values = rand.Int64(kDictionarySize, min, max, args.null_proportion / 2);
   auto dict_indices =
-      rand.Int64(array_size, 0, dict_values_size - 1, args.null_proportion / 2);
+      rand.Int64(array_size, 0, kDictionarySize - 1, args.null_proportion / 2);
   auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
 
   ArraySortIndicesBenchmark(state, dict_array);
 }
 
 static void ArraySortIndicesStringsBenchmark(benchmark::State& state) {
-  RegressionArgs args(state);
+  RegressionArgs args(state, /*size_is_bytes=*/false);
 
+  // XXX This division to make numbers comparable with ArraySortIndicesInt64Benchmark
   const int64_t array_size = args.size / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(kSeed);
   auto values =
@@ -84,16 +86,16 @@ static void ArraySortIndicesStringsBenchmark(benchmark::State& state) {
 }
 
 static void ArraySortIndicesStringsDictBenchmark(benchmark::State& state) {
-  RegressionArgs args(state);
+  RegressionArgs args(state, /*size_is_bytes=*/false);
 
+  // XXX Same as in ArraySortIndicesStringsBenchmark above
   const int64_t array_size = args.size / sizeof(int64_t);
-  const int32_t dict_values_size = 20;  // a typical dictionary size
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto dict_values = rand.String(dict_values_size, /*min_length=*/3, /*max_length=*/25,
+  auto dict_values = rand.String(kDictionarySize, /*min_length=*/3, /*max_length=*/25,
                                  args.null_proportion / 2);
   auto dict_indices =
-      rand.Int64(array_size, 0, dict_values_size - 1, args.null_proportion / 2);
+      rand.Int64(array_size, 0, kDictionarySize - 1, args.null_proportion / 2);
   auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
 
   ArraySortIndicesBenchmark(state, dict_array);
