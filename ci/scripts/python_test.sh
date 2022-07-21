@@ -55,7 +55,7 @@ export PYARROW_TEST_ORC
 export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
-# Testing Arrow Python
+# Testing PyArrow CPP
 if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   pushd ${test_dir}
   ctest \
