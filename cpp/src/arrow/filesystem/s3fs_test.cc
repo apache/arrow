@@ -44,7 +44,6 @@
 #include <aws/core/client/CoreErrors.h>
 #include <aws/core/client/DefaultRetryStrategy.h>
 #include <aws/core/client/RetryStrategy.h>
-#include <aws/core/client/StandardRetryStrategy.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketRequest.h>
