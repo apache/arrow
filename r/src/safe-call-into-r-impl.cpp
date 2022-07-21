@@ -22,13 +22,6 @@
 #include <functional>
 #include <thread>
 
-// for SignalInterruptCondition()
-#ifdef _WIN32
-#include <Rembedded.h>
-#else
-#include <Rinterface.h>
-#endif
-
 MainRThread& GetMainRThread() {
   static MainRThread main_r_thread;
   return main_r_thread;
@@ -54,15 +47,6 @@ bool CanRunWithCapturedR() {
   return !on_old_windows;
 #else
   return false;
-#endif
-}
-
-void SignalInterruptCondition() {
-#ifdef _WIN32
-  UserBreak = 1;
-  R_CheckUserInterrupt();
-#else
-  Rf_onintr();
 #endif
 }
 

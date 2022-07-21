@@ -140,11 +140,18 @@ class SafeCallIntoRContext {
 class RunWithCapturedRContext {
  public:
   arrow::Status Init() {
-    RETURN_NOT_OK(arrow::RegisterCancellingSignalHandler({SIGINT}));
+    if (GetMainRThread().HasStopSource()) {
+      RETURN_NOT_OK(arrow::RegisterCancellingSignalHandler({SIGINT}));
+    }
+
     return arrow::Status::OK();
   }
 
-  ~RunWithCapturedRContext() { arrow::UnregisterCancellingSignalHandler(); }
+  ~RunWithCapturedRContext() {
+    if (GetMainRThread().HasStopSource()) {
+      arrow::UnregisterCancellingSignalHandler();
+    }
+  }
 };
 
 // Call into R and return a C++ object. Note that you can't return
