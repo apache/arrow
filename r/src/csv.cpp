@@ -32,7 +32,7 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
   res->io_context =
-      arrow::io::IOContext(gc_memory_pool(), GetMainRThread().GetStopToken());
+      arrow::io::IOContext(gc_memory_pool(), MainRThread::GetInstance().GetStopToken());
   return res;
 }
 
@@ -156,8 +156,8 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
   return ValueOrStop(arrow::csv::TableReader::Make(
-      arrow::io::IOContext(gc_memory_pool(), GetMainRThread().GetStopToken()), input,
-      *read_options, *parse_options, *convert_options));
+      arrow::io::IOContext(gc_memory_pool(), MainRThread::GetInstance().GetStopToken()),
+      input, *read_options, *parse_options, *convert_options));
 }
 
 // [[arrow::export]]

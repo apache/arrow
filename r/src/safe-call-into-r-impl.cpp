@@ -22,13 +22,13 @@
 #include <functional>
 #include <thread>
 
-MainRThread& GetMainRThread() {
+MainRThread& MainRThread::GetInstance() {
   static MainRThread main_r_thread;
   return main_r_thread;
 }
 
 // [[arrow::export]]
-void InitializeMainRThread() { GetMainRThread().Initialize(); }
+void InitializeMainRThread() { MainRThread::GetInstance().Initialize(); }
 
 bool CanRunWithCapturedR() {
 #if defined(HAS_UNWIND_PROTECT)

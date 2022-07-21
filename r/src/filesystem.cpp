@@ -241,7 +241,7 @@ std::string fs___FileSystem__type_name(
 std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
   // Affects OpenInputFile/OpenInputStream
   auto io_context =
-      arrow::io::IOContext(gc_memory_pool(), GetMainRThread().GetStopToken());
+      arrow::io::IOContext(gc_memory_pool(), MainRThread::GetInstance().GetStopToken());
   return std::make_shared<fs::LocalFileSystem>(io_context);
 }
 
@@ -337,7 +337,7 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   s3_opts.allow_bucket_deletion = allow_bucket_deletion;
 
   auto io_context =
-      arrow::io::IOContext(gc_memory_pool(), GetMainRThread().GetStopToken());
+      arrow::io::IOContext(gc_memory_pool(), MainRThread::GetInstance().GetStopToken());
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts, io_context));
 }
 
@@ -416,7 +416,7 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
   }
 
   auto io_context =
-      arrow::io::IOContext(gc_memory_pool(), GetMainRThread().GetStopToken());
+      arrow::io::IOContext(gc_memory_pool(), MainRThread::GetInstance().GetStopToken());
   // TODO(ARROW-16884): update when this returns Result
   return fs::GcsFileSystem::Make(gcs_opts, io_context);
 }
