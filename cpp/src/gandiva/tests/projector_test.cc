@@ -3465,6 +3465,12 @@ TEST_F(TestProjector, TestSqrt) {
 
   EXPECT_ARROW_ARRAY_EQUALS(out_int32, outputs1.at(0));
 
+  // arrow::ArrayVector outputs;
+  // status = projector->Evaluate(*in_batch, pool_, &outputs);
+  // EXPECT_EQ(status.code(), StatusCode::ExecutionError);
+  // std::string expected_error = "Number is negative!!";
+  // EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
+
   std::shared_ptr<Projector> projector2;
 
   status = Projector::Make(schema2, {sqrt_int64}, TestConfiguration(), &projector2);
