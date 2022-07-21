@@ -131,9 +131,10 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
-Testing Arrow Python (C++ code)
--------------------------------
-If you want to run ctest for the tests that are included in the Arrow Python
+Testing PyArrow CPP
+-------------------
+
+If you want to run ctest for the tests that are included in the PyArrow CPP
 module, you will need to build Arrow with ``-DARROW_BUILD_TESTS=ON``.
 
 .. note::
