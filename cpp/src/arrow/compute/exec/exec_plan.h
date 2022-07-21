@@ -69,17 +69,17 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// e.g. make an array of thread-locals off this.
   size_t max_concurrency() const;
 
-  /// \brief Add a future to the plan's task group.
+  /// \brief Start an external task
   ///
-  /// \param fut The future to add
+  /// This should be avoided if possible.  It is kept in for now for legacy
+  /// purposes.  This should be called before the external task is started.  If
+  /// a valid future is returned then it should be marked complete when the
+  /// external task has finished.
   ///
-  /// Use this when interfacing with anything that returns a future (such as IO), but
-  /// prefer ScheduleTask/StartTaskGroup inside of ExecNodes.
-  /// The below API interfaces with the scheduler to add tasks to the task group. Tasks
-  /// should be added sparingly! Prefer just doing the work immediately rather than adding
-  /// a task for it. Tasks are used in pipeline breakers that may output many more rows
-  /// than they received (such as a full outer join).
-  Status AddFuture(Future<> fut);
+  /// \return an invalid future if the plan has already ended, otherwise this
+  ///         returns a future that must be completed when the external task
+  ///         finishes.
+  Result<Future<>> BeginExternalTask();
 
   /// \brief Add a single function as a task to the plan's task group.
   ///
