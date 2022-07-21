@@ -78,13 +78,14 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
                     const std::vector<util::string_view>& r0_data,
                     const std::vector<util::string_view>& r1_data,
                     const std::vector<util::string_view>& exp_data, int64_t tolerance) {
-  for (std::shared_ptr<arrow::DataType> time_data_type : {int64(), timestamp(TimeUnit::NANO, "UTC")}) {
-    auto l_schema =
-        schema({field("time", time_data_type), field("key", int32()), field("l_v0", float64())});
-    auto r0_schema =
-        schema({field("time", time_data_type), field("key", int32()), field("r0_v0", float64())});
-    auto r1_schema =
-        schema({field("time", time_data_type), field("key", int32()), field("r1_v0", float32())});
+  for (std::shared_ptr<arrow::DataType> time_data_type :
+       {int64(), timestamp(TimeUnit::NANO, "UTC")}) {
+    auto l_schema = schema(
+        {field("time", time_data_type), field("key", int32()), field("l_v0", float64())});
+    auto r0_schema = schema({field("time", time_data_type), field("key", int32()),
+                             field("r0_v0", float64())});
+    auto r1_schema = schema({field("time", time_data_type), field("key", int32()),
+                             field("r1_v0", float32())});
 
     auto exp_schema = schema({
         field("time", time_data_type),
@@ -101,8 +102,8 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
     r1_batches = MakeBatchesFromString(r1_schema, r1_data);
     exp_batches = MakeBatchesFromString(exp_schema, exp_data);
     CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key",
-                  tolerance);
-    }
+                   tolerance);
+  }
 }
 
 void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
