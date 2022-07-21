@@ -421,6 +421,8 @@ TEST(ArraySortIndicesFunction, RandomDictionaryArray) {
       AssertDatumsEqual(expected, actual, /*verbose=*/true);
     }
   }
+
+  // TODO test with sliced dict indices and values...
 }
 
 TEST(ArraySortIndicesFunction, ChunkedArray) {

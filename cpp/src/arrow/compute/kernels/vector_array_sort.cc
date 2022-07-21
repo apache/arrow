@@ -199,6 +199,8 @@ class ArrayCompareSorter<DictionaryType> {
     // (potentially an order of magnitude faster) than by naively decoding
     // the original dictionary and sorting the decoded version.
 
+    // TODO special-case all-nulls arrays to avoid ranking and decoding them?
+
     // FIXME Should be able to use the caller's KernelContext for rank() and take()
 
     // FIXME Propagate errors instead of aborting
