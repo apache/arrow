@@ -6,7 +6,6 @@ Makefile
 cmake_install.cmake
 build/
 Testing/
-.hypothesis/
 
 # Python stuff
 
@@ -31,6 +30,8 @@ dist
 .coverage
 coverage.xml
 htmlcov
+# Hypothesis test framework
+.hypothesis/
 # Cache
 .cache
 
