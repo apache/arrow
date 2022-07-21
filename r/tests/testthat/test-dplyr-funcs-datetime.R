@@ -2631,12 +2631,6 @@ test_that("date round/floor/ceil works for units: month/quarter/year", {
 
 })
 
-# ARROW-16142 note: Until 16142 is resolved, there are a few cases where the
-# tests need to be written in a way that avoids the "32-bit temporal array
-# misinterpreted as 64-bit temporal array" bug (ARROW-16142). The easiest
-# solution is to never use an arrow array of length greater than 1.
-# https://issues.apache.org/jira/browse/ARROW-16142
-
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
   expect_equal(
     data %>%
