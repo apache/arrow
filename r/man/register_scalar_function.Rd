@@ -12,7 +12,8 @@ register_scalar_function(name, fun, in_type, out_type, auto_convert = FALSE)
 \item{fun}{An R function or rlang-style lambda expression. The function
 will be called with a first argument \code{context} which is a \code{list()}
 with elements \code{batch_size} (the expected length of the output) and
-\code{output_type} (the required \link{DataType} of the output). Subsequent
+\code{output_type} (the required \link{DataType} of the output) that may be used
+to ensure that the output has the correct type and length. Subsequent
 arguments are passed by position as specified by \code{in_types}. If
 \code{auto_convert} is \code{TRUE}, subsequent arguments are converted to
 R vectors before being passed to \code{fun} and the output is automatically

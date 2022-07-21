@@ -330,7 +330,8 @@ cast_options <- function(safe = TRUE, ...) {
 #' @param fun An R function or rlang-style lambda expression. The function
 #'   will be called with a first argument `context` which is a `list()`
 #'   with elements `batch_size` (the expected length of the output) and
-#'   `output_type` (the required [DataType] of the output). Subsequent
+#'   `output_type` (the required [DataType] of the output) that may be used
+#'   to ensure that the output has the correct type and length. Subsequent
 #'   arguments are passed by position as specified by `in_types`. If
 #'   `auto_convert` is `TRUE`, subsequent arguments are converted to
 #'   R vectors before being passed to `fun` and the output is automatically
