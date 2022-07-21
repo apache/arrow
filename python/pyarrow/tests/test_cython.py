@@ -136,8 +136,12 @@ def test_cython_api(tmpdir):
             delim, var = ':', 'LD_LIBRARY_PATH'
 
         subprocess_env[var] = delim.join(
-            pa.get_library_dirs() + [subprocess_env.get(var, '')]
+            pa.get_library_dirs() + [subprocess_env.get(var, '')] + [str(tmpdir)]
         )
+        print("str(tmpdir) = ", str(tmpdir))
+        print("str(tmpdir) =  contents:")
+        print(sorted(os.listdir(str(tmpdir))))
+        print()
         print("pa.get_library_dirs() = ", pa.get_library_dirs())
         print("pa.get_library_dirs() contents:")
         for d in pa.get_library_dirs():
