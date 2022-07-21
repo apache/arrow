@@ -606,8 +606,8 @@ foreach(module ${CYTHON_EXTENSIONS})
 
   # In the event that we are bundling the shared libraries (e.g. in a
   # manylinux1 wheel), we need to set the RPATH of the extensions to the
-  # root of the pyarrow/ package so that libarrow/libarrow_python are able
-  # to be loaded properly
+  # root of the pyarrow/ package so that libarrow is able to be
+  # loaded properly
   if(APPLE)
     set(module_install_rpath "@loader_path/")
   else()
