@@ -40,7 +40,9 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
     )
   })
 
-  library(dplyr)
+  if (!("package:dplyr" %in% search())) {
+    abort("library(dplyr) required for test_filesystem()")
+  }
 
   test_that(sprintf("read/write compressed csv on %s using FileSystem", name), {
     skip_if_not_available("gzip")
