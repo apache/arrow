@@ -175,77 +175,6 @@ class ArrayCompareSorter {
 
 template <>
 class ArrayCompareSorter<DictionaryType> {
-  struct DictionaryInternal {
-    NullPartitionResult* p;
-    const std::shared_ptr<Array>& dict_indices;
-    const UInt64Array& rank_array;
-    const ArraySortOptions& options;
-    int64_t offset;
-
-    Status Visit(const DataType& index_type) {
-      return Status::TypeError("Dictionary sorting not supported for index type ",
-                               index_type.ToString());
-    }
-
-    template <typename IndexType>
-    enable_if_t<is_integer_type<IndexType>::value, Status> Visit(
-        const IndexType& index_type) {
-      return SortInternal<IndexType>();
-    }
-
-    template <typename IndexType>
-    Status SortInternal() {
-      using ArrayType = typename TypeTraits<IndexType>::ArrayType;
-      using c_type = typename IndexType::c_type;
-      const c_type* indices = checked_cast<const ArrayType&>(*dict_indices).raw_values();
-      const uint64_t* ranks = rank_array.raw_values();
-
-      std::stable_sort(this->p->non_nulls_begin, this->p->non_nulls_end,
-                       [&](uint64_t left, uint64_t right) {
-                         const uint64_t left_rank = ranks[indices[left - offset]];
-                         const uint64_t right_rank = ranks[indices[right - offset]];
-                         return left_rank < right_rank;
-                       });
-
-      return Status::OK();
-    }
-
-    void Sort(const std::shared_ptr<DataType>& index_type) {
-      ARROW_CHECK_OK(VisitTypeInline(*index_type, this));
-    }
-  };
-
-  Result<std::shared_ptr<Array>> RanksWithNulls(const std::shared_ptr<Array>& array) {
-    // Notes:
-    // * The order is always ascending here, since the goal is to produce
-    //   an exactly-equivalent-order of the dictionary values.
-    // * We're going to re-emit nulls in the output, so we can just always consider
-    //   them "at the end".  Note that choosing AtStart would merely shift other
-    //   ranks by 1 if there are any nulls...
-    RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
-                             RankOptions::Dense);
-
-    // XXX Should this support Type::NA?
-    auto data = array->data();
-    std::shared_ptr<Buffer> null_bitmap;
-    if (array->null_count() > 0) {
-      null_bitmap = array->null_bitmap();
-      data = array->data()->Copy();
-      data->buffers[0] = nullptr;
-      data->null_count = 0;
-      DCHECK_EQ(data->offset, 0);  // FIXME
-    }
-    ARROW_ASSIGN_OR_RAISE(auto rank_datum, CallFunction("rank", {array}, &rank_options));
-    auto rank_data = rank_datum.array();
-    DCHECK_EQ(rank_data->GetNullCount(), 0);
-    // If there were nulls in the input, paste them in the output
-    if (null_bitmap) {
-      rank_data->buffers[0] = std::move(null_bitmap);
-      rank_data->null_count = array->null_count();
-    }
-    return MakeArray(rank_data);
-  }
-
  public:
   NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
                                  const Array& array, int64_t offset,
@@ -279,6 +208,38 @@ class ArrayCompareSorter<DictionaryType> {
 
     auto rank_sorter = *GetArraySorter(*decoded_ranks->type() /* should be uint64 */);
     return rank_sorter(indices_begin, indices_end, *decoded_ranks, offset, options);
+  }
+
+ private:
+  Result<std::shared_ptr<Array>> RanksWithNulls(const std::shared_ptr<Array>& array) {
+    // Notes:
+    // * The order is always ascending here, since the goal is to produce
+    //   an exactly-equivalent-order of the dictionary values.
+    // * We're going to re-emit nulls in the output, so we can just always consider
+    //   them "at the end".  Note that choosing AtStart would merely shift other
+    //   ranks by 1 if there are any nulls...
+    RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
+                             RankOptions::Dense);
+
+    // XXX Should this support Type::NA?
+    auto data = array->data();
+    std::shared_ptr<Buffer> null_bitmap;
+    if (array->null_count() > 0) {
+      null_bitmap = array->null_bitmap();
+      data = array->data()->Copy();
+      data->buffers[0] = nullptr;
+      data->null_count = 0;
+      DCHECK_EQ(data->offset, 0);  // FIXME
+    }
+    ARROW_ASSIGN_OR_RAISE(auto rank_datum, CallFunction("rank", {array}, &rank_options));
+    auto rank_data = rank_datum.array();
+    DCHECK_EQ(rank_data->GetNullCount(), 0);
+    // If there were nulls in the input, paste them in the output
+    if (null_bitmap) {
+      rank_data->buffers[0] = std::move(null_bitmap);
+      rank_data->null_count = array->null_count();
+    }
+    return MakeArray(rank_data);
   }
 };
 
