@@ -110,7 +110,9 @@ struct RunLengthEncodeExec
       return Status::NotImplemented("TODO");
     }
     if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid("run-length encoded arrays can only have a number of elements that can be represented as a 32-bit signed integer");
+      return Status::Invalid(
+          "run-length encoded arrays can only have a number of elements that can be "
+          "represented as a 32-bit signed integer");
     }
     this->input_validity = this->input_array.buffers[0].data;
     this->input_values = this->input_array.buffers[1].data;
@@ -139,7 +141,6 @@ struct RunLengthEncodeExec
         input_null_count++;
       }
     }
-
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
     // in bytes
