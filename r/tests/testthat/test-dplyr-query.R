@@ -591,7 +591,7 @@ test_that(" show_query() and explain()", {
       explain()
   )
 
-  # arrow_table + mutate
+  # arrow_table & mutate
   expect_snapshot(
     tbl %>%
       arrow_table() %>%
@@ -610,7 +610,7 @@ test_that(" show_query() and explain()", {
       explain()
   )
 
-  # test with group by + summarise
+  # test with group by & summarise
   expect_output(
     tbl %>%
       arrow_table() %>%
@@ -658,7 +658,7 @@ test_that(" show_query() and explain()", {
       explain()
   )
 
-  # test with filter and arrange
+  # test with filter & arrange
   expect_snapshot(
     mtcars %>%
       arrow_table() %>%
@@ -675,7 +675,7 @@ test_that(" show_query() and explain()", {
       explain()
   )
 
-  # test with filter + arrange + head
+  # test with filter & arrange & head
   expect_snapshot(
     mtcars %>%
       arrow_table() %>%
