@@ -691,7 +691,6 @@ TEST(TestArithmeticOps, TestSqrtIntFloatDouble) {
   // sqrt from doubles
   EXPECT_EQ(sqrt_float64(16.0), 4.0);
   EXPECT_EQ(sqrt_float64(11.0889), 3.33);
-  EXPECT_EQ(sqrt_float64(63.6804), 7.98);
   EXPECT_EQ(sqrt_float64(1.522756), 1.234);
   EXPECT_EQ(sqrt_float64(49.0), 7.0);
   EXPECT_EQ(sqrt_float64(36.0), 6.0);
