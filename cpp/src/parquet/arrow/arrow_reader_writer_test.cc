@@ -3951,7 +3951,7 @@ TEST(TestArrowReaderAdHoc, OldDataPageV2) {
   }
   std::stringstream ss;
   ss << c_root << "/"
-     << "parquet/arrow-17100/data.parquet";
+     << "parquet/ARROW-17100.parquet";
   std::string path = ss.str();
   TryReadDataFile(path);
 }
