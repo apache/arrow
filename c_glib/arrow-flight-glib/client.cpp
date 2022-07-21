@@ -113,6 +113,10 @@ typedef struct GAFlightClientOptionsPrivate_ {
   arrow::flight::FlightClientOptions options;
 } GAFlightClientOptionsPrivate;
 
+enum {
+  PROP_DISABLE_SERVER_VERIFICATION = 1,
+};
+
 G_DEFINE_TYPE_WITH_PRIVATE(GAFlightClientOptions,
                            gaflight_client_options,
                            G_TYPE_OBJECT)
@@ -133,6 +137,42 @@ gaflight_client_options_finalize(GObject *object)
 }
 
 static void
+gaflight_client_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_DISABLE_SERVER_VERIFICATION:
+    priv->options.disable_server_verification = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_client_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_DISABLE_SERVER_VERIFICATION:
+    g_value_set_boolean(value, priv->options.disable_server_verification);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
 gaflight_client_options_init(GAFlightClientOptions *object)
 {
   auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
@@ -146,6 +186,27 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize = gaflight_client_options_finalize;
+  gobject_class->set_property = gaflight_client_options_set_property;
+  gobject_class->get_property = gaflight_client_options_get_property;
+
+  auto options = arrow::flight::FlightClientOptions::Defaults();
+  GParamSpec *spec;
+  /**
+   * GAFlightClientOptions:disable-server-verification:
+   *
+   * Whether use TLS without validating the server certificate. Use
+   * with caution.
+   *
+   * Since: 9.0.0
+   */
+  spec = g_param_spec_boolean("disable-server-verification",
+                              NULL,
+                              NULL,
+                              options.disable_server_verification,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DISABLE_SERVER_VERIFICATION,
+                                  spec);
 }
 
 /**
