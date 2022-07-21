@@ -25,6 +25,7 @@ register_bindings_datetime <- function() {
   register_bindings_duration_constructor()
   register_bindings_duration_helpers()
   register_bindings_datetime_parsers()
+  register_bindings_datetime_rounding()
 }
 
 register_bindings_datetime_utility <- function() {
@@ -637,4 +638,55 @@ register_bindings_datetime_parsers <- function() {
 
     build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
+
+}
+
+register_bindings_datetime_rounding <- function() {
+  register_binding(
+    "round_date",
+    function(x,
+             unit = "second",
+             week_start = getOption("lubridate.week.start", 7)) {
+
+    opts <- parse_period_unit(unit)
+    if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      return(shift_temporal_to_week("round_temporal", x, week_start, options = opts))
+    }
+
+    Expression$create("round_temporal", x, options = opts)
+  })
+
+  register_binding(
+    "floor_date",
+    function(x,
+             unit = "second",
+             week_start = getOption("lubridate.week.start", 7)) {
+
+    opts <- parse_period_unit(unit)
+    if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      return(shift_temporal_to_week("floor_temporal", x, week_start, options = opts))
+    }
+
+    Expression$create("floor_temporal", x, options = opts)
+  })
+
+  register_binding(
+    "ceiling_date",
+    function(x,
+             unit = "second",
+             change_on_boundary = NULL,
+             week_start = getOption("lubridate.week.start", 7)) {
+    opts <- parse_period_unit(unit)
+    if (is.null(change_on_boundary)) {
+      change_on_boundary <- ifelse(call_binding("is.Date", x), TRUE, FALSE)
+    }
+    opts$ceil_is_strictly_greater <- change_on_boundary
+
+    if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      return(shift_temporal_to_week("ceil_temporal", x, week_start, options = opts))
+    }
+
+    Expression$create("ceil_temporal", x, options = opts)
+  })
+
 }
