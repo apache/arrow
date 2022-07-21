@@ -31,8 +31,7 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
       std::make_shared<arrow::csv::WriteOptions>(arrow::csv::WriteOptions::Defaults());
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
-  res->io_context =
-      arrow::io::IOContext(gc_memory_pool(), MainRThread::GetInstance().GetStopToken());
+  res->io_context = MainRThread::GetInstance().CancellableIOContext();
   return res;
 }
 

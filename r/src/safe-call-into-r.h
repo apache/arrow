@@ -75,6 +75,11 @@ class MainRThread {
 
   bool SignalStopSourceEnabled() { return stop_source_ != nullptr; }
 
+  arrow::io::IOContext CancellableIOContext() {
+    return arrow::io::IOContext(gc_memory_pool(),
+                                MainRThread::GetInstance().GetStopToken());
+  }
+
   // Check if a SafeCallIntoR call is able to execute
   bool CanExecuteSafeCallIntoR() { return IsMainThread() || executor_ != nullptr; }
 
