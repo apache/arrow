@@ -554,9 +554,6 @@ class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
 class S3Client : public Aws::S3::S3Client {
  public:
   using Aws::S3::S3Client::S3Client;
-  // We don't have access to the configured AWS retry strategy
-  // (m_retryStrategy is a private member of AwsClient), so don't use that.
-  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy;
 
   // To get a bucket's region, we must extract the "x-amz-bucket-region" header
   // from the response to a HEAD bucket request.
@@ -643,11 +640,14 @@ class S3Client : public Aws::S3::S3Client {
     };
 
     request.SetDataReceivedEventHandler(std::move(handler));
+    // We don't have access to the configured AWS retry strategy
+    // (m_retryStrategy is a private member of AwsClient), so don't use that.
+    std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy;
     if (!retry_strategy) {
       // Note that DefaultRetryStrategy, unlike StandardRetryStrategy,
       // has empty definitions for RequestBookkeeping() and GetSendToken(),
       // which simplifies the code below.
-      retry_strategy.reset(new Aws::Client::DefaultRetryStrategy());
+      retry_strategy = std::make_shared<Aws::Client::DefaultRetryStrategy>();
     }
 
     for (int32_t retries = 0;; retries++) {
