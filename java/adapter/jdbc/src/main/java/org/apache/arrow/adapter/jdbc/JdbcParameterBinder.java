@@ -52,7 +52,8 @@ public class JdbcParameterBinder {
    * Initialize a binder with a builder.
    *
    * @param statement The statement to bind to. The binder does not maintain ownership of the statement.
-   * @param root The root to pull data from. The binder does not maintain ownership of the root.
+   * @param root The {@link VectorSchemaRoot} to pull data from. The binder does not maintain ownership
+   *             of the vector schema root.
    */
   public static Builder builder(final PreparedStatement statement, final VectorSchemaRoot root) {
     return new Builder(statement, root);

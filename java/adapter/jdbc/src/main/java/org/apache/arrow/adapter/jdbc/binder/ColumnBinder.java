@@ -49,20 +49,19 @@ public interface ColumnBinder {
   FieldVector getVector();
 
   /**
-   * Create a column binder for a vector (handling nullability).
+   * Create a column binder for a vector, using the default JDBC type code for null values.
    */
   static ColumnBinder forVector(FieldVector vector) {
-    final ColumnBinder binder = vector.getField().getType().accept(new ColumnBinderArrowTypeVisitor(vector));
-    if (vector.getField().isNullable()) {
-      return new NullableColumnBinder(binder);
-    }
-    return binder;
+    return forVector(vector, /*jdbcType*/ null);
   }
 
   /**
    * Create a column binder for a vector, overriding the JDBC type code used for null values.
+   *
+   * @param vector The vector that the column binder will wrap.
+   * @param jdbcType The JDBC type code to use (or null to use the default).
    */
-  static ColumnBinder forVector(FieldVector vector, int jdbcType) {
+  static ColumnBinder forVector(FieldVector vector, Integer jdbcType) {
     final ColumnBinder binder = vector.getField().getType().accept(new ColumnBinderArrowTypeVisitor(vector, jdbcType));
     if (vector.getField().isNullable()) {
       return new NullableColumnBinder(binder);

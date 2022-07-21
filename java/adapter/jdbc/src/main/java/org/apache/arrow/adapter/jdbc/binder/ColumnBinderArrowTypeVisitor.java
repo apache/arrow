@@ -56,17 +56,12 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   private final Integer jdbcType;
 
   /**
-   * Create a binder using the default JDBC type code.
-   */
-  public ColumnBinderArrowTypeVisitor(FieldVector vector) {
-    this.vector = vector;
-    this.jdbcType = null;
-  }
-
-  /**
    * Create a binder using a custom JDBC type code.
+   *
+   * @param vector The vector that the binder will wrap.
+   * @param jdbcType The JDBC type code (or null to use the default).
    */
-  public ColumnBinderArrowTypeVisitor(FieldVector vector, int jdbcType) {
+  public ColumnBinderArrowTypeVisitor(FieldVector vector, Integer jdbcType) {
     this.vector = vector;
     this.jdbcType = jdbcType;
   }

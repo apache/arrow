@@ -84,8 +84,10 @@ inconsistent scale. A RoundingMode can be set to handle these cases:
      }
    }
 
-Currently, it is not possible to override the type conversion for a
-supported type, or define a new conversion for an unsupported type.
+The mapping from JDBC type to Arrow type can be overridden via the
+``JdbcToArrowConfig``, but it is not possible to customize the
+conversion from JDBC value to Arrow value itself, nor is it possible
+to define a conversion for an unsupported type.
 
 Type Mapping
 ------------
@@ -269,4 +271,8 @@ a method on ColumnBinder.
   TIMESTAMP_WITH_TIMEZONE.  If the timestamp has no timezone,
   technically there is not a correct conversion from Arrow value to
   JDBC value, because a JDBC Timestamp is in UTC, and we have no
-  timezone information.
+  timezone information.  In this case, the default binder will call
+  `setTimestamp(int, Timestamp)
+  <https://docs.oracle.com/en/java/javase/11/docs/api/java.sql/java/sql/PreparedStatement.html#setTimestamp(int,java.sql.Timestamp)>`_,
+  which will lead to the driver using the "default timezone" (that of
+  the Java VM).
