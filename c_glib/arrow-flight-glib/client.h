@@ -98,6 +98,13 @@ gaflight_client_list_flights(GAFlightClient *client,
                              GAFlightCallOptions *options,
                              GError **error);
 
+GARROW_AVAILABLE_IN_9_0
+GAFlightInfo *
+gaflight_client_get_flight_info(GAFlightClient *client,
+                                GAFlightDescriptor *descriptor,
+                                GAFlightCallOptions *options,
+                                GError **error);
+
 GARROW_AVAILABLE_IN_6_0
 GAFlightStreamReader *
 gaflight_client_do_get(GAFlightClient *client,
