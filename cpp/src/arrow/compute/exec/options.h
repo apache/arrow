@@ -434,6 +434,22 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   SelectKOptions select_k_options;
 };
 
+/// \brief Make a node which selects a range of rows passed through it
+///
+/// All batches pushed to this node will be accumulated, then selected, by the given
+/// fields. Then sorted batches will be forwarded to the generator in sorted order and
+/// select the rows with an offset and a limit.
+class ARROW_EXPORT SortAndFetchSinkNodeOptions : public SinkNodeOptions {
+ public:
+  explicit SortAndFetchSinkNodeOptions(
+      SortAndFetchOptions sort_and_fetch_options,
+      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      : SinkNodeOptions(generator), sort_and_fetch_options(std::move(sort_and_fetch_options)) {}
+
+  /// SortAndFetch options
+  SortAndFetchOptions sort_and_fetch_options;
+};
+
 /// \brief Adapt a Table as a sink node
 ///
 /// obtains the output of an execution plan to
