@@ -36,6 +36,8 @@ static void ArraySortIndicesBenchmark(benchmark::State& state,
   for (auto _ : state) {
     ABORT_NOT_OK(SortIndices(*values).status());
   }
+  // This may be redundant with the SetItemsProcessed() call in RegressionArgs,
+  // if size_is_bytes was false.
   state.SetItemsProcessed(state.iterations() * values->length());
 }
 
@@ -75,9 +77,11 @@ static void ArraySortIndicesInt64DictBenchmark(benchmark::State& state, int64_t 
 
 static void ArraySortIndicesStringsBenchmark(benchmark::State& state) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
-
   // XXX This division to make numbers comparable with ArraySortIndicesInt64Benchmark
-  const int64_t array_size = args.size / sizeof(int64_t);
+  // (including the SetItemsProcessed() call in the RegressionArgs destructor)
+  args.size /= sizeof(int64_t);
+
+  const int64_t array_size = args.size;
   auto rand = random::RandomArrayGenerator(kSeed);
   auto values =
       rand.String(array_size, /*min_length=*/3, /*max_length=*/25, args.null_proportion);
@@ -87,10 +91,10 @@ static void ArraySortIndicesStringsBenchmark(benchmark::State& state) {
 
 static void ArraySortIndicesStringsDictBenchmark(benchmark::State& state) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
-
   // XXX Same as in ArraySortIndicesStringsBenchmark above
-  const int64_t array_size = args.size / sizeof(int64_t);
+  args.size /= sizeof(int64_t);
 
+  const int64_t array_size = args.size;
   auto rand = random::RandomArrayGenerator(kSeed);
   auto dict_values = rand.String(kDictionarySize, /*min_length=*/3, /*max_length=*/25,
                                  args.null_proportion / 2);

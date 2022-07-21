@@ -373,6 +373,7 @@ TEST(ArraySortIndicesFunction, DictionaryArray) {
                                       "[ \"b\", null, \"c\", \"a\", \"c\"]");
     for (auto order : AllOrders()) {
       for (auto null_placement : AllNullPlacements()) {
+        ARROW_SCOPED_TRACE("i = ", i);
         ArraySortOptions options{order, null_placement};
         auto expected = ArrayFromJSON(uint64(), expected_str[i++]);
         ASSERT_OK_AND_ASSIGN(auto actual,
