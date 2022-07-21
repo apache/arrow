@@ -269,6 +269,13 @@ macro(arrow_add_werror_if_debug)
   endif()
 endmacro()
 
+macro(arrow_maybe_add_compiler_flag COMPILER_FLAG)
+  if (NOT "${CXX_COMMON_FLAGS}" MATCHES ${COMPILER_FLAG} AND
+      NOT "${CMAKE_CXX_FLAGS}" MATCHES ${COMPILER_FLAG})
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${COMPILER_FLAG}")
+  endif()
+endmacro()
+
 if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
   if(MSVC)
@@ -396,6 +403,13 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   if(CMAKE_UNITY_BUILD)
     # Work around issue similar to https://bugs.webkit.org/show_bug.cgi?id=176869
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-subobject-linkage")
+  endif()
+
+  if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE" OR
+     "${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
+    # Add additional optimization passes
+    arrow_maybe_add_compiler_flag("-ftree-vectorize")
+    arrow_maybe_add_compiler_flag("-funswitch-loops")
   endif()
 
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
@@ -607,9 +621,6 @@ if(NOT MSVC)
   string(REPLACE "-O3" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 
   set(RELEASE_FLAGS "-O2 -DNDEBUG")
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(RELEASE_FLAGS "${RELEASE_FLAGS} -ftree-vectorize")
-  endif()
 
   if(ARROW_GGDB_DEBUG)
     set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
