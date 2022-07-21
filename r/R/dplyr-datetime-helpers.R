@@ -423,7 +423,7 @@ build_strptime_exprs <- function(x, formats) {
 # "10 microseconds" or "2 secs" used to specify the size of the unit to
 # which the temporal data should be rounded. The matching rules implemented
 # are designed to mirror lubridate exactly: it extracts the numeric multiple
-# from the start of the string (preseumed to be 1 if no number is present)
+# from the start of the string (presumed to be 1 if no number is present)
 # and selects the unit by looking at the first 3 characters only. This choice
 # ensures that "secs", "second", "microsecs" etc are all valid, but it is
 # very permissive and would interpret "mickeys" as microseconds. This
@@ -468,24 +468,26 @@ parse_period_unit <- function(x) {
   if (capture_length[[1]] == 0) {
     multiple <- 1L
 
+  # otherwise parse the multiple
   } else {
+    multiple <- as.numeric(str_multiple)
 
     # special cases: interpret fractions of 1 second as integer
     # multiples of nanoseconds, microseconds, or milliseconds
     # to mirror lubridate syntax
-    multiple <- as.numeric(str_multiple)
-
-    if (unit == 3L && multiple < 10^-6) {
-      unit <- 0L
-      multiple <- 10^9 * multiple
-    }
-    if (unit == 3L && multiple < 10^-3) {
-      unit <- 1L
-      multiple <- 10^6 * multiple
-    }
-    if (unit == 3L && multiple < 1) {
-      unit <- 2L
-      multiple <- 10^3 * multiple
+    if (unit == 3L) {
+      if (multiple < 10^-6) {
+        unit <- 0L
+        multiple <- 10^9 * multiple
+      }
+      if (multiple < 10^-3) {
+        unit <- 1L
+        multiple <- 10^6 * multiple
+      }
+      if (multiple < 1) {
+        unit <- 2L
+        multiple <- 10^3 * multiple
+      }
     }
 
     multiple <- as.integer(multiple)
