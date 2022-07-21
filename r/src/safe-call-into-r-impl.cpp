@@ -45,6 +45,7 @@ bool SetEnableSignalStopSource(bool enabled) {
   return was_enabled;
 }
 
+// [[arrow::export]]
 bool CanRunWithCapturedR() {
 #if defined(HAS_UNWIND_PROTECT)
   static int on_old_windows = -1;

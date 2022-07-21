@@ -78,7 +78,7 @@ class MainRThread {
 
   bool SignalStopSourceEnabled() { return stop_source_ != nullptr; }
 
-  bool EnableSignalStopSource() {
+  void EnableSignalStopSource() {
     // Try to set up the stop source. If another library linking to
     // the same libarrow shared object has already done this, this call
     // will fail (which is OK, we just don't get the ability to cancel)
@@ -87,7 +87,7 @@ class MainRThread {
     }
   }
 
-  bool DisableSignalStopSource() {
+  void DisableSignalStopSource() {
     if (SignalStopSourceEnabled()) {
       arrow::ResetSignalStopSource();
       stop_source_ = nullptr;

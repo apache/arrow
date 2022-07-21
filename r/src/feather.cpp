@@ -68,7 +68,6 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
     } else {
       read_result = reader->Read(&table);
     }
-
     if (read_result.ok()) {
       return arrow::Result<std::shared_ptr<arrow::Table>>(table);
     } else {
