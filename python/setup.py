@@ -262,12 +262,11 @@ class build_ext(_build_ext):
         with changed_dir(build_dir):
             # cmake args
             cmake_options = [
-                '-DCMAKE_INSTALL_PREFIX=' +
-                str(pjoin(saved_cwd, 'build/dist')),
-                '-DCMAKE_BUILD_TYPE={0}'.format(self.build_type.lower()),
+                '-DCMAKE_INSTALL_PREFIX=' + str(build_dir),
+                '-DCMAKE_BUILD_TYPE=' + str(self.build_type.lower()),
                 '-DARROW_BUILD_DIR=' + str(arrow_build_dir),
-                '-DPYTHON_EXECUTABLE=%s' % sys.executable,
-                '-DPython3_EXECUTABLE=%s' % sys.executable,
+                '-DPYTHON_EXECUTABLE=' + str(sys.executable),
+                '-DPython3_EXECUTABLE=' + str(sys.executable),
             ]
 
             # Check for specific options
@@ -329,7 +328,7 @@ class build_ext(_build_ext):
                 except OSError:
                     pass
 
-            # Copy headers tp python/pyarrow/include
+            # Copy headers to python/pyarrow/include
             pyarrow_cpp_include = pjoin(build_include, "arrow", "python")
             pyarrow_include = pjoin(
                 build_lib, "pyarrow", "include", "arrow", "python")
@@ -468,13 +467,10 @@ class build_ext(_build_ext):
                 shutil.move(pjoin(build_prefix, 'include'),
                             pjoin(build_lib, 'pyarrow'))
 
-                # We need to, again, add the PyArrow cpp include folder
+                # As the pyarrow/include file has been deleted in the previous step
+                # we need to, again, add the PyArrow cpp include folder also
                 build_pyarrow_cpp_include = pjoin(
                     saved_cwd, 'build/dist/include')
-                if not os.path.isdir(
-                        pjoin(build_pyarrow_cpp_include, "arrow", "python")):
-                    self.mkpath(
-                        pjoin(build_pyarrow_cpp_include, "arrow", "python"))
                 shutil.move(pjoin(
                     build_pyarrow_cpp_include, "arrow", "python"),
                     pjoin(
@@ -532,6 +528,8 @@ class build_ext(_build_ext):
             move_shared_libs(build_prefix, build_lib, "arrow_cuda")
         if self.with_substrait:
             move_shared_libs(build_prefix, build_lib, "arrow_substrait")
+        if self.with_flight:
+            move_shared_libs(build_prefix, build_lib, "arrow_flight")
         if self.with_dataset:
             move_shared_libs(build_prefix, build_lib, "arrow_dataset")
         if self.with_plasma:
