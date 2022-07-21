@@ -4665,6 +4665,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // safe-call-into-r-impl.cpp
+bool SetEnableSignalStopSource(bool enabled);
+extern "C" SEXP _arrow_SetEnableSignalStopSource(SEXP enabled_sexp){
+BEGIN_CPP11
+	arrow::r::Input<bool>::type enabled(enabled_sexp);
+	return cpp11::as_sexp(SetEnableSignalStopSource(enabled));
+END_CPP11
+}
+// safe-call-into-r-impl.cpp
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string, std::string opt);
 extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP r_fun_that_returns_a_string_sexp, SEXP opt_sexp){
 BEGIN_CPP11

@@ -33,6 +33,18 @@ void InitializeMainRThread() { MainRThread::GetInstance().Initialize(); }
 // [[arrow::export]]
 void DeinitializeMainRThread() { MainRThread::GetInstance().Deinitialize(); }
 
+// [[arrow::export]]
+bool SetEnableSignalStopSource(bool enabled) {
+  bool was_enabled = MainRThread::GetInstance().SignalStopSourceEnabled();
+  if (was_enabled && !enabled) {
+    MainRThread::GetInstance().DisableSignalStopSource();
+  } else if (!was_enabled && enabled) {
+    MainRThread::GetInstance().EnableSignalStopSource();
+  }
+
+  return was_enabled;
+}
+
 bool CanRunWithCapturedR() {
 #if defined(HAS_UNWIND_PROTECT)
   static int on_old_windows = -1;

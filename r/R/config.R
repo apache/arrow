@@ -46,3 +46,15 @@ set_io_thread_count <- function(num_threads) {
   SetIOThreadPoolCapacity(as.integer(num_threads))
   invisible(current_io_thread_count)
 }
+
+#' Enable cancel of long-running Arrow operations
+#'
+#' @param enabled Use `TRUE` to turn on cancellation of long-running
+#'   Arrow operations where this is supported; use `FALSE` to disable.
+#'   Using `TRUE` is currently experimental.
+#'
+#' @return The previous value of `enabled`, invisibly
+#' @export
+arrow_enable_cancel_from_interrupt <- function(enabled = TRUE) {
+  invisible(SetEnableSignalStopSource(enabled))
+}

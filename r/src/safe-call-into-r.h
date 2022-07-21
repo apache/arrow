@@ -56,26 +56,13 @@ class MainRThread {
     thread_id_ = std::this_thread::get_id();
     initialized_ = true;
     ResetError();
-
-    // Try to set up the stop source. If another library linking to
-    // the same libarrow shared object has already done this, this call
-    // will fail (which is OK, we just don't get the ability to cancel)
-    auto maybe_stop_source = arrow::SetSignalStopSource();
-    if (maybe_stop_source.ok()) {
-      stop_source_ = maybe_stop_source.ValueUnsafe();
-    } else {
-      stop_source_ = nullptr;
-    }
   }
 
   bool IsInitialized() { return initialized_; }
 
   void Deinitialize() {
     initialized_ = false;
-    if (SignalStopSourceEnabled()) {
-      arrow::ResetSignalStopSource();
-      stop_source_ = nullptr;
-    }
+    DisableSignalStopSource();
   }
 
   // Check if the current thread is the main R thread
@@ -90,6 +77,22 @@ class MainRThread {
   }
 
   bool SignalStopSourceEnabled() { return stop_source_ != nullptr; }
+
+  bool EnableSignalStopSource() {
+    // Try to set up the stop source. If another library linking to
+    // the same libarrow shared object has already done this, this call
+    // will fail (which is OK, we just don't get the ability to cancel)
+    if (!SignalStopSourceEnabled()) {
+      stop_source_ = arrow::ValueOrStop(arrow::SetSignalStopSource());
+    }
+  }
+
+  bool DisableSignalStopSource() {
+    if (SignalStopSourceEnabled()) {
+      arrow::ResetSignalStopSource();
+      stop_source_ = nullptr;
+    }
+  }
 
   arrow::io::IOContext CancellableIOContext() {
     return arrow::io::IOContext(gc_memory_pool(),
