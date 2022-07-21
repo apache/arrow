@@ -97,6 +97,12 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
 // off the encoded array and decodes that.
 TEST_P(TestRunLengthEncode, DecodeWithOffset) {
   auto data = GetParam();
+  if (data.input->length() == 0) {
+    // this test slices off one run, so it makes no sense on a 0-length input.
+    // make sure to run it on an input with only one run to test the case where a 0-length
+    // slice is created.
+    return;
+  }
 
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
@@ -147,6 +153,7 @@ INSTANTIATE_TEST_SUITE_P(
                           "[true, false, true, false, true, false, true, false, true]",
                           "[true, false, true, false, true, false, true, false, true]",
                           {1, 2, 3, 4, 5, 6, 7, 8, 9}),
+        RLETestData::JSON(uint32(), "[1]", "[1]", {1}),
         RLETestData::JSON(boolean(),
                           "[true, true, true, false, null, null, false, null, null]",
                           "[true, false, null, false, null]", {3, 4, 6, 7, 9}),

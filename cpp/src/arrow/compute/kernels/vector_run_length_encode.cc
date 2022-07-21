@@ -106,8 +106,16 @@ struct RunLengthEncodeExec
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
 
   Status Exec() {
+    ArrayData* output_array_data = this->exec_result->array_data().get();
     if (this->input_array.length == 0) {
-      return Status::NotImplemented("TODO");
+      output_array_data->length = 0;
+      output_array_data->offset = 0;
+      output_array_data->buffers = {NULLPTR};
+      output_array_data->child_data[0] =
+          ArrayData::Make(this->input_array.type->GetSharedPtr(),
+                          /*length =*/0,
+                          /*buffers =*/{NULLPTR, NULLPTR});
+      return Status::OK();
     }
     if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
       return Status::Invalid(
@@ -159,13 +167,11 @@ struct RunLengthEncodeExec
                           AllocateBuffer(num_values_output * sizeof(int32_t),
                                          this->kernel_context->memory_pool()));
 
-    ArrayData* output_array_data = this->exec_result->array_data().get();
     output_array_data->length = this->input_array.length;
     output_array_data->offset = 0;
     output_array_data->buffers.resize(1);
     auto child_array_data =
-        ArrayData::Make(const_cast<DataType*>(this->input_array.type)->shared_from_this(),
-                        num_values_output);
+        ArrayData::Make(this->input_array.type->GetSharedPtr(), num_values_output);
     output_array_data->buffers[0] = std::move(run_lengths_buffer);
     child_array_data->buffers.push_back(std::move(validity_buffer));
     child_array_data->buffers.push_back(std::move(values_buffer));
@@ -236,6 +242,14 @@ struct RunLengthDecodeExec
   using typename EncodeDecodeCommonExec<ArrowType, has_validity_buffer>::Element;
 
   Status Exec() {
+    ArrayData* output_array_data = this->exec_result->array_data().get();
+    if (this->input_array.length == 0) {
+      output_array_data->length = 0;
+      output_array_data->offset = 0;
+      output_array_data->buffers = {NULLPTR, NULLPTR};
+      return Status::OK();
+    }
+
     const ArraySpan& child_array = this->input_array.child_data[0];
     this->input_validity = child_array.buffers[0].data;
     this->input_values = child_array.buffers[1].data;
@@ -251,7 +265,6 @@ struct RunLengthDecodeExec
     this->input_values_physical_offset = common_physical_offset + child_array.offset;
     // the child array is not aware of the logical offset of the parent
     const int64_t num_values_input = child_array.length - common_physical_offset;
-    ARROW_DCHECK_GT(num_values_input, 0);
     const int64_t num_values_output = this->input_array.length;
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
@@ -268,7 +281,6 @@ struct RunLengthDecodeExec
                                                                 ArrowType().bit_width()),
                                          this->kernel_context->memory_pool()));
 
-    ArrayData* output_array_data = this->exec_result->array_data().get();
     output_array_data->length = num_values_output;
     output_array_data->buffers.resize(2);
     output_array_data->offset = 0;
