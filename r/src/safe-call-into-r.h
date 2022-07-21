@@ -271,8 +271,7 @@ static inline arrow::Status RunWithCapturedRIfPossibleVoid(
     ARROW_RETURN_NOT_OK(make_arrow_call());
     return true;
   });
-  ARROW_RETURN_NOT_OK(result);
-  return arrow::Status::OK();
+  return result.status();
 }
 
 // Performs an Arrow call (e.g., run an exec plan) in such a way that background threads
