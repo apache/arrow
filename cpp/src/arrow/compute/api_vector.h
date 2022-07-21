@@ -174,6 +174,34 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   std::vector<SortKey> sort_keys;
 };
 
+/// \brief SortAndFetch options
+class ARROW_EXPORT SortAndFetchOptions : public FunctionOptions {
+ public:
+  explicit SortAndFetchOptions(int64_t offset = 0, int64_t count = 0,
+                               std::vector<SortKey> sort_keys = {});
+  static constexpr char const kTypeName[] = "SortAndFetchOptions";
+
+  static SortAndFetchOptions Options(int64_t offset, int64_t count,
+                                     std::vector<std::string> key_names,
+                                     SortOrder order) {
+    std::vector<SortKey> keys;
+    for (const auto& name : key_names) {
+      keys.emplace_back(SortKey(name, order));
+    }
+    if (key_names.empty()) {
+      keys.emplace_back(SortKey("not-used", order));
+    }
+    return SortAndFetchOptions{offset, count, keys};
+  }
+
+  /// The number of `offset` elements to skip.
+  int64_t offset;
+  /// The number of `count` elements to select.
+  int64_t count;
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+};
+
 /// \brief Rank options
 class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:
