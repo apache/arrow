@@ -56,6 +56,49 @@ static void ArraySortIndicesInt64Benchmark(benchmark::State& state, int64_t min,
   ArraySortIndicesBenchmark(state, values);
 }
 
+static void ArraySortIndicesInt64DictBenchmark(benchmark::State& state, int64_t min,
+                                               int64_t max) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  const int32_t dict_values_size = 20;  // a typical dictionary size
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto dict_values = rand.Int64(dict_values_size, min, max, args.null_proportion / 2);
+  auto dict_indices =
+      rand.Int64(array_size, 0, dict_values_size - 1, args.null_proportion / 2);
+  auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
+
+  ArraySortIndicesBenchmark(state, dict_array);
+}
+
+static void ArraySortIndicesStringsBenchmark(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto values =
+      rand.String(array_size, /*min_length=*/3, /*max_length=*/25, args.null_proportion);
+
+  ArraySortIndicesBenchmark(state, values);
+}
+
+static void ArraySortIndicesStringsDictBenchmark(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  const int32_t dict_values_size = 20;  // a typical dictionary size
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto dict_values = rand.String(dict_values_size, /*min_length=*/3, /*max_length=*/25,
+                                 args.null_proportion / 2);
+  auto dict_indices =
+      rand.Int64(array_size, 0, dict_values_size - 1, args.null_proportion / 2);
+  auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
+
+  ArraySortIndicesBenchmark(state, dict_array);
+}
+
 static void ChunkedArraySortIndicesInt64Benchmark(benchmark::State& state, int64_t min,
                                                   int64_t max) {
   RegressionArgs args(state);
@@ -79,6 +122,20 @@ static void ArraySortIndicesInt64Wide(benchmark::State& state) {
   const auto min = std::numeric_limits<int64_t>::min();
   const auto max = std::numeric_limits<int64_t>::max();
   ArraySortIndicesInt64Benchmark(state, min, max);
+}
+
+static void ArraySortIndicesInt64Dict(benchmark::State& state) {
+  const auto min = std::numeric_limits<int64_t>::min();
+  const auto max = std::numeric_limits<int64_t>::max();
+  ArraySortIndicesInt64DictBenchmark(state, min, max);
+}
+
+static void ArraySortIndicesStrings(benchmark::State& state) {
+  ArraySortIndicesStringsBenchmark(state);
+}
+
+static void ArraySortIndicesStringsDict(benchmark::State& state) {
+  ArraySortIndicesStringsDictBenchmark(state);
 }
 
 static void ArraySortIndicesBool(benchmark::State& state) {
@@ -244,6 +301,24 @@ BENCHMARK(ArraySortIndicesInt64Narrow)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 BENCHMARK(ArraySortIndicesInt64Wide)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(ArraySortIndicesInt64Dict)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(ArraySortIndicesStrings)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 100})
+    ->Args({1 << 23, 100})
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(ArraySortIndicesStringsDict)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
     ->Args({1 << 23, 100})

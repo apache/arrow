@@ -197,20 +197,20 @@ class ArrayCompareSorter<DictionaryType> {
     template <typename IndexType>
     Status SortInternal() {
       using ArrayType = typename TypeTraits<IndexType>::ArrayType;
-      using GetView = GetViewType<IndexType>;
-      const auto& indices_array = checked_cast<const ArrayType&>(*indices);
+      using c_type = typename IndexType::c_type;
+      const c_type* indices_values =
+          checked_cast<const ArrayType&>(*indices).raw_values();
+      const uint64_t* ranks = values_rank.raw_values();
 
+      // TODO Instead, try to take the ranks with the dict indices,
+      // then run a sort on the results.  Since the ranks are dense,
+      // a much faster counting sort may be used.
       std::stable_sort(this->p->non_nulls_begin, this->p->non_nulls_end,
                        [&](uint64_t left, uint64_t right) {
-                         const auto lhs_idx =
-                             GetView::LogicalValue(indices_array.GetView(left - offset));
-                         const auto rhs_idx =
-                             GetView::LogicalValue(indices_array.GetView(right - offset));
-                         const auto lhs = GetViewType<UInt64Type>::LogicalValue(
-                             values_rank.GetView(lhs_idx - offset));
-                         const auto rhs = GetViewType<UInt64Type>::LogicalValue(
-                             values_rank.GetView(rhs_idx - offset));
-                         return lhs < rhs;
+                         const uint64_t left_rank = ranks[indices_values[left - offset]];
+                         const uint64_t right_rank =
+                             ranks[indices_values[right - offset]];
+                         return left_rank < right_rank;
                        });
 
       return Status::OK();
@@ -234,6 +234,7 @@ class ArrayCompareSorter<DictionaryType> {
         indices_begin, indices_end, dict_array, offset, options.null_placement);
 
     RankOptions rank_options(options.order, options.null_placement, RankOptions::Dense);
+    // FIXME propagate instead of aborting on error
     auto rank = CallFunction("rank", {values}, &rank_options).ValueOrDie().make_array();
 
     const auto& values_rank = checked_cast<const UInt64Array&>(*rank);

@@ -355,7 +355,9 @@ TEST(ArraySortIndicesFunction, Array) {
 }
 
 TEST(ArraySortIndicesFunction, DictionaryArray) {
-  // Dictionary Array (["b", null, null, null, "b", "c", "a"])
+  // Decoded dictionary array:
+  // (["b", "c", null, null, null, "b", "c", "c", "a"])
+
   std::vector<std::string> expected_str = {
       "[8, 0, 5, 1, 6, 7, 2, 3, 4]",  // SortOrder::Ascending NullPlacement::AtEnd
       "[2, 3, 4, 8, 0, 5, 1, 6, 7]",  // SortOrder::Ascending NullPlacement::AtStart
@@ -363,7 +365,8 @@ TEST(ArraySortIndicesFunction, DictionaryArray) {
       "[2, 3, 4, 1, 6, 7, 0, 5, 8]"   // SortOrder::Descending NullPlacement::AtStart
   };
 
-  for (auto index_type : {uint8(), uint16(), uint32(), uint64()}) {
+  for (auto index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
     int i = 0;
     auto dict_arr = DictArrayFromJSON(dictionary(index_type, utf8()),
                                       "[0, 4, null, 1, null, 0, 4, 2, 3]",
@@ -374,8 +377,47 @@ TEST(ArraySortIndicesFunction, DictionaryArray) {
         auto expected = ArrayFromJSON(uint64(), expected_str[i++]);
         ASSERT_OK_AND_ASSIGN(auto actual,
                              CallFunction("array_sort_indices", {dict_arr}, &options));
+        ValidateOutput(actual);
         AssertDatumsEqual(expected, actual, /*verbose=*/true);
       }
+    }
+  }
+}
+
+Result<std::shared_ptr<Array>> DecodeDictionary(const Array& array) {
+  const auto& dict_array = checked_cast<const DictionaryArray&>(array);
+  ARROW_ASSIGN_OR_RAISE(auto decoded_datum,
+                        Take(dict_array.dictionary(), dict_array.indices()));
+  return decoded_datum.make_array();
+}
+
+TEST(ArraySortIndicesFunction, RandomDictionaryArray) {
+  ::arrow::random::RandomArrayGenerator rng(/*seed=*/1234);
+  constexpr int64_t kLength = 200;
+  constexpr int64_t kDictLength = 20;
+
+  // Ensure there are duplicates in the dictionary and the indices,
+  // and nulls in both as well.
+  auto dict_values = rng.StringWithRepeats(kDictLength, /*unique=*/kDictLength / 2,
+                                           /*min_length=*/1, /*max_length=*/10,
+                                           /*null_probability=*/0.2);
+  auto dict_indices = rng.Int64(kLength, 0, kDictLength - 1, /*null_probability = */ 0.2);
+  ASSERT_OK_AND_ASSIGN(auto dict_array,
+                       DictionaryArray::FromArrays(dict_indices, dict_values));
+  ASSERT_OK_AND_ASSIGN(auto decoded, DecodeDictionary(*dict_array));
+
+  for (auto order : AllOrders()) {
+    for (auto null_placement : AllNullPlacements()) {
+      ArraySortOptions options{order, null_placement};
+      // Sorting the dictionary array...
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           CallFunction("array_sort_indices", {dict_array}, &options));
+      ValidateOutput(actual);
+
+      // should give identical results to sorting the decoded array
+      ASSERT_OK_AND_ASSIGN(auto expected,
+                           CallFunction("array_sort_indices", {decoded}, &options));
+      AssertDatumsEqual(expected, actual, /*verbose=*/true);
     }
   }
 }
