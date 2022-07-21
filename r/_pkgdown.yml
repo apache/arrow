@@ -139,7 +139,6 @@ reference:
       - write_to_raw
       - write_parquet
       - write_csv_arrow
-      - arrow_cancellable
   - title: C++ reader/writer interface
     contents:
       - ParquetFileReader
