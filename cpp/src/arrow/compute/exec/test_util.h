@@ -162,7 +162,7 @@ struct TableGenerationProperties {
   int max_column_value;
   /// The random seed the random array generator is given to generate the additional
   /// columns.
-  uint seed;
+  int seed;
   /// Specifies the beginning of 'time' recorded in the table, inclusive.
   int start;
   /// Specifies the end of 'time' recorded in the table, inclusive.
