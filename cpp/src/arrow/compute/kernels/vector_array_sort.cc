@@ -177,9 +177,8 @@ template <>
 class ArrayCompareSorter<DictionaryType> {
   struct DictionaryInternal {
     NullPartitionResult* p;
-    const std::shared_ptr<Array>& values;
-    const std::shared_ptr<Array>& indices;
-    const UInt64Array& values_rank;
+    const std::shared_ptr<Array>& dict_indices;
+    const UInt64Array& rank_array;
     const ArraySortOptions& options;
     int64_t offset;
 
@@ -198,25 +197,20 @@ class ArrayCompareSorter<DictionaryType> {
     Status SortInternal() {
       using ArrayType = typename TypeTraits<IndexType>::ArrayType;
       using c_type = typename IndexType::c_type;
-      const c_type* indices_values =
-          checked_cast<const ArrayType&>(*indices).raw_values();
-      const uint64_t* ranks = values_rank.raw_values();
+      const c_type* indices = checked_cast<const ArrayType&>(*dict_indices).raw_values();
+      const uint64_t* ranks = rank_array.raw_values();
 
-      // TODO Instead, try to take the ranks with the dict indices,
-      // then run a sort on the results.  Since the ranks are dense,
-      // a much faster counting sort may be used.
       std::stable_sort(this->p->non_nulls_begin, this->p->non_nulls_end,
                        [&](uint64_t left, uint64_t right) {
-                         const uint64_t left_rank = ranks[indices_values[left - offset]];
-                         const uint64_t right_rank =
-                             ranks[indices_values[right - offset]];
+                         const uint64_t left_rank = ranks[indices[left - offset]];
+                         const uint64_t right_rank = ranks[indices[right - offset]];
                          return left_rank < right_rank;
                        });
 
       return Status::OK();
     }
 
-    void Make(const std::shared_ptr<DataType>& index_type) {
+    void Sort(const std::shared_ptr<DataType>& index_type) {
       ARROW_CHECK_OK(VisitTypeInline(*index_type, this));
     }
   };
@@ -226,22 +220,33 @@ class ArrayCompareSorter<DictionaryType> {
                                  const Array& array, int64_t offset,
                                  const ArraySortOptions& options) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
-    const auto& values = dict_array.dictionary();
-    const auto& indices = dict_array.indices();
+    const auto& dict_values = dict_array.dictionary();
+    const auto& dict_indices = dict_array.indices();
     const auto& index_type = dict_array.dict_type()->index_type();
 
     NullPartitionResult p = PartitionNulls<DictionaryArray, StablePartitioner>(
         indices_begin, indices_end, dict_array, offset, options.null_placement);
 
+    // TODO should be able to execute rank() with the caller's KernelContext
     RankOptions rank_options(options.order, options.null_placement, RankOptions::Dense);
     // FIXME propagate instead of aborting on error
-    auto rank = CallFunction("rank", {values}, &rank_options).ValueOrDie().make_array();
+    auto rank =
+        CallFunction("rank", {dict_values}, &rank_options).ValueOrDie().make_array();
+    DCHECK_EQ(rank->null_count(), 0);
 
-    const auto& values_rank = checked_cast<const UInt64Array&>(*rank);
+    // TODO Instead, try to take the ranks with the dict indices,
+    // then run a sort on the results.  Since the ranks are dense,
+    // a much faster counting sort may be used.
+    //
+    // However, this will first require a rank() variant that emits null
+    // for null inputs (instead of assigning them a non-null rank number).
 
-    DictionaryInternal visitor = {&p, values, indices, values_rank, options, offset};
-    visitor.Make(index_type);
+    const auto& rank_array = checked_cast<const UInt64Array&>(*rank);
+    DictionaryInternal visitor = {&p, dict_indices, rank_array, options, offset};
+    visitor.Sort(index_type);
 
+    // FIXME this is not correct, as it doesn't account for nulls in the
+    // dictionary values.
     return p;
   }
 };
