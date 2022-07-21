@@ -1223,7 +1223,9 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
       : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {}
 
   DataTypeLayout layout() const override {
-    return DataTypeLayout({DataTypeLayout::FixedWidth(sizeof(uint64_t))});
+    // Fixed width layout means fixed size per logical item, which our buffers don't have
+    return DataTypeLayout(
+        {DataTypeLayout::VariableWidth(), DataTypeLayout::VariableWidth()});
   }
 
   std::string ToString() const override;

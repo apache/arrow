@@ -21,6 +21,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/rle_util.h"
 
 namespace arrow {
 namespace compute {
@@ -72,16 +73,23 @@ TEST_P(TestRunLengthEncode, EncodeDecodeArray) {
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
   auto encoded = encoded_datum.array();
-  const int32_t* run_lengths_buffer = encoded->GetValues<int32_t>(0);
+  const int32_t* run_lengths_buffer = encoded->GetValues<int32_t>(1);
   ASSERT_EQ(std::vector<int32_t>(run_lengths_buffer,
                                  run_lengths_buffer + encoded->child_data[0]->length),
             data.expected_run_lengths);
   auto values_array = MakeArray(encoded->child_data[0]);
   ASSERT_OK(values_array->ValidateFull());
   ASSERT_TRUE(values_array->Equals(data.expected_values));
-  ASSERT_EQ(encoded->buffers[0]->size(),
+  ASSERT_EQ(encoded->buffers.size(), 2);
+  ASSERT_EQ(encoded->child_data.size(), 1);
+  ASSERT_EQ(encoded->buffers[0]->size(), sizeof(rle_util::Metadata));
+  auto metadata = encoded->GetValues<rle_util::Metadata>(0);
+  ASSERT_EQ(metadata->physical_offset, 0);
+  ASSERT_EQ(metadata->physical_length, data.expected_values->length());
+  ASSERT_EQ(encoded->buffers[1]->size(),
             data.expected_run_lengths.size() * sizeof(int32_t));
   ASSERT_EQ(encoded->length, data.input->length());
+  ASSERT_EQ(encoded->offset, 0);
   ASSERT_EQ(*encoded->type, RunLengthEncodedType(data.input->type()));
   ASSERT_EQ(encoded->null_count, data.input->null_count());
 

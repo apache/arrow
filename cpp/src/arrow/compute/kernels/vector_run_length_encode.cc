@@ -108,13 +108,20 @@ struct RunLengthEncodeExec
   Status Exec() {
     ArrayData* output_array_data = this->exec_result->array_data().get();
     if (this->input_array.length == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto metadata_buffer,
+                            AllocateBuffer(sizeof(rle_util::Metadata),
+                                           this->kernel_context->memory_pool()));
       output_array_data->length = 0;
       output_array_data->offset = 0;
-      output_array_data->buffers = {NULLPTR};
+      output_array_data->buffers = {std::move(metadata_buffer), NULLPTR};
       output_array_data->child_data[0] =
           ArrayData::Make(this->input_array.type->GetSharedPtr(),
                           /*length =*/0,
                           /*buffers =*/{NULLPTR, NULLPTR});
+      auto output_metadata =
+          output_array_data->template GetMutableValues<rle_util::Metadata>(0);
+      output_metadata->physical_length = 0;
+      output_metadata->physical_offset = 0;
       return Status::OK();
     }
     if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
@@ -163,16 +170,21 @@ struct RunLengthEncodeExec
                           AllocateBuffer(bit_util::BytesForBits(num_values_output *
                                                                 ArrowType().bit_width()),
                                          this->kernel_context->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto metadata_buffer,
+        AllocateBuffer(sizeof(rle_util::Metadata), this->kernel_context->memory_pool()));
     ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
                           AllocateBuffer(num_values_output * sizeof(int32_t),
                                          this->kernel_context->memory_pool()));
 
     output_array_data->length = this->input_array.length;
     output_array_data->offset = 0;
-    output_array_data->buffers.resize(1);
+    output_array_data->buffers.resize(2);
+    output_array_data->child_data.resize(1);
     auto child_array_data =
         ArrayData::Make(this->input_array.type->GetSharedPtr(), num_values_output);
-    output_array_data->buffers[0] = std::move(run_lengths_buffer);
+    output_array_data->buffers[0] = std::move(metadata_buffer);
+    output_array_data->buffers[1] = std::move(run_lengths_buffer);
     child_array_data->buffers.push_back(std::move(validity_buffer));
     child_array_data->buffers.push_back(std::move(values_buffer));
 
@@ -181,8 +193,14 @@ struct RunLengthEncodeExec
 
     this->output_validity = child_array_data->template GetMutableValues<uint8_t>(0);
     this->output_values = child_array_data->template GetMutableValues<uint8_t>(1);
-    output_run_lengths = output_array_data->template GetMutableValues<int32_t>(0);
-    output_array_data->child_data.push_back(std::move(child_array_data));
+    auto output_metadata =
+        output_array_data->template GetMutableValues<rle_util::Metadata>(0);
+    auto output_run_lengths = output_array_data->template GetMutableValues<int32_t>(1);
+
+    output_array_data->child_data[0] = std::move(child_array_data);
+
+    output_metadata->physical_offset = 0;
+    output_metadata->physical_length = num_values_output;
 
     if (has_validity_buffer) {
       // clear last byte in validity buffer, which won't completely be overwritten with
@@ -210,8 +228,6 @@ struct RunLengthEncodeExec
     ARROW_DCHECK(this->output_position == num_values_output);
     return Status::OK();
   }
-
-  int32_t* output_run_lengths;
 };
 
 template <typename Type>
@@ -253,18 +269,19 @@ struct RunLengthDecodeExec
     const ArraySpan& child_array = this->input_array.child_data[0];
     this->input_validity = child_array.buffers[0].data;
     this->input_values = child_array.buffers[1].data;
-    input_accumulated_run_length =
-        reinterpret_cast<const int32_t*>(this->input_array.buffers[0].data);
+    auto input_metadata =
+        this->input_array.template GetValues<const rle_util::Metadata>(0);
+    auto input_accumulated_run_length =
+        this->input_array.template GetValues<const int32_t>(1);
 
     const int64_t logical_offset = this->input_array.offset;
     // common_physical_offset is the physical equivalent to the logical offset that is
     // stored in the offset field of input_array. It is applied to both parent and child
     // buffers.
-    const int64_t common_physical_offset = rle_util::FindPhysicalOffset(
-        input_accumulated_run_length, child_array.length, logical_offset);
+    const int64_t common_physical_offset = input_metadata->physical_offset;
     this->input_values_physical_offset = common_physical_offset + child_array.offset;
     // the child array is not aware of the logical offset of the parent
-    const int64_t num_values_input = child_array.length - common_physical_offset;
+    const int64_t num_values_input = input_metadata->physical_length;
     const int64_t num_values_output = this->input_array.length;
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
