@@ -723,19 +723,19 @@ class ClientBuilder {
     }
     switch (options_.stock_retry_strategy) {
       case AwsStockRetryStrategy::Standard:
-        client_config_.retryStrategy =
+        client_config_->retryStrategy =
             std::make_shared<Aws::Client::StandardRetryStrategy>();
         break;
       case AwsStockRetryStrategy::Default:
-        client_config_.retryStrategy =
+        client_config_->retryStrategy =
             std::make_shared<Aws::Client::DefaultRetryStrategy>();
         break;
       default:
         if (options_.retry_strategy) {
-          client_config_.retryStrategy =
+          client_config_->retryStrategy =
               std::make_shared<WrappedRetryStrategy>(options_.retry_strategy);
         } else {
-          client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+          client_config_->retryStrategy = std::make_shared<ConnectRetryStrategy>();
         }
     }
     if (!internal::global_options.tls_ca_file_path.empty()) {
@@ -780,7 +780,7 @@ class ClientBuilder {
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
         use_virtual_addressing);
-    client->retry_strategy = client_config_.retryStrategy;
+    client->retry_strategy = client_config_->retryStrategy;
     return client;
   }
 
