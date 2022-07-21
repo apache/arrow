@@ -317,17 +317,3 @@ detect_compression <- function(path) {
     "uncompressed"
   )
 }
-
-#' Run Arrow code with the ability to cancel
-#'
-#' @param expr An expression to evaluate with cancellation
-#'
-#' @return The value of `expr`
-#' @export
-arrow_cancellable <- function(expr) {
-  if (InitializeStopSource()) {
-    on.exit(DeinitializeStopSource())
-  }
-
-  force(expr)
-}

@@ -30,12 +30,6 @@ MainRThread& GetMainRThread() {
 // [[arrow::export]]
 void InitializeMainRThread() { GetMainRThread().Initialize(); }
 
-// [[arrow::export]]
-bool InitializeStopSource() { return GetMainRThread().SetSignalStopSource().ok(); }
-
-// [[arrow::export]]
-void DeinitializeStopSource() { GetMainRThread().ResetSignalStopSource(); }
-
 bool CanRunWithCapturedR() {
 #if defined(HAS_UNWIND_PROTECT)
   static int on_old_windows = -1;

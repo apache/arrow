@@ -55,6 +55,8 @@ class MainRThread {
     thread_id_ = std::this_thread::get_id();
     initialized_ = true;
     ResetError();
+    arrow::ResetSignalStopSource();
+    stop_source_ = arrow::ValueOrStop(arrow::SetSignalStopSource());
   }
 
   bool IsInitialized() { return initialized_; }
@@ -62,27 +64,15 @@ class MainRThread {
   // Check if the current thread is the main R thread
   bool IsMainThread() { return initialized_ && std::this_thread::get_id() == thread_id_; }
 
-  arrow::Status SetSignalStopSource() {
-    auto source = arrow::SetSignalStopSource();
-    ARROW_RETURN_NOT_OK(source);
-    stop_source_ = source.ValueUnsafe();
-    return arrow::Status::OK();
-  }
-
-  bool HasStopSource() { return stop_source_ != nullptr; }
-
-  void ResetSignalStopSource() {
-    stop_source_ = nullptr;
-    arrow::ResetSignalStopSource();
-  }
-
   arrow::StopToken GetStopToken() {
-    if (stop_source_ != nullptr) {
+    if (SignalStopSourceEnabled()) {
       return stop_source_->token();
     } else {
       return arrow::StopToken::Unstoppable();
     }
   }
+
+  bool SignalStopSourceEnabled() { return stop_source_ != nullptr; }
 
   // Check if a SafeCallIntoR call is able to execute
   bool CanExecuteSafeCallIntoR() { return IsMainThread() || executor_ != nullptr; }
@@ -104,6 +94,9 @@ class MainRThread {
   // Throw an exception if there was an error executing on the main
   // thread.
   void ClearError() {
+    if (SignalStopSourceEnabled()) {
+      stop_source_->Reset();
+    }
     arrow::Status maybe_error_status = status_;
     ResetError();
     arrow::StopIfNotOk(maybe_error_status);
@@ -123,13 +116,13 @@ MainRThread& GetMainRThread();
 class SafeCallIntoRContext {
  public:
   SafeCallIntoRContext() {
-    if (!GetMainRThread().IsMainThread() && GetMainRThread().HasStopSource()) {
+    if (!GetMainRThread().IsMainThread() && GetMainRThread().SignalStopSourceEnabled()) {
       arrow::UnregisterCancellingSignalHandler();
     }
   }
 
   ~SafeCallIntoRContext() {
-    if (!GetMainRThread().IsMainThread() && GetMainRThread().HasStopSource()) {
+    if (!GetMainRThread().IsMainThread() && GetMainRThread().SignalStopSourceEnabled()) {
       arrow::Status result = arrow::RegisterCancellingSignalHandler({SIGINT});
       if (!result.ok()) {
         GetMainRThread().SetError(result);
@@ -141,7 +134,7 @@ class SafeCallIntoRContext {
 class RunWithCapturedRContext {
  public:
   arrow::Status Init() {
-    if (GetMainRThread().HasStopSource()) {
+    if (GetMainRThread().SignalStopSourceEnabled()) {
       RETURN_NOT_OK(arrow::RegisterCancellingSignalHandler({SIGINT}));
     }
 
@@ -149,7 +142,7 @@ class RunWithCapturedRContext {
   }
 
   ~RunWithCapturedRContext() {
-    if (GetMainRThread().HasStopSource()) {
+    if (GetMainRThread().SignalStopSourceEnabled()) {
       arrow::UnregisterCancellingSignalHandler();
     }
   }
