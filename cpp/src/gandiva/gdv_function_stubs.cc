@@ -651,6 +651,44 @@ gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
     return 0;
   }
 }
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_first_n_utf8_int32(int64_t context, const char* data,
+                                             int32_t data_len, int32_t n_to_show,
+                                             int32_t* out_len) {
+  utf8proc_int32_t utf8_char_buffer;
+  int num_of_chars = static_cast<int>(
+      utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
+                         &utf8_char_buffer, 1, UTF8PROC_STABLE));
+
+  if (num_of_chars < 0) {
+    gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t n_to_mask = num_of_chars - n_to_show;
+  return gdv_mask_last_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
+}
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
+                                            int32_t data_len, int32_t n_to_show,
+                                            int32_t* out_len) {
+  utf8proc_int32_t utf8_char_buffer;
+  int num_of_chars = static_cast<int>(
+      utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
+                         &utf8_char_buffer, 1, UTF8PROC_STABLE));
+
+  if (num_of_chars < 0) {
+    gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t n_to_mask = num_of_chars - n_to_show;
+  return gdv_mask_first_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
+}
 }
 
 namespace gandiva {
@@ -1025,5 +1063,22 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("from_utc_timezone_timestamp",
                                   types->i64_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(from_utc_timezone_timestamp));
+
+  // mask-show-n
+  mask_args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i32_type(),     // n_to_show
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_mask_show_first_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
+      reinterpret_cast<void*>(gdv_mask_show_first_n_utf8_int32));
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_mask_show_last_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
+      reinterpret_cast<void*>(gdv_mask_show_last_n_utf8_int32));
 }
 }  // namespace gandiva
