@@ -3246,8 +3246,8 @@ TEST_F(TestProjector, TestMaskAll) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"},
-                                   {true, true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"}, {true, true, true});
   auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
   auto array2 = MakeArrowArrayUtf8({"x", "low", "l-"}, {true, true, true});
   auto array3 = MakeArrowArrayUtf8({"n", "#", "[0-9]"}, {true, true, true});
@@ -3289,8 +3289,8 @@ TEST_F(TestProjector, TestMaskUpperLower) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"},
-                                   {true, true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"}, {true, true, true});
   auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
   auto array2 = MakeArrowArrayUtf8({"x", "low", "l-"}, {true, true, true});
 
@@ -3328,8 +3328,8 @@ TEST_F(TestProjector, TestMaskUpper) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"},
-                                   {true, true, true,});
+  auto array0 = 
+      MakeArrowArrayUtf8({"AßÇçd-123", "A的Ççd-123", "AßÇçd-123"}, {true, true, true});
   auto array1 = MakeArrowArrayUtf8({"X", "CAP", "Ç-"}, {true, true, true});
 
   // expected output
@@ -3365,12 +3365,12 @@ TEST_F(TestProjector, TestMaskDefault) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array0 = MakeArrowArrayUtf8({"ABCcd-123", "A的Ççd-123", "abcd-Ⅷ"},
-                                   {true, true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"ABCcd-123", "A的Ççd-123", "abcd-Ⅷ"}, {true, true, true});
 
   // expected output
-  auto exp_mask = MakeArrowArrayUtf8({"XXXxx-nnn", "XxXxx-nnn", "xxxx-n"},
-                                     {true, true, true});
+  auto exp_mask =
+      MakeArrowArrayUtf8({"XXXxx-nnn", "XxXxx-nnn", "xxxx-n"}, {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
