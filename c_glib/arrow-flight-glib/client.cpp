@@ -404,6 +404,40 @@ gaflight_client_list_flights(GAFlightClient *client,
 }
 
 /**
+ * gaflight_client_get_flight_info:
+ * @client: A #GAFlightClient.
+ * @descriptor: A #GAFlightDescriptor to be processed.
+ * @options: (nullable): A #GAFlightCallOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The returned #GAFlightInfo on
+ *   success, %NULL on error.
+ *
+ * Since: 9.0.0
+ */
+GAFlightInfo *
+gaflight_client_get_flight_info(GAFlightClient *client,
+                                GAFlightDescriptor *descriptor,
+                                GAFlightCallOptions *options,
+                                GError **error)
+{
+  auto flight_client = gaflight_client_get_raw(client);
+  auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
+  arrow::flight::FlightCallOptions flight_default_options;
+  auto flight_options = &flight_default_options;
+  if (options) {
+    flight_options = gaflight_call_options_get_raw(options);
+  }
+  auto result = flight_client->GetFlightInfo(*flight_options,
+                                             *flight_descriptor);
+  if (!garrow::check(error, result, "[flight-client][get-flight-info]")) {
+    return NULL;
+  }
+  auto flight_info = std::move(*result);
+  return gaflight_info_new_raw(flight_info.release());
+}
+
+/**
  * gaflight_client_do_get:
  * @client: A #GAFlightClient.
  * @ticket: A #GAFlightTicket.

@@ -50,6 +50,14 @@ class TestFlightClient < Test::Unit::TestCase
                  client.list_flights)
   end
 
+  def test_get_flight_info
+    client = ArrowFlight::Client.new(@location)
+    request = ArrowFlight::CommandDescriptor.new("page-view")
+    generator = Helper::FlightInfoGenerator.new
+    assert_equal(generator.page_view,
+                 client.get_flight_info(request))
+  end
+
   sub_test_case("#do_get") do
     def test_success
       client = ArrowFlight::Client.new(@location)
