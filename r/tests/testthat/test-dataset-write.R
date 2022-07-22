@@ -703,7 +703,6 @@ test_that("Dataset min_rows_per_group", {
 
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
-    (function(x) x$read_table()) %>%
     pull(nrows)
   index <- 1
 
@@ -742,7 +741,6 @@ test_that("Dataset write max rows per group", {
   ds <- open_dataset(file_path)
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
-    (function(x) x$read_table()) %>%
     pull(nrows) %>%
     sort()
 
