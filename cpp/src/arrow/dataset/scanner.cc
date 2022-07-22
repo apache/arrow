@@ -900,9 +900,6 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
       std::move(batch_gen),
       [scan_options](const EnumeratedRecordBatch& partial)
           -> Result<util::optional<compute::ExecBatch>> {
-        ARROW_ASSIGN_OR_RAISE(util::optional<compute::ExecBatch> batch,
-                              compute::MakeExecBatch(*scan_options->dataset_schema,
-                                                     partial.record_batch.value));
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
         // perf on the table because row group stats could be used to skip kernel execs in
@@ -911,7 +908,12 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         // Additionally, if a fragment failed to perform projection pushdown there may be
         // unnecessarily materialized columns in batch. We could drop them now instead of
         // letting them coast through the rest of the plan.
-        batch->guarantee = partial.fragment.value->partition_expression();
+        auto guarantee = partial.fragment.value->partition_expression();
+
+        ARROW_ASSIGN_OR_RAISE(
+            util::optional<compute::ExecBatch> batch,
+            compute::MakeExecBatch(*scan_options->dataset_schema,
+                                   partial.record_batch.value, guarantee));
 
         // tag rows with fragment- and batch-of-origin
         batch->values.emplace_back(partial.fragment.index);
