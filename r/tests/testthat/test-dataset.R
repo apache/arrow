@@ -719,7 +719,7 @@ test_that("unique returns data.frames", {
   in_r_mem <- rbind(df1, df2)
 
   expect_s3_class(unique(ds), "data.frame")
-  ## order not set by distinct so some sorting required
+  # order not set by distinct so some sorting required
   expect_equal(sort(unique(ds)$int), sort(unique(in_r_mem)$int))
 
   ## on a arrow_dplyr_query
