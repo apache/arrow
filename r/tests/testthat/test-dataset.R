@@ -730,6 +730,7 @@ test_that("unique returns data.frames", {
 
   expect_equal(unique(arrow_table(in_r_mem)), unique(in_r_mem))
   expect_equal(unique(as_record_batch_reader(in_r_mem)), unique(in_r_mem))
+  expect_snapshot_error(unique(arrow_table(in_r_mem), incomparables = TRUE))
 })
 
 
