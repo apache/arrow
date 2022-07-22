@@ -15,39 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowFlight
-  class CallOptions
-    class << self
-      def try_convert(value)
-        case value
-        when Hash
-          options = new
-          value.each do |name, value|
-            options.__send__("#{name}=", value)
-          end
-          options
-        else
-          nil
-        end
-      end
-    end
+class TestFlightCallOptions < Test::Unit::TestCase
+  def setup
+    omit("Arrow Flight is required") unless defined?(ArrowFlight)
+    @options = ArrowFlight::CallOptions.new
+  end
 
-    def headers=(headers)
-      clear_headers
-      headers.each do |name, value|
-        add_header(name, value)
-      end
+  def collect_headers
+    headers = []
+    @options.foreach_header do |name, value|
+      headers << [name, value]
     end
+    headers
+  end
 
-    def each_header
-      return to_enum(__method__) unless block_given?
-      foreach_header do |key, value|
-        yield(key, value)
-      end
-    end
+  def test_add_headers
+    @options.add_header("name1", "value1")
+    @options.add_header("name2", "value2")
+    assert_equal([
+                   ["name1", "value1"],
+                   ["name2", "value2"],
+                 ],
+                 collect_headers)
+  end
 
-    def headers
-      each_header.to_a
-    end
+  def test_clear_headers
+    @options.add_header("name1", "value1")
+    @options.clear_headers
+    assert_equal([], collect_headers)
   end
 end
