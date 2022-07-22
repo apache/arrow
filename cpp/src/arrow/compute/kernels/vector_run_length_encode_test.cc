@@ -115,11 +115,16 @@ TEST_P(TestRunLengthEncode, DecodeWithOffset) {
   ASSERT_OK_AND_ASSIGN(Datum encoded_datum, RunLengthEncode(data.input));
 
   auto encoded = encoded_datum.array();
-  ASSERT_OK_AND_ASSIGN(Datum decoded_datum,
+  ASSERT_OK_AND_ASSIGN(Datum datum_without_first,
                        RunLengthDecode(encoded->Slice(1, encoded->length - 1)));
-  auto decoded_array = decoded_datum.make_array();
-  ASSERT_OK(decoded_array->ValidateFull());
-  ASSERT_TRUE(decoded_array->Equals(data.input->Slice(1)));
+  ASSERT_OK_AND_ASSIGN(Datum datum_without_last,
+                       RunLengthDecode(encoded->Slice(0, encoded->length - 1)));
+  auto array_without_first = datum_without_first.make_array();
+  auto array_without_last = datum_without_last.make_array();
+  ASSERT_OK(array_without_first->ValidateFull());
+  ASSERT_OK(array_without_last->ValidateFull());
+  ASSERT_TRUE(array_without_first->Equals(data.input->Slice(1)));
+  ASSERT_TRUE(array_without_last->Equals(data.input->Slice(0, data.input->length() - 1)));
 }
 
 // This test creates an run-length encoded array with an offset in the child array, which
