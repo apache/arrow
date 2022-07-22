@@ -106,23 +106,45 @@ struct SourceNode : ExecNode {
     }
     auto fut = Loop([this, options] {
                  std::unique_lock<std::mutex> lock(mutex_);
-                 int total_batches = batch_count_++;
                  if (stop_requested_) {
-                   return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
+                   return Future<ControlFlow<int>>::MakeFinished(Break(batch_count_));
                  }
                  lock.unlock();
 
                  return generator_().Then(
-                     [=](const util::optional<ExecBatch>& maybe_batch)
+                     [=](const util::optional<ExecBatch>& maybe_morsel)
                          -> Future<ControlFlow<int>> {
                        std::unique_lock<std::mutex> lock(mutex_);
-                       if (IsIterationEnd(maybe_batch) || stop_requested_) {
-                         return Break(total_batches);
+                       if (IsIterationEnd(maybe_morsel) || stop_requested_) {
+                         return Break(batch_count_);
                        }
                        lock.unlock();
-                       ExecBatch batch = std::move(*maybe_batch);
+                       bool use_legacy_batching = plan_->UseLegacyBatching();
+                       ExecBatch morsel = std::move(*maybe_morsel);
+                       int64_t morsel_length = static_cast<int64_t>(morsel.length);
+                       if (use_legacy_batching || morsel_length == 0) {
+                         // For various reasons (e.g. ARROW-13982) we pass empty batches
+                         // through
+                         batch_count_++;
+                       } else {
+                         int num_batches = static_cast<int>(
+                             bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
+                         batch_count_ += num_batches;
+                       }
                        RETURN_NOT_OK(plan_->ScheduleTask([=]() {
-                         outputs_[0]->InputReceived(this, std::move(batch));
+                         int64_t offset = 0;
+                         do {
+                           int64_t batch_size = std::min<int64_t>(
+                               morsel_length - offset, ExecPlan::kMaxBatchSize);
+                           // In order for the legacy batching model to work we must
+                           // not slice batches from the source
+                           if (use_legacy_batching) {
+                             batch_size = morsel_length;
+                           }
+                           ExecBatch batch = morsel.Slice(offset, batch_size);
+                           offset += batch_size;
+                           outputs_[0]->InputReceived(this, std::move(batch));
+                         } while (offset < morsel.length);
                          return Status::OK();
                        }));
                        lock.lock();
@@ -135,7 +157,7 @@ struct SourceNode : ExecNode {
                      },
                      [=](const Status& error) -> ControlFlow<int> {
                        outputs_[0]->ErrorReceived(this, error);
-                       return Break(total_batches);
+                       return Break(batch_count_);
                      },
                      options);
                })
