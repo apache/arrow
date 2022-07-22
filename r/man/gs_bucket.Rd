@@ -2,7 +2,7 @@
 % Please edit documentation in R/filesystem.R
 \name{gs_bucket}
 \alias{gs_bucket}
-\title{Connect to an Google Storage Service (GCS) bucket}
+\title{Connect to a Google Cloud Storage (GCS) bucket}
 \usage{
 gs_bucket(bucket, ...)
 }
