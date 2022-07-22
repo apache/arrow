@@ -2222,6 +2222,26 @@ test_that("parse_date_time with hours, minutes and seconds components", {
     test_dates_times
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string),
+        ymd_hm_dttm = ymd_hm(ymd_hm_string),
+        ymd_h_dttm = ymd_h(ymd_h_string),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string),
+        dmy_hm_dttm = dmy_hm(dmy_hm_string),
+        dmy_h_dttm = dmy_h(dmy_h_string),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string),
+        mdy_hm_dttm = mdy_hm(mdy_hm_string),
+        mdy_h_dttm = mdy_h(mdy_h_string),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string),
+        ydm_hm_dttm = ydm_hm(ydm_hm_string),
+        ydm_h_dttm = ydm_h(ydm_h_string)
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
   # parse_date_time with timezone
   pm_tz <- "Pacific/Marquesas"
   compare_dplyr_binding(
@@ -2239,6 +2259,46 @@ test_that("parse_date_time with hours, minutes and seconds components", {
         ydm_hms_dttm = parse_date_time(ydm_hms_string, orders = "ydm_HMS", tz = pm_tz),
         ydm_hm_dttm = parse_date_time(ydm_hm_string, orders = "ydm_HM", tz = pm_tz),
         ydm_h_dttm = parse_date_time(ydm_h_string, orders = "ydm_H", tz = pm_tz)
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string, tz = pm_tz),
+        ymd_hm_dttm = ymd_hm(ymd_hm_string, tz = pm_tz),
+        ymd_h_dttm = ymd_h(ymd_h_string, tz = pm_tz),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string, tz = pm_tz),
+        dmy_hm_dttm = dmy_hm(dmy_hm_string, tz = pm_tz),
+        dmy_h_dttm = dmy_h(dmy_h_string, tz = pm_tz),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string, tz = pm_tz),
+        mdy_hm_dttm = mdy_hm(mdy_hm_string, tz = pm_tz),
+        mdy_h_dttm = mdy_h(mdy_h_string, tz = pm_tz),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string, tz = pm_tz),
+        ydm_hm_dttm = ydm_hm(ydm_hm_string, tz = pm_tz),
+        ydm_h_dttm = ydm_h(ydm_h_string, tz = pm_tz),
+      ) %>%
+      collect(),
+    test_dates_times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms("2022-07-19 20:24:43"),
+        ymd_hm_dttm = ymd_hm("2022-07-19 20:24"),
+        ymd_h_dttm = ymd_h("2022-07-19 20"),
+        dmy_hms_dttm = dmy_hms("19-07-2022 20:24:43"),
+        dmy_hm_dttm = dmy_hm("19-07-2022 20:24"),
+        dmy_h_dttm = dmy_h("19-07-2022 20"),
+        mdy_hms_dttm = mdy_hms("07-19-2022 20:24:43"),
+        mdy_hm_dttm = mdy_hm("07-19-2022 20:24"),
+        mdy_h_dttm = mdy_h("07-19-2022 20"),
+        ydm_hms_dttm = ydm_hms("2022-19-07 20:24:43"),
+        ydm_hm_dttm = ydm_hm("2022-19-07 20:24"),
+        ydm_h_dttm = ydm_h("2022-19-07 20")
       ) %>%
       collect(),
     test_dates_times
@@ -2319,12 +2379,58 @@ test_that("parse_date_time with month names and HMS", {
       collect(),
     test_dates_times2
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms(ymd_hms_string),
+        ymd_hm_dttm  = ymd_hm(ymd_hm_string),
+        ymd_h_dttm   = ymd_h(ymd_h_string),
+        dmy_hms_dttm = dmy_hms(dmy_hms_string),
+        dmy_hm_dttm  = dmy_hm(dmy_hm_string),
+        dmy_h_dttm   = dmy_h(dmy_h_string),
+        mdy_hms_dttm = mdy_hms(mdy_hms_string),
+        mdy_hm_dttm  = mdy_hm(mdy_hm_string),
+        mdy_h_dttm   = mdy_h(mdy_h_string),
+        ydm_hms_dttm = ydm_hms(ydm_hms_string),
+        ydm_hm_dttm  = ydm_hm(ydm_hm_string),
+        ydm_h_dttm   = ydm_h(ydm_h_string)
+      ) %>%
+      collect(),
+    test_dates_times2
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        ymd_hms_dttm = ymd_hms("2022-June-19 20:24:43"),
+        ymd_hm_dttm = ymd_hm("2022-June-19 20:24"),
+        ymd_h_dttm = ymd_h("2022-June-19 20"),
+        dmy_hms_dttm = dmy_hms("19-June-2022 20:24:43"),
+        dmy_hm_dttm = dmy_hm("19-June-2022 20:24"),
+        dmy_h_dttm = dmy_h("19-June-2022 20"),
+        mdy_hms_dttm = mdy_hms("June-19-2022 20:24:43"),
+        mdy_hm_dttm = mdy_hm("June-19-2022 20:24"),
+        mdy_h_dttm = mdy_h("June-19-2022 20"),
+        ydm_hms_dttm = ydm_hms("2022-19-June 20:24:43"),
+        ydm_hm_dttm = ydm_hm("2022-19-June 20:24"),
+        ydm_h_dttm = ydm_h("2022-19-June 20")
+      ) %>%
+      collect(),
+    test_dates_times2
+  )
 })
 
 test_that("parse_date_time with `quiet = FALSE` not supported", {
   # we need expect_warning twice as both the arrow pipeline (because quiet =
   # FALSE is not supported) and the fallback dplyr/lubridate one throw
   # warnings (the lubridate one because quiet is FALSE)
+  # https://issues.apache.org/jira/browse/ARROW-17146
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  skip_if_not_available("re2")
+
   expect_warning(
     expect_warning(
       tibble(x = c("2022-05-19 13:46:51")) %>%
@@ -2336,6 +2442,16 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
       "`quiet = FALSE` not supported in Arrow"
     ),
     "All formats failed to parse"
+  )
+
+  expect_warning(
+    tibble(x = c("2022-05-19 13:46:51")) %>%
+      arrow_table() %>%
+      mutate(
+        x_dttm = ymd_hms(x, quiet = FALSE)
+      ) %>%
+      collect(),
+    "`quiet = FALSE` not supported in Arrow"
   )
 })
 
@@ -2362,6 +2478,11 @@ test_that("parse_date_time with truncated formats", {
             truncated_ymd_string,
             orders = "ymd_HMS",
             truncated = 3
+          ),
+        dttm2 =
+          ymd_hms(
+            truncated_ymd_string,
+            truncated = 3
           )
       ) %>%
       collect(),
@@ -2382,6 +2503,37 @@ test_that("parse_date_time with truncated formats", {
       collect(),
     test_truncation_df,
     warning = "a value for `truncated` > 4 not supported in Arrow"
+  )
+
+  # values for truncated greater than nchar(orders) - 3 not supported in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        dttm =
+          ymd_hms(
+            truncated_ymd_string,
+            truncated = 5
+          )
+      ) %>%
+      collect(),
+    test_truncation_df,
+    warning = "a value for `truncated` > 4 not supported in Arrow"
+  )
+})
+
+test_that("parse_date_time with `locale != NULL` not supported", {
+  # parse_date_time currently doesn't take locale paramete which will be
+  # addressed in https://issues.apache.org/jira/browse/ARROW-17147
+  skip_if_not_available("re2")
+
+  expect_warning(
+    tibble(x = c("2022-05-19 13:46:51")) %>%
+      arrow_table() %>%
+      mutate(
+        x_dttm = ymd_hms(x, locale = "C")
+      ) %>%
+      collect(),
+    "`locale` not supported in Arrow"
   )
 })
 
@@ -2512,6 +2664,26 @@ test_that("build_formats() and build_format_from_order()", {
       "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
       "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
       "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    )
+  )
+
+  expect_equal(
+    build_format_from_order("ymdHM"),
+    c(
+      "%y-%m-%d-%H-%M", "%Y-%m-%d-%H-%M", "%y-%B-%d-%H-%M",
+      "%Y-%B-%d-%H-%M", "%y-%b-%d-%H-%M", "%Y-%b-%d-%H-%M",
+      "%y%m%d%H%M", "%Y%m%d%H%M", "%y%B%d%H%M", "%Y%B%d%H%M",
+      "%y%b%d%H%M", "%Y%b%d%H%M"
+    )
+  )
+
+  expect_equal(
+    build_format_from_order("ymdH"),
+    c(
+      "%y-%m-%d-%H", "%Y-%m-%d-%H", "%y-%B-%d-%H",
+      "%Y-%B-%d-%H", "%y-%b-%d-%H", "%Y-%b-%d-%H",
+      "%y%m%d%H", "%Y%m%d%H", "%y%B%d%H", "%Y%B%d%H",
+      "%y%b%d%H", "%Y%b%d%H"
     )
   )
 })
