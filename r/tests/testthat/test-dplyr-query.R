@@ -544,21 +544,15 @@ test_that("show_exec_plan(), show_query() and explain()", {
     )
   )
 
-  expect_output(
+  # printing the ExecPlan for a nested query would currently force the
+  # evaluation of the inner one(s), which we want to avoid => no output
+  expect_warning(
     mtcars %>%
       arrow_table() %>%
       filter(mpg > 20) %>%
       arrange(desc(wt)) %>%
       head(3) %>%
       show_exec_plan(),
-    # for some reason the FilterNode disappears when head/tail are involved +
-    # we do not have additional information regarding the SinkNode +
-    # the entry point is now a SourceNode and not a TableSourceNode
-    regexp = paste0(
-      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "SinkNode.*",                #
-      "ProjectNode.*",             # output columns
-      "SourceNode.*"               # entry point
-    )
+    "The `ExecPlan` cannot be printed for a nested query."
   )
 })
