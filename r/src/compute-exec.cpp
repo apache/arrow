@@ -60,6 +60,9 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
     cpp11::strings metadata, int64_t head = -1) {
+  // a section of this code is used by BuildAndShow too - the 2 need to be in sync
+  // Start of chunk used in ExecPlan_BuildAndShow
+
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
@@ -87,6 +90,8 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
                        compute::SinkNodeOptions{&sink_gen});
   }
+
+  // End of chunk used in ExecPlan_BuildAndShow
 
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
@@ -130,6 +135,9 @@ std::string ExecPlan_BuildAndShow(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
     int64_t head = -1) {
+  // a section of this code is copied from ExecPlan_run - the 2 need to be in sync
+  // Start of chunk copied from ExecPlan_run
+
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
@@ -157,6 +165,9 @@ std::string ExecPlan_BuildAndShow(
     MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
                        compute::SinkNodeOptions{&sink_gen});
   }
+
+  // End of chunk copied from ExecPlan_run
+
   return plan->ToString();
 }
 

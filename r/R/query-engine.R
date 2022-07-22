@@ -193,6 +193,8 @@ ExecPlan <- R6Class("ExecPlan",
       node
     },
     Run = function(node) {
+      # a section of this code is used by `BuildAndShow()` too - the 2 need to be in sync
+      # Start of chunk used in `BuildAndShow()`
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
@@ -209,6 +211,8 @@ ExecPlan <- R6Class("ExecPlan",
         }
         sorting$orders <- as.integer(sorting$orders)
       }
+
+      # End of chunk used in `BuildAndShow()`
 
       out <- ExecPlan_run(
         self,
@@ -264,6 +268,9 @@ ExecPlan <- R6Class("ExecPlan",
     # ExecPlan_run and are not captured by the regulat print method. We take a
     # similar approach to expose them before calling the print method.
     BuildAndShow = function(node) {
+      # a section of this code is copied from `Run()` - the 2 need to be in sync
+      # Start of chunk copied from `Run()`
+
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
@@ -280,6 +287,8 @@ ExecPlan <- R6Class("ExecPlan",
         }
         sorting$orders <- as.integer(sorting$orders)
       }
+
+      # End of chunk copied from `Run()`
 
       ExecPlan_BuildAndShow(
         self,

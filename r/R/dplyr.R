@@ -224,7 +224,8 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #' This is a function which gives more details about the logical query plan
 #' that will be executed when evaluating an `arrow_dplyr_query` object.
 #' It calls the C++ `ExecPlan` object's print method.
-#' Functionally, it is similar to `dplyr::explain()`.
+#' Functionally, it is similar to `dplyr::explain()`. This function is used as
+#' the `dplyr::explain()` and `dplyr::show_query()` methods.
 #'
 #' @param x an `arrow_dplyr_query` to print the `ExecPlan` for.
 #'
