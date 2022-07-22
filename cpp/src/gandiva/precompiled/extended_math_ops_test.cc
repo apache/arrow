@@ -186,7 +186,7 @@ TEST(TestExtendedMathOps, TestBRoundDecimal) {
   EXPECT_DOUBLE_EQ(bround_float64_int32(3.5351, 0), 4);
   EXPECT_DOUBLE_EQ(bround_float64_int32(3.5351, 1), 3.5);
   EXPECT_DOUBLE_EQ(bround_float64_int32(3.5551, 1), 3.6);
-  EXPECT_DOUBLE_EQ(bround_float64_int32(3.5451, 2), 3.55);
+  EXPECT_DOUBLE_EQ(bround_float64_int32(3.5351, 2), 3.54);
   EXPECT_DOUBLE_EQ(bround_float64_int32(999999.999999, -9999), 0.0);
 }
 

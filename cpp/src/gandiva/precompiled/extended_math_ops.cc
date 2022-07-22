@@ -312,7 +312,11 @@ gdv_float64 bround_float64_int32(gdv_float64 num, gdv_int32 precision) {
   scale_num = bround_float64(scale_num);
 
   // Before get bround result, only divide for scale to get expected result
-  return scale_num / scale;
+  gdv_float64 result = scale_num / scale;
+  if (!isnan(result)) {
+    return result;
+  }
+  return 0.0;
 }
 
 // rounds the number to the given scale
