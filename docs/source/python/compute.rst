@@ -403,14 +403,9 @@ To register a UDF, a function name, function docs and input types and output typ
    }
    output_type = pa.float64()
 
-<<<<<<< HEAD
-   def affine_calculation(ctx, m, x, c):
+   def affine(ctx, m, x, c):
        temp = pc.multiply(m, x, memory_pool=ctx.memory_pool)
        return pc.add(temp, c, memory_pool=ctx.memory_pool)
-=======
-   def affine(ctx, m, x, c):
-      return pc.add(pc.multiply(m, x), c)
->>>>>>> 5a2c81946 (adding a new example to show case the scalar limitations')
 
    pc.register_scalar_function(affine, 
                                function_name,
@@ -429,8 +424,8 @@ You can call a user-defined function directly using :func:`pyarrow.compute.call_
 
 .. code-block:: python
 
-   >>> res = pc.call_function("affine", [pa.scalar(2), pa.scalar(10), pa.scalar(5)])
-   25
+   >>> pc.call_function("affine", [pa.scalar(2.5), pa.scalar(10.5), pa.scalar(5.5)])
+   <pyarrow.DoubleScalar: 31.75>
 
 .. note::
    Note that when the passed values to a function are all scalars, internally each scalar 
@@ -487,7 +482,7 @@ dataset.
    >>> data_table = pa.Table.from_pydict(sample_data)
    >>> dataset = ds.dataset(data_table)
    >>> func_args = [pc.scalar(5.2), ds.field("total_amount($)"), pc.scalar(2.1)]
-   >>> result_table = dataset.to_table(
+   >>> dataset.to_table(
    ...             columns={
    ...                 'total_amount_projected($)': ds.field('')._call("affine", func_args),
    ...                 'total_amount($)': ds.field('total_amount($)'),
