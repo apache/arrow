@@ -379,8 +379,10 @@ User-Defined Functions
    This API is **experimental**.
    Also, only scalar functions can currently be user-defined.
 
-To use a user-defined-function (UDF), either the experimental `dataset` API options can be used or the
-function can be directly called using :func:`pyarrow.compute.call_function`. 
+PyArrow allows defining and registering custom compute functions in Python.
+Those functions can then be called from Python as well as C++ (and potentially
+any other implementation wrapping Arrow C++, such as the R ``arrow`` package`)
+using their registered function name.
 
 To register a UDF, a function name, function docs and input types and output type needs to be defined.
 
