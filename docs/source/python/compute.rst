@@ -389,7 +389,7 @@ To register a UDF, a function name, function docs and input types and output typ
 .. code-block:: python
 
    import pyarrow.compute as pc
-   function_name = "regression"
+   function_name = "affine"
    function_docs = {
       "summary": "Calculate y = mx + c",
       "description":
@@ -397,17 +397,22 @@ To register a UDF, a function name, function docs and input types and output typ
           "This function takes three inputs, m, x and c, in order."
    }
    input_types = {
-      "m" : pa.int64(),
-      "x" : pa.int64(),
-      "c" : pa.int64(),
+      "m" : pa.float64(),
+      "x" : pa.float64(),
+      "c" : pa.float64(),
    }
-   output_type = pa.int64()
+   output_type = pa.float64()
 
+<<<<<<< HEAD
    def affine_calculation(ctx, m, x, c):
        temp = pc.multiply(m, x, memory_pool=ctx.memory_pool)
        return pc.add(temp, c, memory_pool=ctx.memory_pool)
+=======
+   def affine(ctx, m, x, c):
+      return pc.add(pc.multiply(m, x), c)
+>>>>>>> 5a2c81946 (adding a new example to show case the scalar limitations')
 
-   pc.register_scalar_function(linear_calculation, 
+   pc.register_scalar_function(affine, 
                                function_name,
                                function_docs,
                                input_types,
@@ -424,27 +429,67 @@ You can call a user-defined function directly using :func:`pyarrow.compute.call_
 
 .. code-block:: python
 
-   >>> res = pc.call_function("regression", [pa.scalar(2), pa.scalar(10), pa.scalar(5)])
+   >>> res = pc.call_function("affine", [pa.scalar(2), pa.scalar(10), pa.scalar(5)])
    25
 
-.. warning::
+.. note::
    Note that when the passed values to a function are all scalars, internally each scalar 
    is passed as an array of size 1.
 
 More generally, user-defined functions are usable everywhere a compute function
 can be referred to by its name. For example, they can be called on a dataset's
 column using :meth:`Expression._call`:
+Considering a series of scalar inputs,
 
 .. code-block:: python
 
-   >>> sample_data = {'trip_name': ['A', 'B', 'C', 'D'], 'total_amount($)': [10, 20, 45, 15]}
-   >>> data_table = pa.Table.from_pydict(sample_data)
+   >>> import pyarrow as pa
+   >>> import pyarrow.compute as pc
+   >>> function_name = "affine_with_python"
+   >>> function_docs = {
+   ...        "summary": "Calculate y = mx + c with Python",
+   ...        "description":
+   ...            "Compute the affine function y = mx + c.\n"
+   ...            "This function takes three inputs, m, x and c, in order."
+   ... }
+   >>> input_types = {
+   ...    "m" : pa.float64(),
+   ...    "x" : pa.float64(),
+   ...    "c" : pa.float64(),
+   ... }
+   >>> output_type = pa.float64()
+   >>> 
+   >>> def affine_with_python(ctx, m, x, c):
+   ...     m = m[0].as_py()
+   ...     x = x[0].as_py()
+   ...     c = c[0].as_py()
+   ...     return pa.array([m * x + c])
+   ... 
+   >>> pc.register_scalar_function(affine_with_python,
+   ...                             function_name,
+   ...                         function_docs,
+   ...                             input_types,
+   ...                             output_type)
+   >>> 
+   >>> pc.call_function(function_name, [pa.scalar(10.1), pa.scalar(10.2), pa.scalar(20.2)])
+   <pyarrow.DoubleScalar: 123.22>
+
+When all the inputs are scalar, the input is a size=1 array and the values has to be properly
+treated within the UDF. And also make sure to include the final output as a size=1 array.
+
+UDFs can be used with tabular data by using `dataset` API and apply a UDF function on the
+dataset.
+
+.. code-block:: python
+
    >>> import pyarrow.dataset as ds
+   >>> sample_data = {'trip_name': ['A', 'B', 'C', 'D'], 'total_amount($)': [10.21, 20.12, 45.32, 15.12]}
+   >>> data_table = pa.Table.from_pydict(sample_data)
    >>> dataset = ds.dataset(data_table)
-   >>> func_args = [pc.scalar(5), ds.field("total_amount($)"), pc.scalar(2)]
+   >>> func_args = [pc.scalar(5.2), ds.field("total_amount($)"), pc.scalar(2.1)]
    >>> result_table = dataset.to_table(
    ...             columns={
-   ...                 'total_amount_projected($)': ds.field('')._call(function_name, func_args),
+   ...                 'total_amount_projected($)': ds.field('')._call("affine", func_args),
    ...                 'total_amount($)': ds.field('total_amount($)'),
    ...                 'trip_name': ds.field('trip_name')
    ...             })
