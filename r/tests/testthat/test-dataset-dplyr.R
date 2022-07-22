@@ -342,6 +342,9 @@ test_that("dplyr method not implemented messages", {
 })
 
 test_that("show_exec_plan(), show_query() and explain() with datasets", {
+  # show_query() and explain() are wrappers around show_exec_plan() and are not
+  # tested separately
+
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
   # minimal test
