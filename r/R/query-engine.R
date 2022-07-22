@@ -82,8 +82,8 @@ ExecPlan <- R6Class("ExecPlan",
           # head and tail are not ExecNodes; at best we can handle them via
           # SinkNode, so if there are any steps done after head/tail, we need to
           # evaluate the query up to then and then do a new query for the rest.
-          # as_arrow_table() will build and run an ExecPlan
-          node <- self$SourceNode(as_arrow_table(.data$.data))
+          # as_record_batch_reader() will build and run an ExecPlan
+          node <- self$SourceNode(as_record_batch_reader(.data$.data))
         } else {
           # Recurse
           node <- self$Build(.data$.data)
