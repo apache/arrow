@@ -22,7 +22,7 @@
 jobs:
   autobrew:
     name: "Homebrew + R package"
-    runs-on: macOS-11
+    runs-on: macos-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 

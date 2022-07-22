@@ -22,7 +22,7 @@
 jobs:
   autobrew:
     name: "Autobrew"
-    runs-on: macOS-10.15
+    runs-on: macos-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
