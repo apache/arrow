@@ -156,8 +156,10 @@ test_that("strptime", {
   times <- c(as.POSIXct("1999-12-31T12:34:56.01", tz = "UTC"))
 
   # The following formats are currently not supported by strptime: %q %Op
-  formats <- c("%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
-               "%S", "%q", "%M", "%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z")
+  formats <- c(
+    "%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
+    "%S", "%q", "%M", "%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z"
+  )
   base_format <- c("%Y-%m-%d")
 
   for (fmt in formats) {
@@ -169,8 +171,7 @@ test_that("strptime", {
           mutate(x = strptime(x, format = fmt)) %>%
           collect(),
       test_df %>%
-        mutate(x = strptime(x, format = fmt)) %>%
-        mutate(x = as.POSIXct(x)) %>%
+        mutate(x = as.POSIXct(strptime(x, format = fmt))) %>%
         collect()
     )
   }
