@@ -412,10 +412,12 @@ To register a UDF, a function name, function docs and input types and output typ
                                input_types,
                                output_type)
 
-.. note::
-   There is a default parameter, `ctx` which is refers to a context object and it should be the
-   first parameter of any user-defined-function. The idea is to make available passing required
-   meta-data across an application which would be important for UDFs.
+The implementation of a user-defined function always takes a first *context*
+parameter (named ``ctx`` in the example above) which is an instance of
+:class:`pyarrow.compute.ScalarUdfContext`.
+This context exposes several useful attributes, particularly a
+:attr:`~pyarrow.compute.ScalarUdfContext.memory_pool` to be used for
+allocations in the context of the user-defined function.
 
 You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
 
