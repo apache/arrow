@@ -335,7 +335,7 @@ class TailSkipForSIMD {
   static int FixSelection(int64_t num_rows_safe, int num_selected,
                           const uint16_t* selection) {
     int num_selected_safe = num_selected;
-    while (num_selected_safe > 0 && selection[num_selected_safe] >= num_rows_safe) {
+    while (num_selected_safe > 0 && selection[num_selected_safe - 1] >= num_rows_safe) {
       --num_selected_safe;
     }
     return num_selected_safe;

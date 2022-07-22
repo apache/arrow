@@ -15,31 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "flight-info-generator"
+class TestFlightClientOptions < Test::Unit::TestCase
+  def setup
+    omit("Arrow Flight is required") unless defined?(ArrowFlight)
+    @options = ArrowFlight::ClientOptions.new
+  end
 
-module Helper
-  class FlightServer < ArrowFlight::Server
-    type_register
-
-    private
-    def virtual_do_list_flights(context, criteria)
-      generator = FlightInfoGenerator.new
-      [generator.page_view]
+  def test_disable_server_verifiation
+    assert do
+      not @options.disable_server_verification?
     end
-
-    def virtual_do_get_flight_info(command, criteria)
-      generator = FlightInfoGenerator.new
-      generator.page_view
-    end
-
-    def virtual_do_do_get(context, ticket)
-      generator = FlightInfoGenerator.new
-      unless ticket == generator.page_view_ticket
-        raise Arrow::Error::Invalid.new("invalid ticket")
-      end
-      table = generator.page_view_table
-      reader = Arrow::TableBatchReader.new(table)
-      ArrowFlight::RecordBatchStream.new(reader)
+    @options.disable_server_verification = true
+    assert do
+      @options.disable_server_verification?
     end
   end
 end

@@ -765,8 +765,8 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
 
   std::string root_path = "";
   std::string uri = "file://" + file_path;
-  std::shared_ptr<arrow::fs::FileSystem> filesystem =
-      arrow::fs::FileSystemFromUri(uri, &root_path).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::fs::FileSystem> filesystem,
+                        arrow::fs::FileSystemFromUri(uri, &root_path));
 
   auto base_path = root_path + "/parquet_dataset";
   // Uncomment the following line, if run repeatedly
@@ -818,7 +818,8 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
 arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  std::shared_ptr<cp::ExecPlan> plan = cp::ExecPlan::Make(&exec_context).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        cp::ExecPlan::Make(&exec_context));
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
   cp::Declaration union_node{"union", cp::ExecNodeOptions{}};

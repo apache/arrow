@@ -31,15 +31,6 @@
 
 namespace cp = ::arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 template <typename TYPE,
           typename = typename std::enable_if<arrow::is_number_type<TYPE>::value |
                                              arrow::is_boolean_type<TYPE>::value |

@@ -50,7 +50,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     end
     env = env.merge(additional_env)
     sh(env,
-       "dev/release/post-12-bump-versions.sh",
+       "dev/release/post-11-bump-versions.sh",
        @release_version,
        @next_version)
   end

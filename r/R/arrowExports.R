@@ -408,6 +408,10 @@ ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
   .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
 }
 
+ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head) {
+  .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head)
+}
+
 ExecPlan_StopProducing <- function(plan) {
   invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
 }
@@ -478,6 +482,10 @@ compute__CallFunction <- function(func_name, args, options) {
 
 compute__GetFunctionNames <- function() {
   .Call(`_arrow_compute__GetFunctionNames`)
+}
+
+RegisterScalarUDF <- function(name, func_sexp) {
+  invisible(.Call(`_arrow_RegisterScalarUDF`, name, func_sexp))
 }
 
 build_info <- function() {
@@ -1108,12 +1116,12 @@ ipc___feather___Reader__version <- function(reader) {
   .Call(`_arrow_ipc___feather___Reader__version`, reader)
 }
 
-ipc___feather___Reader__Read <- function(reader, columns, on_old_windows) {
-  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns, on_old_windows)
+ipc___feather___Reader__Read <- function(reader, columns) {
+  .Call(`_arrow_ipc___feather___Reader__Read`, reader, columns)
 }
 
-ipc___feather___Reader__Open <- function(stream, on_old_windows) {
-  .Call(`_arrow_ipc___feather___Reader__Open`, stream, on_old_windows)
+ipc___feather___Reader__Open <- function(stream) {
+  .Call(`_arrow_ipc___feather___Reader__Open`, stream)
 }
 
 ipc___feather___Reader__schema <- function(reader) {
@@ -1790,6 +1798,10 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
 
 InitializeMainRThread <- function() {
   invisible(.Call(`_arrow_InitializeMainRThread`))
+}
+
+CanRunWithCapturedR <- function() {
+  .Call(`_arrow_CanRunWithCapturedR`)
 }
 
 TestSafeCallIntoR <- function(r_fun_that_returns_a_string, opt) {

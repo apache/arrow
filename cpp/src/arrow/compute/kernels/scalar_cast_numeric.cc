@@ -194,13 +194,7 @@ Status CheckIntegerFloatTruncateImpl(const ExecValue& input) {
   const int64_t limit = FloatingIntegerBound<OutT>::value;
   InScalarType bound_lower(IsSigned ? -limit : 0);
   InScalarType bound_upper(limit);
-
-  if (input.is_scalar()) {
-    ArraySpan span(*input.scalar);
-    return CheckIntegersInRange(span, bound_lower, bound_upper);
-  } else {
-    return CheckIntegersInRange(input.array, bound_lower, bound_upper);
-  }
+  return CheckIntegersInRange(input.array, bound_lower, bound_upper);
 }
 
 Status CheckForIntegerToFloatingTruncation(const ExecValue& input, Type::type out_type) {

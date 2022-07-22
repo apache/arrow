@@ -74,15 +74,26 @@ struct ExecPlanImpl : public ExecPlan {
     return nodes_.back().get();
   }
 
-  Status AddFuture(Future<> fut) { return task_group_.AddTaskIfNotEnded(std::move(fut)); }
+  Result<Future<>> BeginExternalTask() {
+    Future<> completion_future = Future<>::Make();
+    ARROW_ASSIGN_OR_RAISE(bool task_added,
+                          task_group_.AddTaskIfNotEnded(completion_future));
+    if (task_added) {
+      return std::move(completion_future);
+    }
+    // Return an invalid future if we were already finished to signal to the
+    // caller that they should not begin the task
+    return Future<>{};
+  }
 
   Status ScheduleTask(std::function<Status()> fn) {
     auto executor = exec_context_->executor();
     if (!executor) return fn();
-    // Atomically submit fn to the executor, and if successful
-    // add it to the task group.
-    return task_group_.AddTaskIfNotEnded(
-        [executor, fn]() { return executor->Submit(std::move(fn)); });
+    // Adds a task which submits fn to the executor and tracks its progress.  If we're
+    // already stopping then the task is ignored and fn is not executed.
+    return task_group_
+        .AddTaskIfNotEnded([executor, fn]() { return executor->Submit(std::move(fn)); })
+        .status();
   }
 
   Status ScheduleTask(std::function<Status(size_t)> fn) {
@@ -355,9 +366,10 @@ const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->si
 size_t ExecPlan::GetThreadIndex() { return ToDerived(this)->GetThreadIndex(); }
 size_t ExecPlan::max_concurrency() const { return ToDerived(this)->max_concurrency(); }
 
-Status ExecPlan::AddFuture(Future<> fut) {
-  return ToDerived(this)->AddFuture(std::move(fut));
+Result<Future<>> ExecPlan::BeginExternalTask() {
+  return ToDerived(this)->BeginExternalTask();
 }
+
 Status ExecPlan::ScheduleTask(std::function<Status()> fn) {
   return ToDerived(this)->ScheduleTask(std::move(fn));
 }

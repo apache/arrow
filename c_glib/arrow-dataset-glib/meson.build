@@ -95,6 +95,7 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
+                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-dataset-glib/arrow-dataset-glib.h',
                        identifier_prefix: 'GADataset',
                        includes: [

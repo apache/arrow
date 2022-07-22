@@ -370,6 +370,12 @@ def test_mode_array():
     mode = pc.mode(arr, skip_nulls=False, min_count=5)
     assert len(mode) == 0
 
+    arr = pa.array([True, False])
+    mode = pc.mode(arr, n=2)
+    assert len(mode) == 2
+    assert mode[0].as_py() == {"mode": False, "count": 1}
+    assert mode[1].as_py() == {"mode": True, "count": 1}
+
 
 def test_mode_chunked_array():
     # ARROW-9917

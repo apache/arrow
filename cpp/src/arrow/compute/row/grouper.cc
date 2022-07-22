@@ -99,16 +99,10 @@ struct GrouperImpl : Grouper {
     return std::move(impl);
   }
 
-  Result<Datum> Consume(const ExecBatch& batch) override {
+  Result<Datum> Consume(const ExecSpan& batch) override {
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
-      ExecValue value;
-      if (batch[i].is_array()) {
-        value.SetArray(*batch[i].array());
-      } else {
-        value.SetScalar(batch[i].scalar().get());
-      }
-      encoders_[i]->AddLength(value, batch.length, offsets_batch.data());
+      encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
     }
 
     int32_t total_length = 0;
@@ -126,13 +120,7 @@ struct GrouperImpl : Grouper {
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {
-      ExecValue value;
-      if (batch[i].is_array()) {
-        value.SetArray(*batch[i].array());
-      } else {
-        value.SetScalar(batch[i].scalar().get());
-      }
-      RETURN_NOT_OK(encoders_[i]->Encode(value, batch.length, key_buf_ptrs.data()));
+      RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
     }
 
     TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
@@ -281,11 +269,11 @@ struct GrouperFastImpl : Grouper {
 
   ~GrouperFastImpl() { map_.cleanup(); }
 
-  Result<Datum> Consume(const ExecBatch& batch) override {
+  Result<Datum> Consume(const ExecSpan& batch) override {
     // ARROW-14027: broadcast scalar arguments for now
     for (int i = 0; i < batch.num_values(); i++) {
-      if (batch.values[i].is_scalar()) {
-        ExecBatch expanded = batch;
+      if (batch[i].is_scalar()) {
+        ExecBatch expanded = batch.ToExecBatch();
         for (int j = i; j < expanded.num_values(); j++) {
           if (expanded.values[j].is_scalar()) {
             ARROW_ASSIGN_OR_RAISE(
@@ -294,20 +282,20 @@ struct GrouperFastImpl : Grouper {
                                     ctx_->memory_pool()));
           }
         }
-        return ConsumeImpl(expanded);
+        return ConsumeImpl(ExecSpan(expanded));
       }
     }
     return ConsumeImpl(batch);
   }
 
-  Result<Datum> ConsumeImpl(const ExecBatch& batch) {
+  Result<Datum> ConsumeImpl(const ExecSpan& batch) {
     int64_t num_rows = batch.length;
     int num_columns = batch.num_values();
     // Process dictionaries
     for (int icol = 0; icol < num_columns; ++icol) {
       if (key_types_[icol].id() == Type::DICTIONARY) {
-        auto data = batch[icol].array();
-        auto dict = MakeArray(data->dictionary);
+        const ArraySpan& data = batch[icol].array;
+        auto dict = MakeArray(data.dictionary().ToArrayData());
         if (dictionaries_[icol]) {
           if (!dictionaries_[icol]->Equals(dict)) {
             // TODO(bkietz) unify if necessary. For now, just error if any batch's
@@ -331,16 +319,16 @@ struct GrouperFastImpl : Grouper {
 
       // Skip if the key's type is NULL
       if (key_types_[icol].id() != Type::NA) {
-        if (batch[icol].array()->buffers[0] != NULLPTR) {
-          non_nulls = batch[icol].array()->buffers[0]->data();
+        if (batch[icol].array.buffers[0].data != NULLPTR) {
+          non_nulls = batch[icol].array.buffers[0].data;
         }
-        fixedlen = batch[icol].array()->buffers[1]->data();
+        fixedlen = batch[icol].array.buffers[1].data;
         if (!col_metadata_[icol].is_fixed_length) {
-          varlen = batch[icol].array()->buffers[2]->data();
+          varlen = batch[icol].array.buffers[2].data;
         }
       }
 
-      int64_t offset = batch[icol].array()->offset;
+      int64_t offset = batch[icol].array.offset;
 
       auto col_base = KeyColumnArray(col_metadata_[icol], offset + num_rows, non_nulls,
                                      fixedlen, varlen);

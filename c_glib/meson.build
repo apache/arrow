@@ -55,6 +55,7 @@ base_include_directories = [
   include_directories('.')
 ]
 
+gi_fatal_warnings = (build_machine.system() != 'windows')
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
 if have_gi
   pkgconfig_variables += ['girdir=@0@'.format(gir_dir)]

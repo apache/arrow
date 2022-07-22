@@ -421,6 +421,23 @@ cdef class FixedSizeListType(DataType):
 cdef class StructType(DataType):
     """
     Concrete class for struct data types.
+
+    ``StructType`` supports direct indexing using ``[...]`` (implemented via
+    ``__getitem__``) to access its fields.
+    It will return the struct field with the given index or name.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> struct_type = pa.struct({'x': pa.int32(), 'y': pa.string()})
+    >>> struct_type[0]
+    pyarrow.Field<x: int32>
+    >>> struct_type['y']
+    pyarrow.Field<y: string>
+
+    >>> pa.schema(list(struct_type))
+    x: int32
+    y: string
     """
 
     cdef void init(self, const shared_ptr[CDataType]& type) except *:
@@ -902,22 +919,16 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return ExtensionArray
 
-    def scalar_as_py(self, scalar):
-        """Convert scalar to a Python type.
+    def __arrow_ext_scalar_class__(self):
+        """Return an extension scalar class for building scalars with this
+        extension type.
 
-        This method can be overridden in subclasses to customize what type
-        scalars are converted to.
-
-        Parameters
-        ----------
-        scalar : pyarrow.Scalar
-          Not-None Scalar of storage type to be converted to a Python object.
-
-        Returns
-        -------
-        Scalar value as a native Python object.
+        This method should return subclass of the ExtensionScalar class. By
+        default, if not specialized in the extension implementation, an
+        extension type scalar will be a built-in ExtensionScalar instance.
         """
-        return scalar.as_py()
+        return ExtensionScalar
+
 
 cdef class PyExtensionType(ExtensionType):
     """
