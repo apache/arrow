@@ -1360,7 +1360,7 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
     const std::shared_ptr<Schema>& physical_schema,
     const std::vector<std::vector<std::string>>& fragment_batch_strs,
     const std::vector<compute::Expression>& guarantees) {
-  // Expect a guarantee expr for each test fragment
+  // If guarantees are provided we must have one for each batch
   if (!guarantees.empty()) {
     EXPECT_EQ(fragment_batch_strs.size(), guarantees.size());
   }
