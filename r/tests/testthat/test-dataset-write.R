@@ -139,6 +139,23 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
   )
 })
 
+test_that("Writing a dataset: `basename_template` default behavier", {
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+
+  feather_dir <- make_temp_dir()
+  write_dataset(ds, feather_dir, format = "feather", partitioning = "int")
+  expect_identical(
+    dir(feather_dir, full.names = FALSE, recursive = TRUE),
+    sort(paste(paste("int", c(1:10, 101:110), sep = "="), "part-0.arrow", sep = "/"))
+  )
+  ipc_dir <- make_temp_dir()
+  write_dataset(ds, ipc_dir, format = "ipc", partitioning = "int")
+  expect_identical(
+    dir(ipc_dir, full.names = FALSE, recursive = TRUE),
+    sort(paste(paste("int", c(1:10, 101:110), sep = "="), "part-0.arrow", sep = "/"))
+  )
+})
+
 test_that("Writing a dataset: existing data behavior", {
   # This test does not work on Windows because unlink does not immediately
   # delete the data.
@@ -458,8 +475,10 @@ test_that("Writing a dataset: CSV format options", {
 test_that("Dataset writing: unsupported features/input validation", {
   skip_if_not_available("parquet")
   expect_error(write_dataset(4), "You must supply a")
-  expect_error(write_dataset(data.frame(x = 1, x = 2, check.names = FALSE)),
-               "Field names must be unique")
+  expect_error(
+    write_dataset(data.frame(x = 1, x = 2, check.names = FALSE)),
+    "Field names must be unique"
+  )
 
   ds <- open_dataset(hive_dir)
   expect_error(
