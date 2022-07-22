@@ -722,7 +722,7 @@ test_that("unique returns data.frames", {
   # order not set by distinct so some sorting required
   expect_equal(sort(unique(ds)$int), sort(unique(in_r_mem)$int))
 
-  ## on a arrow_dplyr_query
+  # on a arrow_dplyr_query
   adq_eg <- ds %>%
     select(fct) %>%
     unique()
