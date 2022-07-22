@@ -15,7 +15,7 @@ Google Cloud Storage (GCS). This vignette provides an overview of working with
 S3 and GCS data using Arrow.
 
 > In Windows and macOS binary packages, S3 and GCS support are included. On Linux when 
-installing from source, S3 and GCS support is not enabled by default, and it has 
+installing from source, S3 and GCS support is not always enabled by default, and it has 
 additional system requirements. See `vignette("install", package = "arrow")` 
 for details.
 
