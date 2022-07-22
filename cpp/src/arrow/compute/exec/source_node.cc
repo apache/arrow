@@ -119,9 +119,10 @@ struct SourceNode : ExecNode {
                          return Break(batch_count_);
                        }
                        lock.unlock();
+                       bool use_legacy_batching = plan_->UseLegacyBatching();
                        ExecBatch morsel = std::move(*maybe_morsel);
                        int64_t morsel_length = static_cast<int64_t>(morsel.length);
-                       if (morsel_length == 0) {
+                       if (use_legacy_batching || morsel_length == 0) {
                          // For various reasons (e.g. ARROW-13982) we pass empty batches
                          // through
                          batch_count_++;
@@ -135,6 +136,11 @@ struct SourceNode : ExecNode {
                          do {
                            int64_t batch_size = std::min<int64_t>(
                                morsel_length - offset, ExecPlan::kMaxBatchSize);
+                           // In order for the legacy batching model to work we must
+                           // not slice batches from the source
+                           if (use_legacy_batching) {
+                             batch_size = morsel_length;
+                           }
                            ExecBatch batch = morsel.Slice(offset, batch_size);
                            offset += batch_size;
                            outputs_[0]->InputReceived(this, std::move(batch));

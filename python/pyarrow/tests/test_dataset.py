@@ -1816,7 +1816,7 @@ def test_positional_keywords_raises(tempdir):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_read_partition_keys_only(tempdir):
-    BATCH_SIZE = 2 ** 17
+    BATCH_SIZE = 2 ** 15
     # This is a regression test for ARROW-15318 which saw issues
     # reading only the partition keys from files with batches larger
     # than the default batch size (e.g. so we need to return two chunks)

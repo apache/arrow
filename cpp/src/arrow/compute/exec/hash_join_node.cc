@@ -947,6 +947,11 @@ class HashJoinNode : public ExecNode {
 
   Status Init() override {
     RETURN_NOT_OK(ExecNode::Init());
+    if (plan_->UseLegacyBatching()) {
+      return Status::Invalid(
+          "The plan was configured to use legacy batching but contained a join node "
+          "which is incompatible with legacy batching");
+    }
     bool use_sync_execution = !(plan_->exec_context()->executor());
     // TODO(ARROW-15732)
     // Each side of join might have an IO thread being called from. Once this is fixed
