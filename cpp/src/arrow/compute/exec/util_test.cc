@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/hash_join.h"
+#include "arrow/compute/exec/hash_join_node.h"
 #include "arrow/compute/exec/schema_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"

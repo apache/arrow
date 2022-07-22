@@ -771,7 +771,7 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
-    ASSERT_OK_AND_EQ(9, fut.result());
+    ASSERT_FINISHES_OK_AND_EQ(9, fut);
 
     auto child_pid = fork();
     if (child_pid == 0) {

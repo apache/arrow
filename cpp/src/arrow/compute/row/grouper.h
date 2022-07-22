@@ -42,7 +42,7 @@ class ARROW_EXPORT Grouper {
   /// Consume a batch of keys, producing the corresponding group ids as an integer array.
   /// Currently only uint32 indices will be produced, eventually the bit width will only
   /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecBatch& batch) = 0;
+  virtual Result<Datum> Consume(const ExecSpan& batch) = 0;
 
   /// Get current unique keys. May be called multiple times.
   virtual Result<ExecBatch> GetUniques() = 0;

@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/util/future.h"
-#include "arrow/util/future_iterator.h"
 
 #include <algorithm>
 #include <chrono>
@@ -39,6 +38,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -523,6 +523,23 @@ TEST(FutureStressTest, TryAddCallback) {
 
     ASSERT_TRUE(finished);
     callback_adder.join();
+  }
+}
+
+TEST(FutureStressTest, DeleteAfterWait) {
+  constexpr int kNumTasks = 100;
+  for (int i = 0; i < kNumTasks; i++) {
+    {
+      std::unique_ptr<Future<>> future =
+          internal::make_unique<Future<>>(Future<>::Make());
+      std::thread t([&]() {
+        SleepABit();
+        future->MarkFinished();
+      });
+      ASSERT_TRUE(future->Wait(arrow::kDefaultAssertFinishesWaitSeconds));
+      future.reset();
+      t.join();
+    }
   }
 }
 
@@ -1486,204 +1503,6 @@ class FutureTestBase : public ::testing::Test {
     AssertAllSuccessful();
   }
 
-  void TestBasicWaitForAny() {
-    MakeExecutor(4, {{1, true}, {2, false}});
-    auto& futures = executor_->futures();
-
-    std::vector<Future<T>*> wait_on = {&futures[0], &futures[1]};
-    auto finished = WaitForAny(wait_on);
-    ASSERT_THAT(finished, testing::ElementsAre(1));
-
-    wait_on = {&futures[1], &futures[2], &futures[3]};
-    while (finished.size() < 2) {
-      finished = WaitForAny(wait_on);
-    }
-    ASSERT_THAT(finished, testing::UnorderedElementsAre(0, 1));
-
-    executor_->SetFinished(3);
-    finished = WaitForAny(futures);
-    ASSERT_THAT(finished, testing::UnorderedElementsAre(1, 2, 3));
-
-    executor_->SetFinishedDeferred(0);
-    // Busy wait until the state change is done
-    while (finished.size() < 4) {
-      finished = WaitForAny(futures);
-    }
-    ASSERT_THAT(finished, testing::UnorderedElementsAre(0, 1, 2, 3));
-  }
-
-  void TestTimedWaitForAny() {
-    MakeExecutor(4, {{1, true}, {2, false}});
-    auto& futures = executor_->futures();
-
-    std::vector<int> finished;
-    std::vector<Future<T>*> wait_on = {&futures[0], &futures[3]};
-    finished = WaitForAny(wait_on, kTinyWait);
-    ASSERT_EQ(finished.size(), 0);
-
-    executor_->SetFinished(3);
-    finished = WaitForAny(wait_on, kLargeWait);
-    ASSERT_THAT(finished, testing::ElementsAre(1));
-
-    executor_->SetFinished(0);
-    while (finished.size() < 2) {
-      finished = WaitForAny(wait_on, kTinyWait);
-    }
-    ASSERT_THAT(finished, testing::UnorderedElementsAre(0, 1));
-
-    while (finished.size() < 4) {
-      finished = WaitForAny(futures, kTinyWait);
-    }
-    ASSERT_THAT(finished, testing::UnorderedElementsAre(0, 1, 2, 3));
-  }
-
-  void TestBasicWaitForAll() {
-    MakeExecutor(4, {{1, true}, {2, false}});
-    auto& futures = executor_->futures();
-
-    std::vector<Future<T>*> wait_on = {&futures[1], &futures[2]};
-    WaitForAll(wait_on);
-    AssertSpanSuccessfulNow(1, 3);
-
-    executor_->SetFinishedDeferred({{0, true}, {3, false}});
-    WaitForAll(futures);
-    AssertAllSuccessfulNow();
-    WaitForAll(futures);
-  }
-
-  void TestTimedWaitForAll() {
-    MakeExecutor(4, {{1, true}, {2, false}});
-    auto& futures = executor_->futures();
-
-    ASSERT_FALSE(WaitForAll(futures, kTinyWait));
-
-    executor_->SetFinishedDeferred({{0, true}, {3, false}});
-    ASSERT_TRUE(WaitForAll(futures, kLargeWait));
-    AssertAllSuccessfulNow();
-  }
-
-  void TestStressWaitForAny() {
-#ifdef ARROW_VALGRIND
-    const int N = 5;
-#else
-    const int N = 300;
-#endif
-    MakeExecutor(N);
-    const auto& futures = executor_->futures();
-    const auto spans = RandomSequenceSpans(N);
-    std::vector<int> finished;
-    // Note this loop is potentially O(N**2), because we're copying
-    // O(N)-sized vector when waiting.
-    for (const auto& span : spans) {
-      int start = span.first, stop = span.second;
-      executor_->SetFinishedDeferred(start, stop);
-      size_t last_finished_size = finished.size();
-      finished = WaitForAny(futures);
-      ASSERT_GE(finished.size(), last_finished_size);
-      // The spans are contiguous and ordered, so `stop` is also the number
-      // of futures for which SetFinishedDeferred() was called.
-      ASSERT_LE(finished.size(), static_cast<size_t>(stop));
-    }
-    // Semi-busy wait for all futures to be finished
-    while (finished.size() < static_cast<size_t>(N)) {
-      finished = WaitForAny(futures);
-    }
-    AssertAllSuccessfulNow();
-  }
-
-  void TestStressWaitForAll() {
-#ifdef ARROW_VALGRIND
-    const int N = 5;
-#else
-    const int N = 300;
-#endif
-    MakeExecutor(N);
-    const auto& futures = executor_->futures();
-    const auto spans = RandomSequenceSpans(N);
-    // Note this loop is potentially O(N**2), because we're copying
-    // O(N)-sized vector when waiting.
-    for (const auto& span : spans) {
-      int start = span.first, stop = span.second;
-      executor_->SetFinishedDeferred(start, stop);
-      bool finished = WaitForAll(futures, kTinyWait);
-      if (stop < N) {
-        ASSERT_FALSE(finished);
-      }
-    }
-    ASSERT_TRUE(WaitForAll(futures, kLargeWait));
-    AssertAllSuccessfulNow();
-  }
-
-  void TestBasicAsCompleted() {
-    {
-      MakeExecutor(4, {{1, true}, {2, true}});
-      executor_->SetFinishedDeferred({{0, true}, {3, true}});
-      auto it = MakeAsCompletedIterator(executor_->futures());
-      std::vector<T> values = IteratorToVector(std::move(it));
-      ASSERT_THAT(values, testing::UnorderedElementsAre(0, 1, 2, 3));
-    }
-    {
-      // Check that AsCompleted is opportunistic, it yields elements in order
-      // of completion.
-      MakeExecutor(4, {{2, true}});
-      auto it = MakeAsCompletedIterator(executor_->futures());
-      ASSERT_OK_AND_EQ(2, it.Next());
-      executor_->SetFinishedDeferred({{3, true}});
-      ASSERT_OK_AND_EQ(3, it.Next());
-      executor_->SetFinishedDeferred({{0, true}});
-      ASSERT_OK_AND_EQ(0, it.Next());
-      executor_->SetFinishedDeferred({{1, true}});
-      ASSERT_OK_AND_EQ(1, it.Next());
-      ASSERT_OK_AND_EQ(IterationTraits<T>::End(), it.Next());
-      ASSERT_OK_AND_EQ(IterationTraits<T>::End(), it.Next());  // idempotent
-    }
-  }
-
-  void TestErrorsAsCompleted() {
-    MakeExecutor(4, {{1, true}, {2, false}});
-    executor_->SetFinishedDeferred({{0, true}, {3, false}});
-    auto it = MakeAsCompletedIterator(executor_->futures());
-    auto results = IteratorToResults(std::move(it));
-    ASSERT_THAT(results.values, testing::UnorderedElementsAre(0, 1));
-    ASSERT_EQ(results.errors.size(), 2);
-    ASSERT_RAISES(UnknownError, results.errors[0]);
-    ASSERT_RAISES(UnknownError, results.errors[1]);
-  }
-
-  void TestStressAsCompleted() {
-#ifdef ARROW_VALGRIND
-    const int N = 10;
-#else
-    const int N = 1000;
-#endif
-    MakeExecutor(N);
-
-    // Launch a worker thread that will finish random spans of futures,
-    // in random order.
-    auto spans = RandomSequenceSpans(N);
-    RandomShuffle(&spans);
-    auto feed_iterator = [&]() {
-      for (const auto& span : spans) {
-        int start = span.first, stop = span.second;
-        executor_->SetFinishedDeferred(start, stop);  // will sleep a bit
-      }
-    };
-    auto worker = std::thread(std::move(feed_iterator));
-    auto it = MakeAsCompletedIterator(executor_->futures());
-    auto results = IteratorToResults(std::move(it));
-    worker.join();
-
-    ASSERT_EQ(results.values.size(), static_cast<size_t>(N));
-    ASSERT_EQ(results.errors.size(), 0);
-    std::vector<int> expected(N);
-    std::iota(expected.begin(), expected.end(), 0);
-    std::vector<int> actual(N);
-    std::transform(results.values.begin(), results.values.end(), actual.begin(),
-                   [](const T& value) { return value.ToInt(); });
-    std::sort(actual.begin(), actual.end());
-    ASSERT_EQ(expected, actual);
-  }
-
  protected:
   std::unique_ptr<ExecutorType> executor_;
   int seed_ = 42;
@@ -1701,31 +1520,6 @@ TYPED_TEST(FutureWaitTest, BasicWait) { this->TestBasicWait(); }
 TYPED_TEST(FutureWaitTest, TimedWait) { this->TestTimedWait(); }
 
 TYPED_TEST(FutureWaitTest, StressWait) { this->TestStressWait(); }
-
-TYPED_TEST(FutureWaitTest, BasicWaitForAny) { this->TestBasicWaitForAny(); }
-
-TYPED_TEST(FutureWaitTest, TimedWaitForAny) { this->TestTimedWaitForAny(); }
-
-TYPED_TEST(FutureWaitTest, StressWaitForAny) { this->TestStressWaitForAny(); }
-
-TYPED_TEST(FutureWaitTest, BasicWaitForAll) { this->TestBasicWaitForAll(); }
-
-TYPED_TEST(FutureWaitTest, TimedWaitForAll) { this->TestTimedWaitForAll(); }
-
-TYPED_TEST(FutureWaitTest, StressWaitForAll) { this->TestStressWaitForAll(); }
-
-template <typename T>
-class FutureIteratorTest : public FutureTestBase<T> {};
-
-using FutureIteratorTestTypes = ::testing::Types<Foo>;
-
-TYPED_TEST_SUITE(FutureIteratorTest, FutureIteratorTestTypes);
-
-TYPED_TEST(FutureIteratorTest, BasicAsCompleted) { this->TestBasicAsCompleted(); }
-
-TYPED_TEST(FutureIteratorTest, ErrorsAsCompleted) { this->TestErrorsAsCompleted(); }
-
-TYPED_TEST(FutureIteratorTest, StressAsCompleted) { this->TestStressAsCompleted(); }
 
 namespace internal {
 TEST(FnOnceTest, MoveOnlyDataType) {

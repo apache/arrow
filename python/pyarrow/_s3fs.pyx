@@ -44,6 +44,10 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     ----------
     log_level : S3LogLevel
         level of logging
+
+    Examples
+    --------
+    >>> fs.initialize_s3(fs.S3LogLevel.Error) # doctest: +SKIP
     """
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
@@ -70,8 +74,8 @@ def resolve_s3_region(bucket):
 
     Examples
     --------
-    >>> resolve_s3_region('ursa-labs-taxi-data')
-    'us-east-2'
+    >>> fs.resolve_s3_region('registry.opendata.aws')
+    'us-east-1'
     """
     cdef:
         c_string c_bucket

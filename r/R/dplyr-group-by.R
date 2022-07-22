@@ -58,13 +58,13 @@ group_by.arrow_dplyr_query <- function(.data,
 group_by.Dataset <- group_by.ArrowTabular <- group_by.RecordBatchReader <- group_by.arrow_dplyr_query
 
 groups.arrow_dplyr_query <- function(x) syms(dplyr::group_vars(x))
-groups.Dataset <- groups.ArrowTabular <- groups.RecordBatchReader <- function(x) NULL
+groups.Dataset <- groups.ArrowTabular <- groups.RecordBatchReader <- groups.arrow_dplyr_query
 
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
-group_vars.Dataset <- function(x) NULL
-group_vars.RecordBatchReader <- function(x) NULL
+group_vars.Dataset <- function(x) character()
+group_vars.RecordBatchReader <- function(x) character()
 group_vars.ArrowTabular <- function(x) {
-  x$metadata$r$attributes$.group_vars
+  x$metadata$r$attributes$.group_vars %||% character()
 }
 
 # the logical literal in the two functions below controls the default value of

@@ -320,9 +320,11 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
 
   std::string out;
   google::protobuf::io::StringOutputStream out_stream{&out};
-
+  google::protobuf::util::JsonParseOptions json_opts;
+  json_opts.ignore_unknown_fields = true;
   auto status = google::protobuf::util::JsonToBinaryStream(
-      GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream);
+      GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream,
+      std::move(json_opts));
 
   if (!status.ok()) {
     return Status::Invalid("JsonToBinaryStream returned ", status);

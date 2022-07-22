@@ -52,6 +52,7 @@ fi
 : ${DEPLOY_DOCS:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_NUGET:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_PYTHON:=${DEPLOY_DEFAULT}}
+: ${DEPLOY_R:=${DEPLOY_DEFAULT}}
 : ${DEPLOY_UBUNTU:=${DEPLOY_DEFAULT}}
 
 rake_tasks=()
@@ -81,6 +82,9 @@ if [ ${DEPLOY_NUGET} -gt 0 ]; then
 fi
 if [ ${DEPLOY_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:release)
+fi
+if [ ${DEPLOY_R} -gt 0 ]; then
+  rake_tasks+=(r:release)
 fi
 if [ ${DEPLOY_UBUNTU} -gt 0 ]; then
   rake_tasks+=(apt:release)

@@ -219,107 +219,8 @@ void ComputeDataPreallocate(const DataType& type,
 
 namespace detail {
 
-ExecBatchIterator::ExecBatchIterator(std::vector<Datum> args, int64_t length,
-                                     int64_t max_chunksize)
-    : args_(std::move(args)),
-      position_(0),
-      length_(length),
-      max_chunksize_(max_chunksize) {
-  chunk_indexes_.resize(args_.size(), 0);
-  chunk_positions_.resize(args_.size(), 0);
-}
-
-Result<std::unique_ptr<ExecBatchIterator>> ExecBatchIterator::Make(
-    std::vector<Datum> args, int64_t max_chunksize) {
-  for (const auto& arg : args) {
-    if (!(arg.is_arraylike() || arg.is_scalar())) {
-      return Status::Invalid(
-          "ExecBatchIterator only works with Scalar, Array, and "
-          "ChunkedArray arguments");
-    }
-  }
-
-  int64_t length = -1;
-  bool length_set = false;
-  for (auto& arg : args) {
-    if (arg.is_scalar()) {
-      continue;
-    }
-    if (!length_set) {
-      length = arg.length();
-      length_set = true;
-    } else {
-      if (arg.length() != length) {
-        return Status::Invalid("Array arguments must all be the same length");
-      }
-    }
-  }
-
-  if (!length_set) {
-    // All scalar case, to be removed soon
-    length = 1;
-  }
-
-  max_chunksize = std::min(length, max_chunksize);
-
-  return std::unique_ptr<ExecBatchIterator>(
-      new ExecBatchIterator(std::move(args), length, max_chunksize));
-}
-
-bool ExecBatchIterator::Next(ExecBatch* batch) {
-  if (position_ == length_) {
-    return false;
-  }
-
-  // Determine how large the common contiguous "slice" of all the arguments is
-  int64_t iteration_size = std::min(length_ - position_, max_chunksize_);
-
-  // If length_ is 0, then this loop will never execute
-  for (size_t i = 0; i < args_.size() && iteration_size > 0; ++i) {
-    // If the argument is not a chunked array, it's either a Scalar or Array,
-    // in which case it doesn't influence the size of this batch. Note that if
-    // the args are all scalars the batch length is 1
-    if (args_[i].kind() != Datum::CHUNKED_ARRAY) {
-      continue;
-    }
-    const ChunkedArray& arg = *args_[i].chunked_array();
-    std::shared_ptr<Array> current_chunk;
-    while (true) {
-      current_chunk = arg.chunk(chunk_indexes_[i]);
-      if (chunk_positions_[i] == current_chunk->length()) {
-        // Chunk is zero-length, or was exhausted in the previous iteration
-        chunk_positions_[i] = 0;
-        ++chunk_indexes_[i];
-        continue;
-      }
-      break;
-    }
-    iteration_size =
-        std::min(current_chunk->length() - chunk_positions_[i], iteration_size);
-  }
-
-  // Now, fill the batch
-  batch->values.resize(args_.size());
-  batch->length = iteration_size;
-  for (size_t i = 0; i < args_.size(); ++i) {
-    if (args_[i].is_scalar()) {
-      batch->values[i] = args_[i].scalar();
-    } else if (args_[i].is_array()) {
-      batch->values[i] = args_[i].array()->Slice(position_, iteration_size);
-    } else {
-      const ChunkedArray& carr = *args_[i].chunked_array();
-      const auto& chunk = carr.chunk(chunk_indexes_[i]);
-      batch->values[i] = chunk->data()->Slice(chunk_positions_[i], iteration_size);
-      chunk_positions_[i] += iteration_size;
-    }
-  }
-  position_ += iteration_size;
-  DCHECK_LE(position_, length_);
-  return true;
-}
-
 // ----------------------------------------------------------------------
-// ExecSpanIterator; to eventually replace ExecBatchIterator
+// ExecSpanIterator
 
 namespace {
 
@@ -348,7 +249,8 @@ bool CheckIfAllScalar(const ExecBatch& batch) {
 
 }  // namespace
 
-Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize) {
+Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize,
+                              bool promote_if_all_scalars) {
   if (batch.num_values() > 0) {
     // Validate arguments
     bool all_args_same_length = false;
@@ -363,6 +265,7 @@ Status ExecSpanIterator::Init(const ExecBatch& batch, int64_t max_chunksize) {
   args_ = &batch.values;
   initialized_ = have_chunked_arrays_ = false;
   have_all_scalars_ = CheckIfAllScalar(batch);
+  promote_if_all_scalars_ = promote_if_all_scalars;
   position_ = 0;
   length_ = batch.length;
   chunk_indexes_.clear();
@@ -443,7 +346,7 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
       }
     }
 
-    if (have_all_scalars_) {
+    if (have_all_scalars_ && promote_if_all_scalars_) {
       PromoteExecSpanScalars(span);
     }
 
@@ -465,8 +368,7 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
     const Datum& arg = args_->at(i);
     if (!arg.is_scalar()) {
       ArraySpan* arr = &span->values[i].array;
-      arr->length = iteration_size;
-      arr->SetOffset(value_positions_[i] + value_offsets_[i]);
+      arr->SetSlice(value_positions_[i] + value_offsets_[i], iteration_size);
       value_positions_[i] += iteration_size;
     }
   }
@@ -858,11 +760,12 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // Populate and then reuse the ArraySpan inside
       output_span->SetMembers(*preallocation);
       output_span->offset = 0;
+      int64_t result_offset = 0;
       while (span_iterator_.Next(&input)) {
         // Set absolute output span position and length
-        output_span->length = input.length;
+        output_span->SetSlice(result_offset, input.length);
         RETURN_NOT_OK(ExecuteSingleSpan(input, &output));
-        output_span->SetOffset(span_iterator_.position());
+        result_offset = span_iterator_.position();
       }
 
       // Kernel execution is complete; emit result
@@ -1138,19 +1041,15 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
     return KernelExecutorImpl<ScalarAggregateKernel>::Init(ctx, args);
   }
 
-  Status Execute(const ExecBatch& args, ExecListener* listener) override {
-    return ExecuteImpl(args.values, listener);
-  }
+  Status Execute(const ExecBatch& batch, ExecListener* listener) override {
+    RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize(),
+                                      /*promote_if_all_scalars=*/false));
 
-  Status ExecuteImpl(const std::vector<Datum>& args, ExecListener* listener) {
-    ARROW_ASSIGN_OR_RAISE(
-        batch_iterator_, ExecBatchIterator::Make(args, exec_context()->exec_chunksize()));
-
-    ExecBatch batch;
-    while (batch_iterator_->Next(&batch)) {
+    ExecSpan span;
+    while (span_iterator_.Next(&span)) {
       // TODO: implement parallelism
-      if (batch.length > 0) {
-        RETURN_NOT_OK(Consume(batch));
+      if (span.length > 0) {
+        RETURN_NOT_OK(Consume(span));
       }
     }
 
@@ -1167,7 +1066,10 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
   }
 
  private:
-  Status Consume(const ExecBatch& batch) {
+  Status Consume(const ExecSpan& span) {
+    // TODO(wesm): this is odd and should be examined soon -- only one state
+    // "should" be needed per thread of execution
+
     // FIXME(ARROW-11840) don't merge *any* aggegates for every batch
     ARROW_ASSIGN_OR_RAISE(auto batch_state,
                           kernel_->init(kernel_ctx_, {kernel_, *input_types_, options_}));
@@ -1179,12 +1081,12 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
     KernelContext batch_ctx(exec_context());
     batch_ctx.SetState(batch_state.get());
 
-    RETURN_NOT_OK(kernel_->consume(&batch_ctx, batch));
+    RETURN_NOT_OK(kernel_->consume(&batch_ctx, span));
     RETURN_NOT_OK(kernel_->merge(kernel_ctx_, std::move(*batch_state), state()));
     return Status::OK();
   }
 
-  std::unique_ptr<ExecBatchIterator> batch_iterator_;
+  ExecSpanIterator span_iterator_;
   const std::vector<TypeHolder>* input_types_;
   const FunctionOptions* options_;
 };

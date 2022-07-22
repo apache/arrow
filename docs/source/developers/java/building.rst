@@ -186,6 +186,9 @@ Arrow repository, and update the following settings:
   Settings > Build, Execution, Deployment > Compiler > Java Compiler and disable
   "Use '--release' option for cross-compilation (Java 9 and later)". Otherwise
   you will get an error like "package sun.misc does not exist".
+* You may want to disable error-prone entirely if it gives spurious
+  warnings (disable both error-prone profiles in the Maven tool window
+  and "Reload All Maven Projects").
 * If using IntelliJ's Maven integration to build, you may need to change
   ``<fork>`` to ``false`` in the pom.xml files due to an `IntelliJ bug
   <https://youtrack.jetbrains.com/issue/IDEA-278903>`__.
@@ -196,23 +199,25 @@ IntelliJ Maven integration instead of with IntelliJ directly.
 Common Errors
 =============
 
-1. If the build cannot find dependencies, with errors like these:
-    - Could NOT find Boost (missing: Boost_INCLUDE_DIR system filesystem)
-    - Could NOT find Lz4 (missing: LZ4_LIB)
-    - Could NOT find zstd (missing: ZSTD_LIB)
+* When working with the JNI code: if the C++ build cannot find dependencies, with errors like these:
 
-    Download the dependencies at build time (More details in the `Dependency Resolution`_):
+  .. code-block::
 
-    .. code-block::
+     Could NOT find Boost (missing: Boost_INCLUDE_DIR system filesystem)
+     Could NOT find Lz4 (missing: LZ4_LIB)
+     Could NOT find zstd (missing: ZSTD_LIB)
 
-        -Dre2_SOURCE=BUNDLED \
-        -DBoost_SOURCE=BUNDLED \
-        -Dutf8proc_SOURCE=BUNDLED \
-        -DSnappy_SOURCE=BUNDLED \
-        -DORC_SOURCE=BUNDLED \
-        -DZLIB_SOURCE=BUNDLED
+  Specify that the dependencies should be downloaded at build time (more details at `Dependency Resolution`_):
+
+  .. code-block::
+
+     -Dre2_SOURCE=BUNDLED \
+     -DBoost_SOURCE=BUNDLED \
+     -Dutf8proc_SOURCE=BUNDLED \
+     -DSnappy_SOURCE=BUNDLED \
+     -DORC_SOURCE=BUNDLED \
+     -DZLIB_SOURCE=BUNDLED
 
 .. _Archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
 .. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution
 .. _C++ shared libraries: https://arrow.apache.org/docs/cpp/build_system.html
-.. _TestArrowBuf.java: https://github.com/apache/arrow/blob/master/java/memory/memory-core/src/test/java/org/apache/arrow/memory/TestArrowBuf.java#L130:L147

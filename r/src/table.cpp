@@ -23,8 +23,8 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
-  return x->num_columns();
+r_vec_size Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
+  return r_vec_size(x->num_columns());
 }
 
 // [[arrow::export]]
@@ -303,8 +303,8 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
 }
 
 // [[arrow::export]]
-int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) {
-  return ValueOrStop(arrow::util::ReferencedBufferSize(*table));
+r_vec_size Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) {
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*table)));
 }
 
 // [[arrow::export]]

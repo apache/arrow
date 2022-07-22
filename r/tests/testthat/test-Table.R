@@ -592,7 +592,7 @@ test_that("cbind.Table handles record batches and tables", {
   )
 })
 
-test_that("ARROW-11769 - grouping preserved in table creation", {
+test_that("ARROW-11769/ARROW-17085 - grouping preserved in table creation", {
   skip_if_not_available("dataset")
 
   tbl <- tibble::tibble(
@@ -601,6 +601,12 @@ test_that("ARROW-11769 - grouping preserved in table creation", {
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
 
+  expect_identical(
+    tbl %>%
+      Table$create() %>%
+      dplyr::group_vars(),
+    dplyr::group_vars(tbl)
+  )
   expect_identical(
     tbl %>%
       dplyr::group_by(fct, fct2) %>%
@@ -662,4 +668,29 @@ test_that("as_arrow_table() errors for invalid input", {
     as_arrow_table("no as_arrow_table() method"),
     class = "arrow_no_method_as_arrow_table"
   )
+})
+
+test_that("num_rows method not susceptible to integer overflow", {
+  skip_if_not_running_large_memory_tests()
+
+  small_array <- Array$create(raw(1))
+  big_array <- Array$create(raw(.Machine$integer.max))
+  big_chunked_array <- chunked_array(big_array, small_array)
+  # LargeString array with data buffer > MAX_INT32
+  big_string_array <- Array$create(make_big_string())
+
+  small_table <- Table$create(col = small_array)
+  big_table <- Table$create(col = big_chunked_array)
+
+  expect_type(big_array$nbytes(), "integer")
+  expect_type(big_chunked_array$nbytes(), "double")
+
+  expect_type(length(big_array), "integer")
+  expect_type(length(big_chunked_array), "double")
+
+  expect_type(small_table$num_rows, "integer")
+  expect_type(big_table$num_rows, "double")
+
+  expect_identical(big_string_array$data()$buffers[[3]]$size, 2148007936)
+
 })

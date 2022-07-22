@@ -79,6 +79,7 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
+                       fatal_warnings: gi_fatal_warnings,
                        header: 'parquet-glib/parquet-glib.h',
                        identifier_prefix: 'GParquet',
                        includes: [

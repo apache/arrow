@@ -2169,6 +2169,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
                                                          S3FileSystem* fs) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(s));
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
 
@@ -2179,6 +2180,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
                                                          S3FileSystem* fs) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
     if (info.type() == FileType::NotFound) {
       return ::arrow::fs::internal::PathNotFound(info.path());
     }
@@ -2537,6 +2539,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
     const std::string& s, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(s));
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 

@@ -3018,7 +3018,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
                      use_threads=None, file_visitor=None,
                      existing_data_behavior=None,
                      **kwargs):
-    """Wrapper around parquet.write_table for writing a Table to
+    """Wrapper around dataset.write_dataset (when use_legacy_dataset=False) or
+    parquet.write_table (when use_legacy_dataset=True) for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
     a subdirectories are created in the following
@@ -3052,6 +3053,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
         A callback function that takes the partition key(s) as an argument
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
+        This option is only supported for use_legacy_dataset=True.
+        When use_legacy_dataset=None and this option is specified,
+        use_legacy_datase will be set to True.
     use_legacy_dataset : bool
         Default is False. Set to True to use the the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
@@ -3061,17 +3065,21 @@ def write_to_dataset(table, root_path, partition_cols=None,
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
+        This option is only supported for use_legacy_dataset=False.
     schema : Schema, optional
+        This option is only supported for use_legacy_dataset=False.
     partitioning : Partitioning or list[str], optional
         The partitioning scheme specified with the
         ``pyarrow.dataset.partitioning()`` function or a list of field names.
         When providing a list of field names, you can use
         ``partitioning_flavor`` to drive which partitioning type should be
         used.
+        This option is only supported for use_legacy_dataset=False.
     basename_template : str, optional
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented
         integer. If not specified, it defaults to "guid-{i}.parquet".
+        This option is only supported for use_legacy_dataset=False.
     file_visitor : function
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
@@ -3091,15 +3099,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
 
             def file_visitor(written_file):
                 visited_paths.append(written_file.path)
+        This option is only supported for use_legacy_dataset=False.
     existing_data_behavior : 'overwrite_or_ignore' | 'error' | \
 'delete_matching'
         Controls how the dataset will handle data that already exists in
         the destination. The default behaviour is 'overwrite_or_ignore'.
-
-        Only used in the new code path using the new Arrow Dataset API
-        (``use_legacy_dataset=False``). In case the legacy implementation
-        is selected the parameter is ignored as the old implementation does
-        not support it (only has the default behaviour).
 
         'overwrite_or_ignore' will ignore any existing data and will
         overwrite files with the same name as an output file.  Other
@@ -3113,9 +3117,15 @@ def write_to_dataset(table, root_path, partition_cols=None,
         dataset.  The first time each partition directory is encountered
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
+        This option is only supported for use_legacy_dataset=False.
     **kwargs : dict,
-        Additional kwargs for write_table function. See docstring for
-        `write_table` or `ParquetWriter` for more information.
+        When use_legacy_dataset=False, used as additional kwargs for
+        `dataset.write_dataset` function (passed to
+        `ParquetFileFormat.make_write_options`). See the docstring
+        of `write_table` for the available options.
+        When use_legacy_dataset=True, used as additional kwargs for
+        `parquet.write_table` function (See docstring for `write_table`
+        or `ParquetWriter` for more information).
         Using `metadata_collector` in kwargs allows one to collect the
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.

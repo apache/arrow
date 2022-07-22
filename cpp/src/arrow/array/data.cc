@@ -138,7 +138,11 @@ int64_t ArrayData::GetNullCount() const {
 void ArraySpan::SetMembers(const ArrayData& data) {
   this->type = data.type.get();
   this->length = data.length;
-  this->null_count = data.null_count.load();
+  if (this->type->id() == Type::NA) {
+    this->null_count = this->length;
+  } else {
+    this->null_count = data.null_count.load();
+  }
   this->offset = data.offset;
 
   for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {

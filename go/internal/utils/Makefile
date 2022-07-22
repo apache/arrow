@@ -35,7 +35,7 @@ ALL_SOURCES := $(shell find . -path ./_lib -prune -o -name '*.go' -name '*.s' -n
 .PHONEY: assembly
 
 INTEL_SOURCES := \
-	min_max_avx2_amd64.s min_max_sse4_amd64.s
+	min_max_avx2_amd64.s min_max_sse4_amd64.s transpose_ints_avx2_amd64.s transpose_ints_sse4_amd64.s
 
 #
 # ARROW-15336: DO NOT add the assembly target for Arm64 (ARM_SOURCES) until c2goasm added the Arm64 support.
@@ -54,10 +54,25 @@ _lib/min_max_sse4_amd64.s: _lib/min_max.c
 _lib/min_max_neon.s: _lib/min_max.c
 	$(CC) -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
+_lib/transpose_ints_avx2_amd64.s: _lib/transpose_ints.c
+	$(CC) -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
+_lib/transpose_ints_sse4_amd64.s: _lib/transpose_ints.c
+	$(CC) -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
+_lib/transpose_ints_neon.s: _lib/transpose_ints.c
+	$(CC) -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
+
 min_max_avx2_amd64.s: _lib/min_max_avx2_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
 min_max_sse4_amd64.s: _lib/min_max_sse4_amd64.s
+	$(C2GOASM) -a -f $^ $@
+
+transpose_ints_avx2_amd64.s: _lib/transpose_ints_avx2_amd64.s
+	$(C2GOASM) -a -f $^ $@
+
+transpose_ints_sse4_amd64.s: _lib/transpose_ints_sse4_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
 clean:

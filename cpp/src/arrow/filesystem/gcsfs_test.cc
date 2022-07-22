@@ -32,6 +32,7 @@
 // boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
 // cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
 #include <boost/process.hpp>
+#include <boost/thread.hpp>
 
 #include "arrow/filesystem/gcsfs.h"
 
@@ -44,14 +45,17 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <iostream>
 #include <random>
 #include <string>
+#include <thread>
 
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -96,7 +100,7 @@ class GcsTestbench : public ::testing::Environment {
       names = {env};
     }
     auto error = std::string(
-        "Cloud not start GCS emulator."
+        "Could not start GCS emulator."
         " Used the following list of python interpreter names:");
     for (const auto& interpreter : names) {
       auto exe_path = bp::search_path(interpreter);
@@ -106,8 +110,27 @@ class GcsTestbench : public ::testing::Environment {
         continue;
       }
 
-      server_process_ = bp::child(exe_path, "-m", "testbench", "--port", port_, group_);
-      if (server_process_.valid() && server_process_.running()) break;
+      bp::ipstream output;
+      server_process_ = bp::child(exe_path, "-m", "testbench", "--port", port_, group_,
+                                  bp::std_err > output);
+      // Wait for message: "* Restarting with"
+      auto testbench_is_running = [&output, this](bp::child& process) {
+        std::string line;
+        std::chrono::time_point<std::chrono::steady_clock> end =
+            std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (server_process_.valid() && server_process_.running() &&
+               std::chrono::steady_clock::now() < end) {
+          if (output.peek() && std::getline(output, line)) {
+            std::cerr << line << std::endl;
+            if (line.find("* Restarting with") != std::string::npos) return true;
+          } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+          }
+        }
+        return false;
+      };
+
+      if (testbench_is_running(server_process_)) break;
       error += " (failed to start)";
       server_process_.terminate();
       server_process_.wait();
@@ -278,7 +301,7 @@ class GcsIntegrationTest : public ::testing::Test {
 class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest {
  public:
   void SetUp() override {
-    GcsIntegrationTest::SetUp();
+    ASSERT_NO_FATAL_FAILURE(GcsIntegrationTest::SetUp());
     auto bucket_name = RandomBucketName();
     gcs_fs_ = GcsFileSystem::Make(TestGcsOptions());
     ASSERT_OK(gcs_fs_->CreateDir(bucket_name, true));

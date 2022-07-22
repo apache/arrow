@@ -219,6 +219,7 @@ reference:
       - match_arrow
       - value_counts
       - list_compute_functions
+      - register_scalar_function
       - show_exec_plan
   - title: Connections to other systems
     contents:
