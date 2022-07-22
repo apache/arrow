@@ -152,13 +152,14 @@ test_that("strptime", {
   )
 
   tz <- "Pacific/Marquesas"
-  times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "hour")
-  times <- c(as.POSIXct("1999-12-31T12:34:56.01", tz = "UTC"))
+  set.seed(42)
+  times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "sec")
+  times <- sample(times, 100)
 
   # The following formats are currently not supported by strptime: %q %Op
   formats <- c(
     "%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
-    "%S", "%q", "%M", "%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z"
+    "%S", "%q", "%M", "%I%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z"
   )
   base_format <- c("%Y-%m-%d")
 
