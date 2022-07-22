@@ -24,8 +24,8 @@ import org.apache.arrow.vector.FieldVector;
  * @param <V> The concrete FieldVector subtype.
  */
 public abstract class BaseColumnBinder<V extends FieldVector> implements ColumnBinder {
-  protected V vector;
-  protected int jdbcType;
+  protected final V vector;
+  protected final int jdbcType;
 
   public BaseColumnBinder(V vector, int jdbcType) {
     this.vector = vector;

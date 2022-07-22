@@ -103,39 +103,23 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
 
   @Override
   public ColumnBinder visit(ArrowType.Int type) {
+    if (!type.getIsSigned()) {
+      throw new UnsupportedOperationException(
+          "No column binder implemented for unsigned type " + type);
+    }
     switch (type.getBitWidth()) {
       case 8:
-        if (type.getIsSigned()) {
-          return jdbcType == null ? new TinyIntBinder((TinyIntVector) vector) :
-              new TinyIntBinder((TinyIntVector) vector, jdbcType);
-        } else {
-          throw new UnsupportedOperationException(
-              "No column binder implemented for unsigned type " + type);
-        }
+        return jdbcType == null ? new TinyIntBinder((TinyIntVector) vector) :
+            new TinyIntBinder((TinyIntVector) vector, jdbcType);
       case 16:
-        if (type.getIsSigned()) {
-          return jdbcType == null ? new SmallIntBinder((SmallIntVector) vector) :
-              new SmallIntBinder((SmallIntVector) vector, jdbcType);
-        } else {
-          throw new UnsupportedOperationException(
-              "No column binder implemented for unsigned type " + type);
-        }
+        return jdbcType == null ? new SmallIntBinder((SmallIntVector) vector) :
+            new SmallIntBinder((SmallIntVector) vector, jdbcType);
       case 32:
-        if (type.getIsSigned()) {
-          return jdbcType == null ? new IntBinder((IntVector) vector) :
-              new IntBinder((IntVector) vector, jdbcType);
-        } else {
-          throw new UnsupportedOperationException(
-              "No column binder implemented for unsigned type " + type);
-        }
+        return jdbcType == null ? new IntBinder((IntVector) vector) :
+            new IntBinder((IntVector) vector, jdbcType);
       case 64:
-        if (type.getIsSigned()) {
-          return jdbcType == null ? new BigIntBinder((BigIntVector) vector) :
-              new BigIntBinder((BigIntVector) vector, jdbcType);
-        } else {
-          throw new UnsupportedOperationException(
-              "No column binder implemented for unsigned type " + type);
-        }
+        return jdbcType == null ? new BigIntBinder((BigIntVector) vector) :
+            new BigIntBinder((BigIntVector) vector, jdbcType);
       default:
         throw new UnsupportedOperationException("No column binder implemented for type " + type);
     }
