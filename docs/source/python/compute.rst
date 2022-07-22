@@ -391,7 +391,7 @@ To register a UDF, a function name, function docs and input types and output typ
    import pyarrow.compute as pc
    function_name = "regression"
    function_docs = {
-      "summary": "Calculate y based on m, x and c values",
+      "summary": "Calculate y = mx + c",
       "description": "Obtaining output of a linear scalar function"
    }
    input_types = {
