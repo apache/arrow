@@ -370,3 +370,80 @@ our ``even_filter`` with a ``pc.field("nums") > 5`` filter:
 
 :class:`.Dataset` currently can be filtered using :meth:`.Dataset.to_table` method
 passing a ``filter`` argument. See :ref:`py-filter-dataset` in Dataset documentation.
+
+
+User-Defined Functions
+======================
+
+.. warning::
+   User-defined functions only supports scalar functions and the current version is experimental.
+
+To use a user-defined-function (UDF), either the experimental `dataset` API options can be used or the
+function can be directly called using :func:`pyarrow.compute.call_function`. 
+
+To register a UDF, a function name, function docs and input types and output type needs to be defined.
+
+.. code-block:: python
+
+   import pyarrow.compute as pc
+   function_name = "regression"
+   function_docs = {
+      "summary": "Calculate y based on m, x and c values",
+      "description": "Obtaining output of a linear scalar function"
+   }
+   input_types = {
+      "m" : pa.int64(),
+      "x" : pa.int64(),
+      "c" : pa.int64(),
+   }
+   output_type = pa.int64()
+
+   def linear_calculation(ctx, m, x, c):
+      return pc.add(pc.multiply(m, x), c)
+
+   pc.register_scalar_function(linear_calculation, 
+                               function_name,
+                               function_docs,
+                               input_types,
+                               output_type)
+
+.. note::
+   There is a default parameter, `ctx` which is refers to a context object and it should be the
+   first parameter of any user-defined-function. The idea is to make available passing required
+   meta-data across an application which would be important for UDFs.
+
+Calling a UDF directly using :func:`pyarrow.compute.call_function`,
+
+.. code-block:: python
+
+   >>> res = pc.call_function("regression", [pa.scalar(2), pa.scalar(10), pa.scalar(5)])
+   25
+
+.. warning::
+   Note that when the passed values to a function are all scalars, internally each scalar 
+   is passed as an array of size 1.
+
+UDFs can be used with tabular data by using `dataset` API and apply a UDF function on the
+dataset.
+
+.. code-block:: python
+
+   >>> sample_data = {'trip_name': ['A', 'B', 'C', 'D'], 'total_amount($)': [10, 20, 45, 15]}
+   >>> data_table = pa.Table.from_pydict(sample_data)
+   >>> import pyarrow.dataset as ds
+   >>> dataset = ds.dataset(data_table)
+   >>> func_args = [pc.scalar(5), ds.field("total_amount($)"), pc.scalar(2)]
+   >>> result_table = dataset.to_table(
+   ...             columns={
+   ...                 'total_amount_projected($)': ds.field('')._call(function_name, func_args),
+   ...                 'total_amount($)': ds.field('total_amount($)'),
+   ...                 'trip_name': ds.field('trip_name')
+   ...             })
+   pyarrow.Table
+   total_amount_projected($): int64
+   total_amount($): int64
+   trip_name: string
+   ----
+   total_amount_projected($): [[52,102,227,77]]
+   total_amount($): [[10,20,45,15]]
+   trip_name: [["A","B","C","D"]]
