@@ -219,12 +219,16 @@ DateUtils::date_format_converter DateUtils::InitMap() {
   map["f"] = "S";
   map["ff"] = "SS";
   map["fff"] = "SSS";
-  /*
+
   // Timezone not tested/supported yet fully.
-  map["tzd"] = "%Z";
+//  map["tzd"] = "%Z";
+//  map["tzo"] = "%z";
+//  map["tzh:tzm"] = "%z";
+
+  // Timezone
+  map["tzd"] = "%q";
   map["tzo"] = "%z";
   map["tzh:tzm"] = "%z";
-  */
 
   return map;
 }

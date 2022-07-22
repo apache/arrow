@@ -25,6 +25,11 @@
 #include "gandiva/date_utils.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/node.h"
+#include "gandiva/precompiled/epoch_time_point.h"
+
+#include <boost/date_time.hpp>
+#include <iostream>
+namespace bt = boost::posix_time;
 
 namespace gandiva {
 
@@ -79,6 +84,13 @@ Status ToDateHolder::Make(const std::string& sql_pattern, int32_t suppress_error
   return Status::OK();
 }
 
+std::time_t pt_to_time_t(const bt::ptime& pt)
+{
+  bt::ptime timet_start(boost::gregorian::date(1970,1,1));
+  bt::time_duration diff = pt - timet_start;
+  return diff.ticks();
+}
+
 int64_t ToDateHolder::operator()(ExecutionContext* context, const char* data,
                                  int data_len, bool in_valid, bool* out_valid) {
   *out_valid = false;
@@ -88,22 +100,38 @@ int64_t ToDateHolder::operator()(ExecutionContext* context, const char* data,
 
   std::string str;
   str.assign(data, data_len);
-  std::size_t found = str.find("T");
-  if (found != std::string::npos) {
-    str = str.replace(found, 1, "'T'");
-  }
+//  std::size_t found1 = str.find("T");
+//  std::size_t found2 = str.find("'T'");
+//  if (found1 != std::string::npos && found2 == std::string::npos) {
+//    str = str.replace(found1, 1, "'T'");
+//  }
 
   // Issues
   // 1. processes date that do not match the format.
   // 2. does not process time in format +08:00 (or) id.
   int64_t seconds_since_epoch = 0;
-  if (!::arrow::internal::ParseTimestampStrptime(
-          str.c_str(), str.length(), pattern_.c_str(),
-          /*ignore_time_in_day=*/true, /*allow_trailing_chars=*/true,
-          ::arrow::TimeUnit::SECOND, &seconds_since_epoch)) {
-    return_error(context, data, data_len);
-    return 0;
+
+  std::istringstream is(str);
+  auto pattern = std::locale(std::locale::classic(),new bt::time_input_facet(pattern_.c_str()));
+  is.imbue(pattern);
+  bt::ptime pt;
+  is >> pt;
+  if(pt != bt::ptime()) {
+//    EpochTimePoint tp(pt_to_time_t(pt));
+//    const auto& dayWithoutHoursAndSec = tp.ClearTimeOfDay();
+//    return dayWithoutHoursAndSec.MillisSinceEpoch();
+    
+    return pt_to_time_t(pt);
   }
+
+
+//  if (!::arrow::internal::ParseTimestampStrptime(
+//        str.c_str(), str.length(), pattern_.c_str(),
+//        /*ignore_time_in_day=*/true, /*allow_trailing_chars=*/false,
+//        ::arrow::TimeUnit::SECOND, &seconds_since_epoch)) {
+//    return_error(context, data, data_len);
+//    return 0;
+//  }
 
   *out_valid = true;
   return seconds_since_epoch * 1000;

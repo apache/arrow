@@ -807,6 +807,7 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!ignore_time_in_day) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
+
 #ifndef _WIN32
     secs -= std::chrono::seconds(result.tm_gmtoff);
 #endif

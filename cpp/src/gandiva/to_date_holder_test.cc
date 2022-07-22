@@ -46,7 +46,7 @@ class TestToDateHolder : public ::testing::Test {
 
 TEST_F(TestToDateHolder, TestSimpleDateTime) {
   std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 1, &to_date_holder));
+  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD HH24:MI:SS", 1, &to_date_holder));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
@@ -58,12 +58,14 @@ TEST_F(TestToDateHolder, TestSimpleDateTime) {
   s = std::string("1986-12-01 01:01:01.11");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533779200000);
+//  EXPECT_EQ(millis_since_epoch, 533779200000);
+  EXPECT_EQ(millis_since_epoch, 0);
 
   s = std::string("1986-12-01 01:01:01 +0800");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533779200000);
+//  EXPECT_EQ(millis_since_epoch, 533779200000);
+  EXPECT_EQ(millis_since_epoch, 0);
 
 #if 0
   // TODO : this fails parsing with date::parse and strptime on linux
@@ -130,15 +132,37 @@ TEST_F(TestToDateHolder, TestPartSimpleDate) {
   EXPECT_EQ(millis_since_epoch, 533779200000);
 }
 
+TEST_F(TestToDateHolder, TestPartDateTimeZone) {
+  std::shared_ptr<ToDateHolder> to_date_holder;
+  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD HH24:MI:SS tzd", 1, &to_date_holder));
+
+  auto& to_date = *to_date_holder;
+  bool out_valid;
+  std::string s("2022-07-18 08:49:15 +0800");
+  int64_t millis_since_epoch =
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 1658102400000);
+
+  std::string s2("2022-07-18 21:49:15 +0800");
+  millis_since_epoch =
+      to_date(&execution_context_, s2.data(), (int)s2.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 1658188800000);
+}
+
 TEST_F(TestToDateHolder, TestDateTime) {
   std::shared_ptr<ToDateHolder> to_date_holder;
   ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD\"T\"HH24:MI:SS", 1, &to_date_holder));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
-  std::string s("2015-01-01T00:00:00");
+  std::string s1("2015-01-01T00:00:00");
   int64_t millis_since_epoch =
-      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+      to_date(&execution_context_, s1.data(), (int)s1.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 1420070400000);
+
+  std::string s2("2015-01-01'T'00:00:00");
+  millis_since_epoch =
+      to_date(&execution_context_, s2.data(), (int)s2.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 1420070400000);
 }
 
@@ -148,9 +172,14 @@ TEST_F(TestToDateHolder, TestDateTimeError) {
 
   auto& to_date = *to_date_holder;
   bool out_valid;
-  std::string s("2015-01-01T00:00:00");
+  std::string s1("2015-01-01T00:00:00");
   int64_t millis_since_epoch =
-      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+      to_date(&execution_context_, s1.data(), (int)s1.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 0);
+
+  std::string s2("2015-01-01");
+  millis_since_epoch =
+      to_date(&execution_context_, s2.data(), (int)s2.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 1420070400000);
 }
 
