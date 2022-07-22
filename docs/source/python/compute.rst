@@ -384,7 +384,7 @@ Those functions can then be called from Python as well as C++ (and potentially
 any other implementation wrapping Arrow C++, such as the R ``arrow`` package`)
 using their registered function name.
 
-To register a UDF, a function name, function docs and input types and output type needs to be defined.
+To register a UDF, a function name, function docs and input types and output type need to be defined.
 
 .. code-block:: python
 
