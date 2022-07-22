@@ -1213,7 +1213,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      ARROW_BUILD_TESTS: 'OFF'
       ARROW_R_CXXFLAGS: '-Werror'
       ARROW_FLIGHT: 'ON'
       LIBARROW_BUILD: 'false'
