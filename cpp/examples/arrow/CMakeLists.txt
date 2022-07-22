@@ -25,8 +25,6 @@ endif()
 
 if(ARROW_SUBSTRAIT)
   add_arrow_example(engine_substrait_consumption EXTRA_LINK_LIBS arrow_substrait_shared)
-  add_arrow_example(tpch_q6_demo EXTRA_LINK_LIBS arrow_substrait_shared)
-  add_arrow_example(tpch_q1_demo EXTRA_LINK_LIBS arrow_substrait_shared)
 endif()
 
 if(ARROW_COMPUTE AND ARROW_CSV)

@@ -152,6 +152,26 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
                                    std::move(format), std::move(options)));
 }
 
+Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
+    std::shared_ptr<fs::FileSystem> filesystem, const std::vector<FileSource>& files,
+    std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
+  std::vector<FileSource> filtered_files;
+  for (const auto& src : files) {
+    if (options.exclude_invalid_files) {
+      ARROW_ASSIGN_OR_RAISE(auto supported, format->IsSupported(src));
+      if (!supported) {
+        continue;
+      }
+    }
+
+    filtered_files.push_back(src);
+  }
+
+  return std::shared_ptr<DatasetFactory>(
+      new FileSystemDatasetFactory(std::move(filtered_files), std::move(filesystem),
+                                   std::move(format), std::move(options)));
+}
+
 bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& prefixes) {
   if (prefixes.empty()) {
     return false;

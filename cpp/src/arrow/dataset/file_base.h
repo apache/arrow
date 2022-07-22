@@ -74,6 +74,16 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
         length_(length),
         compression_(compression) {}
 
+    FileSource(fs::FileInfo info,
+             std::shared_ptr<fs::FileSystem> filesystem,
+             int64_t start_offset, int64_t length,
+             Compression::type compression = Compression::UNCOMPRESSED)
+      : file_info_(info),
+        filesystem_(std::move(filesystem)),
+        start_offset_(start_offset),
+        length_(length),
+        compression_(compression) {}
+
   explicit FileSource(std::shared_ptr<Buffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
       : buffer_(std::move(buffer)), compression_(compression) {}

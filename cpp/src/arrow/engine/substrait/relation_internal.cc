@@ -93,17 +93,19 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       }
 
       auto head = read.local_files().items().at(0);
+      auto num_columns = static_cast<int>(base_schema->fields().size());
       if (head.path_type_case() == substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile &&
           util::string_view{head.uri_file()}.starts_with("iterator:")) {
         const auto& index = head.uri_file().substr(9);
-        return compute::Declaration{"source_index",
-                                    compute::SourceIndexOptions{std::stoi(index)}};
+        return DeclarationInfo{
+          compute::Declaration{
+              "source_index", compute::SourceIndexOptions{std::stoi(index)}},
+          num_columns};
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto filesystem, fs::FileSystemFromUri(head.uri_file()));
       std::shared_ptr<dataset::FileFormat> format;
       auto filesystem = std::make_shared<fs::LocalFileSystem>();
-      std::vector<fs::FileInfo> files;
+      std::vector<dataset::FileSource> files;
 
       for (const auto& item : read.local_files().items()) {
         std::string path;
@@ -143,19 +145,21 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
             substrait::ReadRel_LocalFiles_FileOrFiles::kUriPath) {
           ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetFileInfo(path));
           if (file.type() == fs::FileType::File) {
-          // Read all row groups if both start and length are not specified.
-          int64_t start_offset = item.length() == 0 && item.start() == 0
-                                    ? -1
-                                    : static_cast<int64_t>(item.start());
-          int64_t length = static_cast<int64_t>(item.length());
-            files.push_back(std::move(file));
+            // Read all row groups if both start and length are not specified.
+            int64_t start_offset = item.length() == 0 && item.start() == 0
+                                      ? -1
+                                      : static_cast<int64_t>(item.start());
+            int64_t length = static_cast<int64_t>(item.length());
+            files.emplace_back(file, filesystem, start_offset, length);
           } else if (file.type() == fs::FileType::Directory) {
             fs::FileSelector selector;
             selector.base_dir = path;
             selector.recursive = true;
             ARROW_ASSIGN_OR_RAISE(auto discovered_files,
                                   filesystem->GetFileInfo(selector));
-            std::move(files.begin(), files.end(), std::back_inserter(discovered_files));
+            for (const auto& file : discovered_files) {
+              files.emplace_back(file, filesystem);
+            }
           }
         }
         if (item.path_type_case() ==
@@ -165,20 +169,22 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
                                     ? -1
                                     : static_cast<int64_t>(item.start());
           int64_t length = static_cast<int64_t>(item.length());
-          files.emplace_back(path, fs::FileType::File);
+          files.emplace_back(fs::FileInfo{path, fs::FileType::File}, filesystem, start_offset, length);
         } else if (item.path_type_case() ==
                    substrait::ReadRel_LocalFiles_FileOrFiles::kUriFolder) {
           fs::FileSelector selector;
           selector.base_dir = path;
           selector.recursive = true;
           ARROW_ASSIGN_OR_RAISE(auto discovered_files, filesystem->GetFileInfo(selector));
-          std::move(discovered_files.begin(), discovered_files.end(),
-                    std::back_inserter(files));
+          for (const auto& file : discovered_files) {
+            files.emplace_back(file, filesystem);
+          }
         } else {
           ARROW_ASSIGN_OR_RAISE(auto discovered_files,
                                 fs::internal::GlobFiles(filesystem, path));
-          std::move(discovered_files.begin(), discovered_files.end(),
-                    std::back_inserter(files));
+          for (const auto& file : discovered_files) {
+            files.emplace_back(file, filesystem);
+          }
         }
       }
 
@@ -186,7 +192,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
                                                  std::move(filesystem), std::move(files),
                                                  std::move(format), {}));
 
-      auto num_columns = static_cast<int>(base_schema->fields().size());
       ARROW_ASSIGN_OR_RAISE(auto ds, ds_factory->Finish(std::move(base_schema)));
 
       return DeclarationInfo{
@@ -328,142 +333,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel,
       join_dec.inputs.emplace_back(std::move(left.declaration));
       join_dec.inputs.emplace_back(std::move(right.declaration));
       return DeclarationInfo{std::move(join_dec), num_columns};
-    }
-
-    case substrait::Rel::RelTypeCase::kAggregate: {
-      const auto& aggregate = rel.aggregate();
-      RETURN_NOT_OK(CheckRelCommon(aggregate));
-
-      if (!aggregate.has_input()) {
-        return Status::Invalid("substrait::AggregateRel with no input relation");
-      }
-      ARROW_ASSIGN_OR_RAISE(auto input, FromProto(aggregate.input(), ext_set));
-
-      compute::AggregateNodeOptions opts{{}, {}, {}};
-
-      if (aggregate.groupings_size() > 1) {
-        return Status::Invalid("substrait::AggregateRel has " +
-                               std::to_string(aggregate.groupings_size()) + " groupings");
-      }
-
-      for (const auto& grouping : aggregate.groupings()) {
-        for (const auto& expr : grouping.grouping_expressions()) {
-          ARROW_ASSIGN_OR_RAISE(auto key_expr, FromProto(expr, ext_set));
-          if (auto field = key_expr.field_ref()) {
-            opts.keys.emplace_back(*field);
-          } else {
-            return Status::Invalid(
-                "substrait::AggregateRel grouping key is not a field reference: " +
-                key_expr.ToString());
-          }
-        }
-      }
-
-      // group by will first output targets then keys
-      // We need a post projector to first output keys then targets
-      // TODO: use options to control this behavior
-      std::vector<compute::Expression> reordered_fields(opts.keys.size());
-      int32_t reordered_field_pos = 0;
-
-      for (const auto& measure : aggregate.measures()) {
-        if (measure.has_filter()) {
-          // invalid
-          return Status::Invalid("substrait::AggregateRel has filter.");
-        }
-
-        auto agg_func = measure.measure();
-        ARROW_ASSIGN_OR_RAISE(auto decoded_function,
-                              ext_set.DecodeFunction(agg_func.function_reference()));
-
-        if (!agg_func.sorts().empty()) {
-          return Status::Invalid("substrait::AggregateRel aggregate function #" +
-                                 decoded_function.name.to_string() + " has sort.");
-        }
-
-        std::vector<FieldRef> target_fields;
-        target_fields.reserve(agg_func.args_size());
-        for (const auto& arg : agg_func.args()) {
-          ARROW_ASSIGN_OR_RAISE(auto target_expr, FromProto(arg, ext_set));
-          if (auto target_field = target_expr.field_ref()) {
-            target_fields.emplace_back(*target_field);
-          } else {
-            return Status::Invalid(
-                "substrait::AggregateRel measure's arg is not a field reference: " +
-                target_expr.ToString());
-          }
-        }
-
-        int32_t target_field_idx = 0;
-        if (decoded_function.name == "mean") {
-          switch (agg_func.phase()) {
-            case ::substrait::AggregationPhase::
-                AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE: {
-              static std::vector<std::string> function_names = {"hash_sum", "hash_count"};
-              for (const std::string& func : function_names) {
-                opts.aggregates.push_back({func, nullptr});
-                opts.targets.emplace_back(target_fields[target_field_idx]);
-                opts.names.emplace_back(func + " " + opts.targets.back().ToString());
-                reordered_fields.emplace_back(compute::field_ref(reordered_field_pos++));
-              }
-              target_field_idx++;
-              break;
-            }
-            case ::substrait::AggregationPhase::
-                AGGREGATION_PHASE_INTERMEDIATE_TO_RESULT: {
-              static std::vector<std::string> function_names = {"hash_sum", "hash_sum"};
-              for (const std::string& func : function_names) {
-                opts.aggregates.push_back({func, nullptr});
-                opts.targets.emplace_back(std::move(target_fields[target_field_idx]));
-                opts.names.emplace_back(func + " " + opts.targets.back().ToString());
-                target_field_idx++;
-              }
-              reordered_fields.emplace_back(
-                  compute::call("divide", {compute::field_ref(reordered_field_pos++),
-                                           compute::field_ref(reordered_field_pos++)}));
-              break;
-            }
-            default:
-              return Status::Invalid("substrait::AggregateRel unsupported phase " +
-                                     std::to_string(agg_func.phase()));
-          }
-        } else if (decoded_function.name == "count" &&
-                   agg_func.phase() == ::substrait::AggregationPhase::
-                                           AGGREGATION_PHASE_INTERMEDIATE_TO_RESULT) {
-          std::string func = "hash_sum";
-          opts.aggregates.push_back({func, nullptr});
-          opts.targets.emplace_back(std::move(target_fields[target_field_idx]));
-          opts.names.emplace_back(func + " " + opts.targets.back().ToString());
-          target_field_idx++;
-          reordered_fields.emplace_back(compute::field_ref(reordered_field_pos++));
-        } else {
-          std::string func = opts.keys.empty()
-                                 ? decoded_function.name.to_string()
-                                 : "hash_" + decoded_function.name.to_string();
-          opts.aggregates.push_back({func, nullptr});
-          opts.targets.emplace_back(std::move(target_fields[target_field_idx]));
-          opts.names.emplace_back(func + " " + opts.targets.back().ToString());
-          target_field_idx++;
-          reordered_fields.emplace_back(compute::field_ref(reordered_field_pos++));
-        }
-
-        if (target_field_idx != agg_func.args_size()) {
-          return Status::Invalid("substrait::AggregateRel aggregate function #" +
-                                 decoded_function.name.to_string() +
-                                 " not all arguments are consumed.");
-        }
-      }
-
-      for (size_t i = 0; i < opts.keys.size(); ++i) {
-        reordered_fields[i] = compute::field_ref(reordered_field_pos++);
-      }
-
-      auto aggregate_decl = compute::Declaration{"aggregate", std::move(opts)};
-
-      auto post_project_decl = compute::Declaration{
-          "project", compute::ProjectNodeOptions{std::move(reordered_fields)}};
-
-      return compute::Declaration::Sequence(
-          {std::move(input), std::move(aggregate_decl), std::move(post_project_decl)});
     }
 
     default:
