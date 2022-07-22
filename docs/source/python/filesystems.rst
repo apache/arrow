@@ -193,10 +193,10 @@ PyArrow implements natively a Google Cloud Storage (GCS) backed file system
 for GCS storage.
 
 If not running on Google Cloud Platform (GCP), this generally requires the
-environment variable GOOGLE_APPLICATION_CREDENTIALS to point to a JSON file
-containing credentials.
+environment variable ``GOOGLE_APPLICATION_CREDENTIALS`` to point to a
+JSON file containing credentials.
 
-Example how you can read contents from a GCS bucket::
+Example showing how you can read contents from a GCS bucket::
 
    >>> from datetime import timedelta
    >>> from pyarrow import fs
