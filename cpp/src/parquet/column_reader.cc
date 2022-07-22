@@ -452,7 +452,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           header.repetition_levels_byte_length < 0) {
         throw ParquetException("Invalid page header (negative levels byte length)");
       }
-      // Some implementations set is_compressed to false but still compressed.
+      // Arrow prior to 3.0.0 set is_compressed to false but still compressed.
       bool is_compressed =
           (header.__isset.is_compressed ? header.is_compressed : false) ||
           compression_always_true_;
@@ -521,8 +521,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
-                                             bool compression_always_true,
                                              const ReaderProperties& properties,
+                                             bool compression_always_true,
                                              const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(
       new SerializedPageReader(std::move(stream), total_num_rows, codec, properties, ctx,
