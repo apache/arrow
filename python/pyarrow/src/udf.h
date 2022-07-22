@@ -41,6 +41,8 @@ struct ARROW_PYTHON_EXPORT ScalarUdfOptions {
   std::shared_ptr<DataType> output_type;
 };
 
+/// \brief A context defined to hold meta-data required in
+/// scalar UDF execution.
 struct ARROW_PYTHON_EXPORT ScalarUdfContext {
   MemoryPool* pool;
   int64_t batch_length;
