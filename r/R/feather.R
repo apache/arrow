@@ -222,7 +222,7 @@ FeatherReader <- R6Class("FeatherReader",
   inherit = ArrowObject,
   public = list(
     Read = function(columns) {
-      ipc___feather___Reader__Read(self, columns, on_old_windows())
+      ipc___feather___Reader__Read(self, columns)
     },
     print = function(...) {
       cat("FeatherReader:\n")
@@ -243,5 +243,5 @@ names.FeatherReader <- function(x) x$column_names
 
 FeatherReader$create <- function(file) {
   assert_is(file, "RandomAccessFile")
-  ipc___feather___Reader__Open(file, on_old_windows())
+  ipc___feather___Reader__Open(file)
 }

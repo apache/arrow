@@ -30,6 +30,21 @@ MainRThread& GetMainRThread() {
 void InitializeMainRThread() { GetMainRThread().Initialize(); }
 
 // [[arrow::export]]
+bool CanRunWithCapturedR() {
+#if defined(HAS_UNWIND_PROTECT)
+  static int on_old_windows = -1;
+  if (on_old_windows == -1) {
+    cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
+    on_old_windows = on_old_windows_fun();
+  }
+
+  return !on_old_windows;
+#else
+  return false;
+#endif
+}
+
+// [[arrow::export]]
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
                               std::string opt) {
   if (opt == "async_with_executor") {
