@@ -63,7 +63,7 @@ test_that("Writing a dataset: CSV->IPC", {
 
   # Check whether "int" is present in the files or just in the dirs
   first <- read_feather(
-    dir(dst_dir, pattern = ".feather$", recursive = TRUE, full.names = TRUE)[1],
+    dir(dst_dir, pattern = ".arrow$", recursive = TRUE, full.names = TRUE)[1],
     as_data_frame = FALSE
   )
   # It shouldn't be there
@@ -468,9 +468,6 @@ test_that("Dataset writing: unsupported features/input validation", {
   )
   expect_error(
     write_dataset(ds, tempfile(), basename_template = "something_without_i")
-  )
-  expect_error(
-    write_dataset(ds, tempfile(), basename_template = NULL)
   )
 })
 

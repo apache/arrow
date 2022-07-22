@@ -9,7 +9,7 @@ write_dataset(
   path,
   format = c("parquet", "feather", "arrow", "ipc", "csv"),
   partitioning = dplyr::group_vars(dataset),
-  basename_template = paste0("part-{i}.", as.character(format)),
+  basename_template = NULL,
   hive_style = TRUE,
   existing_data_behavior = c("overwrite", "error", "delete_matching"),
   max_partitions = 1024L,
@@ -38,8 +38,8 @@ use the current \code{group_by()} columns.}
 
 \item{basename_template}{string template for the names of files to be written.
 Must contain \code{"{i}"}, which will be replaced with an autoincremented
-integer to generate basenames of datafiles. For example, \code{"part-{i}.feather"}
-will yield \verb{"part-0.feather", ...}.}
+integer to generate basenames of datafiles. For example, \code{"part-{i}.arrow"}
+will yield \verb{"part-0.arrow", ...}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}

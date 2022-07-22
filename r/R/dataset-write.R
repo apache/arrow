@@ -34,8 +34,8 @@
 #' use the current `group_by()` columns.
 #' @param basename_template string template for the names of files to be written.
 #' Must contain `"{i}"`, which will be replaced with an autoincremented
-#' integer to generate basenames of datafiles. For example, `"part-{i}.feather"`
-#' will yield `"part-0.feather", ...`.
+#' integer to generate basenames of datafiles. For example, `"part-{i}.arrow"`
+#' will yield `"part-0.arrow", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param existing_data_behavior The behavior to use when there is already data
@@ -123,7 +123,7 @@ write_dataset <- function(dataset,
                           path,
                           format = c("parquet", "feather", "arrow", "ipc", "csv"),
                           partitioning = dplyr::group_vars(dataset),
-                          basename_template = paste0("part-{i}.", as.character(format)),
+                          basename_template = NULL,
                           hive_style = TRUE,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           max_partitions = 1024L,
@@ -168,6 +168,11 @@ write_dataset <- function(dataset,
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
+  }
+
+  if (is.null(basename_template)) {
+    format <- ifelse(as.character(format) %in% c("feather", "ipc"), "arrow", format)
+    basename_template <- paste0("part-{i}.", as.character(format))
   }
 
   path_and_fs <- get_path_and_filesystem(path)
