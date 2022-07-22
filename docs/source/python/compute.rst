@@ -428,8 +428,9 @@ You can call a user-defined function directly using :func:`pyarrow.compute.call_
    Note that when the passed values to a function are all scalars, internally each scalar 
    is passed as an array of size 1.
 
-UDFs can be used with tabular data by using `dataset` API and apply a UDF function on the
-dataset.
+More generally, user-defined functions are usable everywhere a compute function
+can be referred to by its name. For example, they can be called on a dataset's
+column using :meth:`Expression._call`:
 
 .. code-block:: python
 
