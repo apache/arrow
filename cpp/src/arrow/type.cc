@@ -2198,36 +2198,85 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);
 }
 
-std::shared_ptr<DataType> duration(TimeUnit::type unit) {
-  return std::make_shared<DurationType>(unit);
+#define RETURN_STATIC_TIME_TYPE(TYPE_NAME)                              \
+  switch (unit) {                                                       \
+    case TimeUnit::SECOND: {                                            \
+      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::SECOND); \
+      return result;                                                    \
+    }                                                                   \
+    case TimeUnit::MILLI: {                                             \
+      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::MILLI); \
+      return result;                                                    \
+    }                                                                   \
+    case TimeUnit::MICRO: {                                             \
+      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::MICRO); \
+      return result;                                                    \
+    }                                                                   \
+    case TimeUnit::NANO: {                                              \
+      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::NANO); \
+      return result;                                                    \
+    }                                                                   \
+    default:                                                            \
+      return nullptr;                                                   \
+  }
+
+const std::shared_ptr<DataType>& duration(TimeUnit::type unit) {
+  RETURN_STATIC_TIME_TYPE(DurationType)
 }
 
-std::shared_ptr<DataType> day_time_interval() {
-  return std::make_shared<DayTimeIntervalType>();
+const std::shared_ptr<DataType>& day_time_interval() {
+  static std::shared_ptr<DataType> result = std::make_shared<DayTimeIntervalType>();
+  return result;
 }
 
-std::shared_ptr<DataType> month_day_nano_interval() {
-  return std::make_shared<MonthDayNanoIntervalType>();
+const std::shared_ptr<DataType>& month_day_nano_interval() {
+  static std::shared_ptr<DataType> result = std::make_shared<MonthDayNanoIntervalType>();
+  return result;
 }
 
-std::shared_ptr<DataType> month_interval() {
-  return std::make_shared<MonthIntervalType>();
+const std::shared_ptr<DataType>& month_interval() {
+  static std::shared_ptr<DataType> result = std::make_shared<MonthIntervalType>();
+  return result;
 }
 
-std::shared_ptr<DataType> timestamp(TimeUnit::type unit) {
-  return std::make_shared<TimestampType>(unit);
+const std::shared_ptr<DataType>& timestamp(TimeUnit::type unit) {
+  RETURN_STATIC_TIME_TYPE(TimestampType)
 }
 
 std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone) {
   return std::make_shared<TimestampType>(unit, timezone);
 }
 
-std::shared_ptr<DataType> time32(TimeUnit::type unit) {
-  return std::make_shared<Time32Type>(unit);
+const std::shared_ptr<DataType>& time32(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND: {
+      static std::shared_ptr<DataType> result = std::make_shared<Time32Type>(TimeUnit::SECOND);
+      return result;
+    }
+    case TimeUnit::MILLI: {
+      static std::shared_ptr<DataType> result = std::make_shared<Time32Type>(TimeUnit::MILLI);
+      return result;
+    }
+    default:
+      DCHECK(false);
+      return nullptr;
+  }
 }
 
-std::shared_ptr<DataType> time64(TimeUnit::type unit) {
-  return std::make_shared<Time64Type>(unit);
+const std::shared_ptr<DataType>& time64(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::MICRO: {
+      static std::shared_ptr<DataType> result = std::make_shared<Time64Type>(TimeUnit::MICRO);
+      return result;
+    }
+    case TimeUnit::NANO: {
+      static std::shared_ptr<DataType> result = std::make_shared<Time64Type>(TimeUnit::NANO);
+      return result;
+    }
+    default:
+      DCHECK(false);
+      return nullptr;
+  }
 }
 
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
@@ -2369,147 +2418,6 @@ std::string Decimal256Type::ToString() const {
   std::stringstream s;
   s << "decimal256(" << precision_ << ", " << scale_ << ")";
   return s.str();
-}
-
-namespace {
-
-std::vector<std::shared_ptr<DataType>> g_signed_int_types;
-std::vector<const DataType*> g_signed_int_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_unsigned_int_types;
-std::vector<const DataType*> g_unsigned_int_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_int_types;
-std::vector<const DataType*> g_int_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_floating_types;
-std::vector<const DataType*> g_floating_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_numeric_types;
-std::vector<const DataType*> g_numeric_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_base_binary_types;
-std::vector<const DataType*> g_base_binary_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_temporal_types;
-std::vector<const DataType*> g_temporal_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_interval_types;
-std::vector<const DataType*> g_internal_types_ptrs;
-
-std::vector<std::shared_ptr<DataType>> g_primitive_types;
-std::vector<const DataType*> g_primitive_types_ptrs;
-
-std::once_flag static_data_initialized;
-
-template <typename T>
-void Extend(const std::vector<T>& values, std::vector<T>* out) {
-  out->insert(out->end(), values.begin(), values.end());
-}
-
-void InitStaticData() {
-  // Signed int types
-  g_signed_int_types = {int8(), int16(), int32(), int64()};
-
-  // Unsigned int types
-  g_unsigned_int_types = {uint8(), uint16(), uint32(), uint64()};
-
-  // All int types
-  Extend(g_unsigned_int_types, &g_int_types);
-  Extend(g_signed_int_types, &g_int_types);
-
-  // Floating point types
-  g_floating_types = {float32(), float64()};
-
-  // Numeric types
-  Extend(g_int_types, &g_numeric_types);
-  Extend(g_floating_types, &g_numeric_types);
-
-  // Temporal types
-  g_temporal_types = {date32(),
-                      date64(),
-                      time32(TimeUnit::SECOND),
-                      time32(TimeUnit::MILLI),
-                      time64(TimeUnit::MICRO),
-                      time64(TimeUnit::NANO),
-                      timestamp(TimeUnit::SECOND),
-                      timestamp(TimeUnit::MILLI),
-                      timestamp(TimeUnit::MICRO),
-                      timestamp(TimeUnit::NANO)};
-
-  // Interval types
-  g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};
-
-  // Base binary types (without FixedSizeBinary)
-  g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
-
-  // Non-parametric, non-nested types. This also DOES NOT include
-  //
-  // * Decimal
-  // * Fixed Size Binary
-  // * Time32
-  // * Time64
-  // * Timestamp
-  g_primitive_types = {null(), boolean(), date32(), date64()};
-  Extend(g_numeric_types, &g_primitive_types);
-  Extend(g_base_binary_types, &g_primitive_types);
-}
-
-}  // namespace
-
-const std::vector<const DataType*>& BaseBinaryTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_base_binary_types_ptrs;
-}
-
-const std::vector<const DataType*>& BinaryTypes() {
-  static DataTypeVector types = {binary(), large_binary()};
-  return types;
-}
-
-const std::vector<const DataType*>& StringTypes() {
-  static DataTypeVector types = {utf8(), large_utf8()};
-  return types;
-}
-
-const std::vector<const DataType*>& SignedIntTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_signed_int_types_ptrs;
-}
-
-const std::vector<const DataType*>& UnsignedIntTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_unsigned_int_types_ptrs;
-}
-
-const std::vector<const DataType*>& IntTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_int_types_ptrs;
-}
-
-const std::vector<const DataType*>& FloatingPointTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_floating_types_ptrs;
-}
-
-const std::vector<const DataType*>& NumericTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_numeric_types_ptrs;
-}
-
-const std::vector<const DataType*>& TemporalTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_temporal_types_ptrs;
-}
-
-const std::vector<const DataType*>& IntervalTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_interval_types_ptrs;
-}
-
-const std::vector<const DataType*>& PrimitiveTypes() {
-  std::call_once(static_data_initialized, InitStaticData);
-  return g_primitive_types_ptrs;
 }
 
 const std::vector<TimeUnit::type>& TimeUnit::values() {

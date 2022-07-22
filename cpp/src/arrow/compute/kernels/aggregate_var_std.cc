@@ -163,7 +163,7 @@ struct VarStdImpl : public ScalarAggregator {
   using ThisType = VarStdImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  explicit VarStdImpl(int32_t decimal_scale, const std::shared_ptr<DataType>& out_type,
+  explicit VarStdImpl(int32_t decimal_scale, const DataType* out_type,
                       const VarianceOptions& options, VarOrStd return_type)
       : out_type(out_type), state(decimal_scale, options), return_type(return_type) {}
 
@@ -194,7 +194,7 @@ struct VarStdImpl : public ScalarAggregator {
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> out_type;
+  const DataType* out_type;
   VarStdState<ArrowType> state;
   VarOrStd return_type;
 };
@@ -203,12 +203,12 @@ struct VarStdInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& in_type;
-  const std::shared_ptr<DataType>& out_type;
+  const DataType* out_type;
   const VarianceOptions& options;
   VarOrStd return_type;
 
   VarStdInitState(KernelContext* ctx, const DataType& in_type,
-                  const std::shared_ptr<DataType>& out_type,
+                  const DataType* out_type,
                   const VarianceOptions& options, VarOrStd return_type)
       : ctx(ctx),
         in_type(in_type),
@@ -261,7 +261,7 @@ Result<std::unique_ptr<KernelState>> VarianceInit(KernelContext* ctx,
 }
 
 void AddVarStdKernels(KernelInit init,
-                      const std::vector<std::shared_ptr<DataType>>& types,
+                      const std::vector<const DataType*>& types,
                       ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     auto sig = KernelSignature::Make({InputType(ty->id())}, float64());
@@ -287,12 +287,16 @@ const FunctionDoc variance_doc{
     {"array"},
     "VarianceOptions"};
 
+namespace {
+
+}  // namespace
+
 std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   static auto default_std_options = VarianceOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>("stddev", Arity::Unary(),
                                                         stddev_doc, &default_std_options);
   AddVarStdKernels(StddevInit, NumericTypes(), func.get());
-  AddVarStdKernels(StddevInit, {decimal128(1, 1), decimal256(1, 1)}, func.get());
+  AddVarStdKernels(StddevInit, {decimal128(1, 1).get(), decimal256(1, 1).get()}, func.get());
   return func;
 }
 
@@ -301,7 +305,8 @@ std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
   auto func = std::make_shared<ScalarAggregateFunction>(
       "variance", Arity::Unary(), variance_doc, &default_var_options);
   AddVarStdKernels(VarianceInit, NumericTypes(), func.get());
-  AddVarStdKernels(VarianceInit, {decimal128(1, 1), decimal256(1, 1)}, func.get());
+  AddVarStdKernels(VarianceInit, {decimal128(1, 1).get(),
+        decimal256(1, 1).get()}, func.get());
   return func;
 }
 

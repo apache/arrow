@@ -2120,35 +2120,4 @@ ARROW_EXPORT
 std::string ToString(TimeUnit::type unit);
 
 }  // namespace internal
-
-// Helpers to get instances of data types based on general categories
-
-ARROW_EXPORT
-const std::vector<const DataType*>& SignedIntTypes();
-ARROW_EXPORT
-const std::vector<const DataType*>& UnsignedIntTypes();
-ARROW_EXPORT
-const std::vector<const DataType*>& IntTypes();
-ARROW_EXPORT
-const std::vector<const DataType*>& FloatingPointTypes();
-// Number types without boolean
-ARROW_EXPORT
-const std::vector<const DataType*>& NumericTypes();
-// Binary and string-like types (except fixed-size binary)
-ARROW_EXPORT
-const std::vector<const DataType*>& BaseBinaryTypes();
-ARROW_EXPORT
-const std::vector<const DataType*>& BinaryTypes();
-ARROW_EXPORT
-const std::vector<const DataType*>& StringTypes();
-// Temporal types including time and timestamps for each unit
-ARROW_EXPORT
-const std::vector<const DataType*>& TemporalTypes();
-// Interval types
-ARROW_EXPORT
-const std::vector<const DataType*>& IntervalTypes();
-// Integer, floating point, base binary, and temporal
-ARROW_EXPORT
-const std::vector<const DataType*>& PrimitiveTypes();
-
 }  // namespace arrow

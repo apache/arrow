@@ -356,7 +356,7 @@ bool InputType::Matches(const Datum& value) const {
   return Matches(*value.type());
 }
 
-const std::shared_ptr<DataType>& InputType::type() const {
+const DataType* InputType::type() const {
   DCHECK_EQ(InputType::EXACT_TYPE, kind_);
   return type_;
 }
@@ -372,13 +372,13 @@ const TypeMatcher& InputType::type_matcher() const {
 Result<TypeHolder> OutputType::Resolve(KernelContext* ctx,
                                        const std::vector<TypeHolder>& types) const {
   if (kind_ == OutputType::FIXED) {
-    return type_.get();
+    return type_;
   } else {
     return resolver_(ctx, types);
   }
 }
 
-const std::shared_ptr<DataType>& OutputType::type() const {
+const DataType* OutputType::type() const {
   DCHECK_EQ(FIXED, kind_);
   return type_;
 }

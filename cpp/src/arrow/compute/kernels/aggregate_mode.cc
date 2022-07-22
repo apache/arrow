@@ -448,25 +448,13 @@ Result<TypeHolder> ModeType(KernelContext*, const std::vector<TypeHolder>& types
       {field(kModeFieldName, types[0].GetSharedPtr()), field(kCountFieldName, int64())});
 }
 
-VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type, ArrayKernelExec exec,
+VectorKernel NewModeKernel(Type::type in_type, ArrayKernelExec exec,
                            VectorKernel::ChunkedExec exec_chunked) {
   VectorKernel kernel;
   kernel.init = ModeState::Init;
   kernel.can_execute_chunkwise = false;
   kernel.output_chunked = false;
-  switch (in_type->id()) {
-    case Type::DECIMAL128:
-    case Type::DECIMAL256:
-      kernel.signature =
-          KernelSignature::Make({InputType(in_type->id())}, OutputType(ModeType));
-      break;
-    default: {
-      auto out_type =
-          struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
-      kernel.signature = KernelSignature::Make({in_type->id()}, std::move(out_type));
-      break;
-    }
-  }
+  kernel.signature = KernelSignature::Make({InputType(in_type)}, ModeType);
   kernel.exec = std::move(exec);
   kernel.exec_chunked = exec_chunked;
   return kernel;
@@ -491,21 +479,21 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
   auto func = std::make_shared<VectorFunction>("mode", Arity::Unary(), mode_doc,
                                                &default_options);
   DCHECK_OK(func->AddKernel(
-      NewModeKernel(boolean(), ModeExecutor<StructType, BooleanType>::Exec,
+      NewModeKernel(Type::BOOL, ModeExecutor<StructType, BooleanType>::Exec,
                     ModeExecutorChunked<StructType, BooleanType>::Exec)));
   for (const auto& type : NumericTypes()) {
     // TODO(wesm):
     DCHECK_OK(func->AddKernel(NewModeKernel(
-        type, GenerateNumeric<ModeExecutor, StructType>(*type),
+        type->id(), GenerateNumeric<ModeExecutor, StructType>(*type),
         GenerateNumeric<ModeExecutorChunked, StructType, VectorKernel::ChunkedExec>(
             *type))));
   }
   // Type parameters are ignored
   DCHECK_OK(func->AddKernel(
-      NewModeKernel(decimal128(1, 0), ModeExecutor<StructType, Decimal128Type>::Exec,
+      NewModeKernel(Type::DECIMAL128, ModeExecutor<StructType, Decimal128Type>::Exec,
                     ModeExecutorChunked<StructType, Decimal128Type>::Exec)));
   DCHECK_OK(func->AddKernel(
-      NewModeKernel(decimal256(1, 0), ModeExecutor<StructType, Decimal256Type>::Exec,
+      NewModeKernel(Type::DECIMAL256, ModeExecutor<StructType, Decimal256Type>::Exec,
                     ModeExecutorChunked<StructType, Decimal256Type>::Exec)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

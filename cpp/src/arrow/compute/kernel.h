@@ -166,8 +166,11 @@ class ARROW_EXPORT InputType {
   InputType() : kind_(ANY_TYPE) {}
 
   /// \brief Accept an exact value type.
-  InputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
-      : kind_(EXACT_TYPE), type_(std::move(type)) {}
+  InputType(const DataType* type)  // NOLINT implicit construction
+      : kind_(EXACT_TYPE), type_(type) {}
+
+  InputType(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
+    : InputType(type.get()) {}
 
   /// \brief Use the passed TypeMatcher to type check.
   InputType(std::shared_ptr<TypeMatcher> type_matcher)  // NOLINT implicit construction
@@ -216,7 +219,7 @@ class ARROW_EXPORT InputType {
   /// \brief For InputType::EXACT_TYPE kind, the exact type that this InputType
   /// must match. Otherwise this function should not be used and will assert in
   /// debug builds.
-  const std::shared_ptr<DataType>& type() const;
+  const DataType* type() const;
 
   /// \brief For InputType::USE_TYPE_MATCHER, the TypeMatcher to be used for
   /// checking the type of a value. Otherwise this function should not be used
@@ -232,7 +235,7 @@ class ARROW_EXPORT InputType {
 
   void MoveInto(InputType&& other) {
     this->kind_ = other.kind_;
-    this->type_ = std::move(other.type_);
+    this->type_ = other.type_;
     this->type_matcher_ = std::move(other.type_matcher_);
   }
 
@@ -261,12 +264,12 @@ class ARROW_EXPORT OutputType {
   using Resolver = Result<TypeHolder> (*)(KernelContext*, const std::vector<TypeHolder>&);
 
   /// \brief Output an exact type
-  OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
-    : kind_(FIXED), type_(type.get()) {}
-
-  /// \brief Output an exact type
   OutputType(const DataType* type)  // NOLINT implicit construction
     : kind_(FIXED), type_(type) {}
+
+  /// \brief Output an exact type
+  OutputType(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
+    : OutputType(type.get()) {}
 
   /// \brief Output a computed type depending on actual input types
   OutputType(Resolver resolver)  // NOLINT implicit construction

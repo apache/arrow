@@ -770,7 +770,7 @@ struct IndexInit {
 }  // namespace
 
 void AddBasicAggKernels(KernelInit init,
-                        const std::vector<std::shared_ptr<DataType>>& types,
+                        const std::vector<const DataType*>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
                         SimdLevel::type simd_level) {
   for (const auto& ty : types) {
@@ -781,7 +781,7 @@ void AddBasicAggKernels(KernelInit init,
 }
 
 void AddScalarAggKernels(KernelInit init,
-                         const std::vector<std::shared_ptr<DataType>>& types,
+                         const std::vector<const DataType*>& types,
                          std::shared_ptr<DataType> out_ty,
                          ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
@@ -791,7 +791,7 @@ void AddScalarAggKernels(KernelInit init,
 }
 
 void AddArrayScalarAggKernels(KernelInit init,
-                              const std::vector<std::shared_ptr<DataType>>& types,
+                              const std::vector<const DataType*>& types,
                               std::shared_ptr<DataType> out_ty,
                               ScalarAggregateFunction* func,
                               SimdLevel::type simd_level = SimdLevel::NONE) {
@@ -923,7 +923,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
-  AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
+  AddArrayScalarAggKernels(SumInit, {boolean().get()}, uint64(), func.get());
   AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), SumInit, func.get(),
                SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), SumInit, func.get(),
@@ -931,7 +931,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
-  AddArrayScalarAggKernels(SumInit, {null()}, int64(), func.get());
+  AddArrayScalarAggKernels(SumInit, {null().get()}, int64(), func.get());
   // Add the SIMD variants for sum
 #if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
@@ -950,13 +950,13 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary(), mean_doc,
                                                    &default_scalar_aggregate_options);
-  AddArrayScalarAggKernels(MeanInit, {boolean()}, float64(), func.get());
+  AddArrayScalarAggKernels(MeanInit, {boolean().get()}, float64(), func.get());
   AddArrayScalarAggKernels(MeanInit, NumericTypes(), float64(), func.get());
   AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), MeanInit, func.get(),
                SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), MeanInit, func.get(),
                SimdLevel::NONE);
-  AddArrayScalarAggKernels(MeanInit, {null()}, float64(), func.get());
+  AddArrayScalarAggKernels(MeanInit, {null().get()}, float64(), func.get());
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
@@ -972,7 +972,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(), min_max_doc,
                                                    &default_scalar_aggregate_options);
-  AddMinMaxKernels(MinMaxInit, {null(), boolean()}, func.get());
+  AddMinMaxKernels(MinMaxInit, {null().get(), boolean().get()}, func.get());
   AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, TemporalTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, BaseBinaryTypes(), func.get());
@@ -1008,7 +1008,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   func = std::make_shared<ScalarAggregateFunction>("product", Arity::Unary(), product_doc,
                                                    &default_scalar_aggregate_options);
-  AddArrayScalarAggKernels(ProductInit::Init, {boolean()}, uint64(), func.get());
+  AddArrayScalarAggKernels(ProductInit::Init, {boolean().get()}, uint64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, FloatingPointTypes(), float64(),
@@ -1017,19 +1017,19 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                func.get(), SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), ProductInit::Init,
                func.get(), SimdLevel::NONE);
-  AddArrayScalarAggKernels(ProductInit::Init, {null()}, int64(), func.get());
+  AddArrayScalarAggKernels(ProductInit::Init, {null().get()}, int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // any
   func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(), any_doc,
                                                    &default_scalar_aggregate_options);
-  AddArrayScalarAggKernels(AnyInit, {boolean()}, boolean(), func.get());
+  AddArrayScalarAggKernels(AnyInit, {boolean().get()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // all
   func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), all_doc,
                                                    &default_scalar_aggregate_options);
-  AddArrayScalarAggKernels(AllInit, {boolean()}, boolean(), func.get());
+  AddArrayScalarAggKernels(AllInit, {boolean().get()}, boolean(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // index
@@ -1037,8 +1037,13 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddBasicAggKernels(IndexInit::Init, BaseBinaryTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, PrimitiveTypes(), int64(), func.get());
   AddBasicAggKernels(IndexInit::Init, TemporalTypes(), int64(), func.get());
+
+  auto fsb_example = fixed_size_binary(1);
+  auto decimal128_example = decimal128(1, 0);
+  auto decimal256_example = decimal256(1, 0);
   AddBasicAggKernels(IndexInit::Init,
-                     {fixed_size_binary(1), decimal128(1, 0), decimal256(1, 0), null()},
+                     {fsb_example.get(), decimal128_example.get(),
+                      decimal256_example.get(), null().get()},
                      int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

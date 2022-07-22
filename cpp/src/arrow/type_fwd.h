@@ -514,20 +514,24 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value
                                           int32_t list_size);
 /// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
 /// built in time classes).
-std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
+ARROW_EXPORT
+const std::shared_ptr<DataType>& duration(TimeUnit::type unit);
 
 /// \brief Return a DayTimeIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
+ARROW_EXPORT
+const std::shared_ptr<DataType>& day_time_interval();
 
 /// \brief Return a MonthIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT month_interval();
+ARROW_EXPORT
+const std::shared_ptr<DataType>& month_interval();
 
 /// \brief Return a MonthDayNanoIntervalType instance
-std::shared_ptr<DataType> ARROW_EXPORT month_day_nano_interval();
+ARROW_EXPORT
+const std::shared_ptr<DataType>& month_day_nano_interval();
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT
-std::shared_ptr<DataType> timestamp(TimeUnit::type unit);
+const std::shared_ptr<DataType>& timestamp(TimeUnit::type unit);
 
 /// \brief Create a TimestampType instance from its unit and timezone
 ARROW_EXPORT
@@ -536,12 +540,14 @@ std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& time
 /// \brief Create a 32-bit time type instance
 ///
 /// Unit can be either SECOND or MILLI
-std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
+ARROW_EXPORT
+const std::shared_ptr<DataType>& time32(TimeUnit::type unit);
 
 /// \brief Create a 64-bit time type instance
 ///
 /// Unit can be either MICRO or NANO
-std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
+ARROW_EXPORT
+const std::shared_ptr<DataType>& time64(TimeUnit::type unit);
 
 /// \brief Create a StructType instance
 std::shared_ptr<DataType> ARROW_EXPORT

@@ -941,6 +941,8 @@ struct GetTypeId {
       : id(type->id()) {}
   GetTypeId(const DataType& type)  // NOLINT implicit construction
       : id(type.id()) {}
+  GetTypeId(const DataType* type)  // NOLINT implicit construction
+      : id(type->id()) {}
   GetTypeId(Type::type id)  // NOLINT implicit construction
       : id(id) {}
 };

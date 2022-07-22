@@ -123,8 +123,8 @@ HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init) {
 }
 
 Status AddHashAggKernels(
-    const std::vector<std::shared_ptr<DataType>>& types,
-    Result<HashAggregateKernel> make_kernel(const std::shared_ptr<DataType>&),
+    const std::vector<const DataType*>& types,
+    Result<HashAggregateKernel> make_kernel(const DataType*),
     HashAggregateFunction* function) {
   for (const auto& ty : types) {
     ARROW_ASSIGN_OR_RAISE(auto kernel, make_kernel(ty));
@@ -515,7 +515,7 @@ struct GroupedReducingFactory {
     return Status::NotImplemented("Computing ", kFriendlyName, " of type ", type);
   }
 
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+  static Result<HashAggregateKernel> Make(const DataType* type) {
     GroupedReducingFactory<Impl, kFriendlyName, NullImpl> factory;
     factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
@@ -996,7 +996,7 @@ struct GroupedVarStdFactory {
     return Status::NotImplemented("Computing variance/stddev of data of type ", type);
   }
 
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+  static Result<HashAggregateKernel> Make(const DataType* type) {
     GroupedVarStdFactory factory;
     factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
@@ -1158,7 +1158,7 @@ struct GroupedTDigestFactory {
     return Status::NotImplemented("Computing t-digest of data of type ", type);
   }
 
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+  static Result<HashAggregateKernel> Make(const DataType* type) {
     GroupedTDigestFactory factory;
     factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
@@ -1630,7 +1630,7 @@ struct GroupedMinMaxFactory {
     return Status::NotImplemented("Computing min/max of data of type ", type);
   }
 
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+  static Result<HashAggregateKernel> Make(const DataType* type) {
     GroupedMinMaxFactory factory;
     factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
@@ -2258,7 +2258,7 @@ struct GroupedOneFactory {
     return Status::NotImplemented("Outputting one of data of type ", type);
   }
 
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+  static Result<HashAggregateKernel> Make(const DataType* type) {
     GroupedOneFactory factory;
     factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
@@ -2656,7 +2656,7 @@ struct GroupedListFactory {
     return Status::NotImplemented("Outputting list of data of type ", type);
   }
 
-  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+  static Result<HashAggregateKernel> Make(const DataType* type) {
     GroupedListFactory factory;
     factory.argument_type = type->id();
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
@@ -2775,6 +2775,41 @@ const FunctionDoc hash_one_doc{"Get one value from each group",
 const FunctionDoc hash_list_doc{"List all values in each group",
                                 ("Null values are also returned."),
                                 {"array", "group_id_array"}};
+
+void PopulateHashGenericKernels(Result<HashAggregateKernel> make_kernel(const DataType*),
+                         std::shared_ptr<HashAggregateFunction> func,
+                         FunctionRegistry* registry) {
+  DCHECK_OK(AddHashAggKernels(NumericTypes(), make_kernel, func.get()));
+  DCHECK_OK(AddHashAggKernels(TemporalTypes(), make_kernel, func.get()));
+  DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), make_kernel, func.get()));
+  DCHECK_OK(AddHashAggKernels({null().get(), boolean().get(),
+          decimal128(1, 1).get(), decimal256(1, 1).get(),
+          month_interval().get(), fixed_size_binary(1).get()},
+      make_kernel, func.get()));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+void PopulateNumericHashKernels(Result<HashAggregateKernel> make_kernel(const DataType*),
+                                bool with_null_boolean,
+                                std::shared_ptr<HashAggregateFunction> func,
+                                FunctionRegistry* registry) {
+  static std::shared_ptr<DataType> decimal128_example = decimal128(1, 1);
+  static std::shared_ptr<DataType> decimal256_example = decimal256(1, 1);
+  std::vector<const DataType*> decimal_types = {decimal128_example.get(),
+                                                decimal256_example.get()};
+
+  DCHECK_OK(
+      AddHashAggKernels(NumericTypes(), make_kernel, func.get()));
+  if (with_null_boolean) {
+    DCHECK_OK(AddHashAggKernels({null().get(), boolean().get()},
+                                make_kernel, func.get()));
+  }
+  // Type parameters are ignored
+  DCHECK_OK(AddHashAggKernels(decimal_types,
+                              GroupedTDigestFactory::Make, func.get()));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -2795,95 +2830,46 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_sum", Arity::Binary(), hash_sum_doc, &default_scalar_aggregate_options);
-    DCHECK_OK(AddHashAggKernels({boolean()}, GroupedSumFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedSumFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(), GroupedSumFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(FloatingPointTypes(), GroupedSumFactory::Make, func.get()));
-    // Type parameters are ignored
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedSumFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({null()}, GroupedSumFactory::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateNumericHashKernels(GroupedSumFactory::Make,
+                               /*with_null_boolean=*/true, std::move(func), registry);
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_product", Arity::Binary(), hash_product_doc,
         &default_scalar_aggregate_options);
-    DCHECK_OK(AddHashAggKernels({boolean()}, GroupedProductFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(SignedIntTypes(), GroupedProductFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(UnsignedIntTypes(), GroupedProductFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(FloatingPointTypes(), GroupedProductFactory::Make, func.get()));
-    // Type parameters are ignored
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedProductFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({null()}, GroupedProductFactory::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateNumericHashKernels(GroupedProductFactory::Make,
+                               /*with_null_boolean=*/true, std::move(func), registry);
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_mean", Arity::Binary(), hash_mean_doc, &default_scalar_aggregate_options);
-    DCHECK_OK(AddHashAggKernels({boolean()}, GroupedMeanFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(SignedIntTypes(), GroupedMeanFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(UnsignedIntTypes(), GroupedMeanFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(FloatingPointTypes(), GroupedMeanFactory::Make, func.get()));
-    // Type parameters are ignored
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedMeanFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({null()}, GroupedMeanFactory::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateNumericHashKernels(GroupedMeanFactory::Make,
+                               /*with_null_boolean=*/true, std::move(func), registry);
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_stddev", Arity::Binary(), hash_stddev_doc, &default_variance_options);
-    DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(FloatingPointTypes(),
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedVarStdFactory<VarOrStd::Std>::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateNumericHashKernels(GroupedVarStdFactory<VarOrStd::Std>::Make,
+                               /*with_null_boolean=*/false, std::move(func), registry);
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_variance", Arity::Binary(), hash_variance_doc, &default_variance_options);
-    DCHECK_OK(AddHashAggKernels(SignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(UnsignedIntTypes(),
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(FloatingPointTypes(),
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedVarStdFactory<VarOrStd::Var>::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateNumericHashKernels(GroupedVarStdFactory<VarOrStd::Var>::Make,
+                               /*with_null_boolean=*/false, std::move(func), registry);
   }
 
   HashAggregateFunction* tdigest_func = nullptr;
   {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_tdigest", Arity::Binary(), hash_tdigest_doc, &default_tdigest_options);
-    DCHECK_OK(
-        AddHashAggKernels(SignedIntTypes(), GroupedTDigestFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(UnsignedIntTypes(), GroupedTDigestFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(FloatingPointTypes(), GroupedTDigestFactory::Make, func.get()));
-    // Type parameters are ignored
-    DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
-                                GroupedTDigestFactory::Make, func.get()));
     tdigest_func = func.get();
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateNumericHashKernels(GroupedTDigestFactory::Make,
+                               /*with_null_boolean=*/false, std::move(func), registry);
   }
 
   {
@@ -2899,16 +2885,9 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>(
         "hash_min_max", Arity::Binary(), hash_min_max_doc,
         &default_scalar_aggregate_options);
-    DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedMinMaxFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels(BaseBinaryTypes(), GroupedMinMaxFactory::Make, func.get()));
-    // Type parameters are ignored
-    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
-                                 month_interval(), fixed_size_binary(1)},
-                                GroupedMinMaxFactory::Make, func.get()));
     min_max_func = func.get();
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateHashGenericKernels(GroupedMinMaxFactory::Make, std::move(func),
+                               registry);
   }
 
   {
@@ -2961,25 +2940,15 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
                                                         hash_one_doc);
-    DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedOneFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedOneFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedOneFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
-                                 month_interval(), fixed_size_binary(1)},
-                                GroupedOneFactory::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateHashGenericKernels(GroupedOneFactory::Make, std::move(func),
+                               registry);
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_list", Arity::Binary(),
                                                         hash_list_doc);
-    DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedListFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
-                                 month_interval(), fixed_size_binary(1)},
-                                GroupedListFactory::Make, func.get()));
-    DCHECK_OK(registry->AddFunction(std::move(func)));
+    PopulateHashGenericKernels(GroupedListFactory::Make, std::move(func),
+                               registry);
   }
 }
 

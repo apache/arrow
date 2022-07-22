@@ -34,12 +34,12 @@ namespace compute {
 namespace internal {
 
 void AddBasicAggKernels(KernelInit init,
-                        const std::vector<std::shared_ptr<DataType>>& types,
+                        const std::vector<const DataType*>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
                         SimdLevel::type simd_level = SimdLevel::NONE);
 
 void AddMinMaxKernels(KernelInit init,
-                      const std::vector<std::shared_ptr<DataType>>& types,
+                      const std::vector<const DataType*>& types,
                       ScalarAggregateFunction* func,
                       SimdLevel::type simd_level = SimdLevel::NONE);
 void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
