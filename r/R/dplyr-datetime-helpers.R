@@ -166,6 +166,18 @@ build_formats <- function(orders) {
   orders <- gsub("[^A-Za-z]", "", orders)
   orders <- gsub("Y", "y", orders)
 
+  invalid_orders <- nchar(gsub("[ymdqIHMS]", "", orders)) > 0
+  if (any(invalid_orders)) {
+      arrow_not_supported(
+        paste0(
+          oxford_paste(
+            orders[invalid_orders]
+          ),
+          " `orders`"
+        )
+      )
+  }
+
   # we separate "ym', "my", and "yq" from the rest of the `orders` vector and
   # transform them. `ym` and `yq` -> `ymd` & `my` -> `myd`
   # this is needed for 2 reasons:
@@ -190,39 +202,6 @@ build_formats <- function(orders) {
     orders1 <- setdiff(orders, "qy")
     orders2 <- "ymd"
     orders <- unique(c(orders1, orders2))
-  }
-
-  ymd_orders <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym")
-  ymd_hms_orders <- c(
-    "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H", "mdy_HMS",
-    "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
-  )
-  # support "%I" hour formats
-  ymd_ims_orders <- gsub("H", "I", ymd_hms_orders)
-
-  supported_orders <- c(
-    ymd_orders,
-    ymd_hms_orders,
-    gsub("_", " ", ymd_hms_orders), # allow "_", " " and "" as order separators
-    gsub("_", "", ymd_hms_orders),
-    ymd_ims_orders,
-    gsub("_", " ", ymd_ims_orders), # allow "_", " " and "" as order separators
-    gsub("_", "", ymd_ims_orders)
-  )
-
-  unsupported_passed_orders <- setdiff(orders, supported_orders)
-  supported_passed_orders <- intersect(orders, supported_orders)
-
-  # error only if there isn't at least one valid order we can try
-  if (length(supported_passed_orders) == 0) {
-    arrow_not_supported(
-      paste0(
-        oxford_paste(
-          unsupported_passed_orders
-        ),
-        " `orders`"
-      )
-    )
   }
 
   formats_list <- map(orders, build_format_from_order)

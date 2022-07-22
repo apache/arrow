@@ -2671,7 +2671,7 @@ test_that("build_formats() and build_format_from_order()", {
   )
 
   expect_error(
-    build_formats("vup"),
+    build_formats(c("vup", "ymd")),
     '"vup" `orders` not supported in Arrow'
   )
 
