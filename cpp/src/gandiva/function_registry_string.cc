@@ -542,7 +542,6 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("mask", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "mask_utf8", NativeFunction::kNeedsContext)};
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
   return string_fn_registry_;
 }
 

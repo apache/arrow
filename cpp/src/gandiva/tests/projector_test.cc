@@ -3392,11 +3392,11 @@ TEST_F(TestProjector, TestRepeatStr) {
   auto schema = arrow::schema({field0, field1});
 
   // output fields
-  auto field_repeatstr = field("repeatstr", arrow::utf8());
+  auto field_repeatStr = field("repeatStr", arrow::utf8());
 
   // Build expression
   auto repeat_expr =
-      TreeExprBuilder::MakeExpression("repeatstr", {field0, field1}, field_repeatstr);
+      TreeExprBuilder::MakeExpression("repeatStr", {field0, field1}, field_repeatStr);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {repeat_expr}, TestConfiguration(), &projector);
@@ -3409,7 +3409,7 @@ TEST_F(TestProjector, TestRepeatStr) {
       {"abcd", "efgh", "My Name Is JHONNY", "Dremio", "x大路学路x", "学大路学路大", "zz"},
       {true, true, true, true, true, true, true});
 
-  auto array1 = MakeArrowArrayInt32({4, 2, -1, 5, 3, 2, 0},
+  auto array1 = MakeArrowArrayInt32({4, 2, 0, 5, 3, 2, 0},
                                     {true, true, true, true, true, true, true});
 
   // expected output
