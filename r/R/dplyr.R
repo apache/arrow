@@ -239,7 +239,10 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #'   mutate(x = gear/carb) %>%
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
-  as_record_batch_reader(as_adq(x), explain = TRUE)
+  adq <- as_adq(x)
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(adq)
+  cat(plan$BuildAndShow(final_node))
   invisible(x)
 }
 

@@ -191,7 +191,6 @@ RecordBatchFileReader$create <- function(file) {
 #' Convert an object to an Arrow RecordBatchReader
 #'
 #' @param x An object to convert to a [RecordBatchReader]
-#' @param explain logical. If `TRUE` the `ExecPlan` is printed.
 #' @param ... Passed to S3 methods
 #'
 #' @return A [RecordBatchReader]
@@ -237,11 +236,11 @@ as_record_batch_reader.Dataset <- function(x, ...) {
 
 #' @rdname as_record_batch_reader
 #' @export
-as_record_batch_reader.arrow_dplyr_query <- function(x, ..., explain = FALSE) {
+as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
   # See query-engine.R for ExecPlan/Nodes
   plan <- ExecPlan$create()
-  final_node <- plan$Build(x, explain = explain)
-  plan$Run(final_node, explain = explain)
+  final_node <- plan$Build(x)
+  plan$Run(final_node)
 }
 
 #' @rdname as_record_batch_reader

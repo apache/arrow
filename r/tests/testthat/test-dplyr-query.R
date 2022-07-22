@@ -434,7 +434,7 @@ test_that("query_can_stream()", {
   )
 })
 
-test_that("show_exec_plan()", {
+test_that("show_exec_plan(), show_query() and explain()", {
   # minimal test - this fails if we don't coerce the input to `show_exec_plan()`
   # to be an `arrow_dplyr_query`
   expect_output(
@@ -443,7 +443,30 @@ test_that("show_exec_plan()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "SinkNode.*",                # final node
+      "ProjectNode.*",             # output columns
+      "TableSourceNode"            # entry point
+    )
+  )
+
+  # minimal test - show_query()
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      show_query(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*",             # output new columns
+      "TableSourceNode"            # entry point
+    )
+  )
+
+  # minimal test - explain()
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      explain(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
       "ProjectNode.*",             # output columns
       "TableSourceNode"            # entry point
     )
@@ -459,7 +482,42 @@ test_that("show_exec_plan()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",           # boiler plate for ExecPlan
-      "SinkNode.*",                          # final node
+      "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
+      "FilterNode.*",                        # filter node
+      "(dbl > 2).*",                         # filter expressions
+      "chr != \"e\".*",
+      "TableSourceNode"                      # entry point
+    )
+  )
+
+  # arrow_table and mutate - show_query()
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      filter(dbl > 2, chr != "e") %>%
+      select(chr, int, lgl) %>%
+      mutate(int_plus_ten = int + 10) %>%
+      show_query(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",           # boiler plate for ExecPlan
+      "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
+      "FilterNode.*",                        # filter node
+      "(dbl > 2).*",                         # filter expressions
+      "chr != \"e\".*",
+      "TableSourceNode"                      # entry point
+    )
+  )
+
+  # arrow_table and mutate - explain()
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      filter(dbl > 2, chr != "e") %>%
+      select(chr, int, lgl) %>%
+      mutate(int_plus_ten = int + 10) %>%
+      explain(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",           # boiler plate for ExecPlan
       "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
       "FilterNode.*",                        # filter node
       "(dbl > 2).*",                         # filter expressions
@@ -478,9 +536,7 @@ test_that("show_exec_plan()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",           # boiler plate for ExecPlan
-      "SinkNode.*",                          # final node
       "chr, int, lgl, \"int_plus_ten\".*",   # selected columns
-      "FilterNode.*",                        # filter node
       "(dbl > 2).*",                         # the filter expressions
       "chr != \"e\".*",
       "TableSourceNode"                      # the entry point"
@@ -497,13 +553,50 @@ test_that("show_exec_plan()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",            # boiler plate for ExecPlan
-      "SinkNode.*",                           # final node
       "ProjectNode.*",                        # output columns
       "GroupByNode.*",                        # the group_by statement
       "keys=.*lgl.*",                         # the key for the aggregations
       "aggregates=.*hash_mean.*avg.*",        # the aggregations
       "ProjectNode.*",                        # the input columns
       "TableSourceNode"                       # the entry point
+    )
+  )
+
+  # test with group_by and summarise - show_query()
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      group_by(lgl) %>%
+      summarise(avg = mean(dbl, na.rm = TRUE)) %>%
+      ungroup() %>%
+      show_query(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",            # boiler plate for ExecPlan
+      "ProjectNode.*",                        # output columns
+      "GroupByNode.*",                        # the group_by statement
+      "keys=.*lgl.*",                         # the key for the aggregations
+      "aggregates=.*hash_mean.*avg.*",        # the aggregations
+      "ProjectNode.*",                        # the input columns
+      "TableSourceNode"                       # the entry point
+    )
+  )
+
+  # test with group_by and summarise - explain()
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      group_by(lgl) %>%
+      summarise(avg = mean(dbl, na.rm = TRUE)) %>%
+      ungroup() %>%
+      explain(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",            # boiler plate for ExecPlan
+      "ProjectNode.*",                        # output columns
+      "GroupByNode.*",                        # group_by statement
+      "keys=.*lgl.*",                         # key for the aggregations
+      "aggregates=.*hash_mean.*avg.*",        # aggregations
+      "ProjectNode.*",                        # input columns
+      "TableSourceNode"                       # entry point
     )
   )
 
@@ -522,9 +615,58 @@ test_that("show_exec_plan()", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",              # boiler plate for ExecPlan
-      "SinkNode.*",                             # final node
       "ProjectNode.*",                          # output columns
       "HashJoinNode.*",                         # the join
+      "ProjectNode.*",                          # input columns for the second table
+      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # mutate
+      "TableSourceNode.*",                      # second table
+      "ProjectNode.*",                          # input columns for the first table
+      "TableSourceNode"                         # first table
+    )
+  )
+
+  # test with join - show_query()
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      left_join(
+        example_data %>%
+          arrow_table() %>%
+          mutate(doubled_dbl = dbl * 2) %>%
+          select(int, doubled_dbl),
+        by = "int"
+      ) %>%
+      select(int, verses, doubled_dbl) %>%
+      show_query(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",              # boiler plate for ExecPlan
+      "ProjectNode.*",                          # output columns
+      "HashJoinNode.*",                         # join
+      "ProjectNode.*",                          # input columns for the second table
+      "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # the mutate
+      "TableSourceNode.*",                      # second table
+      "ProjectNode.*",                          # input columns for the first table
+      "TableSourceNode"                         # first table
+    )
+  )
+
+  # test with join - explain()
+  expect_output(
+    tbl %>%
+      arrow_table() %>%
+      left_join(
+        example_data %>%
+          arrow_table() %>%
+          mutate(doubled_dbl = dbl * 2) %>%
+          select(int, doubled_dbl),
+        by = "int"
+      ) %>%
+      select(int, verses, doubled_dbl) %>%
+      explain(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",              # boiler plate for ExecPlan
+      "ProjectNode.*",                          # output columns
+      "HashJoinNode.*",                         # join
       "ProjectNode.*",                          # input columns for the second table
       "\"doubled_dbl\"\\: multiply_checked\\(dbl, 2\\).*", # mutate
       "TableSourceNode.*",                      # second table
@@ -553,144 +695,81 @@ test_that("show_exec_plan()", {
       arrow_table() %>%
       filter(mpg > 20) %>%
       arrange(desc(wt)) %>%
+      show_query(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",    # boiler plate for ExecPlan
+      "OrderBySinkNode.*wt.*DESC.*",  # arrange goes via the OrderBy sink node
+      "ProjectNode.*",                # output columns
+      "FilterNode.*",                 # filter node
+      "TableSourceNode.*"             # entry point
+    )
+  )
+
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      filter(mpg > 20) %>%
+      arrange(desc(wt)) %>%
+      explain(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
+      "OrderBySinkNode.*wt.*DESC.*", # arrange goes via the OrderBy sink node
+      "ProjectNode.*",               # output columns
+      "FilterNode.*",                # filter node
+      "TableSourceNode.*"            # entry point
+    )
+  )
+
+  expect_output(
+    mtcars %>%
+      arrow_table() %>%
+      filter(mpg > 20) %>%
+      arrange(desc(wt)) %>%
       head(3) %>%
       show_exec_plan(),
-    # we expect 2 chained ExecPlans here due to arrange being a pipeline breaker
-    # sink node and head effectively starting a new ExecPlan
-    # the entry point for the second ExecPlan is a SourceNode and not a TableSourceNode
+    # for some reason the FilterNode disappears when head/tail are involved +
+    # we do not have additional information regarding the SinkNode +
+    # the entry point is now a SourceNode and not a TableSourceNode
     regexp = paste0(
-      # the first ExecPlan (up to and including arrange)
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "OrderBySinkNode.*k=3.*",    # the arrange sink node (NB the k is set here,
-                                   # not in the head() node)
-      "ProjectNode.*",             #
-      "FilterNode.*mpg > 20.*",    # filter node and filtering expression
-      "TableSourceNode.*",         # entry point
-      # the second ExecPlan (head)
-      "SinkNode.*",                # final node
+      "SinkNode.*",                #
       "ProjectNode.*",             # output columns
       "SourceNode.*"               # entry point
     )
   )
-})
-
-test_that(" show_query() and explain()", {
-  # show_query and explain are identical to show_exec_plan, so will be tested
-  # with expect_snapshot() to minimise repetition and the size of the test file
-
-  # minimal test
-  expect_snapshot(
-    mtcars %>%
-      arrow_table() %>%
-      show_query()
-  )
 
   expect_output(
-    mtcars %>%
-      arrow_table() %>%
-      explain()
-  )
-
-  # arrow_table and mutate
-  expect_snapshot(
-    tbl %>%
-      arrow_table() %>%
-      filter(dbl > 2, chr != "e") %>%
-      select(chr, int, lgl) %>%
-      mutate(int_plus_ten = int + 10) %>%
-      show_query()
-  )
-
-  expect_output(
-    tbl %>%
-      arrow_table() %>%
-      filter(dbl > 2, chr != "e") %>%
-      select(chr, int, lgl) %>%
-      mutate(int_plus_ten = int + 10) %>%
-      explain()
-  )
-
-  # test with group by and summarise
-  expect_output(
-    tbl %>%
-      arrow_table() %>%
-      group_by(lgl) %>%
-      summarise(avg = mean(dbl, na.rm = TRUE)) %>%
-      ungroup() %>%
-      show_query()
-  )
-
-  expect_output(
-    tbl %>%
-      arrow_table() %>%
-      group_by(lgl) %>%
-      summarise(avg = mean(dbl, na.rm = TRUE)) %>%
-      ungroup() %>%
-      explain()
-  )
-
-  # test with join
-  expect_snapshot(
-    tbl %>%
-      arrow_table() %>%
-      left_join(
-        example_data %>%
-          arrow_table() %>%
-          mutate(doubled_dbl = dbl * 2) %>%
-          select(int, doubled_dbl),
-        by = "int"
-      ) %>%
-      select(int, verses, doubled_dbl) %>%
-      show_query()
-  )
-
-  expect_snapshot(
-    tbl %>%
-      arrow_table() %>%
-      left_join(
-        example_data %>%
-          arrow_table() %>%
-          mutate(doubled_dbl = dbl * 2) %>%
-          select(int, doubled_dbl),
-        by = "int"
-      ) %>%
-      select(int, verses, doubled_dbl) %>%
-      explain()
-  )
-
-  # test with filter and arrange
-  expect_snapshot(
-    mtcars %>%
-      arrow_table() %>%
-      filter(mpg > 20) %>%
-      arrange(desc(wt)) %>%
-      show_query()
-  )
-
-  expect_snapshot(
-    mtcars %>%
-      arrow_table() %>%
-      filter(mpg > 20) %>%
-      arrange(desc(wt)) %>%
-      explain()
-  )
-
-  # test with filter & arrange & head
-  expect_snapshot(
     mtcars %>%
       arrow_table() %>%
       filter(mpg > 20) %>%
       arrange(desc(wt)) %>%
       head(3) %>%
-      show_query()
+      show_query(),
+    # for some reason the FilterNode disappears when head/tail are involved +
+    # we do not have additional information regarding the SinkNode +
+    # the entry point is now a SourceNode and not a TableSourceNode
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "SinkNode.*",                #
+      "ProjectNode.*",             # output columns
+      "SourceNode.*"               # entry point
+    )
   )
-
-  expect_snapshot(
+  expect_output(
     mtcars %>%
       arrow_table() %>%
       filter(mpg > 20) %>%
       arrange(desc(wt)) %>%
       head(3) %>%
-      explain()
+      explain(),
+    # for some reason the FilterNode disappears when head/tail are involved +
+    # we do not have additional information regarding the SinkNode +
+    # the entry point is now a SourceNode and not a TableSourceNode
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "SinkNode.*",                #
+      "ProjectNode.*",             # output columns
+      "SourceNode.*"               # entry point
+    )
   )
 })

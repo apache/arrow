@@ -67,7 +67,7 @@ ExecPlan <- R6Class("ExecPlan",
       out$extras$source_schema <- .data$schema
       out
     },
-    Build = function(.data, explain = FALSE) {
+    Build = function(.data) {
       # This method takes an arrow_dplyr_query and chains together the
       # ExecNodes that they produce. It does not evaluate them--that is Run().
       group_vars <- dplyr::group_vars(.data)
@@ -83,10 +83,10 @@ ExecPlan <- R6Class("ExecPlan",
           # SinkNode, so if there are any steps done after head/tail, we need to
           # evaluate the query up to then and then do a new query for the rest.
           # as_record_batch_reader() will build and run an ExecPlan
-          node <- self$SourceNode(as_record_batch_reader(.data$.data, explain = explain))
+          node <- self$SourceNode(as_record_batch_reader(.data$.data))
         } else {
           # Recurse
-          node <- self$Build(.data$.data, explain = explain)
+          node <- self$Build(.data$.data)
         }
       } else {
         node <- self$Scan(.data)
@@ -192,7 +192,7 @@ ExecPlan <- R6Class("ExecPlan",
       }
       node
     },
-    Run = function(node, explain = FALSE) {
+    Run = function(node) {
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
@@ -249,10 +249,6 @@ ExecPlan <- R6Class("ExecPlan",
         out <- as_record_batch_reader(tab)
       }
 
-      if (explain) {
-        cat(self$ToString())
-      }
-
       out
     },
     Write = function(node, ...) {
@@ -264,8 +260,36 @@ ExecPlan <- R6Class("ExecPlan",
         ...
       )
     },
-    Stop = function() ExecPlan_StopProducing(self),
-    ToString = function() ExecPlan_ToString(self)
+    # SinkNodes (involved in arrange and/or head/tail operations) are created in
+    # ExecPlan_run and are not captured by the regular print method. We take a
+    # similar approach to expose them before calling the print method.
+    BuildAndShow = function(node) {
+      assert_is(node, "ExecNode")
+
+      # Sorting and head/tail (if sorted) are handled in the SinkNode,
+      # created in ExecPlan_run
+      sorting <- node$extras$sort %||% list()
+      select_k <- node$extras$head %||% -1L
+      has_sorting <- length(sorting) > 0
+      if (has_sorting) {
+        if (!is.null(node$extras$tail)) {
+          # Reverse the sort order and take the top K, then after we'll reverse
+          # the resulting rows so that it is ordered as expected
+          sorting$orders <- !sorting$orders
+          select_k <- node$extras$tail
+        }
+        sorting$orders <- as.integer(sorting$orders)
+      }
+
+      ExecPlan_BuildAndShow(
+        self,
+        node,
+        sorting,
+        prepare_key_value_metadata(node$final_metadata()),
+        select_k
+      )
+    },
+    Stop = function() ExecPlan_StopProducing(self)
   )
 )
 # nolint end.

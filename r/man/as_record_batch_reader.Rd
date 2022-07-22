@@ -23,7 +23,7 @@ as_record_batch_reader(x, ...)
 
 \method{as_record_batch_reader}{Dataset}(x, ...)
 
-\method{as_record_batch_reader}{arrow_dplyr_query}(x, ..., explain = FALSE)
+\method{as_record_batch_reader}{arrow_dplyr_query}(x, ...)
 
 \method{as_record_batch_reader}{Scanner}(x, ...)
 }
@@ -31,8 +31,6 @@ as_record_batch_reader(x, ...)
 \item{x}{An object to convert to a \link{RecordBatchReader}}
 
 \item{...}{Passed to S3 methods}
-
-\item{explain}{logical. If \code{TRUE} the \code{ExecPlan} is printed.}
 }
 \value{
 A \link{RecordBatchReader}
