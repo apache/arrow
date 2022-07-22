@@ -187,7 +187,7 @@ dim.arrow_dplyr_query <- function(x) {
 #' @export
 unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
 
-  if (incomparables == TRUE) {
+  if (isTRUE(incomparables)) {
     arrow_not_supported("`unique()` with `incomparables = TRUE`")
   }
 
