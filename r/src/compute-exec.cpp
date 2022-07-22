@@ -55,10 +55,11 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
       });
 }
 
-std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
-                 const std::shared_ptr<compute::ExecNode>& final_node,
-                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    cpp11::strings metadata, int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
@@ -88,6 +89,7 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
   }
 
   StopIfNotOk(plan->Validate());
+  StopIfNotOk(plan->StartProducing());
 
   // If the generator is destroyed before being completely drained, inform plan
   std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
@@ -107,24 +109,9 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
     auto kv = strings_to_kvm(metadata);
     out_schema = out_schema->WithMetadata(kv);
   }
-
-  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-      out;
-  out.first = plan;
-  out.second = compute::MakeGeneratorReader(
+  return compute::MakeGeneratorReader(
       out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
       gc_memory_pool());
-  return out;
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
-  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  StopIfNotOk(prepared_plan.first->StartProducing());
-  return prepared_plan.second;
 }
 
 // [[arrow::export]]
@@ -139,12 +126,38 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 }
 
 // [[arrow::export]]
-std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan,
-                                  const std::shared_ptr<compute::ExecNode>& final_node,
-                                  cpp11::list sort_options, cpp11::strings metadata,
-                                  int64_t head = -1) {
-  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  return prepared_plan.first->ToString();
+std::string ExecPlan_BuildAndShow(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    int64_t head = -1) {
+  // For now, don't require R to construct SinkNodes.
+  // Instead, just pass the node we should collect as an argument.
+  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+
+  // Sorting uses a different sink node; there is no general sort yet
+  if (sort_options.size() > 0) {
+    if (head >= 0) {
+      // Use the SelectK node to take only what we need
+      MakeExecNodeOrStop(
+          "select_k_sink", plan.get(), {final_node.get()},
+          compute::SelectKSinkNodeOptions{
+              arrow::compute::SelectKOptions(
+                  head, std::dynamic_pointer_cast<compute::SortOptions>(
+                            make_compute_options("sort_indices", sort_options))
+                            ->sort_keys),
+              &sink_gen});
+    } else {
+      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
+                         compute::OrderBySinkNodeOptions{
+                             *std::dynamic_pointer_cast<compute::SortOptions>(
+                                 make_compute_options("sort_indices", sort_options)),
+                             &sink_gen});
+    }
+  } else {
+    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                       compute::SinkNodeOptions{&sink_gen});
+  }
+  return plan->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)

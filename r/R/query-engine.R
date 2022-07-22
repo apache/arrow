@@ -261,7 +261,7 @@ ExecPlan <- R6Class("ExecPlan",
       )
     },
     # SinkNodes (involved in arrange and/or head/tail operations) are created in
-    # ExecPlan_run and are not captured by the regular print method. We take a
+    # ExecPlan_run and are not captured by the regulat print method. We take a
     # similar approach to expose them before calling the print method.
     BuildAndShow = function(node) {
       assert_is(node, "ExecNode")
@@ -285,7 +285,6 @@ ExecPlan <- R6Class("ExecPlan",
         self,
         node,
         sorting,
-        prepare_key_value_metadata(node$final_metadata()),
         select_k
       )
     },
