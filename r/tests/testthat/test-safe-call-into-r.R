@@ -32,11 +32,8 @@ test_that("SafeCallIntoR works from the main R thread", {
 })
 
 test_that("SafeCallIntoR works within RunWithCapturedR", {
-  skip_if_not(CanRunWithCapturedR())
-<<<<<<< HEAD
   skip_on_cran()
-=======
->>>>>>> 0b1d07483 (synchronize when we can and cannot runwithcapturedr)
+  skip_if_not(CanRunWithCapturedR())
 
   expect_identical(
     TestSafeCallIntoR(function() "string one!", opt = "async_with_executor"),
@@ -50,11 +47,8 @@ test_that("SafeCallIntoR works within RunWithCapturedR", {
 })
 
 test_that("SafeCallIntoR errors from the non-R thread", {
-  skip_if_not(CanRunWithCapturedR())
-<<<<<<< HEAD
   skip_on_cran()
-=======
->>>>>>> 0b1d07483 (synchronize when we can and cannot runwithcapturedr)
+  skip_if_not(CanRunWithCapturedR())
 
   expect_error(
     TestSafeCallIntoR(function() "string one!", opt = "async_without_executor"),

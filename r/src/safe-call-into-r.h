@@ -301,37 +301,4 @@ static inline arrow::Status RunWithCapturedRIfPossibleVoid(
   return result.status();
 }
 
-// Performs an Arrow call (e.g., run an exec plan) in such a way that background threads
-// can use SafeCallIntoR(). This version is useful for Arrow calls that do not already
-// return a Future<>(). If it is not possible to use RunWithCapturedR() (i.e.,
-// CanRunWithCapturedR() returns false), this will run make_arrow_call on the main
-// R thread (which will cause background threads that try to SafeCallIntoR() to
-// error).
-template <typename T>
-arrow::Result<T> RunWithCapturedRIfPossible(
-    std::function<arrow::Result<T>()> make_arrow_call) {
-  if (CanRunWithCapturedR()) {
-    // Note that the use of the io_context here is arbitrary (i.e. we could use
-    // any construct that launches a background thread).
-    const auto& io_context = arrow::io::default_io_context();
-    return RunWithCapturedR<T>([&]() {
-      return DeferNotOk(io_context.executor()->Submit(std::move(make_arrow_call)));
-    });
-  } else {
-    return make_arrow_call();
-  }
-}
-
-// Like RunWithCapturedRIfPossible<>() but for arrow calls that don't return
-// a Result.
-static inline arrow::Status RunWithCapturedRIfPossibleVoid(
-    std::function<arrow::Status()> make_arrow_call) {
-  auto result = RunWithCapturedRIfPossible<bool>([&]() -> arrow::Result<bool> {
-    ARROW_RETURN_NOT_OK(make_arrow_call());
-    return true;
-  });
-  ARROW_RETURN_NOT_OK(result);
-  return result.status();
-}
-
 #endif
