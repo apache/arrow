@@ -96,7 +96,12 @@ class SortAndFetchBasicImpl : public SortBasicImpl {
     std::unique_lock<std::mutex> lock(mutex_);
     ARROW_ASSIGN_OR_RAISE(auto table,
                           Table::FromRecordBatches(output_schema_, std::move(batches_)));
-    return table->Slice(options_.offset, options_.count);
+    auto sort_options = SortOptions(options_.sort_keys);
+    ARROW_ASSIGN_OR_RAISE(auto indices,
+                          SortIndices(table, std::move(sort_options), ctx_));
+    ARROW_ASSIGN_OR_RAISE(auto sorted_table,
+                          Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_));
+    return sorted_table.table()->Slice(options_.offset, options_.count);
   }
 
   std::string ToString() const override { return options_.ToString(); }
