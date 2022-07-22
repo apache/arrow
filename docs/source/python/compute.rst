@@ -376,7 +376,8 @@ User-Defined Functions
 ======================
 
 .. warning::
-   User-defined functions only supports scalar functions and the current version is experimental.
+   This API is **experimental**.
+   Also, only scalar functions can currently be user-defined.
 
 To use a user-defined-function (UDF), either the experimental `dataset` API options can be used or the
 function can be directly called using :func:`pyarrow.compute.call_function`. 
