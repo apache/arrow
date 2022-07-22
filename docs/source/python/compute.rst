@@ -403,8 +403,9 @@ To register a UDF, a function name, function docs and input types and output typ
    }
    output_type = pa.int64()
 
-   def linear_calculation(ctx, m, x, c):
-      return pc.add(pc.multiply(m, x), c)
+   def affine_calculation(ctx, m, x, c):
+       temp = pc.multiply(m, x, memory_pool=ctx.memory_pool)
+       return pc.add(temp, c, memory_pool=ctx.memory_pool)
 
    pc.register_scalar_function(linear_calculation, 
                                function_name,
