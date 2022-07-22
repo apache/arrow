@@ -238,7 +238,7 @@ TEST_F(S3OptionsTest, FromUri) {
   S3Options options;
   S3Options retry_options;
   // ClientBuilder builder;
-  S3Client client;
+  // S3Client client;
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
   ASSERT_EQ(options.region, "");
@@ -293,26 +293,23 @@ TEST_F(S3OptionsTest, FromUri) {
   ASSERT_OK_AND_ASSIGN(retry_options, S3Options::FromUri("s3://mybucket/", &path));
   retry_options.stock_retry_strategy = AwsStockRetryStrategy.Standard;
   ASSERT_OK_AND_ASSIGN(options, retry_options);
-  static_assert(std::is_same<decltype(options.retry_strategy),
-                             AWS::Client::StandardRetryStrategy>::value,
-                "options.retry_strategy must be AWS::Client::StandardRetryStrategy");
+  ASSERT_THAT(dynamic_cast<StandardRetryStrategy*>(options.retry_strategy),
+              "options.retry_strategy must be StandardRetryStrategy");
 
   retry_options.stock_retry_strategy = AwsStockRetryStrategy.Default;
   ASSERT_OK_AND_ASSIGN(options, retry_options);
-  static_assert(std::is_same<decltype(options.retry_strategy),
-                             AWS::Client::DefaultRetryStrategy>::value,
-                "options.retry_strategy must be AWS::Client::DefaultRetryStrategy");
+  ASSERT_THAT(dynamic_cast<DefaultRetryStrategy*>(options.retry_strategy),
+              "options.retry_strategy must be DefaultRetryStrategy");
 
   retry_options.stock_retry_strategy = AwsStockRetryStrategy.None;
   ASSERT_OK_AND_ASSIGN(options, retry_options);
-  static_assert(
-      std::is_same<decltype(options.retry_strategy), ConnectRetryStrategy>::value,
-      "options.retry_strategy must be ConnectRetryStrategy");
+  ASSERT_THAT(dynamic_cast<ConnectRetryStrategy*>(options.retry_strategy),
+              "options.retry_strategy must be ConnectRetryStrategy");
 
   retry_options.retry_strategy = std::make_shared<ShortRetryStrategy>();
   ASSERT_OK_AND_ASSIGN(options, retry_options);
-  static_assert(
-      std::is_same<decltype(options.retry_strategy), WrappedRetryStrategy>::value,
+  ASSERT_THAT(
+      dynamic_cast<WrappedRetryStrategy*>(options.retry_strategy),
       "options.retry_strategy must be WrappedRetryStrategy of a ShortRetryStrategy");
 
   // Test the S3 client is built with the correct retry strategy
