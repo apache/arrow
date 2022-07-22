@@ -417,7 +417,7 @@ To register a UDF, a function name, function docs and input types and output typ
    first parameter of any user-defined-function. The idea is to make available passing required
    meta-data across an application which would be important for UDFs.
 
-Calling a UDF directly using :func:`pyarrow.compute.call_function`,
+You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
 
 .. code-block:: python
 
