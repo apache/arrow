@@ -444,7 +444,8 @@ class ARROW_EXPORT SortAndFetchSinkNodeOptions : public SinkNodeOptions {
   explicit SortAndFetchSinkNodeOptions(
       SortAndFetchOptions sort_and_fetch_options,
       std::function<Future<util::optional<ExecBatch>>()>* generator)
-      : SinkNodeOptions(generator), sort_and_fetch_options(std::move(sort_and_fetch_options)) {}
+      : SinkNodeOptions(generator),
+        sort_and_fetch_options(std::move(sort_and_fetch_options)) {}
 
   /// SortAndFetch options
   SortAndFetchOptions sort_and_fetch_options;

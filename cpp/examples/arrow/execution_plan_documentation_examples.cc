@@ -231,15 +231,21 @@ arrow::Result<BatchesWithSchema> MakeSortTestBasicBatches() {
 arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
   BatchesWithSchema out;
   auto fields = {arrow::field("i32", arrow::int32()), arrow::field("str", arrow::utf8())};
-  ARROW_ASSIGN_OR_RAISE(auto b1_int, GetArrayDataSample<arrow::Int32Type>({12, 7, 3, 15, 10, -1, 1}));
-  ARROW_ASSIGN_OR_RAISE(auto b2_int, GetArrayDataSample<arrow::Int32Type>({-2, -1, 3, 1, 10, 11, 12}));
-  ARROW_ASSIGN_OR_RAISE(auto b3_int, GetArrayDataSample<arrow::Int32Type>({5, 3, -8, 1, 9, 7, 8}));
-  ARROW_ASSIGN_OR_RAISE(auto b1_str, GetBinaryArrayDataSample<arrow::StringType>(
-                                         {"alpha", "beta", "alpha", "gamma", "theta", "gamma", "alpha"}));
-  ARROW_ASSIGN_OR_RAISE(auto b2_str, GetBinaryArrayDataSample<arrow::StringType>(
-                                         {"alpha", "gamma", "alpha", "beta", "alpha", "gamma", "theta"}));
-  ARROW_ASSIGN_OR_RAISE(auto b3_str, GetBinaryArrayDataSample<arrow::StringType>(
-                                         {"gamma", "beta", "alpha", "alpha", "gamma", "alpha", "beta"}));
+  ARROW_ASSIGN_OR_RAISE(auto b1_int,
+                        GetArrayDataSample<arrow::Int32Type>({12, 7, 3, 15, 10, 0, 11}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_int,
+                        GetArrayDataSample<arrow::Int32Type>({2, 1, 3, 12, 10, 11, 12}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_int,
+                        GetArrayDataSample<arrow::Int32Type>({5, 3, 8, 10, 9, 7, 8}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto b1_str, GetBinaryArrayDataSample<arrow::StringType>(
+                       {"alpha", "beta", "alpha", "gamma", "theta", "gamma", "alpha"}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto b2_str, GetBinaryArrayDataSample<arrow::StringType>(
+                       {"alpha", "gamma", "alpha", "beta", "alpha", "gamma", "theta"}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto b3_str, GetBinaryArrayDataSample<arrow::StringType>(
+                       {"gamma", "beta", "alpha", "alpha", "gamma", "alpha", "beta"}));
   ARROW_ASSIGN_OR_RAISE(auto b1, GetExecBatchFromVectors(fields, {b1_int, b1_str}));
   ARROW_ASSIGN_OR_RAISE(auto b2, GetExecBatchFromVectors(fields, {b2_int, b2_str}));
   ARROW_ASSIGN_OR_RAISE(auto b3, GetExecBatchFromVectors(fields, {b3_int, b3_str}));
@@ -908,10 +914,12 @@ arrow::Status SortAndFetchExample(cp::ExecContext& exec_context) {
       cp::MakeExecNode("source", plan.get(), {},
                        cp::SourceNodeOptions{input.schema, input.gen()}));
 
-  cp::SortAndFetchOptions options = cp::SortAndFetchOptions{0, 3, {cp::SortKey("i32", cp::SortOrder::Ascending)}};
-  
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("order_and_fetch_sink", plan.get(), {source},
-                                       cp::SortAndFetchSinkNodeOptions{options, &sink_gen}));
+  cp::SortAndFetchOptions options =
+      cp::SortAndFetchOptions{0, 3, {cp::SortKey("i32", cp::SortOrder::Ascending)}};
+
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("order_and_fetch_sink", plan.get(), {source},
+                       cp::SortAndFetchSinkNodeOptions{options, &sink_gen}));
 
   auto schema = arrow::schema(
       {arrow::field("i32", arrow::int32()), arrow::field("str", arrow::utf8())});

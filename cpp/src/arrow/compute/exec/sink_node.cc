@@ -470,7 +470,7 @@ struct OrderBySinkNode final : public SinkNode {
 
   // A sink node that receives inputs and then compute top_k/bottom_k.
   static Result<ExecNode*> MakeSortAndFetch(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                       const ExecNodeOptions& options) {
+                                            const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
 
     const auto& sink_options = checked_cast<const SortAndFetchSinkNodeOptions&>(options);
@@ -481,7 +481,7 @@ struct OrderBySinkNode final : public SinkNode {
     ARROW_ASSIGN_OR_RAISE(
         std::unique_ptr<OrderByImpl> impl,
         OrderByImpl::MakeSortAndFetch(plan->exec_context(), inputs[0]->output_schema(),
-                                 sink_options.sort_and_fetch_options));
+                                      sink_options.sort_and_fetch_options));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
                                               sink_options.generator);
   }
@@ -561,7 +561,8 @@ namespace internal {
 
 void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("select_k_sink", OrderBySinkNode::MakeSelectK));
-  DCHECK_OK(registry->AddFactory("order_and_fetch_sink", OrderBySinkNode::MakeSortAndFetch));
+  DCHECK_OK(
+      registry->AddFactory("order_and_fetch_sink", OrderBySinkNode::MakeSortAndFetch));
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));

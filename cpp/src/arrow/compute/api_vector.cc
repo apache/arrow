@@ -210,13 +210,13 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-SortAndFetchOptions::SortAndFetchOptions(int64_t offset, int64_t count, std::vector<SortKey> sort_keys)
+SortAndFetchOptions::SortAndFetchOptions(int64_t offset, int64_t count,
+                                         std::vector<SortKey> sort_keys)
     : FunctionOptions(internal::kSortAndFetchOptionsType),
       offset(offset),
       count(count),
       sort_keys(std::move(sort_keys)) {}
 constexpr char SortAndFetchOptions::kTypeName[];
-
 
 CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
                                            bool check_overflow)

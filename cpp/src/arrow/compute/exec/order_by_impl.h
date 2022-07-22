@@ -49,8 +49,8 @@ class OrderByImpl {
       const SelectKOptions& options);
 
   static Result<std::unique_ptr<OrderByImpl>> MakeSortAndFetch(
-    ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
-    const SortAndFetchOptions& options);
+      ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
+      const SortAndFetchOptions& options);
 };
 
 }  // namespace compute
