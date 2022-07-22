@@ -107,10 +107,8 @@ struct FastHash32Scalar {
     Hashing32::HashMultiColumn({input_keycol}, &hash_ctx,
                                reinterpret_cast<uint32_t*>(hash_buffer->mutable_data()));
 
-    auto result_buffer = std::shared_ptr<Buffer>(std::move(hash_buffer));
-    ArraySpan hash_result{uint64().get(), hash_input.length};
-    hash_result.SetBuffer(1, result_buffer);
-    out->value = hash_result;
+    out->value =
+        ArrayData{uint32(), hash_input.length, {nullptr, std::move(hash_buffer)}};
     return Status::OK();
   }
 
@@ -150,10 +148,8 @@ struct FastHash64Scalar {
     Hashing64::HashMultiColumn({input_keycol}, &hash_ctx,
                                reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
 
-    auto result_buffer = std::shared_ptr<Buffer>(std::move(hash_buffer));
-    ArraySpan hash_result{uint64().get(), hash_input.length};
-    hash_result.SetBuffer(1, result_buffer);
-    out->value = hash_result;
+    out->value =
+        ArrayData{uint64(), hash_input.length, {nullptr, std::move(hash_buffer)}};
     return Status::OK();
   }
 
@@ -180,10 +176,7 @@ struct XxHashScalar {
       // total += ScalarHelper<int64_t, 1>::ComputeHash(v);
     }
 
-    auto result_buffer = std::shared_ptr<Buffer>(std::move(hash_buffer));
-    ArraySpan hash_result{uint64().get(), input_len};
-    hash_result.SetBuffer(1, result_buffer);
-    out->value = hash_result;
+    out->value = ArrayData{uint64(), input_len, {nullptr, std::move(hash_buffer)}};
     return Status::OK();
   }
 };
