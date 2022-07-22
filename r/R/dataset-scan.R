@@ -185,11 +185,14 @@ tail_from_batches <- function(batches, n) {
 #' `as_record_batch()'.
 #' @param .schema An optional [schema()]. If NULL, the schema will be inferred
 #'   from the first batch.
+#' @param .lazy Use `TRUE` to evaluate `FUN` lazily as batches are read from
+#'   the result; use `FALSE` to evaluate `FUN` on all batches before returning
+#'   the reader.
 #' @param ... Additional arguments passed to `FUN`
 #' @param .data.frame Deprecated argument, ignored
 #' @return An `arrow_dplyr_query`.
 #' @export
-map_batches <- function(X, FUN, ..., .schema = NULL, .data.frame = NULL) {
+map_batches <- function(X, FUN, ..., .schema = NULL, .lazy = FALSE, .data.frame = NULL) {
   if (!is.null(.data.frame)) {
     warning(
       "The .data.frame argument is deprecated. ",
@@ -241,7 +244,18 @@ map_batches <- function(X, FUN, ..., .schema = NULL, .data.frame = NULL) {
     }
   }
 
-  as_record_batch_reader(fun, schema = .schema)
+  reader_out <- as_record_batch_reader(fun, schema = .schema)
+
+  # TODO(ARROW-17178) because there are some restrictions on evaluating
+  # reader_out in some ExecPlans, the default .lazy is FALSE for now.
+  if (!.lazy) {
+    reader_out <- RecordBatchReader$create(
+      batches = reader_out$batches(),
+      schema = .schema
+    )
+  }
+
+  reader_out
 }
 
 #' @usage NULL

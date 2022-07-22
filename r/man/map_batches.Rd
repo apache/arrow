@@ -4,7 +4,7 @@
 \alias{map_batches}
 \title{Apply a function to a stream of RecordBatches}
 \usage{
-map_batches(X, FUN, ..., .schema = NULL, .data.frame = NULL)
+map_batches(X, FUN, ..., .schema = NULL, .lazy = FALSE, .data.frame = NULL)
 }
 \arguments{
 \item{X}{A \code{Dataset} or \code{arrow_dplyr_query} object, as returned by the
@@ -18,6 +18,10 @@ batch. It must return a RecordBatch or something coercible to one via
 
 \item{.schema}{An optional \code{\link[=schema]{schema()}}. If NULL, the schema will be inferred
 from the first batch.}
+
+\item{.lazy}{Use \code{TRUE} to evaluate \code{FUN} lazily as batches are read from
+the result; use \code{FALSE} to evaluate \code{FUN} on all batches before returning
+the reader.}
 
 \item{.data.frame}{Deprecated argument, ignored}
 }
