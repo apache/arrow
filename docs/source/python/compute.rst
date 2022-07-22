@@ -392,7 +392,9 @@ To register a UDF, a function name, function docs and input types and output typ
    function_name = "regression"
    function_docs = {
       "summary": "Calculate y = mx + c",
-      "description": "Obtaining output of a linear scalar function"
+      "description":
+          "Compute the affine function y = mx + c.\n"
+          "This function takes three inputs, m, x and c, in order."
    }
    input_types = {
       "m" : pa.int64(),
