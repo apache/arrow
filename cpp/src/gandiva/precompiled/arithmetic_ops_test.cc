@@ -695,6 +695,7 @@ TEST(TestArithmeticOps, TestSqrtIntFloatDouble) {
   EXPECT_EQ(sqrt_float64(49.0), 7.0);
   EXPECT_EQ(sqrt_float64(36.0), 6.0);
   EXPECT_EQ(sqrt_float64(0.0), 0.0);
+  EXPECT_TRUE(std::isnan(sqrt_float64(-1.0)));
 }
 
 }  // namespace gandiva
