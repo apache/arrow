@@ -291,17 +291,17 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Retry strategy selection
   ASSERT_OK_AND_ASSIGN(retry_options, S3Options::FromUri("s3://mybucket/", &path));
-  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Standard;
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy::Standard;
   ASSERT_OK_AND_ASSIGN(options, retry_options);
-  ASSERT_THAT(dynamic_cast<StandardRetryStrategy*>(options.retry_strategy),
+  ASSERT_THAT(dynamic_cast<Aws::Client::StandardRetryStrategy*>(options.retry_strategy),
               "options.retry_strategy must be StandardRetryStrategy");
 
-  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Default;
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy::Default;
   ASSERT_OK_AND_ASSIGN(options, retry_options);
-  ASSERT_THAT(dynamic_cast<DefaultRetryStrategy*>(options.retry_strategy),
+  ASSERT_THAT(dynamic_cast<Aws::Client::DefaultRetryStrategy*>(options.retry_strategy),
               "options.retry_strategy must be DefaultRetryStrategy");
 
-  retry_options.stock_retry_strategy = AwsStockRetryStrategy.None;
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy::None;
   ASSERT_OK_AND_ASSIGN(options, retry_options);
   ASSERT_THAT(dynamic_cast<ConnectRetryStrategy*>(options.retry_strategy),
               "options.retry_strategy must be ConnectRetryStrategy");
