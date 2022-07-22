@@ -131,10 +131,9 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 }
 
 // [[arrow::export]]
-std::string ExecPlan_BuildAndShow(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    int64_t head = -1) {
+std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan,
+                                  const std::shared_ptr<compute::ExecNode>& final_node,
+                                  cpp11::list sort_options, int64_t head = -1) {
   // a section of this code is copied from ExecPlan_run - the 2 need to be in sync
   // Start of chunk copied from ExecPlan_run
 
