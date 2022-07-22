@@ -492,7 +492,6 @@ test_that("show_exec_plan(), show_query() and explain()", {
       arrow_table() %>%
       group_by(lgl) %>%
       summarise(avg = mean(dbl, na.rm = TRUE)) %>%
-      ungroup() %>%
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*",            # boiler plate for ExecPlan
