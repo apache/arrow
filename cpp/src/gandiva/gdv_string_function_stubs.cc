@@ -353,6 +353,16 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
     return "";
   }
 
+  bool has_multi_byte = false;
+  for (int i = 0; i < pat_len; i++) {
+    unsigned char char_single_byte = pat[i];
+    if (char_single_byte > 127) {
+      // found a multi-byte utf-8 char
+      has_multi_byte = true;
+      break;
+    }
+  }
+
   std::vector<int> lps(pat_len);
   int len = 0;
 
@@ -413,10 +423,17 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
     return out;
   } else if (static_cast<int32_t>(abs(cnt)) <= static_cast<int32_t>(occ.size()) &&
              cnt < 0) {
+    int32_t sz = static_cast<int32_t>(occ.size());
     int32_t temp = static_cast<int32_t>(abs(cnt));
-    memcpy(out, txt + occ[temp - 1] + pat_len, txt_len - occ[temp - 1] - pat_len);
-    *out_len = txt_len - occ[temp - 1] - pat_len;
-    return out;
+    if (!has_multi_byte) {
+      memcpy(out, txt + occ[sz - temp] + 1, txt_len - occ[sz - temp] - 1);
+      *out_len = txt_len - occ[sz - temp] - 1;
+      return out;
+    } else {
+      memcpy(out, txt + occ[sz - temp] + pat_len, txt_len - occ[sz - temp] - pat_len);
+      *out_len = txt_len - occ[sz - temp] - pat_len;
+      return out;
+    }
   } else {
     *out_len = txt_len;
     memcpy(out, txt, txt_len);
