@@ -38,7 +38,7 @@ bool CanRunWithCapturedR() {
     on_old_windows = on_old_windows_fun();
   }
 
-  return !on_old_windows;
+  return !on_old_windows && GetMainRThread().Executor() == nullptr;
 #else
   return false;
 #endif

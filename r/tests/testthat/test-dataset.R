@@ -689,6 +689,92 @@ test_that("map_batches", {
   )
 })
 
+test_that("map_batches with explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !! first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_equal(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(first_col_name = character(), b = double())
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
+  )
+})
+
+test_that("map_batches without explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !! first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_error(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    "Can't infer schema"
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
+  )
+})
+
 test_that("head/tail", {
   # head/tail with no query are still deterministic order
   ds <- open_dataset(dataset_dir)

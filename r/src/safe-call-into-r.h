@@ -31,7 +31,9 @@
 // and crash R in older versions (ARROW-16201). Crashes also occur
 // on 32-bit R builds on R 3.6 and lower. Implementation provided
 // in safe-call-into-r-impl.cpp so that we can skip some tests
-// when this feature is not provided.
+// when this feature is not provided. This also checks that there
+// is not already an event loop registered (via MainRThread::Executor()),
+// because only one of these can exist at any given time.
 bool CanRunWithCapturedR();
 
 // The MainRThread class keeps track of the thread on which it is safe

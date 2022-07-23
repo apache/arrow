@@ -4491,6 +4491,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatchreader.cpp
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_function(cpp11::sexp fun_sexp, const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_RecordBatchReader__from_function(SEXP fun_sexp_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type fun_sexp(fun_sexp_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(RecordBatchReader__from_function(fun_sexp, schema));
+END_CPP11
+}
+// recordbatchreader.cpp
 std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_RecordBatchReader__from_Table(SEXP table_sexp){
 BEGIN_CPP11
@@ -5611,6 +5620,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
 		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
 		{ "_arrow_RecordBatchReader__from_batches", (DL_FUNC) &_arrow_RecordBatchReader__from_batches, 2}, 
+		{ "_arrow_RecordBatchReader__from_function", (DL_FUNC) &_arrow_RecordBatchReader__from_function, 2}, 
 		{ "_arrow_RecordBatchReader__from_Table", (DL_FUNC) &_arrow_RecordBatchReader__from_Table, 1}, 
 		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_RecordBatchReader__Head", (DL_FUNC) &_arrow_RecordBatchReader__Head, 2}, 

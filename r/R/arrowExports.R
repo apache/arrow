@@ -1740,6 +1740,10 @@ RecordBatchReader__from_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_RecordBatchReader__from_batches`, batches, schema_sxp)
 }
 
+RecordBatchReader__from_function <- function(fun_sexp, schema) {
+  .Call(`_arrow_RecordBatchReader__from_function`, fun_sexp, schema)
+}
+
 RecordBatchReader__from_Table <- function(table) {
   .Call(`_arrow_RecordBatchReader__from_Table`, table)
 }
