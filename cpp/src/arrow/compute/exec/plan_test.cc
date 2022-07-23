@@ -1458,5 +1458,28 @@ TEST(ExecPlan, RecordBatchReaderSourceSink) {
               Finishes(ResultWith(UnorderedElementsAreArray(input.batches))));
 }
 
+TEST(ExecPlan, SourceEnforcesBatchLimit) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  auto random_data = MakeRandomBatches(
+      schema({field("a", int32()), field("b", boolean())}), /*num_batches=*/3,
+      /*batch_size=*/static_cast<int32_t>(std::floor(ExecPlan::kMaxBatchSize * 3.5)));
+
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  ASSERT_OK(Declaration::Sequence(
+                {
+                    {"source", SourceNodeOptions{random_data.schema,
+                                                 random_data.gen(/*parallel=*/true,
+                                                                 /*slow=*/false)}},
+                    {"sink", SinkNodeOptions{&sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+  ASSERT_FINISHES_OK_AND_ASSIGN(std::vector<ExecBatch> batches,
+                                StartAndCollect(plan.get(), std::move(sink_gen)));
+  for (const auto& batch : batches) {
+    ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow

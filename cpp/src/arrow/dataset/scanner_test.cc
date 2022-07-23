@@ -27,6 +27,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
@@ -1371,16 +1372,19 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
     const std::shared_ptr<Schema>& dataset_schema,
     const std::shared_ptr<Schema>& physical_schema,
     const std::vector<std::vector<std::string>>& fragment_batch_strs,
-    const std::vector<compute::Expression>& guarantees,
-    std::function<void(compute::ExecBatch*, const RecordBatch&)> make_exec_batch = {}) {
+    const std::vector<compute::Expression>& guarantees) {
+  // If guarantees are provided we must have one for each batch
   if (!guarantees.empty()) {
     EXPECT_EQ(fragment_batch_strs.size(), guarantees.size());
   }
+
   RecordBatchVector record_batches;
   FragmentVector fragments;
   fragments.reserve(fragment_batch_strs.size());
-  for (size_t i = 0; i < fragment_batch_strs.size(); i++) {
-    const auto& batch_strs = fragment_batch_strs[i];
+
+  // construct fragments first
+  for (size_t frag_ndx = 0; frag_ndx < fragment_batch_strs.size(); frag_ndx++) {
+    const auto& batch_strs = fragment_batch_strs[frag_ndx];
     RecordBatchVector fragment_batches;
     fragment_batches.reserve(batch_strs.size());
     for (const auto& batch_str : batch_strs) {
@@ -1390,37 +1394,40 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
                           fragment_batches.end());
     fragments.push_back(std::make_shared<InMemoryFragment>(
         physical_schema, std::move(fragment_batches),
-        guarantees.empty() ? literal(true) : guarantees[i]));
+        guarantees.empty() ? literal(true) : guarantees[frag_ndx]));
   }
 
+  // then construct ExecBatches that can reference fields from constructed Fragments
   std::vector<compute::ExecBatch> batches;
   auto batch_it = record_batches.begin();
-  for (size_t fragment_index = 0; fragment_index < fragment_batch_strs.size();
-       ++fragment_index) {
-    for (size_t batch_index = 0; batch_index < fragment_batch_strs[fragment_index].size();
-         ++batch_index) {
+  for (size_t frag_ndx = 0; frag_ndx < fragment_batch_strs.size(); ++frag_ndx) {
+    size_t frag_batch_count = fragment_batch_strs[frag_ndx].size();
+
+    for (size_t batch_index = 0; batch_index < frag_batch_count; ++batch_index) {
       const auto& batch = *batch_it++;
 
       // the scanned ExecBatches will begin with physical columns
       batches.emplace_back(*batch);
 
-      // allow customizing the ExecBatch (e.g. to fill in placeholders for partition
-      // fields)
-      if (make_exec_batch) {
-        make_exec_batch(&batches.back(), *batch);
+      // augment scanned ExecBatch with columns for this fragment's guarantee
+      if (!guarantees.empty()) {
+        EXPECT_OK_AND_ASSIGN(auto known_fields,
+                             ExtractKnownFieldValues(guarantees[frag_ndx]));
+        for (const auto& known_field : known_fields.map) {
+          batches.back().values.emplace_back(known_field.second);
+        }
       }
 
       // scanned batches will be augmented with fragment and batch indices
-      batches.back().values.emplace_back(static_cast<int>(fragment_index));
+      batches.back().values.emplace_back(static_cast<int>(frag_ndx));
       batches.back().values.emplace_back(static_cast<int>(batch_index));
 
       // ... and with the last-in-fragment flag
-      batches.back().values.emplace_back(batch_index ==
-                                         fragment_batch_strs[fragment_index].size() - 1);
-      batches.back().values.emplace_back(fragments[fragment_index]->ToString());
+      batches.back().values.emplace_back(batch_index == frag_batch_count - 1);
+      batches.back().values.emplace_back(fragments[frag_ndx]->ToString());
 
       // each batch carries a guarantee inherited from its Fragment's partition expression
-      batches.back().guarantee = fragments[fragment_index]->partition_expression();
+      batches.back().guarantee = fragments[frag_ndx]->partition_expression();
     }
   }
 
@@ -1437,31 +1444,26 @@ DatasetAndBatches MakeBasicDataset() {
 
   const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
 
-  return DatasetAndBatchesFromJSON(
-      dataset_schema, physical_schema,
-      {
-          {
-              R"([{"a": 1,    "b": null},
-                  {"a": 2,    "b": true}])",
-              R"([{"a": null, "b": true},
-                  {"a": 3,    "b": false}])",
-          },
-          {
-              R"([{"a": null, "b": true},
-                  {"a": 4,    "b": false}])",
-              R"([{"a": 5,    "b": null},
-                  {"a": 6,    "b": false},
-                  {"a": 7,    "b": false}])",
-          },
-      },
-      {
-          equal(field_ref("c"), literal(23)),
-          equal(field_ref("c"), literal(47)),
-      },
-      [](compute::ExecBatch* batch, const RecordBatch&) {
-        // a placeholder will be inserted for partition field "c"
-        batch->values.emplace_back(std::make_shared<Int32Scalar>());
-      });
+  return DatasetAndBatchesFromJSON(dataset_schema, physical_schema,
+                                   {
+                                       {
+                                           R"([{"a": 1,    "b": null},
+                                               {"a": 2,    "b": true}])",
+                                           R"([{"a": null, "b": true},
+                                               {"a": 3,    "b": false}])",
+                                       },
+                                       {
+                                           R"([{"a": null, "b": true},
+                                               {"a": 4,    "b": false}])",
+                                           R"([{"a": 5,    "b": null},
+                                               {"a": 6,    "b": false},
+                                               {"a": 7,    "b": false}])",
+                                       },
+                                   },
+                                   {
+                                       equal(field_ref("c"), literal(23)),
+                                       equal(field_ref("c"), literal(47)),
+                                   });
 }
 
 DatasetAndBatches MakeNestedDataset() {

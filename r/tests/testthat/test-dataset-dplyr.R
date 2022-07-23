@@ -340,3 +340,80 @@ test_that("dplyr method not implemented messages", {
     fixed = TRUE
   )
 })
+
+test_that("show_exec_plan(), show_query() and explain() with datasets", {
+  # show_query() and explain() are wrappers around show_exec_plan() and are not
+  # tested separately
+
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  # minimal test
+  expect_output(
+    ds %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "SourceNode"                  # entry point
+    )
+  )
+
+  # filter and select
+  expect_output(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6L & part == 1) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "FilterNode.*",               # filter node
+      "int > 6.*cast.*",            # filtering expressions + auto-casting of part
+      "SourceNode"                  # entry point
+    )
+  )
+
+  # group_by and summarise
+  expect_output(
+    ds %>%
+      group_by(part) %>%
+      summarise(avg = mean(int)) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
+      "ProjectNode.*",              # output columns
+      "GroupByNode.*",              # group by node
+      "keys=.*part.*",              # key for aggregations
+      "aggregates=.*hash_mean.*",   # aggregations
+      "ProjectNode.*",              # input columns
+      "SourceNode"                  # entry point
+    )
+  )
+
+  # arrange and head
+  expect_output(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
+      "OrderBySinkNode.*chr.*ASC.*", # arrange goes via the OrderBy sink node
+      "ProjectNode.*",               # output columns
+      "FilterNode.*",                # filter node
+      "filter=lgl.*",                # filtering expression
+      "SourceNode"                   # entry point
+    )
+  )
+
+  # printing the ExecPlan for a nested query would currently force the
+  # evaluation of the inner one(s), which we want to avoid => no output
+  expect_warning(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      head() %>%
+      show_exec_plan(),
+    "The `ExecPlan` cannot be printed for a nested query."
+  )
+})
