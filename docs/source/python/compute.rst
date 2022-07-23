@@ -438,7 +438,6 @@ Considering a series of scalar inputs,
 
 .. code-block:: python
 
-   >>> import pyarrow as pa
    >>> import pyarrow.compute as pc
    >>> function_name = "affine_with_python"
    >>> function_docs = {
@@ -469,10 +468,9 @@ Considering a series of scalar inputs,
    >>> pc.call_function(function_name, [pa.scalar(10.1), pa.scalar(10.2), pa.scalar(20.2)])
    <pyarrow.DoubleScalar: 123.22>
 
-When all the inputs are scalar, the input is a size=1 array and the values has to be properly
-treated within the UDF. And also make sure to include the final output as a size=1 array.
+In case of all scalar inputs, make sure to return the final output as an array.
 
-UDFs can be used with tabular data by using `dataset` API and apply a UDF function on the
+More generally, UDFs can be used with tabular data by using `dataset` API and apply a UDF function on a
 dataset.
 
 .. code-block:: python
