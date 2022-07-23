@@ -28,6 +28,9 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
  * A binder binds JDBC prepared statement parameters to rows of Arrow data from a VectorSchemaRoot.
+ *
+ * Each row of the VectorSchemaRoot will be bound to the configured parameters of the PreparedStatement.
+ * One row of data is bound at a time.
  */
 public class JdbcParameterBinder {
   private final PreparedStatement statement;
@@ -36,11 +39,23 @@ public class JdbcParameterBinder {
   private final int[] parameterIndices;
   private int nextRowIndex;
 
-  JdbcParameterBinder(
+  /**
+   * Create a new parameter binder.
+   *
+   * @param statement The statement to bind parameters to.
+   * @param root The VectorSchemaRoot to pull data from.
+   * @param binders Column binders to translate from Arrow data to JDBC parameters, one per parameter.
+   * @param parameterIndices For each binder in <tt>binders</tt>, the index of the parameter to bind to.
+   */
+  private JdbcParameterBinder(
       final PreparedStatement statement,
       final VectorSchemaRoot root,
       final ColumnBinder[] binders,
       int[] parameterIndices) {
+    Preconditions.checkArgument(
+        binders.length == parameterIndices.length,
+        "Number of column binders (%s) must equal number of parameter indices (%s)",
+        binders.length, parameterIndices.length);
     this.statement = statement;
     this.root = root;
     this.binders = binders;
@@ -65,7 +80,10 @@ public class JdbcParameterBinder {
   }
 
   /**
-   * Bind the next row to the statement.
+   * Bind the next row of data to the parameters of the statement.
+   *
+   * After this, the application should call the desired method on the prepared statement,
+   * such as {@link PreparedStatement#executeUpdate()}, or {@link PreparedStatement#addBatch()}.
    *
    * @return true if a row was bound, false if rows were exhausted
    */
