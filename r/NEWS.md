@@ -19,19 +19,54 @@
 
 # arrow 8.0.0.9000
 
-* The `arrow.dev_repo` for nightly builds of the R package and prebuilt
-  libarrow binaries is now https://nightlies.apache.org/arrow/r/.
-* `lubridate::parse_date_time()` datetime parser:
-  * `orders` with year, month, day, hours, minutes, and seconds components are supported.
-  * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+## Arrays and Tables
+
+* Table and RecordBatch `$num_rows()` method returns a double (previously integer), avoiding integer overflow on larger tables. (ARROW-14989, ARROW-16977)
+
+## Reading and Writing
+
 * New functions `read_ipc_file()` and `write_ipc_file()` are added.
   These functions are almost the same as `read_feather()` and `write_feather()`,
   but differ in that they only target IPC files (Feather V2 files), not Feather V1 files.
 * `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed.
   Instead of these, use the `read_ipc_file()` and `write_ipc_file()` for IPC files, or,
   `read_ipc_stream()` and `write_ipc_stream()` for IPC streams.
-* `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps.
+* `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps. (ARROW-16715)
+* UnionDatasets can unify schemas of multiple InMemoryDatasets with varying
+  schemas. (ARROW-16085)
+* `write_dataset()` preserves all schema metadata again. In 8.0.0, it would drop most metadata, breaking packages such as sfarrow. (ARROW-16511)
+* Reading and writing functions (such as `write_csv_arrow()`) will automatically (de-)compress data if the file path contains a compression extension (e.g. `"data.csv.gz"`). This works locally as well as on remote filesystems like S3 and GCS. (ARROW-16144)]
+* `FileSystemFactoryOptions` can be provided to `open_dataset()`, allowing you to pass options such as which file prefixes to ignore. (ARROW-15280)
+* By default, `S3FileSystem` will not create or delete buckets. To enable that, pass the configuration option `allow_bucket_creation` or `allow_bucket_deletion`. (ARROW-15906)
+* `GcsFileSystem` and `gs_bucket()` allow connecting to Google Cloud Storage. (ARROW-13404, ARROW-16887)
+* Removed `read_arrow()` and `write_arrow()` functions. They have been deprecated for several versions in favor of corresponding "ipc" and "feather" functions. (ARROW-16268)
+
+## Arrow dplyr queries
+
+* Bugfixes:
+  * Count distinct now gives correct result across multiple row groups. (ARROW-16807)
+  * Aggregations over partition columns return correct results. (ARROW-16700)
+* `dplyr::union` and `dplyr::union_all` are supported. (ARROW-15622)
+* `dplyr::glimpse` is supported. (ARROW-16776)
+* `show_exec_plan()` can be added to the end of a dplyr pipeline to show the underlying plan, similar to `dplyr::show_query`. (ARROW-15016)
+* User-defined functions are supported in queries. Use `register_scalar_function()` to create them. (ARROW-16444)
+* `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407)
+  * `orders` with year, month, day, hours, minutes, and seconds components are supported.
+  * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+* `lubridate::ymd()` and related string date parsers supported. (ARROW-16394). Month (`ym`, `my`) and quarter (`yq`) resolution parsers are also added. (ARROW-16516)
+* lubridate family of `ymd_hms` datetime parsing functions are supported. (ARROW-16395)
+* `lubridate::fast_strptime()` supported. (ARROW-16439)
+* `lubridate::floor_date()`, `lubridate::ceiling_date()`, and `lubridate::round_date()` are supported. (ARROW-14821)
+* `strptime()` supports the `tz` argument to pass timezones. (ARROW-16415)
 * added `lubridate::qday()` (day of quarter)
+* `map_batches()` returns a `RecordBatchReader` and requires that the function it maps returns something coercible to a `RecordBatch` through the `as_record_batch()` S3 function. It can also run in streaming fashion if passed `.lazy = TRUE`. (ARROW-15271, ARROW-16703)
+* `exp()` and `sqrt()` supported in dplyr queries. (ARROW-16871)
+
+## Packaging
+
+* The `arrow.dev_repo` for nightly builds of the R package and prebuilt
+  libarrow binaries is now https://nightlies.apache.org/arrow/r/.
+* Brotli and BZ2 are shipped with MacOS binaries. BZ2 is shipped with Windows binaries. (ARROW-16828)
 
 # arrow 8.0.0
 
