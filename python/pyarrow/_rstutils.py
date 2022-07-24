@@ -1,5 +1,5 @@
 '''
-pyarrow._docutils
+pyarrow._rstutils
 
 This module processes the reStructured text additions located in `docs/additions` so that they can be incorporated 
 into the python function definitions. The possible xml generated from rst files is nondeterministic, and only a 
@@ -13,7 +13,6 @@ import docutils.core
 import docutils.io
 import re
 import os
-import pdb 
 
 
 def parse_directory(path:str):

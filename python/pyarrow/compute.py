@@ -17,7 +17,7 @@
 
 import os
 import pyarrow as pa
-from .generated.compute import *
+from ._compute_generated import *
 
 
 from pyarrow._compute import (  # noqa
