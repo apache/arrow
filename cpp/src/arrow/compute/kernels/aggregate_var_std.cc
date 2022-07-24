@@ -207,8 +207,7 @@ struct VarStdInitState {
   const VarianceOptions& options;
   VarOrStd return_type;
 
-  VarStdInitState(KernelContext* ctx, const DataType& in_type,
-                  const DataType* out_type,
+  VarStdInitState(KernelContext* ctx, const DataType& in_type, const DataType* out_type,
                   const VarianceOptions& options, VarOrStd return_type)
       : ctx(ctx),
         in_type(in_type),
@@ -260,8 +259,7 @@ Result<std::unique_ptr<KernelState>> VarianceInit(KernelContext* ctx,
   return visitor.Create();
 }
 
-void AddVarStdKernels(KernelInit init,
-                      const std::vector<const DataType*>& types,
+void AddVarStdKernels(KernelInit init, const std::vector<const DataType*>& types,
                       ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     auto sig = KernelSignature::Make({InputType(ty->id())}, float64());
@@ -287,16 +285,15 @@ const FunctionDoc variance_doc{
     {"array"},
     "VarianceOptions"};
 
-namespace {
-
-}  // namespace
+namespace {}  // namespace
 
 std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   static auto default_std_options = VarianceOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>("stddev", Arity::Unary(),
                                                         stddev_doc, &default_std_options);
   AddVarStdKernels(StddevInit, NumericTypes(), func.get());
-  AddVarStdKernels(StddevInit, {decimal128(1, 1).get(), decimal256(1, 1).get()}, func.get());
+  AddVarStdKernels(StddevInit, {decimal128(1, 1).get(), decimal256(1, 1).get()},
+                   func.get());
   return func;
 }
 
@@ -305,8 +302,8 @@ std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
   auto func = std::make_shared<ScalarAggregateFunction>(
       "variance", Arity::Unary(), variance_doc, &default_var_options);
   AddVarStdKernels(VarianceInit, NumericTypes(), func.get());
-  AddVarStdKernels(VarianceInit, {decimal128(1, 1).get(),
-        decimal256(1, 1).get()}, func.get());
+  AddVarStdKernels(VarianceInit, {decimal128(1, 1).get(), decimal256(1, 1).get()},
+                   func.get());
   return func;
 }
 

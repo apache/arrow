@@ -181,10 +181,7 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
   auto func =
       std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
 
-  std::vector<std::shared_ptr<DataType>> types;
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
-
-  for (const auto& ty : types) {
+  for (const DataType* ty : NumericTypes()) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;

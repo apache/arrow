@@ -328,7 +328,7 @@ ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
 }
 
 template <typename Op>
-void AddPrimitiveCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+void AddPrimitiveCompare(const DataType* ty, ScalarFunction* func) {
   ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(ty);
   ScalarKernel kernel = GetCompareKernel<Op>(ty, ty->id(), exec);
   DCHECK_OK(func->AddKernel(kernel));
@@ -392,11 +392,11 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
       {boolean(), boolean()}, boolean(),
       applicator::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
 
-  for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     AddPrimitiveCompare<Op>(ty, func.get());
   }
-  AddPrimitiveCompare<Op>(date32(), func.get());
-  AddPrimitiveCompare<Op>(date64(), func.get());
+  AddPrimitiveCompare<Op>(date32().get(), func.get());
+  AddPrimitiveCompare<Op>(date64().get(), func.get());
 
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
@@ -425,7 +425,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
     DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
-  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+  for (const DataType* ty : BaseBinaryTypes()) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));

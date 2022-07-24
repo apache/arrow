@@ -21,7 +21,6 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/stl_allocator.h"
 
 namespace arrow {

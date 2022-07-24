@@ -18,6 +18,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 
 #include <cstdint>
+#include <mutex>
 
 #include "arrow/array/data.h"
 #include "arrow/type.h"
@@ -60,7 +61,7 @@ std::vector<const DataType*> g_floating_types;
 std::vector<const DataType*> g_numeric_types;
 std::vector<const DataType*> g_temporal_types;
 std::vector<const DataType*> g_base_binary_types;
-std::vector<const DataType*> g_internal_types;
+std::vector<const DataType*> g_interval_types;
 std::vector<const DataType*> g_primitive_types;
 
 std::once_flag static_data_initialized;
@@ -72,12 +73,10 @@ void Extend(const std::vector<T>& values, std::vector<T>* out) {
 
 void InitStaticData() {
   // Signed int types
-  g_signed_int_types = {int8().get(), int16().get(), int32().get(),
-                             int64().get()};
+  g_signed_int_types = {int8().get(), int16().get(), int32().get(), int64().get()};
 
   // Unsigned int types
-  g_unsigned_int_types = {uint8().get(), uint16().get(), uint32().get(),
-                               uint64().get()};
+  g_unsigned_int_types = {uint8().get(), uint16().get(), uint32().get(), uint64().get()};
 
   // All int types
   Extend(g_unsigned_int_types, &g_int_types);
@@ -103,10 +102,12 @@ void InitStaticData() {
                       timestamp(TimeUnit::NANO).get()};
 
   // Interval types
-  g_interval_types = {day_time_interval().get(), month_interval().get(), month_day_nano_interval().get()};
+  g_interval_types = {day_time_interval().get(), month_interval().get(),
+                      month_day_nano_interval().get()};
 
   // Base binary types (without FixedSizeBinary)
-  g_base_binary_types = {binary().get(), utf8().get(), large_binary().get(), large_utf8().get()};
+  g_base_binary_types = {binary().get(), utf8().get(), large_binary().get(),
+                         large_utf8().get()};
 
   // Non-parametric, non-nested types. This also DOES NOT include
   //
@@ -175,6 +176,32 @@ const std::vector<const DataType*>& IntervalTypes() {
 const std::vector<const DataType*>& PrimitiveTypes() {
   std::call_once(static_data_initialized, InitStaticData);
   return g_primitive_types;
+}
+
+namespace {
+
+struct PhysicalTypeVisitor {
+  const DataType* real_type;
+  const DataType* result;
+
+  Status Visit(const DataType&) {
+    result = real_type;
+    return Status::OK();
+  }
+
+  template <typename Type, typename PhysicalType = typename Type::PhysicalType>
+  Status Visit(const Type&) {
+    result = TypeTraits<PhysicalType>::type_singleton().get();
+    return Status::OK();
+  }
+};
+
+}  // namespace
+
+const DataType* GetPhysicalType(const DataType* real_type) {
+  PhysicalTypeVisitor visitor{real_type, {}};
+  ARROW_CHECK_OK(VisitTypeInline(*real_type, &visitor));
+  return visitor.result;
 }
 
 }  // namespace compute

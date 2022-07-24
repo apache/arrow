@@ -170,7 +170,7 @@ class ARROW_EXPORT InputType {
       : kind_(EXACT_TYPE), type_(type) {}
 
   InputType(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
-    : InputType(type.get()) {}
+      : InputType(type.get()) {}
 
   /// \brief Use the passed TypeMatcher to type check.
   InputType(std::shared_ptr<TypeMatcher> type_matcher)  // NOLINT implicit construction
@@ -265,15 +265,15 @@ class ARROW_EXPORT OutputType {
 
   /// \brief Output an exact type
   OutputType(const DataType* type)  // NOLINT implicit construction
-    : kind_(FIXED), type_(type) {}
+      : kind_(FIXED), type_(type) {}
 
   /// \brief Output an exact type
   OutputType(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
-    : OutputType(type.get()) {}
+      : OutputType(type.get()) {}
 
   /// \brief Output a computed type depending on actual input types
   OutputType(Resolver resolver)  // NOLINT implicit construction
-    : kind_(COMPUTED), resolver_(std::move(resolver)) {}
+      : kind_(COMPUTED), resolver_(std::move(resolver)) {}
 
   OutputType(const OutputType& other) {
     this->kind_ = other.kind_;

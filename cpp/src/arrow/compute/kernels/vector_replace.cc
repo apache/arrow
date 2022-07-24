@@ -18,7 +18,6 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bitmap_ops.h"
 
 namespace arrow {

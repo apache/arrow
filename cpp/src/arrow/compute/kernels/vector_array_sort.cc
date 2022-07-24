@@ -26,7 +26,6 @@
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
@@ -443,7 +442,8 @@ struct ArraySortIndices {
     std::iota(out_begin, out_end, 0);
 
     ArrayType arr(batch[0].array.ToArrayData());
-    ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*GetPhysicalType(arr.type())));
+    ARROW_ASSIGN_OR_RAISE(auto sorter,
+                          GetArraySorter(*GetPhysicalType(arr.type().get())));
 
     sorter(out_begin, out_end, arr, 0, options);
     return Status::OK();
@@ -479,14 +479,14 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*int64());
   DCHECK_OK(func->AddKernel(base));
 
-  for (const auto& ty : NumericTypes()) {
-    auto physical_type = GetPhysicalType(ty);
+  for (const DataType* ty : NumericTypes()) {
+    const DataType* physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({ty}, uint64());
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
-  for (const auto& ty : TemporalTypes()) {
-    auto physical_type = GetPhysicalType(ty);
+  for (const DataType* ty : TemporalTypes()) {
+    const DataType* physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({ty->id()}, uint64());
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
@@ -496,7 +496,7 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
     base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
     DCHECK_OK(func->AddKernel(base));
   }
-  for (const auto& ty : BaseBinaryTypes()) {
+  for (const DataType* ty : BaseBinaryTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({ty}, uint64());
     base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);

@@ -377,7 +377,7 @@ void AddNumberToStringCasts(CastFunction* func) {
                             NumericToStringCastFunctor<OutType, BooleanType>::Exec,
                             NullHandling::COMPUTED_NO_PREALLOCATE));
 
-  for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
+  for (const DataType* in_ty : NumericTypes()) {
     DCHECK_OK(
         func->AddKernel(in_ty->id(), {in_ty}, out_ty,
                         GenerateNumeric<NumericToStringCastFunctor, OutType>(*in_ty),
@@ -388,7 +388,7 @@ void AddNumberToStringCasts(CastFunction* func) {
 template <typename OutType>
 void AddTemporalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
-  for (const std::shared_ptr<DataType>& in_ty : TemporalTypes()) {
+  for (const DataType* in_ty : TemporalTypes()) {
     DCHECK_OK(
         func->AddKernel(in_ty->id(), {InputType(in_ty->id())}, out_ty,
                         GenerateTemporal<TemporalToStringCastFunctor, OutType>(*in_ty),

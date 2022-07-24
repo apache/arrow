@@ -31,7 +31,6 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -2450,17 +2449,17 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
   kernel.exec_chunked = IndicesNonZeroExecChunked;
   kernel.can_execute_chunkwise = false;
 
-  auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
-    for (const std::shared_ptr<DataType>& ty : types) {
+  auto AddKernels = [&](const std::vector<const DataType*>& types) {
+    for (const DataType* ty : types) {
       kernel.signature = KernelSignature::Make({ty}, uint64());
       DCHECK_OK(func->AddKernel(kernel));
     }
   };
 
   AddKernels(NumericTypes());
-  AddKernels({boolean()});
+  AddKernels({boolean().get()});
 
-  for (const auto& ty : {Type::DECIMAL128, Type::DECIMAL256}) {
+  for (Type::type ty : {Type::DECIMAL128, Type::DECIMAL256}) {
     kernel.signature = KernelSignature::Make({ty}, uint64());
     DCHECK_OK(func->AddKernel(kernel));
   }

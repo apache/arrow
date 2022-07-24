@@ -33,13 +33,12 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-void AddBasicAggKernels(KernelInit init,
-                        const std::vector<const DataType*>& types,
-                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
+void AddBasicAggKernels(KernelInit init, const std::vector<const DataType*>& types,
+                        const std::shared_ptr<DataType>& out_ty,
+                        ScalarAggregateFunction* func,
                         SimdLevel::type simd_level = SimdLevel::NONE);
 
-void AddMinMaxKernels(KernelInit init,
-                      const std::vector<const DataType*>& types,
+void AddMinMaxKernels(KernelInit init, const std::vector<const DataType*>& types,
                       ScalarAggregateFunction* func,
                       SimdLevel::type simd_level = SimdLevel::NONE);
 void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
@@ -66,7 +65,7 @@ struct SumImpl : public ScalarAggregator {
   using SumCType = typename TypeTraits<SumType>::CType;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
-  SumImpl(std::shared_ptr<DataType> out_type, const ScalarAggregateOptions& options_)
+  SumImpl(const DataType* out_type, const ScalarAggregateOptions& options_)
       : out_type(out_type), options(options_) {}
 
   Status Consume(KernelContext*, const ExecSpan& batch) override {
@@ -107,9 +106,9 @@ struct SumImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(out_type->GetSharedPtr());
     } else {
-      out->value = std::make_shared<OutputType>(this->sum, out_type);
+      out->value = std::make_shared<OutputType>(this->sum, out_type->GetSharedPtr());
     }
     return Status::OK();
   }
@@ -117,7 +116,7 @@ struct SumImpl : public ScalarAggregator {
   size_t count = 0;
   bool nulls_observed = false;
   SumCType sum = 0;
-  std::shared_ptr<DataType> out_type;
+  const DataType* out_type;
   ScalarAggregateOptions options;
 };
 
@@ -179,7 +178,7 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
     using OutputType = typename SumImpl<ArrowType, SimdLevel>::OutputType;
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count) || (this->count == 0)) {
-      out->value = std::make_shared<OutputType>(this->out_type);
+      out->value = std::make_shared<OutputType>(this->out_type->GetSharedPtr());
     } else {
       SumCType quotient, remainder;
       ARROW_ASSIGN_OR_RAISE(std::tie(quotient, remainder), this->sum.Divide(this->count));
@@ -192,7 +191,7 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
           quotient -= 1;
         }
       }
-      out->value = std::make_shared<OutputType>(quotient, this->out_type);
+      out->value = std::make_shared<OutputType>(quotient, this->out_type->GetSharedPtr());
     }
     return Status::OK();
   }
@@ -216,10 +215,10 @@ template <template <typename> class KernelClass>
 struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  std::shared_ptr<DataType> type;
+  const DataType* type;
   const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
+  SumLikeInit(KernelContext* ctx, const DataType* type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -230,21 +229,21 @@ struct SumLikeInit {
   }
 
   Status Visit(const BooleanType&) {
-    auto ty = TypeTraits<typename KernelClass<BooleanType>::SumType>::type_singleton();
-    state.reset(new KernelClass<BooleanType>(ty, options));
+    state.reset(new KernelClass<BooleanType>(boolean().get(), options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    auto ty = TypeTraits<typename KernelClass<Type>::SumType>::type_singleton();
+    const DataType* ty =
+        TypeTraits<typename KernelClass<Type>::SumType>::type_singleton().get();
     state.reset(new KernelClass<Type>(ty, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>(type, options));
+    state.reset(new KernelClass<Type>(this->type, options));
     return Status::OK();
   }
 
@@ -261,7 +260,7 @@ struct SumLikeInit {
 
 template <template <typename> class KernelClass>
 struct MeanKernelInit : public SumLikeInit<KernelClass> {
-  MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
+  MeanKernelInit(KernelContext* ctx, const DataType* type,
                  const ScalarAggregateOptions& options)
       : SumLikeInit<KernelClass>(ctx, type, options) {}
 
@@ -424,8 +423,8 @@ struct MinMaxImpl : public ScalarAggregator {
   using ThisType = MinMaxImpl<ArrowType, SimdLevel>;
   using StateType = MinMaxState<ArrowType, SimdLevel>;
 
-  MinMaxImpl(std::shared_ptr<DataType> out_type, ScalarAggregateOptions options)
-      : out_type(std::move(out_type)), options(std::move(options)), count(0) {
+  MinMaxImpl(const std::shared_ptr<DataType>& out_type, ScalarAggregateOptions options)
+      : out_type(out_type), options(std::move(options)), count(0) {
     this->options.min_count = std::max<uint32_t>(1, this->options.min_count);
   }
 
@@ -494,7 +493,8 @@ struct MinMaxImpl : public ScalarAggregator {
                             MakeScalar(child_type, std::move(state.max)));
       values = {std::move(min_scalar), std::move(max_scalar)};
     }
-    out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
+    out->value =
+        std::make_shared<StructScalar>(std::move(values), this->out_type->GetSharedPtr());
     return Status::OK();
   }
 

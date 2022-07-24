@@ -22,8 +22,8 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/cast_internal.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/int_util.h"
 
 namespace arrow {

@@ -2476,8 +2476,8 @@ void AddAsciiStringSplitPattern(FunctionRegistry* registry) {
                                                split_pattern_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitPatternExec, ListType>(ty);
-    DCHECK_OK(
-        func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitPatternState::Init));
+    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
+                              SplitPatternState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -2547,7 +2547,8 @@ void AddAsciiStringSplitWhitespace(FunctionRegistry* registry) {
 
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), StringSplitState::Init));
+    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
+                              StringSplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -2614,10 +2615,10 @@ const FunctionDoc split_pattern_regex_doc(
 void AddAsciiStringSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
                                                split_pattern_regex_doc);
-  for (const auto& ty : BaseBinaryTypes()) {
+  for (const DataType* ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitRegexExec, ListType>(ty);
-    DCHECK_OK(
-        func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitPatternState::Init));
+    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
+                              SplitPatternState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -3016,10 +3017,10 @@ const JoinOptions* GetDefaultJoinOptions() {
 
 template <typename ListType>
 void AddBinaryJoinForListType(ScalarFunction* func) {
-  for (const auto& ty : BaseBinaryTypes()) {
+  for (const DataType* ty : BaseBinaryTypes()) {
     auto exec =
         GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ArrayKernelExec, ListType>(*ty);
-    auto list_ty = std::make_shared<ListType>(ty);
+    auto list_ty = std::make_shared<ListType>(ty->GetSharedPtr());
     DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, std::move(exec)));
   }
 }

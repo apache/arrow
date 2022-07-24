@@ -20,7 +20,6 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/int_util.h"
@@ -598,7 +597,7 @@ struct CastFunctor<O, I,
 namespace {
 
 template <typename OutType>
-void AddCommonNumberCasts(const std::shared_ptr<DataType>& out_ty, CastFunction* func) {
+void AddCommonNumberCasts(const DataType* out_ty, CastFunction* func) {
   AddCommonCasts(out_ty->id(), out_ty, func);
 
   // Cast from boolean to number
@@ -606,7 +605,7 @@ void AddCommonNumberCasts(const std::shared_ptr<DataType>& out_ty, CastFunction*
                             CastFunctor<OutType, BooleanType>::Exec));
 
   // Cast from other strings
-  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+  for (const DataType* in_ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryBase<CastFunctor, OutType>(*in_ty);
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
@@ -615,14 +614,14 @@ void AddCommonNumberCasts(const std::shared_ptr<DataType>& out_ty, CastFunction*
 template <typename OutType>
 std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), OutType::type_id);
-  auto out_ty = TypeTraits<OutType>::type_singleton();
+  const DataType* out_ty = TypeTraits<OutType>::type_singleton().get();
 
-  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+  for (const DataType* in_ty : IntTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastIntegerToInteger));
   }
 
   // Cast from floating point
-  for (const std::shared_ptr<DataType>& in_ty : FloatingPointTypes()) {
+  for (const DataType* in_ty : FloatingPointTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastFloatingToInteger));
   }
 
@@ -640,15 +639,15 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
 template <typename OutType>
 std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
   auto func = std::make_shared<CastFunction>(std::move(name), OutType::type_id);
-  auto out_ty = TypeTraits<OutType>::type_singleton();
+  const DataType* out_ty = TypeTraits<OutType>::type_singleton().get();
 
   // Casts from integer to floating point
-  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+  for (const DataType* in_ty : IntTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastIntegerToFloating));
   }
 
   // Cast from floating point
-  for (const std::shared_ptr<DataType>& in_ty : FloatingPointTypes()) {
+  for (const DataType* in_ty : FloatingPointTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastFloatingToFloating));
   }
 
@@ -676,7 +675,7 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
                             CastFunctor<Decimal128Type, DoubleType>::Exec));
 
   // Cast from integer
-  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+  for (const DataType* in_ty : IntTypes()) {
     auto exec = GenerateInteger<CastFunctor, Decimal128Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
@@ -705,7 +704,7 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
                             CastFunctor<Decimal256Type, DoubleType>::Exec));
 
   // Cast from integer
-  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+  for (const DataType* in_ty : IntTypes()) {
     auto exec = GenerateInteger<CastFunctor, Decimal256Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }

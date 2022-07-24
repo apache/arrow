@@ -31,7 +31,6 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
@@ -126,14 +125,13 @@ std::shared_ptr<ChunkedArray> GetTableColumn(const Table& table, const FieldRef&
 // physical accessors, but doing so ends up too cumbersome.
 // Instead, we simply create the desired concrete Array objects.
 std::shared_ptr<Array> GetPhysicalArray(const Array& array,
-                                        const std::shared_ptr<DataType>& physical_type) {
+                                        const DataType* physical_type) {
   auto new_data = array.data()->Copy();
-  new_data->type = physical_type;
+  new_data->type = physical_type->GetSharedPtr();
   return MakeArray(std::move(new_data));
 }
 
-ArrayVector GetPhysicalChunks(const ArrayVector& chunks,
-                              const std::shared_ptr<DataType>& physical_type) {
+ArrayVector GetPhysicalChunks(const ArrayVector& chunks, const DataType* physical_type) {
   ArrayVector physical(chunks.size());
   std::transform(chunks.begin(), chunks.end(), physical.begin(),
                  [&](const std::shared_ptr<Array>& array) {
@@ -143,7 +141,7 @@ ArrayVector GetPhysicalChunks(const ArrayVector& chunks,
 }
 
 ArrayVector GetPhysicalChunks(const ChunkedArray& chunked_array,
-                              const std::shared_ptr<DataType>& physical_type) {
+                              const DataType* physical_type) {
   return GetPhysicalChunks(chunked_array.chunks(), physical_type);
 }
 
@@ -165,7 +163,7 @@ class ChunkedArraySorter : public TypeVisitor {
         indices_begin_(indices_begin),
         indices_end_(indices_end),
         chunked_array_(chunked_array),
-        physical_type_(GetPhysicalType(chunked_array.type())),
+        physical_type_(GetPhysicalType(chunked_array.type().get())),
         physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
         order_(order),
         null_placement_(null_placement),
@@ -297,7 +295,7 @@ class ChunkedArraySorter : public TypeVisitor {
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   const ChunkedArray& chunked_array_;
-  const std::shared_ptr<DataType> physical_type_;
+  const DataType* physical_type_;
   const ArrayVector physical_chunks_;
   const SortOrder order_;
   const NullPlacement null_placement_;
@@ -489,7 +487,7 @@ class RadixRecordBatchSorter {
   struct ColumnSortFactory {
     ColumnSortFactory(const ResolvedSortKey& sort_key, const SortOptions& options,
                       RecordBatchColumnSorter* next_column)
-        : physical_type(GetPhysicalType(sort_key.array->type())),
+        : physical_type(GetPhysicalType(sort_key.array->type().get())),
           array(GetPhysicalArray(*sort_key.array, physical_type)),
           order(sort_key.order),
           null_placement(options.null_placement),
@@ -521,7 +519,7 @@ class RadixRecordBatchSorter {
       return Status::OK();
     }
 
-    std::shared_ptr<DataType> physical_type;
+    const DataType* physical_type;
     std::shared_ptr<Array> array;
     SortOrder order;
     NullPlacement null_placement;
@@ -690,7 +688,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   // Preprocessed sort key.
   struct ResolvedSortKey {
     ResolvedSortKey(const std::shared_ptr<Array>& array, SortOrder order)
-        : type(GetPhysicalType(array->type())),
+        : type(GetPhysicalType(array->type().get())),
           owned_array(GetPhysicalArray(*array, type)),
           array(*owned_array),
           order(order),
@@ -703,7 +701,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
       return {&checked_cast<const ArrayType&>(array), index};
     }
 
-    const std::shared_ptr<DataType> type;
+    const DataType* type;
     std::shared_ptr<Array> owned_array;
     const Array& array;
     SortOrder order;
@@ -843,8 +841,8 @@ class TableSorter {
  public:
   // Preprocessed sort key.
   struct ResolvedSortKey {
-    ResolvedSortKey(const std::shared_ptr<DataType>& type, ArrayVector chunks,
-                    SortOrder order, int64_t null_count)
+    ResolvedSortKey(const DataType* type, ArrayVector chunks, SortOrder order,
+                    int64_t null_count)
         : type(GetPhysicalType(type)),
           owned_chunks(std::move(chunks)),
           chunks(GetArrayPointers(owned_chunks)),
@@ -873,7 +871,7 @@ class TableSorter {
                        [&](const std::shared_ptr<RecordBatch>& batch) {
                          return batch->column(f.field_index);
                        });
-        return ResolvedSortKey(type, std::move(chunks), f.order,
+        return ResolvedSortKey(type.get(), std::move(chunks), f.order,
                                table.column(f.field_index)->null_count());
       };
 
@@ -881,7 +879,7 @@ class TableSorter {
           *table.schema(), sort_keys, factory);
     }
 
-    std::shared_ptr<DataType> type;
+    const DataType* type;
     ArrayVector owned_chunks;
     std::vector<const Array*> chunks;
     SortOrder order;
@@ -1322,8 +1320,8 @@ const FunctionDoc select_k_unstable_doc(
      "greater than any other non-null value, but smaller than null values."),
     {"input"}, "SelectKOptions", /*options_required=*/true);
 
-Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
-    std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
+Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(int64_t length,
+                                                          MemoryPool* memory_pool) {
   auto buffer_size = length * sizeof(uint64_t);
   ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(buffer_size, memory_pool));
   return ArrayData::Make(uint64(), length, {nullptr, std::move(data)}, /*null_count=*/0);
@@ -1363,7 +1361,7 @@ class ArraySelecter : public TypeVisitor {
         array_(array),
         k_(options.k),
         order_(options.sort_keys[0].order),
-        physical_type_(GetPhysicalType(array.type())),
+        physical_type_(GetPhysicalType(array.type().get())),
         output_(output) {}
 
   Status Run() { return physical_type_->Accept(this); }
@@ -1418,8 +1416,8 @@ class ArraySelecter : public TypeVisitor {
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
 
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
@@ -1435,7 +1433,7 @@ class ArraySelecter : public TypeVisitor {
   const Array& array_;
   int64_t k_;
   SortOrder order_;
-  const std::shared_ptr<DataType> physical_type_;
+  const DataType* physical_type_;
   Datum* output_;
 };
 
@@ -1452,7 +1450,7 @@ class ChunkedArraySelecter : public TypeVisitor {
                        const SelectKOptions& options, Datum* output)
       : TypeVisitor(),
         chunked_array_(chunked_array),
-        physical_type_(GetPhysicalType(chunked_array.type())),
+        physical_type_(GetPhysicalType(chunked_array.type().get())),
         physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
         k_(options.k),
         order_(options.sort_keys[0].order),
@@ -1533,8 +1531,8 @@ class ChunkedArraySelecter : public TypeVisitor {
     }
 
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       auto top_item = heap.top();
@@ -1547,7 +1545,7 @@ class ChunkedArraySelecter : public TypeVisitor {
   }
 
   const ChunkedArray& chunked_array_;
-  const std::shared_ptr<DataType> physical_type_;
+  const DataType* physical_type_;
   const ArrayVector physical_chunks_;
   int64_t k_;
   SortOrder order_;
@@ -1645,8 +1643,8 @@ class RecordBatchSelecter : public TypeVisitor {
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();
@@ -1671,7 +1669,7 @@ class TableSelecter : public TypeVisitor {
     ResolvedSortKey(const std::shared_ptr<ChunkedArray>& chunked_array,
                     const SortOrder order)
         : order(order),
-          type(GetPhysicalType(chunked_array->type())),
+          type(GetPhysicalType(chunked_array->type().get())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
           null_count(chunked_array->null_count()),
           resolver(GetArrayPointers(chunks)) {}
@@ -1686,7 +1684,7 @@ class TableSelecter : public TypeVisitor {
     }
 
     const SortOrder order;
-    const std::shared_ptr<DataType> type;
+    const DataType* type;
     const ArrayVector chunks;
     const int64_t null_count;
     const ChunkedArrayResolver resolver;
@@ -1808,8 +1806,8 @@ class TableSelecter : public TypeVisitor {
       }
     }
     int64_t out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(uint64(), out_size,
-                                                                    ctx_->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto take_indices,
+                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
     auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
     while (heap.size() > 0) {
       *out_cbegin = heap.top();
@@ -1923,7 +1921,7 @@ class ArrayRanker : public TypeVisitor {
         options_(options),
         null_placement_(options.null_placement),
         tiebreaker_(options.tiebreaker),
-        physical_type_(GetPhysicalType(array.type())),
+        physical_type_(GetPhysicalType(array.type().get())),
         output_(output) {}
 
   Status Run() { return physical_type_->Accept(this); }
@@ -1951,7 +1949,7 @@ class ArrayRanker : public TypeVisitor {
 
     auto length = array_.length();
     ARROW_ASSIGN_OR_RAISE(auto sort_indices,
-                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+                          MakeMutableUInt64Array(length, ctx_->memory_pool()));
     auto sort_begin = sort_indices->GetMutableValues<uint64_t>(1);
     auto sort_end = sort_begin + length;
     std::iota(sort_begin, sort_end, 0);
@@ -1963,7 +1961,7 @@ class ArrayRanker : public TypeVisitor {
     uint64_t rank;
 
     ARROW_ASSIGN_OR_RAISE(auto rankings,
-                          MakeMutableUInt64Array(uint64(), length, ctx_->memory_pool()));
+                          MakeMutableUInt64Array(length, ctx_->memory_pool()));
     auto out_begin = rankings->GetMutableValues<uint64_t>(1);
 
     switch (tiebreaker_) {
@@ -2074,7 +2072,7 @@ class ArrayRanker : public TypeVisitor {
   const RankOptions& options_;
   const NullPlacement null_placement_;
   const RankOptions::Tiebreaker tiebreaker_;
-  const std::shared_ptr<DataType> physical_type_;
+  const DataType* physical_type_;
   Datum* output_;
 };
 

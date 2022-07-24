@@ -168,5 +168,17 @@ const std::vector<const DataType*>& IntervalTypes();
 ARROW_EXPORT
 const std::vector<const DataType*>& PrimitiveTypes();
 
+/// \brief Return the compatible physical data type
+///
+/// Some types may have distinct logical meanings but the exact same physical
+/// representation.  For example, TimestampType has Int64Type as a physical
+/// type (defined as TimestampType::PhysicalType).
+///
+/// The return value is as follows:
+/// - if a `PhysicalType` alias exists in the concrete type class, return
+///   an instance of `PhysicalType`.
+/// - otherwise, return the input type itself.
+const DataType* GetPhysicalType(const DataType* type);
+
 }  // namespace compute
 }  // namespace arrow

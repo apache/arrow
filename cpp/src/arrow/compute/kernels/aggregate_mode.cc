@@ -22,7 +22,6 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"

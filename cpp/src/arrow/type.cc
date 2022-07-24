@@ -187,32 +187,6 @@ std::string ToString(TimeUnit::type unit) {
 
 namespace {
 
-struct PhysicalTypeVisitor {
-  const std::shared_ptr<DataType>& real_type;
-  std::shared_ptr<DataType> result;
-
-  Status Visit(const DataType&) {
-    result = real_type;
-    return Status::OK();
-  }
-
-  template <typename Type, typename PhysicalType = typename Type::PhysicalType>
-  Status Visit(const Type&) {
-    result = TypeTraits<PhysicalType>::type_singleton();
-    return Status::OK();
-  }
-};
-
-}  // namespace
-
-std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& real_type) {
-  PhysicalTypeVisitor visitor{real_type, {}};
-  ARROW_CHECK_OK(VisitTypeInline(*real_type, &visitor));
-  return std::move(visitor.result);
-}
-
-namespace {
-
 using internal::checked_cast;
 
 // Merges `existing` and `other` if one of them is of NullType, otherwise
@@ -2198,30 +2172,31 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);
 }
 
-#define RETURN_STATIC_TIME_TYPE(TYPE_NAME)                              \
-  switch (unit) {                                                       \
-    case TimeUnit::SECOND: {                                            \
-      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::SECOND); \
-      return result;                                                    \
-    }                                                                   \
-    case TimeUnit::MILLI: {                                             \
-      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::MILLI); \
-      return result;                                                    \
-    }                                                                   \
-    case TimeUnit::MICRO: {                                             \
-      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::MICRO); \
-      return result;                                                    \
-    }                                                                   \
-    case TimeUnit::NANO: {                                              \
-      static std::shared_ptr<DataType> result = std::make_shared<TYPE_NAME>(TimeUnit::NANO); \
-      return result;                                                    \
-    }                                                                   \
-    default:                                                            \
-      return nullptr;                                                   \
-  }
-
 const std::shared_ptr<DataType>& duration(TimeUnit::type unit) {
-  RETURN_STATIC_TIME_TYPE(DurationType)
+  switch (unit) {
+    case TimeUnit::SECOND: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<DurationType>(TimeUnit::SECOND);
+      return result;
+    }
+    case TimeUnit::MILLI: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<DurationType>(TimeUnit::MILLI);
+      return result;
+    }
+    case TimeUnit::MICRO: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<DurationType>(TimeUnit::MICRO);
+      return result;
+    }
+    case TimeUnit::NANO: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<DurationType>(TimeUnit::NANO);
+      return result;
+    }
+    default:
+      return nullptr;
+  }
 }
 
 const std::shared_ptr<DataType>& day_time_interval() {
@@ -2240,7 +2215,30 @@ const std::shared_ptr<DataType>& month_interval() {
 }
 
 const std::shared_ptr<DataType>& timestamp(TimeUnit::type unit) {
-  RETURN_STATIC_TIME_TYPE(TimestampType)
+  switch (unit) {
+    case TimeUnit::SECOND: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<TimestampType>(TimeUnit::SECOND);
+      return result;
+    }
+    case TimeUnit::MILLI: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<TimestampType>(TimeUnit::MILLI);
+      return result;
+    }
+    case TimeUnit::MICRO: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<TimestampType>(TimeUnit::MICRO);
+      return result;
+    }
+    case TimeUnit::NANO: {
+      static std::shared_ptr<DataType> result =
+          std::make_shared<TimestampType>(TimeUnit::NANO);
+      return result;
+    }
+    default:
+      return nullptr;
+  }
 }
 
 std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone) {
@@ -2250,11 +2248,13 @@ std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& time
 const std::shared_ptr<DataType>& time32(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND: {
-      static std::shared_ptr<DataType> result = std::make_shared<Time32Type>(TimeUnit::SECOND);
+      static std::shared_ptr<DataType> result =
+          std::make_shared<Time32Type>(TimeUnit::SECOND);
       return result;
     }
     case TimeUnit::MILLI: {
-      static std::shared_ptr<DataType> result = std::make_shared<Time32Type>(TimeUnit::MILLI);
+      static std::shared_ptr<DataType> result =
+          std::make_shared<Time32Type>(TimeUnit::MILLI);
       return result;
     }
     default:
@@ -2266,11 +2266,13 @@ const std::shared_ptr<DataType>& time32(TimeUnit::type unit) {
 const std::shared_ptr<DataType>& time64(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::MICRO: {
-      static std::shared_ptr<DataType> result = std::make_shared<Time64Type>(TimeUnit::MICRO);
+      static std::shared_ptr<DataType> result =
+          std::make_shared<Time64Type>(TimeUnit::MICRO);
       return result;
     }
     case TimeUnit::NANO: {
-      static std::shared_ptr<DataType> result = std::make_shared<Time64Type>(TimeUnit::NANO);
+      static std::shared_ptr<DataType> result =
+          std::make_shared<Time64Type>(TimeUnit::NANO);
       return result;
     }
     default:

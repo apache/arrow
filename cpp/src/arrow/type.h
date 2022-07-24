@@ -278,18 +278,6 @@ inline bool operator!=(const DataType& lhs, const DataType& rhs) {
   return !lhs.Equals(rhs);
 }
 
-/// \brief Return the compatible physical data type
-///
-/// Some types may have distinct logical meanings but the exact same physical
-/// representation.  For example, TimestampType has Int64Type as a physical
-/// type (defined as TimestampType::PhysicalType).
-///
-/// The return value is as follows:
-/// - if a `PhysicalType` alias exists in the concrete type class, return
-///   an instance of `PhysicalType`.
-/// - otherwise, return the input type itself.
-std::shared_ptr<DataType> GetPhysicalType(const std::shared_ptr<DataType>& type);
-
 /// \brief Base class for all fixed-width data types
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:

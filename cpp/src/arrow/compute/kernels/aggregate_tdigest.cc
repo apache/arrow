@@ -169,8 +169,7 @@ Result<std::unique_ptr<KernelState>> TDigestInit(KernelContext* ctx,
   return visitor.Create();
 }
 
-void AddTDigestKernels(KernelInit init,
-                       const std::vector<const DataType*>& types,
+void AddTDigestKernels(KernelInit init, const std::vector<const DataType*>& types,
                        ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     auto sig = KernelSignature::Make({InputType(ty->id())}, float64());
@@ -198,8 +197,8 @@ std::shared_ptr<ScalarAggregateFunction> AddTDigestAggKernels() {
   auto func = std::make_shared<ScalarAggregateFunction>(
       "tdigest", Arity::Unary(), tdigest_doc, &default_tdigest_options);
   AddTDigestKernels(TDigestInit, NumericTypes(), func.get());
-  AddTDigestKernels(TDigestInit, {decimal128(1, 1).get(),
-        decimal256(1, 1).get()}, func.get());
+  AddTDigestKernels(TDigestInit, {decimal128(1, 1).get(), decimal256(1, 1).get()},
+                    func.get());
   return func;
 }
 

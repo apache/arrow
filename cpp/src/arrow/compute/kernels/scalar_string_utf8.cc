@@ -41,7 +41,7 @@ template <template <typename> class Transformer>
 void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry,
                                         FunctionDoc doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
-  for (const auto& ty : StringTypes()) {
+  for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Transformer>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec)));
   }
@@ -1071,7 +1071,7 @@ void AddUtf8StringReplaceSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
                                                utf8_replace_slice_doc);
 
-  for (const auto& ty : StringTypes()) {
+  for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Utf8ReplaceSlice>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec),
                               ReplaceStringSliceTransformBase::State::Init));
@@ -1259,7 +1259,7 @@ const FunctionDoc utf8_slice_codeunits_doc(
 void AddUtf8StringSlice(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
                                                utf8_slice_codeunits_doc);
-  for (const auto& ty : StringTypes()) {
+  for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SliceCodeunits>(ty);
     DCHECK_OK(
         func->AddKernel({ty}, ty, std::move(exec), SliceCodeunitsTransform::State::Init));
@@ -1345,9 +1345,10 @@ void AddUtf8StringSplitWhitespace(FunctionRegistry* registry) {
   auto func =
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
                                        utf8_split_whitespace_doc, &default_options);
-  for (const auto& ty : StringTypes()) {
+  for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), StringSplitState::Init));
+    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
+                              StringSplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

@@ -37,7 +37,7 @@ struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {
 Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,
                                                  const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx2> visitor(
-      ctx, args.inputs[0].GetSharedPtr(),
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -45,7 +45,7 @@ Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,
 Result<std::unique_ptr<KernelState>> MeanInitAvx2(KernelContext* ctx,
                                                   const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx2> visitor(
-      ctx, args.inputs[0].GetSharedPtr(),
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }

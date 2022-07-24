@@ -19,7 +19,6 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
@@ -418,8 +417,8 @@ Status ExecIsIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 void AddBasicSetLookupKernels(ScalarKernel kernel,
                               const std::shared_ptr<DataType>& out_ty,
                               ScalarFunction* func) {
-  auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
-    for (const std::shared_ptr<DataType>& ty : types) {
+  auto AddKernels = [&](const std::vector<const DataType*>& types) {
+    for (const DataType* ty : types) {
       kernel.signature = KernelSignature::Make({InputType(ty->id())}, out_ty);
       DCHECK_OK(func->AddKernel(kernel));
     }
@@ -428,7 +427,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   AddKernels(BaseBinaryTypes());
   AddKernels(NumericTypes());
   AddKernels(TemporalTypes());
-  AddKernels({month_day_nano_interval()});
+  AddKernels({month_day_nano_interval().get()});
 
   std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL128, Type::DECIMAL256,
                                          Type::FIXED_SIZE_BINARY};

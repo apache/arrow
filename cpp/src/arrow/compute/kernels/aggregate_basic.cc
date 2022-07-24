@@ -19,7 +19,6 @@
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/make_unique.h"
@@ -200,7 +199,7 @@ Result<std::unique_ptr<KernelState>> CountDistinctInit(KernelContext* ctx,
 
 template <typename Type, typename VisitorArgType = typename Type::c_type>
 void AddCountDistinctKernel(InputType type, ScalarAggregateFunction* func) {
-  AddAggKernel(KernelSignature::Make({type}, int64()),
+  AddAggKernel(KernelSignature::Make({type}, int64().get()),
                CountDistinctInit<Type, VisitorArgType>, func);
 }
 
@@ -257,7 +256,7 @@ struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
 Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
                                              const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(
-      ctx, args.inputs[0].GetSharedPtr(),
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -265,7 +264,7 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
   MeanKernelInit<MeanImplDefault> visitor(
-      ctx, args.inputs[0].GetSharedPtr(),
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -282,8 +281,7 @@ struct ProductImpl : public ScalarAggregator {
   using ProductType = typename TypeTraits<AccType>::CType;
   using OutputType = typename TypeTraits<AccType>::ScalarType;
 
-  explicit ProductImpl(std::shared_ptr<DataType> out_type,
-                       const ScalarAggregateOptions& options)
+  explicit ProductImpl(const DataType* out_type, const ScalarAggregateOptions& options)
       : out_type(out_type),
         options(options),
         count(0),
@@ -335,14 +333,14 @@ struct ProductImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(out_type->GetSharedPtr());
     } else {
-      out->value = std::make_shared<OutputType>(this->product, out_type);
+      out->value = std::make_shared<OutputType>(this->product, out_type->GetSharedPtr());
     }
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> out_type;
+  const DataType* out_type;
   ScalarAggregateOptions options;
   size_t count;
   ProductType product;
@@ -361,10 +359,10 @@ struct NullProductImpl : public NullImpl<Int64Type> {
 struct ProductInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
-  std::shared_ptr<DataType> type;
+  const DataType* type;
   const ScalarAggregateOptions& options;
 
-  ProductInit(KernelContext* ctx, std::shared_ptr<DataType> type,
+  ProductInit(KernelContext* ctx, const DataType* type,
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
@@ -377,14 +375,16 @@ struct ProductInit {
   }
 
   Status Visit(const BooleanType&) {
-    auto ty = TypeTraits<typename ProductImpl<BooleanType>::AccType>::type_singleton();
+    const DataType* ty =
+        TypeTraits<typename ProductImpl<BooleanType>::AccType>::type_singleton().get();
     state.reset(new ProductImpl<BooleanType>(ty, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    auto ty = TypeTraits<typename ProductImpl<Type>::AccType>::type_singleton();
+    const DataType* ty =
+        TypeTraits<typename ProductImpl<Type>::AccType>::type_singleton().get();
     state.reset(new ProductImpl<Type>(ty, options));
     return Status::OK();
   }
@@ -407,7 +407,7 @@ struct ProductInit {
 
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
-    ProductInit visitor(ctx, args.inputs[0].GetSharedPtr(),
+    ProductInit visitor(ctx, args.inputs[0].type,
                         static_cast<const ScalarAggregateOptions&>(*args.options));
     return visitor.Create();
   }
@@ -421,7 +421,7 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(TypeHolder out_type,
                         args.kernel->signature->out_type().Resolve(ctx, args.inputs));
   MinMaxInitState<SimdLevel::NONE> visitor(
-      ctx, *args.inputs[0], out_type.GetSharedPtr(),
+      ctx, *args.inputs[0].type, out_type.GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -769,10 +769,9 @@ struct IndexInit {
 
 }  // namespace
 
-void AddBasicAggKernels(KernelInit init,
-                        const std::vector<const DataType*>& types,
-                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
-                        SimdLevel::type simd_level) {
+void AddBasicAggKernels(KernelInit init, const std::vector<const DataType*>& types,
+                        const std::shared_ptr<DataType>& out_ty,
+                        ScalarAggregateFunction* func, SimdLevel::type simd_level) {
   for (const auto& ty : types) {
     // array[InT] -> scalar[OutT]
     auto sig = KernelSignature::Make({ty->id()}, out_ty);
@@ -780,9 +779,8 @@ void AddBasicAggKernels(KernelInit init,
   }
 }
 
-void AddScalarAggKernels(KernelInit init,
-                         const std::vector<const DataType*>& types,
-                         std::shared_ptr<DataType> out_ty,
+void AddScalarAggKernels(KernelInit init, const std::vector<const DataType*>& types,
+                         const std::shared_ptr<DataType>& out_ty,
                          ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     auto sig = KernelSignature::Make({ty->id()}, out_ty);
@@ -790,9 +788,8 @@ void AddScalarAggKernels(KernelInit init,
   }
 }
 
-void AddArrayScalarAggKernels(KernelInit init,
-                              const std::vector<const DataType*>& types,
-                              std::shared_ptr<DataType> out_ty,
+void AddArrayScalarAggKernels(KernelInit init, const std::vector<const DataType*>& types,
+                              const std::shared_ptr<DataType>& out_ty,
                               ScalarAggregateFunction* func,
                               SimdLevel::type simd_level = SimdLevel::NONE) {
   AddBasicAggKernels(init, types, out_ty, func, simd_level);

@@ -37,7 +37,7 @@ struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
 Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx512> visitor(
-      ctx, args.inputs[0].GetSharedPtr(),
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -45,7 +45,7 @@ Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
 Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx512> visitor(
-      ctx, args.inputs[0].GetSharedPtr(),
+      ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
@@ -77,7 +77,8 @@ void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
 
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func) {
   // Enable 32/64 int types for avx512 variants, no advantage on 8/16 int.
-  AddMinMaxKernels(MinMaxInitAvx512, {int32(), uint32(), int64(), uint64()}, func,
+  AddMinMaxKernels(MinMaxInitAvx512,
+                   {int32().get(), uint32().get(), int64().get(), uint64().get()}, func,
                    SimdLevel::AVX512);
   AddMinMaxKernels(MinMaxInitAvx512, TemporalTypes(), func, SimdLevel::AVX512);
   AddMinMaxKernels(MinMaxInitAvx512, BaseBinaryTypes(), func, SimdLevel::AVX2);

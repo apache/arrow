@@ -20,7 +20,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/compute/api.h"
-#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
@@ -1219,7 +1219,7 @@ void AddNullIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function)
 }
 
 void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
-                               const std::vector<std::shared_ptr<DataType>>& types) {
+                               const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec =
         internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec, ArrayKernelExec,
@@ -1244,7 +1244,7 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
 }
 
 void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function,
-                            const std::vector<std::shared_ptr<DataType>>& types) {
+                            const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec =
         internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec, ArrayKernelExec,
@@ -2660,7 +2660,7 @@ void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
 }
 
 void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                                 const std::vector<std::shared_ptr<DataType>>& types) {
+                                 const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
     AddCaseWhenKernel(scalar_function, type, std::move(exec));
@@ -2668,7 +2668,7 @@ void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar
 }
 
 void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                              const std::vector<std::shared_ptr<DataType>>& types) {
+                              const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticVarBinaryBase<CaseWhenFunctor>(*type);
     AddCaseWhenKernel(scalar_function, type, std::move(exec));
@@ -2687,7 +2687,7 @@ void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
 }
 
 void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
-                                 const std::vector<std::shared_ptr<DataType>>& types) {
+                                 const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CoalesceFunctor>(*type);
     AddCoalesceKernel(scalar_function, type, std::move(exec));
@@ -2706,7 +2706,7 @@ void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
 }
 
 void AddPrimitiveChooseKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
-                               const std::vector<std::shared_ptr<DataType>>& types) {
+                               const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<ChooseFunctor>(*type);
     AddChooseKernel(scalar_function, type, std::move(exec));
@@ -2762,7 +2762,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveIfElseKernels(func, NumericTypes());
     AddPrimitiveIfElseKernels(func, TemporalTypes());
     AddPrimitiveIfElseKernels(func, IntervalTypes());
-    AddPrimitiveIfElseKernels(func, {boolean()});
+    AddPrimitiveIfElseKernels(func, {boolean().get()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
     AddFixedWidthIfElseKernel<FixedSizeBinaryType>(func);
@@ -2777,7 +2777,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCaseWhenKernels(func, NumericTypes());
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
-    AddPrimitiveCaseWhenKernels(func, {boolean(), null()});
+    AddPrimitiveCaseWhenKernels(func, {boolean().get(), null().get()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
@@ -2800,12 +2800,12 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, NumericTypes());
     AddPrimitiveCoalesceKernels(func, TemporalTypes());
     AddPrimitiveCoalesceKernels(func, IntervalTypes());
-    AddPrimitiveCoalesceKernels(func, {boolean(), null()});
+    AddPrimitiveCoalesceKernels(func, {boolean().get(), null().get()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
     AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec);
     AddCoalesceKernel(func, Type::DECIMAL256, CoalesceFunctor<FixedSizeBinaryType>::Exec);
-    for (const auto& ty : BaseBinaryTypes()) {
+    for (const DataType* ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
     AddCoalesceKernel(func, Type::FIXED_SIZE_LIST,
@@ -2825,12 +2825,12 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveChooseKernels(func, NumericTypes());
     AddPrimitiveChooseKernels(func, TemporalTypes());
     AddPrimitiveChooseKernels(func, IntervalTypes());
-    AddPrimitiveChooseKernels(func, {boolean(), null()});
+    AddPrimitiveChooseKernels(func, {boolean().get(), null().get()});
     AddChooseKernel(func, Type::FIXED_SIZE_BINARY,
                     ChooseFunctor<FixedSizeBinaryType>::Exec);
     AddChooseKernel(func, Type::DECIMAL128, ChooseFunctor<FixedSizeBinaryType>::Exec);
     AddChooseKernel(func, Type::DECIMAL256, ChooseFunctor<FixedSizeBinaryType>::Exec);
-    for (const auto& ty : BaseBinaryTypes()) {
+    for (const DataType* ty : BaseBinaryTypes()) {
       AddChooseKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<ChooseFunctor>(ty));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));

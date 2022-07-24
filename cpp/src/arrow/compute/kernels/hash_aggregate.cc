@@ -38,7 +38,6 @@
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/row_encoder.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/record_batch.h"
 #include "arrow/stl_allocator.h"
@@ -122,10 +121,9 @@ HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init) {
   return kernel;
 }
 
-Status AddHashAggKernels(
-    const std::vector<const DataType*>& types,
-    Result<HashAggregateKernel> make_kernel(const DataType*),
-    HashAggregateFunction* function) {
+Status AddHashAggKernels(const std::vector<const DataType*>& types,
+                         Result<HashAggregateKernel> make_kernel(const DataType*),
+                         HashAggregateFunction* function) {
   for (const auto& ty : types) {
     ARROW_ASSIGN_OR_RAISE(auto kernel, make_kernel(ty));
     RETURN_NOT_OK(function->AddKernel(std::move(kernel)));
@@ -2777,14 +2775,14 @@ const FunctionDoc hash_list_doc{"List all values in each group",
                                 {"array", "group_id_array"}};
 
 void PopulateHashGenericKernels(Result<HashAggregateKernel> make_kernel(const DataType*),
-                         std::shared_ptr<HashAggregateFunction> func,
-                         FunctionRegistry* registry) {
+                                std::shared_ptr<HashAggregateFunction> func,
+                                FunctionRegistry* registry) {
   DCHECK_OK(AddHashAggKernels(NumericTypes(), make_kernel, func.get()));
   DCHECK_OK(AddHashAggKernels(TemporalTypes(), make_kernel, func.get()));
   DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), make_kernel, func.get()));
-  DCHECK_OK(AddHashAggKernels({null().get(), boolean().get(),
-          decimal128(1, 1).get(), decimal256(1, 1).get(),
-          month_interval().get(), fixed_size_binary(1).get()},
+  DCHECK_OK(AddHashAggKernels(
+      {null().get(), boolean().get(), decimal128(1, 1).get(), decimal256(1, 1).get(),
+       month_interval().get(), fixed_size_binary(1).get()},
       make_kernel, func.get()));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -2798,15 +2796,13 @@ void PopulateNumericHashKernels(Result<HashAggregateKernel> make_kernel(const Da
   std::vector<const DataType*> decimal_types = {decimal128_example.get(),
                                                 decimal256_example.get()};
 
-  DCHECK_OK(
-      AddHashAggKernels(NumericTypes(), make_kernel, func.get()));
+  DCHECK_OK(AddHashAggKernels(NumericTypes(), make_kernel, func.get()));
   if (with_null_boolean) {
-    DCHECK_OK(AddHashAggKernels({null().get(), boolean().get()},
-                                make_kernel, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels({null().get(), boolean().get()}, make_kernel, func.get()));
   }
   // Type parameters are ignored
-  DCHECK_OK(AddHashAggKernels(decimal_types,
-                              GroupedTDigestFactory::Make, func.get()));
+  DCHECK_OK(AddHashAggKernels(decimal_types, GroupedTDigestFactory::Make, func.get()));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2886,8 +2882,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_min_max", Arity::Binary(), hash_min_max_doc,
         &default_scalar_aggregate_options);
     min_max_func = func.get();
-    PopulateHashGenericKernels(GroupedMinMaxFactory::Make, std::move(func),
-                               registry);
+    PopulateHashGenericKernels(GroupedMinMaxFactory::Make, std::move(func), registry);
   }
 
   {
@@ -2940,15 +2935,13 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
                                                         hash_one_doc);
-    PopulateHashGenericKernels(GroupedOneFactory::Make, std::move(func),
-                               registry);
+    PopulateHashGenericKernels(GroupedOneFactory::Make, std::move(func), registry);
   }
 
   {
     auto func = std::make_shared<HashAggregateFunction>("hash_list", Arity::Binary(),
                                                         hash_list_doc);
-    PopulateHashGenericKernels(GroupedListFactory::Make, std::move(func),
-                               registry);
+    PopulateHashGenericKernels(GroupedListFactory::Make, std::move(func), registry);
   }
 }
 

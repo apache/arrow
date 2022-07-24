@@ -27,7 +27,6 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
@@ -1393,7 +1392,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
   auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
+    const DataType* out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty.get();
     auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
   }
@@ -1576,7 +1575,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
   auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
                                                                 std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
-    auto output = is_integer(ty->id()) ? float64() : ty;
+    const DataType* output = is_integer(ty->id()) ? float64().get() : ty;
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, output, exec));
   }
