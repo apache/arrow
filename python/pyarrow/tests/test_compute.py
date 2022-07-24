@@ -78,8 +78,8 @@ numerical_arrow_types = [
 ]
 
 
-# Note for reviewer: removed test_exported_functions() as having concrete signatures
-# makes the test of argument count moot.
+# Note for reviewer: removed test_exported_functions() as having
+# concrete signatures makes the test of argument count moot.
 
 def test_hash_aggregate_not_exported():
     # Ensure we are not leaking hash aggregate functions
@@ -600,7 +600,12 @@ def test_min_max():
 
     # Missing argument
     import re
-    with pytest.raises(TypeError, match=re.escape("min_max() missing 1 required positional argument: 'array'")):
+    with pytest.raises(
+        TypeError,
+        match=re.escape(
+            "min_max() missing 1 required positional argument: 'array'"
+        )
+    ):
         s = pc.min_max()
 
 
@@ -824,11 +829,6 @@ def test_generated_signatures():
     assert str(sig) == "(indices, /, *values, memory_pool=None)"
     # Nullary with options
     sig = inspect.signature(pc.random)
-
-    # Note to reviewer: the change to the test below appears to be an artifact that the `length` argument
-    # is not an argument to the random function, but a member of the option class.
-    # thus, in pyarrow 8.0, `pc.random()` is acceptable and returns a 0-length DoubleArray.
-    # That seems of little use, but is ultimately an upstream change outside the scope of this branch.
 
     assert str(sig) == ("(n, *, initializer='system', "
                         "options=None, memory_pool=None)")

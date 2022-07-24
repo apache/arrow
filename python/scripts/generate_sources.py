@@ -103,20 +103,23 @@ def _get_options_class(func):
         return None
 
 
-def generate_compute_function_doc(exposed_name, func, options_class, custom_overrides = None):
+def generate_compute_function_doc(exposed_name, func, options_class,
+    custom_overrides = None):
     """ Create the documentation for functions defined in Arrow C++.
 
     Args:
         exposed_name: The name of the function.
         func: The cython function that connects to Arrow C++.
-        options_class: The class object for the options. 
-        custom_overrides: Custom doc overrides as processed by pyarrow.docutils from the `python/docs/additions/compute` directory.
+        options_class: The class object for the options.
+        custom_overrides: Custom doc overrides as processed by pyarrow.docutils
+            from the `python/docs/additions/compute` directory.
     Returns:
-        str: The docstring to set the documentation for the pyarrow.compute function.
+        str: The docstring to set the documentation for the pyarrow.compute
+            function.
     """
 
     cpp_doc = func._doc
-    
+
     if not custom_overrides:
         custom_overrides = {}
 
@@ -137,7 +140,8 @@ def generate_compute_function_doc(exposed_name, func, options_class, custom_over
     elif cpp_doc.description:
         docstring += cpp_doc.description + "\n\n"
 
-    # 2.b. If "details" are provided in the override, add them to the description block
+    # 2.b. If "details" are provided in the override, add them to
+    # the description block
     if 'details' in custom_overrides and custom_overrides['details']:
         docstring += "\n\n".join(custom_overrides['details']) + "\n\n"
 
@@ -158,7 +162,7 @@ def generate_compute_function_doc(exposed_name, func, options_class, custom_over
             custom_arg = {}
 
         if 'classifier' in custom_arg:
-            arg_type = custom_arg['classifier']            
+            arg_type = custom_arg['classifier']
         elif func.kind in ('vector', 'scalar_aggregate'):
             arg_type = 'Array-like'
         else:
@@ -175,7 +179,8 @@ def generate_compute_function_doc(exposed_name, func, options_class, custom_over
         options_class_doc = _scrape_options_class_doc(options_class)
         if options_class_doc:
             for p in options_class_doc.params:
-                if custom_overrides and 'parameters' in custom_overrides and p.name in custom_overrides['parameters']:
+                if custom_overrides and 'parameters' in custom_overrides and \
+                    p.name in custom_overrides['parameters']:
                     custom_args = custom_overrides['parameters'][p.name]
                 else:
                     custom_args = {}
@@ -207,7 +212,8 @@ def generate_compute_function_doc(exposed_name, func, options_class, custom_over
 
     docstring += dedent("""\
         memory_pool : pyarrow.MemoryPool, optional
-            If not passed, will allocate memory from the default memory pool.\n\n""")
+            If not passed, will allocate memory from the default memory pool.
+        \n""")
 
     # 4. Compute return type
     if 'return_type' in custom_overrides:
@@ -217,24 +223,29 @@ def generate_compute_function_doc(exposed_name, func, options_class, custom_over
         docstring += return_string
 
     # 5. Note about the C++ function
-    docstring += f"See Also\n--------\nThe `{func.name}` compute function in the Arrow C++ library." 
+    docstring += f"See Also\n--------\nThe `{func.name}` compute function in "\
+        "the Arrow C++ library."
 
     # 6. Custom addition (e.g. examples)
     if 'examples' in custom_overrides:
-        docstring += "\n\nExamples\n--------\n" + "\n\n".join(custom_overrides['examples'])
+        docstring += "\n\nExamples\n--------\n" + \
+            "\n\n".join(custom_overrides['examples'])
 
     return(docstring)
 
 
-def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):  
+def generate_function_def(name, cpp_name, func, arity, custom_overrides=None):
     """ Create the function definition for the pyarrow.compute function.
 
     Args:
         name: The name of the function.
-        cpp_name: The name of the Arrow C++ function, which might differ slightly from the name parameter.
+        cpp_name: The name of the Arrow C++ function, which might differ
+            slightly from the name parameter.
         func: The cython function that connects to Arrow C++.
         arity: The number of non-option arguments to the function.
-        custom_overrides: Custom doc overrides as processed by pyarrow.docutils from the `python/docs/additions/compute` directory, which are passed on to the `generate_compute_function_doc` function.
+        custom_overrides: Custom doc overrides as processed by pyarrow.docutils
+            from the `python/docs/additions/compute` directory, which are
+            passed on to the `generate_compute_function_doc` function.
     Returns:
         str: The generated function definition, in string format.
 
@@ -244,16 +255,16 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):
     all_params = []
     # required options
     options_required = func._doc.options_required
-    
+
     argnames = _get_arg_names(func)
     if argnames and argnames[-1].startswith('*'):
         var_argname = argnames.pop().lstrip('*')
     else:
         var_argname = None
-    
+
     for argname in argnames:
         all_params.append(Parameter(argname, Parameter.POSITIONAL_ONLY))
-    
+
     if var_argname:
         all_params.append(Parameter(var_argname, Parameter.VAR_POSITIONAL))
         argnames.append('*' + var_argname)
@@ -277,23 +288,20 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):
                                 default=None))
     all_params.append(Parameter("memory_pool", Parameter.KEYWORD_ONLY,
                             default=None))
-    
-    #funcparams = make_function_signature(arg_names, var_arg_names, options_class)
 
-    funcdoc = generate_compute_function_doc(name, func, options_class, custom_overrides)    
-    funcdoc = indent(funcdoc, " " * 12, lambda l: l != "\n")
-    funcdoc = funcdoc[4:]
+    funcdoc = generate_compute_function_doc(name, func, options_class,
+        custom_overrides)
+    funcdoc = indent(funcdoc, " " * 12, lambda l: l != "\n").strip()
 
     if len(argnames) == 1:
-        #argstring = f'( {argnames[0]}, )'
-        argstring = f'[ {argnames[0]} ]'
+        argstring = f'[{argnames[0]}]'
     else:
-        #argstring = f"( {', '.join(argnames)} )"
-        argstring = f"[ {', '.join(argnames)} ]"
-    
+        argstring = f"[{', '.join(argnames)}]"
+
     full_signature = inspect.Signature(all_params)
     if not options_class:
-        # -- create the expression handling the expression if there is a regular argument
+        # create the expression handling the expression if there is a
+        # regular argument
         if len(argnames) > 2 or (len(argnames) and not var_argname):
             expression_clause = f'''\
 
@@ -305,16 +313,17 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):
 
         function_text = dedent(f'''\
         def {name}{full_signature}:
-            """\n{funcdoc}
+            """{funcdoc}
             """
-            func = pyarrow._compute.get_function('{cpp_name}')            
+            func = pyarrow._compute.get_function('{cpp_name}')
             {expression_clause}
             return(
                 func.call({argstring}, memory_pool=memory_pool)
             )
         ''')
     else:
-        # here we need to create the kwargs param substring for hte _handle_options function
+        # here we need to create the kwargs param substring for the
+        # _handle_options function
         if arity is Ellipsis or len(argnames) <= arity:
             option_args = ''
         else:
@@ -322,25 +331,30 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):
 
         if len(argnames) > 2 or (len(argnames) and not var_argname):
             expression_clause = f'''\
-                
+
             if isinstance({argnames[0]}, Expression):
                 return Expression._call('{name}', {argstring}, options)
             '''
         else:
             expression_clause = ""
 
-        
+
         function_text = dedent(f'''\
         def {name}{full_signature}:
-            """\n{funcdoc}
+            """{funcdoc}
             """
 
-            options = _handle_options('{name}', {options_class_name}, options,
-                                    ({option_args}), {', '.join(opt + '=' + opt for opt in option_params)})
+            options = _handle_options(
+                '{name}',
+                {options_class_name},
+                options,
+                ({option_args}),
+                {', '.join(opt + '=' + opt for opt in option_params)}
+            )
             func = pyarrow._compute.get_function('{cpp_name}')
             {expression_clause}
             return(
-                func.call( {argstring}, options, memory_pool)
+                func.call({argstring}, options, memory_pool)
             )
         ''')
 
@@ -350,87 +364,98 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides = None):
 def write_compute_file(output_path):
     """
     Write the full set of generated functions to the output_path.
-    
-    Note that, in practice, while this generates core functions for all of the Arrow C++ compute functions, the compute functions may be overriden in the `pyarrow/compute.py` file. 
+
+    Note that, in practice, while this generates core functions for all of the
+    Arrow C++ compute functions, the compute functions may be overriden in the
+    `pyarrow/compute.py` file.
 
     Args:
-        output_path: The full path to the file to write the compute functions to.
+        output_path: The full path to the file to write the compute function.
     """
     g = globals()
     reg = function_registry()
 
-    doc_overrides = arrowdoc.parse_directory(os.path.dirname(arrowdoc.__file__) + "/../docs/additions/compute")
+    doc_overrides = arrowdoc.parse_directory(
+        os.path.dirname(arrowdoc.__file__) + "/../docs/additions/compute"
+    )
 
     function_defs = []
     for cpp_name in reg.list_functions():
         name = function_name_rewrites.get(cpp_name, cpp_name)
-        
+
         func = reg.get_function(cpp_name)
-        
+
         if func.kind == "hash_aggregate":
             # Hash aggregate functions are not callable,
             # so let's not expose them at module level.
             continue
-        
-        function_def = generate_function_def(name, cpp_name, func, func.arity, doc_overrides.get(name, None))
+
+        function_def = generate_function_def(
+            name,
+            cpp_name,
+            func,
+            func.arity,
+            doc_overrides.get(name, None)
+        )
         function_defs.append(function_def)
-    
+
     with open(output_path, 'w') as fh:
         fh.write(dedent(f"""\
-            # File GENERATED by scripts/generate_sources.py - DO NOT EDIT.
+    # File GENERATED by scripts/generate_sources.py - DO NOT EDIT.
+    #
+    # Licensed to the Apache Software Foundation (ASF) under one
+    # or more contributor license agreements.  See the NOTICE file
+    # distributed with this work for additional information
+    # regarding copyright ownership.  The ASF licenses this file
+    # to you under the Apache License, Version 2.0 (the
+    # "License"); you may not use this file except in compliance
+    # with the License.  You may obtain a copy of the License at
+    #
+    #   http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing,
+    # software distributed under the License is distributed on an
+    # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    # KIND, either express or implied.  See the License for the
+    # specific language governing permissions and limitations
+    # under the License.
+
+    import pyarrow
+    import pyarrow._compute
+    from pyarrow._compute import Expression
+
+    def _handle_options(name, options_class, options, args, **kwargs):
+        if options is not None:
+            if isinstance(options, dict):
+                return options_class(**options)
+            elif isinstance(options, options_class):
+                return options
+            raise TypeError(
+                "Function {{!r}} expected a {{}} parameter, got {{}}"
+                .format(name, options_class, type(options)))
+
+        if args or kwargs:
+            # Note: This check is no longer permissable
+            # Generating function code with real signatures means that
+            # All of the keyword arguments have default values, and so
+            # this would always be true. As the default for the options object is
+            # always false, the options object takes precedence if provided.
             #
-            # Licensed to the Apache Software Foundation (ASF) under one
-            # or more contributor license agreements.  See the NOTICE file
-            # distributed with this work for additional information
-            # regarding copyright ownership.  The ASF licenses this file
-            # to you under the Apache License, Version 2.0 (the
-            # "License"); you may not use this file except in compliance
-            # with the License.  You may obtain a copy of the License at
-            #
-            #   http://www.apache.org/licenses/LICENSE-2.0
-            #
-            # Unless required by applicable law or agreed to in writing,
-            # software distributed under the License is distributed on an
-            # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-            # KIND, either express or implied.  See the License for the
-            # specific language governing permissions and limitations
-            # under the License.
+            # if options is not None:
+            #    raise TypeError(
+            #        "Function {{!r}} called with both an 'options' argument "
+            #        "and additional arguments"
+            #        .format(name))
 
-            import pyarrow
-            import pyarrow._compute
-            from pyarrow._compute import Expression
-            
-            def _handle_options(name, options_class, options, args, **kwargs):
-                if options is not None:
-                    if isinstance(options, dict):
-                        return options_class(**options)
-                    elif isinstance(options, options_class):
-                        return options
-                    raise TypeError(
-                        "Function {{!r}} expected a {{}} parameter, got {{}}"
-                        .format(name, options_class, type(options)))
+            return options_class(*args, **kwargs)
 
-                if args or kwargs:
-                    # Note: This check is no longer permissable
-                    # Generating function code with real signatures means that 
-                    # All of the keyword arguments have default values, and so 
-                    # this would always be true. As the default for the options object is
-                    # always false, the options object takes precedence if provided. 
-                    #
-                    #if options is not None:
-                    #    raise TypeError(
-                    #        "Function {{!r}} called with both an 'options' argument "
-                    #        "and additional arguments"
-                    #        .format(name))
-
-                    return options_class(*args, **kwargs)
-
-                return None            
-            """))
+        return None"""))
         fh.write("\n\n".join(function_defs))
     #print("\n\n".join(function_defs))
 
 if __name__ == "__main__":
 
-    write_compute_file(os.path.dirname(__file__) + '/../pyarrow/_compute_generated.py')
+    write_compute_file(
+        os.path.dirname(__file__) + '/../pyarrow/_compute_generated.py'
+    )
 

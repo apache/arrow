@@ -21,7 +21,6 @@ import pyarrow
 import pyarrow._compute
 from pyarrow._compute import Expression
 
-
 def _handle_options(name, options_class, options, args, **kwargs):
     if options is not None:
         if isinstance(options, dict):
@@ -47,12 +46,8 @@ def _handle_options(name, options_class, options, args, **kwargs):
 
         return options_class(*args, **kwargs)
 
-    return None
-
-
-def abs(x, /, *, memory_pool=None):
-    """
-Calculate the absolute value of the argument element-wise.
+    return Nonedef abs(x, /, *, memory_pool=None):
+    """Calculate the absolute value of the argument element-wise.
 
     Results will wrap around on integer overflow.
     Use function "abs_checked" if you want overflow
@@ -80,8 +75,7 @@ Calculate the absolute value of the argument element-wise.
 
 
 def abs_checked(x, /, *, memory_pool=None):
-    """
-Calculate the absolute value of the argument element-wise.
+    """Calculate the absolute value of the argument element-wise.
 
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "abs".
@@ -108,8 +102,7 @@ Calculate the absolute value of the argument element-wise.
 
 
 def acos(x, /, *, memory_pool=None):
-    """
-Compute the inverse cosine.
+    """Compute the inverse cosine.
 
     NaN is returned for invalid input values;
     to raise an error instead, see "acos_checked".
@@ -136,8 +129,7 @@ Compute the inverse cosine.
 
 
 def acos_checked(x, /, *, memory_pool=None):
-    """
-Compute the inverse cosine.
+    """Compute the inverse cosine.
 
     Invalid input values raise an error;
     to return NaN instead, see "acos".
@@ -164,8 +156,7 @@ Compute the inverse cosine.
 
 
 def add(x, y, /, *, memory_pool=None):
-    """
-Add the arguments element-wise.
+    """Add the arguments element-wise.
 
     Results will wrap around on integer overflow.
     Use function "add_checked" if you want overflow
@@ -195,8 +186,7 @@ Add the arguments element-wise.
 
 
 def add_checked(x, y, /, *, memory_pool=None):
-    """
-Add the arguments element-wise.
+    """Add the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "add".
@@ -225,8 +215,7 @@ Add the arguments element-wise.
 
 
 def all(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Test whether all elements in a boolean array evaluate to true.
+    """Test whether all elements in a boolean array evaluate to true.
 
     Null values are ignored by default.
     If the `skip_nulls` option is set to false, then Kleene logic is used.
@@ -271,8 +260,13 @@ Test whether all elements in a boolean array evaluate to true.
     <pyarrow.BooleanScalar: True>
     """
 
-    options = _handle_options('all', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'all',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('all')
 
     if isinstance(array, Expression):
@@ -284,8 +278,7 @@ Test whether all elements in a boolean array evaluate to true.
 
 
 def and_(x, y, /, *, memory_pool=None):
-    """
-Logical 'and' boolean values.
+    """Logical 'and' boolean values.
 
     When a null is encountered in either input, a null is output.
     For a different null behavior, see function "and_kleene".
@@ -314,8 +307,7 @@ Logical 'and' boolean values.
 
 
 def and_kleene(x, y, /, *, memory_pool=None):
-    """
-Logical 'and' boolean values (Kleene logic).
+    """Logical 'and' boolean values (Kleene logic).
 
     This function behaves as follows with nulls:
 
@@ -353,8 +345,7 @@ Logical 'and' boolean values (Kleene logic).
 
 
 def and_not(x, y, /, *, memory_pool=None):
-    """
-Logical 'and not' boolean values.
+    """Logical 'and not' boolean values.
 
     When a null is encountered in either input, a null is output.
     For a different null behavior, see function "and_not_kleene".
@@ -383,8 +374,7 @@ Logical 'and not' boolean values.
 
 
 def and_not_kleene(x, y, /, *, memory_pool=None):
-    """
-Logical 'and not' boolean values (Kleene logic).
+    """Logical 'and not' boolean values (Kleene logic).
 
     This function behaves as follows with nulls:
 
@@ -423,8 +413,7 @@ Logical 'and not' boolean values (Kleene logic).
 
 
 def any(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Test whether any element in a boolean array evaluates to true.
+    """Test whether any element in a boolean array evaluates to true.
 
     Null values are ignored by default.
     If the `skip_nulls` option is set to false, then Kleene logic is used.
@@ -475,8 +464,13 @@ Test whether any element in a boolean array evaluates to true.
     <pyarrow.BooleanScalar: False>
     """
 
-    options = _handle_options('any', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'any',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('any')
 
     if isinstance(array, Expression):
@@ -488,8 +482,7 @@ Test whether any element in a boolean array evaluates to true.
 
 
 def approximate_median(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Approximate median of a numeric array with T-Digest algorithm.
+    """Approximate median of a numeric array with T-Digest algorithm.
 
     Nulls and NaNs are ignored.
     A null scalar is returned if there is no valid data point.
@@ -514,8 +507,13 @@ Approximate median of a numeric array with T-Digest algorithm.
     The `approximate_median` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('approximate_median', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'approximate_median',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('approximate_median')
 
     if isinstance(array, Expression):
@@ -527,8 +525,7 @@ Approximate median of a numeric array with T-Digest algorithm.
 
 
 def array_filter(array, selection_filter, /, null_selection_behavior='drop', *, options=None, memory_pool=None):
-    """
-Filter with a boolean selection filter.
+    """Filter with a boolean selection filter.
 
     The output is populated with values from the input `array` at positions
     where the selection filter is non-zero.  Nulls in the selection filter
@@ -553,8 +550,13 @@ Filter with a boolean selection filter.
     The `array_filter` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('array_filter', pyarrow._compute.FilterOptions, options,
-                              (), null_selection_behavior=null_selection_behavior)
+    options = _handle_options(
+        'array_filter',
+        pyarrow._compute.FilterOptions,
+        options,
+        (),
+        null_selection_behavior=null_selection_behavior
+    )
     func = pyarrow._compute.get_function('array_filter')
 
     if isinstance(array, Expression):
@@ -566,8 +568,7 @@ Filter with a boolean selection filter.
 
 
 def array_sort_indices(array, /, order='ascending', *, null_placement='at_end', options=None, memory_pool=None):
-    """
-Return the indices that would sort an array.
+    """Return the indices that would sort an array.
 
     This function computes an array of indices that define a stable sort
     of the input array.  By default, Null values are considered greater
@@ -597,8 +598,13 @@ Return the indices that would sort an array.
     The `array_sort_indices` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('array_sort_indices', pyarrow._compute.ArraySortOptions, options,
-                              (), order=order, null_placement=null_placement)
+    options = _handle_options(
+        'array_sort_indices',
+        pyarrow._compute.ArraySortOptions,
+        options,
+        (),
+        order=order, null_placement=null_placement
+    )
     func = pyarrow._compute.get_function('array_sort_indices')
 
     if isinstance(array, Expression):
@@ -610,8 +616,7 @@ Return the indices that would sort an array.
 
 
 def array_take(array, indices, /, *, boundscheck=True, options=None, memory_pool=None):
-    """
-Select values from an array based on indices from another array.
+    """Select values from an array based on indices from another array.
 
     The output is populated with values from the input array at positions
     given by `indices`.  Nulls in `indices` emit null in the output.
@@ -636,8 +641,13 @@ Select values from an array based on indices from another array.
     The `array_take` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('array_take', pyarrow._compute.TakeOptions, options,
-                              (), boundscheck=boundscheck)
+    options = _handle_options(
+        'array_take',
+        pyarrow._compute.TakeOptions,
+        options,
+        (),
+        boundscheck=boundscheck
+    )
     func = pyarrow._compute.get_function('array_take')
 
     if isinstance(array, Expression):
@@ -649,8 +659,7 @@ Select values from an array based on indices from another array.
 
 
 def ascii_capitalize(strings, /, *, memory_pool=None):
-    """
-Capitalize the first character of ASCII input.
+    """Capitalize the first character of ASCII input.
 
     For each string in `strings`, return a capitalized version.
 
@@ -679,8 +688,7 @@ Capitalize the first character of ASCII input.
 
 
 def ascii_center(strings, /, width=None, padding=' ', *, options=None, memory_pool=None):
-    """
-Center strings by padding with a given character.
+    """Center strings by padding with a given character.
 
     For each string in `strings`, emit a centered string by padding both sides 
     with the given ASCII character.
@@ -704,8 +712,13 @@ Center strings by padding with a given character.
     The `ascii_center` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ascii_center', pyarrow._compute.PadOptions, options,
-                              (), width=width, padding=padding)
+    options = _handle_options(
+        'ascii_center',
+        pyarrow._compute.PadOptions,
+        options,
+        (),
+        width=width, padding=padding
+    )
     func = pyarrow._compute.get_function('ascii_center')
 
     if isinstance(strings, Expression):
@@ -717,8 +730,7 @@ Center strings by padding with a given character.
 
 
 def ascii_is_alnum(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII alphanumeric.
+    """Classify strings as ASCII alphanumeric.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of alphanumeric ASCII characters.  Null strings emit null.
@@ -745,8 +757,7 @@ Classify strings as ASCII alphanumeric.
 
 
 def ascii_is_alpha(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII alphabetic.
+    """Classify strings as ASCII alphabetic.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of alphabetic ASCII characters.  Null strings emit null.
@@ -773,8 +784,7 @@ Classify strings as ASCII alphabetic.
 
 
 def ascii_is_decimal(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII decimal.
+    """Classify strings as ASCII decimal.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of decimal ASCII characters.  Null strings emit null.
@@ -801,8 +811,7 @@ Classify strings as ASCII decimal.
 
 
 def ascii_is_lower(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII lowercase.
+    """Classify strings as ASCII lowercase.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of lowercase ASCII characters.  Null strings emit null.
@@ -829,8 +838,7 @@ Classify strings as ASCII lowercase.
 
 
 def ascii_is_printable(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII printable.
+    """Classify strings as ASCII printable.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of printable ASCII characters.  Null strings emit null.
@@ -857,8 +865,7 @@ Classify strings as ASCII printable.
 
 
 def ascii_is_space(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII whitespace.
+    """Classify strings as ASCII whitespace.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of whitespace ASCII characters.  Null strings emit null.
@@ -885,8 +892,7 @@ Classify strings as ASCII whitespace.
 
 
 def ascii_is_title(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII titlecase.
+    """Classify strings as ASCII titlecase.
 
     For each string in `strings`, emit true iff the string is title-cased,
     i.e. it has at least one cased character, each uppercase character
@@ -915,8 +921,7 @@ Classify strings as ASCII titlecase.
 
 
 def ascii_is_upper(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII uppercase.
+    """Classify strings as ASCII uppercase.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of uppercase ASCII characters.  Null strings emit null.
@@ -943,8 +948,7 @@ Classify strings as ASCII uppercase.
 
 
 def ascii_lower(strings, /, *, memory_pool=None):
-    """
-Transform ASCII input to lowercase.
+    """Transform ASCII input to lowercase.
 
     For each string in `strings`, return a lowercase version.
 
@@ -973,8 +977,7 @@ Transform ASCII input to lowercase.
 
 
 def ascii_lpad(strings, /, width=None, padding=' ', *, options=None, memory_pool=None):
-    """
-Right-align strings by padding with a given character.
+    """Right-align strings by padding with a given character.
 
     For each string in `strings`, emit a right-aligned string by prepending 
     the given ASCII character.
@@ -998,8 +1001,13 @@ Right-align strings by padding with a given character.
     The `ascii_lpad` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ascii_lpad', pyarrow._compute.PadOptions, options,
-                              (), width=width, padding=padding)
+    options = _handle_options(
+        'ascii_lpad',
+        pyarrow._compute.PadOptions,
+        options,
+        (),
+        width=width, padding=padding
+    )
     func = pyarrow._compute.get_function('ascii_lpad')
 
     if isinstance(strings, Expression):
@@ -1011,8 +1019,7 @@ Right-align strings by padding with a given character.
 
 
 def ascii_ltrim(strings, /, characters=None, *, options=None, memory_pool=None):
-    """
-Trim leading characters.
+    """Trim leading characters.
 
     For each string in `strings`, remove any leading characters
     from the `characters` option (as given in TrimOptions).
@@ -1036,8 +1043,13 @@ Trim leading characters.
     The `ascii_ltrim` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ascii_ltrim', pyarrow._compute.TrimOptions, options,
-                              (), characters=characters)
+    options = _handle_options(
+        'ascii_ltrim',
+        pyarrow._compute.TrimOptions,
+        options,
+        (),
+        characters=characters
+    )
     func = pyarrow._compute.get_function('ascii_ltrim')
 
     if isinstance(strings, Expression):
@@ -1049,8 +1061,7 @@ Trim leading characters.
 
 
 def ascii_ltrim_whitespace(strings, /, *, memory_pool=None):
-    """
-Trim leading ASCII whitespace characters.
+    """Trim leading ASCII whitespace characters.
 
     For each string in `strings`, emit a string with leading ASCII whitespace
     characters removed.  Use `utf8_ltrim_whitespace` to trim leading Unicode
@@ -1078,8 +1089,7 @@ Trim leading ASCII whitespace characters.
 
 
 def ascii_reverse(strings, /, *, memory_pool=None):
-    """
-Reverse ASCII input.
+    """Reverse ASCII input.
 
     For each ASCII string in `strings`, return a reversed version.
 
@@ -1108,8 +1118,7 @@ Reverse ASCII input.
 
 
 def ascii_rpad(strings, /, width=None, padding=' ', *, options=None, memory_pool=None):
-    """
-Left-align strings by padding with a given character.
+    """Left-align strings by padding with a given character.
 
     For each string in `strings`, emit a left-aligned string by appending 
     the given ASCII character.
@@ -1133,8 +1142,13 @@ Left-align strings by padding with a given character.
     The `ascii_rpad` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ascii_rpad', pyarrow._compute.PadOptions, options,
-                              (), width=width, padding=padding)
+    options = _handle_options(
+        'ascii_rpad',
+        pyarrow._compute.PadOptions,
+        options,
+        (),
+        width=width, padding=padding
+    )
     func = pyarrow._compute.get_function('ascii_rpad')
 
     if isinstance(strings, Expression):
@@ -1146,8 +1160,7 @@ Left-align strings by padding with a given character.
 
 
 def ascii_rtrim(strings, /, characters=None, *, options=None, memory_pool=None):
-    """
-Trim trailing characters.
+    """Trim trailing characters.
 
     For each string in `strings`, remove any trailing characters
     from the `characters` option (as given in TrimOptions).
@@ -1171,8 +1184,13 @@ Trim trailing characters.
     The `ascii_rtrim` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ascii_rtrim', pyarrow._compute.TrimOptions, options,
-                              (), characters=characters)
+    options = _handle_options(
+        'ascii_rtrim',
+        pyarrow._compute.TrimOptions,
+        options,
+        (),
+        characters=characters
+    )
     func = pyarrow._compute.get_function('ascii_rtrim')
 
     if isinstance(strings, Expression):
@@ -1184,8 +1202,7 @@ Trim trailing characters.
 
 
 def ascii_rtrim_whitespace(strings, /, *, memory_pool=None):
-    """
-Trim trailing ASCII whitespace characters.
+    """Trim trailing ASCII whitespace characters.
 
     For each string in `strings`, emit a string with trailing ASCII whitespace
     characters removed. Use `utf8_rtrim_whitespace` to trim trailing Unicode
@@ -1213,8 +1230,7 @@ Trim trailing ASCII whitespace characters.
 
 
 def ascii_split_whitespace(strings, /, *, max_splits=None, reverse=False, options=None, memory_pool=None):
-    """
-Split string according to any ASCII whitespace.
+    """Split string according to any ASCII whitespace.
 
     Split each string according any non-zero length sequence of ASCII
     whitespace characters.  The output for each string input is a list
@@ -1242,8 +1258,13 @@ Split string according to any ASCII whitespace.
     The `ascii_split_whitespace` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ascii_split_whitespace', pyarrow._compute.SplitOptions, options,
-                              (), max_splits=max_splits, reverse=reverse)
+    options = _handle_options(
+        'ascii_split_whitespace',
+        pyarrow._compute.SplitOptions,
+        options,
+        (),
+        max_splits=max_splits, reverse=reverse
+    )
     func = pyarrow._compute.get_function('ascii_split_whitespace')
 
     if isinstance(strings, Expression):
@@ -1255,8 +1276,7 @@ Split string according to any ASCII whitespace.
 
 
 def ascii_swapcase(strings, /, *, memory_pool=None):
-    """
-Transform ASCII input by inverting casing.
+    """Transform ASCII input by inverting casing.
 
     For each string in `strings`, return a string with opposite casing.
 
@@ -1285,8 +1305,7 @@ Transform ASCII input by inverting casing.
 
 
 def ascii_title(strings, /, *, memory_pool=None):
-    """
-Titlecase each word of ASCII input.
+    """Titlecase each word of ASCII input.
 
     For each string in `strings`, return a titlecased version.
     Each word in the output will start with an uppercase character and its
@@ -1317,8 +1336,7 @@ Titlecase each word of ASCII input.
 
 
 def ascii_trim(strings, /, characters=None, *, options=None, memory_pool=None):
-    """
-Trim leading and trailing characters.
+    """Trim leading and trailing characters.
 
     For each string in `strings`, remove any leading or trailing characters
     from the `characters` option (as given in TrimOptions).
@@ -1342,8 +1360,13 @@ Trim leading and trailing characters.
     The `ascii_trim` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ascii_trim', pyarrow._compute.TrimOptions, options,
-                              (), characters=characters)
+    options = _handle_options(
+        'ascii_trim',
+        pyarrow._compute.TrimOptions,
+        options,
+        (),
+        characters=characters
+    )
     func = pyarrow._compute.get_function('ascii_trim')
 
     if isinstance(strings, Expression):
@@ -1355,8 +1378,7 @@ Trim leading and trailing characters.
 
 
 def ascii_trim_whitespace(strings, /, *, memory_pool=None):
-    """
-Trim leading and trailing ASCII whitespace characters.
+    """Trim leading and trailing ASCII whitespace characters.
 
     For each string in `strings`, emit a string with leading and trailing ASCII
     whitespace characters removed. Use `utf8_trim_whitespace` to trim Unicode
@@ -1384,8 +1406,7 @@ Trim leading and trailing ASCII whitespace characters.
 
 
 def ascii_upper(strings, /, *, memory_pool=None):
-    """
-Transform ASCII input to uppercase.
+    """Transform ASCII input to uppercase.
 
     For each string in `strings`, return an uppercase version.
 
@@ -1414,8 +1435,7 @@ Transform ASCII input to uppercase.
 
 
 def asin(x, /, *, memory_pool=None):
-    """
-Compute the inverse sine.
+    """Compute the inverse sine.
 
     NaN is returned for invalid input values;
     to raise an error instead, see "asin_checked".
@@ -1442,8 +1462,7 @@ Compute the inverse sine.
 
 
 def asin_checked(x, /, *, memory_pool=None):
-    """
-Compute the inverse sine.
+    """Compute the inverse sine.
 
     Invalid input values raise an error;
     to return NaN instead, see "asin".
@@ -1470,8 +1489,7 @@ Compute the inverse sine.
 
 
 def assume_timezone(timestamps, /, timezone=None, *, ambiguous='raise', nonexistent='raise', options=None, memory_pool=None):
-    """
-Convert naive timestamp to timezone-aware timestamp.
+    """Convert naive timestamp to timezone-aware timestamp.
 
     Input timestamps are assumed to be relative to the timezone given in the
     `timezone` option. They are converted to UTC-relative timestamps and
@@ -1504,8 +1522,13 @@ Convert naive timestamp to timezone-aware timestamp.
     The `assume_timezone` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('assume_timezone', pyarrow._compute.AssumeTimezoneOptions, options,
-                              (), timezone=timezone, ambiguous=ambiguous, nonexistent=nonexistent)
+    options = _handle_options(
+        'assume_timezone',
+        pyarrow._compute.AssumeTimezoneOptions,
+        options,
+        (),
+        timezone=timezone, ambiguous=ambiguous, nonexistent=nonexistent
+    )
     func = pyarrow._compute.get_function('assume_timezone')
 
     if isinstance(timestamps, Expression):
@@ -1517,8 +1540,7 @@ Convert naive timestamp to timezone-aware timestamp.
 
 
 def atan(x, /, *, memory_pool=None):
-    """
-Compute the inverse tangent of x.
+    """Compute the inverse tangent of x.
 
     The return value is in the range [-pi/2, pi/2];
     for a full return range [-pi, pi], see "atan2".
@@ -1545,8 +1567,7 @@ Compute the inverse tangent of x.
 
 
 def atan2(y, x, /, *, memory_pool=None):
-    """
-Compute the inverse tangent of y/x.
+    """Compute the inverse tangent of y/x.
 
     The return value is in the range [-pi, pi].
 
@@ -1574,8 +1595,7 @@ Compute the inverse tangent of y/x.
 
 
 def binary_join(strings, separator, /, *, memory_pool=None):
-    """
-Join a list of strings together with a separator.
+    """Join a list of strings together with a separator.
 
     Concatenate the strings in `list`. The `separator` is inserted
     between each given string.
@@ -1605,8 +1625,7 @@ Join a list of strings together with a separator.
 
 
 def binary_join_element_wise(*strings, null_handling='emit_null', null_replacement='', options=None, memory_pool=None):
-    """
-Join string arguments together, with the last argument as separator.
+    """Join string arguments together, with the last argument as separator.
 
     Concatenate the `strings` except for the last one. The last argument
     in `strings` is inserted between each given string.
@@ -1633,8 +1652,13 @@ Join string arguments together, with the last argument as separator.
     The `binary_join_element_wise` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('binary_join_element_wise', pyarrow._compute.JoinOptions, options,
-                              (), null_handling=null_handling, null_replacement=null_replacement)
+    options = _handle_options(
+        'binary_join_element_wise',
+        pyarrow._compute.JoinOptions,
+        options,
+        (),
+        null_handling=null_handling, null_replacement=null_replacement
+    )
     func = pyarrow._compute.get_function('binary_join_element_wise')
 
     return(
@@ -1643,8 +1667,7 @@ Join string arguments together, with the last argument as separator.
 
 
 def binary_length(strings, /, *, memory_pool=None):
-    """
-Compute string lengths.
+    """Compute string lengths.
 
     For each string in `strings`, emit its length of bytes.
     Null values emit null.
@@ -1671,8 +1694,7 @@ Compute string lengths.
 
 
 def binary_repeat(strings, num_repeats, /, *, memory_pool=None):
-    """
-Repeat a binary string.
+    """Repeat a binary string.
 
     For each binary string in `strings`, return a replicated version.
 
@@ -1700,8 +1722,7 @@ Repeat a binary string.
 
 
 def binary_replace_slice(strings, /, start=None, stop=None, replacement=None, *, options=None, memory_pool=None):
-    """
-Replace a slice of a binary string.
+    """Replace a slice of a binary string.
 
     For each string in `strings`, replace a slice of the string defined by `start`
     and `stop` indices with the given `replacement`. `start` is inclusive
@@ -1728,8 +1749,13 @@ Replace a slice of a binary string.
     The `binary_replace_slice` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('binary_replace_slice', pyarrow._compute.ReplaceSliceOptions, options,
-                              (), start=start, stop=stop, replacement=replacement)
+    options = _handle_options(
+        'binary_replace_slice',
+        pyarrow._compute.ReplaceSliceOptions,
+        options,
+        (),
+        start=start, stop=stop, replacement=replacement
+    )
     func = pyarrow._compute.get_function('binary_replace_slice')
 
     if isinstance(strings, Expression):
@@ -1741,8 +1767,7 @@ Replace a slice of a binary string.
 
 
 def binary_reverse(strings, /, *, memory_pool=None):
-    """
-Reverse binary input.
+    """Reverse binary input.
 
     For each binary string in `strings`, return a reversed version.
 
@@ -1770,8 +1795,7 @@ Reverse binary input.
 
 
 def bit_wise_and(x, y, /, *, memory_pool=None):
-    """
-Bit-wise AND the arguments element-wise.
+    """Bit-wise AND the arguments element-wise.
 
     Null values return null.
 
@@ -1799,8 +1823,7 @@ Bit-wise AND the arguments element-wise.
 
 
 def bit_wise_not(x, /, *, memory_pool=None):
-    """
-Bit-wise negate the arguments element-wise.
+    """Bit-wise negate the arguments element-wise.
 
     Null values return null.
 
@@ -1826,8 +1849,7 @@ Bit-wise negate the arguments element-wise.
 
 
 def bit_wise_or(x, y, /, *, memory_pool=None):
-    """
-Bit-wise OR the arguments element-wise.
+    """Bit-wise OR the arguments element-wise.
 
     Null values return null.
 
@@ -1855,8 +1877,7 @@ Bit-wise OR the arguments element-wise.
 
 
 def bit_wise_xor(x, y, /, *, memory_pool=None):
-    """
-Bit-wise XOR the arguments element-wise.
+    """Bit-wise XOR the arguments element-wise.
 
     Null values return null.
 
@@ -1884,8 +1905,7 @@ Bit-wise XOR the arguments element-wise.
 
 
 def case_when(cond, /, *cases, memory_pool=None):
-    """
-Choose values based on multiple conditions.
+    """Choose values based on multiple conditions.
 
     `cond` must be a struct of Boolean values. `cases` can be a mix
     of scalar and array arguments (of any type, but all must be the
@@ -1920,8 +1940,7 @@ Choose values based on multiple conditions.
 
 
 def cast(input, /, target_type=None, *, allow_int_overflow=None, allow_time_truncate=None, allow_time_overflow=None, allow_decimal_truncate=None, allow_float_truncate=None, allow_invalid_utf8=None, options=None, memory_pool=None):
-    """
-Cast values to another data type.
+    """Cast values to another data type.
 
     Behavior when values wouldn't fit in the target type
     can be controlled through CastOptions.
@@ -1954,8 +1973,13 @@ Cast values to another data type.
     The `cast` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('cast', pyarrow._compute.CastOptions, options,
-                              (), target_type=target_type, allow_int_overflow=allow_int_overflow, allow_time_truncate=allow_time_truncate, allow_time_overflow=allow_time_overflow, allow_decimal_truncate=allow_decimal_truncate, allow_float_truncate=allow_float_truncate, allow_invalid_utf8=allow_invalid_utf8)
+    options = _handle_options(
+        'cast',
+        pyarrow._compute.CastOptions,
+        options,
+        (),
+        target_type=target_type, allow_int_overflow=allow_int_overflow, allow_time_truncate=allow_time_truncate, allow_time_overflow=allow_time_overflow, allow_decimal_truncate=allow_decimal_truncate, allow_float_truncate=allow_float_truncate, allow_invalid_utf8=allow_invalid_utf8
+    )
     func = pyarrow._compute.get_function('cast')
 
     if isinstance(input, Expression):
@@ -1967,8 +1991,7 @@ Cast values to another data type.
 
 
 def ceil(x, /, *, memory_pool=None):
-    """
-Round up to the nearest integer.
+    """Round up to the nearest integer.
 
     Compute the smallest integer value not less in magnitude than `x`.
 
@@ -1994,8 +2017,7 @@ Round up to the nearest integer.
 
 
 def ceil_temporal(timestamps, /, multiple=1, unit='day', *, week_starts_monday=True, ceil_is_strictly_greater=False, calendar_based_origin=False, options=None, memory_pool=None):
-    """
-Round temporal values up to nearest multiple of specified time unit.
+    """Round temporal values up to nearest multiple of specified time unit.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -2050,8 +2072,13 @@ Round temporal values up to nearest multiple of specified time unit.
     The `ceil_temporal` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ceil_temporal', pyarrow._compute.RoundTemporalOptions, options,
-                              (), multiple=multiple, unit=unit, week_starts_monday=week_starts_monday, ceil_is_strictly_greater=ceil_is_strictly_greater, calendar_based_origin=calendar_based_origin)
+    options = _handle_options(
+        'ceil_temporal',
+        pyarrow._compute.RoundTemporalOptions,
+        options,
+        (),
+        multiple=multiple, unit=unit, week_starts_monday=week_starts_monday, ceil_is_strictly_greater=ceil_is_strictly_greater, calendar_based_origin=calendar_based_origin
+    )
     func = pyarrow._compute.get_function('ceil_temporal')
 
     if isinstance(timestamps, Expression):
@@ -2063,8 +2090,7 @@ Round temporal values up to nearest multiple of specified time unit.
 
 
 def choose(indices, /, *values, memory_pool=None):
-    """
-Choose values from several arrays.
+    """Choose values from several arrays.
 
     For each row, the value of the first argument is used as a 0-based index
     into the list of `values` arrays (i.e. index 0 selects the first of the
@@ -2094,8 +2120,7 @@ Choose values from several arrays.
 
 
 def coalesce(*values, memory_pool=None):
-    """
-Select the first non-null value.
+    """Select the first non-null value.
 
     Each row of the output will be the value from the first corresponding input
     for which the value is not null. If all inputs are null in a row, the output
@@ -2120,8 +2145,7 @@ Select the first non-null value.
 
 
 def cos(x, /, *, memory_pool=None):
-    """
-Compute the cosine.
+    """Compute the cosine.
 
     NaN is returned for invalid input values;
     to raise an error instead, see "cos_checked".
@@ -2148,8 +2172,7 @@ Compute the cosine.
 
 
 def cos_checked(x, /, *, memory_pool=None):
-    """
-Compute the cosine.
+    """Compute the cosine.
 
     Infinite values raise an error;
     to return NaN instead, see "cos".
@@ -2176,8 +2199,7 @@ Compute the cosine.
 
 
 def count(array, /, mode='only_valid', *, options=None, memory_pool=None):
-    """
-Count the number of null / non-null values.
+    """Count the number of null / non-null values.
 
     By default, only non-null values are counted.
     This can be changed through CountOptions.
@@ -2225,8 +2247,13 @@ Count the number of null / non-null values.
     <pyarrow.Int64Scalar: 4>
     """
 
-    options = _handle_options('count', pyarrow._compute.CountOptions, options,
-                              (), mode=mode)
+    options = _handle_options(
+        'count',
+        pyarrow._compute.CountOptions,
+        options,
+        (),
+        mode=mode
+    )
     func = pyarrow._compute.get_function('count')
 
     if isinstance(array, Expression):
@@ -2238,8 +2265,7 @@ Count the number of null / non-null values.
 
 
 def count_distinct(array, /, mode='only_valid', *, options=None, memory_pool=None):
-    """
-Count the number of unique values.
+    """Count the number of unique values.
 
     By default, only non-null values are counted.
     This can be changed through CountOptions.
@@ -2287,8 +2313,13 @@ Count the number of unique values.
     <pyarrow.Int64Scalar: 4>
     """
 
-    options = _handle_options('count_distinct', pyarrow._compute.CountOptions, options,
-                              (), mode=mode)
+    options = _handle_options(
+        'count_distinct',
+        pyarrow._compute.CountOptions,
+        options,
+        (),
+        mode=mode
+    )
     func = pyarrow._compute.get_function('count_distinct')
 
     if isinstance(array, Expression):
@@ -2300,8 +2331,7 @@ Count the number of unique values.
 
 
 def count_substring(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Count occurrences of substring.
+    """Count occurrences of substring.
 
     For each string in `strings`, emit the number of occurrences of the given
     literal pattern.
@@ -2325,8 +2355,13 @@ Count occurrences of substring.
     The `count_substring` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('count_substring', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'count_substring',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('count_substring')
 
     if isinstance(strings, Expression):
@@ -2338,8 +2373,7 @@ Count occurrences of substring.
 
 
 def count_substring_regex(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Count occurrences of substring.
+    """Count occurrences of substring.
 
     For each string in `strings`, emit the number of occurrences of the given
     regular expression pattern.
@@ -2363,8 +2397,13 @@ Count occurrences of substring.
     The `count_substring_regex` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('count_substring_regex', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'count_substring_regex',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('count_substring_regex')
 
     if isinstance(strings, Expression):
@@ -2376,8 +2415,7 @@ Count occurrences of substring.
 
 
 def cumulative_sum(values, /, start=0.0, *, skip_nulls=False, options=None, memory_pool=None):
-    """
-Compute the cumulative sum over a numeric input.
+    """Compute the cumulative sum over a numeric input.
 
     `values` must be numeric. Return an array/chunked array which is the
     cumulative sum computed over `values`. Results will wrap around on
@@ -2402,8 +2440,13 @@ Compute the cumulative sum over a numeric input.
     The `cumulative_sum` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('cumulative_sum', pyarrow._compute.CumulativeSumOptions, options,
-                              (), start=start, skip_nulls=skip_nulls)
+    options = _handle_options(
+        'cumulative_sum',
+        pyarrow._compute.CumulativeSumOptions,
+        options,
+        (),
+        start=start, skip_nulls=skip_nulls
+    )
     func = pyarrow._compute.get_function('cumulative_sum')
 
     if isinstance(values, Expression):
@@ -2415,8 +2458,7 @@ Compute the cumulative sum over a numeric input.
 
 
 def cumulative_sum_checked(values, /, start=0.0, *, skip_nulls=False, options=None, memory_pool=None):
-    """
-Compute the cumulative sum over a numeric input.
+    """Compute the cumulative sum over a numeric input.
 
     `values` must be numeric. Return an array/chunked array which is the
     cumulative sum computed over `values`. This function returns an error
@@ -2441,8 +2483,13 @@ Compute the cumulative sum over a numeric input.
     The `cumulative_sum_checked` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('cumulative_sum_checked', pyarrow._compute.CumulativeSumOptions, options,
-                              (), start=start, skip_nulls=skip_nulls)
+    options = _handle_options(
+        'cumulative_sum_checked',
+        pyarrow._compute.CumulativeSumOptions,
+        options,
+        (),
+        start=start, skip_nulls=skip_nulls
+    )
     func = pyarrow._compute.get_function('cumulative_sum_checked')
 
     if isinstance(values, Expression):
@@ -2454,8 +2501,7 @@ Compute the cumulative sum over a numeric input.
 
 
 def day(values, /, *, memory_pool=None):
-    """
-Extract day number.
+    """Extract day number.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -2483,8 +2529,7 @@ Extract day number.
 
 
 def day_of_week(values, /, *, count_from_zero=True, week_start=1, options=None, memory_pool=None):
-    """
-Extract day of the week number.
+    """Extract day of the week number.
 
     By default, the week starts on Monday represented by 0 and ends on Sunday
     represented by 6.
@@ -2514,8 +2559,13 @@ Extract day of the week number.
     The `day_of_week` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('day_of_week', pyarrow._compute.DayOfWeekOptions, options,
-                              (), count_from_zero=count_from_zero, week_start=week_start)
+    options = _handle_options(
+        'day_of_week',
+        pyarrow._compute.DayOfWeekOptions,
+        options,
+        (),
+        count_from_zero=count_from_zero, week_start=week_start
+    )
     func = pyarrow._compute.get_function('day_of_week')
 
     if isinstance(values, Expression):
@@ -2527,8 +2577,7 @@ Extract day of the week number.
 
 
 def day_of_year(values, /, *, memory_pool=None):
-    """
-Extract day of year number.
+    """Extract day of year number.
 
     January 1st maps to day number 1, February 1st to 32, etc.
     Null values emit null.
@@ -2557,8 +2606,7 @@ Extract day of year number.
 
 
 def day_time_interval_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of days and milliseconds between two timestamps.
+    """Compute the number of days and milliseconds between two timestamps.
 
     Returns the number of days and milliseconds from `start` to `end`.
     That is, first the difference in days is computed as if both
@@ -2591,8 +2639,7 @@ Compute the number of days and milliseconds between two timestamps.
 
 
 def days_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of days between two timestamps.
+    """Compute the number of days between two timestamps.
 
     Returns the number of day boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -2623,8 +2670,7 @@ Compute the number of days between two timestamps.
 
 
 def dictionary_encode(array, /, null_encoding='mask', *, options=None, memory_pool=None):
-    """
-Dictionary-encode array.
+    """Dictionary-encode array.
 
     Return a dictionary-encoded version of the input array.
 
@@ -2647,8 +2693,13 @@ Dictionary-encode array.
     The `dictionary_encode` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('dictionary_encode', pyarrow._compute.DictionaryEncodeOptions, options,
-                              (), null_encoding=null_encoding)
+    options = _handle_options(
+        'dictionary_encode',
+        pyarrow._compute.DictionaryEncodeOptions,
+        options,
+        (),
+        null_encoding=null_encoding
+    )
     func = pyarrow._compute.get_function('dictionary_encode')
 
     if isinstance(array, Expression):
@@ -2660,8 +2711,7 @@ Dictionary-encode array.
 
 
 def divide(dividend, divisor, /, *, memory_pool=None):
-    """
-Divide the arguments element-wise.
+    """Divide the arguments element-wise.
 
     Integer division by zero returns an error. However, integer overflow
     wraps around, and floating-point division by zero returns an infinite.
@@ -2692,8 +2742,7 @@ Divide the arguments element-wise.
 
 
 def divide_checked(dividend, divisor, /, *, memory_pool=None):
-    """
-Divide the arguments element-wise.
+    """Divide the arguments element-wise.
 
     An error is returned when trying to divide by zero, or when
     integer overflow is encountered.
@@ -2722,8 +2771,7 @@ Divide the arguments element-wise.
 
 
 def drop_null(input, /, *, memory_pool=None):
-    """
-Drop nulls from the input.
+    """Drop nulls from the input.
 
     The output is populated with values from the input (Array, ChunkedArray,
     RecordBatch, or Table) without the null values.
@@ -2752,8 +2800,7 @@ Drop nulls from the input.
 
 
 def ends_with(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Check if strings end with a literal pattern.
+    """Check if strings end with a literal pattern.
 
     For each string in `strings`, emit true iff it ends with a given pattern.
     The pattern must be given in MatchSubstringOptions.
@@ -2779,8 +2826,13 @@ Check if strings end with a literal pattern.
     The `ends_with` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('ends_with', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'ends_with',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('ends_with')
 
     if isinstance(strings, Expression):
@@ -2792,8 +2844,7 @@ Check if strings end with a literal pattern.
 
 
 def equal(x, y, /, *, memory_pool=None):
-    """
-Compare values for equality (x == y).
+    """Compare values for equality (x == y).
 
     A null on either side emits a null comparison result.
 
@@ -2821,8 +2872,7 @@ Compare values for equality (x == y).
 
 
 def extract_regex(strings, /, pattern=None, *, options=None, memory_pool=None):
-    """
-Extract substrings captured by a regex pattern.
+    """Extract substrings captured by a regex pattern.
 
     For each string in `strings`, match the regular expression and, if
     successful, emit a struct with field names and values coming from the
@@ -2847,8 +2897,13 @@ Extract substrings captured by a regex pattern.
     The `extract_regex` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('extract_regex', pyarrow._compute.ExtractRegexOptions, options,
-                              (), pattern=pattern)
+    options = _handle_options(
+        'extract_regex',
+        pyarrow._compute.ExtractRegexOptions,
+        options,
+        (),
+        pattern=pattern
+    )
     func = pyarrow._compute.get_function('extract_regex')
 
     if isinstance(strings, Expression):
@@ -2860,8 +2915,7 @@ Extract substrings captured by a regex pattern.
 
 
 def fill_null_backward(values, /, *, memory_pool=None):
-    """
-Carry non-null values backward to fill null slots.
+    """Carry non-null values backward to fill null slots.
 
     Given an array, propagate next valid observation backward to previous valid
     or nothing if all next values are null.
@@ -2888,8 +2942,7 @@ Carry non-null values backward to fill null slots.
 
 
 def fill_null_forward(values, /, *, memory_pool=None):
-    """
-Carry non-null values forward to fill null slots.
+    """Carry non-null values forward to fill null slots.
 
     Given an array, propagate last valid observation forward to next valid
     or nothing if all previous values are null.
@@ -2916,8 +2969,7 @@ Carry non-null values forward to fill null slots.
 
 
 def filter(input, selection_filter, /, null_selection_behavior='drop', *, options=None, memory_pool=None):
-    """
-Filter with a boolean selection filter.
+    """Filter with a boolean selection filter.
 
     The output is populated with values from the input at positions
     where the selection filter is non-zero.  Nulls in the selection filter
@@ -2959,8 +3011,13 @@ Filter with a boolean selection filter.
     ]
     """
 
-    options = _handle_options('filter', pyarrow._compute.FilterOptions, options,
-                              (), null_selection_behavior=null_selection_behavior)
+    options = _handle_options(
+        'filter',
+        pyarrow._compute.FilterOptions,
+        options,
+        (),
+        null_selection_behavior=null_selection_behavior
+    )
     func = pyarrow._compute.get_function('filter')
 
     if isinstance(input, Expression):
@@ -2972,8 +3029,7 @@ Filter with a boolean selection filter.
 
 
 def find_substring(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Find first occurrence of substring.
+    """Find first occurrence of substring.
 
     For each string in `strings`, emit the index in bytes of the first occurrence
     of the given literal pattern, or -1 if not found.
@@ -2997,8 +3053,13 @@ Find first occurrence of substring.
     The `find_substring` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('find_substring', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'find_substring',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('find_substring')
 
     if isinstance(strings, Expression):
@@ -3010,8 +3071,7 @@ Find first occurrence of substring.
 
 
 def find_substring_regex(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Find location of first match of regex pattern.
+    """Find location of first match of regex pattern.
 
     For each string in `strings`, emit the index in bytes of the first occurrence
     of the given literal pattern, or -1 if not found.
@@ -3035,8 +3095,13 @@ Find location of first match of regex pattern.
     The `find_substring_regex` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('find_substring_regex', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'find_substring_regex',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('find_substring_regex')
 
     if isinstance(strings, Expression):
@@ -3048,8 +3113,7 @@ Find location of first match of regex pattern.
 
 
 def floor(x, /, *, memory_pool=None):
-    """
-Round down to the nearest integer.
+    """Round down to the nearest integer.
 
     Compute the largest integer value not greater in magnitude than `x`.
 
@@ -3075,8 +3139,7 @@ Round down to the nearest integer.
 
 
 def floor_temporal(timestamps, /, multiple=1, unit='day', *, week_starts_monday=True, ceil_is_strictly_greater=False, calendar_based_origin=False, options=None, memory_pool=None):
-    """
-Round temporal values down to nearest multiple of specified time unit.
+    """Round temporal values down to nearest multiple of specified time unit.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -3131,8 +3194,13 @@ Round temporal values down to nearest multiple of specified time unit.
     The `floor_temporal` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('floor_temporal', pyarrow._compute.RoundTemporalOptions, options,
-                              (), multiple=multiple, unit=unit, week_starts_monday=week_starts_monday, ceil_is_strictly_greater=ceil_is_strictly_greater, calendar_based_origin=calendar_based_origin)
+    options = _handle_options(
+        'floor_temporal',
+        pyarrow._compute.RoundTemporalOptions,
+        options,
+        (),
+        multiple=multiple, unit=unit, week_starts_monday=week_starts_monday, ceil_is_strictly_greater=ceil_is_strictly_greater, calendar_based_origin=calendar_based_origin
+    )
     func = pyarrow._compute.get_function('floor_temporal')
 
     if isinstance(timestamps, Expression):
@@ -3144,8 +3212,7 @@ Round temporal values down to nearest multiple of specified time unit.
 
 
 def greater(x, y, /, *, memory_pool=None):
-    """
-Compare values for ordered inequality (x > y).
+    """Compare values for ordered inequality (x > y).
 
     A null on either side emits a null comparison result.
 
@@ -3173,8 +3240,7 @@ Compare values for ordered inequality (x > y).
 
 
 def greater_equal(x, y, /, *, memory_pool=None):
-    """
-Compare values for ordered inequality (x >= y).
+    """Compare values for ordered inequality (x >= y).
 
     A null on either side emits a null comparison result.
 
@@ -3202,8 +3268,7 @@ Compare values for ordered inequality (x >= y).
 
 
 def hour(values, /, *, memory_pool=None):
-    """
-Extract hour value.
+    """Extract hour value.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -3231,8 +3296,7 @@ Extract hour value.
 
 
 def hours_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of hours between two timestamps.
+    """Compute the number of hours between two timestamps.
 
     Returns the number of hour boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -3263,8 +3327,7 @@ Compute the number of hours between two timestamps.
 
 
 def if_else(cond, left, right, /, *, memory_pool=None):
-    """
-Choose values based on a condition.
+    """Choose values based on a condition.
 
     `cond` must be a Boolean scalar/ array. 
     `left` or `right` must be of the same type scalar/ array.
@@ -3296,8 +3359,7 @@ Choose values based on a condition.
 
 
 def index(array, /, value=None, *, options=None, memory_pool=None):
-    """
-Find the index of the first occurrence of a given value.
+    """Find the index of the first occurrence of a given value.
 
     -1 is returned if the value is not found in the array.
     The search value is specified in IndexOptions.
@@ -3336,8 +3398,13 @@ Find the index of the first occurrence of a given value.
     <pyarrow.Int64Scalar: 4>
     """
 
-    options = _handle_options('index', pyarrow._compute.IndexOptions, options,
-                              (), value=value)
+    options = _handle_options(
+        'index',
+        pyarrow._compute.IndexOptions,
+        options,
+        (),
+        value=value
+    )
     func = pyarrow._compute.get_function('index')
 
     if isinstance(array, Expression):
@@ -3349,8 +3416,7 @@ Find the index of the first occurrence of a given value.
 
 
 def index_in(values, /, value_set=None, *, skip_nulls=False, options=None, memory_pool=None):
-    """
-Return index of each element in a set of values.
+    """Return index of each element in a set of values.
 
     For each element in `values`, return its index in a given set of
     values, or null if it is not found there.
@@ -3378,8 +3444,13 @@ Return index of each element in a set of values.
     The `index_in` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('index_in', pyarrow._compute.SetLookupOptions, options,
-                              (), value_set=value_set, skip_nulls=skip_nulls)
+    options = _handle_options(
+        'index_in',
+        pyarrow._compute.SetLookupOptions,
+        options,
+        (),
+        value_set=value_set, skip_nulls=skip_nulls
+    )
     func = pyarrow._compute.get_function('index_in')
 
     if isinstance(values, Expression):
@@ -3391,8 +3462,7 @@ Return index of each element in a set of values.
 
 
 def index_in_meta_binary(values, value_set, /, *, memory_pool=None):
-    """
-Return index of each element in a set of values.
+    """Return index of each element in a set of values.
 
     For each element in `values`, return its index in the `value_set`,
     or null if it is not found there.
@@ -3421,8 +3491,7 @@ Return index of each element in a set of values.
 
 
 def indices_nonzero(values, /, *, memory_pool=None):
-    """
-Return the indices of the values in the array that are non-zero.
+    """Return the indices of the values in the array that are non-zero.
 
     For each input value, check if it's zero, false or null. Emit the index
     of the value in the array if it's none of the those.
@@ -3465,8 +3534,7 @@ Return the indices of the values in the array that are non-zero.
 
 
 def invert(values, /, *, memory_pool=None):
-    """
-Invert boolean values.
+    """Invert boolean values.
 
     Parameters
     ----------
@@ -3490,8 +3558,7 @@ Invert boolean values.
 
 
 def is_dst(values, /, *, memory_pool=None):
-    """
-Extracts if currently observing daylight savings.
+    """Extracts if currently observing daylight savings.
 
     IsDaylightSavings returns true if a timestamp has a daylight saving
     offset in the given timezone.
@@ -3520,8 +3587,7 @@ Extracts if currently observing daylight savings.
 
 
 def is_finite(values, /, *, memory_pool=None):
-    """
-Return true if value is finite.
+    """Return true if value is finite.
 
     For each input value, emit true iff the value is finite
     (i.e. neither NaN, inf, nor -inf).
@@ -3548,8 +3614,7 @@ Return true if value is finite.
 
 
 def is_in(values, /, value_set=None, *, skip_nulls=False, options=None, memory_pool=None):
-    """
-Find each element in a set of values.
+    """Find each element in a set of values.
 
     For each element in `values`, return true if it is found in a given
     set of values, false otherwise.
@@ -3577,8 +3642,13 @@ Find each element in a set of values.
     The `is_in` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('is_in', pyarrow._compute.SetLookupOptions, options,
-                              (), value_set=value_set, skip_nulls=skip_nulls)
+    options = _handle_options(
+        'is_in',
+        pyarrow._compute.SetLookupOptions,
+        options,
+        (),
+        value_set=value_set, skip_nulls=skip_nulls
+    )
     func = pyarrow._compute.get_function('is_in')
 
     if isinstance(values, Expression):
@@ -3590,8 +3660,7 @@ Find each element in a set of values.
 
 
 def is_in_meta_binary(values, value_set, /, *, memory_pool=None):
-    """
-Find each element in a set of values.
+    """Find each element in a set of values.
 
     For each element in `values`, return true if it is found in `value_set`,
     false otherwise.
@@ -3620,8 +3689,7 @@ Find each element in a set of values.
 
 
 def is_inf(values, /, *, memory_pool=None):
-    """
-Return true if infinity.
+    """Return true if infinity.
 
     For each input value, emit true iff the value is infinite (inf or -inf).
 
@@ -3647,8 +3715,7 @@ Return true if infinity.
 
 
 def is_leap_year(values, /, *, memory_pool=None):
-    """
-Extract if year is a leap year.
+    """Extract if year is a leap year.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -3676,8 +3743,7 @@ Extract if year is a leap year.
 
 
 def is_nan(values, /, *, memory_pool=None):
-    """
-Return true if NaN.
+    """Return true if NaN.
 
     For each input value, emit true iff the value is NaN.
 
@@ -3703,8 +3769,7 @@ Return true if NaN.
 
 
 def is_null(values, /, *, nan_is_null=False, options=None, memory_pool=None):
-    """
-Return true if null (and optionally NaN).
+    """Return true if null (and optionally NaN).
 
     For each input value, emit true iff the value is null.
     True may also be emitted for NaN values by setting the `nan_is_null` flag.
@@ -3725,8 +3790,13 @@ Return true if null (and optionally NaN).
     The `is_null` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('is_null', pyarrow._compute.NullOptions, options,
-                              (), nan_is_null=nan_is_null)
+    options = _handle_options(
+        'is_null',
+        pyarrow._compute.NullOptions,
+        options,
+        (),
+        nan_is_null=nan_is_null
+    )
     func = pyarrow._compute.get_function('is_null')
 
     if isinstance(values, Expression):
@@ -3738,8 +3808,7 @@ Return true if null (and optionally NaN).
 
 
 def is_valid(values, /, *, memory_pool=None):
-    """
-Return true if non-null.
+    """Return true if non-null.
 
     For each input value, emit true iff the value is valid (i.e. non-null).
 
@@ -3765,8 +3834,7 @@ Return true if non-null.
 
 
 def iso_calendar(values, /, *, memory_pool=None):
-    """
-Extract (ISO year, ISO week, ISO day of week) struct.
+    """Extract (ISO year, ISO week, ISO day of week) struct.
 
     ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.
     Null values emit null.
@@ -3795,8 +3863,7 @@ Extract (ISO year, ISO week, ISO day of week) struct.
 
 
 def iso_week(values, /, *, memory_pool=None):
-    """
-Extract ISO week of year number.
+    """Extract ISO week of year number.
 
     First ISO week has the majority (4 or more) of its days in January.
     ISO week starts on Monday. The week number starts with 1 and can run
@@ -3827,8 +3894,7 @@ Extract ISO week of year number.
 
 
 def iso_year(values, /, *, memory_pool=None):
-    """
-Extract ISO year number.
+    """Extract ISO year number.
 
     First week of an ISO year has the majority (4 or more) of its days in January.
     Null values emit null.
@@ -3857,8 +3923,7 @@ Extract ISO year number.
 
 
 def less(x, y, /, *, memory_pool=None):
-    """
-Compare values for ordered inequality (x < y).
+    """Compare values for ordered inequality (x < y).
 
     A null on either side emits a null comparison result.
 
@@ -3886,8 +3951,7 @@ Compare values for ordered inequality (x < y).
 
 
 def less_equal(x, y, /, *, memory_pool=None):
-    """
-Compare values for ordered inequality (x <= y).
+    """Compare values for ordered inequality (x <= y).
 
     A null on either side emits a null comparison result.
 
@@ -3915,8 +3979,7 @@ Compare values for ordered inequality (x <= y).
 
 
 def list_element(lists, index, /, *, memory_pool=None):
-    """
-Compute elements using of nested list values using an index.
+    """Compute elements using of nested list values using an index.
 
     `lists` must have a list-like type.
     For each value in each list of `lists`, the element at `index`
@@ -3946,8 +4009,7 @@ Compute elements using of nested list values using an index.
 
 
 def list_flatten(lists, /, *, memory_pool=None):
-    """
-Flatten list values.
+    """Flatten list values.
 
     `lists` must have a list-like type.
     Return an array with the top list level flattened.
@@ -3975,8 +4037,7 @@ Flatten list values.
 
 
 def list_parent_indices(lists, /, *, memory_pool=None):
-    """
-Compute parent indices of nested list values.
+    """Compute parent indices of nested list values.
 
     `lists` must have a list-like type.
     For each value in each list of `lists`, the top-level list index
@@ -4004,8 +4065,7 @@ Compute parent indices of nested list values.
 
 
 def list_value_length(lists, /, *, memory_pool=None):
-    """
-Compute list lengths.
+    """Compute list lengths.
 
     `lists` must have a list-like type.
     For each non-null value in `lists`, its length is emitted.
@@ -4033,8 +4093,7 @@ Compute list lengths.
 
 
 def ln(x, /, *, memory_pool=None):
-    """
-Compute natural logarithm.
+    """Compute natural logarithm.
 
     Non-positive values return -inf or NaN. Null values return null.
     Use function "ln_checked" if you want non-positive values to raise an error.
@@ -4061,8 +4120,7 @@ Compute natural logarithm.
 
 
 def ln_checked(x, /, *, memory_pool=None):
-    """
-Compute natural logarithm.
+    """Compute natural logarithm.
 
     Non-positive values raise an error. Null values return null.
     Use function "ln" if you want non-positive values to return -inf or NaN.
@@ -4089,8 +4147,7 @@ Compute natural logarithm.
 
 
 def log10(x, /, *, memory_pool=None):
-    """
-Compute base 10 logarithm.
+    """Compute base 10 logarithm.
 
     Non-positive values return -inf or NaN. Null values return null.
     Use function "log10_checked" if you want non-positive values
@@ -4118,8 +4175,7 @@ Compute base 10 logarithm.
 
 
 def log10_checked(x, /, *, memory_pool=None):
-    """
-Compute base 10 logarithm.
+    """Compute base 10 logarithm.
 
     Non-positive values raise an error. Null values return null.
     Use function "log10" if you want non-positive values
@@ -4147,8 +4203,7 @@ Compute base 10 logarithm.
 
 
 def log1p(x, /, *, memory_pool=None):
-    """
-Compute natural log of (1+x).
+    """Compute natural log of (1+x).
 
     Values <= -1 return -inf or NaN. Null values return null.
     This function may be more precise than log(1 + x) for x close to zero.
@@ -4176,8 +4231,7 @@ Compute natural log of (1+x).
 
 
 def log1p_checked(x, /, *, memory_pool=None):
-    """
-Compute natural log of (1+x).
+    """Compute natural log of (1+x).
 
     Values <= -1 return -inf or NaN. Null values return null.
     This function may be more precise than log(1 + x) for x close to zero.
@@ -4205,8 +4259,7 @@ Compute natural log of (1+x).
 
 
 def log2(x, /, *, memory_pool=None):
-    """
-Compute base 2 logarithm.
+    """Compute base 2 logarithm.
 
     Non-positive values return -inf or NaN. Null values return null.
     Use function "log2_checked" if you want non-positive values
@@ -4234,8 +4287,7 @@ Compute base 2 logarithm.
 
 
 def log2_checked(x, /, *, memory_pool=None):
-    """
-Compute base 2 logarithm.
+    """Compute base 2 logarithm.
 
     Non-positive values raise an error. Null values return null.
     Use function "log2" if you want non-positive values
@@ -4263,8 +4315,7 @@ Compute base 2 logarithm.
 
 
 def logb(x, b, /, *, memory_pool=None):
-    """
-Compute base `b` logarithm.
+    """Compute base `b` logarithm.
 
     Values <= 0 return -inf or NaN. Null values return null.
     Use function "logb_checked" if you want non-positive values to raise an error.
@@ -4293,8 +4344,7 @@ Compute base `b` logarithm.
 
 
 def logb_checked(x, b, /, *, memory_pool=None):
-    """
-Compute base `b` logarithm.
+    """Compute base `b` logarithm.
 
     Values <= 0 return -inf or NaN. Null values return null.
     Use function "logb" if you want non-positive values to return -inf or NaN.
@@ -4323,8 +4373,7 @@ Compute base `b` logarithm.
 
 
 def make_struct(*args, field_names=(), field_nullability=None, field_metadata=None, options=None, memory_pool=None):
-    """
-Wrap Arrays into a StructArray.
+    """Wrap Arrays into a StructArray.
 
     Names of the StructArray's fields are
     specified through MakeStructOptions.
@@ -4350,8 +4399,13 @@ Wrap Arrays into a StructArray.
     The `make_struct` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('make_struct', pyarrow._compute.MakeStructOptions, options,
-                              (), field_names=field_names, field_nullability=field_nullability, field_metadata=field_metadata)
+    options = _handle_options(
+        'make_struct',
+        pyarrow._compute.MakeStructOptions,
+        options,
+        (),
+        field_names=field_names, field_nullability=field_nullability, field_metadata=field_metadata
+    )
     func = pyarrow._compute.get_function('make_struct')
 
     return(
@@ -4360,8 +4414,7 @@ Wrap Arrays into a StructArray.
 
 
 def map_lookup(container, /, query_key=None, occurrence=None, *, options=None, memory_pool=None):
-    """
-Find the items corresponding to a given key in a Map.
+    """Find the items corresponding to a given key in a Map.
 
     For a given query key (passed via MapLookupOptions), extract
     either the FIRST, LAST or ALL items from a Map that have
@@ -4386,8 +4439,13 @@ Find the items corresponding to a given key in a Map.
     The `map_lookup` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('map_lookup', pyarrow._compute.MapLookupOptions, options,
-                              (), query_key=query_key, occurrence=occurrence)
+    options = _handle_options(
+        'map_lookup',
+        pyarrow._compute.MapLookupOptions,
+        options,
+        (),
+        query_key=query_key, occurrence=occurrence
+    )
     func = pyarrow._compute.get_function('map_lookup')
 
     if isinstance(container, Expression):
@@ -4399,8 +4457,7 @@ Find the items corresponding to a given key in a Map.
 
 
 def match_like(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Match strings against SQL-style LIKE pattern.
+    """Match strings against SQL-style LIKE pattern.
 
     For each string in `strings`, emit true iff it matches a given pattern
     at any position. '%' will match any number of characters, '_' will
@@ -4426,8 +4483,13 @@ Match strings against SQL-style LIKE pattern.
     The `match_like` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('match_like', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'match_like',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('match_like')
 
     if isinstance(strings, Expression):
@@ -4439,8 +4501,7 @@ Match strings against SQL-style LIKE pattern.
 
 
 def match_substring(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Match strings against literal pattern.
+    """Match strings against literal pattern.
 
     For each string in `strings`, emit true iff it contains a given pattern.
     Null inputs emit null.
@@ -4465,8 +4526,13 @@ Match strings against literal pattern.
     The `match_substring` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('match_substring', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'match_substring',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('match_substring')
 
     if isinstance(strings, Expression):
@@ -4478,8 +4544,7 @@ Match strings against literal pattern.
 
 
 def match_substring_regex(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Match strings against regex pattern.
+    """Match strings against regex pattern.
 
     For each string in `strings`, emit true iff it matches a given pattern
     at any position. The pattern must be given in MatchSubstringOptions.
@@ -4505,8 +4570,13 @@ Match strings against regex pattern.
     The `match_substring_regex` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('match_substring_regex', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'match_substring_regex',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('match_substring_regex')
 
     if isinstance(strings, Expression):
@@ -4518,8 +4588,7 @@ Match strings against regex pattern.
 
 
 def max(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Compute the minimum or maximum values of a numeric array.
+    """Compute the minimum or maximum values of a numeric array.
 
     Null values are ignored by default.
     This can be changed through ScalarAggregateOptions.
@@ -4544,8 +4613,13 @@ Compute the minimum or maximum values of a numeric array.
     The `max` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('max', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'max',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('max')
 
     if isinstance(array, Expression):
@@ -4557,8 +4631,7 @@ Compute the minimum or maximum values of a numeric array.
 
 
 def max_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
-    """
-Find the element-wise maximum value.
+    """Find the element-wise maximum value.
 
     Nulls are ignored (by default) or propagated.
     NaN is preferred over null, but not over any valid value.
@@ -4580,8 +4653,13 @@ Find the element-wise maximum value.
     The `max_element_wise` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('max_element_wise', pyarrow._compute.ElementWiseAggregateOptions, options,
-                              (), skip_nulls=skip_nulls)
+    options = _handle_options(
+        'max_element_wise',
+        pyarrow._compute.ElementWiseAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls
+    )
     func = pyarrow._compute.get_function('max_element_wise')
 
     return(
@@ -4590,8 +4668,7 @@ Find the element-wise maximum value.
 
 
 def mean(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Compute the mean of a numeric array.
+    """Compute the mean of a numeric array.
 
     Null values are ignored by default. Minimum count of non-null
     values can be set and null is returned if too few are present.
@@ -4621,8 +4698,13 @@ Compute the mean of a numeric array.
     The `mean` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('mean', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'mean',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('mean')
 
     if isinstance(array, Expression):
@@ -4634,8 +4716,7 @@ Compute the mean of a numeric array.
 
 
 def microsecond(values, /, *, memory_pool=None):
-    """
-Extract microsecond values.
+    """Extract microsecond values.
 
     Millisecond returns number of microseconds since the last full millisecond.
     Null values emit null.
@@ -4664,8 +4745,7 @@ Extract microsecond values.
 
 
 def microseconds_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of microseconds between two timestamps.
+    """Compute the number of microseconds between two timestamps.
 
     Returns the number of microsecond boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -4696,8 +4776,7 @@ Compute the number of microseconds between two timestamps.
 
 
 def millisecond(values, /, *, memory_pool=None):
-    """
-Extract millisecond values.
+    """Extract millisecond values.
 
     Millisecond returns number of milliseconds since the last full second.
     Null values emit null.
@@ -4726,8 +4805,7 @@ Extract millisecond values.
 
 
 def milliseconds_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of millisecond boundaries between two timestamps.
+    """Compute the number of millisecond boundaries between two timestamps.
 
     Returns the number of millisecond boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -4758,8 +4836,7 @@ Compute the number of millisecond boundaries between two timestamps.
 
 
 def min(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Compute the minimum or maximum values of a numeric array.
+    """Compute the minimum or maximum values of a numeric array.
 
     Null values are ignored by default.
     This can be changed through ScalarAggregateOptions.
@@ -4784,8 +4861,13 @@ Compute the minimum or maximum values of a numeric array.
     The `min` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('min', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'min',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('min')
 
     if isinstance(array, Expression):
@@ -4797,8 +4879,7 @@ Compute the minimum or maximum values of a numeric array.
 
 
 def min_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
-    """
-Find the element-wise minimum value.
+    """Find the element-wise minimum value.
 
     Nulls are ignored (by default) or propagated.
     NaN is preferred over null, but not over any valid value.
@@ -4820,8 +4901,13 @@ Find the element-wise minimum value.
     The `min_element_wise` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('min_element_wise', pyarrow._compute.ElementWiseAggregateOptions, options,
-                              (), skip_nulls=skip_nulls)
+    options = _handle_options(
+        'min_element_wise',
+        pyarrow._compute.ElementWiseAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls
+    )
     func = pyarrow._compute.get_function('min_element_wise')
 
     return(
@@ -4830,8 +4916,7 @@ Find the element-wise minimum value.
 
 
 def min_max(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Compute the minimum and maximum values of a numeric array.
+    """Compute the minimum and maximum values of a numeric array.
 
     Null values are ignored by default.
     This can be changed through ScalarAggregateOptions.
@@ -4856,8 +4941,13 @@ Compute the minimum and maximum values of a numeric array.
     The `min_max` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('min_max', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'min_max',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('min_max')
 
     if isinstance(array, Expression):
@@ -4869,8 +4959,7 @@ Compute the minimum and maximum values of a numeric array.
 
 
 def minute(values, /, *, memory_pool=None):
-    """
-Extract minute values.
+    """Extract minute values.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -4898,8 +4987,7 @@ Extract minute values.
 
 
 def minutes_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of minute boundaries between two timestamps.
+    """Compute the number of minute boundaries between two timestamps.
 
     Returns the number of minute boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -4930,8 +5018,7 @@ Compute the number of minute boundaries between two timestamps.
 
 
 def mode(array, /, n=1, *, skip_nulls=True, min_count=0, options=None, memory_pool=None):
-    """
-Compute the modal (most common) values of a numeric array.
+    """Compute the modal (most common) values of a numeric array.
 
     Compute the n most common values and their respective occurrence counts.
     The output has type `struct<mode: T, count: int64>`, where T is the
@@ -4974,8 +5061,13 @@ Compute the modal (most common) values of a numeric array.
     <pyarrow.StructScalar: [('mode', 1), ('count', 2)]>
     """
 
-    options = _handle_options('mode', pyarrow._compute.ModeOptions, options,
-                              (), n=n, skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'mode',
+        pyarrow._compute.ModeOptions,
+        options,
+        (),
+        n=n, skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('mode')
 
     if isinstance(array, Expression):
@@ -4987,8 +5079,7 @@ Compute the modal (most common) values of a numeric array.
 
 
 def month(values, /, *, memory_pool=None):
-    """
-Extract month number.
+    """Extract month number.
 
     Month is encoded as January=1, December=12.
     Null values emit null.
@@ -5017,8 +5108,7 @@ Extract month number.
 
 
 def month_day_nano_interval_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of months, days and nanoseconds between two timestamps.
+    """Compute the number of months, days and nanoseconds between two timestamps.
 
     Returns the number of months, days, and nanoseconds from `start` to `end`.
     That is, first the difference in months is computed as if both timestamps
@@ -5051,8 +5141,7 @@ Compute the number of months, days and nanoseconds between two timestamps.
 
 
 def month_interval_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of months between two timestamps.
+    """Compute the number of months between two timestamps.
 
     Returns the number of month boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -5083,8 +5172,7 @@ Compute the number of months between two timestamps.
 
 
 def multiply(x, y, /, *, memory_pool=None):
-    """
-Multiply the arguments element-wise.
+    """Multiply the arguments element-wise.
 
     Results will wrap around on integer overflow.
     Use function "multiply_checked" if you want overflow
@@ -5114,8 +5202,7 @@ Multiply the arguments element-wise.
 
 
 def multiply_checked(x, y, /, *, memory_pool=None):
-    """
-Multiply the arguments element-wise.
+    """Multiply the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "multiply".
@@ -5144,8 +5231,7 @@ Multiply the arguments element-wise.
 
 
 def nanosecond(values, /, *, memory_pool=None):
-    """
-Extract nanosecond values.
+    """Extract nanosecond values.
 
     Nanosecond returns number of nanoseconds since the last full microsecond.
     Null values emit null.
@@ -5174,8 +5260,7 @@ Extract nanosecond values.
 
 
 def nanoseconds_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of nanoseconds between two timestamps.
+    """Compute the number of nanoseconds between two timestamps.
 
     Returns the number of nanosecond boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -5206,8 +5291,7 @@ Compute the number of nanoseconds between two timestamps.
 
 
 def negate(x, /, *, memory_pool=None):
-    """
-Negate the argument element-wise.
+    """Negate the argument element-wise.
 
     Results will wrap around on integer overflow.
     Use function "negate_checked" if you want overflow
@@ -5235,8 +5319,7 @@ Negate the argument element-wise.
 
 
 def negate_checked(x, /, *, memory_pool=None):
-    """
-Negate the arguments element-wise.
+    """Negate the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "negate".
@@ -5263,8 +5346,7 @@ Negate the arguments element-wise.
 
 
 def not_equal(x, y, /, *, memory_pool=None):
-    """
-Compare values for inequality (x != y).
+    """Compare values for inequality (x != y).
 
     A null on either side emits a null comparison result.
 
@@ -5292,8 +5374,7 @@ Compare values for inequality (x != y).
 
 
 def or_(x, y, /, *, memory_pool=None):
-    """
-Logical 'or' boolean values.
+    """Logical 'or' boolean values.
 
     When a null is encountered in either input, a null is output.
     For a different null behavior, see function "or_kleene".
@@ -5322,8 +5403,7 @@ Logical 'or' boolean values.
 
 
 def or_kleene(x, y, /, *, memory_pool=None):
-    """
-Logical 'or' boolean values (Kleene logic).
+    """Logical 'or' boolean values (Kleene logic).
 
     This function behaves as follows with nulls:
 
@@ -5361,8 +5441,7 @@ Logical 'or' boolean values (Kleene logic).
 
 
 def partition_nth_indices(array, /, pivot=None, *, null_placement='at_end', options=None, memory_pool=None):
-    """
-Return the indices that would partition an array around a pivot.
+    """Return the indices that would partition an array around a pivot.
 
     This functions computes an array of indices that define a non-stable
     partial sort of the input array.
@@ -5398,8 +5477,13 @@ Return the indices that would partition an array around a pivot.
     The `partition_nth_indices` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('partition_nth_indices', pyarrow._compute.PartitionNthOptions, options,
-                              (), pivot=pivot, null_placement=null_placement)
+    options = _handle_options(
+        'partition_nth_indices',
+        pyarrow._compute.PartitionNthOptions,
+        options,
+        (),
+        pivot=pivot, null_placement=null_placement
+    )
     func = pyarrow._compute.get_function('partition_nth_indices')
 
     if isinstance(array, Expression):
@@ -5411,8 +5495,7 @@ Return the indices that would partition an array around a pivot.
 
 
 def power(base, exponent, /, *, memory_pool=None):
-    """
-Raise arguments to power element-wise.
+    """Raise arguments to power element-wise.
 
     Integer to negative integer power returns an error. However, integer overflow
     wraps around. If either base or exponent is null the result will be null.
@@ -5441,8 +5524,7 @@ Raise arguments to power element-wise.
 
 
 def power_checked(base, exponent, /, *, memory_pool=None):
-    """
-Raise arguments to power element-wise.
+    """Raise arguments to power element-wise.
 
     An error is returned when integer to negative integer power is encountered,
     or integer overflow is encountered.
@@ -5471,8 +5553,7 @@ Raise arguments to power element-wise.
 
 
 def product(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Compute the product of values in a numeric array.
+    """Compute the product of values in a numeric array.
 
     Null values are ignored by default. Minimum count of non-null
     values can be set and null is returned if too few are present.
@@ -5498,8 +5579,13 @@ Compute the product of values in a numeric array.
     The `product` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('product', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'product',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('product')
 
     if isinstance(array, Expression):
@@ -5511,8 +5597,7 @@ Compute the product of values in a numeric array.
 
 
 def quantile(array, /, q=0.5, *, interpolation='linear', skip_nulls=True, min_count=0, options=None, memory_pool=None):
-    """
-Compute an array of quantiles of a numeric array or chunked array.
+    """Compute an array of quantiles of a numeric array or chunked array.
 
     By default, 0.5 quantile (median) is returned.
     If quantile lies between two data points, an interpolated value is
@@ -5551,8 +5636,13 @@ Compute an array of quantiles of a numeric array or chunked array.
     The `quantile` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('quantile', pyarrow._compute.QuantileOptions, options,
-                              (), q=q, interpolation=interpolation, skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'quantile',
+        pyarrow._compute.QuantileOptions,
+        options,
+        (),
+        q=q, interpolation=interpolation, skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('quantile')
 
     if isinstance(array, Expression):
@@ -5564,8 +5654,7 @@ Compute an array of quantiles of a numeric array or chunked array.
 
 
 def quarter(values, /, *, memory_pool=None):
-    """
-Extract quarter of year number.
+    """Extract quarter of year number.
 
     First quarter maps to 1 and forth quarter maps to 4.
     Null values emit null.
@@ -5594,8 +5683,7 @@ Extract quarter of year number.
 
 
 def quarters_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of quarters between two timestamps.
+    """Compute the number of quarters between two timestamps.
 
     Returns the number of quarter start boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -5626,8 +5714,7 @@ Compute the number of quarters between two timestamps.
 
 
 def random(*, initializer='system', options=None, memory_pool=None):
-    """
-Generate numbers in the range [0, 1).
+    """Generate numbers in the range [0, 1).
 
     Generated values are uniformly-distributed, double-precision in range [0, 1).
     Algorithm and seed can be changed via RandomOptions.
@@ -5650,8 +5737,13 @@ Generate numbers in the range [0, 1).
     The `random` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('random', pyarrow._compute.RandomOptions, options,
-                              (), initializer=initializer)
+    options = _handle_options(
+        'random',
+        pyarrow._compute.RandomOptions,
+        options,
+        (),
+        initializer=initializer
+    )
     func = pyarrow._compute.get_function('random')
 
     return(
@@ -5660,8 +5752,7 @@ Generate numbers in the range [0, 1).
 
 
 def rank(input, /, sort_keys='ascending', *, null_placement='at_end', tiebreaker='first', options=None, memory_pool=None):
-    """
-Compute numerical ranks of an array (1-based).
+    """Compute numerical ranks of an array (1-based).
 
     This function computes a rank of the input array.
     By default, null values are considered greater than any other value and
@@ -5706,8 +5797,13 @@ Compute numerical ranks of an array (1-based).
     The `rank` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('rank', pyarrow._compute.RankOptions, options,
-                              (), sort_keys=sort_keys, null_placement=null_placement, tiebreaker=tiebreaker)
+    options = _handle_options(
+        'rank',
+        pyarrow._compute.RankOptions,
+        options,
+        (),
+        sort_keys=sort_keys, null_placement=null_placement, tiebreaker=tiebreaker
+    )
     func = pyarrow._compute.get_function('rank')
 
     if isinstance(input, Expression):
@@ -5719,8 +5815,7 @@ Compute numerical ranks of an array (1-based).
 
 
 def replace_substring(strings, /, pattern=None, replacement=None, *, max_replacements=None, options=None, memory_pool=None):
-    """
-Replace matching non-overlapping substrings with replacement.
+    """Replace matching non-overlapping substrings with replacement.
 
     For each string in `strings`, replace non-overlapping substrings that match
     the given literal `pattern` with the given `replacement`.
@@ -5749,8 +5844,13 @@ Replace matching non-overlapping substrings with replacement.
     The `replace_substring` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('replace_substring', pyarrow._compute.ReplaceSubstringOptions, options,
-                              (), pattern=pattern, replacement=replacement, max_replacements=max_replacements)
+    options = _handle_options(
+        'replace_substring',
+        pyarrow._compute.ReplaceSubstringOptions,
+        options,
+        (),
+        pattern=pattern, replacement=replacement, max_replacements=max_replacements
+    )
     func = pyarrow._compute.get_function('replace_substring')
 
     if isinstance(strings, Expression):
@@ -5762,8 +5862,7 @@ Replace matching non-overlapping substrings with replacement.
 
 
 def replace_substring_regex(strings, /, pattern=None, replacement=None, *, max_replacements=None, options=None, memory_pool=None):
-    """
-Replace matching non-overlapping substrings with replacement.
+    """Replace matching non-overlapping substrings with replacement.
 
     For each string in `strings`, replace non-overlapping substrings that match
     the given regular expression `pattern` with the given `replacement`.
@@ -5792,8 +5891,13 @@ Replace matching non-overlapping substrings with replacement.
     The `replace_substring_regex` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('replace_substring_regex', pyarrow._compute.ReplaceSubstringOptions, options,
-                              (), pattern=pattern, replacement=replacement, max_replacements=max_replacements)
+    options = _handle_options(
+        'replace_substring_regex',
+        pyarrow._compute.ReplaceSubstringOptions,
+        options,
+        (),
+        pattern=pattern, replacement=replacement, max_replacements=max_replacements
+    )
     func = pyarrow._compute.get_function('replace_substring_regex')
 
     if isinstance(strings, Expression):
@@ -5805,8 +5909,7 @@ Replace matching non-overlapping substrings with replacement.
 
 
 def replace_with_mask(values, mask, replacements, /, *, memory_pool=None):
-    """
-Replace items selected with a mask.
+    """Replace items selected with a mask.
 
     Given an array and a boolean mask (either scalar or of equal length),
     along with replacement values (either scalar or array),
@@ -5841,8 +5944,7 @@ Replace items selected with a mask.
 
 
 def round(x, /, ndigits=0, round_mode='half_to_even', *, options=None, memory_pool=None):
-    """
-Round to a given precision.
+    """Round to a given precision.
 
     Options are used to control the number of digits and rounding mode.
     Default behavior is to round to the nearest integer and
@@ -5869,8 +5971,13 @@ Round to a given precision.
     The `round` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('round', pyarrow._compute.RoundOptions, options,
-                              (), ndigits=ndigits, round_mode=round_mode)
+    options = _handle_options(
+        'round',
+        pyarrow._compute.RoundOptions,
+        options,
+        (),
+        ndigits=ndigits, round_mode=round_mode
+    )
     func = pyarrow._compute.get_function('round')
 
     if isinstance(x, Expression):
@@ -5882,8 +5989,7 @@ Round to a given precision.
 
 
 def round_temporal(timestamps, /, multiple=1, unit='day', *, week_starts_monday=True, ceil_is_strictly_greater=False, calendar_based_origin=False, options=None, memory_pool=None):
-    """
-Round temporal values to the nearest multiple of specified time unit.
+    """Round temporal values to the nearest multiple of specified time unit.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -5938,8 +6044,13 @@ Round temporal values to the nearest multiple of specified time unit.
     The `round_temporal` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('round_temporal', pyarrow._compute.RoundTemporalOptions, options,
-                              (), multiple=multiple, unit=unit, week_starts_monday=week_starts_monday, ceil_is_strictly_greater=ceil_is_strictly_greater, calendar_based_origin=calendar_based_origin)
+    options = _handle_options(
+        'round_temporal',
+        pyarrow._compute.RoundTemporalOptions,
+        options,
+        (),
+        multiple=multiple, unit=unit, week_starts_monday=week_starts_monday, ceil_is_strictly_greater=ceil_is_strictly_greater, calendar_based_origin=calendar_based_origin
+    )
     func = pyarrow._compute.get_function('round_temporal')
 
     if isinstance(timestamps, Expression):
@@ -5951,8 +6062,7 @@ Round temporal values to the nearest multiple of specified time unit.
 
 
 def round_to_multiple(x, /, multiple=1.0, round_mode='half_to_even', *, options=None, memory_pool=None):
-    """
-Round to a given multiple.
+    """Round to a given multiple.
 
     Options are used to control the rounding multiple and rounding mode.
     Default behavior is to round to the nearest integer and
@@ -5980,8 +6090,13 @@ Round to a given multiple.
     The `round_to_multiple` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('round_to_multiple', pyarrow._compute.RoundToMultipleOptions, options,
-                              (), multiple=multiple, round_mode=round_mode)
+    options = _handle_options(
+        'round_to_multiple',
+        pyarrow._compute.RoundToMultipleOptions,
+        options,
+        (),
+        multiple=multiple, round_mode=round_mode
+    )
     func = pyarrow._compute.get_function('round_to_multiple')
 
     if isinstance(x, Expression):
@@ -5993,8 +6108,7 @@ Round to a given multiple.
 
 
 def second(values, /, *, memory_pool=None):
-    """
-Extract second values.
+    """Extract second values.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -6022,8 +6136,7 @@ Extract second values.
 
 
 def seconds_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of seconds between two timestamps.
+    """Compute the number of seconds between two timestamps.
 
     Returns the number of second boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -6054,8 +6167,7 @@ Compute the number of seconds between two timestamps.
 
 
 def select_k_unstable(input, /, k=None, sort_keys=None, *, options=None, memory_pool=None):
-    """
-Select the indices of the first `k` ordered elements from the input.
+    """Select the indices of the first `k` ordered elements from the input.
 
     This function selects an array of indices of the first `k` ordered elements
     from the `input` array, record batch or table specified in the column keys
@@ -6086,8 +6198,13 @@ Select the indices of the first `k` ordered elements from the input.
     The `select_k_unstable` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('select_k_unstable', pyarrow._compute.SelectKOptions, options,
-                              (), k=k, sort_keys=sort_keys)
+    options = _handle_options(
+        'select_k_unstable',
+        pyarrow._compute.SelectKOptions,
+        options,
+        (),
+        k=k, sort_keys=sort_keys
+    )
     func = pyarrow._compute.get_function('select_k_unstable')
 
     if isinstance(input, Expression):
@@ -6099,8 +6216,7 @@ Select the indices of the first `k` ordered elements from the input.
 
 
 def shift_left(x, y, /, *, memory_pool=None):
-    """
-Left shift `x` by `y`.
+    """Left shift `x` by `y`.
 
     The shift operates as if on the two's complement representation of the number.
     In other words, this is equivalent to multiplying `x` by 2 to the power `y`,
@@ -6134,8 +6250,7 @@ Left shift `x` by `y`.
 
 
 def shift_left_checked(x, y, /, *, memory_pool=None):
-    """
-Left shift `x` by `y`.
+    """Left shift `x` by `y`.
 
     The shift operates as if on the two's complement representation of the number.
     In other words, this is equivalent to multiplying `x` by 2 to the power `y`,
@@ -6168,8 +6283,7 @@ Left shift `x` by `y`.
 
 
 def shift_right(x, y, /, *, memory_pool=None):
-    """
-Right shift `x` by `y`.
+    """Right shift `x` by `y`.
 
     This is equivalent to dividing `x` by 2 to the power `y`.
     `x` is returned if `y` (the amount to shift by) is: (1) negative or
@@ -6201,8 +6315,7 @@ Right shift `x` by `y`.
 
 
 def shift_right_checked(x, y, /, *, memory_pool=None):
-    """
-Right shift `x` by `y`.
+    """Right shift `x` by `y`.
 
     This is equivalent to dividing `x` by 2 to the power `y`.
     An error is raised if `y` (the amount to shift by) is (1) negative or
@@ -6233,8 +6346,7 @@ Right shift `x` by `y`.
 
 
 def sign(x, /, *, memory_pool=None):
-    """
-Get the signedness of the arguments element-wise.
+    """Get the signedness of the arguments element-wise.
 
     Output is any of (-1,1) for nonzero inputs and 0 for zero input.
     NaN values return NaN.  Integral values return signedness as Int8 and
@@ -6262,8 +6374,7 @@ Get the signedness of the arguments element-wise.
 
 
 def sin(x, /, *, memory_pool=None):
-    """
-Compute the sine.
+    """Compute the sine.
 
     NaN is returned for invalid input values;
     to raise an error instead, see "sin_checked".
@@ -6290,8 +6401,7 @@ Compute the sine.
 
 
 def sin_checked(x, /, *, memory_pool=None):
-    """
-Compute the sine.
+    """Compute the sine.
 
     Invalid input values raise an error;
     to return NaN instead, see "sin".
@@ -6318,8 +6428,7 @@ Compute the sine.
 
 
 def sort_indices(input, /, sort_keys=(), *, null_placement='at_end', options=None, memory_pool=None):
-    """
-Return the indices that would sort an array, record batch or table.
+    """Return the indices that would sort an array, record batch or table.
 
     This function computes an array of indices that define a stable sort
     of the input array, record batch or table.  By default, nNull values are
@@ -6351,8 +6460,13 @@ Return the indices that would sort an array, record batch or table.
     The `sort_indices` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('sort_indices', pyarrow._compute.SortOptions, options,
-                              (), sort_keys=sort_keys, null_placement=null_placement)
+    options = _handle_options(
+        'sort_indices',
+        pyarrow._compute.SortOptions,
+        options,
+        (),
+        sort_keys=sort_keys, null_placement=null_placement
+    )
     func = pyarrow._compute.get_function('sort_indices')
 
     if isinstance(input, Expression):
@@ -6364,8 +6478,7 @@ Return the indices that would sort an array, record batch or table.
 
 
 def split_pattern(strings, /, pattern=None, *, max_splits=None, reverse=False, options=None, memory_pool=None):
-    """
-Split string according to separator.
+    """Split string according to separator.
 
     Split each string according to the exact `pattern` defined in
     SplitPatternOptions.  The output for each string input is a list
@@ -6395,8 +6508,13 @@ Split string according to separator.
     The `split_pattern` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('split_pattern', pyarrow._compute.SplitPatternOptions, options,
-                              (), pattern=pattern, max_splits=max_splits, reverse=reverse)
+    options = _handle_options(
+        'split_pattern',
+        pyarrow._compute.SplitPatternOptions,
+        options,
+        (),
+        pattern=pattern, max_splits=max_splits, reverse=reverse
+    )
     func = pyarrow._compute.get_function('split_pattern')
 
     if isinstance(strings, Expression):
@@ -6408,8 +6526,7 @@ Split string according to separator.
 
 
 def split_pattern_regex(strings, /, pattern=None, *, max_splits=None, reverse=False, options=None, memory_pool=None):
-    """
-Split string according to regex pattern.
+    """Split string according to regex pattern.
 
     Split each string according to the regex `pattern` defined in
     SplitPatternOptions.  The output for each string input is a list
@@ -6439,8 +6556,13 @@ Split string according to regex pattern.
     The `split_pattern_regex` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('split_pattern_regex', pyarrow._compute.SplitPatternOptions, options,
-                              (), pattern=pattern, max_splits=max_splits, reverse=reverse)
+    options = _handle_options(
+        'split_pattern_regex',
+        pyarrow._compute.SplitPatternOptions,
+        options,
+        (),
+        pattern=pattern, max_splits=max_splits, reverse=reverse
+    )
     func = pyarrow._compute.get_function('split_pattern_regex')
 
     if isinstance(strings, Expression):
@@ -6452,8 +6574,7 @@ Split string according to regex pattern.
 
 
 def sqrt(x, /, *, memory_pool=None):
-    """
-Takes the square root of arguments element-wise.
+    """Takes the square root of arguments element-wise.
 
     A negative argument returns a NaN.  For a variant that returns an
     error, use function "sqrt_checked".
@@ -6480,8 +6601,7 @@ Takes the square root of arguments element-wise.
 
 
 def sqrt_checked(x, /, *, memory_pool=None):
-    """
-Takes the square root of arguments element-wise.
+    """Takes the square root of arguments element-wise.
 
     A negative argument returns an error.  For a variant that returns a
     NaN, use function "sqrt".
@@ -6508,8 +6628,7 @@ Takes the square root of arguments element-wise.
 
 
 def starts_with(strings, /, pattern=None, *, ignore_case=False, options=None, memory_pool=None):
-    """
-Check if strings start with a literal pattern.
+    """Check if strings start with a literal pattern.
 
     For each string in `strings`, emit true iff it starts with a given pattern.
     The pattern must be given in MatchSubstringOptions.
@@ -6535,8 +6654,13 @@ Check if strings start with a literal pattern.
     The `starts_with` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('starts_with', pyarrow._compute.MatchSubstringOptions, options,
-                              (), pattern=pattern, ignore_case=ignore_case)
+    options = _handle_options(
+        'starts_with',
+        pyarrow._compute.MatchSubstringOptions,
+        options,
+        (),
+        pattern=pattern, ignore_case=ignore_case
+    )
     func = pyarrow._compute.get_function('starts_with')
 
     if isinstance(strings, Expression):
@@ -6548,8 +6672,7 @@ Check if strings start with a literal pattern.
 
 
 def stddev(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None, memory_pool=None):
-    """
-Calculate the standard deviation of a numeric array.
+    """Calculate the standard deviation of a numeric array.
 
     The number of degrees of freedom can be controlled using VarianceOptions.
     By default (`ddof` = 0), the population standard deviation is calculated.
@@ -6578,8 +6701,13 @@ Calculate the standard deviation of a numeric array.
     The `stddev` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('stddev', pyarrow._compute.VarianceOptions, options,
-                              (), ddof=ddof, skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'stddev',
+        pyarrow._compute.VarianceOptions,
+        options,
+        (),
+        ddof=ddof, skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('stddev')
 
     if isinstance(array, Expression):
@@ -6591,8 +6719,7 @@ Calculate the standard deviation of a numeric array.
 
 
 def strftime(timestamps, /, format='%Y-%m-%dT%H:%M:%S', locale='C', *, options=None, memory_pool=None):
-    """
-Format temporal values according to a format string.
+    """Format temporal values according to a format string.
 
     For each input value, emit a formatted string.
     The time format string and locale can be set using StrftimeOptions.
@@ -6623,8 +6750,13 @@ Format temporal values according to a format string.
     The `strftime` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('strftime', pyarrow._compute.StrftimeOptions, options,
-                              (), format=format, locale=locale)
+    options = _handle_options(
+        'strftime',
+        pyarrow._compute.StrftimeOptions,
+        options,
+        (),
+        format=format, locale=locale
+    )
     func = pyarrow._compute.get_function('strftime')
 
     if isinstance(timestamps, Expression):
@@ -6636,8 +6768,7 @@ Format temporal values according to a format string.
 
 
 def string_is_ascii(strings, /, *, memory_pool=None):
-    """
-Classify strings as ASCII.
+    """Classify strings as ASCII.
 
     For each string in `strings`, emit true iff the string consists only
     of ASCII characters.  Null strings emit null.
@@ -6664,8 +6795,7 @@ Classify strings as ASCII.
 
 
 def strptime(strings, /, format=None, unit=None, error_is_null=False, *, options=None, memory_pool=None):
-    """
-Parse timestamps.
+    """Parse timestamps.
 
     For each string in `strings`, parse it as a timestamp.
     The timestamp unit and the expected string pattern must be given
@@ -6693,8 +6823,13 @@ Parse timestamps.
     The `strptime` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('strptime', pyarrow._compute.StrptimeOptions, options,
-                              (), format=format, unit=unit, error_is_null=error_is_null)
+    options = _handle_options(
+        'strptime',
+        pyarrow._compute.StrptimeOptions,
+        options,
+        (),
+        format=format, unit=unit, error_is_null=error_is_null
+    )
     func = pyarrow._compute.get_function('strptime')
 
     if isinstance(strings, Expression):
@@ -6706,8 +6841,7 @@ Parse timestamps.
 
 
 def struct_field(values, /, indices=None, *, options=None, memory_pool=None):
-    """
-Extract children of a struct or union by index.
+    """Extract children of a struct or union by index.
 
     Given a list of indices (passed via StructFieldOptions), extract
     the child array or scalar with the given child index, recursively.
@@ -6736,8 +6870,13 @@ Extract children of a struct or union by index.
     The `struct_field` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('struct_field', pyarrow._compute.StructFieldOptions, options,
-                              (), indices=indices)
+    options = _handle_options(
+        'struct_field',
+        pyarrow._compute.StructFieldOptions,
+        options,
+        (),
+        indices=indices
+    )
     func = pyarrow._compute.get_function('struct_field')
 
     if isinstance(values, Expression):
@@ -6749,8 +6888,7 @@ Extract children of a struct or union by index.
 
 
 def subsecond(values, /, *, memory_pool=None):
-    """
-Extract subsecond values.
+    """Extract subsecond values.
 
     Subsecond returns the fraction of a second since the last full second.
     Null values emit null.
@@ -6779,8 +6917,7 @@ Extract subsecond values.
 
 
 def subtract(x, y, /, *, memory_pool=None):
-    """
-Subtract the arguments element-wise.
+    """Subtract the arguments element-wise.
 
     Results will wrap around on integer overflow.
     Use function "subtract_checked" if you want overflow
@@ -6810,8 +6947,7 @@ Subtract the arguments element-wise.
 
 
 def subtract_checked(x, y, /, *, memory_pool=None):
-    """
-Subtract the arguments element-wise.
+    """Subtract the arguments element-wise.
 
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "subtract".
@@ -6840,8 +6976,7 @@ Subtract the arguments element-wise.
 
 
 def sum(array, /, *, skip_nulls=True, min_count=1, options=None, memory_pool=None):
-    """
-Compute the sum of a numeric array.
+    """Compute the sum of a numeric array.
 
     Null values are ignored by default. Minimum count of non-null
     values can be set and null is returned if too few are present.
@@ -6867,8 +7002,13 @@ Compute the sum of a numeric array.
     The `sum` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('sum', pyarrow._compute.ScalarAggregateOptions, options,
-                              (), skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'sum',
+        pyarrow._compute.ScalarAggregateOptions,
+        options,
+        (),
+        skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('sum')
 
     if isinstance(array, Expression):
@@ -6880,8 +7020,7 @@ Compute the sum of a numeric array.
 
 
 def take(input, indices, /, *, boundscheck=True, options=None, memory_pool=None):
-    """
-Select values from an input based on indices from another array.
+    """Select values from an input based on indices from another array.
 
     The output is populated with values from the input at positions
     given by `indices`.  Nulls in `indices` emit null in the output.
@@ -6906,8 +7045,13 @@ Select values from an input based on indices from another array.
     The `take` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('take', pyarrow._compute.TakeOptions, options,
-                              (), boundscheck=boundscheck)
+    options = _handle_options(
+        'take',
+        pyarrow._compute.TakeOptions,
+        options,
+        (),
+        boundscheck=boundscheck
+    )
     func = pyarrow._compute.get_function('take')
 
     if isinstance(input, Expression):
@@ -6919,8 +7063,7 @@ Select values from an input based on indices from another array.
 
 
 def tan(x, /, *, memory_pool=None):
-    """
-Compute the tangent.
+    """Compute the tangent.
 
     NaN is returned for invalid input values;
     to raise an error instead, see "tan_checked".
@@ -6947,8 +7090,7 @@ Compute the tangent.
 
 
 def tan_checked(x, /, *, memory_pool=None):
-    """
-Compute the tangent.
+    """Compute the tangent.
 
     Infinite values raise an error;
     to return NaN instead, see "tan".
@@ -6975,8 +7117,7 @@ Compute the tangent.
 
 
 def tdigest(array, /, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True, min_count=0, options=None, memory_pool=None):
-    """
-Approximate quantiles of a numeric array with T-Digest algorithm.
+    """Approximate quantiles of a numeric array with T-Digest algorithm.
 
     By default, 0.5 quantile (median) is returned.
     Nulls and NaNs are ignored.
@@ -7008,8 +7149,13 @@ Approximate quantiles of a numeric array with T-Digest algorithm.
     The `tdigest` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('tdigest', pyarrow._compute.TDigestOptions, options,
-                              (), q=q, delta=delta, buffer_size=buffer_size, skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'tdigest',
+        pyarrow._compute.TDigestOptions,
+        options,
+        (),
+        q=q, delta=delta, buffer_size=buffer_size, skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('tdigest')
 
     if isinstance(array, Expression):
@@ -7021,8 +7167,7 @@ Approximate quantiles of a numeric array with T-Digest algorithm.
 
 
 def true_unless_null(values, /, *, memory_pool=None):
-    """
-Return true if non-null, else return null.
+    """Return true if non-null, else return null.
 
     For each input value, emit true iff the value
     is valid (non-null), otherwise emit null.
@@ -7049,8 +7194,7 @@ Return true if non-null, else return null.
 
 
 def trunc(x, /, *, memory_pool=None):
-    """
-Compute the integral part.
+    """Compute the integral part.
 
     Compute the nearest integer not greater in magnitude than `x`.
 
@@ -7076,8 +7220,7 @@ Compute the integral part.
 
 
 def unique(array, /, *, memory_pool=None):
-    """
-Compute unique elements.
+    """Compute unique elements.
 
     Return an array with distinct values.  Nulls in the input are ignored.
 
@@ -7103,8 +7246,7 @@ Compute unique elements.
 
 
 def us_week(values, /, *, memory_pool=None):
-    """
-Extract US week of year number.
+    """Extract US week of year number.
 
     First US week has the majority (4 or more) of its days in January.
     US week starts on Monday. The week number starts with 1 and can run
@@ -7135,8 +7277,7 @@ Extract US week of year number.
 
 
 def us_year(values, /, *, memory_pool=None):
-    """
-Extract US epidemiological year number.
+    """Extract US epidemiological year number.
 
     First week of US epidemiological year has the majority (4 or more) of
     it's days in January. Last week of US epidemiological year has the
@@ -7167,8 +7308,7 @@ Extract US epidemiological year number.
 
 
 def utf8_capitalize(strings, /, *, memory_pool=None):
-    """
-Capitalize the first character of input.
+    """Capitalize the first character of input.
 
     For each string in `strings`, return a capitalized version,
     with the first character uppercased and the others lowercased.
@@ -7195,8 +7335,7 @@ Capitalize the first character of input.
 
 
 def utf8_center(strings, /, width=None, padding=' ', *, options=None, memory_pool=None):
-    """
-Center strings by padding with a given character.
+    """Center strings by padding with a given character.
 
     For each string in `strings`, emit a centered string by padding both sides 
     with the given UTF8 codeunit.
@@ -7220,8 +7359,13 @@ Center strings by padding with a given character.
     The `utf8_center` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_center', pyarrow._compute.PadOptions, options,
-                              (), width=width, padding=padding)
+    options = _handle_options(
+        'utf8_center',
+        pyarrow._compute.PadOptions,
+        options,
+        (),
+        width=width, padding=padding
+    )
     func = pyarrow._compute.get_function('utf8_center')
 
     if isinstance(strings, Expression):
@@ -7233,8 +7377,7 @@ Center strings by padding with a given character.
 
 
 def utf8_is_alnum(strings, /, *, memory_pool=None):
-    """
-Classify strings as alphanumeric.
+    """Classify strings as alphanumeric.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of alphanumeric Unicode characters.  Null strings emit null.
@@ -7261,8 +7404,7 @@ Classify strings as alphanumeric.
 
 
 def utf8_is_alpha(strings, /, *, memory_pool=None):
-    """
-Classify strings as alphabetic.
+    """Classify strings as alphabetic.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of alphabetic Unicode characters.  Null strings emit null.
@@ -7289,8 +7431,7 @@ Classify strings as alphabetic.
 
 
 def utf8_is_decimal(strings, /, *, memory_pool=None):
-    """
-Classify strings as decimal.
+    """Classify strings as decimal.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of decimal Unicode characters.  Null strings emit null.
@@ -7317,8 +7458,7 @@ Classify strings as decimal.
 
 
 def utf8_is_digit(strings, /, *, memory_pool=None):
-    """
-Classify strings as digits.
+    """Classify strings as digits.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of Unicode digits.  Null strings emit null.
@@ -7345,8 +7485,7 @@ Classify strings as digits.
 
 
 def utf8_is_lower(strings, /, *, memory_pool=None):
-    """
-Classify strings as lowercase.
+    """Classify strings as lowercase.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of lowercase Unicode characters.  Null strings emit null.
@@ -7373,8 +7512,7 @@ Classify strings as lowercase.
 
 
 def utf8_is_numeric(strings, /, *, memory_pool=None):
-    """
-Classify strings as numeric.
+    """Classify strings as numeric.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of numeric Unicode characters.  Null strings emit null.
@@ -7401,8 +7539,7 @@ Classify strings as numeric.
 
 
 def utf8_is_printable(strings, /, *, memory_pool=None):
-    """
-Classify strings as printable.
+    """Classify strings as printable.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of printable Unicode characters.  Null strings emit null.
@@ -7429,8 +7566,7 @@ Classify strings as printable.
 
 
 def utf8_is_space(strings, /, *, memory_pool=None):
-    """
-Classify strings as whitespace.
+    """Classify strings as whitespace.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of whitespace Unicode characters.  Null strings emit null.
@@ -7457,8 +7593,7 @@ Classify strings as whitespace.
 
 
 def utf8_is_title(strings, /, *, memory_pool=None):
-    """
-Classify strings as titlecase.
+    """Classify strings as titlecase.
 
     For each string in `strings`, emit true iff the string is title-cased,
     i.e. it has at least one cased character, each uppercase character
@@ -7487,8 +7622,7 @@ Classify strings as titlecase.
 
 
 def utf8_is_upper(strings, /, *, memory_pool=None):
-    """
-Classify strings as uppercase.
+    """Classify strings as uppercase.
 
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of uppercase Unicode characters.  Null strings emit null.
@@ -7515,8 +7649,7 @@ Classify strings as uppercase.
 
 
 def utf8_length(strings, /, *, memory_pool=None):
-    """
-Compute UTF8 string lengths.
+    """Compute UTF8 string lengths.
 
     For each string in `strings`, emit its length in UTF8 characters.
     Null values emit null.
@@ -7543,8 +7676,7 @@ Compute UTF8 string lengths.
 
 
 def utf8_lower(strings, /, *, memory_pool=None):
-    """
-Transform input to lowercase.
+    """Transform input to lowercase.
 
     For each string in `strings`, return a lowercase version.
 
@@ -7570,8 +7702,7 @@ Transform input to lowercase.
 
 
 def utf8_lpad(strings, /, width=None, padding=' ', *, options=None, memory_pool=None):
-    """
-Right-align strings by padding with a given character.
+    """Right-align strings by padding with a given character.
 
     For each string in `strings`, emit a right-aligned string by prepending 
     the given UTF8 codeunit.
@@ -7595,8 +7726,13 @@ Right-align strings by padding with a given character.
     The `utf8_lpad` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_lpad', pyarrow._compute.PadOptions, options,
-                              (), width=width, padding=padding)
+    options = _handle_options(
+        'utf8_lpad',
+        pyarrow._compute.PadOptions,
+        options,
+        (),
+        width=width, padding=padding
+    )
     func = pyarrow._compute.get_function('utf8_lpad')
 
     if isinstance(strings, Expression):
@@ -7608,8 +7744,7 @@ Right-align strings by padding with a given character.
 
 
 def utf8_ltrim(strings, /, characters=None, *, options=None, memory_pool=None):
-    """
-Trim leading characters.
+    """Trim leading characters.
 
     For each string in `strings`, remove any leading characters
     from the `characters` option (as given in TrimOptions).
@@ -7631,8 +7766,13 @@ Trim leading characters.
     The `utf8_ltrim` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_ltrim', pyarrow._compute.TrimOptions, options,
-                              (), characters=characters)
+    options = _handle_options(
+        'utf8_ltrim',
+        pyarrow._compute.TrimOptions,
+        options,
+        (),
+        characters=characters
+    )
     func = pyarrow._compute.get_function('utf8_ltrim')
 
     if isinstance(strings, Expression):
@@ -7644,8 +7784,7 @@ Trim leading characters.
 
 
 def utf8_ltrim_whitespace(strings, /, *, memory_pool=None):
-    """
-Trim leading whitespace characters.
+    """Trim leading whitespace characters.
 
     For each string in `strings`, emit a string with leading whitespace
     characters removed, where whitespace characters are defined by the Unicode
@@ -7673,8 +7812,7 @@ Trim leading whitespace characters.
 
 
 def utf8_normalize(strings, /, form=None, *, options=None, memory_pool=None):
-    """
-Utf8-normalize input.
+    """Utf8-normalize input.
 
     For each string in `strings`, return the normal form.
 
@@ -7698,8 +7836,13 @@ Utf8-normalize input.
     The `utf8_normalize` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_normalize', pyarrow._compute.Utf8NormalizeOptions, options,
-                              (), form=form)
+    options = _handle_options(
+        'utf8_normalize',
+        pyarrow._compute.Utf8NormalizeOptions,
+        options,
+        (),
+        form=form
+    )
     func = pyarrow._compute.get_function('utf8_normalize')
 
     if isinstance(strings, Expression):
@@ -7711,8 +7854,7 @@ Utf8-normalize input.
 
 
 def utf8_replace_slice(strings, /, start=None, stop=None, replacement=None, *, options=None, memory_pool=None):
-    """
-Replace a slice of a string.
+    """Replace a slice of a string.
 
     For each string in `strings`, replace a slice of the string defined by `start`
     and `stop` indices with the given `replacement`. `start` is inclusive
@@ -7739,8 +7881,13 @@ Replace a slice of a string.
     The `utf8_replace_slice` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_replace_slice', pyarrow._compute.ReplaceSliceOptions, options,
-                              (), start=start, stop=stop, replacement=replacement)
+    options = _handle_options(
+        'utf8_replace_slice',
+        pyarrow._compute.ReplaceSliceOptions,
+        options,
+        (),
+        start=start, stop=stop, replacement=replacement
+    )
     func = pyarrow._compute.get_function('utf8_replace_slice')
 
     if isinstance(strings, Expression):
@@ -7752,8 +7899,7 @@ Replace a slice of a string.
 
 
 def utf8_reverse(strings, /, *, memory_pool=None):
-    """
-Reverse input.
+    """Reverse input.
 
     For each string in `strings`, return a reversed version.
 
@@ -7783,8 +7929,7 @@ Reverse input.
 
 
 def utf8_rpad(strings, /, width=None, padding=' ', *, options=None, memory_pool=None):
-    """
-Left-align strings by padding with a given character.
+    """Left-align strings by padding with a given character.
 
     For each string in `strings`, emit a left-aligned string by appending 
     the given UTF8 codeunit.
@@ -7808,8 +7953,13 @@ Left-align strings by padding with a given character.
     The `utf8_rpad` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_rpad', pyarrow._compute.PadOptions, options,
-                              (), width=width, padding=padding)
+    options = _handle_options(
+        'utf8_rpad',
+        pyarrow._compute.PadOptions,
+        options,
+        (),
+        width=width, padding=padding
+    )
     func = pyarrow._compute.get_function('utf8_rpad')
 
     if isinstance(strings, Expression):
@@ -7821,8 +7971,7 @@ Left-align strings by padding with a given character.
 
 
 def utf8_rtrim(strings, /, characters=None, *, options=None, memory_pool=None):
-    """
-Trim trailing characters.
+    """Trim trailing characters.
 
     For each string in `strings`, remove any trailing characters
     from the `characters` option (as given in TrimOptions).
@@ -7844,8 +7993,13 @@ Trim trailing characters.
     The `utf8_rtrim` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_rtrim', pyarrow._compute.TrimOptions, options,
-                              (), characters=characters)
+    options = _handle_options(
+        'utf8_rtrim',
+        pyarrow._compute.TrimOptions,
+        options,
+        (),
+        characters=characters
+    )
     func = pyarrow._compute.get_function('utf8_rtrim')
 
     if isinstance(strings, Expression):
@@ -7857,8 +8011,7 @@ Trim trailing characters.
 
 
 def utf8_rtrim_whitespace(strings, /, *, memory_pool=None):
-    """
-Trim trailing whitespace characters.
+    """Trim trailing whitespace characters.
 
     For each string in `strings`, emit a string with trailing whitespace
     characters removed, where whitespace characters are defined by the Unicode
@@ -7886,8 +8039,7 @@ Trim trailing whitespace characters.
 
 
 def utf8_slice_codeunits(strings, /, start=None, stop=None, step=1, *, options=None, memory_pool=None):
-    """
-Slice string.
+    """Slice string.
 
     For each string in `strings`, emit the substring defined by
     (`start`, `stop`, `step`) as given by `SliceOptions` where `start` is
@@ -7918,8 +8070,13 @@ Slice string.
     The `utf8_slice_codeunits` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_slice_codeunits', pyarrow._compute.SliceOptions, options,
-                              (), start=start, stop=stop, step=step)
+    options = _handle_options(
+        'utf8_slice_codeunits',
+        pyarrow._compute.SliceOptions,
+        options,
+        (),
+        start=start, stop=stop, step=step
+    )
     func = pyarrow._compute.get_function('utf8_slice_codeunits')
 
     if isinstance(strings, Expression):
@@ -7931,8 +8088,7 @@ Slice string.
 
 
 def utf8_split_whitespace(strings, /, *, max_splits=None, reverse=False, options=None, memory_pool=None):
-    """
-Split string according to any Unicode whitespace.
+    """Split string according to any Unicode whitespace.
 
     Split each string according any non-zero length sequence of Unicode
     whitespace characters.  The output for each string input is a list
@@ -7960,8 +8116,13 @@ Split string according to any Unicode whitespace.
     The `utf8_split_whitespace` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_split_whitespace', pyarrow._compute.SplitOptions, options,
-                              (), max_splits=max_splits, reverse=reverse)
+    options = _handle_options(
+        'utf8_split_whitespace',
+        pyarrow._compute.SplitOptions,
+        options,
+        (),
+        max_splits=max_splits, reverse=reverse
+    )
     func = pyarrow._compute.get_function('utf8_split_whitespace')
 
     if isinstance(strings, Expression):
@@ -7973,8 +8134,7 @@ Split string according to any Unicode whitespace.
 
 
 def utf8_swapcase(strings, /, *, memory_pool=None):
-    """
-Transform input lowercase characters to uppercase and uppercase characters to lowercase.
+    """Transform input lowercase characters to uppercase and uppercase characters to lowercase.
 
     For each string in `strings`, return an opposite case version.
 
@@ -8000,8 +8160,7 @@ Transform input lowercase characters to uppercase and uppercase characters to lo
 
 
 def utf8_title(strings, /, *, memory_pool=None):
-    """
-Titlecase each word of input.
+    """Titlecase each word of input.
 
     For each string in `strings`, return a titlecased version.
     Each word in the output will start with an uppercase character and its
@@ -8029,8 +8188,7 @@ Titlecase each word of input.
 
 
 def utf8_trim(strings, /, characters=None, *, options=None, memory_pool=None):
-    """
-Trim leading and trailing characters.
+    """Trim leading and trailing characters.
 
     For each string in `strings`, remove any leading or trailing characters
     from the `characters` option (as given in TrimOptions).
@@ -8052,8 +8210,13 @@ Trim leading and trailing characters.
     The `utf8_trim` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('utf8_trim', pyarrow._compute.TrimOptions, options,
-                              (), characters=characters)
+    options = _handle_options(
+        'utf8_trim',
+        pyarrow._compute.TrimOptions,
+        options,
+        (),
+        characters=characters
+    )
     func = pyarrow._compute.get_function('utf8_trim')
 
     if isinstance(strings, Expression):
@@ -8065,8 +8228,7 @@ Trim leading and trailing characters.
 
 
 def utf8_trim_whitespace(strings, /, *, memory_pool=None):
-    """
-Trim leading and trailing whitespace characters.
+    """Trim leading and trailing whitespace characters.
 
     For each string in `strings`, emit a string with leading and trailing
     whitespace characters removed, where whitespace characters are defined
@@ -8094,8 +8256,7 @@ Trim leading and trailing whitespace characters.
 
 
 def utf8_upper(strings, /, *, memory_pool=None):
-    """
-Transform input to uppercase.
+    """Transform input to uppercase.
 
     For each string in `strings`, return an uppercase version.
 
@@ -8121,8 +8282,7 @@ Transform input to uppercase.
 
 
 def value_counts(array, /, *, memory_pool=None):
-    """
-Compute counts of unique elements.
+    """Compute counts of unique elements.
 
     For each distinct value, compute the number of times it occurs in the array.
     The result is returned as an array of `struct<input type, int64>`.
@@ -8150,8 +8310,7 @@ Compute counts of unique elements.
 
 
 def variance(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None, memory_pool=None):
-    """
-Calculate the variance of a numeric array.
+    """Calculate the variance of a numeric array.
 
     The number of degrees of freedom can be controlled using VarianceOptions.
     By default (`ddof` = 0), the population variance is calculated.
@@ -8180,8 +8339,13 @@ Calculate the variance of a numeric array.
     The `variance` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('variance', pyarrow._compute.VarianceOptions, options,
-                              (), ddof=ddof, skip_nulls=skip_nulls, min_count=min_count)
+    options = _handle_options(
+        'variance',
+        pyarrow._compute.VarianceOptions,
+        options,
+        (),
+        ddof=ddof, skip_nulls=skip_nulls, min_count=min_count
+    )
     func = pyarrow._compute.get_function('variance')
 
     if isinstance(array, Expression):
@@ -8193,8 +8357,7 @@ Calculate the variance of a numeric array.
 
 
 def week(values, /, *, week_starts_monday=True, count_from_zero=False, first_week_is_fully_in_year=False, options=None, memory_pool=None):
-    """
-Extract week of year number.
+    """Extract week of year number.
 
     First week has the majority (4 or more) of its days in January.
     Year can have 52 or 53 weeks. Week numbering can start with 0 or 1 using
@@ -8227,8 +8390,13 @@ Extract week of year number.
     The `week` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('week', pyarrow._compute.WeekOptions, options,
-                              (), week_starts_monday=week_starts_monday, count_from_zero=count_from_zero, first_week_is_fully_in_year=first_week_is_fully_in_year)
+    options = _handle_options(
+        'week',
+        pyarrow._compute.WeekOptions,
+        options,
+        (),
+        week_starts_monday=week_starts_monday, count_from_zero=count_from_zero, first_week_is_fully_in_year=first_week_is_fully_in_year
+    )
     func = pyarrow._compute.get_function('week')
 
     if isinstance(values, Expression):
@@ -8240,8 +8408,7 @@ Extract week of year number.
 
 
 def weeks_between(start, end, /, *, count_from_zero=True, week_start=1, options=None, memory_pool=None):
-    """
-Compute the number of weeks between two timestamps.
+    """Compute the number of weeks between two timestamps.
 
     Returns the number of week boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
@@ -8269,8 +8436,13 @@ Compute the number of weeks between two timestamps.
     The `weeks_between` compute function in the Arrow C++ library.
     """
 
-    options = _handle_options('weeks_between', pyarrow._compute.DayOfWeekOptions, options,
-                              (), count_from_zero=count_from_zero, week_start=week_start)
+    options = _handle_options(
+        'weeks_between',
+        pyarrow._compute.DayOfWeekOptions,
+        options,
+        (),
+        count_from_zero=count_from_zero, week_start=week_start
+    )
     func = pyarrow._compute.get_function('weeks_between')
 
     if isinstance(start, Expression):
@@ -8282,8 +8454,7 @@ Compute the number of weeks between two timestamps.
 
 
 def xor(x, y, /, *, memory_pool=None):
-    """
-Logical 'xor' boolean values.
+    """Logical 'xor' boolean values.
 
     When a null is encountered in either input, a null is output.
 
@@ -8311,8 +8482,7 @@ Logical 'xor' boolean values.
 
 
 def year(values, /, *, memory_pool=None):
-    """
-Extract year number.
+    """Extract year number.
 
     Null values emit null.
     An error is returned if the values have a defined timezone but it
@@ -8340,8 +8510,7 @@ Extract year number.
 
 
 def year_month_day(values, /, *, memory_pool=None):
-    """
-Extract (year, month, day) struct.
+    """Extract (year, month, day) struct.
 
     Null values emit null.
     An error is returned in the values have a defined timezone but it
@@ -8369,8 +8538,7 @@ Extract (year, month, day) struct.
 
 
 def years_between(start, end, /, *, memory_pool=None):
-    """
-Compute the number of years between two timestamps.
+    """Compute the number of years between two timestamps.
 
     Returns the number of year boundaries crossed from `start` to `end`.
     That is, the difference is calculated as if the timestamps were
