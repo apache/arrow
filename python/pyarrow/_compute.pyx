@@ -1883,7 +1883,8 @@ cdef class _SelectKOptions(FunctionOptions):
     def _set_options(self, k, sort_keys):
         cdef vector[CSortKey] c_sort_keys
         if sort_keys is None:
-            raise ValueError("select_k options requires a non-empty `sort_keys`")
+            raise ValueError(
+                "select_k options requires a non-empty `sort_keys`")
         for name, order in sort_keys:
             c_sort_keys.push_back(
                 CSortKey(tobytes(name), unwrap_sort_order(order))

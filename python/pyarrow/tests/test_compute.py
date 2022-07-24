@@ -660,7 +660,7 @@ def test_is_valid():
 
 
 def test_generated_docstrings():
-    
+
     # With options
     assert pc.min_max.__doc__.strip() == textwrap.dedent(
         """Compute the minimum and maximum values of a numeric array.
@@ -710,7 +710,7 @@ def test_generated_docstrings():
     )
     # Varargs with options
     assert pc.min_element_wise.__doc__.strip() == textwrap.dedent(
-    """Find the element-wise minimum value.
+        """Find the element-wise minimum value.
 
     Nulls are ignored (by default) or propagated.
     NaN is preferred over null, but not over any valid value.
@@ -733,7 +733,7 @@ def test_generated_docstrings():
     )
 
     assert pc.random.__doc__.strip() == textwrap.dedent(
-    """Generate numbers in the range [0, 1).
+        """Generate numbers in the range [0, 1).
 
     Generated values are uniformly-distributed, double-precision
     in range [0, 1). Algorithm and seed can be changed via RandomOptions.
@@ -754,9 +754,8 @@ def test_generated_docstrings():
         If not passed, will allocate memory from the default memory pool."""
     )
 
-
     assert pc.filter.__doc__.strip() == textwrap.dedent(
-    """Filter with a boolean selection filter.
+        """Filter with a boolean selection filter.
 
     The output is populated with values from the input at positions
     where the selection filter is non-zero.  Nulls in the selection filter
@@ -826,11 +825,11 @@ def test_generated_signatures():
     # Nullary with options
     sig = inspect.signature(pc.random)
 
-    # Note to reviewer: the change to the test below appears to be an artifact that the `length` argument 
+    # Note to reviewer: the change to the test below appears to be an artifact that the `length` argument
     # is not an argument to the random function, but a member of the option class.
     # thus, in pyarrow 8.0, `pc.random()` is acceptable and returns a 0-length DoubleArray.
     # That seems of little use, but is ultimately an upstream change outside the scope of this branch.
-    
+
     assert str(sig) == ("(n, *, initializer='system', "
                         "options=None, memory_pool=None)")
 
@@ -2896,7 +2895,8 @@ def test_expression_call_function():
     assert str(pc.hour(field)) == "hour(field)"
 
     # default options
-    assert str(pc.round(field)) == "round(field, {ndigits=0, round_mode=HALF_TO_EVEN})"
+    assert str(pc.round(field)
+               ) == "round(field, {ndigits=0, round_mode=HALF_TO_EVEN})"
     # specified options
     assert str(pc.round(field, ndigits=1)) == \
         "round(field, {ndigits=1, round_mode=HALF_TO_EVEN})"

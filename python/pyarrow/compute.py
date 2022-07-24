@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
 import pyarrow as pa
 from ._compute_generated import *
-
 
 from pyarrow._compute import (  # noqa
     Function,
