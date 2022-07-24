@@ -297,7 +297,8 @@ class build_ext(_build_ext):
             print("-- Finished cmake for pyarrow cpp")
             # run make & install
             print("-- Running cmake build and install for pyarrow cpp")
-            self.spawn(['cmake', '--build', '.', '--target', 'install'] +
+            self.spawn(['cmake', '--build', '.', '--config',
+                       self.build_type, '--target', 'install'] +
                        build_tool_args)
             print("-- Finished cmake build and install for pyarrow cpp")
 
