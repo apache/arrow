@@ -2189,7 +2189,8 @@ const std::shared_ptr<DataType>& duration(TimeUnit::type unit) {
           std::make_shared<DurationType>(TimeUnit::MICRO);
       return result;
     }
-    case TimeUnit::NANO: {
+    default: {
+      DCHECK_EQ(unit, TimeUnit::NANO);
       static std::shared_ptr<DataType> result =
           std::make_shared<DurationType>(TimeUnit::NANO);
       return result;
@@ -2229,7 +2230,8 @@ const std::shared_ptr<DataType>& timestamp(TimeUnit::type unit) {
           std::make_shared<TimestampType>(TimeUnit::MICRO);
       return result;
     }
-    case TimeUnit::NANO: {
+    default: {
+      DCHECK_EQ(unit, TimeUnit::NANO);
       static std::shared_ptr<DataType> result =
           std::make_shared<TimestampType>(TimeUnit::NANO);
       return result;
