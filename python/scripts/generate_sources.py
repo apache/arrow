@@ -449,7 +449,8 @@ def write_compute_file(output_path):
 
             return options_class(*args, **kwargs)
 
-        return None"""))
+        return None
+        """))
         fh.write("\n\n".join(function_defs))
     #print("\n\n".join(function_defs))
 

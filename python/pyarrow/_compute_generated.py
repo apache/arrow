@@ -46,7 +46,8 @@ def _handle_options(name, options_class, options, args, **kwargs):
 
         return options_class(*args, **kwargs)
 
-    return Nonedef abs(x, /, *, memory_pool=None):
+    return None
+def abs(x, /, *, memory_pool=None):
     """Calculate the absolute value of the argument element-wise.
 
     Results will wrap around on integer overflow.
