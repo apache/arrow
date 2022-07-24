@@ -242,7 +242,7 @@ class ARROW_EXPORT InputType {
   Kind kind_;
 
   // For EXACT_TYPE Kind
-  const DataType* type_;
+  const DataType* type_ = NULLPTR;
 
   // For USE_TYPE_MATCHER Kind
   std::shared_ptr<TypeMatcher> type_matcher_;
@@ -315,7 +315,7 @@ class ARROW_EXPORT OutputType {
   ResolveKind kind_;
 
   // For FIXED resolution
-  const DataType* type_;
+  const DataType* type_ = NULLPTR;
 
   // For COMPUTED resolution
   Resolver resolver_ = NULLPTR;

@@ -2194,8 +2194,6 @@ const std::shared_ptr<DataType>& duration(TimeUnit::type unit) {
           std::make_shared<DurationType>(TimeUnit::NANO);
       return result;
     }
-    default:
-      return nullptr;
   }
 }
 
@@ -2236,8 +2234,6 @@ const std::shared_ptr<DataType>& timestamp(TimeUnit::type unit) {
           std::make_shared<TimestampType>(TimeUnit::NANO);
       return result;
     }
-    default:
-      return nullptr;
   }
 }
 
@@ -2259,7 +2255,8 @@ const std::shared_ptr<DataType>& time32(TimeUnit::type unit) {
     }
     default:
       DCHECK(false);
-      return nullptr;
+      static std::shared_ptr<DataType> null_sp;
+      return null_sp;
   }
 }
 
@@ -2277,7 +2274,8 @@ const std::shared_ptr<DataType>& time64(TimeUnit::type unit) {
     }
     default:
       DCHECK(false);
-      return nullptr;
+      static std::shared_ptr<DataType> null_sp;
+      return null_sp;
   }
 }
 
