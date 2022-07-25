@@ -108,22 +108,32 @@ std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  return ValueOrStop(reader->ToTable());
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ToTable(); });
+
+  return ValueOrStop(result);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__Head(
     const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows) {
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-  std::shared_ptr<arrow::RecordBatch> this_batch;
-  while (num_rows > 0) {
-    this_batch = ValueOrStop(reader->Next());
-    if (this_batch == nullptr) break;
-    batches.push_back(this_batch->Slice(0, num_rows));
-    num_rows -= this_batch->num_rows();
-  }
-  return ValueOrStop(
-      arrow::RecordBatchReader::Make(std::move(batches), reader->schema()));
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::RecordBatchReader>>(
+      [&]() -> arrow::Result<std::shared_ptr<arrow::RecordBatchReader>> {
+        std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+        arrow::Result<std::shared_ptr<arrow::RecordBatch>> this_batch;
+
+        while (num_rows > 0) {
+          this_batch = reader->Next();
+          ARROW_RETURN_NOT_OK(this_batch);
+          if (this_batch.ValueUnsafe() == nullptr) break;
+          batches.push_back(this_batch.ValueUnsafe()->Slice(0, num_rows));
+          num_rows -= this_batch.ValueUnsafe()->num_rows();
+        }
+
+        return arrow::RecordBatchReader::Make(std::move(batches), reader->schema());
+      });
+
+  return ValueOrStop(result);
 }
 
 // -------- RecordBatchStreamReader
