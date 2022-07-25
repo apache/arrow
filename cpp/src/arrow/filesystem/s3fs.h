@@ -73,6 +73,8 @@ enum class S3CredentialsKind : int8_t {
 enum class AwsStockRetryStrategy : int8_t {
   /// Corresponds to AWS::Client::StandardRetryStrategy
   Standard,
+  /// Corresponds to AWS::Client::AdaptiveRetryStrategy
+  Adaptive,
   /// Corresponds to AWS::Client::DefaultRetryStrategy
   Default,
   /// Used if you do not want to select a stock strategy

@@ -724,11 +724,15 @@ class ClientBuilder {
       return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
     }
     switch (options_.stock_retry_strategy) {
-      case AwsStockRetryStrategy.Standard:
+      case Standard:
         client_config_.retryStrategy =
             std::make_shared<Aws::Client::StandardRetryStrategy>();
         break;
-      case AwsStockRetryStrategy.Default:
+      case Adaptive:
+        client_config_.retryStrategy =
+            std::make_shared<Aws::Client::AdaptiveRetryStrategy>();
+        break;
+      case Default:
         client_config_.retryStrategy =
             std::make_shared<Aws::Client::DefaultRetryStrategy>();
         break;
@@ -782,7 +786,7 @@ class ClientBuilder {
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
         use_virtual_addressing);
-    client.retry_strategy = client_config_.retryStrategy;
+    client->retry_strategy = client_config_.retryStrategy;
     return client;
   }
 
