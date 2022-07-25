@@ -468,34 +468,6 @@ struct OrderBySinkNode final : public SinkNode {
     return ValidateCommonOrderOptions(options);
   }
 
-  // A sink node that receives inputs and then compute top_k/bottom_k.
-  static Result<ExecNode*> MakeSortAndFetch(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                            const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "OrderBySinkNode"));
-
-    const auto& sink_options = checked_cast<const SortAndFetchSinkNodeOptions&>(options);
-    if (sink_options.backpressure.should_apply_backpressure()) {
-      return Status::Invalid("Backpressure cannot be applied to an OrderBySinkNode");
-    }
-    RETURN_NOT_OK(ValidateSortAndFetchOptions(sink_options));
-    ARROW_ASSIGN_OR_RAISE(
-        std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeSortAndFetch(plan->exec_context(), inputs[0]->output_schema(),
-                                      sink_options.sort_and_fetch_options));
-    return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
-                                              sink_options.generator);
-  }
-
-  static Status ValidateSortAndFetchOptions(const SortAndFetchSinkNodeOptions& options) {
-    if (options.sort_and_fetch_options.count < 0) {
-      return Status::Invalid("count must be > 0");
-    }
-    if (options.sort_and_fetch_options.offset < 0) {
-      return Status::Invalid("offset must be > 0");
-    }
-    return ValidateCommonOrderOptions(options);
-  }
-
   void InputReceived(ExecNode* input, ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     util::tracing::Span span;
