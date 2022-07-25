@@ -92,9 +92,8 @@ To build only the C Data Interface library:
     $ cd java-native-c
     $ cmake \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_INSTALL_PREFIX=../java-dist \
-        ../java/c
+        -DCMAKE_INSTALL_PREFIX=../java-dist/lib \
+        ../java
     $ cmake --build . --target install
     $ ls -latr ../java-dist/lib
     |__ libarrow_cdata_jni.dylib
