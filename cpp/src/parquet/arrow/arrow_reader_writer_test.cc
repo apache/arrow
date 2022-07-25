@@ -3944,7 +3944,7 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
 }
 
 TEST(TestArrowReaderAdHoc, OldDataPageV2) {
-// ARROW-17100
+  // ARROW-17100
 #ifndef ARROW_WITH_SNAPPY
   GTEST_SKIP() << "Test requires Snappy compression";
 #endif
