@@ -34,6 +34,9 @@ fi
 if [ -n "${ARROW_CONAN_WITH_BROTLI:-}" ]; then
   conan_args+=(--options arrow:with_brotli=${ARROW_CONAN_WITH_BROTLI})
 fi
+if [ -n "${ARROW_CONAN_WITH_GLOG:-}" ]; then
+  conan_args+=(--options arrow:with_glog=${ARROW_CONAN_WITH_GLOG})
+fi
 if [ -n "${ARROW_CONAN_WITH_JEMALLOC:-}" ]; then
   conan_args+=(--options arrow:with_jemalloc=${ARROW_CONAN_WITH_JEMALLOC})
 fi
