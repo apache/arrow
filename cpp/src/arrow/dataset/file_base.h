@@ -75,7 +75,10 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
 
   explicit FileSource(std::shared_ptr<Buffer> buffer,
                       Compression::type compression = Compression::UNCOMPRESSED)
-      : buffer_(std::move(buffer)), compression_(compression) {}
+      : start_offset_(-1),
+        length_(-1),
+        buffer_(std::move(buffer)),
+        compression_(compression) {}
 
   using CustomOpen = std::function<Result<std::shared_ptr<io::RandomAccessFile>>()>;
   explicit FileSource(CustomOpen open) : custom_open_(std::move(open)) {}
