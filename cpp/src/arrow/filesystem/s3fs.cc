@@ -725,16 +725,13 @@ class ClientBuilder {
     }
     switch (options_.stock_retry_strategy) {
       case Standard:
-        client_config_.retryStrategy =
-            std::make_shared<Aws::Client::StandardRetryStrategy>();
+        client_config_.retryStrategy = new Aws::Client::StandardRetryStrategy();
         break;
       case Adaptive:
-        client_config_.retryStrategy =
-            std::make_shared<Aws::Client::AdaptiveRetryStrategy>();
+        client_config_.retryStrategy = new Aws::Client::AdaptiveRetryStrategy();
         break;
       case Default:
-        client_config_.retryStrategy =
-            std::make_shared<Aws::Client::DefaultRetryStrategy>();
+        client_config_.retryStrategy = new Aws::Client::DefaultRetryStrategy();
         break;
       default:
         if (options_.retry_strategy) {
