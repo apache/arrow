@@ -556,7 +556,7 @@ class S3Client : public Aws::S3::S3Client {
   using Aws::S3::S3Client::S3Client;
   // We don't have access to the configured AWS retry strategy
   // (m_retryStrategy is a private member of AwsClient), so don't use that.
-  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy;
+  std::unique_ptr<Aws::Client::RetryStrategy> retry_strategy;
 
   // To get a bucket's region, we must extract the "x-amz-bucket-region" header
   // from the response to a HEAD bucket request.
@@ -723,19 +723,19 @@ class ClientBuilder {
     }
     switch (options_.stock_retry_strategy) {
       case AwsStockRetryStrategy::Standard:
-        client_config_.retryStrategy =
+        client_config_->retryStrategy =
             std::make_shared<Aws::Client::StandardRetryStrategy>();
         break;
       case AwsStockRetryStrategy::Default:
-        client_config_.retryStrategy =
+        client_config_->retryStrategy =
             std::make_shared<Aws::Client::DefaultRetryStrategy>();
         break;
       default:
         if (options_.retry_strategy) {
-          client_config_.retryStrategy =
+          client_config_->retryStrategy =
               std::make_shared<WrappedRetryStrategy>(options_.retry_strategy);
         } else {
-          client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+          client_config_->retryStrategy = std::make_shared<ConnectRetryStrategy>();
         }
     }
     if (!internal::global_options.tls_ca_file_path.empty()) {
@@ -780,7 +780,7 @@ class ClientBuilder {
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
         use_virtual_addressing);
-    client->retry_strategy = client_config_.retryStrategy;
+    client->retry_strategy = client_config_->retryStrategy;
     return client;
   }
 
