@@ -559,7 +559,8 @@ class S3Client : public Aws::S3::S3Client {
   // Note that DefaultRetryStrategy, unlike StandardRetryStrategy,
   // has empty definitions for RequestBookkeeping() and GetSendToken(),
   // which simplifies the code below.
-  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy;
+  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy =
+      std::make_shared<Aws::Client::DefaultRetryStrategy>();
 
   // To get a bucket's region, we must extract the "x-amz-bucket-region" header
   // from the response to a HEAD bucket request.

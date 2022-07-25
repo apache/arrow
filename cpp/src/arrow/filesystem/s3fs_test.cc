@@ -236,6 +236,9 @@ class S3OptionsTest : public AwsTestMixin {};
 TEST_F(S3OptionsTest, FromUri) {
   std::string path;
   S3Options options;
+  S3Options retry_options;
+  // ClientBuilder builder;
+  // S3Client client;
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
   ASSERT_EQ(options.region, "");
@@ -285,6 +288,60 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Invalid option
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
+
+  // Retry strategy selection
+  ASSERT_OK_AND_ASSIGN(retry_options, S3Options::FromUri("s3://mybucket/", &path));
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy::Standard;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  ASSERT_THAT(dynamic_cast<Aws::Client::StandardRetryStrategy*>(options.retry_strategy),
+              "options.retry_strategy must be StandardRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy::Default;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  ASSERT_THAT(dynamic_cast<Aws::Client::DefaultRetryStrategy*>(options.retry_strategy),
+              "options.retry_strategy must be DefaultRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy::None;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  ASSERT_THAT(dynamic_cast<ConnectRetryStrategy*>(options.retry_strategy),
+              "options.retry_strategy must be ConnectRetryStrategy");
+
+  retry_options.retry_strategy = std::make_shared<ShortRetryStrategy>();
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  ASSERT_THAT(
+      dynamic_cast<WrappedRetryStrategy*>(options.retry_strategy),
+      "options.retry_strategy must be WrappedRetryStrategy of a ShortRetryStrategy");
+
+  // Test the S3 client is built with the correct retry strategy
+  /*
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.Standard;
+  // retry_strategy will be overriden by stock_retry_strategy
+  retry_options.retry_strategy = std::make_shared<ShortRetryStrategy>();
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  builder = std::make_shared<ClientBuilder>(options);
+  client = builder.BuildClient();
+  static_assert(std::is_same<decltype(client.retry_strategy),
+                             AWS::Client::StandardRetryStrategy>::value,
+                "client.retry_strategy must be AWS::Client::StandardRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.None;
+  retry_options.retry_strategy = std::make_shared<ShortRetryStrategy>();
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  builder = std::make_shared<ClientBuilder>(options);
+  client = builder.BuildClient();
+  static_assert(
+      std::is_same<decltype(options.retry_strategy), WrappedRetryStrategy>::value,
+      "options.retry_strategy must be WrappedRetryStrategy of a ShortRetryStrategy");
+
+  retry_options.stock_retry_strategy = AwsStockRetryStrategy.None;
+  retry_options.retry_strategy = NULL;
+  ASSERT_OK_AND_ASSIGN(options, retry_options);
+  builder = std::make_shared<ClientBuilder>(options);
+  client = builder.BuildClient();
+  static_assert(
+      std::is_same<decltype(client.retry_strategy), ConnectRetryStrategy>::value,
+      "client.retry_strategy must be ConnectRetryStrategy");
+  */
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
@@ -316,47 +373,6 @@ TEST_F(S3OptionsTest, FromAssumeRole) {
   std::shared_ptr<Aws::STS::STSClient> sts_client =
       std::make_shared<Aws::STS::STSClient>(Aws::STS::STSClient(test_creds));
   options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42, sts_client);
-}
-
-////////////////////////////////////////////////////////////////////////////
-// ClientBuilder tests
-
-class ClientBuilderTest : public AwsTestMixin {};
-
-TEST_F(ClientBuilderTest, BuildClient) {
-  S3Options options;
-  Result<std::shared_ptr<S3Client>> client;
-
-  ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
-
-  // Without setting a stock_retry_strategy, or retry_strategy,
-  // we should default to a ConnectRetryStrategy
-  client = ClientBuilder::BuildClient(options);
-  ASSERT_THAT(dynamic_cast<ConnectRetryStrategy*>(client.retry_strategy),
-              "client.retry_strategy must be ConnectRetryStrategy");
-
-  // Without setting a stock_retry_strategy, but with setting a
-  // retry_strategy, we should use a WrappedRetryStrategy of retry_strategy
-  options.retry_strategy = std::make_shared<ShortRetryStrategy>();
-  client = ClientBuilder::BuildClient(options);
-  ASSERT_THAT(
-      dynamic_cast<WrappedRetryStrategy*>(client.retry_strategy),
-      "client.retry_strategy must be WrappedRetryStrategy of a ShortRetryStrategy");
-
-  // With setting a stock_retry_strategy, but not a retry_strategy,
-  // we should use the stock AWS retry strategy
-  options.stock_retry_strategy = AwsStockRetryStrategy::Standard;
-  client = ClientBuilder::BuildClient(options);
-  ASSERT_THAT(dynamic_cast<Aws::Client::StandardRetryStrategy*>(client.retry_strategy),
-              "client.retry_strategy must be StandardRetryStrategy");
-
-  // With setting a stock_retry_strategy, and a retry_strategy,
-  // we should use the stock AWS retry strategy (overrides retry_strategy)
-  options.stock_retry_strategy = AwsStockRetryStrategy::Default;
-  options.retry_strategy = std::make_shared<ShortRetryStrategy>();
-  client = ClientBuilder::BuildClient(options);
-  ASSERT_THAT(dynamic_cast<Aws::Client::DefaultRetryStrategy*>(client.retry_strategy),
-              "client.retry_strategy must be DefaultRetryStrategy");
 }
 
 ////////////////////////////////////////////////////////////////////////////
