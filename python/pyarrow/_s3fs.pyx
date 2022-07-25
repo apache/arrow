@@ -74,8 +74,8 @@ def resolve_s3_region(bucket):
 
     Examples
     --------
-    >>> fs.resolve_s3_region('registry.opendata.aws')
-    'us-east-1'
+    >>> fs.resolve_s3_region('voltrondata-labs-datasets')
+    'us-east-2'
     """
     cdef:
         c_string c_bucket

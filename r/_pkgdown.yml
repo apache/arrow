@@ -90,7 +90,7 @@ navbar:
           href: articles/install.html
         - text: Working with Arrow Datasets and dplyr
           href: articles/dataset.html
-        - text: Working with Cloud Storage (S3)
+        - text: Working with Cloud Storage (S3, GCS)
           href: articles/fs.html
         - text: Apache Arrow in Python and R with reticulate
           href: articles/python.html
@@ -198,6 +198,7 @@ reference:
   - title: File systems
     contents:
       - s3_bucket
+      - gs_bucket
       - FileSystem
       - FileInfo
       - FileSelector
