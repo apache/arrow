@@ -3138,12 +3138,12 @@ test_that("temporal round/floor/ceil period unit maxima are enforced", {
 # produces incorrect answers
 check_timezone_rounding_vs_lubridate <- function(data, unit) {
 
-  # esoteric lubridate bug: on windows only (not ubuntu), lubridate returns
+  # esoteric lubridate bug: on windows and macOS (not linux), lubridate returns
   # incorrect ceiling/floor for timezoned POSIXct times (syd, adl, kat zones,
   # but not mar) but not utc, and not for round, and only for these two
   # timestamps where high-precision timing is relevant to the outcome
   if (unit %in% c(".001 second", "second", "minute")) {
-    if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    if (tolower(Sys.info()[["sysname"]]) %in% c("windows", "darwin")) {
       data <- data[-c(1, 3), ]
     }
   }
