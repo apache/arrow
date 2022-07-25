@@ -640,9 +640,7 @@ class S3Client : public Aws::S3::S3Client {
     };
 
     request.SetDataReceivedEventHandler(std::move(handler));
-    // We don't have access to the configured AWS retry strategy
-    // (m_retryStrategy is a private member of AwsClient), so don't use that.
-    std::unique_ptr<Aws::Client::RetryStrategy> retry_strategy;
+
     if (!retry_strategy) {
       // Note that DefaultRetryStrategy, unlike StandardRetryStrategy,
       // has empty definitions for RequestBookkeeping() and GetSendToken(),
@@ -681,6 +679,10 @@ class S3Client : public Aws::S3::S3Client {
     auto s3_error = AWSError<S3Errors>(std::move(aws_error).value());
     return S3Model::CompleteMultipartUploadOutcome(std::move(s3_error));
   }
+
+  // We don't have access to the configured AWS retry strategy
+  // (m_retryStrategy is a private member of AwsClient), so don't use that.
+  std::unique_ptr<Aws::Client::RetryStrategy> retry_strategy;
 };
 
 // In AWS SDK < 1.8, Aws::Client::ClientConfiguration::followRedirects is a bool.
@@ -780,7 +782,7 @@ class ClientBuilder {
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
         use_virtual_addressing);
-    client->retry_strategy = client_config_.retryStrategy;
+    client.retry_strategy = client_config_.retryStrategy;
     return client;
   }
 
