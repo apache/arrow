@@ -268,7 +268,8 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
       return 0;                                                                          \
     }                                                                                    \
                                                                                          \
-    char* up = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));    \
+    char* up =                                                                           \
+        reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 2 * in_len));       \
                                                                                          \
     /* Putting to upper for working as case-insensitive */                               \
     for (int i = 0; i < in_len; i++) {                                                   \
