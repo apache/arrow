@@ -86,30 +86,6 @@ class SelectKBasicImpl : public SortBasicImpl {
   const SelectKOptions options_;
 };
 
-class SortAndFetchBasicImpl : public SortBasicImpl {
- public:
-  SortAndFetchBasicImpl(ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
-                        const SortAndFetchOptions& options)
-      : SortBasicImpl(ctx, output_schema), options_(options) {}
-
-  Result<Datum> DoFinish() override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ARROW_ASSIGN_OR_RAISE(auto table,
-                          Table::FromRecordBatches(output_schema_, std::move(batches_)));
-    auto sort_options = SortOptions(options_.sort_keys);
-    ARROW_ASSIGN_OR_RAISE(auto indices,
-                          SortIndices(table, std::move(sort_options), ctx_));
-    ARROW_ASSIGN_OR_RAISE(auto sorted_table,
-                          Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_));
-    return sorted_table.table()->Slice(options_.offset, options_.count);
-  }
-
-  std::string ToString() const override { return options_.ToString(); }
-
- private:
-  const SortAndFetchOptions options_;
-};
-
 Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSort(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SortOptions& options) {
@@ -121,14 +97,6 @@ Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSelectK(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SelectKOptions& options) {
   std::unique_ptr<OrderByImpl> impl{new SelectKBasicImpl(ctx, output_schema, options)};
-  return std::move(impl);
-}
-
-Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSortAndFetch(
-    ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
-    const SortAndFetchOptions& options) {
-  std::unique_ptr<OrderByImpl> impl{
-      new SortAndFetchBasicImpl(ctx, output_schema, options)};
   return std::move(impl);
 }
 

@@ -157,10 +157,6 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
-static auto kSortAndFetchOptionsType = GetFunctionOptionsType<SortAndFetchOptions>(
-    DataMember("offset", &SortAndFetchOptions::offset),
-    DataMember("count", &SortAndFetchOptions::count),
-    DataMember("sort_keys", &SortAndFetchOptions::sort_keys));
 static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
     DataMember("start", &CumulativeSumOptions::start),
     DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
