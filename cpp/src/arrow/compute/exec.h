@@ -49,6 +49,7 @@ namespace compute {
 
 class FunctionOptions;
 class FunctionRegistry;
+class FunctionExecutor;
 
 // It seems like 64K might be a good default chunksize to use for execution
 // based on the experience of other query processing systems. The current
@@ -476,6 +477,45 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
                            ExecContext* ctx = NULLPTR);
+
+/// @}
+
+/// \defgroup compute-function-executor One-shot calls to obtain function executors
+///
+/// @{
+
+/// \brief One-shot executor provider for all types of functions.
+///
+/// Does kernel dispatch and argument checking, while iteration of ChunkedArray inputs
+/// and wrapping of outputs are deferred to the executor.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args,
+    const FunctionOptions* options, ExecContext* ctx = NULLPTR);
+
+/// \brief Variant of GetFunctionExecutor which uses a function's default options.
+///
+/// NB: Some functions require FunctionOptions be provided.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args,
+    ExecContext* ctx = NULLPTR);
+
+/// \brief One-shot executor provider for all types of functions.
+///
+/// Does kernel dispatch and argument checking, while iteration of ChunkedArray inputs
+/// and wrapping of outputs are deferred to the executor.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const ExecBatch& batch,
+    const FunctionOptions* options, ExecContext* ctx = NULLPTR);
+
+/// \brief Variant of GetFunctionExecutor which uses a function's default options.
+///
+/// NB: Some functions require FunctionOptions be provided.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const ExecBatch& batch, ExecContext* ctx = NULLPTR);
 
 /// @}
 

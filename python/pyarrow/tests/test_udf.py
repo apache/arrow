@@ -39,7 +39,7 @@ except ImportError:
 try:
     import pyarrow.substrait as substrait
 except ImportError:
-    raise#substrait = None
+    substrait = None
 
 
 def mock_udf_context(batch_length=10):
@@ -517,17 +517,7 @@ def test_input_lifetime(unary_func_fixture):
     assert proxy_pool.bytes_allocated() == 0
 
 
-def demean_and_zscore(scl_udf_ctx, v):
-    mean = v.mean()
-    std = v.std()
-    return v - mean, (v - mean) / std
-
-
-def twice_and_add_2(scl_udf_ctx, v):
-    return 2 * v, v + 2
-
-
-def twice(v):
+def twice(ctx, v):
     """Compute twice the value of the input"""
     import pyarrow.compute as pc
     return pc.multiply(v, 2)
@@ -731,7 +721,8 @@ def _simple_udf_add_query_string(input_path):
                     "fp64": {
                       "nullability": "NULLABILITY_NULLABLE"
                     }
-                  }
+                  },
+                  "scalar": {}
                 }
               }
             }
@@ -909,5 +900,124 @@ def test_simple_udf_add(tmpdir):
     _make_ipc_data(data_path, batch_size, num_batches)
     qfuncs = [_simple_udf_add_query_string, _simple_reg_add_query_string]
     udf_tb, reg_tb = [_read_query_string(qfunc(data_path)) for qfunc in qfuncs]
+    twice_v = [2*x for i in range(num_batches) for x in range(batch_size)]
     assert len(udf_tb) == batch_size * num_batches
     assert udf_tb == reg_tb
+    assert udf_tb["twice_v"].to_pylist() == twice_v
+
+
+def datasource1(ctx):
+    """A short dataset"""
+    import pyarrow as pa
+    t = pa.int32()
+    schema = pa.schema([('', t), ('', t)])
+    class Generator:
+        @staticmethod
+        def _from_iters(*iters):
+            arrays = [pa.array(list(i), type=t) for i in iters]
+            batch = pa.RecordBatch.from_arrays(arrays=arrays, schema=schema)
+            return pc.udf_result_from_record_batch(batch)
+        def __init__(self):
+            self.n = 3
+        def __call__(self, ctx):
+            if self.n == 0:
+                return Generator._from_iters([], [])
+            self.n -= 1
+            n = self.n
+            return Generator._from_iters(range(n, n + 10), range(n + 1, n + 11))
+    return Generator()
+
+
+def _simple_udt_query_string():
+    code = "".join([chr(x) for x in base64.b64encode(cloudpickle.dumps(datasource1))])
+    querystr = json.dumps(
+        {
+          "extensionUris": [
+            {
+              "extensionUriAnchor": 1,
+              "uri": substrait.get_default_extension_types_uri()
+            }
+          ],
+          "extensions": [
+            {
+              "extensionFunction": {
+                "extensionUriReference": 1,
+                "functionAnchor": 1,
+                "name": "datasource1",
+                "udf": {
+                  "code": code,
+                  "summary": "datasource1",
+                  "description": "A short dataset",
+                  "inputTypes": [
+                  ],
+                  "outputType": {
+                    "struct": {
+                      "types": [
+                        {
+                          "i32": {
+                            "nullability": "NULLABILITY_NULLABLE"
+                          },
+                        },
+                        {
+                          "i32": {
+                            "nullability": "NULLABILITY_NULLABLE"
+                          }
+                        },
+                      ],
+                      "nullability": "NULLABILITY_REQUIRED"
+                    }
+                  },
+                  "tabular": {}
+                }
+              }
+            }
+          ],
+          "relations": [
+            {
+              "root": {
+                "input": {
+                      "read": {
+                        "baseSchema": {
+                          "names": [
+                            "",
+                            "",
+                          ],
+                          "struct": {
+                            "types": [
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                },
+                              },
+                              {
+                                "i32": {
+                                  "nullability": "NULLABILITY_NULLABLE"
+                                }
+                              },
+                            ],
+                            "nullability": "NULLABILITY_REQUIRED"
+                          }
+                        },
+                        "udt": {
+                          "function_reference": 1
+                        }
+                      }
+                },
+                "names": [
+                  "v1",
+                  "v2",
+                ]
+              }
+            }
+          ]
+        }
+    )
+    return querystr
+
+def test_simple_udt():
+    udt_tb = _read_query_string(_simple_udt_query_string())
+    assert len(udt_tb) == 30
+    v = [[x for n in range(2, -1, -1) for x in range(n + a, n + 10 + a)]
+         for a in range(2)]
+    assert udt_tb["v1"].to_pylist() == v[0]
+    assert udt_tb["v2"].to_pylist() == v[1]

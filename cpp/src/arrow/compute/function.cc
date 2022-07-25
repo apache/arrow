@@ -183,6 +183,85 @@ const Kernel* DispatchExactImpl(const Function* func,
   return nullptr;
 }
 
+struct FunctionExecutorImpl : public FunctionExecutor {
+  FunctionExecutorImpl(std::vector<ValueDescr> inputs, const Kernel* kernel,
+                       ExecContext* ctx, std::unique_ptr<detail::KernelExecutor> executor,
+                       Function::Kind func_kind, const std::string& func_name)
+      : inputs(std::move(inputs)), kernel(kernel), kernel_ctx(ctx, kernel),
+        executor(std::move(executor)), func_kind(func_kind), func_name(func_name),
+        state(), options(NULLPTR) {}
+  virtual ~FunctionExecutorImpl() {}
+
+  Status Init(const FunctionOptions* options) {
+    if (kernel->init) {
+      ARROW_ASSIGN_OR_RAISE(state,
+                            kernel->init(&kernel_ctx, {kernel, inputs, options}));
+      kernel_ctx.SetState(state.get());
+    }
+
+    RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
+    this->options = options;
+    return Status::OK();
+  }
+
+  Result<Datum> Execute(const std::vector<Datum>& args, int64_t passed_length) override {
+    util::tracing::Span span;
+
+    START_COMPUTE_SPAN(span, func_name,
+                       {{"function.name", func_name},
+                        {"function.options", options ? options->ToString() : "<NULLPTR>"},
+                        {"function.kind", func_kind}});
+
+    ExecContext* ctx = kernel_ctx.exec_context();
+    // Cast arguments if necessary
+    std::vector<Datum> args_with_cast;
+    for (size_t i = 0; i != args.size(); ++i) {
+      std::shared_ptr<DataType> in_type{inputs[i].type};
+      auto arg = args[i];
+      if (in_type != args[i].type()) {
+        ARROW_ASSIGN_OR_RAISE(arg, Cast(args[i], CastOptions::Safe(in_type), ctx));
+      }
+      args_with_cast.push_back(arg);
+    }
+
+    detail::DatumAccumulator listener;
+
+    ExecBatch input(std::move(args_with_cast), /*length=*/0);
+    if (input.num_values() == 0) {
+      if (passed_length != -1) {
+        input.length = passed_length;
+      }
+    } else {
+      bool all_same_length = false;
+      int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
+      input.length = inferred_length;
+      if (func_kind == Function::SCALAR) {
+        DCHECK(passed_length == -1 || passed_length == inferred_length);
+      } else if (func_kind == Function::VECTOR) {
+        auto vkernel = static_cast<const VectorKernel*>(kernel);
+        if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
+          return Status::Invalid("Vector kernel arguments must all be the same length");
+        }
+      }
+    }
+    RETURN_NOT_OK(executor->Execute(input, &listener));
+    const auto out = executor->WrapResults(input.values, listener.values());
+  #ifndef NDEBUG
+    DCHECK_OK(executor->CheckResultType(out, func_name.c_str()));
+  #endif
+    return out;
+  }
+
+  std::vector<ValueDescr> inputs;
+  const Kernel* kernel;
+  KernelContext kernel_ctx;
+  std::unique_ptr<detail::KernelExecutor> executor;
+  Function::Kind func_kind;
+  std::string func_name;
+  std::unique_ptr<KernelState> state;
+  const FunctionOptions* options;
+};
+
 }  // namespace detail
 
 Result<const Kernel*> Function::DispatchExact(
@@ -203,35 +282,17 @@ Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) co
   return DispatchExact(*values);
 }
 
-Result<Datum> Function::Execute(const std::vector<Datum>& args,
-                                const FunctionOptions* options, ExecContext* ctx) const {
-  return ExecuteInternal(args, /*passed_length=*/-1, options, ctx);
-}
-
-Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
-                                ExecContext* ctx) const {
-  return ExecuteInternal(batch.values, batch.length, options, ctx);
-}
-
-Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
-                                        int64_t passed_length,
-                                        const FunctionOptions* options,
-                                        ExecContext* ctx) const {
+Result<std::shared_ptr<FunctionExecutor>> Function::BestExecutor(
+    const std::vector<Datum>& args, const FunctionOptions* options,
+    ExecContext* ctx) const {
   if (options == nullptr) {
     RETURN_NOT_OK(CheckOptions(*this, options));
     options = default_options();
   }
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return ExecuteInternal(args, passed_length, options, &default_ctx);
+    return BestExecutor(args, options, &default_ctx);
   }
-
-  util::tracing::Span span;
-
-  START_COMPUTE_SPAN(span, name(),
-                     {{"function.name", name()},
-                      {"function.options", options ? options->ToString() : "<NULLPTR>"},
-                      {"function.kind", kind()}});
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
@@ -253,43 +314,40 @@ Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
   }
 
   ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
-  ARROW_ASSIGN_OR_RAISE(std::vector<Datum> args_with_casts, Cast(args, inputs, ctx));
 
-  std::unique_ptr<KernelState> state;
-  KernelContext kernel_ctx{ctx, kernel};
-  if (kernel->init) {
-    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
-    kernel_ctx.SetState(state.get());
+  auto func_exec =
+      std::make_shared<detail::FunctionExecutorImpl>(std::move(inputs), kernel, ctx,
+                                                     std::move(executor), kind(), name_);
+  RETURN_NOT_OK(func_exec->Init(options));
+  return func_exec;
+}
+
+Result<std::shared_ptr<FunctionExecutor>> Function::BestExecutor(
+    const ExecBatch& batch, const FunctionOptions* options, ExecContext* ctx) const {
+  return BestExecutor(batch.values, options, ctx);
+}
+
+Result<Datum> Function::Execute(const std::vector<Datum>& args,
+                                const FunctionOptions* options, ExecContext* ctx) const {
+  return ExecuteInternal(args, /*passed_length=*/-1, options, ctx);
+}
+
+Result<Datum> Function::Execute(const ExecBatch& batch, const FunctionOptions* options,
+                                ExecContext* ctx) const {
+  return ExecuteInternal(batch.values, batch.length, options, ctx);
+}
+
+Result<Datum> Function::ExecuteInternal(const std::vector<Datum>& args,
+                                        int64_t passed_length,
+                                        const FunctionOptions* options,
+                                        ExecContext* ctx) const {
+  if (ctx == nullptr) {
+    ExecContext default_ctx;
+    return ExecuteInternal(args, passed_length, options, &default_ctx);
   }
 
-  RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
-
-  detail::DatumAccumulator listener;
-
-  ExecBatch input(std::move(args_with_casts), /*length=*/0);
-  if (input.num_values() == 0) {
-    if (passed_length != -1) {
-      input.length = passed_length;
-    }
-  } else {
-    bool all_same_length = false;
-    int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
-    input.length = inferred_length;
-    if (kind() == Function::SCALAR) {
-      DCHECK(passed_length == -1 || passed_length == inferred_length);
-    } else if (kind() == Function::VECTOR) {
-      auto vkernel = static_cast<const VectorKernel*>(kernel);
-      if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
-        return Status::Invalid("Vector kernel arguments must all be the same length");
-      }
-    }
-  }
-  RETURN_NOT_OK(executor->Execute(input, &listener));
-  const auto out = executor->WrapResults(input.values, listener.values());
-#ifndef NDEBUG
-  DCHECK_OK(executor->CheckResultType(out, name_.c_str()));
-#endif
-  return out;
+  ARROW_ASSIGN_OR_RAISE(auto executor, BestExecutor(args, options, ctx));
+  return executor->Execute(args, passed_length);
 }
 
 namespace {

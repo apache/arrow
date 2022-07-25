@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
+#include <iostream>
 #include <mutex>
 
 #include "arrow/compute/exec.h"
@@ -23,6 +23,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -308,7 +309,7 @@ struct RecordBatchSourceNode : public SourceNode {
       return Status::Invalid(kKindName, " requires schema which is not null");
     }
     if (io_executor == NULLPTR) {
-      return Status::Invalid(kKindName, " requires IO-context which is not null");
+      return Status::Invalid(kKindName, " requires IO-executor which is not null");
     }
 
     return Status::OK();
@@ -317,10 +318,9 @@ struct RecordBatchSourceNode : public SourceNode {
   static Result<arrow::AsyncGenerator<util::optional<ExecBatch>>> RecordBatchGenerator(
       Iterator<std::shared_ptr<RecordBatch>>& batch_it,
       arrow::internal::Executor* io_executor, const std::shared_ptr<Schema>& schema) {
-    auto to_exec_batch =
-        [&schema](
-            const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
-      if (batch == NULLPTR || batch->schema() != schema) {
+    auto to_exec_batch = [schema](
+        const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
+      if (batch == NULLPTR || *batch->schema() != *schema) {
         return util::nullopt;
       }
       return util::optional<ExecBatch>(ExecBatch(*batch));
@@ -364,7 +364,7 @@ struct ExecBatchSourceNode : public SourceNode {
       return Status::Invalid(kKindName, " requires schema which is not null");
     }
     if (io_executor == NULLPTR) {
-      return Status::Invalid(kKindName, " requires IO-context which is not null");
+      return Status::Invalid(kKindName, " requires IO-executor which is not null");
     }
 
     return Status::OK();
@@ -416,7 +416,7 @@ struct ArrayVectorSourceNode : public SourceNode {
       return Status::Invalid(kKindName, " requires schema which is not null");
     }
     if (io_executor == NULLPTR) {
-      return Status::Invalid(kKindName, " requires IO-context which is not null");
+      return Status::Invalid(kKindName, " requires IO-executor which is not null");
     }
 
     return Status::OK();
@@ -448,14 +448,11 @@ struct ArrayVectorSourceNode : public SourceNode {
 
 const char ArrayVectorSourceNode::kKindName[] = "ArrayVectorSourceNode";
 
-Result<std::shared_ptr<RecordBatch>> MakeDatumRecordBatch(std::shared_ptr<Schema> schema,
-                                                          Datum& datum) {
-  if (!datum.is_array()) {
-    return Status::Invalid("datum of non-array kind");
-  }
-  ArrayData* data = datum.mutable_array();
+Result<std::shared_ptr<RecordBatch>> RecordBatchFromArray(
+    std::shared_ptr<Schema> schema, std::shared_ptr<Array> array) {
+  auto& data = const_cast<std::shared_ptr<ArrayData>&>(array->data());
   if (data->child_data.size() != static_cast<size_t>(schema->num_fields())) {
-    return Status::Invalid("data with shape not conforming to schema");
+    return Status::Invalid("UDF result with shape not conforming to schema");
   }
   return RecordBatch::Make(std::move(schema), data->length, std::move(data->child_data));
 }
@@ -490,18 +487,32 @@ Result<ExecNode*> MakeFunctionSourceNode(ExecPlan* plan, std::vector<ExecNode*> 
   }
   auto fields = checked_cast<const StructType*>(datatype.get())->fields();
   auto schema = ::arrow::schema(fields);
+  auto exec_context = plan->exec_context();
+  std::vector<Datum> args;
   if (source_node_factory == "record_source") {
-    auto next_func = [function_name, schema]() -> Result<std::shared_ptr<RecordBatch>> {
+    ARROW_ASSIGN_OR_RAISE(auto func_exec,
+                          GetFunctionExecutor(function_name, args, exec_context));
+    auto next_func = [schema, function_name,
+                      func_exec]() -> Result<std::shared_ptr<RecordBatch>> {
       std::vector<Datum> args;
-      ARROW_ASSIGN_OR_RAISE(auto datum, CallFunction(function_name, args));
-      return MakeDatumRecordBatch(std::move(schema), datum);
+      // passed_length of -1 or 0 with args.size() of 0 leads to an empty ExecSpanIterator
+      // in exec.cc and to never invoking the source function, so 1 is passed instead
+      ARROW_ASSIGN_OR_RAISE(auto datum, func_exec->Execute(args, /*passed_length=*/1));
+      if (!datum.is_array()) {
+        return Status::Invalid("UDF result of non-array kind");
+      }
+      std::shared_ptr<Array> array = datum.make_array();
+      if (array->length() == 0) {
+        return IterationTraits<std::shared_ptr<RecordBatch>>::End();
+      }
+      return RecordBatchFromArray(std::move(schema), std::move(array));
     };
     RecordBatchSourceNodeOptions source_node_options{
         schema, [next_func] { return MakeFunctionIterator(next_func); }};
     return MakeExecNode(source_node_factory, plan, std::move(inputs),
                         std::move(source_node_options));
   }
-  return Status::Invalid("source node factory unknown");
+  return Status::Invalid("unsupported source node factory ", source_node_factory);
 }
 
 }  // namespace

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/array/array_nested.h"
+#include "arrow/record_batch.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
@@ -45,6 +47,9 @@ struct ARROW_PYTHON_EXPORT ScalarUdfContext {
   MemoryPool* pool;
   int64_t batch_length;
 };
+
+Result<std::shared_ptr<Array>> ArrayFromRecordBatch(
+    std::shared_ptr<RecordBatch> record_batch);
 
 using ScalarUdfWrapperCallback = std::function<PyObject*(
     PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;

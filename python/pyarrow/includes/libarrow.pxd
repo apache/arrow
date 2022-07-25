@@ -2730,6 +2730,8 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py":
         vector[shared_ptr[CDataType]] input_types
         shared_ptr[CDataType] output_type
 
+    CResult[shared_ptr[CArray]] ArrayFromRecordBatch(shared_ptr[CRecordBatch])
+
     CStatus RegisterScalarFunction(PyObject* function,
                                    function[CallbackUdf] wrapper, const CScalarUdfOptions& options,
                                    CFunctionRegistry* registry)

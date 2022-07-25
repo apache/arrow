@@ -129,10 +129,8 @@ def register_udf_declarations(plan, extid_registry, func_registry, udf_decls=Non
         udf_arg_types = udf_decl["input_types"]
         udf_is_tabular = udf_decl["is_tabular"]
         register_function(extid_registry, None, udf_name, udf_name)
-        def udf(ctx, *args):
-            return udf_func(*args)
         (pc.register_tabular_function if udf_is_tabular else pc.register_scalar_function)(
-            udf,
+            udf_func,
             udf_name,
             {"summary": udf_decl["summary"],
                 "description": udf_decl["description"]},
