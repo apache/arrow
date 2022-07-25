@@ -647,7 +647,7 @@ class S3Client : public Aws::S3::S3Client {
       // Note that DefaultRetryStrategy, unlike StandardRetryStrategy,
       // has empty definitions for RequestBookkeeping() and GetSendToken(),
       // which simplifies the code below.
-      retry_strategy = std::static_pointer_cast<Aws::Client::RetryStrategy>(
+      retry_strategy = dynamic_cast<Aws::Client::RetryStrategy*>(
           new Aws::Client::DefaultRetryStrategy());
     }
 
