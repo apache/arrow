@@ -99,9 +99,9 @@ cdef class S3FileSystem(FileSystem):
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
 
-    When S3FileSystem creates new buckets (assuming allow_bucket_creation is 
-    True), it does not pass any non-default settings. In AWS S3, the bucket and 
-    all objects will be not publicly visible, and will have no bucket policies 
+    When S3FileSystem creates new buckets (assuming allow_bucket_creation is
+    True), it does not pass any non-default settings. In AWS S3, the bucket and
+    all objects will be not publicly visible, and will have no bucket policies
     and no resource tags. To have more control over how buckets are created,
     use a different API to create them.
 
@@ -157,11 +157,14 @@ cdef class S3FileSystem(FileSystem):
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
     allow_bucket_creation : bool, default False
-        Whether to allow CreateDir at the bucket-level. This option may also be 
+        Whether to allow CreateDir at the bucket-level. This option may also be
         passed in a URI query parameter.
     allow_bucket_deletion : bool, default False
-        Whether to allow DeleteDir at the bucket-level. This option may also be 
+        Whether to allow DeleteDir at the bucket-level. This option may also be
         passed in a URI query parameter.
+    stock_retry_strategy : str, default None
+        The name of the AWS stock retry strategy to use with S3.  Valid values
+        are "standard" and "adaptive". Ignore with None.
 
     Examples
     --------
@@ -183,7 +186,8 @@ cdef class S3FileSystem(FileSystem):
                  endpoint_override=None, bint background_writes=True,
                  default_metadata=None, role_arn=None, session_name=None,
                  external_id=None, load_frequency=900, proxy_options=None,
-                 allow_bucket_creation=False, allow_bucket_deletion=False):
+                 allow_bucket_creation=False, allow_bucket_deletion=False,
+                 stock_retry_strategy=None):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -284,6 +288,14 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
 
+        if stock_retry_strategy:
+            if stock_retry_strategy == "standard":
+                options.retry_strategy = make_shared[CAwsClientStandardRetryStrategy]()
+            elif stock_retry_strategy == "adaptive":
+                options.retry_strategy = make_shared[CAwsClientAdaptiveRetryStrategy]()
+            elif isinstance(stock_retry_strategy, str):
+                raise ValueError(f"Unknown 'stock_retry_strategy': \"{stock_retry_strategy}\"")
+
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
 
@@ -336,6 +348,7 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
+                stock_retry_strategy=opts.stock_retry_strategy,
             ),)
         )
 
