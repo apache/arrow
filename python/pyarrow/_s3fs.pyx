@@ -162,9 +162,10 @@ cdef class S3FileSystem(FileSystem):
     allow_bucket_deletion : bool, default False
         Whether to allow DeleteDir at the bucket-level. This option may also be 
         passed in a URI query parameter.
-    stock_retry_strategy : enum, default CAwsStockRetryStrategy.None
-        The name of the AWS stock retry strategy to use with S3.  Valid values
-        are 'Standard', 'Default', 'Adaptive', 'None'. Ignore with 'None'.
+    retry_strategy_name : str, default None
+        The name of the retry strategy to use with S3.  Uses the default legacy
+        strategy if not specified. Examples: "StandardRetryStrategy",
+        "AdaptiveRetryStrategy", "DefaultRetryStrategy"
 
     Examples
     --------
@@ -187,7 +188,7 @@ cdef class S3FileSystem(FileSystem):
                  default_metadata=None, role_arn=None, session_name=None,
                  external_id=None, load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
-                 stock_retry_strategy=CAwsStockRetryStrategy.None):
+                 retry_strategy_name=None):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -287,7 +288,9 @@ cdef class S3FileSystem(FileSystem):
 
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
-        options.stock_retry_strategy = stock_retry_strategy
+
+        if retry_strategy_name is not None:
+            options.retry_strategy_name = retry_strategy_name
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
@@ -333,7 +336,7 @@ cdef class S3FileSystem(FileSystem):
                 background_writes=opts.background_writes,
                 allow_bucket_creation=opts.allow_bucket_creation,
                 allow_bucket_deletion=opts.allow_bucket_deletion,
-                stock_retry_strategy=opts.stock_retry_strategy,
+                retry_strategy_name=opts.retry_strategy_name,
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),

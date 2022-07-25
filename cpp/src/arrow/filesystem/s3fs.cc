@@ -726,23 +726,14 @@ class ClientBuilder {
     } else {
       return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
     }
-    switch (options_.stock_retry_strategy) {
-      case Standard:
-        client_config_.retryStrategy = new Aws::Client::StandardRetryStrategy();
-        break;
-      case Adaptive:
-        client_config_.retryStrategy = new Aws::Client::AdaptiveRetryStrategy();
-        break;
-      case Default:
-        client_config_.retryStrategy = new Aws::Client::DefaultRetryStrategy();
-        break;
-      default:
-        if (options_.retry_strategy) {
-          client_config_.retryStrategy =
-              std::make_shared<WrappedRetryStrategy>(options_.retry_strategy);
-        } else {
-          client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
-        }
+    if (!options_.retry_strategy_name.empty()) {
+      client_config_.retryStrategy =
+          Aws::Client::InitRetryStrategy(options_.retry_strategy_name);
+    } else if (options_.retry_strategy) {
+      client_config_.retryStrategy =
+          std::make_shared<WrappedRetryStrategy>(options_.retry_strategy);
+    } else {
+      client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
     }
     if (!internal::global_options.tls_ca_file_path.empty()) {
       client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
