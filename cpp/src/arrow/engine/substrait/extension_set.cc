@@ -445,6 +445,7 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
              "add",
              "equal",
              "is_not_distinct_from",
+             "hash_count",
          }) {
       DCHECK_OK(RegisterFunction({kArrowExtTypesUri, name}, name.to_string()));
     }
