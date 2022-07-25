@@ -56,14 +56,86 @@ std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
       });
 }
 
-std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
-                 const std::shared_ptr<compute::ExecNode>& final_node,
-                 cpp11::list sort_options, cpp11::strings metadata, int64_t head = -1) {
-  // a section of this code is copied and used in ExecPlan_BuildAndShow - the 2 need
-  // to be in sync
-  // Start of chunk used in ExecPlan_BuildAndShow
+class ExecPlanReader : public arrow::RecordBatchReader {
+ public:
+  ExecPlanReader(
+      const std::shared_ptr<arrow::compute::ExecPlan>& plan,
+      const std::shared_ptr<arrow::Schema>& schema,
+      arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen)
+      : schema_(schema), plan_(plan), sink_gen_(sink_gen), status_(0) {}
 
+  std::shared_ptr<arrow::Schema> schema() const { return schema_; }
+
+  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch_out) {
+    // TODO(ARROW-11841) check a StopToken to potentially cancel this plan
+
+    // If this is the first batch getting pulled, tell the exec plan to
+    // start producing
+    if (status_ == 0) {
+      ARROW_RETURN_NOT_OK(StartProducing());
+    }
+
+    // If we've closed the reader, this is invalid
+    if (status_ == 2) {
+      return arrow::Status::Invalid("ExecPlanReader has been closed");
+    }
+
+    auto out = sink_gen_().result();
+    ARROW_RETURN_NOT_OK(out);
+    if (out.ValueUnsafe()) {
+      auto batch_result = out.ValueUnsafe()->ToRecordBatch(schema_, gc_memory_pool());
+      ARROW_RETURN_NOT_OK(batch_result);
+      *batch_out = batch_result.ValueUnsafe();
+    } else {
+      batch_out->reset();
+    }
+
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Close() {
+    if (status_ == 2) {
+      return arrow::Status::Invalid("ExecPlanReader has been closed");
+    }
+
+    StopProducing();
+    return arrow::Status::OK();
+  }
+
+  const std::shared_ptr<arrow::compute::ExecPlan>& Plan() { return plan_; }
+
+  ~ExecPlanReader() { StopProducing(); }
+
+ private:
+  std::shared_ptr<arrow::Schema> schema_;
+  std::shared_ptr<arrow::compute::ExecPlan> plan_;
+  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen_;
+  int status_;
+
+  arrow::Status StartProducing() {
+    ARROW_RETURN_NOT_OK(plan_->StartProducing());
+    status_ = 1;
+    return arrow::Status::OK();
+  }
+
+  void StopProducing() {
+    if (status_ == 1) {
+      bool not_finished_yet =
+          plan_->finished().TryAddCallback([] { return [](const arrow::Status&) {}; });
+
+      if (not_finished_yet) {
+        plan_->StopProducing();
+      }
+
+      status_ = 2;
+    }
+  }
+};
+
+std::shared_ptr<ExecPlanReader> ExecPlan_prepare(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
+    cpp11::strings metadata, int64_t head = -1) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
@@ -92,21 +164,7 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
                        compute::SinkNodeOptions{&sink_gen});
   }
 
-  // End of chunk used in ExecPlan_BuildAndShow
-
   StopIfNotOk(plan->Validate());
-
-  // If the generator is destroyed before being completely drained, inform plan
-  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-                                         bool not_finished_yet =
-                                             plan->finished().TryAddCallback([&plan] {
-                                               return [plan](const arrow::Status&) {};
-                                             });
-
-                                         if (not_finished_yet) {
-                                           plan->StopProducing();
-                                         }
-                                       }};
 
   // Attach metadata to the schema
   auto out_schema = final_node->output_schema();
@@ -115,13 +173,7 @@ ExecPlan_prepare(const std::shared_ptr<compute::ExecPlan>& plan,
     out_schema = out_schema->WithMetadata(kv);
   }
 
-  std::pair<std::shared_ptr<compute::ExecPlan>, std::shared_ptr<arrow::RecordBatchReader>>
-      out;
-  out.first = plan;
-  out.second = compute::MakeGeneratorReader(
-      out_schema, [stop_producing, plan, sink_gen] { return sink_gen(); },
-      gc_memory_pool());
-  return out;
+  return std::make_shared<ExecPlanReader>(plan, out_schema, std::move(sink_gen));
 }
 
 // [[arrow::export]]
@@ -129,9 +181,7 @@ std::shared_ptr<arrow::RecordBatchReader> ExecPlan_run(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
     cpp11::strings metadata, int64_t head = -1) {
-  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-  StopIfNotOk(prepared_plan.first->StartProducing());
-  return prepared_plan.second;
+  return ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
 }
 
 // [[arrow::export]]
@@ -139,12 +189,10 @@ std::shared_ptr<arrow::Table> ExecPlan_read_table(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
     cpp11::strings metadata, int64_t head = -1) {
-  auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
-
+  auto reader = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
   auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
       [&]() -> arrow::Result<std::shared_ptr<arrow::Table>> {
-        ARROW_RETURN_NOT_OK(prepared_plan.first->StartProducing());
-        return prepared_plan.second->ToTable();
+        return reader->ToTable();
       });
 
   return ValueOrStop(result);
@@ -164,41 +212,10 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 // [[arrow::export]]
 std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan,
                                   const std::shared_ptr<compute::ExecNode>& final_node,
-                                  cpp11::list sort_options, int64_t head = -1) {
-  // a section of this code is copied from ExecPlan_prepare - the 2 need to be in sync
-  // Start of chunk copied from ExecPlan_prepare
-
-  // For now, don't require R to construct SinkNodes.
-  // Instead, just pass the node we should collect as an argument.
-  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-
-  // Sorting uses a different sink node; there is no general sort yet
-  if (sort_options.size() > 0) {
-    if (head >= 0) {
-      // Use the SelectK node to take only what we need
-      MakeExecNodeOrStop(
-          "select_k_sink", plan.get(), {final_node.get()},
-          compute::SelectKSinkNodeOptions{
-              arrow::compute::SelectKOptions(
-                  head, std::dynamic_pointer_cast<compute::SortOptions>(
-                            make_compute_options("sort_indices", sort_options))
-                            ->sort_keys),
-              &sink_gen});
-    } else {
-      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
-                         compute::OrderBySinkNodeOptions{
-                             *std::dynamic_pointer_cast<compute::SortOptions>(
-                                 make_compute_options("sort_indices", sort_options)),
-                             &sink_gen});
-    }
-  } else {
-    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
-                       compute::SinkNodeOptions{&sink_gen});
-  }
-
-  // End of chunk copied from ExecPlan_prepare
-
-  return plan->ToString();
+                                  cpp11::list sort_options, cpp11::strings metadata,
+                                  int64_t head = -1) {
+  auto reader = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
+  return reader->Plan()->ToString();
 }
 
 #if defined(ARROW_R_WITH_DATASET)

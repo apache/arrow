@@ -309,6 +309,7 @@ ExecPlan <- R6Class("ExecPlan",
         self,
         node,
         sorting,
+        character(),
         select_k
       )
     },
