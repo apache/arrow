@@ -1724,6 +1724,10 @@ RecordBatchReader__schema <- function(reader) {
   .Call(`_arrow_RecordBatchReader__schema`, reader)
 }
 
+RecordBatchReader__Close <- function(reader) {
+  invisible(.Call(`_arrow_RecordBatchReader__Close`, reader))
+}
+
 RecordBatchReader__ReadNext <- function(reader) {
   .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
 }

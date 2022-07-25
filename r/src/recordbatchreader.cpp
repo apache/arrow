@@ -28,6 +28,11 @@ std::shared_ptr<arrow::Schema> RecordBatchReader__schema(
 }
 
 // [[arrow::export]]
+void RecordBatchReader__Close(const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  return arrow::StopIfNotOk(reader->Close());
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;

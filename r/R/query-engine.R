@@ -229,7 +229,7 @@ ExecPlan <- R6Class("ExecPlan",
         slice_size <- node$extras$head %||% node$extras$tail
         if (!is.null(slice_size)) {
           out_head <- head(out, slice_size)
-
+          out$Close()
           out <- out_head
         }
       } else if (!is.null(node$extras$tail)) {
