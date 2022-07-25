@@ -161,7 +161,12 @@ test_that("strptime", {
     "%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
     "%S", "%q", "%M", "%I%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z"
   )
+  formats2 <- c(
+    "a", "A", "b", "B", "d", "H", "j", "m", "Om", "T", "OS", "Ip",
+    "S", "q", "M", "Ip", "U", "w", "W", "y", "Y", "r", "R", "Tz"
+  )
   base_format <- c("%Y-%m-%d")
+  base_format2 <- c("ymd")
 
   for (fmt in formats) {
     fmt <- paste(base_format, fmt)
@@ -176,6 +181,31 @@ test_that("strptime", {
         collect()
     )
   }
+
+  for (fmt in formats2) {
+    fmt2 <- paste(base_format2, fmt)
+    fmt <- paste(base_format, paste0("%", fmt))
+    test_df <- tibble::tibble(x = strftime(times, format = fmt))
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+          mutate(x = strptime(x, format = fmt2)) %>%
+          collect(),
+      test_df %>%
+        mutate(x = as.POSIXct(strptime(x, format = fmt2))) %>%
+        collect()
+    )
+  }
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%b-d-%T")
+      ) %>%
+      collect(),
+    tibble::tibble(string_1 = c("2022-Feb-11-12:23:45", NA))
+  )
+
 })
 
 test_that("strptime returns NA when format doesn't match the data", {
@@ -2664,10 +2694,14 @@ test_that("build_formats() and build_format_from_order()", {
     )
   )
 
-  # ab not supported yet
-  expect_error(
-    build_formats("abd"),
-    '"abd" `orders` not supported in Arrow'
+  expect_equal(
+    build_format_from_order("abp"),
+    c("%a", "%b","%p", "%a", "%b", "%p")
+  )
+
+  expect_equal(
+    build_format_from_order("uYM"),
+    c("%y-%M", "%Y-%M", "%y%M", "%Y%M")
   )
 
   expect_error(
@@ -2710,6 +2744,20 @@ test_that("build_formats() and build_format_from_order()", {
       "%Y-%B-%d-%H", "%y-%b-%d-%H", "%Y-%b-%d-%H",
       "%y%m%d%H", "%Y%m%d%H", "%y%B%d%H", "%Y%B%d%H",
       "%y%b%d%H", "%Y%b%d%H"
+    )
+  )
+
+  expect_equal(
+    build_formats("y-%b-d-%T"),
+    c("%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S", "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
+  )
+
+  expect_equal(
+    build_formats("%YdmH%p"),
+    c(
+      "%y-%d-%m-%H-%p", "%Y-%d-%m-%H-%p", "%y-%d-%B-%H-%p", "%Y-%d-%B-%H-%p",
+      "%y-%d-%b-%H-%p", "%Y-%d-%b-%H-%p", "%y%d%m%H%p", "%Y%d%m%H%p",
+      "%y%d%B%H%p", "%Y%d%B%H%p", "%y%d%b%H%p", "%Y%d%b%H%p"
     )
   )
 })

@@ -158,32 +158,13 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 #'
 #' @noRd
 build_formats <- function(orders) {
-  # only keep the letters and the underscore as separator -> allow the users to
-  # pass strptime-like formats (with "%"). We process the data -> we need to
-  # process the `orders` (even if supplied in the desired format)
-  # Processing is needed (instead of passing
-  # formats as-is) due to the processing of the character vector in parse_date_time()
-  orders <- gsub("[^A-Za-z]", "", orders)
-  orders <- gsub("Y", "y", orders)
-
-  invalid_orders <- nchar(gsub("[ymdqIHMS]", "", orders)) > 0
-  if (any(invalid_orders)) {
-      arrow_not_supported(
-        paste0(
-          oxford_paste(
-            orders[invalid_orders]
-          ),
-          " `orders`"
-        )
-      )
-  }
-
   # we separate "ym', "my", and "yq" from the rest of the `orders` vector and
   # transform them. `ym` and `yq` -> `ymd` & `my` -> `myd`
   # this is needed for 2 reasons:
   # 1. strptime does not parse "2022-05" -> we add "-01", thus changing the format,
   # 2. for equivalence to lubridate, which parses `ym` to the first day of the month
-  short_orders <- c("ym", "my")
+  short_orders <- c("ym", "my", "Ym", "mY")
+  quarter_orders <- c("yq", "Yq", "qy", "qY")
 
   if (any(orders %in% short_orders)) {
     orders1 <- setdiff(orders, short_orders)
@@ -191,20 +172,26 @@ build_formats <- function(orders) {
     orders2 <- paste0(orders2, "d")
     orders <- unique(c(orders2, orders1))
   }
-
-  if (any(orders == "yq")) {
-    orders1 <- setdiff(orders, "yq")
-    orders2 <- "ymd"
-    orders <- unique(c(orders1, orders2))
+  if (any(orders %in% quarter_orders)) {
+    orders <- c(setdiff(orders, quarter_orders), "ymd")
   }
-
-  if (any(orders == "qy")) {
-    orders1 <- setdiff(orders, "qy")
-    orders2 <- "ymd"
-    orders <- unique(c(orders1, orders2))
-  }
+  orders <- unique(orders)
 
   formats_list <- map(orders, build_format_from_order)
+  formats_length <- map(map(formats_list, nchar), max)
+  invalid_orders <- formats_length < 6
+
+  if (any(invalid_orders)) {
+    arrow_not_supported(
+      paste0(
+        oxford_paste(
+          orders[invalid_orders]
+        ),
+        " `orders`"
+      )
+    )
+  }
+
   formats <- purrr::flatten_chr(formats_list)
   unique(formats)
 }
@@ -219,25 +206,29 @@ build_formats <- function(orders) {
 #' @noRd
 build_format_from_order <- function(order) {
   char_list <- list(
+    "T" = "%H-%M-%S",
+    "%T" = "%H-%M-%S",
     "y" = c("%y", "%Y"),
+    "Y" = c("%y", "%Y"),
     "m" = c("%m", "%B", "%b"),
-    "d" = "%d",
-    "H" = "%H",
-    "M" = "%M",
-    "S" = "%S",
-    "I" = "%I"
+    "%Y" = c("%y", "%Y"),
+    "%m" = c("%m", "%B", "%b")
   )
 
-  split_order <- strsplit(order, split = "")[[1]]
+  available_formats <- strsplit("aAbBdHjmTpSqMIUwWyYrRz", "")[[1]]
+  formats <- stringr::str_extract_all(order,
+    "(%[a|A|b|B|d|H|j|m|T|p|S|q|M|I|U|w|W|y|Y|r|R|z])|([aAbBdHjmTpSqMIUwWyYrRz])")[[1]]
+  formats <- ifelse(formats %in% names(char_list), char_list[formats], formats)
+  formats <- ifelse(formats %in% available_formats, paste0("%", formats, ""), formats)
+  formats <- expand.grid(formats)
 
-  outcome <- expand.grid(char_list[split_order])
   # we combine formats with and without the "-" separator, we will later
   # coalesce through all of them (benchmarking indicated this is a more
   # computationally efficient approach rather than figuring out if a string has
   # separators or not and applying only )
   # during parsing if the string to be parsed does not contain a separator
-  formats_with_sep <- do.call(paste, c(outcome, sep = "-"))
-  formats_without_sep <- do.call(paste, c(outcome, sep = ""))
+  formats_with_sep <- do.call(paste, c(formats, sep = "-"))
+  formats_without_sep <- gsub("-", "", formats_with_sep)
   c(formats_with_sep, formats_without_sep)
 }
 
