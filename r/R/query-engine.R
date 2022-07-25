@@ -194,13 +194,11 @@ ExecPlan <- R6Class("ExecPlan",
       }
       node
     },
-    Run = function(node, as_table = FALSE) {
-      # a section of this code is used by `BuildAndShow()` too - the 2 need to be in sync
-      # Start of chunk used in `BuildAndShow()`
+    Run = function(node) {
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
-      # created in ExecPlan_run
+      # created in ExecPlan_build
       sorting <- node$extras$sort %||% list()
       select_k <- node$extras$head %||% -1L
       has_sorting <- length(sorting) > 0
@@ -214,16 +212,7 @@ ExecPlan <- R6Class("ExecPlan",
         sorting$orders <- as.integer(sorting$orders)
       }
 
-      # End of chunk used in `BuildAndShow()`
-
-      # If we are going to return a Table anyway, we do this in one step and
-      # entirely in one C++ call to ensure that we can execute user-defined
-      # functions from the worker threads spawned by the ExecPlan. If not, we
-      # use ExecPlan_run which returns a RecordBatchReader that can be
-      # manipulated in R code (but that right now won't work with
-      # user-defined functions).
-      exec_fun <- if (as_table) ExecPlan_read_table else ExecPlan_run
-      out <- exec_fun(
+      out <- ExecPlan_run(
         self,
         node,
         sorting,
@@ -239,19 +228,16 @@ ExecPlan <- R6Class("ExecPlan",
         # TODO(ARROW-16628): handle limit in ExecNode
         slice_size <- node$extras$head %||% node$extras$tail
         if (!is.null(slice_size)) {
-          out <- head(out, slice_size)
-          # We already have everything we need for the head, so StopProducing
-          self$Stop()
+          out_head <- head(out, slice_size)
+
+          out <- out_head
         }
       } else if (!is.null(node$extras$tail)) {
         # TODO(ARROW-16630): proper BottomK support
         # Reverse the row order to get back what we expect
         out <- as_arrow_table(out)
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
-        # Put back into RBR
-        if (!as_table) {
-          out <- as_record_batch_reader(out)
-        }
+        out <- as_record_batch_reader(out)
       }
 
       # If arrange() created $temp_columns, make sure to omit them from the result
@@ -261,11 +247,7 @@ ExecPlan <- R6Class("ExecPlan",
       if (length(node$extras$sort$temp_columns) > 0) {
         tab <- as_arrow_table(out)
         tab <- tab[, setdiff(names(tab), node$extras$sort$temp_columns), drop = FALSE]
-        if (!as_table) {
-          out <- as_record_batch_reader(tab)
-        } else {
-          out <- tab
-        }
+        out <- as_record_batch_reader(tab)
       }
 
       out
@@ -312,8 +294,7 @@ ExecPlan <- R6Class("ExecPlan",
         character(),
         select_k
       )
-    },
-    Stop = function() ExecPlan_StopProducing(self)
+    }
   )
 )
 # nolint end.

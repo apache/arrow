@@ -893,15 +893,6 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
-void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan);
-extern "C" SEXP _arrow_ExecPlan_StopProducing(SEXP plan_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
-	ExecPlan_StopProducing(plan);
-	return R_NilValue;
-END_CPP11
-}
-// compute-exec.cpp
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(const std::shared_ptr<compute::ExecNode>& node);
 extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 BEGIN_CPP11
@@ -5289,7 +5280,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecPlan_create", (DL_FUNC) &_arrow_ExecPlan_create, 1}, 
 		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 5}, 
 		{ "_arrow_ExecPlan_read_table", (DL_FUNC) &_arrow_ExecPlan_read_table, 5}, 
-		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
 		{ "_arrow_ExecPlan_BuildAndShow", (DL_FUNC) &_arrow_ExecPlan_BuildAndShow, 5}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 

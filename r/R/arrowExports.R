@@ -412,10 +412,6 @@ ExecPlan_read_table <- function(plan, final_node, sort_options, metadata, head) 
   .Call(`_arrow_ExecPlan_read_table`, plan, final_node, sort_options, metadata, head)
 }
 
-ExecPlan_StopProducing <- function(plan) {
-  invisible(.Call(`_arrow_ExecPlan_StopProducing`, plan))
-}
-
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }

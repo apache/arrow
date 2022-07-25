@@ -199,11 +199,6 @@ std::shared_ptr<arrow::Table> ExecPlan_read_table(
 }
 
 // [[arrow::export]]
-void ExecPlan_StopProducing(const std::shared_ptr<compute::ExecPlan>& plan) {
-  plan->StopProducing();
-}
-
-// [[arrow::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<compute::ExecNode>& node) {
   return node->output_schema();
