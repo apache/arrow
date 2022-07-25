@@ -125,7 +125,7 @@ python setup.py develop -q || exit /B
 
 set PYTHONDEVMODE=1
 
-py.test -s --durations=15 --pyargs pyarrow.tests || exit /B
+py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 
 @rem
 @rem Wheels are built and tested separately (see ARROW-5142).
