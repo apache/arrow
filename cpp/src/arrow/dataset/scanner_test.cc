@@ -766,6 +766,12 @@ TEST_P(TestScanner, FromReader) {
         Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
         std::move(maybe_batch_it));
   }
+
+  // TODO(ARROW-16072) At the moment, we can't be sure that the scanner has completely
+  // shutdown, even though the plan has finished, because errors are not handled cleanly
+  // in the scanner/execplan relationship.  Once ARROW-16072 is fixed this should be
+  // reliable and we can get rid of this.  See also ARROW-17198
+  ::arrow::internal::GetCpuThreadPool()->WaitForIdle();
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
