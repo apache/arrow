@@ -20,7 +20,7 @@
 set -ex
 
 arrow_dir=${1}
-build_dir=${2}
+build_dir=${2}/java_jni
 # The directory where the final binaries will be stored when scripts finish
 dist_dir=${3}
 
@@ -34,12 +34,9 @@ pushd "${build_dir}"
 
 cmake \
   -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-release} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_INSTALL_PREFIX=${build_dir} \
-  ${arrow_dir}/java/c
+  -DCMAKE_INSTALL_PREFIX=${dist_dir} \
+  -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+  ${JAVA_JNI_CMAKE_ARGS:-} \
+  ${arrow_dir}/java
 cmake --build . --target install --config ${ARROW_BUILD_TYPE:-release}
 popd
-
-echo "=== Copying libraries to the distribution folder ==="
-mkdir -p "${dist_dir}"
-cp -L ${build_dir}/lib/*arrow_cdata_jni.* ${dist_dir}
