@@ -228,9 +228,7 @@ ExecPlan <- R6Class("ExecPlan",
         # TODO(ARROW-16628): handle limit in ExecNode
         slice_size <- node$extras$head %||% node$extras$tail
         if (!is.null(slice_size)) {
-          out_head <- head(out, slice_size)
-          out$Close()
-          out <- out_head
+          out <- head(out, slice_size)
         }
       } else if (!is.null(node$extras$tail)) {
         # TODO(ARROW-16630): proper BottomK support
