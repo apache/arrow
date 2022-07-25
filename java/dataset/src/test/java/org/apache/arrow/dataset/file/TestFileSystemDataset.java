@@ -101,17 +101,17 @@ public class TestFileSystemDataset extends TestNativeDataset {
     FileSystemDatasetFactory factory1 = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI(), 0, 0);
     List<ArrowRecordBatch> datum1 = collectResultFromFactory(factory1, options);
-    assertEquals(0, datum1.size());
+    assertEquals(0, datum1.stream().mapToInt(ArrowRecordBatch::getLength).sum());
 
     FileSystemDatasetFactory factory2 = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI(), 0, 100000);
     List<ArrowRecordBatch> datum2 = collectResultFromFactory(factory2, options);
-    assertEquals(1, datum2.size());
+    assertEquals(1, datum2.stream().mapToInt(ArrowRecordBatch::getLength).sum());
 
     FileSystemDatasetFactory factory3 = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI(), 100000, 100000);
     List<ArrowRecordBatch> datum3 = collectResultFromFactory(factory3, options);
-    assertEquals(0, datum3.size());
+    assertEquals(0, datum3.stream().mapToInt(ArrowRecordBatch::getLength).sum());
 
     AutoCloseables.close(datum1, datum2, datum3);
   }
