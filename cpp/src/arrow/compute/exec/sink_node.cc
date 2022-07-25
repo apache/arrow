@@ -533,8 +533,6 @@ namespace internal {
 
 void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("select_k_sink", OrderBySinkNode::MakeSelectK));
-  DCHECK_OK(
-      registry->AddFactory("order_and_fetch_sink", OrderBySinkNode::MakeSortAndFetch));
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
