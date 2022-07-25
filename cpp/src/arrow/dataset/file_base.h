@@ -64,8 +64,7 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
         length_(-1),
         compression_(compression) {}
 
-  FileSource(std::string path,
-             std::shared_ptr<fs::FileSystem> filesystem,
+  FileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
              int64_t start_offset, int64_t length,
              Compression::type compression = Compression::UNCOMPRESSED)
       : file_info_(std::move(path)),
@@ -116,13 +115,9 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
   /// \brief Return the filesystem, if any. Otherwise returns nullptr
   const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
 
-  int64_t start_offset() const {
-    return start_offset_;
-  }
+  int64_t start_offset() const { return start_offset_; }
 
-  int64_t length() const {
-    return length_;
-  }
+  int64_t length() const { return length_; }
 
   /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
   const std::shared_ptr<Buffer>& buffer() const { return buffer_; }

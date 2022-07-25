@@ -620,15 +620,16 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
           r_start = leading_cc->dictionary_page_offset();
         }
         int64_t r_bytes = 0L;
-        for (int col_id = 0; col_id < parquet_reader->RowGroup(i)
-            ->metadata()->num_columns();
-             col_id++) {
-          r_bytes += parquet_reader->
-              RowGroup(i)->metadata()->ColumnChunk(col_id)->total_compressed_size();
+        for (int col_id = 0;
+             col_id < parquet_reader->RowGroup(i)->metadata()->num_columns(); col_id++) {
+          r_bytes += parquet_reader->RowGroup(i)
+                         ->metadata()
+                         ->ColumnChunk(col_id)
+                         ->total_compressed_size();
         }
         int64_t midpoint = r_start + r_bytes / 2;
-        if (midpoint >= source.start_offset()
-            && midpoint < (source.start_offset() + source.length())) {
+        if (midpoint >= source.start_offset() &&
+            midpoint < (source.start_offset() + source.length())) {
           random_read_selected_row_groups.push_back(i);
         }
       }

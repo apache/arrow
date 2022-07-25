@@ -495,8 +495,8 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
  */
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
-    JNIEnv* env, jobject, jstring uri, jint file_format_id,
-    jlong start_offset, jlong length) {
+    JNIEnv* env, jobject, jstring uri, jint file_format_id, jlong start_offset,
+    jlong length) {
   JNI_METHOD_START
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));
