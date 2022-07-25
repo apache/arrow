@@ -69,17 +69,8 @@ enum class S3CredentialsKind : int8_t {
   WebIdentity
 };
 
-/// Enum representation of stock AWS retry strategies
-enum class AwsStockRetryStrategy : int8_t {
-  /// Corresponds to AWS::Client::StandardRetryStrategy
-  Standard,
-  /// Corresponds to AWS::Client::AdaptiveRetryStrategy
-  Adaptive,
-  /// Corresponds to AWS::Client::DefaultRetryStrategy
-  Default,
-  /// Used if you do not want to select a stock strategy
-  None
-};
+// Enum representation of stock AWS retry strategies
+enum AwsStockRetryStrategy { Standard, Adaptive, Default, None };
 
 /// Pure virtual class for describing custom S3 retry strategies
 class S3RetryStrategy {
