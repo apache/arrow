@@ -38,7 +38,7 @@ Once all batches have been delivered the execution plan will wait for the `finis
 before marking the execution plan finished.  This allows for workflows where the consumption function
 converts batches into async tasks (this is currently done internally for the dataset write node).
 
-Example::
+Defining a custom sink node consumer::
 
   // define a Custom SinkNodeConsumer
   std::atomic<uint32_t> batches_seen{0};
