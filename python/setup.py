@@ -308,8 +308,11 @@ class build_ext(_build_ext):
             except OSError:
                 pass
 
-            # helper function
-            def copy_libs(folder_name):
+            # Move libraries to python/pyarrow
+            # For windows builds, move dll from bin
+            try:
+                folder_name, = (name for name in ["lib", "lib64", "bin"]
+                                if os.path.exists(pjoin(build_dir, name)))
                 for libname in os.listdir(pjoin(build_dir, folder_name)):
                     if "python" in libname:
                         libname_path = pjoin(build_lib, "pyarrow", libname)
@@ -320,14 +323,11 @@ class build_ext(_build_ext):
                             f" to {pjoin(build_lib, 'pyarrow', libname)}")
                         shutil.copy(pjoin(build_dir, folder_name, libname),
                                     pjoin(build_lib, "pyarrow"))
-
-            # Move libraries to python/pyarrow
-            # For windows builds, move dll from bin
-            for folder in ['lib', 'lib64', 'bin']:
-                try:
-                    copy_libs(folder)
-                except OSError:
-                    pass
+            except ValueError:
+                print("There are multiple or none libraries for PyArrow cpp ")
+                print("installed in the python/build/dist folder. Check the ")
+                print("installation process and be sure there is exactly one ")
+                print("library folder created")
 
             # Copy headers to python/pyarrow/include
             pyarrow_cpp_include = pjoin(build_include, "arrow", "python")
