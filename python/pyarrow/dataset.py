@@ -422,7 +422,7 @@ def _ensure_single_source(path, filesystem=None):
 def _filesystem_dataset(source, schema=None, filesystem=None,
                         partitioning=None, format=None,
                         partition_base_dir=None, exclude_invalid_files=None,
-                        selector_ignore_prefixes=None):
+                        selector_ignore_prefixes=None, encoding='utf8'):
     """
     Create a FileSystemDataset which can be used to build a Dataset.
 
@@ -433,6 +433,9 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     FileSystemDataset
     """
     format = _ensure_format(format or 'parquet')
+    if encoding != 'utf8':
+        format.default_fragment_scan_options.stream_transform_func(encoding)
+
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
@@ -539,7 +542,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
 
 def dataset(source, schema=None, format=None, filesystem=None,
             partitioning=None, partition_base_dir=None,
-            exclude_invalid_files=None, ignore_prefixes=None):
+            exclude_invalid_files=None, ignore_prefixes=None, encoding='utf8'):
     """
     Open a dataset.
 
@@ -742,7 +745,8 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         format=format,
         partition_base_dir=partition_base_dir,
         exclude_invalid_files=exclude_invalid_files,
-        selector_ignore_prefixes=ignore_prefixes
+        selector_ignore_prefixes=ignore_prefixes,
+        encoding=encoding
     )
 
     if _is_path_like(source):
