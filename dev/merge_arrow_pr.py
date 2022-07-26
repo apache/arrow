@@ -485,7 +485,7 @@ def get_primary_author(cmd, distinct_authors):
     return primary_author, distinct_other_authors
 
 
-def prompt_for_fix_version(cmd, jira_issue, maintenance_branches):
+def prompt_for_fix_version(cmd, jira_issue, maintenance_branches=()):
     (all_versions,
      default_fix_versions) = jira_issue.get_candidate_fix_versions(
         maintenance_branches=maintenance_branches
