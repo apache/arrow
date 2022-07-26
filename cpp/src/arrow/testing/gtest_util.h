@@ -315,11 +315,11 @@ ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 // ArrayFromJSON: construct an Array from a simple JSON representation
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
+std::shared_ptr<Array> ArrayFromJSON(const TypeHolder&,
                                      util::string_view json);
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Array> DictArrayFromJSON(const TypeHolder&,
                                          util::string_view indices_json,
                                          util::string_view dictionary_json);
 
@@ -328,15 +328,15 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
                                                  util::string_view);
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const TypeHolder&,
                                                    const std::vector<std::string>& json);
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
+std::shared_ptr<Scalar> ScalarFromJSON(const TypeHolder&,
                                        util::string_view json);
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>&,
+std::shared_ptr<Scalar> DictScalarFromJSON(const TypeHolder&,
                                            util::string_view index_json,
                                            util::string_view dictionary_json);
 

@@ -190,9 +190,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
 
   // \brief EXPERIMENTAL: Enable retrieving shared_ptr<DataType> from a const
   // context.
-  std::shared_ptr<DataType> GetSharedPtr() const {
-    return const_cast<DataType*>(this)->shared_from_this();
-  }
+  std::shared_ptr<DataType> GetSharedPtr() const;
 
  protected:
   // Dummy version that returns a null string (indicating not implemented).
@@ -224,14 +222,16 @@ struct ARROW_EXPORT TypeHolder {
   TypeHolder(std::shared_ptr<DataType> owned_type)  // NOLINT implicit construction
       : type(owned_type.get()), owned_type(std::move(owned_type)) {}
 
+  template <typename SubType>
+  TypeHolder(std::shared_ptr<SubType> owned_type)  // NOLINT implicit construction
+      : type(owned_type.get()), owned_type(std::move(owned_type)) {}
+
   TypeHolder(const DataType* type)  // NOLINT implicit construction
       : type(type) {}
 
   Type::type id() const { return this->type->id(); }
 
-  std::shared_ptr<DataType> GetSharedPtr() const {
-    return this->type != NULLPTR ? this->type->GetSharedPtr() : NULLPTR;
-  }
+  std::shared_ptr<DataType> GetSharedPtr() const;
 
   const DataType& operator*() const { return *this->type; }
 

@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <functional>
 #include <limits>
-#include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -29,6 +28,7 @@
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
@@ -36,7 +36,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 

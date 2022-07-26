@@ -409,13 +409,13 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
   }
 }
 
-std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Array> ArrayFromJSON(const TypeHolder& type,
                                      util::string_view json) {
   EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
   return out;
 }
 
-std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Array> DictArrayFromJSON(const TypeHolder& type,
                                          util::string_view indices_json,
                                          util::string_view dictionary_json) {
   std::shared_ptr<Array> out;
@@ -424,7 +424,7 @@ std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
   return out;
 }
 
-std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const TypeHolder& type,
                                                    const std::vector<std::string>& json) {
   std::shared_ptr<ChunkedArray> out;
   ABORT_NOT_OK(ipc::internal::json::ChunkedArrayFromJSON(type, json, &out));
@@ -441,14 +441,14 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
   return *RecordBatch::FromStructArray(struct_array);
 }
 
-std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Scalar> ScalarFromJSON(const TypeHolder& type,
                                        util::string_view json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
   return out;
 }
 
-std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
+std::shared_ptr<Scalar> DictScalarFromJSON(const TypeHolder& type,
                                            util::string_view index_json,
                                            util::string_view dictionary_json) {
   std::shared_ptr<Scalar> out;

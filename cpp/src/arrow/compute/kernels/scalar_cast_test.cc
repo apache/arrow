@@ -45,7 +45,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 
 namespace arrow {
@@ -2209,16 +2209,15 @@ TEST(Cast, ListToListOptionsPassthru) {
   }
 }
 
-static void CheckStructToStruct(
-    const std::vector<std::shared_ptr<DataType>>& value_types) {
-  for (const auto& src_value_type : value_types) {
-    for (const auto& dest_value_type : value_types) {
+static void CheckStructToStruct(const std::vector<const DataType*>& value_types) {
+  for (const DataType* src_value_type : value_types) {
+    for (const DataType* dest_value_type : value_types) {
       std::vector<std::string> field_names = {"a", "b"};
       std::shared_ptr<Array> a1, b1, a2, b2;
-      a1 = ArrayFromJSON(src_value_type, "[1, 2, 3, 4, null]");
-      b1 = ArrayFromJSON(src_value_type, "[null, 7, 8, 9, 0]");
-      a2 = ArrayFromJSON(dest_value_type, "[1, 2, 3, 4, null]");
-      b2 = ArrayFromJSON(dest_value_type, "[null, 7, 8, 9, 0]");
+      a1 = ArrayFromJSON(src_value_type->GetSharedPtr(), "[1, 2, 3, 4, null]");
+      b1 = ArrayFromJSON(src_value_type->GetSharedPtr(), "[null, 7, 8, 9, 0]");
+      a2 = ArrayFromJSON(dest_value_type->GetSharedPtr(), "[1, 2, 3, 4, null]");
+      b2 = ArrayFromJSON(dest_value_type->GetSharedPtr(), "[null, 7, 8, 9, 0]");
       ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a1, b1}, field_names));
       ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2, b2}, field_names));
 
@@ -2237,27 +2236,29 @@ static void CheckStructToStruct(
 }
 
 static void CheckStructToStructSubset(
-    const std::vector<std::shared_ptr<DataType>>& value_types) {
-  for (const auto& src_value_type : value_types) {
+    const std::vector<const DataType*>& value_types) {
+  for (const DataType* src_value_type : value_types) {
     ARROW_SCOPED_TRACE("From type: ", src_value_type->ToString());
-    for (const auto& dest_value_type : value_types) {
+    for (const DataType* dest_value_type : value_types) {
       ARROW_SCOPED_TRACE("To type: ", dest_value_type->ToString());
 
       std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
 
       std::shared_ptr<Array> a1, b1, c1, d1, e1;
-      a1 = ArrayFromJSON(src_value_type, "[1, 2, 5]");
-      b1 = ArrayFromJSON(src_value_type, "[3, 4, 7]");
-      c1 = ArrayFromJSON(src_value_type, "[9, 11, 44]");
-      d1 = ArrayFromJSON(src_value_type, "[6, 51, 49]");
-      e1 = ArrayFromJSON(src_value_type, "[19, 17, 74]");
+      auto sp_src_type = src_value_type->GetSharedPtr();
+      auto sp_dst_type = dest_value_type->GetSharedPtr();
+      a1 = ArrayFromJSON(sp_src_type, "[1, 2, 5]");
+      b1 = ArrayFromJSON(sp_src_type, "[3, 4, 7]");
+      c1 = ArrayFromJSON(sp_src_type, "[9, 11, 44]");
+      d1 = ArrayFromJSON(sp_src_type, "[6, 51, 49]");
+      e1 = ArrayFromJSON(sp_src_type, "[19, 17, 74]");
 
       std::shared_ptr<Array> a2, b2, c2, d2, e2;
-      a2 = ArrayFromJSON(dest_value_type, "[1, 2, 5]");
-      b2 = ArrayFromJSON(dest_value_type, "[3, 4, 7]");
-      c2 = ArrayFromJSON(dest_value_type, "[9, 11, 44]");
-      d2 = ArrayFromJSON(dest_value_type, "[6, 51, 49]");
-      e2 = ArrayFromJSON(dest_value_type, "[19, 17, 74]");
+      a2 = ArrayFromJSON(sp_dst_type, "[1, 2, 5]");
+      b2 = ArrayFromJSON(sp_dst_type, "[3, 4, 7]");
+      c2 = ArrayFromJSON(sp_dst_type, "[9, 11, 44]");
+      d2 = ArrayFromJSON(sp_dst_type, "[6, 51, 49]");
+      e2 = ArrayFromJSON(sp_dst_type, "[19, 17, 74]");
 
       ASSERT_OK_AND_ASSIGN(auto src,
                            StructArray::Make({a1, b1, c1, d1, e1}, field_names));
@@ -2336,27 +2337,29 @@ static void CheckStructToStructSubset(
 }
 
 static void CheckStructToStructSubsetWithNulls(
-    const std::vector<std::shared_ptr<DataType>>& value_types) {
-  for (const auto& src_value_type : value_types) {
+    const std::vector<const DataType*>& value_types) {
+  for (const DataType* src_value_type : value_types) {
     ARROW_SCOPED_TRACE("From type: ", src_value_type->ToString());
-    for (const auto& dest_value_type : value_types) {
+    for (const DataType* dest_value_type : value_types) {
       ARROW_SCOPED_TRACE("To type: ", dest_value_type->ToString());
 
       std::vector<std::string> field_names = {"a", "b", "c", "d", "e"};
 
       std::shared_ptr<Array> a1, b1, c1, d1, e1;
-      a1 = ArrayFromJSON(src_value_type, "[1, 2, 5]");
-      b1 = ArrayFromJSON(src_value_type, "[3, null, 7]");
-      c1 = ArrayFromJSON(src_value_type, "[9, 11, 44]");
-      d1 = ArrayFromJSON(src_value_type, "[6, 51, null]");
-      e1 = ArrayFromJSON(src_value_type, "[null, 17, 74]");
+      auto sp_src_type = src_value_type->GetSharedPtr();
+      auto sp_dst_type = dest_value_type->GetSharedPtr();
+      a1 = ArrayFromJSON(sp_src_type, "[1, 2, 5]");
+      b1 = ArrayFromJSON(sp_src_type, "[3, null, 7]");
+      c1 = ArrayFromJSON(sp_src_type, "[9, 11, 44]");
+      d1 = ArrayFromJSON(sp_src_type, "[6, 51, null]");
+      e1 = ArrayFromJSON(sp_src_type, "[null, 17, 74]");
 
       std::shared_ptr<Array> a2, b2, c2, d2, e2;
-      a2 = ArrayFromJSON(dest_value_type, "[1, 2, 5]");
-      b2 = ArrayFromJSON(dest_value_type, "[3, null, 7]");
-      c2 = ArrayFromJSON(dest_value_type, "[9, 11, 44]");
-      d2 = ArrayFromJSON(dest_value_type, "[6, 51, null]");
-      e2 = ArrayFromJSON(dest_value_type, "[null, 17, 74]");
+      a2 = ArrayFromJSON(sp_dst_type, "[1, 2, 5]");
+      b2 = ArrayFromJSON(sp_dst_type, "[3, null, 7]");
+      c2 = ArrayFromJSON(sp_dst_type, "[9, 11, 44]");
+      d2 = ArrayFromJSON(sp_dst_type, "[6, 51, null]");
+      e2 = ArrayFromJSON(sp_dst_type, "[null, 17, 74]");
 
       std::shared_ptr<Buffer> null_bitmap;
       BitmapFromVector<int>({0, 1, 0}, &null_bitmap);

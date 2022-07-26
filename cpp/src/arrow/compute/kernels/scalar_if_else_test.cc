@@ -23,6 +23,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
@@ -381,18 +382,19 @@ TEST_F(TestIfElseKernel, TimestampTypes) {
 }
 
 TEST_F(TestIfElseKernel, TemporalTypes) {
-  for (const auto& ty : TemporalTypes()) {
+  for (const DataType* ty : TemporalTypes()) {
+    auto shared_ty = ty->GetSharedPtr();
     if (ty->name() == "date64") {
       CheckWithDifferentShapes(
           ArrayFromJSON(boolean(), "[true, true, true, false]"),
-          ArrayFromJSON(ty, "[86400000, 172800000, 259200000, 4]"),
-          ArrayFromJSON(ty, "[5, 6, 7, 691200000]"),
-          ArrayFromJSON(ty, "[86400000, 172800000, 259200000, 691200000]"));
+          ArrayFromJSON(shared_ty, "[86400000, 172800000, 259200000, 4]"),
+          ArrayFromJSON(shared_ty, "[5, 6, 7, 691200000]"),
+          ArrayFromJSON(shared_ty, "[86400000, 172800000, 259200000, 691200000]"));
     } else {
       CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                               ArrayFromJSON(ty, "[1, 2, 3, 4]"),
-                               ArrayFromJSON(ty, "[5, 6, 7, 8]"),
-                               ArrayFromJSON(ty, "[1, 2, 3, 8]"));
+                               ArrayFromJSON(shared_ty, "[1, 2, 3, 4]"),
+                               ArrayFromJSON(shared_ty, "[5, 6, 7, 8]"),
+                               ArrayFromJSON(shared_ty, "[1, 2, 3, 8]"));
     }
   }
 }

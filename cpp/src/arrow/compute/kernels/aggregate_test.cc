@@ -962,10 +962,11 @@ class TestCountDistinctKernel : public ::testing::Test {
     EXPECT_THAT(CallFunction("count_distinct", {input}, &all), one);
   }
 
-  void CheckChunkedArr(const std::shared_ptr<DataType>& type,
+  void CheckChunkedArr(const DataType* type,
                        const std::vector<std::string>& json, int64_t expected_all,
                        bool has_nulls = true) {
-    Check(ChunkedArrayFromJSON(type, json), expected_all, has_nulls);
+    Check(ChunkedArrayFromJSON(type->GetSharedPtr(), json), expected_all,
+          has_nulls);
   }
 
   CountOptions only_valid{CountOptions::ONLY_VALID};

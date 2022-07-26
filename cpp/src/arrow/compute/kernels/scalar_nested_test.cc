@@ -19,6 +19,7 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
@@ -28,7 +29,7 @@
 namespace arrow {
 namespace compute {
 
-static std::shared_ptr<DataType> GetOffsetType(const DataType& type) {
+static std::shared_ptr<DtaType> GetOffsetType(const DataType& type) {
   return type.id() == Type::LIST ? int32() : int64();
 }
 

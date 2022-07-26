@@ -30,39 +30,39 @@
 namespace arrow {
 
 class Array;
-class DataType;
+class TypeHolder;
 
 namespace ipc {
 namespace internal {
 namespace json {
 
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
+Result<std::shared_ptr<Array>> ArrayFromJSON(const TypeHolder& type,
                                              const std::string& json);
 
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
+Result<std::shared_ptr<Array>> ArrayFromJSON(const TypeHolder& type,
                                              util::string_view json);
 
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ArrayFromJSON(const std::shared_ptr<DataType>&,
+Result<std::shared_ptr<Array>> ArrayFromJSON(const TypeHolder& type,
                                              const char* json);
 
 ARROW_EXPORT
-Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+Status ChunkedArrayFromJSON(const TypeHolder& type,
                             const std::vector<std::string>& json_strings,
                             std::shared_ptr<ChunkedArray>* out);
 
 ARROW_EXPORT
-Status DictArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view indices_json,
+Status DictArrayFromJSON(const TypeHolder& type, util::string_view indices_json,
                          util::string_view dictionary_json, std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
-Status ScalarFromJSON(const std::shared_ptr<DataType>&, util::string_view json,
+Status ScalarFromJSON(const TypeHolder& type, util::string_view json,
                       std::shared_ptr<Scalar>* out);
 
 ARROW_EXPORT
-Status DictScalarFromJSON(const std::shared_ptr<DataType>&, util::string_view index_json,
+Status DictScalarFromJSON(const TypeHolder& type, util::string_view index_json,
                           util::string_view dictionary_json,
                           std::shared_ptr<Scalar>* out);
 

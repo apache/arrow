@@ -370,6 +370,10 @@ std::ostream& operator<<(std::ostream& os, const TypeHolder& type) {
 // ----------------------------------------------------------------------
 // TypeHolder
 
+std::shared_ptr<DataType> TypeHolder::GetSharedPtr() const {
+  return this->type != nullptr ? this->type->GetSharedPtr() : nullptr;
+}
+
 std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
   std::stringstream ss;
   ss << "(";
@@ -1972,6 +1976,10 @@ std::string DataType::ComputeMetadataFingerprint() const {
     s += child->metadata_fingerprint() + ";";
   }
   return s;
+}
+
+std::shared_ptr<DataType> DataType::GetSharedPtr() const {
+  return const_cast<DataType*>(this)->shared_from_this();
 }
 
 #define PARAMETER_LESS_FINGERPRINT(TYPE_CLASS)               \
