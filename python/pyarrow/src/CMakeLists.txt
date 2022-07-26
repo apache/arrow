@@ -428,6 +428,27 @@ if(ARROW_BUILD_TESTS)
               ${TEST_PATH})
     endif()
 
+    # Add test as dependency of relevant targets
+    add_dependencies(all-tests ${TEST_NAME})
+    add_dependencies(arrow_python-tests ${TEST_NAME})
+
+    set(LABELS)
+    list(APPEND LABELS "unittest" arrow_python-tests)
+
+    # ensure there is a cmake target which exercises tests with this LABEL
+    set(LABEL_TEST_NAME "test-arrow_python-tests")
+    if(NOT TARGET ${LABEL_TEST_NAME})
+      add_custom_target(${LABEL_TEST_NAME}
+                        ctest -L "${LABEL}" --output-on-failure
+                        USES_TERMINAL)
+    endif()
+    # ensure the test is (re)built before the LABEL test runs
+    add_dependencies(${LABEL_TEST_NAME} ${TEST_NAME})
+
+    set_property(TEST ${TEST_NAME}
+                 APPEND
+                 PROPERTY LABELS ${LABELS})
+
   else()
     message(STATUS "Tests for PyArrow CPP not build")
     message(STATUS "Set -DGTest_SOURCE=BUNDLED when building Arrow C++
