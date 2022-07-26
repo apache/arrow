@@ -862,7 +862,7 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-  if(ARROW_ORC)
+  if(ARROW_HDFS OR ARROW_ORC)
     if(NOT MSVC_TOOLCHAIN)
       list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
       list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})

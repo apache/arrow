@@ -487,7 +487,6 @@ services:
       <<: *ccache
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
-      ARROW_BUILD_STATIC: "OFF"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
