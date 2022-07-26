@@ -26,7 +26,7 @@ Write
 =====
 
 The ``write`` node saves query results as a dataset of files in a
-format like Parquet, Feather, CSV, etc. using the :doc:`../../dataset`
+format like Parquet, Feather, CSV, etc. using the :doc:`./dataset`
 functionality in Arrow. The write options are provided via the
 :class:`arrow::dataset::WriteNodeOptions` which in turn contains
 :class:`arrow::dataset::FileSystemDatasetWriteOptions`.

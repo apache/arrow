@@ -32,7 +32,7 @@ be quite tricky to configure.  To process data from files the scan operation is 
 
 The source node requires some kind of function that can be called to poll for more data.  This
 function should take no arguments and should return an
-``arrow::Future<std::shared_ptr<arrow::util::optional<arrow::RecordBatch>>>``.
+``arrow::Future<std::optional<arrow::ExecBatch>>``.
 This function might be reading a file, iterating through an in memory structure, or receiving data
 from a network connection.  The arrow library refers to these functions as ``arrow::AsyncGenerator``
 and there are a number of utilities for working with these functions.  For this example we use 
