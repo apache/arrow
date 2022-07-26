@@ -210,7 +210,7 @@ test_that("user-defined functions work during multi-threaded execution", {
   skip_if_not_available("dataset")
   # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
   skip_on_linux_devel()
-  
+
   n_rows <- 10000
   n_partitions <- 10
   example_df <- expand.grid(
