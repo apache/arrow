@@ -227,8 +227,9 @@ handle_augmented_field_misuse <- function(e, call) {
     msg <- c(
       msg,
       i = paste(
-        "Augmented dataset fields such as 'filename' must only be used",
-        "with Dataset, and not ArrowTabular objects"
+        "Augmented fields such as 'filename' must",
+        "only be used with with Dataset objects which have",
+        "not been aggregated or joined."
       )
     )
     abort(msg, call = call)

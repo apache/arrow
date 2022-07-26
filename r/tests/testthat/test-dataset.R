@@ -1352,29 +1352,61 @@ test_that("FileSystemFactoryOptions input validation", {
 test_that("can add in augmented fields", {
   ds <- open_dataset(hive_dir)
 
-  ds <- ds %>%
+  observed <- ds %>%
     mutate(file_name = add_filename()) %>%
     collect()
 
   expect_named(
-    ds,
+    observed,
     c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file_name")
   )
 
   expect_equal(
-    sort(unique(ds$file_name)),
+    sort(unique(observed$file_name)),
     list.files(hive_dir, full.names = TRUE, recursive = TRUE)
   )
+
+  error_regex <- paste(
+      "Augmented fields such as 'filename' must",
+      "only be used with with Dataset objects which have",
+      "not been aggregated or joined."
+    )
 
   # errors appropriately with ArrowTabular objects
   expect_error(
     arrow_table(mtcars) %>%
       mutate(file = add_filename()) %>%
       collect(),
-    regexp = paste(
-      "Augmented dataset fields such as 'filename' must",
-      "only be used with Dataset, and not ArrowTabular objects"
-    )
+    regexp = error_regex
+  )
+
+  # errors appropriately with aggregation
+  expect_error(
+    ds %>%
+      summarise(max_int = max(int)) %>%
+      mutate(file_name = add_filename()) %>%
+      collect(),
+    regexp = error_regex
+  )
+
+  # joins to tables
+  another_table <- select(example_data, int, dbl2)
+  expect_error(
+    ds %>%
+      left_join(another_table, by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex
+  )
+
+  # and on joins to datasets
+  another_dataset <- write_dataset(another_table, "another_dataset")
+  expect_error(
+    ds %>%
+      left_join(open_dataset("another_dataset"), by = "int") %>%
+      mutate(file = add_filename()) %>%
+      collect(),
+    regexp = error_regex
   )
 
 })
