@@ -104,7 +104,6 @@ func replaceBuffersInChild(data *array.Data, childIdx int, bufdata []byte) *arra
 func replaceBuffersInDict(data *array.Data, bufferIdx int, bufdata []byte) *array.Data {
 	out := data.Copy()
 	dictData := out.Dictionary().(*array.Data).Copy()
-	out.Dictionary().Release()
 	dictData.Buffers()[bufferIdx].Release()
 	dictData.Buffers()[bufferIdx] = memory.NewBufferBytes(bufdata)
 	defer dictData.Release()
@@ -239,6 +238,7 @@ func TestSwapEndianArrayDictType(t *testing.T) {
 	defer test.Release()
 	test = replaceBuffersInDict(test, 1, data2)
 	defer test.Release()
+
 	// dictionary must be explicitly swapped!
 	assert.NoError(t, swapEndianArrayData(test.Dictionary().(*array.Data)))
 	AssertArrayDataEqualWithSwappedEndian(t, test, expected)

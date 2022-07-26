@@ -133,7 +133,7 @@ class IntegrationRunner(object):
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
-                skip.add("C#")                
+                skip.add("C#")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
@@ -146,7 +146,7 @@ class IntegrationRunner(object):
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
-                skip.add("C#")                
+                skip.add("C#")
 
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',
