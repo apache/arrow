@@ -57,7 +57,7 @@ public class VarCharBinder<T extends FieldVector & VariableWidthVector> extends 
       throw new RuntimeException(message);
     }
     byte[] utf8Bytes = new byte[(int) element.getLength()];
-    element.getBuf().getBytes(0, utf8Bytes);
+    element.getBuf().getBytes(element.getOffset(), utf8Bytes);
     statement.setString(parameterIndex, new String(utf8Bytes, StandardCharsets.UTF_8));
   }
 }

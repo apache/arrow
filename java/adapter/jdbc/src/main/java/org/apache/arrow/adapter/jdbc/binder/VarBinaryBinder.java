@@ -56,7 +56,7 @@ public class VarBinaryBinder<T extends FieldVector & ElementAddressableVector> e
       throw new RuntimeException(message);
     }
     byte[] binaryData = new byte[(int) element.getLength()];
-    element.getBuf().getBytes(0, binaryData);
+    element.getBuf().getBytes(element.getOffset(), binaryData);
     statement.setBytes(parameterIndex, binaryData);
   }
 }

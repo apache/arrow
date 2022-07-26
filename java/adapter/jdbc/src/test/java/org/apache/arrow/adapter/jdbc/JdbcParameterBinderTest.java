@@ -422,13 +422,22 @@ public class JdbcParameterBinderTest {
 
       setNull.accept(vector, 0);
       setValue.accept(vector, 1, values.get(2));
-      root.setRowCount(2);
+      setValue.accept(vector, 2, values.get(0));
+      setValue.accept(vector, 3, values.get(2));
+      setValue.accept(vector, 4, values.get(1));
+      root.setRowCount(5);
 
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isNull();
       assertThat(statement.getParamType(1)).isEqualTo(jdbcType);
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
     }
 
@@ -454,11 +463,23 @@ public class JdbcParameterBinderTest {
 
       binder.reset();
 
-      setValue.accept(vector, 0, values.get(2));
-      root.setRowCount(1);
+      setValue.accept(vector, 0, values.get(0));
+      setValue.accept(vector, 1, values.get(2));
+      setValue.accept(vector, 2, values.get(0));
+      setValue.accept(vector, 3, values.get(2));
+      setValue.accept(vector, 4, values.get(1));
+      root.setRowCount(5);
 
       assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(0));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(2));
+      assertThat(binder.next()).isTrue();
+      assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
     }
   }
