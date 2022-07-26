@@ -365,7 +365,7 @@ class PullRequest(object):
     @property
     def maintenance_branches(self):
         return [x["name"] for x in self._github_api.get_branches()
-                if "maint-" in x["name"]]
+                if x["name"].startswith("maint-")]
 
     def _get_jira(self):
         if self.title.startswith("MINOR:"):
