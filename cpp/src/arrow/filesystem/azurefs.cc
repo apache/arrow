@@ -211,7 +211,7 @@ Result<AzureOptions> AzureOptions::FromUri(const Uri& uri, std::string* out_path
     return Status::IOError("Missing container in Azure Blob Storage URI: '",
                            uri.ToString(), "'");
   }
-  std::string full_path;
+  std::string full_path = path_to_blob;
   // account_name = accountName
   account_name = host.substr(0, pos);
   if (full_path.empty()) {
@@ -302,10 +302,18 @@ struct AzurePath {
   }
 
   // Removes scheme, host and port from the uri
-  static Status ExtractBlobPath(util::string_view* s) {
-    Uri uri;
-    RETURN_NOT_OK(uri.Parse(s->to_string()));
-    *s = uri.path();
+  static Status ExtractBlobPath(util::string_view* src) {
+    std::string text = ".core.windows.net";
+    auto pos = src->find(text);
+    if (pos == std::string::npos) {
+      return Status::IOError("Invalid Azure blob storage URI provided: ", src);
+    }
+    pos = src->find("/", pos);
+    if (pos == std::string::npos) {
+      *src = "";
+    } else {
+      *src = src->substr(pos + 1);
+    }
     return Status::OK();
   }
 
@@ -582,13 +590,22 @@ class ObjectOutputStream final : public io::OutputStream {
       DCHECK_GE(content_length_, 0);
       return Status::OK();
     }
-    try {
-      std::string s = "";
-      file_client_->UploadFrom(
-          const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
-      content_length_ = 0;
-    } catch (const Azure::Storage::StorageException& exception) {
-      return Status::IOError(exception.RawResponse->GetReasonPhrase());
+    if (is_hierarchical_namespace_enabled_) {
+      try {
+        file_client_->DeleteIfExists();
+        file_client_->CreateIfNotExists();
+      } catch (const Azure::Storage::StorageException& exception) {
+        return Status::IOError(exception.RawResponse->GetReasonPhrase());
+      }
+    } else {
+      try {
+        std::string s = "";
+        file_client_->UploadFrom(
+            const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
+        content_length_ = 0;
+      } catch (const Azure::Storage::StorageException& exception) {
+        return Status::IOError(exception.RawResponse->GetReasonPhrase());
+      }
     }
     return Status::OK();
   }
@@ -642,7 +659,11 @@ class ObjectOutputStream final : public io::OutputStream {
         auto buffer_stream = std::make_unique<Azure::Core::IO::MemoryBodyStream>(
             Azure::Core::IO::MemoryBodyStream(
                 const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(data)), nbytes));
+        if (buffer_stream->Length() == 0) {
+          return Status::OK();
+        }
         auto result = file_client_->Append(*buffer_stream, pos_);
+        pos_ += nbytes;
         file_client_->Flush(pos_);
       } catch (const Azure::Storage::StorageException& exception) {
         return Status::IOError(exception.RawResponse->GetReasonPhrase());
@@ -651,11 +672,21 @@ class ObjectOutputStream final : public io::OutputStream {
       try {
         auto append_data = static_cast<uint8_t*>((void*)data);
         auto res = blob_client_->GetBlockList().Value;
-        std::string text = std::to_string(rand());
-        const std::string block_id = Azure::Core::Convert::Base64Encode(
-            std::vector<uint8_t>(text.begin(), text.end()));
+        auto size = res.CommittedBlocks.size();
+        std::string block_id;
+        {
+          block_id = std::to_string(size + 1);
+          size_t n = 8;
+          int precision = n - std::min(n, block_id.size());
+          block_id.insert(0, precision, '0');
+        }
+        block_id = Azure::Core::Convert::Base64Encode(
+            std::vector<uint8_t>(block_id.begin(), block_id.end()));
         auto block_content = Azure::Core::IO::MemoryBodyStream(
             append_data, strlen(reinterpret_cast<char*>(append_data)));
+        if (block_content.Length() == 0) {
+          return Status::OK();
+        }
         blob_client_->StageBlock(block_id, block_content);
         std::vector<std::string> block_ids;
         for (auto block : res.CommittedBlocks) {
@@ -663,10 +694,12 @@ class ObjectOutputStream final : public io::OutputStream {
         }
         block_ids.push_back(block_id);
         blob_client_->CommitBlockList(block_ids);
+        pos_ += nbytes;
       } catch (const Azure::Storage::StorageException& exception) {
         return Status::IOError(exception.RawResponse->GetReasonPhrase());
       }
     }
+    content_length_ += nbytes;
     return Status::OK();
   }
 
@@ -740,14 +773,23 @@ class ObjectAppendStream final : public io::OutputStream {
         return ::arrow::fs::internal::NotAFile(path_.full_path);
       }
       content_length_ = properties.Value.FileSize;
+      pos_ = content_length_;
     } catch (const Azure::Storage::StorageException& exception) {
       // new file
-      std::string s = "";
-      try {
-        file_client_->UploadFrom(
-            const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
-      } catch (const Azure::Storage::StorageException& exception) {
-        return Status::IOError(exception.RawResponse->GetReasonPhrase());
+      if (is_hierarchical_namespace_enabled_) {
+        try {
+          file_client_->CreateIfNotExists();
+        } catch (const Azure::Storage::StorageException& exception) {
+          return Status::IOError(exception.RawResponse->GetReasonPhrase());
+        }
+      } else {
+        std::string s = "";
+        try {
+          file_client_->UploadFrom(
+              const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
+        } catch (const Azure::Storage::StorageException& exception) {
+          return Status::IOError(exception.RawResponse->GetReasonPhrase());
+        }
       }
       content_length_ = 0;
     }
@@ -805,7 +847,11 @@ class ObjectAppendStream final : public io::OutputStream {
         auto buffer_stream = std::make_unique<Azure::Core::IO::MemoryBodyStream>(
             Azure::Core::IO::MemoryBodyStream(
                 const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(data)), nbytes));
+        if (buffer_stream->Length() == 0) {
+          return Status::OK();
+        }
         auto result = file_client_->Append(*buffer_stream, pos_);
+        pos_ += nbytes;
         file_client_->Flush(pos_);
       } catch (const Azure::Storage::StorageException& exception) {
         return Status::IOError(exception.RawResponse->GetReasonPhrase());
@@ -814,11 +860,21 @@ class ObjectAppendStream final : public io::OutputStream {
       try {
         auto append_data = static_cast<uint8_t*>((void*)data);
         auto res = blob_client_->GetBlockList().Value;
-        std::string text = std::to_string(rand());
-        const std::string block_id = Azure::Core::Convert::Base64Encode(
-            std::vector<uint8_t>(text.begin(), text.end()));
+        auto size = res.CommittedBlocks.size();
+        std::string block_id;
+        {
+          block_id = std::to_string(size + 1);
+          size_t n = 8;
+          int precision = n - std::min(n, block_id.size());
+          block_id.insert(0, precision, '0');
+        }
+        block_id = Azure::Core::Convert::Base64Encode(
+            std::vector<uint8_t>(block_id.begin(), block_id.end()));
         auto block_content = Azure::Core::IO::MemoryBodyStream(
             append_data, strlen(reinterpret_cast<char*>(append_data)));
+        if (block_content.Length() == 0) {
+          return Status::OK();
+        }
         blob_client_->StageBlock(block_id, block_content);
         std::vector<std::string> block_ids;
         for (auto block : res.CommittedBlocks) {
@@ -826,10 +882,12 @@ class ObjectAppendStream final : public io::OutputStream {
         }
         block_ids.push_back(block_id);
         blob_client_->CommitBlockList(block_ids);
+        pos_ += nbytes;
       } catch (const Azure::Storage::StorageException& exception) {
         return Status::IOError(exception.RawResponse->GetReasonPhrase());
       }
     }
+    content_length_ += nbytes;
     return Status::OK();
   }
 

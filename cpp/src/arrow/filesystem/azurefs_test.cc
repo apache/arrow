@@ -300,11 +300,8 @@ TEST_F(TestAzureFileSystem, GetFileInfo) {
 
   AssertFileInfo(fs_.get(), "", FileType::Directory);
 
-  ASSERT_OK_AND_ASSIGN(auto res, fs_->OpenOutputStream("container/base.txt"));
-  ASSERT_OK(res->Write("Base data"));
-
   // "Files"
-  AssertFileInfo(fs_.get(), "container/base.txt", FileType::File);
+  AssertFileInfo(fs_.get(), "container/somefile", FileType::File);
   AssertFileInfo(fs_.get(), "container/nonexistent-file.txt", FileType::NotFound);
 }
 
