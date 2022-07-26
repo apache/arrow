@@ -19,25 +19,26 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
-.. _stream_execution_table_source_docs:
+.. _stream_execution_write_docs:
 
-============
-Table Source
-============
+=====
+Write
+=====
 
-In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
-was used to input the data.  But when developing an application, if the data is already in memory
-as a table, it is much easier, and more performant to use :class:`arrow::compute::TableSourceNodeOptions`.
-Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
-The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
-It is important to note that the table batches will not get merged to form larger batches when the source
-table has a smaller batch size.
+The ``write`` node saves query results as a dataset of files in a
+format like Parquet, Feather, CSV, etc. using the :doc:`../dataset`
+functionality in Arrow. The write options are provided via the
+:class:`arrow::dataset::WriteNodeOptions` which in turn contains
+:class:`arrow::dataset::FileSystemDatasetWriteOptions`.
+:class:`arrow::dataset::FileSystemDatasetWriteOptions` provides
+control over the written dataset, including options like the output
+directory, file naming scheme, and so on.
 
-Example of using ``table_source``
+Write example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
-  :start-after: (Doc section: Table Source Example)
-  :end-before: (Doc section: Table Source Example)
+  :start-after: (Doc section: Write Example)
+  :end-before: (Doc section: Write Example)
   :linenos:
   :lineno-match:

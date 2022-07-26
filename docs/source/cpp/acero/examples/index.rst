@@ -15,6 +15,10 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. default-domain:: cpp
+.. highlight:: cpp
+.. cpp:namespace:: arrow::compute
+
 Examples
 ========
 
@@ -61,10 +65,26 @@ This is the list of operations associated with the execution plan:
    * - ``table_sink``
      - :class:`arrow::compute::TableSinkNodeOptions`
 
-.. _stream_execution_source_docs:
-
 .. toctree::
    :maxdepth: 1
 
    source
    table_source
+   filter
+   project
+   aggregate
+   sink
+   consuming_sink
+   order_by_sink
+   select_k_sink
+   scan
+   hash_join
+   write
+   union
+   table_sink
+
+Summary
+=======
+
+There are examples of these nodes which can be found in 
+``cpp/examples/arrow/execution_plan_documentation_examples.cc`` in the Arrow source.

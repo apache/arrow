@@ -19,25 +19,23 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
-.. _stream_execution_table_source_docs:
+.. _stream_execution_union_docs:
 
-============
-Table Source
-============
+=====
+Union
+=====
 
-In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
-was used to input the data.  But when developing an application, if the data is already in memory
-as a table, it is much easier, and more performant to use :class:`arrow::compute::TableSourceNodeOptions`.
-Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
-The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
-It is important to note that the table batches will not get merged to form larger batches when the source
-table has a smaller batch size.
+``union`` merges multiple data streams with the same schema into one, similar to 
+a SQL ``UNION ALL`` clause.
 
-Example of using ``table_source``
+The following example demonstrates how this can be achieved using 
+two data sources.
+
+Union example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
-  :start-after: (Doc section: Table Source Example)
-  :end-before: (Doc section: Table Source Example)
+  :start-after: (Doc section: Union Example)
+  :end-before: (Doc section: Union Example)
   :linenos:
   :lineno-match:
