@@ -19,25 +19,28 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
-.. _stream_execution_table_source_docs:
+.. _stream_execution_hashjoin_docs:
 
-============
-Table Source
-============
+=========
+Hash Join
+=========
 
-In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
-was used to input the data.  But when developing an application, if the data is already in memory
-as a table, it is much easier, and more performant to use :class:`arrow::compute::TableSourceNodeOptions`.
-Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
-The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
-It is important to note that the table batches will not get merged to form larger batches when the source
-table has a smaller batch size.
+``hash_join`` operation provides the relational algebra operation, join using hash-based
+algorithm. :class:`arrow::compute::HashJoinNodeOptions` contains the options required in 
+defining a join. The hash_join supports 
+`left/right/full semi/anti/outerjoins
+<https://en.wikipedia.org/wiki/Join_(SQL)>`_. 
+Also the join-key (i.e. the column(s) to join on), and suffixes (i.e a suffix term like "_x"
+which can be appended as a suffix for column names duplicated in both left and right 
+relations.) can be set via the the join options. 
+`Read more on hash-joins
+<https://en.wikipedia.org/wiki/Hash_join>`_. 
 
-Example of using ``table_source``
+Hash-Join example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
-  :start-after: (Doc section: Table Source Example)
-  :end-before: (Doc section: Table Source Example)
+  :start-after: (Doc section: HashJoin Example)
+  :end-before: (Doc section: HashJoin Example)
   :linenos:
   :lineno-match:

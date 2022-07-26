@@ -19,25 +19,27 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
-.. _stream_execution_table_source_docs:
+.. _stream_execution_scan_docs:
 
-============
-Table Source
-============
+====
+Scan
+====
 
-In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
-was used to input the data.  But when developing an application, if the data is already in memory
-as a table, it is much easier, and more performant to use :class:`arrow::compute::TableSourceNodeOptions`.
-Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
-The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
-It is important to note that the table batches will not get merged to form larger batches when the source
-table has a smaller batch size.
+``scan`` is an operation used to load and process datasets.  It should be preferred over the
+more generic ``source`` node when your input is a dataset.  The behavior is defined using 
+:class:`arrow::dataset::ScanNodeOptions`.  More information on datasets and the various
+scan options can be found in :doc:`../dataset`.
 
-Example of using ``table_source``
+This node is capable of applying pushdown filters to the file readers which reduce
+the amount of data that needs to be read.  This means you may supply the same
+filter expression to the scan node that you also supply to the FilterNode because
+the filtering is done in two different places.
+
+Scan example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
-  :start-after: (Doc section: Table Source Example)
-  :end-before: (Doc section: Table Source Example)
+  :start-after: (Doc section: Scan Example)
+  :end-before: (Doc section: Scan Example)
   :linenos:
   :lineno-match:

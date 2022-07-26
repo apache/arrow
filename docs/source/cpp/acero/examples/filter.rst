@@ -19,25 +19,23 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
-.. _stream_execution_table_source_docs:
+.. _stream_execution_filter_docs:
 
-============
-Table Source
-============
+======
+Filter
+======
 
-In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
-was used to input the data.  But when developing an application, if the data is already in memory
-as a table, it is much easier, and more performant to use :class:`arrow::compute::TableSourceNodeOptions`.
-Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
-The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
-It is important to note that the table batches will not get merged to form larger batches when the source
-table has a smaller batch size.
+``filter`` operation, as the name suggests, provides an option to define data filtering 
+criteria. It selects rows matching a given expression. Filters can be written using 
+:class:`arrow::compute::Expression`. For example, if we wish to keep rows where the value 
+of column ``b`` is greater than 3,  then we can use the following expression.
 
-Example of using ``table_source``
+Filter example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
-  :start-after: (Doc section: Table Source Example)
-  :end-before: (Doc section: Table Source Example)
+  :start-after: (Doc section: Filter Example)
+  :end-before: (Doc section: Filter Example)
   :linenos:
   :lineno-match:
+  

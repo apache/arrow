@@ -15,6 +15,12 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. default-domain:: cpp
+.. highlight:: cpp
+.. cpp:namespace:: arrow::compute
+
+.. _stream_execution_source_docs:
+
 ======
 Source
 ======
@@ -62,3 +68,4 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
   :end-before: (Doc section: Source Example)
   :linenos:
   :lineno-match:
+  
