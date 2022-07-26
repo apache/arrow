@@ -856,6 +856,11 @@ def test_decimal_overflow():
         with pytest.raises(ValueError):
             pa.decimal256(i, 0)
 
+def test_timedelta_overflow():
+    d = datetime.timedelta(days=-106751992, seconds=71945, microseconds=224192)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(d)
+
 
 def test_type_equality_operators():
     many_types = get_many_types()

@@ -36,6 +36,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
+#include "arrow/result_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
@@ -446,15 +447,17 @@ class PyValue {
           value = internal::PyDelta_to_ms(dt);
           break;
         case TimeUnit::MICRO:
-          value = internal::PyDelta_to_us(dt);
+          {
+          ASSIGN_OR_RAISE(value, internal::PyDelta_to_us(dt));
           break;
+          }
         case TimeUnit::NANO:
           if (internal::IsPandasTimedelta(obj)) {
             OwnedRef nanos(PyObject_GetAttrString(obj, "value"));
             RETURN_IF_PYERROR();
             RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
           } else {
-            value = internal::PyDelta_to_ns(dt);
+            ASSIGN_OR_RAISE(value, internal::PyDelta_to_ns(dt));
           }
           break;
         default:
