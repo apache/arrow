@@ -146,6 +146,7 @@ class Random64Bit {
 };
 
 /// Specify properties of a table to be generated.
+ARROW_TESTING_EXPORT
 struct TableGenerationProperties {
   /// Indicates the amount of time between data points that lie between
   /// the start and end parameters.
@@ -176,7 +177,8 @@ struct TableGenerationProperties {
 ///     [properties.column_prefix][properties.num_columns] (float64)
 /// Each id has rows corresponding to a singular data point in the time range (start, end,
 /// time_frequency). The table is sorted by time.
-std::shared_ptr<Table> MakeRandomTimeSeriesTable(
+ARROW_TESTING_EXPORT
+Result<std::shared_ptr<Table>> MakeRandomTimeSeriesTable(
     const TableGenerationProperties& properties);
 
 }  // namespace compute

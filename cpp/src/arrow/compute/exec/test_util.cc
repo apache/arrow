@@ -460,7 +460,7 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
   *os << "}";
 }
 
-std::shared_ptr<Table> MakeRandomTimeSeriesTable(
+Result<std::shared_ptr<Table>> MakeRandomTimeSeriesTable(
     const TableGenerationProperties& properties) {
   int total_columns = properties.num_columns + 2;
   std::vector<std::shared_ptr<Array>> columns;
@@ -470,14 +470,13 @@ std::shared_ptr<Table> MakeRandomTimeSeriesTable(
 
   field_vector.push_back(field("time", int64()));
   field_vector.push_back(field("id", int32()));
-
   Int64Builder time_column_builder;
   Int32Builder id_column_builder;
   for (int64_t time = properties.start; time <= properties.end;
        time += properties.time_frequency) {
     for (int32_t id = 0; id < properties.num_ids; id++) {
-      Status time_col_append_status = time_column_builder.Append(time);
-      Status id_col_append_status = id_column_builder.Append(id);
+      ARROW_RETURN_NOT_OK(time_column_builder.Append(time));
+      ARROW_RETURN_NOT_OK(id_column_builder.Append(id));
     }
   }
 
@@ -488,7 +487,7 @@ std::shared_ptr<Table> MakeRandomTimeSeriesTable(
   for (int i = 0; i < properties.num_columns; i++) {
     field_vector.push_back(
         field(properties.column_prefix + std::to_string(i), float64()));
-    random::RandomArrayGenerator rand = random::RandomArrayGenerator(properties.seed + i);
+    random::RandomArrayGenerator rand(properties.seed + i);
     columns.push_back(
         rand.Float64(num_rows, properties.min_column_value, properties.max_column_value));
   }
