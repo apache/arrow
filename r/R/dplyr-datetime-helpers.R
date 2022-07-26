@@ -158,13 +158,21 @@ binding_as_date_numeric <- function(x, origin = "1970-01-01") {
 #'
 #' @noRd
 build_formats <- function(orders) {
+  # only keep the letters and the underscore as separator -> allow the users to
+  # pass strptime-like formats (with "%"). We process the data -> we need to
+  # process the `orders` (even if supplied in the desired format)
+  # Processing is needed (instead of passing
+  # formats as-is) due to the processing of the character vector in parse_date_time()
+  orders <- gsub("[^A-Za-z]", "", orders)
+  orders <- gsub("Y", "y", orders)
+
   # we separate "ym', "my", and "yq" from the rest of the `orders` vector and
   # transform them. `ym` and `yq` -> `ymd` & `my` -> `myd`
   # this is needed for 2 reasons:
   # 1. strptime does not parse "2022-05" -> we add "-01", thus changing the format,
   # 2. for equivalence to lubridate, which parses `ym` to the first day of the month
-  short_orders <- c("ym", "my", "Ym", "mY")
-  quarter_orders <- c("yq", "Yq", "qy", "qY")
+  short_orders <- c("ym", "my", "yOm", "Omy")
+  quarter_orders <- c("yq", "qy")
 
   if (any(orders %in% short_orders)) {
     orders1 <- setdiff(orders, short_orders)
@@ -206,28 +214,23 @@ build_formats <- function(orders) {
 #' @noRd
 build_format_from_order <- function(order) {
   char_list <- list(
-    "T" = "%H-%M-%S",
     "%T" = "%H-%M-%S",
-    "y" = c("%y", "%Y"),
-    "Y" = c("%y", "%Y"),
-    "m" = c("%m", "%B", "%b"),
-    "%Y" = c("%y", "%Y"),
-    "%m" = c("%m", "%B", "%b")
+    "%y" = c("%y", "%Y"),
+    "%m" = c("%m", "%B", "%b"),
+    "%b" = c("%m", "%B", "%b")
   )
 
-  available_formats <- strsplit("aAbBdHjmTpSqMIUwWyYrRz", "")[[1]]
-  formats <- stringr::str_extract_all(order,
-    "(%[a|A|b|B|d|H|j|m|T|p|S|q|M|I|U|w|W|y|Y|r|R|z])|([aAbBdHjmTpSqMIUwWyYrRz])")[[1]]
+  formats <- stringr::str_extract_all(order, "%{0,1}(O*[a-zA-Z])")[[1]]
+  formats <- paste0("%", formats)
   formats <- ifelse(formats %in% names(char_list), char_list[formats], formats)
-  formats <- ifelse(formats %in% available_formats, paste0("%", formats, ""), formats)
-  formats <- expand.grid(formats)
 
+  outcome <- expand.grid(formats)
   # we combine formats with and without the "-" separator, we will later
   # coalesce through all of them (benchmarking indicated this is a more
   # computationally efficient approach rather than figuring out if a string has
   # separators or not and applying only )
   # during parsing if the string to be parsed does not contain a separator
-  formats_with_sep <- do.call(paste, c(formats, sep = "-"))
+  formats_with_sep <- do.call(paste, c(outcome, sep = "-"))
   formats_without_sep <- gsub("-", "", formats_with_sep)
   c(formats_with_sep, formats_without_sep)
 }

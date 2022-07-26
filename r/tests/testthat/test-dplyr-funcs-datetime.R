@@ -2659,7 +2659,7 @@ test_that("build_formats() and build_format_from_order()", {
     )
   )
 
-  # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
+  # when order is one of "yq", "qy", "ym" or "my" the data is augmented to "ymd"
   # or "ydm" and the formats are built accordingly
   ymd_formats <- c(
     "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
@@ -2687,6 +2687,11 @@ test_that("build_formats() and build_format_from_order()", {
   )
 
   expect_equal(
+    build_formats(c("yOm", "yOmd")),
+    c("%y-%Om-%d", "%Y-%Om-%d", "%y%Om%d", "%Y%Om%d")
+  )
+
+  expect_equal(
     build_formats("my"),
     c(
       "%m-%y-%d", "%B-%y-%d", "%b-%y-%d", "%m-%Y-%d", "%B-%Y-%d", "%b-%Y-%d",
@@ -2696,12 +2701,7 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_format_from_order("abp"),
-    c("%a", "%b","%p", "%a", "%b", "%p")
-  )
-
-  expect_equal(
-    build_format_from_order("uYM"),
-    c("%y-%M", "%Y-%M", "%y%M", "%Y%M")
+    c("%a-%m-%p", "%a-%B-%p", "%a-%b-%p", "%a%m%p", "%a%B%p", "%a%b%p")
   )
 
   expect_error(
@@ -2749,7 +2749,11 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_formats("y-%b-d-%T"),
-    c("%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S", "%y%b%d%H%M%S", "%Y%b%d%H%M%S")
+    c(
+      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S", "%Y-%B-%d-%H-%M-%S",
+      "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S", "%y%m%d%H%M%S", "%Y%m%d%H%M%S",
+      "%y%B%d%H%M%S", "%Y%B%d%H%M%S", "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+    )
   )
 
   expect_equal(
