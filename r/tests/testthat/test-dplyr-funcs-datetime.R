@@ -157,14 +157,23 @@ test_that("strptime", {
   times <- sample(times, 100)
 
   # %Op format is currently not supported by strptime
-  formats <- c(
-    "%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
-    "%S", "%q", "%M", "%I%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z"
-  )
-  formats2 <- c(
-    "a", "A", "b", "B", "d", "H", "j", "m", "Om", "T", "OS", "Ip",
-    "S", "q", "M", "Ip", "U", "w", "W", "y", "Y", "r", "R", "Tz"
-  )
+  # We support a subset of flags on Windows
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    formats <- c(
+      "%d", "%H", "%j", "%m", "%T", "%S", "%q", "%M", "%U", "%w", "%W", "%y", "%Y", "%R"
+    )
+    formats2 <- c("d", "H", "j", "m", "T", "S", "q", "M", "U", "w", "W", "y", "Y", "R")
+  } else {
+    formats <- c(
+      "%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
+      "%S", "%q", "%M", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z"
+    )
+    formats2 <- c(
+      "a", "A", "b", "B", "d", "H", "j", "m", "Om", "T", "OS", "Ip",
+      "S", "q", "M", "U", "w", "W", "y", "Y", "r", "R", "Tz"
+    )
+  }
+
   base_format <- c("%Y-%m-%d")
   base_format2 <- c("ymd")
 
@@ -200,10 +209,10 @@ test_that("strptime", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%b-d-%T")
+        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%m-d-%T")
       ) %>%
       collect(),
-    tibble::tibble(string_1 = c("2022-Feb-11-12:23:45", NA))
+    tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
   )
 
 })
