@@ -72,7 +72,7 @@ Example::
       {source}, cp::ConsumingSinkNodeOptions(consumer)));
 
 
-Consuming-Sink example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -80,4 +80,3 @@ Consuming-Sink example:
   :end-before: (Doc section: ConsumingSink Example)
   :linenos:
   :lineno-match:
-  

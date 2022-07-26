@@ -30,7 +30,7 @@ criteria. It selects rows matching a given expression. Filters can be written us
 :class:`arrow::compute::Expression`. For example, if we wish to keep rows where the value 
 of column ``b`` is greater than 3,  then we can use the following expression.
 
-Filter example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -38,4 +38,3 @@ Filter example:
   :end-before: (Doc section: Filter Example)
   :linenos:
   :lineno-match:
-  

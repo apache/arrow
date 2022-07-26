@@ -31,7 +31,7 @@ a SQL ``UNION ALL`` clause.
 The following example demonstrates how this can be achieved using 
 two data sources.
 
-Union example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp

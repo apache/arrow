@@ -36,7 +36,7 @@ are used for sorting and whether to sort by ascending or descending values.
           constraint.
 
 
-Order-By-Sink example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -44,4 +44,3 @@ Order-By-Sink example:
   :end-before: (Doc section: OrderBySink Example)
   :linenos:
   :lineno-match:
-  

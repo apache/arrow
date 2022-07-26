@@ -35,7 +35,7 @@ inputs and then compute top_k/bottom_k.
           In the future, spillover mechanisms will be added which should alleviate this 
           constraint.
 
-SelectK example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp

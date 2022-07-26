@@ -33,7 +33,7 @@ The ``max_batch_size`` is to break up large record batches so that they can be p
 It is important to note that the table batches will not get merged to form larger batches when the source
 table has a smaller batch size.
 
-Example of using ``table_source``
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
