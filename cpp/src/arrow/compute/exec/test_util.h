@@ -146,7 +146,6 @@ class Random64Bit {
 };
 
 /// Specify properties of a table to be generated.
-ARROW_TESTING_EXPORT
 struct TableGenerationProperties {
   /// Indicates the amount of time between data points that lie between
   /// the start and end parameters.
