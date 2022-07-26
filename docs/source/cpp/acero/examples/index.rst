@@ -23,7 +23,7 @@ Examples
 ========
 
 Constructing ``ExecNode`` using Options
-=======================================
+---------------------------------------
 
 :class:`ExecNode` is the component we use as a building block 
 containing in-built operations with various functionalities. 
@@ -84,7 +84,7 @@ This is the list of operations associated with the execution plan:
    table_sink
 
 Summary
-=======
+-------
 
 There are examples of these nodes which can be found in 
 ``cpp/examples/arrow/execution_plan_documentation_examples.cc`` in the Arrow source.

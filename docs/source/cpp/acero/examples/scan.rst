@@ -28,7 +28,7 @@ Scan
 ``scan`` is an operation used to load and process datasets.  It should be preferred over the
 more generic ``source`` node when your input is a dataset.  The behavior is defined using 
 :class:`arrow::dataset::ScanNodeOptions`.  More information on datasets and the various
-scan options can be found in :doc:`../dataset`.
+scan options can be found in :doc:`../../dataset`.
 
 This node is capable of applying pushdown filters to the file readers which reduce
 the amount of data that needs to be read.  This means you may supply the same
