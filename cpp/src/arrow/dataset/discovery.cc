@@ -208,6 +208,12 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 }
 
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
+    std::string uri, std::shared_ptr<FileFormat> format,
+    FileSystemFactoryOptions options) {
+  return Make(uri, -1, -1, format, options);
+}
+
+Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::string uri, int64_t start_offset, int64_t length,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
   // TODO Partitioning support. Dictionary support should be done before that. See
@@ -226,8 +232,8 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   }
   // is a single file
   return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
-      {FileSource(file_info.path(), filesystem, start_offset, length)},
-      std::move(filesystem), std::move(format), std::move(options)));
+      {FileSource(file_info.path(), filesystem, start_offset, length)}, filesystem,
+      std::move(format), std::move(options)));
 }
 
 Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas(

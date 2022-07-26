@@ -234,6 +234,19 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   /// \param[in] format passed to FileSystemDataset
   /// \param[in] options see FileSystemFactoryOptions for more information.
   static Result<std::shared_ptr<DatasetFactory>> Make(std::string uri,
+                                                      std::shared_ptr<FileFormat> format,
+                                                      FileSystemFactoryOptions options);
+
+  /// \brief Build a FileSystemDatasetFactory from an uri including filesystem
+  /// information. Offsets and lengths are picked to truncate the input file
+  /// if the value is not -1.
+  ///
+  /// \param[in] uri passed to FileSystemDataset
+  /// \param[in] format passed to FileSystemDataset
+  /// \param[in] start_offset passed to FileSystemDataset
+  /// \param[in] length passed to FileSystemDataset
+  /// \param[in] options see FileSystemFactoryOptions for more information.
+  static Result<std::shared_ptr<DatasetFactory>> Make(std::string uri,
                                                       int64_t start_offset,
                                                       int64_t length,
                                                       std::shared_ptr<FileFormat> format,
