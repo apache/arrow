@@ -67,3 +67,9 @@ test_that("MemoryPool calls gc() to free memory when allocation fails (ARROW-100
   expect_error(BufferOutputStream$create(2**60))
   expect_true(env$gc_was_called)
 })
+
+test_that("force_tests()", {
+  skip_if_not_running_large_memory_tests()
+  skip_if_not_dev_mode()
+  expect_true(FALSE)
+})
