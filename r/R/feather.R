@@ -41,8 +41,6 @@
 #' compression ratios in exchange for slower read and write performance.
 #' "lz4" is shorthand for the "lz4_frame" codec.
 #' See [codec_is_available()] for details. This option is not supported for V1.
-#' If `compression` is not provided and `sink` is a file path with an extension
-#' of `.lz4` or `.zst`, the compression codec will be inferred from it.
 #' @param compression_level If `compression` is "zstd", you may
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
@@ -76,16 +74,7 @@ write_feather <- function(x,
   version <- as.integer(version)
   assert_that(version %in% 1:2)
 
-  if (missing(compression)) {
-    # IPC compression is in the writer itself, not by wrapping
-    # the sink in a CompressedOutputStream, which make_output_stream() does
-    # if the filename ends in a compression extension. So handle the ext
-    # here before passing to make_output_stream()
-    comp <- detect_compression(sink)
-    if (comp != "uncompressed") {
-      compression <- comp
-    }
-  }
+  # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
   compression <- match.arg(compression)
   chunk_size <- as.integer(chunk_size)
   assert_that(chunk_size > 0)
@@ -142,7 +131,7 @@ write_feather <- function(x,
 write_ipc_file <- function(x,
                            sink,
                            chunk_size = 65536L,
-                           compression = c("default", "lz4", "uncompressed", "zstd"),
+                           compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
                            compression_level = NULL) {
   mc <- match.call()
   mc$version <- 2

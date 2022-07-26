@@ -588,7 +588,7 @@ test_that("read/write compressed file successfully", {
 test_that("read/write compressed filesystem path", {
   skip_if_not_available("zstd")
   tfzst <- tempfile(fileext = ".csv.zst")
-  fs <- SubTreeFileSystem$create(paste0("file://", tfzst))
+  fs <- LocalFileSystem$create()$path(tfzst)
   write_csv_arrow(tbl, fs)
 
   tf <- tempfile(fileext = ".csv")

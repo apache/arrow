@@ -134,10 +134,6 @@ read_parquet <- function(file,
 #' disable compression, set `compression = "uncompressed"`.
 #' Note that "uncompressed" columns may still have dictionary encoding.
 #'
-#' If `compression` is not provided and `sink` is a file path with an extension
-#' indicating compression, such as `.gz` or `.snappy`, the compression codec
-#' will be inferred from it.
-#'
 #' @return the input `x` invisibly.
 #' @seealso [ParquetFileWriter] for a lower-level interface to Parquet writing.
 #' @examplesIf arrow_with_parquet()
@@ -168,12 +164,7 @@ write_parquet <- function(x,
   x <- as_writable_table(x)
 
   if (!inherits(sink, "OutputStream")) {
-    if (missing(compression)) {
-      comp <- detect_compression(sink)
-      if (comp != "uncompressed") {
-        compression <- comp
-      }
-    }
+    # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
     sink <- make_output_stream(sink)
     on.exit(sink$close())
   }

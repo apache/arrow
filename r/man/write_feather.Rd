@@ -18,7 +18,7 @@ write_ipc_file(
   x,
   sink,
   chunk_size = 65536L,
-  compression = c("default", "lz4", "uncompressed", "zstd"),
+  compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
   compression_level = NULL
 )
 }
@@ -39,9 +39,7 @@ random row access. Default is 64K. This option is not supported for V1.}
 "uncompressed". "zstd" is the other available codec and generally has better
 compression ratios in exchange for slower read and write performance.
 "lz4" is shorthand for the "lz4_frame" codec.
-See \code{\link[=codec_is_available]{codec_is_available()}} for details. This option is not supported for V1.
-If \code{compression} is not provided and \code{sink} is a file path with an extension
-of \code{.lz4} or \code{.zst}, the compression codec will be inferred from it.}
+See \code{\link[=codec_is_available]{codec_is_available()}} for details. This option is not supported for V1.}
 
 \item{compression_level}{If \code{compression} is "zstd", you may
 specify an integer compression level. If omitted, the compression codec's

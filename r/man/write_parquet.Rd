@@ -92,10 +92,6 @@ are almost always included. See \code{\link[=codec_is_available]{codec_is_availa
 The default "snappy" is used if available, otherwise "uncompressed". To
 disable compression, set \code{compression = "uncompressed"}.
 Note that "uncompressed" columns may still have dictionary encoding.
-
-If \code{compression} is not provided and \code{sink} is a file path with an extension
-indicating compression, such as \code{.gz} or \code{.snappy}, the compression codec
-will be inferred from it.
 }
 \examples{
 \dontshow{if (arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
