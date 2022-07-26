@@ -21,6 +21,7 @@
 
 from cython.operator cimport dereference as deref
 
+import codecs
 import collections
 import os
 import warnings
@@ -1237,6 +1238,40 @@ cdef class CsvFileFormat(FileFormat):
         return f"<CsvFileFormat parse_options={self.parse_options}>"
 
 
+# From io.pxi
+def py_buffer(object obj):
+    """
+    Construct an Arrow buffer from a Python bytes-like or buffer-like object
+
+    Parameters
+    ----------
+    obj : object
+        the object from which the buffer should be constructed.
+    """
+    cdef shared_ptr[CBuffer] buf
+    buf = GetResultValue(PyBuffer.FromPyObject(obj))
+    return pyarrow_wrap_buffer(buf)
+
+
+# From io.pxi
+cdef void _cb_transform(transform_func, const shared_ptr[CBuffer]& src,
+                        shared_ptr[CBuffer]* dest) except *:
+    py_dest = transform_func(pyarrow_wrap_buffer(src))
+    dest[0] = pyarrow_unwrap_buffer(py_buffer(py_dest))
+
+
+# from io.pxi
+class Transcoder:
+
+    def __init__(self, decoder, encoder):
+        self._decoder = decoder
+        self._encoder = encoder
+
+    def __call__(self, buf):
+        final = len(buf) == 0
+        return self._encoder.encode(self._decoder.decode(buf, final), final)
+
+
 cdef class CsvFragmentScanOptions(FragmentScanOptions):
     """
     Scan-specific options for CSV fragments.
@@ -1283,6 +1318,25 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     @read_options.setter
     def read_options(self, ReadOptions read_options not None):
         self.csv_options.read_options = deref(read_options.options)
+
+    cdef transform_encoding(self, src_encoding):
+        cdef:
+            CTransformInputStreamVTable vtable
+
+        src_codec = codecs.lookup(src_encoding)
+        dest_codec = codecs.lookup("utf8")
+        if src_codec.name == dest_codec.name:
+            # Avoid losing performance on no-op transcoding
+            # (encoding errors won't be detected)
+            return
+
+        vtable.transform = _cb_transform
+        self.csv_options.stream_transform_func = makeStreamTransformFunc(move(vtable),
+                    Transcoder(src_codec.incrementaldecoder(),
+                    dest_codec.incrementalencoder()))
+
+    def stream_transform_func(self, src_encoding):
+        self.transform_encoding(src_encoding)
 
     def equals(self, CsvFragmentScanOptions other):
         return (
