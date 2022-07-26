@@ -22,7 +22,7 @@ build_features <- c(
 )
 
 force_tests <- function() {
-  identical(tolower(Sys.getenv("ARROW_R_force_tests()")), "true")
+  identical(tolower(Sys.getenv("ARROW_R_FORCE_TESTS")), "true")
 }
 
 skip_if_not_available <- function(feature) {
@@ -70,6 +70,10 @@ skip_if_not_dev_mode <- function() {
 }
 
 skip_if_not_running_large_memory_tests <- function() {
+  if (force_tests()) {
+    return()
+  }
+
   skip_if_not(
     identical(tolower(Sys.getenv("ARROW_LARGE_MEMORY_TESTS")), "true"),
     "environment variable ARROW_LARGE_MEMORY_TESTS"
