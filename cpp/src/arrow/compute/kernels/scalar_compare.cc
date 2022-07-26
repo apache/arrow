@@ -271,15 +271,8 @@ struct CompareKernel {
     if (out_is_byte_aligned) {
       out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
     } else {
-      const int64_t bitmap_size = bit_util::BytesForBits(batch.length);
-      ARROW_ASSIGN_OR_RAISE(out_buffer_tmp, ctx->Allocate(bitmap_size));
+      ARROW_ASSIGN_OR_RAISE(out_buffer_tmp, ctx->AllocateBitmap(batch.length));
       out_buffer = out_buffer_tmp->mutable_data();
-      // Zero the last byte because the kernel functions below will not
-      // populate all of the bits in the bitmap if the length is not a multiple
-      // of 8, and this will trigger certain valgrind warnings
-      if (bitmap_size > 0) {
-        out_buffer[bitmap_size - 1] = 0x0;
-      }
     }
     if (batch[0].is_array() && batch[1].is_array()) {
       kernel_data->func_aa(batch[0].array.GetValues<T>(1), batch[1].array.GetValues<T>(1),
