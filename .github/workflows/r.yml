@@ -333,7 +333,8 @@ jobs:
             ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE
           )
-          pak::pak("local::.")
+          # we use pak for package installation since it is faster, safer and more convenient
+          pak::local_install()
           pak::pak("lintr")
           lintr::expect_lint_free()
       - name: Dump install logs
