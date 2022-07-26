@@ -882,7 +882,7 @@ TEST(TestTime, TestNextDay) {
   EXPECT_EQ(StringToTimestamp("2000-01-08 00:00:00"), out);
 
   ts = StringToTimestamp("2000-01-01 20:15:00");
-  out = next_day_from_timestamp(context_ptr, ts, "123", 8);
+  out = next_day_from_timestamp(context_ptr, ts, "123", 3);
   EXPECT_EQ(context.get_error(), "The weekday in this entry is invalid");
   context.Reset();
 
