@@ -714,22 +714,38 @@ test_that("head/tail", {
 })
 
 
-test_that("unique returns data.frames", {
+test_that("unique()", {
   ds <- open_dataset(dataset_dir)
   in_r_mem <- rbind(df1, df2)
+  at <- arrow_table(in_r_mem)
+  rbr <- as_record_batch_reader(in_r_mem)
 
-  expect_s3_class(unique(ds), "data.frame")
-  # order not set by distinct so some sorting required
-  expect_equal(sort(unique(ds)$int), sort(unique(in_r_mem)$int))
+  expect_s3_class(unique(ds), "arrow_dplyr_query")
+  expect_s3_class(unique(at), "arrow_dplyr_query")
+  expect_s3_class(unique(rbr), "arrow_dplyr_query")
 
   # on a arrow_dplyr_query
   adq_eg <- ds %>%
     select(fct) %>%
     unique()
-  expect_s3_class(adq_eg, "data.frame")
+  expect_s3_class(adq_eg, "arrow_dplyr_query")
 
-  expect_equal(unique(arrow_table(in_r_mem)), unique(in_r_mem))
-  expect_equal(unique(as_record_batch_reader(in_r_mem)), unique(in_r_mem))
+  # order not set by distinct so some sorting required
+  expect_equal(sort(collect(unique(ds))$int), sort(unique(in_r_mem)$int))
+
+  # on a arrow table
+  expect_equal(
+    at %>%
+      unique() %>%
+      collect(),
+    unique(in_r_mem)
+  )
+  expect_equal(
+    rbr %>%
+      unique() %>%
+      collect(),
+    unique(in_r_mem)
+  )
   expect_snapshot_error(unique(arrow_table(in_r_mem), incomparables = TRUE))
 })
 

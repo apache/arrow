@@ -195,8 +195,7 @@ unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE,
     arrow_not_supported("`unique()` with `fromLast = TRUE`")
   }
 
-  x <- dplyr::distinct(x)
-  dplyr::collect(x)
+  dplyr::distinct(x)
 }
 
 #' @export
