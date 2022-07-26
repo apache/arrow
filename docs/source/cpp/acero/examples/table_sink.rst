@@ -30,7 +30,7 @@ This is simpler to use than the other sink nodes provided by the streaming execu
 but it only makes sense when the output fits comfortably in memory.
 The node is created using :class:`arrow::compute::TableSinkNodeOptions`.
 
-Example of using ``table_sink``
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -38,4 +38,3 @@ Example of using ``table_sink``
   :end-before: (Doc section: Table Sink Example)
   :linenos:
   :lineno-match:
-  

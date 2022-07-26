@@ -36,7 +36,7 @@ relations.) can be set via the the join options.
 `Read more on hash-joins
 <https://en.wikipedia.org/wiki/Hash_join>`_. 
 
-Hash-Join example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp

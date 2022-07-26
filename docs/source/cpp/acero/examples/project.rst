@@ -32,7 +32,7 @@ against the source record batch. This is exposed via
 an :class:`arrow::compute::Expression` and name for each of the output columns (if names are not
 provided, the string representations of exprs will be used).  
 
-Project example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -40,4 +40,3 @@ Project example:
   :end-before: (Doc section: Project Example)
   :linenos:
   :lineno-match:
-  

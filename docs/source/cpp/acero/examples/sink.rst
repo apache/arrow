@@ -21,9 +21,9 @@
 
 .. _stream_execution_sink_docs:
 
-=====
+====
 Sink
-=====
+====
 
 ``sink`` operation provides output and is the final node of a streaming 
 execution definition. :class:`arrow::compute::SinkNodeOptions` interface is used to pass 
@@ -36,9 +36,9 @@ will accumulate in memory.  An execution plan should only have one
 an error, before the output is fully consumed. However, the plan can be safely destroyed independently
 of the sink, which will hold the unconsumed batches by `exec_plan->finished()`.
 
-As a part of the Source Example, the Sink operation is also included;
+Example:
 
-.. literalinclude:: ../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+.. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
   :start-after: (Doc section: Source Example)
   :end-before: (Doc section: Source Example)

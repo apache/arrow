@@ -35,7 +35,7 @@ the amount of data that needs to be read.  This means you may supply the same
 filter expression to the scan node that you also supply to the FilterNode because
 the filtering is done in two different places.
 
-Scan example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp

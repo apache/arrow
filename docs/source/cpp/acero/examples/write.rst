@@ -34,7 +34,7 @@ functionality in Arrow. The write options are provided via the
 control over the written dataset, including options like the output
 directory, file naming scheme, and so on.
 
-Write example:
+Example:
 
 .. literalinclude:: ../../../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
