@@ -1369,6 +1369,14 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         shared_ptr[CInputStream] wrapped, CTransformInputStreamVTable vtable,
         object method_arg)
 
+    ctypedef CResult[shared_ptr[CInputStream]] StreamWrapFunc(
+        shared_ptr[CInputStream])
+
+    function[StreamWrapFunc] makeStreamTransformFunc \
+        "arrow::py::makeStreamTransformFunc"(
+        CTransformInputStreamVTable vtable,
+        object method_arg)
+
     # ----------------------------------------------------------------------
     # HDFS
 
