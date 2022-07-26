@@ -412,6 +412,10 @@ set(CYTHON_EXTENSIONS
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 
+if(PYARROW_BUILD_GCS)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _gcsfs)
+endif()
+
 if(PYARROW_BUILD_S3)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
 endif()
@@ -545,6 +549,9 @@ if(PYARROW_BUILD_SUBSTRAIT)
   find_package(ArrowSubstrait REQUIRED)
   if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_arrow_lib(ARROW_SUBSTRAIT_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
+    if(MSVC)
+      bundle_arrow_import_lib(ARROW_SUBSTRAIT_IMPORT_LIB)
+    endif()
   endif()
 
   set(SUBSTRAIT_LINK_LIBS arrow_substrait_shared)

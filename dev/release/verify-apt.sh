@@ -189,6 +189,13 @@ ruby -r gi -e "p GI.load('ArrowFlight')"
 echo "::endgroup::"
 
 
+echo "::group::Test Apache Arrow Flight SQL"
+${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
+${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowFlightSQL')"
+echo "::endgroup::"
+
+
 if [ "${have_python}" = "yes" ]; then
   echo "::group::Test libarrow-python"
   ${APT_INSTALL} libarrow-python-dev=${package_version}

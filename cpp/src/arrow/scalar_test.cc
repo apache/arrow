@@ -522,11 +522,12 @@ TEST(TestBinaryScalar, Hashing) {
 }
 
 TEST(TestBinaryScalar, ValidateErrors) {
-  // Inconsistent is_valid / value
+  // Value must be null when the scalar is null
   BinaryScalar scalar(Buffer::FromString("xxx"));
   scalar.is_valid = false;
   AssertValidationFails(scalar);
 
+  // Value must be non-null
   auto null_scalar = MakeNullScalar(binary());
   null_scalar->is_valid = true;
   AssertValidationFails(*null_scalar);
@@ -615,10 +616,10 @@ TEST(TestFixedSizeBinaryScalar, Basics) {
   ASSERT_TRUE(value.is_valid);
   ASSERT_TRUE(value.type->Equals(*ex_type));
 
-  FixedSizeBinaryScalar null_value(ex_type);
+  FixedSizeBinaryScalar null_value(buf, ex_type, /*is_valid=*/false);
   ASSERT_OK(null_value.ValidateFull());
   ASSERT_FALSE(null_value.is_valid);
-  ASSERT_EQ(null_value.value, nullptr);
+  ASSERT_TRUE(null_value.value->Equals(*buf));
 
   // test Array.GetScalar
   auto ty = fixed_size_binary(3);
@@ -1056,11 +1057,11 @@ class TestListScalar : public ::testing::Test {
   }
 
   void TestValidateErrors() {
-    // Inconsistent is_valid / value
     ScalarType scalar(value_);
     scalar.is_valid = false;
-    AssertValidationFails(scalar);
+    ASSERT_OK(scalar.ValidateFull());
 
+    // Value must be defined
     scalar = ScalarType(value_);
     scalar.value = nullptr;
     AssertValidationFails(scalar);
@@ -1142,7 +1143,9 @@ TEST(TestStructScalar, NullScalar) {
   auto ty = struct_({field("a", boolean()), field("b", int32()), field("b", utf8()),
                      field("d", int64())});
 
-  StructScalar null_scalar(ty);
+  StructScalar null_scalar({MakeNullScalar(boolean()), MakeNullScalar(int32()),
+                            MakeNullScalar(utf8()), MakeNullScalar(int64())},
+                           ty, /*is_valid=*/false);
   ASSERT_OK(null_scalar.ValidateFull());
   ASSERT_FALSE(null_scalar.is_valid);
 
@@ -1153,7 +1156,7 @@ TEST(TestStructScalar, NullScalar) {
 TEST(TestStructScalar, EmptyStruct) {
   auto ty = struct_({});
 
-  StructScalar null_scalar(ty);
+  StructScalar null_scalar({}, ty, /*is_valid=*/false);
   ASSERT_OK(null_scalar.ValidateFull());
   ASSERT_FALSE(null_scalar.is_valid);
 
@@ -1177,12 +1180,12 @@ TEST(TestStructScalar, EmptyStruct) {
 TEST(TestStructScalar, ValidateErrors) {
   auto ty = struct_({field("a", utf8())});
 
-  // Inconsistent is_valid / value
+  // Values must always be defined
   StructScalar scalar({MakeScalar("hello")}, ty);
   scalar.is_valid = false;
-  AssertValidationFails(scalar);
+  ASSERT_OK(scalar.ValidateFull());
 
-  scalar = StructScalar(ty);
+  scalar = StructScalar({}, ty, /*is_valid=*/false);
   scalar.is_valid = true;
   AssertValidationFails(scalar);
 
@@ -1376,21 +1379,47 @@ void CheckGetValidUnionScalar(const Array& arr, int64_t index, const Scalar& exp
   ASSERT_OK(scalar->ValidateFull());
   ASSERT_TRUE(scalar->Equals(expected));
 
-  const auto& as_union = checked_cast<const UnionScalar&>(*scalar);
-  ASSERT_TRUE(as_union.is_valid);
-  ASSERT_TRUE(as_union.value->Equals(expected_value));
+  ASSERT_TRUE(scalar->is_valid);
+  ASSERT_TRUE(
+      checked_cast<const UnionScalar&>(*scalar).child_value()->Equals(expected_value));
 }
 
 void CheckGetNullUnionScalar(const Array& arr, int64_t index) {
   ASSERT_OK_AND_ASSIGN(auto scalar, arr.GetScalar(index));
   ASSERT_TRUE(scalar->Equals(MakeNullScalar(arr.type())));
 
-  const auto& as_union = checked_cast<const UnionScalar&>(*scalar);
-  ASSERT_FALSE(as_union.is_valid);
-  // XXX in reality, the union array doesn't have a validity bitmap.
-  // Validity is inferred from the underlying child value, which should maybe
-  // be reflected here...
-  ASSERT_EQ(as_union.value, nullptr);
+  ASSERT_FALSE(scalar->is_valid);
+  ASSERT_FALSE(checked_cast<const UnionScalar&>(*scalar).child_value()->is_valid);
+}
+
+std::shared_ptr<Scalar> MakeUnionScalar(const SparseUnionType& type,
+                                        std::shared_ptr<Scalar> field_value,
+                                        int field_index) {
+  return SparseUnionScalar::FromValue(field_value, field_index, type.GetSharedPtr());
+}
+
+std::shared_ptr<Scalar> MakeUnionScalar(const DenseUnionType& type,
+                                        std::shared_ptr<Scalar> field_value,
+                                        int field_index) {
+  int8_t type_code = type.type_codes()[field_index];
+  return std::make_shared<DenseUnionScalar>(field_value, type_code, type.GetSharedPtr());
+}
+
+std::shared_ptr<Scalar> MakeSpecificNullScalar(const DenseUnionType& type,
+                                               int field_index) {
+  int8_t type_code = type.type_codes()[field_index];
+  auto value = MakeNullScalar(type.field(field_index)->type());
+  return std::make_shared<DenseUnionScalar>(value, type_code, type.GetSharedPtr());
+}
+
+std::shared_ptr<Scalar> MakeSpecificNullScalar(const SparseUnionType& type,
+                                               int field_index) {
+  ScalarVector field_values;
+  for (int i = 0; i < type.num_fields(); ++i) {
+    field_values.emplace_back(MakeNullScalar(type.field(i)->type()));
+  }
+  return std::make_shared<SparseUnionScalar>(field_values, type.type_codes()[field_index],
+                                             type.GetSharedPtr());
 }
 
 template <typename Type>
@@ -1403,18 +1432,29 @@ class TestUnionScalar : public ::testing::Test {
     type_.reset(new UnionType({field("string", utf8()), field("number", uint64()),
                                field("other_number", uint64())},
                               /*type_codes=*/{3, 42, 43}));
+    union_type_ = static_cast<const Type*>(type_.get());
+
     alpha_ = MakeScalar("alpha");
     beta_ = MakeScalar("beta");
     ASSERT_OK_AND_ASSIGN(two_, MakeScalar(uint64(), 2));
     ASSERT_OK_AND_ASSIGN(three_, MakeScalar(uint64(), 3));
 
-    union_alpha_ = std::make_shared<ScalarType>(alpha_, 3, type_);
-    union_beta_ = std::make_shared<ScalarType>(beta_, 3, type_);
-    union_two_ = std::make_shared<ScalarType>(two_, 42, type_);
-    union_other_two_ = std::make_shared<ScalarType>(two_, 43, type_);
-    union_three_ = std::make_shared<ScalarType>(three_, 42, type_);
-    union_string_null_ = MakeSpecificNullScalar(3);
-    union_number_null_ = MakeSpecificNullScalar(42);
+    union_alpha_ = ScalarFromValue(0, alpha_);
+    union_beta_ = ScalarFromValue(0, beta_);
+    union_two_ = ScalarFromValue(1, two_);
+    union_other_two_ = ScalarFromValue(2, two_);
+    union_three_ = ScalarFromValue(1, three_);
+    union_string_null_ = SpecificNull(0);
+    union_number_null_ = SpecificNull(1);
+  }
+
+  std::shared_ptr<Scalar> ScalarFromValue(int field_index,
+                                          std::shared_ptr<Scalar> field_value) {
+    return MakeUnionScalar(*union_type_, field_value, field_index);
+  }
+
+  std::shared_ptr<Scalar> SpecificNull(int field_index) {
+    return MakeSpecificNullScalar(*union_type_, field_index);
   }
 
   void TestValidate() {
@@ -1429,19 +1469,37 @@ class TestUnionScalar : public ::testing::Test {
 
   void TestValidateErrors() {
     // Type code doesn't exist
-    AssertValidationFails(ScalarType(alpha_, 0, type_));
-    AssertValidationFails(ScalarType(alpha_, 0, type_));
-    AssertValidationFails(ScalarType(0, type_));
-    AssertValidationFails(ScalarType(alpha_, -42, type_));
-    AssertValidationFails(ScalarType(-42, type_));
+    auto scalar = ScalarFromValue(0, alpha_);
+    UnionScalar* union_scalar = static_cast<UnionScalar*>(scalar.get());
+
+    // Invalid type code
+    union_scalar->type_code = 0;
+    AssertValidationFails(*union_scalar);
+
+    union_scalar->is_valid = false;
+    AssertValidationFails(*union_scalar);
+
+    union_scalar->type_code = -42;
+    union_scalar->is_valid = true;
+    AssertValidationFails(*union_scalar);
+
+    union_scalar->is_valid = false;
+    AssertValidationFails(*union_scalar);
 
     // Type code doesn't correspond to child type
-    AssertValidationFails(ScalarType(alpha_, 42, type_));
-    AssertValidationFails(ScalarType(two_, 3, type_));
+    if (type_->id() == ::arrow::Type::DENSE_UNION) {
+      union_scalar->type_code = 42;
+      union_scalar->is_valid = true;
+      AssertValidationFails(*union_scalar);
+
+      scalar = ScalarFromValue(2, two_);
+      union_scalar = static_cast<UnionScalar*>(scalar.get());
+      union_scalar->type_code = 3;
+      AssertValidationFails(*union_scalar);
+    }
 
     // underlying value has invalid UTF8
-    auto invalid_utf8 = std::make_shared<StringScalar>("\xff");
-    auto scalar = std::make_shared<ScalarType>(invalid_utf8, 3, type_);
+    scalar = ScalarFromValue(0, std::make_shared<StringScalar>("\xff"));
     ASSERT_OK(scalar->Validate());
     ASSERT_RAISES(Invalid, scalar->ValidateFull());
   }
@@ -1466,20 +1524,23 @@ class TestUnionScalar : public ::testing::Test {
     const auto& as_union = checked_cast<const UnionScalar&>(*scalar);
     AssertTypeEqual(type_, as_union.type);
     ASSERT_FALSE(as_union.is_valid);
-    ASSERT_EQ(as_union.value, nullptr);
-    // Abstractly, the type code must be valid.
-    // Concretely, the first child field is chosen.
+
+    // The first child field is chosen arbitrarily for the purposes of making
+    // a null scalar
     ASSERT_EQ(as_union.type_code, 3);
+
+    if (type_->id() == ::arrow::Type::DENSE_UNION) {
+      const auto& as_dense_union = checked_cast<const DenseUnionScalar&>(*scalar);
+      ASSERT_FALSE(as_dense_union.value->is_valid);
+    } else {
+      const auto& as_sparse_union = checked_cast<const SparseUnionScalar&>(*scalar);
+      ASSERT_FALSE(as_sparse_union.value[as_sparse_union.child_id]->is_valid);
+    }
   }
 
  protected:
-  std::shared_ptr<Scalar> MakeSpecificNullScalar(int8_t type_code) {
-    auto scal = MakeNullScalar(type_);
-    checked_cast<UnionScalar*>(scal.get())->type_code = type_code;
-    return scal;
-  }
-
   std::shared_ptr<DataType> type_;
+  const UnionType* union_type_;
   std::shared_ptr<Scalar> alpha_, beta_, two_, three_;
   std::shared_ptr<Scalar> union_alpha_, union_beta_, union_two_, union_three_,
       union_other_two_, union_string_null_, union_number_null_;
@@ -1575,7 +1636,8 @@ TEST_F(TestExtensionScalar, Basics) {
   ASSERT_OK(uuid_scalar2.ValidateFull());
   ASSERT_TRUE(uuid_scalar2.is_valid);
 
-  const ExtensionScalar null_scalar(type_);
+  const ExtensionScalar null_scalar(MakeNullScalar(storage_type_), type_,
+                                    /*is_valid=*/false);
   ASSERT_OK(null_scalar.ValidateFull());
   ASSERT_FALSE(null_scalar.is_valid);
 
@@ -1585,7 +1647,8 @@ TEST_F(TestExtensionScalar, Basics) {
 }
 
 TEST_F(TestExtensionScalar, MakeScalar) {
-  const ExtensionScalar null_scalar(type_);
+  const ExtensionScalar null_scalar(MakeNullScalar(storage_type_), type_,
+                                    /*is_valid=*/false);
   const ExtensionScalar uuid_scalar = MakeUuidScalar(uuid_string1_);
 
   auto scalar = CheckMakeNullScalar(type_);
@@ -1608,7 +1671,8 @@ TEST_F(TestExtensionScalar, MakeScalar) {
 }
 
 TEST_F(TestExtensionScalar, GetScalar) {
-  const ExtensionScalar null_scalar(type_);
+  const ExtensionScalar null_scalar(MakeNullScalar(storage_type_), type_,
+                                    /*is_valid=*/false);
   const ExtensionScalar uuid_scalar = MakeUuidScalar(uuid_string1_);
   const ExtensionScalar uuid_scalar2 = MakeUuidScalar(uuid_string2_);
 
@@ -1639,7 +1703,8 @@ TEST_F(TestExtensionScalar, GetScalar) {
 
 TEST_F(TestExtensionScalar, ValidateErrors) {
   // Mismatching is_valid and value
-  ExtensionScalar null_scalar(type_);
+  ExtensionScalar null_scalar(MakeNullScalar(storage_type_), type_,
+                              /*is_valid=*/false);
   null_scalar.is_valid = true;
   AssertValidationFails(null_scalar);
 
@@ -1648,17 +1713,20 @@ TEST_F(TestExtensionScalar, ValidateErrors) {
   AssertValidationFails(uuid_scalar);
 
   // Null storage scalar
-  auto null_storage = std::make_shared<FixedSizeBinaryScalar>(storage_type_);
+  auto null_storage = MakeNullScalar(storage_type_);
   ExtensionScalar scalar(null_storage, type_);
   scalar.is_valid = true;
   AssertValidationFails(scalar);
+
+  // If the scalar is null it's okay
   scalar.is_valid = false;
-  AssertValidationFails(scalar);
+  ASSERT_OK(scalar.ValidateFull());
 
   // Invalid storage scalar (wrong length)
-  auto invalid_storage = std::make_shared<FixedSizeBinaryScalar>(storage_type_);
+  std::shared_ptr<Scalar> invalid_storage = MakeNullScalar(storage_type_);
   invalid_storage->is_valid = true;
-  invalid_storage->value = std::make_shared<Buffer>("123");
+  static_cast<FixedSizeBinaryScalar*>(invalid_storage.get())->value =
+      std::make_shared<Buffer>("123");
   AssertValidationFails(*invalid_storage);
   scalar = ExtensionScalar(invalid_storage, type_);
   AssertValidationFails(scalar);

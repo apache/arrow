@@ -17,45 +17,16 @@
 
 module Arrow
   class Time32DataType
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-
-    # Creates a new {Arrow::Time32DataType}.
-    #
-    # @overload initialize(unit)
-    #
-    #   @param unit [Arrow::TimeUnit, Symbol] The unit of the
-    #     time32 data type.
-    #
-    #     The unit must be second or millisecond.
-    #
-    #   @example Create a time32 data type with Arrow::TimeUnit
-    #     Arrow::Time32DataType.new(Arrow::TimeUnit::MILLI)
-    #
-    #   @example Create a time32 data type with Symbol
-    #     Arrow::Time32DataType.new(:milli)
-    #
-    # @overload initialize(description)
-    #
-    #   @param description [Hash] The description of the time32 data
-    #     type. It must have `:unit` value.
-    #
-    #   @option description [Arrow::TimeUnit, Symbol] :unit The unit of
-    #     the time32 data type.
-    #
-    #     The unit must be second or millisecond.
-    #
-    #   @example Create a time32 data type with Arrow::TimeUnit
-    #     Arrow::Time32DataType.new(unit: Arrow::TimeUnit::MILLI)
-    #
-    #   @example Create a time32 data type with Symbol
-    #     Arrow::Time32DataType.new(unit: :milli)
-    def initialize(unit)
-      if unit.is_a?(Hash)
-        description = unit
-        unit = description[:unit]
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when Symbol, Arrow::TimeUnit
+          new(value)
+        else
+          super
+        end
       end
-      initialize_raw(unit)
     end
   end
 end

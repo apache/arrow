@@ -18,8 +18,10 @@ package scalar_test
 
 import (
 	"bytes"
+	"fmt"
 	"hash/maphash"
 	"math/bits"
+	"strings"
 	"testing"
 	"time"
 
@@ -977,4 +979,167 @@ func TestToScalar(t *testing.T) {
 		`valuint:list<item: uint64, nullable> = [14 15 16]}`
 
 	assert.Equal(t, expected, sc.String())
+}
+
+var dictIndexTypes = []arrow.DataType{
+	arrow.PrimitiveTypes.Int8,
+	arrow.PrimitiveTypes.Uint8,
+	arrow.PrimitiveTypes.Int16,
+	arrow.PrimitiveTypes.Uint16,
+	arrow.PrimitiveTypes.Int32,
+	arrow.PrimitiveTypes.Uint32,
+	arrow.PrimitiveTypes.Int64,
+	arrow.PrimitiveTypes.Uint64,
+}
+
+func TestDictionaryScalarBasics(t *testing.T) {
+	for _, indexType := range dictIndexTypes {
+		t.Run(fmt.Sprint(indexType), func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			ty := &arrow.DictionaryType{IndexType: indexType, ValueType: arrow.BinaryTypes.String}
+			dict, _, _ := array.FromJSON(mem, arrow.BinaryTypes.String, strings.NewReader(`["alpha", null, "gamma"]`))
+			defer dict.Release()
+
+			idxScalar, _ := scalar.MakeScalarParam(0, indexType)
+			alpha := scalar.NewDictScalar(idxScalar, dict)
+			defer alpha.Release()
+
+			idxScalar, _ = scalar.MakeScalarParam(2, indexType)
+			gamma := scalar.NewDictScalar(idxScalar, dict)
+			defer gamma.Release()
+
+			idxScalar, _ = scalar.MakeScalarParam(1, indexType)
+			nullVal := scalar.NewDictScalar(idxScalar, dict)
+			defer nullVal.Release()
+
+			scalarNull := scalar.MakeNullScalar(ty)
+			scalarNull.(*scalar.Dictionary).Value.Dict = dict
+			dict.Retain()
+			defer scalarNull.(*scalar.Dictionary).Release()
+
+			assert.NoError(t, scalarNull.ValidateFull())
+			assert.NoError(t, alpha.ValidateFull())
+			assert.NoError(t, gamma.ValidateFull())
+
+			// index is valid, corresponding value is null
+			assert.NoError(t, nullVal.ValidateFull())
+
+			encodedNull, err := scalarNull.(*scalar.Dictionary).GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedNull.ValidateFull())
+			assert.True(t, scalar.Equals(encodedNull, scalar.MakeNullScalar(arrow.BinaryTypes.String)))
+
+			encodedNullVal, err := nullVal.GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedNullVal.ValidateFull())
+			assert.True(t, scalar.Equals(encodedNullVal, scalar.MakeNullScalar(arrow.BinaryTypes.String)))
+
+			encodedAlpha, err := alpha.GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedAlpha.ValidateFull())
+			assert.True(t, scalar.Equals(encodedAlpha, scalar.MakeScalar("alpha")))
+
+			encodedGamma, err := gamma.GetEncodedValue()
+			assert.NoError(t, err)
+			assert.NoError(t, encodedGamma.ValidateFull())
+			assert.True(t, scalar.Equals(encodedGamma, scalar.MakeScalar("gamma")))
+
+			idxArr, _, _ := array.FromJSON(mem, indexType, strings.NewReader(`[2, 0, 1, null]`))
+			defer idxArr.Release()
+			arr := array.NewDictionaryArray(ty, idxArr, dict)
+			defer arr.Release()
+
+			first, err := scalar.GetScalar(arr, 0)
+			assert.NoError(t, err)
+			second, err := scalar.GetScalar(arr, 1)
+			assert.NoError(t, err)
+			third, err := scalar.GetScalar(arr, 2)
+			assert.NoError(t, err)
+			last, err := scalar.GetScalar(arr, 3)
+			assert.NoError(t, err)
+
+			defer func() {
+				first.(*scalar.Dictionary).Release()
+				second.(*scalar.Dictionary).Release()
+				third.(*scalar.Dictionary).Release()
+				last.(*scalar.Dictionary).Release()
+			}()
+
+			assert.NoError(t, first.ValidateFull())
+			assert.NoError(t, second.ValidateFull())
+			assert.NoError(t, third.ValidateFull())
+			assert.NoError(t, last.ValidateFull())
+
+			assert.True(t, first.IsValid())
+			assert.True(t, second.IsValid())
+			assert.True(t, third.IsValid()) // valid because of valid index despite null value
+			assert.False(t, last.IsValid())
+
+			assert.True(t, scalar.Equals(first, gamma))
+			assert.True(t, scalar.Equals(second, alpha))
+			assert.True(t, scalar.Equals(third, nullVal))
+			assert.True(t, scalar.Equals(last, scalarNull))
+
+			assert.Same(t, first.(*scalar.Dictionary).Value.Dict, arr.Dictionary())
+			assert.Same(t, second.(*scalar.Dictionary).Value.Dict, arr.Dictionary())
+		})
+	}
+}
+
+func TestDictionaryScalarValidateErrors(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	var (
+		indexTy = arrow.PrimitiveTypes.Int16
+		valueTy = arrow.BinaryTypes.String
+		dictTy  = &arrow.DictionaryType{IndexType: indexTy, ValueType: valueTy}
+	)
+
+	dict, _, _ := array.FromJSON(mem, valueTy, strings.NewReader(`["alpha", null, "gamma"]`))
+	defer dict.Release()
+
+	alpha := scalar.NewDictScalar(scalar.MakeScalar(int16(0)), dict)
+	defer alpha.Release()
+
+	// Valid index, null underlying value
+	nullVal := scalar.NewDictScalar(scalar.MakeScalar(int16(1)), dict)
+	defer nullVal.Release()
+
+	// inconsistent index type
+	dictSc := scalar.NewDictScalar(alpha.Value.Index, dict)
+	defer dictSc.Release()
+	dictSc.Type = &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: valueTy}
+	assert.Error(t, dictSc.Validate())
+
+	// inconsistent value type between dict and type
+	dictSc.Type = &arrow.DictionaryType{IndexType: indexTy, ValueType: arrow.BinaryTypes.Binary}
+	assert.Error(t, dictSc.Validate())
+
+	// inconsistent Valid/Value
+	dictSc.Type = dictTy
+	assert.NoError(t, dictSc.ValidateFull())
+	dictSc.Valid = false
+	assert.Error(t, dictSc.ValidateFull())
+
+	assert.NoError(t, nullVal.ValidateFull())
+	nullVal.Valid = false
+	assert.Error(t, nullVal.ValidateFull())
+
+	dictSc = scalar.NewNullDictScalar(dictTy)
+	dictSc.Valid = true
+	assert.Error(t, dictSc.ValidateFull())
+	dictSc.Valid = false
+	assert.NoError(t, dictSc.ValidateFull())
+
+	// index value out of bounds
+	for _, idx := range []int16{-1, 3} {
+		invalid := scalar.NewDictScalar(scalar.MakeScalar(idx), dict)
+		defer invalid.Release()
+
+		assert.NoError(t, invalid.Validate())
+		assert.Error(t, invalid.ValidateFull())
+	}
 }

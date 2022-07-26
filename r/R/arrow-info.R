@@ -44,6 +44,7 @@ arrow_info <- function() {
       parquet = arrow_with_parquet(),
       json = arrow_with_json(),
       s3 = arrow_with_s3(),
+      gcs = arrow_with_gcs(),
       utf8proc = "utf8_upper" %in% compute_funcs,
       re2 = "replace_substring_regex" %in% compute_funcs,
       vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
@@ -118,6 +119,14 @@ arrow_with_s3 <- function() {
 
 #' @rdname arrow_info
 #' @export
+arrow_with_gcs <- function() {
+  tryCatch(.Call(`_gcs_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
+#' @rdname arrow_info
+#' @export
 arrow_with_json <- function() {
   tryCatch(.Call(`_json_available`), error = function(e) {
     return(FALSE)
@@ -150,7 +159,7 @@ print.arrow_info <- function(x, ...) {
     mimalloc = "mimalloc" %in% x$memory_pool$available_backends
   ))
   if (some_features_are_off(x$capabilities) && identical(tolower(Sys.info()[["sysname"]]), "linux")) {
-    # Only on linux because (e.g.) we disable certain features on purpose on rtools35 and solaris
+    # Only on linux because (e.g.) we disable certain features on purpose on rtools35
     cat(
       "To reinstall with more optional capabilities enabled, see\n",
       "  https://arrow.apache.org/docs/r/articles/install.html\n\n"

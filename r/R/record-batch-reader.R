@@ -191,6 +191,8 @@ RecordBatchFileReader$create <- function(file) {
 #' Convert an object to an Arrow RecordBatchReader
 #'
 #' @param x An object to convert to a [RecordBatchReader]
+#' @param schema The [schema()] that must match the schema returned by each
+#'   call to `x` when `x` is a function.
 #' @param ... Passed to S3 methods
 #'
 #' @return A [RecordBatchReader]
@@ -236,9 +238,18 @@ as_record_batch_reader.Dataset <- function(x, ...) {
 
 #' @rdname as_record_batch_reader
 #' @export
+as_record_batch_reader.function <- function(x, ..., schema) {
+  assert_that(inherits(schema, "Schema"))
+  RecordBatchReader__from_function(x, schema)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
 as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
-  # TODO(ARROW-16607): use ExecPlan directly when it handles metadata
-  as_record_batch_reader(compute.arrow_dplyr_query(x))
+  # See query-engine.R for ExecPlan/Nodes
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
+  plan$Run(final_node)
 }
 
 #' @rdname as_record_batch_reader

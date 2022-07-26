@@ -36,6 +36,7 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
+using ::arrow::internal::FileDescriptor;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
 
@@ -237,9 +238,8 @@ class TestLocalFS : public LocalFSTestMixin {
 
   void CheckConcreteFile(const std::string& path, int64_t expected_size) {
     ASSERT_OK_AND_ASSIGN(auto fn, PlatformFilename::FromString(path));
-    ASSERT_OK_AND_ASSIGN(int fd, ::arrow::internal::FileOpenReadable(fn));
-    auto result = ::arrow::internal::FileGetSize(fd);
-    ASSERT_OK(::arrow::internal::FileClose(fd));
+    ASSERT_OK_AND_ASSIGN(FileDescriptor fd, ::arrow::internal::FileOpenReadable(fn));
+    auto result = ::arrow::internal::FileGetSize(fd.fd());
     ASSERT_OK_AND_ASSIGN(int64_t size, result);
     ASSERT_EQ(size, expected_size);
   }

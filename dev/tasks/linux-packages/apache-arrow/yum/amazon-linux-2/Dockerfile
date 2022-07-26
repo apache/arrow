@@ -18,8 +18,6 @@
 ARG FROM=amazonlinux:2
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 ARG DEBUG
 
 RUN \
@@ -39,6 +37,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    jemalloc-devel \
     json-devel \
     lz4-devel \
     make \
@@ -48,8 +47,9 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    thrift-devel \
     utf8proc-devel \
-    vala-devel \
+    vala \
     zlib-devel && \
   # Install ninja-build dependencies in amzn2-core
   yum install -y ${quiet} ninja-build && \

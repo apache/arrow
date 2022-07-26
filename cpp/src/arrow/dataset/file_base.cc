@@ -89,6 +89,14 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
+bool FileSource::Equals(const FileSource& other) const {
+  bool match_file_system =
+      (filesystem_ == nullptr && other.filesystem_ == nullptr) ||
+      (filesystem_ && other.filesystem_ && filesystem_->Equals(other.filesystem_));
+  return match_file_system && file_info_.Equals(other.file_info_) &&
+         buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
+}
+
 Future<util::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
     const std::shared_ptr<ScanOptions>&) {
@@ -133,6 +141,10 @@ Future<util::optional<int64_t>> FileFragment::CountRows(
   }
   auto self = checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), options);
+}
+
+bool FileFragment::Equals(const FileFragment& other) const {
+  return source_.Equals(other.source_) && format_->Equals(*other.format_);
 }
 
 struct FileSystemDataset::FragmentSubtrees {
@@ -265,16 +277,27 @@ Status FileWriter::Write(RecordBatchReader* batches) {
 }
 
 Future<> FileWriter::Finish() {
-  return FinishInternal().Then([this]() { return destination_->CloseAsync(); });
+  return FinishInternal().Then([this]() -> Future<> {
+    ARROW_ASSIGN_OR_RAISE(bytes_written_, destination_->Tell());
+    return destination_->CloseAsync();
+  });
+}
+
+Result<int64_t> FileWriter::GetBytesWritten() const {
+  if (bytes_written_.has_value()) {
+    return bytes_written_.value();
+  } else {
+    return Status::Invalid("Cannot retrieve bytes written before calling Finish()");
+  }
 }
 
 namespace {
 
-Status WriteBatch(std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
-                  FileSystemDatasetWriteOptions write_options,
-                  std::function<Status(std::shared_ptr<RecordBatch>,
-                                       const Partitioning::PartitionPathFormat&)>
-                      write) {
+Status WriteBatch(
+    std::shared_ptr<RecordBatch> batch, compute::Expression guarantee,
+    FileSystemDatasetWriteOptions write_options,
+    std::function<Status(std::shared_ptr<RecordBatch>, const PartitionPathFormat&)>
+        write) {
   ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
 
@@ -292,7 +315,7 @@ Status WriteBatch(std::shared_ptr<RecordBatch> batch, compute::Expression guaran
   for (std::size_t index = 0; index < groups.batches.size(); index++) {
     auto partition_expression = and_(groups.expressions[index], guarantee);
     auto next_batch = groups.batches[index];
-    Partitioning::PartitionPathFormat destination;
+    PartitionPathFormat destination;
     ARROW_ASSIGN_OR_RAISE(destination,
                           write_options.partitioning->Format(partition_expression));
     RETURN_NOT_OK(write(next_batch, destination));
@@ -337,10 +360,10 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
     return WriteBatch(
         batch, guarantee, write_options_,
         [this](std::shared_ptr<RecordBatch> next_batch,
-               const Partitioning::PartitionPathFormat& destination) {
+               const PartitionPathFormat& destination) {
           return task_group_.AddTask([this, next_batch, destination] {
             Future<> has_room = dataset_writer_->WriteRecordBatch(
-                next_batch, destination.directory, destination.prefix);
+                next_batch, destination.directory, destination.filename);
             if (!has_room.is_finished()) {
               // We don't have to worry about sequencing backpressure here since
               // task_group_ serves as our sequencer.  If batches continue to arrive after
@@ -481,11 +504,11 @@ class TeeNode : public compute::MapNode {
                         compute::Expression guarantee) {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,
-                             const Partitioning::PartitionPathFormat& destination) {
+                             const PartitionPathFormat& destination) {
                         return task_group_.AddTask([this, next_batch, destination] {
                           util::tracing::Span span;
                           Future<> has_room = dataset_writer_->WriteRecordBatch(
-                              next_batch, destination.directory, destination.prefix);
+                              next_batch, destination.directory, destination.filename);
                           if (!has_room.is_finished()) {
                             this->Pause();
                             return has_room.Then([this] { this->Resume(); });

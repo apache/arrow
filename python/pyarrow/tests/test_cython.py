@@ -30,6 +30,8 @@ here = os.path.dirname(os.path.abspath(__file__))
 test_ld_path = os.environ.get('PYARROW_TEST_LD_PATH', '')
 if os.name == 'posix':
     compiler_opts = ['-std=c++11']
+elif os.name == 'nt':
+    compiler_opts = ['-D_ENABLE_EXTENDED_ALIGNED_STORAGE']
 else:
     compiler_opts = []
 

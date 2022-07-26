@@ -19,14 +19,13 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
-==========================
-Streaming execution engine
-==========================
+=======================================
+Acero: A C++ streaming execution engine
+=======================================
 
 .. warning::
 
-    The streaming execution engine is experimental, and a stable API
-    is not yet guaranteed.
+    Acero is experimental and a stable API is not yet guaranteed.
 
 Motivation
 ==========
@@ -35,20 +34,23 @@ For many complex computations, successive direct :ref:`invocation of
 compute functions <invoking-compute-functions>` is not feasible
 in either memory or computation time. Doing so causes all intermediate
 data to be fully materialized. To facilitate arbitrarily large inputs
-and more efficient resource usage, Arrow also provides a streaming query
-engine with which computations can be formulated and executed.
+and more efficient resource usage, the Arrow C++ implementation also
+provides Acero, a streaming query engine with which computations can
+be formulated and executed.
 
 .. image:: simple_graph.svg
    :alt: An example graph of a streaming execution workflow.
 
-:class:`ExecNode` is provided to reify the graph of operations in a query.
-Batches of data (:struct:`ExecBatch`) flow along edges of the graph from
-node to node. Structuring the API around streams of batches allows the
-working set for each node to be tuned for optimal performance independent
-of any other nodes in the graph. Each :class:`ExecNode` processes batches
-as they are pushed to it along an edge of the graph by upstream nodes
-(its inputs), and pushes batches along an edge of the graph to downstream
-nodes (its outputs) as they are finalized.
+Acero allows computation to be expressed as an "execution plan"
+(:class:`ExecPlan`) which is a directed graph of operators.  Each operator
+(:class:`ExecNode`) provides, transforms, or consumes the data passing
+through it.  Batches of data (:struct:`ExecBatch`) flow along edges of
+the graph from node to node. Structuring the API around streams of batches
+allows the working set for each node to be tuned for optimal performance
+independent of any other nodes in the graph. Each :class:`ExecNode`
+processes batches as they are pushed to it along an edge of the graph by
+upstream nodes (its inputs), and pushes batches along an edge of the graph
+to downstream nodes (its outputs) as they are finalized.
 
 .. seealso::
 
@@ -57,8 +59,119 @@ nodes (its outputs) as they are finalized.
    Journal of Functional Programming, 28.
    <https://doi.org/10.1017/s0956796818000102>`_
 
-Overview
-========
+Substrait
+=========
+
+In order to use Acero you will need to create an execution plan.  This is the
+model that describes the computation you want to apply to your data.  Acero has
+its own internal representation for execution plans but most users should not
+interact with this directly as it will couple their code to Acero.
+
+`Substrait <https://substrait.io>`_ is an open standard for execution plans.
+Acero implements the Substrait "consumer" interface.  This means that Acero can
+accept a Substrait plan and fulfill the plan, loading the requested data and
+applying the desired computation.  By using Substrait plans users can easily
+switch out to a different execution engine at a later time.
+
+Substrait Conformance
+---------------------
+
+Substrait defines a broad set of operators and functions for many different
+situations and it is unlikely that Acero will ever completely satisfy all
+defined Substrait operators and functions.  To help understand what features
+are available the following sections define which features have been currently
+implemented in Acero and any caveats that apply.
+
+Plans
+^^^^^
+
+ * A plan should have a single top-level relation.
+ * The consumer is currently based on a custom build of Substrait that
+   is older than 0.1.0.  Any features added that are newer than 0.1.0 will
+   not be supported.
+
+Extensions
+^^^^^^^^^^
+
+ * If a plan contains any extension type variations it will be rejected.
+ * If a plan contains any advanced extensions it will be rejected.
+
+Relations (in general)
+^^^^^^^^^^^^^^^^^^^^^^
+
+ * The ``emit`` property (to customize output order of a node or to drop
+   columns) is not supported and plans containing this property will
+   be rejected.
+ * The ``hint`` property is not supported and plans containing this
+   property will be rejected.
+ * Any advanced extensions will cause a plan to be rejected.
+ * Any relation not explicitly listed below will not be supported
+   and will cause the plan to be rejected.
+
+Read Relations
+^^^^^^^^^^^^^^
+
+ * The ``projection`` property is not supported and plans containing this
+   property will be rejected.
+ * The only supported read type is ``LocalFiles``.  Plans with any other
+   type will be rejected.
+ * Only the parquet file format is currently supported.
+ * All URIs must use the ``file`` scheme
+ * ``partition_index``, ``start``, and ``length`` are not supported.  Plans containing
+   these properties will be rejected.
+ * The Substrait spec requires that a ``filter`` be completely satisfied by a read
+   relation.  However, Acero only uses a read filter for pushdown projection and
+   it may not be fully satisfied.  Users should generally attach an additional
+   filter relation with the same filter expression after the read relation.
+
+Filter Relations
+^^^^^^^^^^^^^^^^
+
+ * No know caveats
+
+Project Relations
+^^^^^^^^^^^^^^^^^
+
+ * No known caveats
+
+Join Relations
+^^^^^^^^^^^^^^
+
+ * The join type ``JOIN_TYPE_SINGLE`` is not supported and plans containing this
+   will be rejected.
+ * The join expression must be a call to either the ``equal`` or ``is_not_distinct_from``
+   functions.  Both arguments to the call must be direct references.  Only a single
+   join key is supported.
+ * The ``post_join_filter`` property is not supported and will be ignored.
+
+Expressions (general)
+^^^^^^^^^^^^^^^^^^^^^
+
+ * Various places in the Substrait spec allow for expressions to be used outside
+   of a filter or project relation.  For example, a join expression or an aggregate
+   grouping set.  Acero typically expects these expressions to be direct references.
+   Planners should extract the implicit projection into a formal project relation
+   before delivering the plan to Acero.
+
+Literals
+^^^^^^^^
+
+ * A literal with non-default nullability will cause a plan to be rejected.
+
+Functions
+^^^^^^^^^
+
+ * The only functions currently supported by Acero are:
+
+   * add
+   * equal
+   * is_not_distinct_from
+
+ * The functions above must be referenced using the URI
+   ``https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml``
+
+Architecture Overview
+=====================
 
 :class:`ExecNode`
   Each node in the graph is an implementation of the :class:`ExecNode` interface.
@@ -366,10 +479,9 @@ This function might be reading a file, iterating through an in memory structure,
 from a network connection.  The arrow library refers to these functions as ``arrow::AsyncGenerator``
 and there are a number of utilities for working with these functions.  For this example we use 
 a vector of record batches that we've already stored in memory.
-In addition, the schema of the data must be known up front.  Arrow's streaming execution
-engine must know the schema of the data at each stage of the execution graph before any
-processing has begun.  This means we must supply the schema for a source node separately
-from the data itself.
+In addition, the schema of the data must be known up front.  Acero must know the schema of the data
+at each stage of the execution graph before any processing has begun.  This means we must supply the
+schema for a source node separately from the data itself.
 
 Here we define a struct to hold the data generator definition. This includes in-memory batches, schema
 and a function that serves as a data generator :

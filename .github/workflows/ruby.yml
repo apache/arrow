@@ -79,7 +79,7 @@ jobs:
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -90,6 +90,7 @@ jobs:
           ulimit -c unlimited
           archery docker run \
             -e ARROW_FLIGHT=ON \
+            -e ARROW_FLIGHT_SQL=ON \
             -e ARROW_GCS=ON \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
@@ -112,6 +113,7 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       ARROW_BUILD_UTILITIES: OFF
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_GLIB_GTK_DOC: true
@@ -178,7 +180,7 @@ jobs:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -192,6 +194,7 @@ jobs:
       ARROW_BUILD_UTILITIES: OFF
       ARROW_BUILD_TYPE: release
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: OFF

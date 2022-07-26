@@ -17,6 +17,7 @@
 
 import pytest
 from pyarrow import Codec
+from pyarrow import fs
 
 groups = [
     'brotli',
@@ -26,6 +27,7 @@ groups = [
     'hypothesis',
     'fastparquet',
     'gandiva',
+    'gcs',
     'gdb',
     'gzip',
     'hdfs',
@@ -56,6 +58,7 @@ defaults = {
     'fastparquet': False,
     'flight': False,
     'gandiva': False,
+    'gcs': False,
     'gdb': True,
     'gzip': Codec.is_available('gzip'),
     'hdfs': False,
@@ -146,6 +149,13 @@ except ImportError:
     pass
 
 try:
+    from pyarrow.fs import GcsFileSystem  # noqa
+    defaults['gcs'] = True
+except ImportError:
+    pass
+
+
+try:
     from pyarrow.fs import S3FileSystem  # noqa
     defaults['s3'] = True
 except ImportError:
@@ -204,6 +214,12 @@ def pytest_ignore_collect(path, config):
             except ImportError:
                 return True
 
+    if getattr(config.option, "doctest_cython", False):
+        if "/pyarrow/tests/" in str(path):
+            return True
+        if "/pyarrow/_parquet_encryption" in str(path):
+            return True
+
     return False
 
 
@@ -211,8 +227,11 @@ def pytest_ignore_collect(path, config):
 @pytest.fixture(autouse=True)
 def _docdir(request):
 
-    # Trigger ONLY for the doctests.
-    if request.config.option.doctestmodules:
+    # Trigger ONLY for the doctests
+    doctest_m = request.config.option.doctestmodules
+    doctest_c = getattr(request.config.option, "doctest_cython", False)
+
+    if doctest_m or doctest_c:
 
         # Get the fixture dynamically by its name.
         tmpdir = request.getfixturevalue('tmpdir')
@@ -222,5 +241,27 @@ def _docdir(request):
             yield
 
     else:
-        # For normal tests, we have to yield, since this is a yield-fixture.
         yield
+
+
+# Define doctest_namespace for fs module docstring import
+@pytest.fixture(autouse=True)
+def add_fs(doctest_namespace, request, tmp_path):
+
+    # Trigger ONLY for the doctests
+    doctest_m = request.config.option.doctestmodules
+    doctest_c = getattr(request.config.option, "doctest_cython", False)
+
+    if doctest_m or doctest_c:
+        # fs import
+        doctest_namespace["fs"] = fs
+
+        # Creation of an object and file with data
+        local = fs.LocalFileSystem()
+        path = tmp_path / 'pyarrow-fs-example.dat'
+        with local.open_output_stream(str(path)) as stream:
+            stream.write(b'data')
+        doctest_namespace["local"] = local
+        doctest_namespace["local_path"] = str(tmp_path)
+        doctest_namespace["path"] = str(path)
+    yield

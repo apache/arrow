@@ -32,7 +32,6 @@
 !docs/requirements*.txt
 !python/requirements*.txt
 !python/manylinux1/**
-!python/manylinux2010/**
 !r/DESCRIPTION
 !ruby/Gemfile
 !ruby/red-arrow/Gemfile

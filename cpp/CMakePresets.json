@@ -140,7 +140,6 @@
       "cacheVariables": {
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
-        "ARROW_HIVESERVER2": "ON",
         "ARROW_ORC": "ON",
         "ARROW_SKYHOOK": "ON",
         "ARROW_TENSORFLOW": "ON",

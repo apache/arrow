@@ -40,6 +40,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    jemalloc-devel \
     json-devel \
     libarchive \
     libzstd-devel \
@@ -60,7 +61,8 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
+    thrift-devel \
     # utf8proc-devel \
-    vala-devel \
+    vala \
     zlib-devel && \
   dnf clean ${quiet} all

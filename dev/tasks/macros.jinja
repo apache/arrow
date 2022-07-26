@@ -25,7 +25,7 @@ on:
       - "*-github-*"
 {% endmacro %}
 
-{%- macro github_checkout_arrow(fetch_depth=1) -%}
+{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive") -%}
   - name: Checkout Arrow
     uses: actions/checkout@v3
     with:
@@ -33,12 +33,12 @@ on:
       path: arrow
       repository: {{ arrow.github_repo }}
       ref: {{ arrow.head }}
-      submodules: recursive
+      submodules: {{ submodules }}
 {% endmacro %}
 
 {%- macro github_login_dockerhub() -%}
   - name: Login to Dockerhub
-    uses: docker/login-action@v1
+    uses: docker/login-action@v2
     with:
       username: {{ '${{ secrets.DOCKERHUB_USER }}' }}
       password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
@@ -46,14 +46,18 @@ on:
 
 {%- macro github_login_ghcr() -%}
   - name: Login to GitHub Container Registry
-    shell: bash
-    run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
+    uses: docker/login-action@v2
+    with:
+      registry: ghcr.io
+      username: {{ '${{ github.actor }}' }}
+      password: {{ '${{ secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
 {%- macro github_install_archery() -%}
   - name: Set up Python
-    uses: actions/setup-python@v2
+    uses: actions/setup-python@v4
     with:
+      cache: 'pip'
       python-version: 3.8
   - name: Install Archery
     shell: bash
@@ -62,7 +66,7 @@ on:
 
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python
-    uses: actions/setup-python@v2
+    uses: actions/setup-python@v4
     with:
       python-version: 3.8
   - name: Setup Crossbow
@@ -221,3 +225,87 @@ on:
         cp ${formula} $(brew --repository homebrew/core)/Formula/
       done
 {% endmacro %}
+
+{%- macro github_change_r_pkg_version(is_fork, version = '\\2.\'\"$(date +%Y%m%d)\"\'' ) -%}
+  - name: Modify version
+    shell: bash
+    run: |
+      cd arrow/r
+      sed -i.bak -E -e \
+        's/(^Version: )([0-9]+\.[0-9]+\.[0-9]+).*$/\1{{ version }}/' \
+        DESCRIPTION
+      head DESCRIPTION
+      rm -f DESCRIPTION.bak
+      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
+
+      # Pin the git commit in the formula to match
+      cd tools
+      if [ "{{ is_fork }}" == "true" ]; then
+        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      else
+        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow.rb
+      fi
+      rm -f apache-arrow.rb.bak
+{% endmacro %}
+
+{%- macro github_test_r_src_pkg() -%}
+  source("https://raw.githubusercontent.com/apache/arrow/master/ci/etc/rprofile")
+
+  install.packages(
+    "arrow",
+    repos = c(getOption("arrow.dev_repo"), getOption("repos")),
+    verbose = TRUE
+  )
+
+  library(arrow)
+  read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+
+  # Our Version should always be > CRAN so we would detect a CRAN version here.
+  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
+{% endmacro %}
+
+{%- macro github_setup_local_r_repo(get_nix, get_win) -%}
+  - name: Setup local repo
+    shell: bash
+    run: mkdir repo
+  {% if get_win %}
+  - name: Get windows binary
+    uses: actions/download-artifact@v3
+    with:
+      name: r-lib__libarrow__bin__windows
+      path: repo/libarrow/bin/windows
+  {% endif %}
+  {% if get_nix %}
+    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
+  - name: Get {{ os }} binary
+    uses: actions/download-artifact@v3
+    with:
+      name: r-lib__libarrow__bin__{{ os }}
+      path: repo/libarrow/bin/{{ os }}
+    {% endfor %}
+  {% endif %}
+  - name: Get src pkg
+    uses: actions/download-artifact@v3
+    with:
+      name: r-pkg__src__contrib
+      path: repo/src/contrib
+  - name: Update repo index
+    shell: Rscript {0}
+    run: |
+      # getwd() is necessary as this macro is used within jobs using a docker container
+      tools::write_PACKAGES(file.path(getwd(), "repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
+  - name: Show repo
+    shell: bash
+    # tree not available in git-bash on windows
+    run: |
+      ls -R repo
+  - name: Add dev repo to .Rprofile
+    shell: Rscript {0}
+    run: |
+      str <- paste0("options(arrow.dev_repo ='file://", getwd(), "/repo' )")
+      print(str)
+      profile_path <- file.path(getwd(), ".Rprofile")
+      write(str, file = profile_path, append = TRUE)
+      # Set envvar for later steps by appending to $GITHUB_ENV
+      write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
+  {% endmacro %}

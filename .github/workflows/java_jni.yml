@@ -64,7 +64,7 @@ jobs:
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -94,7 +94,7 @@ jobs:
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery

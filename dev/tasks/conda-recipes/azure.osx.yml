@@ -57,6 +57,7 @@ jobs:
 
   - script: |
       source activate base
+      set -e
       set +x
       if [[ "${CONFIG}" == osx_arm* ]]; then
         EXTRA_CB_OPTIONS="${EXTRA_CB_OPTIONS:-} --no-test"

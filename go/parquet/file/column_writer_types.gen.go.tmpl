@@ -137,13 +137,13 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatchSpaced(values []{{.name}}, defLev
 
     w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
     if values != nil {
-      vals = values[valueOffset:]
+      vals = values[valueOffset:valueOffset+info.numSpaced()]
     }
 
     if w.bitsBuffer != nil {
-      w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, w.bitsBuffer.Bytes(), 0)
+      w.writeValuesSpaced(vals, info.batchNum, w.bitsBuffer.Bytes(), 0)
     } else {
-      w.writeValuesSpaced(vals[:info.numSpaced()], info.batchNum, validBits, validBitsOffset+valueOffset)
+      w.writeValuesSpaced(vals, info.batchNum, validBits, validBitsOffset+valueOffset)
     }
     w.commitWriteAndCheckPageLimit(batch, info.numSpaced())
     valueOffset += info.numSpaced()

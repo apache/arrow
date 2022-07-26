@@ -54,7 +54,12 @@ type Reader struct {
 // NewReaderFromMessageReader allows constructing a new reader object with the
 // provided MessageReader allowing injection of reading messages other than
 // by simple streaming bytes such as Arrow Flight which receives a protobuf message
-func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error) {
+func NewReaderFromMessageReader(r MessageReader, opts ...Option) (reader *Reader, err error) {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+		}
+	}()
 	cfg := newConfig()
 	for _, opt := range opts {
 		opt(cfg)
@@ -68,7 +73,7 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 		mem:  cfg.alloc,
 	}
 
-	err := rr.readSchema(cfg.schema)
+	err = rr.readSchema(cfg.schema)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not read schema from stream: %w", err)
 	}
@@ -186,6 +191,12 @@ func (r *Reader) getInitialDicts() bool {
 }
 
 func (r *Reader) next() bool {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			r.err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+		}
+	}()
+
 	if !r.readInitialDicts && !r.getInitialDicts() {
 		return false
 	}

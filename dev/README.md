@@ -53,13 +53,16 @@ After installed, it runs the merge script.
 have to install Python dependencies yourself and then run `dev/merge_arrow_pr.py`
 directly)
 
-The merge script uses the GitHub REST API; if you encounter rate limit issues,
-you may set a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal
-Access Token.
+The merge script uses the GitHub REST API. You must set a
+`ARROW_GITHUB_API_TOKEN` environment variable to use a 
+[Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token). 
+You need to add `workflow` scope to the Personal Access Token.
 
-You can specify the username and the password of your JIRA account in
-`APACHE_JIRA_USERNAME` and `APACHE_JIRA_PASSWORD` environment variables.
-If these aren't supplied, the script will ask you the values of them.
+You can specify the 
+[Personal Access Token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html)
+of your JIRA account in the 
+`APACHE_JIRA_TOKEN` environment variable.
+If the variable is not set, the script will ask you for it.
 
 Note that the directory name of your Arrow git clone must be called `arrow`.
 
@@ -74,48 +77,35 @@ title	Blah Blah Blah
 source	repo/branch
 target	master
 url	https://api.github.com/repos/apache/arrow/pulls/X
+=== JIRA ARROW-#Y ===
+Summary		Blah Blah Blah
+Assignee	Name
+Components	C++
+Status		In Progress
+URL		https://issues.apache.org/jira/browse/ARROW-#Y
 
 Proceed with merging pull request #3? (y/n):
 ```
 If this looks good, type y and hit enter.
 ```
-From git-wip-us.apache.org:/repos/asf/arrow.git
- * [new branch]      master     -> PR_TOOL_MERGE_PR_3_MASTER
-Switched to branch 'PR_TOOL_MERGE_PR_3_MASTER'
-
-Merge complete (local ref PR_TOOL_MERGE_PR_3_MASTER). Push to apache? (y/n):
-```
-A local branch with the merge has been created.
-type y and hit enter to push it to apache master
-```
-Counting objects: 67, done.
-Delta compression using up to 4 threads.
-Compressing objects: 100% (26/26), done.
-Writing objects: 100% (36/36), 5.32 KiB, done.
-Total 36 (delta 17), reused 0 (delta 0)
-To git-wip-us.apache.org:/repos/arrow-mr.git
-   b767ac4..485658a  PR_TOOL_MERGE_PR_X_MASTER -> master
-Restoring head pointer to b767ac4e
-Note: checking out 'b767ac4e'.
-
-You are in 'detached HEAD' state. You can look around, make experimental
-changes and commit them, and you can discard any commits you make in this
-state without impacting any branches by performing another checkout.
-
-If you want to create a new branch to retain commits you create, you may
-do so (now or later) by using -b with the checkout command again. Example:
-
-  git checkout -b new_branch_name
-
-HEAD is now at b767ac4... Update README.md
-Deleting local branch PR_TOOL_MERGE_PR_X
-Deleting local branch PR_TOOL_MERGE_PR_X_MASTER
+Author 1: Name
 Pull request #X merged!
-Merge hash: 485658a5
+Merge hash: #hash
 
-Would you like to pick 485658a5 into another branch? (y/n):
+Would you like to update the associated JIRA? (y/n): y
+Enter comma-separated fix version(s) [9.0.0]:
 ```
-For now just say n as we have 1 branch
+You can just hit enter and the associated JIRA will be resolved
+with the current fix version.
+```
+Successfully resolved ARROW-#Y!
+=== JIRA ARROW-#Y ===
+Summary		Blah Blah Blah
+Assignee	Name
+Components	C++
+Status		Resolved
+URL		https://issues.apache.org/jira/browse/ARROW-#Y
+```
 
 ## Verifying Release Candidates
 

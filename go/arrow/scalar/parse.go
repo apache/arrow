@@ -420,6 +420,19 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 			return NewMapScalar(v), nil
 		}
 	}
+
+	if arrow.IsInteger(dt.ID()) {
+		bits := dt.(arrow.FixedWidthDataType).BitWidth()
+		val := reflect.ValueOf(val)
+		if arrow.IsUnsignedInteger(dt.ID()) {
+			return MakeUnsignedIntegerScalar(val.Convert(reflect.TypeOf(uint64(0))).Uint(), bits)
+		}
+		return MakeIntegerScalar(val.Convert(reflect.TypeOf(int64(0))).Int(), bits)
+	}
+
+	if dt.ID() == arrow.DICTIONARY {
+		return MakeScalarParam(val, dt.(*arrow.DictionaryType).ValueType)
+	}
 	return MakeScalar(val), nil
 }
 
@@ -631,6 +644,8 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 		}
 
 		return NewTime64Scalar(tm, dt), nil
+	case arrow.DICTIONARY:
+		return ParseScalar(dt.(*arrow.DictionaryType).ValueType, val)
 	}
 
 	return nil, fmt.Errorf("parsing of scalar for type %s not implemented", dt)

@@ -109,22 +109,18 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
+///
+/// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is
+/// expected to be a HashAggregate function. If the keys attribute is an empty vector,
+/// then each aggregate is assumed to be a ScalarAggregate function.
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
-  AggregateNodeOptions(std::vector<internal::Aggregate> aggregates,
-                       std::vector<FieldRef> targets, std::vector<std::string> names,
-                       std::vector<FieldRef> keys = {})
-      : aggregates(std::move(aggregates)),
-        targets(std::move(targets)),
-        names(std::move(names)),
-        keys(std::move(keys)) {}
+  explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,
+                                std::vector<FieldRef> keys = {})
+      : aggregates(std::move(aggregates)), keys(std::move(keys)) {}
 
   // aggregations which will be applied to the targetted fields
-  std::vector<internal::Aggregate> aggregates;
-  // fields to which aggregations will be applied
-  std::vector<FieldRef> targets;
-  // output field names for aggregations
-  std::vector<std::string> names;
+  std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped
   std::vector<FieldRef> keys;
 };
@@ -232,10 +228,16 @@ class ARROW_EXPORT SinkNodeConsumer {
 /// \brief Add a sink node which consumes data within the exec plan run
 class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer)
-      : consumer(std::move(consumer)) {}
+  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer,
+                                    std::vector<std::string> names = {})
+      : consumer(std::move(consumer)), names(std::move(names)) {}
 
   std::shared_ptr<SinkNodeConsumer> consumer;
+  /// \brief Names to rename the sink's schema fields to
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see ARROW-15901).
+  std::vector<std::string> names;
 };
 
 /// \brief Make a node which sorts rows passed through it
@@ -295,6 +297,19 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
     }
+  }
+  HashJoinNodeOptions(std::vector<FieldRef> in_left_keys,
+                      std::vector<FieldRef> in_right_keys)
+      : left_keys(std::move(in_left_keys)), right_keys(std::move(in_right_keys)) {
+    this->join_type = JoinType::INNER;
+    this->output_all = true;
+    this->output_suffix_for_left = default_output_suffix_for_left;
+    this->output_suffix_for_right = default_output_suffix_for_right;
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+    this->filter = literal(true);
   }
   HashJoinNodeOptions(
       JoinType join_type, std::vector<FieldRef> left_keys,
@@ -371,6 +386,35 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   bool disable_bloom_filter = false;
 };
 
+/// \brief Make a node which implements asof join operation
+///
+/// Note, this API is experimental and will change in the future
+///
+/// This node takes one left table and any number of right tables, and asof joins them
+/// together. Batches produced by each input must be ordered by the "on" key.
+/// This node will output one row for each row in the left table.
+class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
+ public:
+  AsofJoinNodeOptions(FieldRef on_key, FieldRef by_key, int64_t tolerance)
+      : on_key(std::move(on_key)), by_key(std::move(by_key)), tolerance(tolerance) {}
+
+  /// \brief "on" key for the join. Each
+  ///
+  /// All inputs tables must be sorted by the "on" key. Inexact
+  /// match is used on the "on" key. i.e., a row is considiered match iff
+  /// left_on - tolerance <= right_on <= left_on.
+  /// Currently, "on" key must be an int64 field
+  FieldRef on_key;
+  /// \brief "by" key for the join.
+  ///
+  /// All input tables must have the "by" key.  Exact equality
+  /// is used for the "by" key.
+  /// Currently, the "by" key must be an int32 field
+  FieldRef by_key;
+  /// Tolerance for inexact "on" key matching
+  int64_t tolerance;
+};
+
 /// \brief Make a node which select top_k/bottom_k rows passed through it
 ///
 /// All batches pushed to this node will be accumulated, then selected, by the given
@@ -385,7 +429,6 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   /// SelectK options
   SelectKOptions select_k_options;
 };
-/// @}
 
 /// \brief Adapt a Table as a sink node
 ///
@@ -398,6 +441,8 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
 
   std::shared_ptr<Table>* output_table;
 };
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

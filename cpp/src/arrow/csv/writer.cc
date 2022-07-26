@@ -59,6 +59,25 @@ namespace csv {
 
 namespace {
 
+// This function is to improve performance. It copies CSV delimiter and eol
+// without calling `memcpy`.
+// Each CSV field is followed by a delimiter or eol, which is often only one
+// or two chars. If copying both the field and delimiter with `memcpy`, CPU
+// may suffer from high branch misprediction as we are tripping `memcpy` with
+// interleaved (normal/tiny/normal/tiny/...) buffer sizes, which are handled
+// separately inside `memcpy`. This function goes fast path if the buffer
+// size is one or two chars to leave `memcpy` only for copying CSV fields.
+void CopyEndChars(char* dest, const char* src, size_t size) {
+  if (size == 1) {
+    // for fixed size memcpy, compiler will generate direct load/store opcode
+    memcpy(dest, src, 1);
+  } else if (size == 2) {
+    memcpy(dest, src, 2);
+  } else {
+    memcpy(dest, src, size);
+  }
+}
+
 struct SliceIteratorFunctor {
   Result<std::shared_ptr<RecordBatch>> Next() {
     if (current_offset < batch->num_rows()) {
@@ -168,7 +187,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     }
 
     int64_t row_number = 0;
-    VisitArrayDataInline<StringType>(
+    VisitArraySpanInline<StringType>(
         *casted_array_->data(),
         [&](arrow::util::string_view s) {
           row_lengths[row_number] += static_cast<int64_t>(s.length());
@@ -185,7 +204,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     // Function applied to valid values cast to string.
     auto valid_function = [&](arrow::util::string_view s) {
       memcpy(output + *offsets, s.data(), s.length());
-      memcpy(output + *offsets + s.length(), end_chars_.c_str(), end_chars_.size());
+      CopyEndChars(output + *offsets + s.length(), end_chars_.c_str(), end_chars_.size());
       *offsets += static_cast<int64_t>(s.length() + end_chars_.size());
       offsets++;
       return Status::OK();
@@ -195,14 +214,14 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     auto null_function = [&]() {
       // For nulls, the configured null value string is copied into the output.
       memcpy(output + *offsets, null_string_->data(), null_string_->size());
-      memcpy(output + *offsets + null_string_->size(), end_chars_.c_str(),
-             end_chars_.size());
+      CopyEndChars(output + *offsets + null_string_->size(), end_chars_.c_str(),
+                   end_chars_.size());
       *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
       offsets++;
       return Status::OK();
     };
 
-    return VisitArrayDataInline<StringType>(*casted_array_->data(), valid_function,
+    return VisitArraySpanInline<StringType>(*casted_array_->data(), valid_function,
                                             null_function);
   }
 
@@ -269,7 +288,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
     if (NoQuoteInArray(input)) {
       // fast path if no quote
       int row_number = 0;
-      VisitArrayDataInline<StringType>(
+      VisitArraySpanInline<StringType>(
           *input.data(),
           [&](arrow::util::string_view s) {
             row_lengths[row_number] += static_cast<int64_t>(s.length()) + kQuoteCount;
@@ -281,7 +300,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
           });
     } else {
       int row_number = 0;
-      VisitArrayDataInline<StringType>(
+      VisitArraySpanInline<StringType>(
           *input.data(),
           [&](arrow::util::string_view s) {
             // Each quote in the value string needs to be escaped.
@@ -301,7 +320,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
 
   Status PopulateRows(char* output, int64_t* offsets) const override {
     auto needs_escaping = row_needs_escaping_.begin();
-    VisitArrayDataInline<StringType>(
+    VisitArraySpanInline<StringType>(
         *(casted_array_->data()),
         [&](arrow::util::string_view s) {
           // still needs string content length to be added
@@ -314,7 +333,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
             row = Escape(s, row);
           }
           *row++ = '"';
-          memcpy(row, end_chars_.data(), end_chars_.length());
+          CopyEndChars(row, end_chars_.data(), end_chars_.length());
           row += end_chars_.length();
           *offsets = static_cast<int64_t>(row - output);
           offsets++;
@@ -323,8 +342,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
         [&]() {
           // For nulls, the configured null value string is copied into the output.
           memcpy(output + *offsets, null_string_->data(), null_string_->size());
-          memcpy(output + *offsets + null_string_->size(), end_chars_.c_str(),
-                 end_chars_.size());
+          CopyEndChars(output + *offsets + null_string_->size(), end_chars_.c_str(),
+                       end_chars_.size());
           *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
           offsets++;
           needs_escaping++;

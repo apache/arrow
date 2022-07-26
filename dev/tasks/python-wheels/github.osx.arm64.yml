@@ -23,7 +23,6 @@
 {{ macros.github_header() }}
 
 env:
-  ARROW_FLIGHT: OFF
   ARROW_JEMALLOC: OFF
   CC: "clang"
   CMAKE_BUILD_TYPE: release
@@ -41,7 +40,7 @@ env:
 jobs:
   build:
     name: Build wheel for OS X
-    runs-on: self-hosted
+    runs-on: ["self-hosted", "macOS", "arm64"]
     steps:
       - name: Cleanup
         run: rm -rf arrow vcpkg build crossbow-env build-*-env test-*-env
@@ -75,7 +74,8 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet
+            --x-feature=parquet \
+            --x-feature=s3
 
       - name: Build ARM64 Wheel
         env:
@@ -99,7 +99,8 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet
+            --x-feature=parquet \
+            --x-feature=s3
 
       - name: Build AMD64 Wheel
         env:
@@ -134,6 +135,12 @@ jobs:
           $PYTHON -m venv test-arm64-env
           source test-arm64-env/bin/activate
           pip install --upgrade pip wheel
+          # libffi has to be installed on the m1 runner which causes issues with 
+          # the cffi wheel. We build cffi with the flags pointing to the correct libffi location.
+          LDFLAGS=-L$(brew --prefix libffi)/lib CFLAGS=-I$(brew --prefix libffi)/include \
+            arch -arm64 pip install cffi --no-binary :all:
+          arch -arm64 pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python arch -arm64 arrow/ci/scripts/install_gcs_testbench.sh default
           arch -arm64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {% if arch == "universal2" %}
@@ -145,6 +152,8 @@ jobs:
           $PYTHON -m venv test-amd64-env
           source test-amd64-env/bin/activate
           pip install --upgrade pip wheel
+          arch -x86_64 pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python arch -x86_64 arrow/ci/scripts/install_gcs_testbench.sh default
           arch -x86_64 arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
       {% endif %}
 

@@ -618,6 +618,17 @@ test_that("UnionDataset handles InMemoryDatasets", {
   expect_equal(actual, expected)
 })
 
+test_that("scalar aggregates with many batches (ARROW-16904)", {
+  tf <- tempfile()
+  write_parquet(data.frame(x = 1:100), tf, chunk_size = 20)
+
+  ds <- open_dataset(tf)
+  replicate(100, ds %>% summarize(min(x)) %>% pull())
+
+  expect_true(all(replicate(100, ds %>% summarize(min(x)) %>% pull()) == 1))
+  expect_true(all(replicate(100, ds %>% summarize(max(x)) %>% pull()) == 100))
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
@@ -675,6 +686,92 @@ test_that("map_batches", {
       arrange(int) %>%
       collect(),
     tibble(int = 1:4, lets = letters[1:4])
+  )
+})
+
+test_that("map_batches with explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !! first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_equal(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(first_col_name = character(), b = double())
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value",
+      .schema = schema(first_col_name = string(), b = float64())
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
+  )
+})
+
+test_that("map_batches without explicit schema", {
+  fun_with_dots <- function(batch, first_col, first_col_val) {
+    record_batch(
+      !! first_col := first_col_val,
+      b = batch$a$cast(float64())
+    )
+  }
+
+  empty_reader <- RecordBatchReader$create(
+    batches = list(),
+    schema = schema(a = int32())
+  )
+  expect_error(
+    map_batches(
+      empty_reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    "Can't infer schema"
+  )
+
+  reader <- RecordBatchReader$create(
+    batches = list(
+      record_batch(a = 1, b = "two"),
+      record_batch(a = 2, b = "three")
+    )
+  )
+  expect_equal(
+    map_batches(
+      reader,
+      fun_with_dots,
+      "first_col_name",
+      "first_col_value"
+    )$read_table(),
+    arrow_table(
+      first_col_name = c("first_col_value", "first_col_value"),
+      b = as.numeric(1:2)
+    )
   )
 })
 
@@ -798,24 +895,6 @@ test_that("Scanner$ScanBatches", {
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
-
-  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste(
-    "The function",
-    "'UseAsync' is deprecated and will be removed in a future release."
-  ))
-
-  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
-  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste(
-    "The parameter 'use_async' is deprecated and will be removed in a future",
-    "release."
-  ))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {

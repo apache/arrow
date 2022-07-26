@@ -11,9 +11,13 @@ If you're interested in contributing to arrow, this vignette explains our approa
 at a high-level.  If you're looking for more detailed content, you may want to 
 look at one of the following links:
 
+* [in-depth guide to contributing to Arrow, including step-by-step examples](https://arrow.apache.org/docs/developers/guide/index.html)
 * [setting up a development environment and building the components that make up the Arrow project and R package](https://arrow.apache.org/docs/r/articles/developers/setup.html)
 * [common Arrow dev workflow tasks](https://arrow.apache.org/docs/r/articles/developers/workflow.html)
 * [running R with the C++ debugger attached](https://arrow.apache.org/docs/r/articles/developers/debugging.html)
+* [in-depth guide to how the package installation works](https://arrow.apache.org/docs/r/articles/developers/install_details.html)
+* [using Docker to diagnose a bug or test a feature on a specific OS](https://arrow.apache.org/docs/r/articles/developers/docker.html)
+* [writing bindings between R functions and Arrow Acero functions](https://arrow.apache.org/docs/r/articles/developers/bindings.html)
 
 # Approach to implementing functionality
 

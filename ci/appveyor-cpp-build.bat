@@ -104,6 +104,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_DATASET=ON ^
       -DARROW_ENABLE_TIMING_TESTS=OFF ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
+      -DARROW_FLIGHT_SQL=%ARROW_BUILD_FLIGHT_SQL% ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
       -DARROW_MIMALLOC=ON ^
       -DARROW_PARQUET=ON ^
@@ -167,4 +168,3 @@ py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 @rem
 @rem Wheels are built and tested separately (see ARROW-5142).
 @rem
-

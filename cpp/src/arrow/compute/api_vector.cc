@@ -17,6 +17,7 @@
 
 #include "arrow/compute/api_vector.h"
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -26,6 +27,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
@@ -43,6 +45,7 @@ namespace internal {
 using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
 using compute::NullPlacement;
+using compute::RankOptions;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -84,6 +87,25 @@ struct EnumTraits<NullPlacement>
         return "AtStart";
       case NullPlacement::AtEnd:
         return "AtEnd";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<RankOptions::Tiebreaker>
+    : BasicEnumTraits<RankOptions::Tiebreaker, RankOptions::Min, RankOptions::Max,
+                      RankOptions::First, RankOptions::Dense> {
+  static std::string name() { return "Tiebreaker"; }
+  static std::string value_name(RankOptions::Tiebreaker value) {
+    switch (value) {
+      case RankOptions::Min:
+        return "Min";
+      case RankOptions::Max:
+        return "Max";
+      case RankOptions::First:
+        return "First";
+      case RankOptions::Dense:
+        return "Dense";
     }
     return "<INVALID>";
   }
@@ -135,6 +157,14 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
+static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
+    DataMember("start", &CumulativeSumOptions::start),
+    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
+    DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
+static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
+    DataMember("sort_keys", &RankOptions::sort_keys),
+    DataMember("null_placement", &RankOptions::null_placement),
+    DataMember("tiebreaker", &RankOptions::tiebreaker));
 }  // namespace
 }  // namespace internal
 
@@ -176,6 +206,26 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
+CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
+                                           bool check_overflow)
+    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
+                           check_overflow) {}
+CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
+                                           bool check_overflow)
+    : FunctionOptions(internal::kCumulativeSumOptionsType),
+      start(std::move(start)),
+      skip_nulls(skip_nulls),
+      check_overflow(check_overflow) {}
+constexpr char CumulativeSumOptions::kTypeName[];
+
+RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
+                         RankOptions::Tiebreaker tiebreaker)
+    : FunctionOptions(internal::kRankOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(null_placement),
+      tiebreaker(tiebreaker) {}
+constexpr char RankOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -185,6 +235,8 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
 }
 }  // namespace internal
 
@@ -255,10 +307,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
                                            SortOrder order, ExecContext* ctx) {
-  SortOptions options({SortKey("not-used", order)});
-  ARROW_ASSIGN_OR_RAISE(
-      Datum result, CallFunction("sort_indices", {Datum(chunked_array)}, &options, ctx));
-  return result.make_array();
+  return SortIndices(chunked_array, ArraySortOptions(order), ctx);
 }
 
 Result<std::shared_ptr<Array>> SortIndices(const Datum& datum, const SortOptions& options,
@@ -298,11 +347,11 @@ Result<Datum> Filter(const Datum& values, const Datum& filter,
   return CallFunction("filter", {values, filter}, &options, ctx);
 }
 
-Result<Datum> Take(const Datum& values, const Datum& filter, const TakeOptions& options,
+Result<Datum> Take(const Datum& values, const Datum& indices, const TakeOptions& options,
                    ExecContext* ctx) {
   // Invoke metafunction which deals with Datum kinds other than just Array,
   // ChunkedArray.
-  return CallFunction("take", {values, filter}, &options, ctx);
+  return CallFunction("take", {values, indices}, &options, ctx);
 }
 
 Result<std::shared_ptr<Array>> Take(const Array& values, const Array& indices,
@@ -323,6 +372,15 @@ Result<Datum> DropNull(const Datum& values, ExecContext* ctx) {
 Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum out, DropNull(Datum(values), ctx));
   return out.make_array();
+}
+
+// ----------------------------------------------------------------------
+// Cumulative functions
+
+Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options,
+                            ExecContext* ctx) {
+  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+  return CallFunction(func_name, {Datum(values)}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------

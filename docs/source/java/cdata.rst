@@ -27,8 +27,8 @@ through the :ref:`c-data-interface`, even between different language runtimes.
 Java to Python
 --------------
 
-Use this guide to implement :doc:`Java to Python <../python/integration/python_java.rst>`
-communication using the C Data Interface.
+See :doc:`../python/integration/python_java` to implement Java to
+Python communication using the C Data Interface.
 
 Java to C++
 -----------
@@ -37,7 +37,7 @@ Example: Share an Int64 array from C++ to Java:
 
 **C++ Side**
 
-Use this guide to :doc:`compile arrow <../developers/cpp/building.rst>` library:
+See :doc:`../developers/cpp/building` to build the Arrow C++ libraries:
 
 .. code-block:: shell
 

@@ -45,6 +45,7 @@ from pyarrow._dataset import (  # noqa
     TaggedRecordBatch,
     UnionDataset,
     UnionDatasetFactory,
+    WrittenFile,
     _get_partition_keys,
     _filesystemdataset_write,
 )
@@ -220,7 +221,6 @@ def partitioning(schema=None, field_names=None, flavor=None,
                 "For the default directory flavor, need to specify "
                 "a Schema or a list of field names")
     if flavor == "filename":
-        # default flavor
         if schema is not None:
             if field_names is not None:
                 raise ValueError(
@@ -802,7 +802,7 @@ def _ensure_write_partitioning(part, schema, flavor):
     return part
 
 
-def write_dataset(data, base_dir, basename_template=None, format=None,
+def write_dataset(data, base_dir, *, basename_template=None, format=None,
                   partitioning=None, partitioning_flavor=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
                   max_partitions=None, max_open_files=None,

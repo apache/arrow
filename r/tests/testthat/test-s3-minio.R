@@ -34,7 +34,17 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     access_key = minio_key,
     secret_key = minio_secret,
     scheme = "http",
-    endpoint_override = paste0("localhost:", minio_port)
+    endpoint_override = paste0("localhost:", minio_port),
+    allow_bucket_creation = TRUE,
+    allow_bucket_deletion = TRUE
+  )
+  limited_fs <- S3FileSystem$create(
+    access_key = minio_key,
+    secret_key = minio_secret,
+    scheme = "http",
+    endpoint_override = paste0("localhost:", minio_port),
+    allow_bucket_creation = FALSE,
+    allow_bucket_deletion = FALSE
   )
   now <- as.character(as.numeric(Sys.time()))
   fs$CreateDir(now)
@@ -178,6 +188,14 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       ds <- open_dataset(fs$path(minio_path("hive_dir")))
       write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
       expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
+    })
+
+    test_that("CreateDir fails on bucket if allow_bucket_creation=False", {
+      now_tmp <- paste0(now, "-test-fail-delete")
+      fs$CreateDir(now_tmp)
+
+      expect_error(limited_fs$CreateDir("should-fail"))
+      expect_error(limited_fs$DeleteDir(now_tmp))
     })
 
     test_that("Let's test copy_files too", {

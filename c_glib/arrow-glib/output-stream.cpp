@@ -137,9 +137,9 @@ garrow_output_stream_set_property(GObject *object,
 
 static void
 garrow_output_stream_get_property(GObject *object,
-                                          guint prop_id,
-                                          GValue *value,
-                                          GParamSpec *pspec)
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
 {
   switch (prop_id) {
   default:
@@ -383,7 +383,8 @@ namespace garrow {
     }
 
     arrow::Result<int64_t> Tell() const override {
-      if (G_IS_SEEKABLE(output_stream_)) {
+      if (G_IS_SEEKABLE(output_stream_) &&
+          g_seekable_can_seek(G_SEEKABLE(output_stream_))) {
         return g_seekable_tell(G_SEEKABLE(output_stream_));
       } else {
         return position_;

@@ -240,16 +240,19 @@ def check_scalar_function(func_fixture,
                           batch_length=None):
     function, name = func_fixture
     if batch_length is None:
-        for input in inputs:
-            try:
-                batch_length = len(inputs)
-            except TypeError:
-                pass
+        all_scalar = True
+        for arg in inputs:
+            if isinstance(arg, pa.Array):
+                all_scalar = False
+                batch_length = len(arg)
+        if all_scalar:
+            batch_length = 1
+
     expected_output = function(mock_udf_context(batch_length), *inputs)
     func = pc.get_function(name)
     assert func.name == name
 
-    result = pc.call_function(name, inputs)
+    result = pc.call_function(name, inputs, length=batch_length)
     assert result == expected_output
     # At the moment there is an issue when handling nullary functions.
     # See: ARROW-15286 and ARROW-16290.
@@ -404,7 +407,7 @@ def test_wrong_output_type(wrong_output_type_func_fixture):
 
     with pytest.raises(TypeError,
                        match="Unexpected output type: int"):
-        pc.call_function(func_name, [])
+        pc.call_function(func_name, [], length=1)
 
 
 def test_wrong_output_datatype(wrong_output_datatype_func_fixture):
@@ -424,7 +427,7 @@ def test_wrong_signature(wrong_signature_func_fixture):
                      "but 1 was given")
 
     with pytest.raises(TypeError, match=expected_expr):
-        pc.call_function(func_name, [])
+        pc.call_function(func_name, [], length=1)
 
 
 def test_wrong_datatype_declaration():
@@ -479,7 +482,7 @@ def test_udf_context(unary_func_fixture):
 def test_raising_func(raising_func_fixture):
     _, func_name = raising_func_fixture
     with pytest.raises(MyError, match="error raised by scalar UDF"):
-        pc.call_function(func_name, [])
+        pc.call_function(func_name, [], length=1)
 
 
 def test_scalar_input(unary_func_fixture):

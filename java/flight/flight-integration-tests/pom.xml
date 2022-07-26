@@ -48,7 +48,6 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>${dep.protobuf.version}</version>
         </dependency>
         <dependency>
             <groupId>commons-cli</groupId>

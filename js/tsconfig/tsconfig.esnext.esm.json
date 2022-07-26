@@ -2,7 +2,7 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "esnext",
-    "module": "es2015"
+    "target": "ESNext",
+    "module": "ES2015"
   }
 }
