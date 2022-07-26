@@ -380,6 +380,21 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
   return FromUri(uri, out_path);
 }
 
+std::shared_ptr<S3RetryStrategy> GetS3RetryStrategy(const std::string& name,
+                                                    long retry_attempts) {
+  if (name == "standard") {
+    return std::make_shared<AwsRetryStrategy>(
+        std::make_shared<Aws::Client::StandardRetryStrategy>(retry_attempts));
+  }
+
+  if (name == "default") {
+    return std::make_shared<AwsRetryStrategy>(
+        std::make_shared<Aws::Client::DefaultRetryStrategy>(retry_attempts));
+  }
+
+  return NULL;
+}
+
 bool S3Options::Equals(const S3Options& other) const {
   const int64_t default_metadata_size = default_metadata ? default_metadata->size() : 0;
   const bool default_metadata_equals =

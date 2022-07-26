@@ -21,17 +21,6 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport CTimePoint
 
-cdef extern from <aws/core/client/RetryStrategy.h> namespace "Aws::Client" nogil:
-    cdef cppclass CAwsRetryStrategy "Aws::Client::RetryStrategy":
-        pass
-
-    cdef cppclass CAwsClientStandardRetryStrategy "Aws::Client::StandardRetryStrategy":
-        StandardRetryStrategy(c_long maxAttempts = 3)
-
-cdef extern from <aws/core/client/AdaptiveRetryStrategy.h> namespace "Aws::Client" nogil:
-    cdef cppclass CAwsAdaptiveRetryStrategy "Aws::Client::AdaptiveRetryStrategy":
-        AdaptiveRetryStrategy(c_long maxAttempts = 3)
-
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     ctypedef enum CFileType "arrow::fs::FileType":
@@ -161,6 +150,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CS3CredentialsKind_WebIdentity \
             "arrow::fs::S3CredentialsKind::WebIdentity"
 
+    cdef cppclass CS3RetryStrategy "arrow::fs::S3RetryStrategy":
+        pass
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
         c_string endpoint_override
@@ -175,7 +167,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int load_frequency
         CS3ProxyOptions proxy_options
         CS3CredentialsKind credentials_kind
-        shared_ptr[const CAwsRetryStrategy] retry_strategy
+        shared_ptr[const CS3RetryStrategy] retry_strategy
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,
@@ -201,6 +193,10 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
                                   const c_string& session_name,
                                   const c_string& external_id,
                                   const int load_frequency)
+
+        @staticmethod
+        shared_ptr[CS3RetryStrategy] GetS3RetryStrategy(const std::string& name,
+                                                             long retry_attempts);
 
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
         @staticmethod

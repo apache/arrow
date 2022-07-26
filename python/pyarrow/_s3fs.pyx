@@ -289,12 +289,7 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_deletion = allow_bucket_deletion
 
         if stock_retry_strategy:
-            if stock_retry_strategy == "standard":
-                options.retry_strategy = make_shared[CAwsClientStandardRetryStrategy]()
-            elif stock_retry_strategy == "adaptive":
-                options.retry_strategy = make_shared[CAwsClientAdaptiveRetryStrategy]()
-            elif isinstance(stock_retry_strategy, str):
-                raise ValueError(f"Unknown 'stock_retry_strategy': \"{stock_retry_strategy}\"")
+            options.retry_strategy = options.GetS3RetryStrategy(stock_retry_strategy, 3);
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
