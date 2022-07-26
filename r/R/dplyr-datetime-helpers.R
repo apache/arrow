@@ -220,7 +220,7 @@ build_format_from_order <- function(order) {
     "%b" = c("%m", "%B", "%b")
   )
 
-  formats <- stringr::str_extract_all(order, "%{0,1}(O*[a-zA-Z])")[[1]]
+  formats <- regmatches(order, gregexpr("(O{0,1}[a-zA-Z])", order))[[1]]
   formats <- paste0("%", formats)
   formats <- ifelse(formats %in% names(char_list), char_list[formats], formats)
 

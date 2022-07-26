@@ -156,7 +156,7 @@ test_that("strptime", {
   times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "sec")
   times <- sample(times, 100)
 
-  # The following formats are currently not supported by strptime: %q %Op
+  # %Op format is currently not supported by strptime
   formats <- c(
     "%a", "%A", "%b", "%B", "%d", "%H", "%j", "%m", "%Om", "%T", "%OS", "%I%p",
     "%S", "%q", "%M", "%I%p", "%U", "%w", "%W", "%y", "%Y", "%r", "%R", "%T%z"
