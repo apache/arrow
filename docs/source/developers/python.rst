@@ -146,12 +146,12 @@ module, you will need to build Arrow with ``-DARROW_BUILD_TESTS=ON``.
    In case you use conda add ``-DGTest_SOURCE=BUNDLED`` to the CMake flags
    when building Arrow.
 
-After Arrow C++ and PyArrow are built, navigate to ``python/build/dist/temp``
+After Arrow C++ and PyArrow are built, navigate to ``python/build/dist``
 folder and run ctest:
 
 .. code-block::
 
-   $ pushd arrow/python/build/dist/temp
+   $ pushd arrow/python/build/dist
    $ ctest
    $ popd
 

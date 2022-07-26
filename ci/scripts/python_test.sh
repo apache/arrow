@@ -20,7 +20,7 @@
 set -ex
 
 arrow_dir=${1}
-test_dir=${1}/python/build/dist/temp
+test_dir=${1}/python/build/dist
 
 export ARROW_SOURCE_DIR=${arrow_dir}
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
