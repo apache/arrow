@@ -15,31 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. default-domain:: cpp
-.. highlight:: cpp
-
-User Guide
-==========
+*****
+Acero
+*****
 
 .. toctree::
+   :maxdepth: 3
 
-   overview
-   conventions
-   build_system
-   memory
-   arrays
-   datatypes
-   tables
-   compute
-   acero_overview
-   io
-   ipc
-   orc
-   parquet
-   csv
-   json
-   dataset
-   flight
-   gdb
-   threading
-   env_vars
+   acero/overview
+   acero/substrait
+   Examples <acero/examples/index>
+   
+   
