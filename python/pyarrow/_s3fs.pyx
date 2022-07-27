@@ -162,9 +162,11 @@ cdef class S3FileSystem(FileSystem):
     allow_bucket_deletion : bool, default False
         Whether to allow DeleteDir at the bucket-level. This option may also be
         passed in a URI query parameter.
-    stock_retry_strategy : str, default None
-        The name of the AWS stock retry strategy to use with S3.  Valid values
-        are "standard" and "adaptive". Ignore with None.
+    retry_strategy : str, default None
+        The name of the retry strategy to use with S3.  Valid values are
+        "aws_standard" and "aws_default". Ignore with None.
+    retry_max_attempts : int, default 3
+        The maximum number of attempts to pass to AWS retry strategies.
 
     Examples
     --------
@@ -187,7 +189,7 @@ cdef class S3FileSystem(FileSystem):
                  default_metadata=None, role_arn=None, session_name=None,
                  external_id=None, load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
-                 stock_retry_strategy=None):
+                 retry_strategy=None, retry_max_attempts=3):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -288,8 +290,8 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
 
-        if stock_retry_strategy:
-            options.retry_strategy = options.GetS3RetryStrategy(stock_retry_strategy, 3);
+        if retry_strategy:
+            options.retry_strategy = options.GetS3RetryStrategy(retry_strategy, retry_max_attempts);
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
@@ -343,7 +345,8 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
-                stock_retry_strategy=opts.stock_retry_strategy,
+                retry_strategy=opts.retry_strategy,
+                retry_max_attempts=opts.retry_max_attempts,
             ),)
         )
 

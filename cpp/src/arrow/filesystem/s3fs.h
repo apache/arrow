@@ -92,27 +92,6 @@ class S3RetryStrategy {
                                                 int64_t attempted_retries) = 0;
 };
 
-/// Wrapper for stock AWS retry strategies
-class AwsRetryStrategy : S3RetryStrategy {
- public:
-  AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy) {
-    retry_strategy_ = retry_strategy;
-  }
-  ~AwsRetryStrategy() override;
-
-  bool ShouldRetry(const AWSErrorDetail& error, int64_t attempted_retries) {
-    return retry_strategy_.ShouldRetry(error, attempted_retries);
-  }
-
-  int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
-                                        int64_t attempted_retries) {
-    return retry_strategy_.CalculateDelayBeforeNextRetry(error, attempted_retries);
-  }
-
- private:
-  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy_;
-}
-
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
   /// \brief AWS region to connect to.

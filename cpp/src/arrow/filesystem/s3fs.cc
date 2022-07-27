@@ -382,12 +382,12 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 
 std::shared_ptr<S3RetryStrategy> GetS3RetryStrategy(const std::string& name,
                                                     long retry_attempts) {
-  if (name == "standard") {
+  if (name == "aws_standard") {
     return std::make_shared<AwsRetryStrategy>(
         std::make_shared<Aws::Client::StandardRetryStrategy>(retry_attempts));
   }
 
-  if (name == "default") {
+  if (name == "aws_default") {
     return std::make_shared<AwsRetryStrategy>(
         std::make_shared<Aws::Client::DefaultRetryStrategy>(retry_attempts));
   }
@@ -527,6 +527,34 @@ std::string FormatRange(int64_t start, int64_t length) {
   std::stringstream ss;
   ss << "bytes=" << start << "-" << start + length - 1;
   return ss.str();
+}
+
+// A wrapper to allow us to supply an Aws::Client::RetryStrategy as an S3RetryStrategy
+class AwsRetryStrategy : S3RetryStrategy {
+ public:
+  AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy) {
+    retry_strategy_ = retry_strategy;
+  }
+  ~AwsRetryStrategy() override;
+
+  bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) {
+    Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
+    return retry_strategy_.ShouldRetry(error, attempted_retries);
+  }
+
+  int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
+                                        int64_t attempted_retries) {
+    return retry_strategy_.CalculateDelayBeforeNextRetry(error, attempted_retries);
+  }
+
+ private:
+  std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy_;
+  static Aws::Client::AWSError<Aws::Client::CoreErrors> DetailToError(
+      const S3RetryStrategy::AWSErrorDetail& detail) {
+    return std::make_shared<Aws::Client::AWSError<Aws::Client::CoreErrors>>(
+        static_cast<Aws::Client::CoreErrors>(detail.error_type), detail.exception_name,
+        detail.message, detail.should_retry);
+  }
 }
 
 // An AWS RetryStrategy that wraps a provided arrow::fs::S3RetryStrategy
