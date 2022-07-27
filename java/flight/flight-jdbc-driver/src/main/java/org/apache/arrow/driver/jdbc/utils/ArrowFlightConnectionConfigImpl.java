@@ -19,6 +19,9 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.String.format;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -137,8 +140,28 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    */
   public CallOption toCallOption() {
     final CallHeaders headers = new FlightCallHeaders();
-    properties.forEach((key, val) -> headers.insert(key.toString(), val.toString()));
+    Map<String, String> headerAttributes = getHeaderAttributes();
+    headerAttributes.forEach(headers::insert);
     return new HeaderCallOption(headers);
+  }
+
+  /**
+   * Gets which properties should be added as headers.
+   *
+   * @return {@link Map}
+   */
+  public Map<String, String> getHeaderAttributes() {
+    Map<String, String> headers = new HashMap<>();
+    ArrowFlightConnectionProperty[] builtInProperties = ArrowFlightConnectionProperty.values();
+    properties.forEach(
+        (key, val) -> {
+          // For built-in properties before adding new headers
+          if (Arrays.stream(builtInProperties)
+              .noneMatch(builtInProperty -> builtInProperty.camelName.equalsIgnoreCase(key.toString()))) {
+            headers.put(key.toString(), val.toString());
+          }
+        });
+    return headers;
   }
 
   /**
@@ -248,6 +271,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
 
     /**
      * Replaces the semicolons in the URL to the proper format.
+     *
      * @param url the current connection string
      * @return the formatted url
      */
