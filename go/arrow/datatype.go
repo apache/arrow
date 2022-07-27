@@ -183,6 +183,11 @@ type BinaryDataType interface {
 	binary()
 }
 
+type OffsetsDataType interface {
+	DataType
+	OffsetTypeTraits() OffsetTraits
+}
+
 func HashType(seed maphash.Seed, dt DataType) uint64 {
 	var h maphash.Hash
 	h.SetSeed(seed)

@@ -151,8 +151,12 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = floatJSON{"floatingpoint", "DOUBLE"}
 	case *arrow.BinaryType:
 		typ = nameJSON{"binary"}
+	case *arrow.LargeBinaryType:
+		typ = nameJSON{"largebinary"}
 	case *arrow.StringType:
 		typ = nameJSON{"utf8"}
+	case *arrow.LargeStringType:
+		typ = nameJSON{"largeutf8"}
 	case *arrow.Date32Type:
 		typ = unitZoneJSON{Name: "date", Unit: "DAY"}
 	case *arrow.Date64Type:
@@ -319,8 +323,12 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		}
 	case "binary":
 		arrowType = arrow.BinaryTypes.Binary
+	case "largebinary":
+		arrowType = arrow.BinaryTypes.LargeBinary
 	case "utf8":
 		arrowType = arrow.BinaryTypes.String
+	case "largeutf8":
+		arrowType = arrow.BinaryTypes.LargeString
 	case "date":
 		t := unitZoneJSON{}
 		if err = json.Unmarshal(typ, &t); err != nil {
@@ -438,7 +446,6 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		}
 		arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 	}
-
 
 	if arrowType == nil {
 		err = fmt.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
@@ -728,8 +735,61 @@ type Array struct {
 	Count    int           `json:"count"`
 	Valids   []int         `json:"VALIDITY,omitempty"`
 	Data     []interface{} `json:"DATA,omitempty"`
-	Offset   []int32       `json:"OFFSET,omitempty"`
+	Offset   interface{}   `json:"-"`
 	Children []Array       `json:"children,omitempty"`
+}
+
+func (a *Array) MarshalJSON() ([]byte, error) {
+	type Alias Array
+	aux := struct {
+		*Alias
+		OutOffset interface{} `json:"OFFSET,omitempty"`
+	}{Alias: (*Alias)(a), OutOffset: a.Offset}
+	return json.Marshal(aux)
+}
+
+func (a *Array) UnmarshalJSON(b []byte) (err error) {
+	type Alias Array
+	aux := &struct {
+		*Alias
+		RawOffset json.RawMessage `json:"OFFSET,omitempty"`
+	}{Alias: (*Alias)(a)}
+
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+
+	if err = dec.Decode(&aux); err != nil {
+		return
+	}
+
+	if len(aux.RawOffset) == 0 {
+		return
+	}
+
+	var rawOffsets []interface{}
+	if err = json.Unmarshal(aux.RawOffset, &rawOffsets); err != nil {
+		return
+	}
+
+	switch rawOffsets[0].(type) {
+	case string:
+		out := make([]int64, len(rawOffsets))
+		for i, o := range rawOffsets {
+			out[i], err = strconv.ParseInt(o.(string), 10, 64)
+			if err != nil {
+				return
+			}
+		}
+		a.Offset = out
+	case float64:
+		out := make([]int32, len(rawOffsets))
+		for i, o := range rawOffsets {
+			out[i] = int32(o.(float64))
+		}
+		a.Offset = out
+	}
+
+	return nil
 }
 
 func arraysFromJSON(mem memory.Allocator, schema *arrow.Schema, arrs []Array) []arrow.ArrayData {
@@ -874,6 +934,22 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		bldr.AppendValues(data, valids)
 		return returnNewArrayData(bldr)
 
+	case *arrow.LargeStringType:
+		bldr := array.NewLargeStringBuilder(mem)
+		defer bldr.Release()
+		data := strFromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return returnNewArrayData(bldr)
+
+	case *arrow.LargeBinaryType:
+		bldr := array.NewBinaryBuilder(mem, dt)
+		defer bldr.Release()
+		data := bytesFromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return returnNewArrayData(bldr)
+
 	case *arrow.BinaryType:
 		bldr := array.NewBinaryBuilder(mem, dt)
 		defer bldr.Release()
@@ -892,7 +968,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
-			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
+			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))},
 			[]arrow.ArrayData{elems}, nulls, 0)
 
 	case *arrow.FixedSizeListType:
@@ -951,7 +1027,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
-			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
+			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))},
 			[]arrow.ArrayData{elems}, nulls, 0)
 
 	case *arrow.Date32Type:
@@ -1159,6 +1235,21 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Count:  arr.Len(),
 			Data:   strToJSON(arr),
 			Valids: validsToJSON(arr),
+			Offset: arr.ValueOffsets(),
+		}
+
+	case *array.LargeString:
+		offsets := arr.ValueOffsets()
+		strOffsets := make([]string, len(offsets))
+		for i, o := range offsets {
+			strOffsets[i] = strconv.FormatInt(o, 10)
+		}
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   strToJSON(arr),
+			Valids: validsToJSON(arr),
+			Offset: strOffsets,
 		}
 
 	case *array.Binary:
@@ -1168,6 +1259,20 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Data:   bytesToJSON(arr),
 			Valids: validsToJSON(arr),
 			Offset: arr.ValueOffsets(),
+		}
+
+	case *array.LargeBinary:
+		offsets := arr.ValueOffsets()
+		strOffsets := make([]string, len(offsets))
+		for i, o := range offsets {
+			strOffsets[i] = strconv.FormatInt(o, 10)
+		}
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   bytesToJSON(arr),
+			Valids: validsToJSON(arr),
+			Offset: strOffsets,
 		}
 
 	case *array.List:
@@ -1622,7 +1727,12 @@ func strFromJSON(vs []interface{}) []string {
 	return o
 }
 
-func strToJSON(arr *array.String) []interface{} {
+type strlike interface {
+	arrow.Array
+	Value(int) string
+}
+
+func strToJSON(arr strlike) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
 		o[i] = arr.Value(i)
@@ -1649,7 +1759,12 @@ func bytesFromJSON(vs []interface{}) [][]byte {
 	return o
 }
 
-func bytesToJSON(arr *array.Binary) []interface{} {
+type binarylike interface {
+	arrow.Array
+	Value(int) []byte
+}
+
+func bytesToJSON(arr binarylike) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
 		o[i] = strings.ToUpper(hex.EncodeToString(arr.Value(i)))

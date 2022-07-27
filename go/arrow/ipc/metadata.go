@@ -298,10 +298,20 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.BinaryStart(fv.b)
 		fv.offset = flatbuf.BinaryEnd(fv.b)
 
+	case *arrow.LargeBinaryType:
+		fv.dtype = flatbuf.TypeLargeBinary
+		flatbuf.LargeBinaryStart(fv.b)
+		fv.offset = flatbuf.LargeBinaryEnd(fv.b)
+
 	case *arrow.StringType:
 		fv.dtype = flatbuf.TypeUtf8
 		flatbuf.Utf8Start(fv.b)
 		fv.offset = flatbuf.Utf8End(fv.b)
+
+	case *arrow.LargeStringType:
+		fv.dtype = flatbuf.TypeLargeUtf8
+		flatbuf.LargeUtf8Start(fv.b)
+		fv.offset = flatbuf.LargeUtf8End(fv.b)
 
 	case *arrow.Date32Type:
 		fv.dtype = flatbuf.TypeDate
@@ -628,6 +638,12 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	case flatbuf.TypeUtf8:
 		return arrow.BinaryTypes.String, nil
+
+	case flatbuf.TypeLargeBinary:
+		return arrow.BinaryTypes.LargeBinary, nil
+
+	case flatbuf.TypeLargeUtf8:
+		return arrow.BinaryTypes.LargeString, nil
 
 	case flatbuf.TypeBool:
 		return arrow.FixedWidthTypes.Boolean, nil

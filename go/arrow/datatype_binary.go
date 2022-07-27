@@ -16,6 +16,10 @@
 
 package arrow
 
+type OffsetTraits interface {
+	BytesRequired(int) int
+}
+
 type BinaryType struct{}
 
 func (t *BinaryType) ID() Type            { return BINARY }
@@ -27,6 +31,7 @@ func (t *BinaryType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
 }
+func (t *BinaryType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
 
 type StringType struct{}
 
@@ -39,6 +44,7 @@ func (t *StringType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
 }
+func (t *StringType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
 
 type LargeBinaryType struct{}
 
@@ -51,6 +57,7 @@ func (t *LargeBinaryType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
 }
+func (t *LargeBinaryType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
 
 type LargeStringType struct{}
 
@@ -63,6 +70,7 @@ func (t *LargeStringType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
 }
+func (t *LargeStringType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
 
 var (
 	BinaryTypes = struct {

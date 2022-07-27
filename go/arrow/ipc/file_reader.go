@@ -469,7 +469,7 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		*arrow.DurationType:
 		return ctx.loadPrimitive(dt)
 
-	case *arrow.BinaryType, *arrow.StringType:
+	case *arrow.BinaryType, *arrow.StringType, *arrow.LargeStringType, *arrow.LargeBinaryType:
 		return ctx.loadBinary(dt)
 
 	case *arrow.FixedSizeBinaryType:

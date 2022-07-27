@@ -94,6 +94,8 @@ func (ListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes)}}
 }
 
+func (ListType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+
 // FixedSizeListType describes a nested type in which each array slot contains
 // a fixed-size sequence of values, all having the same relative type.
 type FixedSizeListType struct {
@@ -328,6 +330,8 @@ func (t *MapType) Fields() []Field { return t.ValueType().Fields() }
 func (t *MapType) Layout() DataTypeLayout {
 	return t.value.Layout()
 }
+
+func (MapType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
 
 type Field struct {
 	Name     string   // Field name
