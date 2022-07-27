@@ -1298,6 +1298,15 @@ void TestHashJoinDictionaryHelper(
     }
   }
 
+  // Instead of sending 2 batches of size 0 we should not send any batches
+  // at all to more accurately simulate real world use cases
+  if (l_length == 0) {
+    l_batches.batches.resize(0);
+  }
+  if (r_length == 0) {
+    r_batches.batches.resize(0);
+  }
+
   auto exec_ctx = arrow::internal::make_unique<ExecContext>(
       default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
