@@ -57,6 +57,7 @@ class PARQUET_EXPORT ApplicationVersion {
   static const ApplicationVersion& PARQUET_816_FIXED_VERSION();
   static const ApplicationVersion& PARQUET_CPP_FIXED_STATS_VERSION();
   static const ApplicationVersion& PARQUET_MR_FIXED_STATS_VERSION();
+  static const ApplicationVersion& PARQUET_CPP_10353_FIXED_VERSION();
 
   // Application that wrote the file. e.g. "IMPALA"
   std::string application_;
