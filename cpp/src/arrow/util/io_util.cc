@@ -1117,7 +1117,7 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
 #else
   int oflag = O_CREAT;
   if (sync) {
-    oflag |= O_SYNC;
+    oflag |= O_DSYNC;
   }
   if (truncate) {
     oflag |= O_TRUNC;

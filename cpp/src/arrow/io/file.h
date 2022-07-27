@@ -54,7 +54,9 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   /// \brief Open a file descriptor for writing.  The underlying file isn't
   /// truncated.
   /// \param[in] fd file descriptor
-  /// \param[in] reuse should we use the page cache for the write
+  /// \param[in] reuse if false the written data will not be kept in the OS page cache.
+  /// This will have some negative impact on write throughput but can be used during large
+  /// writes to avoid evicting more important data from the page cache.
   /// \return an open FileOutputStream
   ///
   /// The file descriptor becomes owned by the OutputStream, and will be closed

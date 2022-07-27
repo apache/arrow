@@ -169,22 +169,22 @@ class OSFile {
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
+    auto status = ::arrow::internal::FileWrite(
+          fd_.fd(), reinterpret_cast<const uint8_t*>(data), length);
 #ifdef __linux__
     if (reuse_) {
-      return ::arrow::internal::FileWrite(fd_.fd(),
-                                          reinterpret_cast<const uint8_t*>(data), length);
+      return status;
     } else {
-      auto status = ::arrow::internal::FileWrite(
-          fd_.fd(), reinterpret_cast<const uint8_t*>(data), length);
-      posix_fadvise(fd_.fd(), offset_, length, POSIX_FADV_DONTNEED);
-      offset_ += length;
+      if (status.ok()) {
+        posix_fadvise(fd_.fd(), offset_, length, POSIX_FADV_DONTNEED);
+        offset_ += length;
+      }
       return status;
     }
 #else
-    // the posix_fadvise is not implemented on other filesystems.
+    // posix_fadvise is not implemented on other filesystems.
     // there could be alternative ways of getting this working but not implemented here.
-    return ::arrow::internal::FileWrite(fd_.fd(), reinterpret_cast<const uint8_t*>(data),
-                                        length);
+    return status;
 #endif
   }
 

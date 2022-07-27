@@ -439,6 +439,8 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
   RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   const bool write_only = true;
+  // When reuse is false we need to open the file in sync mmode because fadvise
+  // will not drop the data from the cache unless it has finished writing.
   ARROW_ASSIGN_OR_RAISE(auto fd, ::arrow::internal::FileOpenWritable(
                                      fn, write_only, truncate, append, !reuse));
   int raw_fd = fd.Detach();
