@@ -39,15 +39,6 @@ namespace ds = arrow::dataset;
 
 namespace cp = arrow::compute;
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 struct Configuration {
   // Indicates if the Scanner::ToTable should consume in parallel.
   bool use_threads = true;
@@ -184,6 +175,10 @@ int main(int argc, char** argv) {
     // Fake success for CI purposes.
     return EXIT_SUCCESS;
   }
-  ABORT_ON_FAILURE(Main(argv[1]));
+  auto status = Main(argv[1]);
+   if (!status.ok()) {
+    std::cerr << status.ToString() << std::endl;
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }
