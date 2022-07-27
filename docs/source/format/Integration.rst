@@ -397,7 +397,7 @@ will have count 28.
 
 For "null" type, ``BufferData`` does not contain any buffers.
 
-Current Archery Integration Test Cases
+Archery Integration Test Cases
 --------------------------------------
 
 For ease of future development, it makes sense to document the current test
