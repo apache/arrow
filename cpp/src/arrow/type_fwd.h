@@ -179,6 +179,8 @@ class DenseUnionArray;
 class DenseUnionBuilder;
 struct DenseUnionScalar;
 
+class RunLengthEncodedArray;
+
 template <typename TypeClass>
 class NumericArray;
 
