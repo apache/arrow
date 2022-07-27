@@ -47,7 +47,9 @@ Instuctions
                     ceph-mgr \
                     ceph-mds \
                     rbd-mirror \
-                    ceph-fuse
+                    ceph-fuse \
+                    rapidjson-dev \
+                    libboost-all-dev
 
 2. Build and install Skyhook.
 
