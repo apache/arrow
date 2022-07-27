@@ -47,6 +47,10 @@ class OrderByImpl {
   static Result<std::unique_ptr<OrderByImpl>> MakeSelectK(
       ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
       const SelectKOptions& options);
+
+  static Result<std::unique_ptr<OrderByImpl>> MakeFetch(
+      ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
+      const FetchOptions& options);
 };
 
 }  // namespace compute

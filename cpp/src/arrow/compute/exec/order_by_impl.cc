@@ -86,6 +86,40 @@ class SelectKBasicImpl : public SortBasicImpl {
   const SelectKOptions options_;
 };
 
+class FetchBasicImpl : public SortBasicImpl {
+ public:
+  FetchBasicImpl(ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
+                 const FetchOptions& options)
+      : SortBasicImpl(ctx, output_schema), options_(options) {}
+
+  Result<Datum> DoFinish() override {
+    std::unique_lock<std::mutex> lock(mutex_);
+    ARROW_ASSIGN_OR_RAISE(auto table,
+                          Table::FromRecordBatches(output_schema_, std::move(batches_)));
+    if (options_.sort_keys.size() > 0) {
+      SortOptions sort_options(options_.sort_keys);
+      if (!options_.sort_first) {
+        auto fetch_table = table->Slice(options_.offset, options_.count);
+        ARROW_ASSIGN_OR_RAISE(auto indices,
+                              SortIndices(fetch_table, std::move(sort_options), ctx_));
+        return Take(fetch_table, indices, TakeOptions::NoBoundsCheck(), ctx_);
+      }
+      ARROW_ASSIGN_OR_RAISE(auto indices,
+                            SortIndices(table, std::move(sort_options), ctx_));
+      ARROW_ASSIGN_OR_RAISE(auto sorted_table,
+                            Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_));
+      return sorted_table.table()->Slice(options_.offset, options_.count);
+    } else {
+      return table->Slice(options_.offset, options_.count);
+    }
+  }
+
+  std::string ToString() const override { return options_.ToString(); }
+
+ private:
+  const FetchOptions options_;
+};
+
 Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSort(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SortOptions& options) {
@@ -97,6 +131,13 @@ Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSelectK(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SelectKOptions& options) {
   std::unique_ptr<OrderByImpl> impl{new SelectKBasicImpl(ctx, output_schema, options)};
+  return std::move(impl);
+}
+
+Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeFetch(
+    ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
+    const FetchOptions& options) {
+  std::unique_ptr<OrderByImpl> impl{new FetchBasicImpl(ctx, output_schema, options)};
   return std::move(impl);
 }
 

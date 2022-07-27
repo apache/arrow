@@ -1481,5 +1481,92 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
   }
 }
 
+TEST(ExecPlanExecution, FetchAndSort) {
+  std::vector<ExecBatch> expected = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[4, false], [5, null]]")};
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto basic_data = MakeBasicBatches();
+
+      FetchOptions options(0, 2, {SortKey("i32", SortOrder::Ascending)}, true);
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(parallel, slow)}},
+                        {"fetch_sink", FetchSinkNodeOptions{options, &sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  Finishes(ResultWith(ElementsAreArray(expected))));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, SortAndFetch) {
+  std::vector<ExecBatch> expected = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[4, false], [null, true]]")};
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto basic_data = MakeBasicBatches();
+
+      FetchOptions options(0, 2, {SortKey("i32", SortOrder::Ascending)}, false);
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(parallel, slow)}},
+                        {"fetch_sink", FetchSinkNodeOptions{options, &sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  Finishes(ResultWith(ElementsAreArray(expected))));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, FetchBasic) {
+  std::vector<ExecBatch> expected = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]")};
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto basic_data = MakeBasicBatches();
+
+      FetchOptions options(0, 2);
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"source", SourceNodeOptions{basic_data.schema,
+                                                     basic_data.gen(parallel, slow)}},
+                        {"fetch_sink", FetchSinkNodeOptions{options, &sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  Finishes(ResultWith(ElementsAreArray(expected))));
+    }
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
