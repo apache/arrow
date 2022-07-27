@@ -30,10 +30,10 @@ pushd ${arrow_dir}/java
 # inside the maven repository
 maven_repo=~/.m2/repository/org/apache/arrow
 if [ -d $maven_repo ]; then
-find $maven_repo \
-     "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
-     -exec echo {} ";" \
-     -exec rm -rf {} ";"
+    find $maven_repo \
+      "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
+      -exec echo {} ";" \
+      -exec rm -rf {} ";"
 fi
 
 # generate dummy GPG key for -Papache-release.
