@@ -38,8 +38,9 @@
 #' @param compression Name of compression codec to use, if any. Default is
 #' "lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
 #' "uncompressed". "zstd" is the other available codec and generally has better
-#' compression ratios in exchange for slower read and write performance
-#' See [codec_is_available()]. This option is not supported for V1.
+#' compression ratios in exchange for slower read and write performance.
+#' "lz4" is shorthand for the "lz4_frame" codec.
+#' See [codec_is_available()] for details. This option is not supported for V1.
 #' @param compression_level If `compression` is "zstd", you may
 #' specify an integer compression level. If omitted, the compression codec's
 #' default compression level is used.
@@ -67,11 +68,13 @@ write_feather <- function(x,
                           sink,
                           version = 2,
                           chunk_size = 65536L,
-                          compression = c("default", "lz4", "uncompressed", "zstd"),
+                          compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
                           compression_level = NULL) {
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
+
+  # TODO(ARROW-17221): if (missing(compression)), we could detect_compression(sink) here
   compression <- match.arg(compression)
   chunk_size <- as.integer(chunk_size)
   assert_that(chunk_size > 0)
@@ -128,7 +131,7 @@ write_feather <- function(x,
 write_ipc_file <- function(x,
                            sink,
                            chunk_size = 65536L,
-                           compression = c("default", "lz4", "uncompressed", "zstd"),
+                           compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
                            compression_level = NULL) {
   mc <- match.call()
   mc$version <- 2
@@ -147,7 +150,7 @@ write_ipc_file <- function(x,
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters, passed to [make_readable_file()].
+#' @inheritParams make_readable_file
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
@@ -163,9 +166,13 @@ write_ipc_file <- function(x,
 #' dim(df)
 #' # Can select columns
 #' df <- read_feather(tf, col_select = starts_with("d"))
-read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file, ...)
+    # Compression is handled inside the IPC file format, so we don't need
+    # to detect from the file extension and wrap in a CompressedInputStream
+    # TODO: Why is this the only read_format() functions that allows passing
+    # mmap to make_readable_file?
+    file <- make_readable_file(file, mmap)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file)
