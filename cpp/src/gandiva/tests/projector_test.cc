@@ -2684,6 +2684,59 @@ TEST_F(TestProjector, TestToHex) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_numerical, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestConvertFromNumTypes) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::binary());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto res_convertINT = field("output", arrow::int32());
+  auto res_convertBIGINT = field("output", arrow::int64());
+  auto res_convertFLOAT = field("output", arrow::float32());
+  auto res_convertDOUBLE = field("output", arrow::float64());
+
+  // Build expression
+  auto expr_convertINT =
+      TreeExprBuilder::MakeExpression("convert_fromINT", {field0}, res_convertINT);
+  auto expr_convertBIGINT =
+      TreeExprBuilder::MakeExpression("convert_fromBIGINT", {field0}, res_convertBIGINT);
+  auto expr_convertFLOAT =
+      TreeExprBuilder::MakeExpression("convert_fromFLOAT", {field0}, res_convertFLOAT);
+  auto expr_convertDOUBLE =
+      TreeExprBuilder::MakeExpression("convert_fromDOUBLE", {field0}, res_convertDOUBLE);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(
+      schema,
+      {expr_convertINT, expr_convertBIGINT, expr_convertFLOAT, expr_convertDOUBLE},
+      TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 1;
+  // 123
+  auto array0 = MakeArrowArrayBinary({{0x7B, 0x00, 0x00, 0x00}}, {true});
+
+  auto exp_convertINT = MakeArrowArrayInt32({123}, {true});
+  auto exp_convertBIGINT = MakeArrowArrayInt64({123}, {true});
+  auto exp_convertFLOAT = MakeArrowArrayFloat32({1.72E-43}, {true});
+  auto exp_convertDOUBLE = MakeArrowArrayFloat64({6.1E-322}, {true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertINT, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertBIGINT, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertFLOAT, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertDOUBLE, outputs.at(3));
+}
+
 TEST_F(TestProjector, TestAesEncryptDecrypt) {
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::utf8());
