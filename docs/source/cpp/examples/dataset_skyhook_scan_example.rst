@@ -38,19 +38,19 @@ Instuctions
 
     apt update 
     apt install -y cmake \
-                    libradospp-dev \
-                    rados-objclass-dev \
-                    ceph \
-                    ceph-common \
-                    ceph-osd \
-                    ceph-mon \
-                    ceph-mgr \
-                    ceph-mds \
-                    rbd-mirror \
-                    ceph-fuse \
-                    rapidjson-dev \
-                    libboost-all-dev \
-                    python3-pip
+                   libradospp-dev \
+                   rados-objclass-dev \
+                   ceph \
+                   ceph-common \
+                   ceph-osd \
+                   ceph-mon \
+                   ceph-mgr \
+                   ceph-mds \
+                   rbd-mirror \
+                   ceph-fuse \
+                   rapidjson-dev \
+                   libboost-all-dev \
+                   python3-pip
 
 2. Build and install Skyhook.
 
@@ -61,13 +61,13 @@ Instuctions
     mkdir -p cpp/release
     cd cpp/release
     cmake -DARROW_SKYHOOK=ON \
-    -DARROW_PARQUET=ON \
-    -DARROW_WITH_SNAPPY=ON \
-    -DARROW_BUILD_EXAMPLES=ON \
-    -DARROW_DATASET=ON \
-    -DARROW_CSV=ON \
-    -DARROW_WITH_LZ4=ON \
-    ..
+          -DARROW_PARQUET=ON \
+          -DARROW_WITH_SNAPPY=ON \
+          -DARROW_BUILD_EXAMPLES=ON \
+          -DARROW_DATASET=ON \
+          -DARROW_CSV=ON \
+          -DARROW_WITH_LZ4=ON \
+          ..
 
     make -j${nproc} install
     cp release/libcls_skyhook.so /usr/lib/x86_64-linux-gnu/rados-classes/
