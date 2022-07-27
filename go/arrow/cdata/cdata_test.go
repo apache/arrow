@@ -113,7 +113,9 @@ func TestPrimitiveSchemas(t *testing.T) {
 		{arrow.PrimitiveTypes.Float64, "g"},
 		{&arrow.FixedSizeBinaryType{ByteWidth: 3}, "w:3"},
 		{arrow.BinaryTypes.Binary, "z"},
+		{arrow.BinaryTypes.LargeBinary, "Z"},
 		{arrow.BinaryTypes.String, "u"},
+		{arrow.BinaryTypes.LargeString, "U"},
 		{&arrow.Decimal128Type{Precision: 16, Scale: 4}, "d:16,4"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: 0}, "d:15,0"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: -4}, "d:15,-4"},
@@ -397,6 +399,22 @@ func createTestStrArr() arrow.Array {
 	return bld.NewStringArray()
 }
 
+func createTestLargeBinaryArr() arrow.Array {
+	bld := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.LargeBinary)
+	defer bld.Release()
+
+	bld.AppendValues([][]byte{[]byte("foo"), []byte("bar"), nil}, []bool{true, true, false})
+	return bld.NewLargeBinaryArray()
+}
+
+func createTestLargeStrArr() arrow.Array {
+	bld := array.NewLargeStringBuilder(memory.DefaultAllocator)
+	defer bld.Release()
+
+	bld.AppendValues([]string{"foo", "bar", ""}, []bool{true, true, false})
+	return bld.NewLargeStringArray()
+}
+
 func createTestDecimalArr() arrow.Array {
 	bld := array.NewDecimal128Builder(memory.DefaultAllocator, &arrow.Decimal128Type{Precision: 16, Scale: 4})
 	defer bld.Release()
@@ -425,6 +443,8 @@ func TestPrimitiveArrs(t *testing.T) {
 		{"fixed size binary", createTestFSBArr},
 		{"binary", createTestBinaryArr},
 		{"utf8", createTestStrArr},
+		{"largebinary", createTestLargeBinaryArr},
+		{"largeutf8", createTestLargeStrArr},
 		{"decimal128", createTestDecimalArr},
 	}
 

@@ -357,6 +357,10 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		return imp.importStringLike()
 	case *arrow.BinaryType:
 		return imp.importStringLike()
+	case *arrow.LargeStringType:
+		return imp.importLargeStringLike()
+	case *arrow.LargeBinaryType:
+		return imp.importLargeStringLike()
 	case *arrow.ListType:
 		return imp.importListLike()
 	case *arrow.MapType:
@@ -399,6 +403,27 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	return nil
 }
 
+func (imp *cimporter) importLargeStringLike() error {
+	if err := imp.checkNoChildren(); err != nil {
+		return err
+	}
+
+	if err := imp.checkNumBuffers(3); err != nil {
+		return err
+	}
+
+	nulls, err := imp.importNullBitmap(0)
+	if err != nil {
+		return err
+	}
+
+	offsets := imp.importOffsetsBuffer(1, int64(arrow.Int64SizeBytes))
+	typedOffsets := arrow.Int64Traits.CastFromBytes(offsets.Bytes())
+	values := imp.importVariableValuesBuffer(2, 1, int(typedOffsets[imp.arr.offset+imp.arr.length]))
+	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
+	return nil
+}
+
 func (imp *cimporter) importStringLike() error {
 	if err := imp.checkNoChildren(); err != nil {
 		return err
@@ -413,8 +438,9 @@ func (imp *cimporter) importStringLike() error {
 		return err
 	}
 
-	offsets := imp.importOffsetsBuffer(1)
-	values := imp.importVariableValuesBuffer(2, 1, arrow.Int32Traits.CastFromBytes(offsets.Bytes()))
+	offsets := imp.importOffsetsBuffer(1, int64(arrow.Int32SizeBytes))
+	typedOffsets := arrow.Int32Traits.CastFromBytes(offsets.Bytes())
+	values := imp.importVariableValuesBuffer(2, 1, int(typedOffsets[imp.arr.offset+imp.arr.length]))
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
 	return nil
 }
@@ -433,7 +459,7 @@ func (imp *cimporter) importListLike() error {
 		return err
 	}
 
-	offsets := imp.importOffsetsBuffer(1)
+	offsets := imp.importOffsetsBuffer(1, int64(arrow.Int32SizeBytes))
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	return nil
 }
@@ -513,14 +539,13 @@ func (imp *cimporter) importFixedSizeBuffer(bufferID int, byteWidth int64) *memo
 	return imp.importBuffer(bufferID, bufsize)
 }
 
-func (imp *cimporter) importOffsetsBuffer(bufferID int) *memory.Buffer {
-	const offsetsize = int64(arrow.Int32SizeBytes) // go doesn't implement int64 offsets yet
+func (imp *cimporter) importOffsetsBuffer(bufferID int, offsetsize int64) *memory.Buffer {
 	bufsize := offsetsize * int64((imp.arr.length + imp.arr.offset + 1))
 	return imp.importBuffer(bufferID, bufsize)
 }
 
-func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth int, offsets []int32) *memory.Buffer {
-	bufsize := byteWidth * int(offsets[imp.arr.length])
+func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth int, bytelen int) *memory.Buffer {
+	bufsize := byteWidth * bytelen
 	return imp.importBuffer(bufferID, int64(bufsize))
 }
 

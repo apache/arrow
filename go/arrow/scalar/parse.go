@@ -375,8 +375,12 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		switch dt.ID() {
 		case arrow.BINARY:
 			return NewBinaryScalar(buf, dt), nil
+		case arrow.LARGE_BINARY:
+			return NewLargeBinaryScalar(buf), nil
 		case arrow.STRING:
 			return NewStringScalarFromBuffer(buf), nil
+		case arrow.LARGE_STRING:
+			return NewLargeStringScalarFromBuffer(buf), nil
 		case arrow.FIXED_SIZE_BINARY:
 			if buf.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
 				return NewFixedSizeBinaryScalar(buf, dt), nil
@@ -387,8 +391,12 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		switch dt.ID() {
 		case arrow.BINARY:
 			return NewBinaryScalar(v, dt), nil
+		case arrow.LARGE_BINARY:
+			return NewLargeBinaryScalar(v), nil
 		case arrow.STRING:
 			return NewStringScalarFromBuffer(v), nil
+		case arrow.LARGE_STRING:
+			return NewLargeStringScalarFromBuffer(v), nil
 		case arrow.FIXED_SIZE_BINARY:
 			if v.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
 				return NewFixedSizeBinaryScalar(v, dt), nil

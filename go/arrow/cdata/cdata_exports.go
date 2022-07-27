@@ -151,8 +151,12 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return fmt.Sprintf("d:%d,%d", dt.Precision, dt.Scale)
 	case *arrow.BinaryType:
 		return "z"
+	case *arrow.LargeBinaryType:
+		return "Z"
 	case *arrow.StringType:
 		return "u"
+	case *arrow.LargeStringType:
+		return "U"
 	case *arrow.Date32Type:
 		return "tdD"
 	case *arrow.Date64Type:
