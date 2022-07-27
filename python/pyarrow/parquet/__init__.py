@@ -3418,12 +3418,12 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
       serialized_size: 561
     """
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
-    source = filesystem.open_input_file(
-        where) if filesystem is not None else where
-    ctx = source if filesystem is not None else nullcontext()
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
 
-    with ctx:
-        file = ParquetFile(source, memory_map=memory_map,
+    with file_ctx:
+        file = ParquetFile(where, memory_map=memory_map,
                            decryption_properties=decryption_properties)
         return file.metadata
 
@@ -3462,12 +3462,12 @@ def read_schema(where, memory_map=False, decryption_properties=None,
     animal: string
     """
     filesystem, where = _resolve_filesystem_and_path(where, filesystem)
-    source = filesystem.open_input_file(
-        where) if filesystem is not None else where
-    ctx = source if filesystem is not None else nullcontext()
+    file_ctx = nullcontext()
+    if filesystem is not None:
+        file_ctx = where = filesystem.open_input_file(where)
 
-    with ctx:
+    with file_ctx:
         file = ParquetFile(
-            source, memory_map=memory_map,
+            where, memory_map=memory_map,
             decryption_properties=decryption_properties)
         return file.schema.to_arrow_schema()
