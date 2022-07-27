@@ -49,9 +49,6 @@ namespace cp = arrow::compute;
   } while (0);
 
 struct Configuration {
-  // Increase the ds::DataSet by repeating `repeat` times the ds::Dataset.
-  size_t repeat = 1;
-
   // Indicates if the Scanner::ToTable should consume in parallel.
   bool use_threads = true;
 
@@ -81,7 +78,7 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
       arrow::schema({arrow::field("payment_type", arrow::int32()),
                      arrow::field("VendorID", arrow::int32())}));
 
-  // The factory will try to build a child dataset.
+  // The factory will try to build a dataset.
   ARROW_ASSIGN_OR_RAISE(auto factory,
                         ds::FileSystemDatasetFactory::Make(fs, s, format, options));
 
@@ -89,11 +86,7 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
   ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(kConf.inspect_options));
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(kConf.finish_options));
-
-  ds::DatasetVector children{kConf.repeat, child};
-  ARROW_ASSIGN_OR_RAISE(auto dataset,
-                        ds::UnionDataset::Make(std::move(schema), std::move(children)));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish(kConf.finish_options));
 
   return dataset;
 }
@@ -102,7 +95,7 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string file) {
   ds::FileSystemFactoryOptions options;
-  // The factory will try to build a child dataset.
+  // The factory will try to build a dataset.
   ARROW_ASSIGN_OR_RAISE(auto factory,
                         ds::FileSystemDatasetFactory::Make(fs, {file}, format, options));
 
@@ -110,12 +103,7 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
   ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(kConf.inspect_options));
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(kConf.finish_options));
-
-  ds::DatasetVector children;
-  children.resize(kConf.repeat, child);
-  ARROW_ASSIGN_OR_RAISE(auto dataset,
-                        ds::UnionDataset::Make(std::move(schema), std::move(children)));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, factory->Finish(kConf.finish_options));
 
   return dataset;
 }
