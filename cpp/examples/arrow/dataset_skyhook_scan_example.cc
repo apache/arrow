@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
   auto status = Main(argv[1]);
-   if (!status.ok()) {
+  if (!status.ok()) {
     std::cerr << status.ToString() << std::endl;
     return EXIT_FAILURE;
   }
