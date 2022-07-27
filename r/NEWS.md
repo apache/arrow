@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 8.0.0.9000
+# arrow 9.0.0
 
 * The `arrow.dev_repo` for nightly builds of the R package and prebuilt
   libarrow binaries is now https://nightlies.apache.org/arrow/r/.

@@ -46,7 +46,7 @@ const (
 	DefaultStatsEnabled = true
 	// If the stats are larger than 4K the writer will skip writing them out anyways.
 	DefaultMaxStatsSize int64 = 4096
-	DefaultCreatedBy          = "parquet-go version 9.0.0-SNAPSHOT"
+	DefaultCreatedBy          = "parquet-go version 9.0.0"
 	DefaultRootName           = "schema"
 )
 
