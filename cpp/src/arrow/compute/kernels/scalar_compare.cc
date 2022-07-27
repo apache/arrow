@@ -312,7 +312,8 @@ template <typename Op>
 ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
                               ArrayKernelExec exec) {
   ScalarKernel kernel;
-  kernel.signature = KernelSignature::Make({ty, ty}, boolean());
+  std::vector<InputType> in_types = {ty, ty};
+  kernel.signature = KernelSignature::Make(in_types, boolean());
   BinaryKernel func_aa =
       GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayArray, Op>(
           compare_type);
