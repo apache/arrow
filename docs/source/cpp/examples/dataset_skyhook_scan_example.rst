@@ -49,7 +49,8 @@ Instuctions
                     rbd-mirror \
                     ceph-fuse \
                     rapidjson-dev \
-                    libboost-all-dev
+                    libboost-all-dev \
+                    python3-pip
 
 2. Build and install Skyhook.
 
