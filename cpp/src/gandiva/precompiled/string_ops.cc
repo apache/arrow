@@ -1422,11 +1422,52 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
 }
 
 FORCE_INLINE
-gdv_int64 convert_fromINT_binary(gdv_int64 context, const char* bin_in, gdv_int32 len) {
-  gdv_int64 a;
-  a = gdv_int64((unsigned char)(bin_in[0]) << 24 | (unsigned char)(bin_in[1]) << 16 |
-                (unsigned char)(bin_in[2]) << 8 | (unsigned char)(bin_in[3]));
-  return a;
+gdv_int32 convert_fromINT_binary(gdv_int64 context, const char* bin_in, gdv_int32 len) {
+  gdv_int32 result;
+  memcpy(&result, bin_in, sizeof(result));
+  return result;
+}
+
+FORCE_INLINE
+gdv_int64 convert_fromBIGINT_binary(gdv_int64 context, const char* bin_in,
+                                    gdv_int32 len) {
+  gdv_int64 result;
+  memcpy(&result, bin_in, sizeof(result));
+  return result;
+}
+
+FORCE_INLINE
+gdv_int32 convert_fromTIME_EPOCH_binary(gdv_int64 context, const char* bin_in,
+                                        gdv_int32 len) {
+  return convert_fromINT_binary(context, bin_in, len);
+}
+
+FORCE_INLINE
+gdv_int64 convert_fromDATE_EPOCH_binary(gdv_int64 context, const char* bin_in,
+                                        gdv_int32 len) {
+  return convert_fromBIGINT_binary(context, bin_in, len);
+}
+
+FORCE_INLINE
+gdv_int64 convert_fromTIMESTAMP_EPOCH_binary(gdv_int64 context, const char* bin_in,
+                                             gdv_int32 len) {
+  return convert_fromBIGINT_binary(context, bin_in, len);
+}
+
+FORCE_INLINE
+gdv_float32 convert_fromFLOAT_binary(gdv_int64 context, const char* bin_in,
+                                     gdv_int32 len) {
+  gdv_float32 result;
+  memcpy(&result, bin_in, sizeof(result));
+  return result;
+}
+
+FORCE_INLINE
+gdv_float64 convert_fromDOUBLE_binary(gdv_int64 context, const char* bin_in,
+                                      gdv_int32 len) {
+  gdv_float64 result;
+  memcpy(&result, bin_in, sizeof(result));
+  return result;
 }
 
 FORCE_INLINE

@@ -282,30 +282,102 @@ TEST(TestStringOps, TestConvertInt) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   const char* binary_str;
+  int binary_str_len;
 
-  binary_str = "\x00\x00\x00\x00\x00\x00\x00\x00";
-  gdv_int64 result = convert_fromINT_binary(ctx_ptr, binary_str, 8);
-  EXPECT_EQ(result, 0);
+  // Test Convert_From_INT
+  binary_str =
+      convert_toINT(ctx_ptr, std::numeric_limits<int32_t>::max(), &binary_str_len);
+  gdv_int64 resultInt = convert_fromINT_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultInt, std::numeric_limits<int32_t>::max());
   EXPECT_FALSE(ctx.has_error());
 
-  binary_str = "\x00\x00\x88\xB8\x00\x00\x00\x00";
-  result = convert_fromINT_binary(ctx_ptr, binary_str, 8);
-  EXPECT_EQ(result, 35000);
+  binary_str =
+      convert_toINT(ctx_ptr, std::numeric_limits<int32_t>::min(), &binary_str_len);
+  resultInt = convert_fromINT_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultInt, std::numeric_limits<int32_t>::min());
   EXPECT_FALSE(ctx.has_error());
 
-  binary_str = "\x00\x0E\xDC\x1C";
-  result = convert_fromINT_binary(ctx_ptr, binary_str, 4);
-  EXPECT_EQ(result, 973852);
+  // Test Convert_From_BIGINT
+  binary_str =
+      convert_toBIGINT(ctx_ptr, std::numeric_limits<int64_t>::max(), &binary_str_len);
+  gdv_int64 resultBigInt = convert_fromBIGINT_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultBigInt, std::numeric_limits<int64_t>::max());
   EXPECT_FALSE(ctx.has_error());
 
-  binary_str = "\x07\x5B\xCD\x15\x00\x00";
-  result = convert_fromINT_binary(ctx_ptr, binary_str, 6);
-  EXPECT_EQ(result, 123456789);
+  binary_str =
+      convert_toBIGINT(ctx_ptr, std::numeric_limits<int64_t>::min(), &binary_str_len);
+  resultBigInt = convert_fromBIGINT_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultBigInt, std::numeric_limits<int64_t>::min());
   EXPECT_FALSE(ctx.has_error());
 
-  binary_str = "\x00\xAB\xCD\xEF";
-  result = convert_fromINT_binary(ctx_ptr, binary_str, 4);
-  EXPECT_EQ(result, 11259375);
+  // Test Convert_From_TIME_EPOCH
+  binary_str =
+      convert_toTIME_EPOCH(ctx_ptr, std::numeric_limits<int32_t>::max(), &binary_str_len);
+  gdv_int64 resultTime =
+      convert_fromTIME_EPOCH_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultTime, std::numeric_limits<int32_t>::max());
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str =
+      convert_toTIME_EPOCH(ctx_ptr, std::numeric_limits<int32_t>::min(), &binary_str_len);
+  resultTime = convert_fromTIME_EPOCH_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultTime, std::numeric_limits<int32_t>::min());
+  EXPECT_FALSE(ctx.has_error());
+
+  // Test Convert_From_DATE_EPOCH
+  binary_str =
+      convert_toDATE_EPOCH(ctx_ptr, std::numeric_limits<int64_t>::max(), &binary_str_len);
+  gdv_int64 resultDate =
+      convert_fromDATE_EPOCH_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultDate, std::numeric_limits<int64_t>::max());
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str =
+      convert_toDATE_EPOCH(ctx_ptr, std::numeric_limits<int64_t>::min(), &binary_str_len);
+  resultDate = convert_fromDATE_EPOCH_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultDate, std::numeric_limits<int64_t>::min());
+  EXPECT_FALSE(ctx.has_error());
+
+  // Test Convert_From_TIMESTAMP_EPOCH
+  binary_str = convert_toTIMESTAMP_EPOCH(ctx_ptr, std::numeric_limits<int64_t>::max(),
+                                         &binary_str_len);
+  gdv_int64 resultTimestamp =
+      convert_fromTIMESTAMP_EPOCH_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultTimestamp, std::numeric_limits<int64_t>::max());
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str = convert_toTIMESTAMP_EPOCH(ctx_ptr, std::numeric_limits<int64_t>::min(),
+                                         &binary_str_len);
+  resultTimestamp =
+      convert_fromTIMESTAMP_EPOCH_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultTimestamp, std::numeric_limits<int64_t>::min());
+  EXPECT_FALSE(ctx.has_error());
+
+  // Test Convert_From_FLOAT
+  binary_str =
+      convert_toFLOAT(ctx_ptr, std::numeric_limits<float>::max(), &binary_str_len);
+  gdv_float32 resultFloat = convert_fromFLOAT_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultFloat, std::numeric_limits<float>::max());
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str =
+      convert_toFLOAT(ctx_ptr, std::numeric_limits<float>::min(), &binary_str_len);
+  resultFloat = convert_fromFLOAT_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultFloat, std::numeric_limits<float>::min());
+  EXPECT_FALSE(ctx.has_error());
+
+  // Test Convert_From_DOUBLE
+  binary_str =
+      convert_toDOUBLE(ctx_ptr, std::numeric_limits<double>::max(), &binary_str_len);
+  gdv_float64 resultDouble =
+      convert_fromDOUBLE_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultDouble, std::numeric_limits<double>::max());
+  EXPECT_FALSE(ctx.has_error());
+
+  binary_str =
+      convert_toDOUBLE(ctx_ptr, std::numeric_limits<double>::min(), &binary_str_len);
+  resultDouble = convert_fromDOUBLE_binary(ctx_ptr, binary_str, binary_str_len);
+  EXPECT_EQ(resultDouble, std::numeric_limits<double>::min());
   EXPECT_FALSE(ctx.has_error());
 }
 

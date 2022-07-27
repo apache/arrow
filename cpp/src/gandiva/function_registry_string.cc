@@ -357,8 +357,32 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "convert_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_fromINT", {"convert_fromint"}, DataTypeVector{binary()},
-                     int64(), kResultNullIfNull, "convert_fromINT_binary",
+      NativeFunction("convert_fromINT", {}, DataTypeVector{binary()}, int32(),
+                     kResultNullIfNull, "convert_fromINT_binary",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_fromBIGINT", {}, DataTypeVector{binary()}, int64(),
+                     kResultNullIfNull, "convert_fromBIGINT_binary",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_fromTIME_EPOCH", {}, DataTypeVector{binary()}, time32(),
+                     kResultNullIfNull, "convert_fromTIME_EPOCH_binary",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_fromDATE_EPOCH", {}, DataTypeVector{binary()}, date64(),
+                     kResultNullIfNull, "convert_fromDATE_EPOCH_binary",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_fromTIMESTAMP_EPOCH", {}, DataTypeVector{binary()},
+                     timestamp(), kResultNullIfNull, "convert_fromTIMESTAMP_EPOCH_binary",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_fromFLOAT", {}, DataTypeVector{binary()}, float32(),
+                     kResultNullIfNull, "convert_fromFLOAT_binary",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_fromDOUBLE", {}, DataTypeVector{binary()}, float64(),
+                     kResultNullIfNull, "convert_fromDOUBLE_binary",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("convert_replaceUTF8", {"convert_replaceutf8"},
