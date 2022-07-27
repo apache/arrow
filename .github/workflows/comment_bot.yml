@@ -42,6 +42,10 @@ jobs:
           python-version: 3.8
       - name: Install Archery and Crossbow dependencies
         run: pip install -e arrow/dev/archery[bot]
+      - uses: actions/upload-artifact@v3
+        with:
+          name: payload
+          path: ${{ github.event_path }}
       - name: Handle Github comment event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
