@@ -64,18 +64,19 @@ class FunctionHolderRegistry {
 
  private:
   static map_type& makers() {
-    static map_type maker_map = {{"like", LAMBDA_MAKER(SQLLikeHolder)},
-                                 {"ilike", LAMBDA_MAKER(SQLLikeHolder)},
-                                 {"to_date", LAMBDA_MAKER(ToDateHolder)},
-                                 {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
-                                 {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
-                                 {"regexp_matches", LAMBDA_MAKER(RegexpMatchesHolder)},
-                                 {"regexp_like", LAMBDA_MAKER(RegexpMatchesHolder)},
-                                 {"rlike", LAMBDA_MAKER(RegexpMatchesHolder)},
-                                 {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
-                                 {"regexp_extract", LAMBDA_MAKER(ExtractHolder)},
-                                 {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
-                                 {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
+    static map_type maker_map = {
+        {"like", LAMBDA_MAKER(SQLLikeHolder)},
+        {"ilike", LAMBDA_MAKER(SQLLikeHolder)},
+        {"to_date", LAMBDA_MAKER(ToDateHolder)},
+        {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
+        {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
+        {"regexp_matches", LAMBDA_MAKER(RegexpExpressionsHolder)},
+        {"regexp_like", LAMBDA_MAKER(RegexpExpressionsHolder)},
+        {"rlike", LAMBDA_MAKER(RegexpExpressionsHolder)},
+        {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
+        {"regexp_extract", LAMBDA_MAKER(ExtractHolder)},
+        {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
+        {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
     return maker_map;
   }
 };

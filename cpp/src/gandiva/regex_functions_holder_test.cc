@@ -724,9 +724,9 @@ class TestRegexpMatchesHolder : public ::testing::Test {
 };
 
 TEST_F(TestRegexpMatchesHolder, TestString) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make("ab", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make("ab", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -739,9 +739,9 @@ TEST_F(TestRegexpMatchesHolder, TestString) {
 }
 
 TEST_F(TestRegexpMatchesHolder, TestDotStar) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make("a.*b", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make("a.*b", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -756,9 +756,9 @@ TEST_F(TestRegexpMatchesHolder, TestDotStar) {
 }
 
 TEST_F(TestRegexpMatchesHolder, TestDot) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make("ab.", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make("ab.", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -772,9 +772,9 @@ TEST_F(TestRegexpMatchesHolder, TestDot) {
 }
 
 TEST_F(TestRegexpMatchesHolder, TestAnchors) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make("^ab.*c$", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make("^ab.*c$", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -786,9 +786,9 @@ TEST_F(TestRegexpMatchesHolder, TestAnchors) {
 }
 
 TEST_F(TestRegexpMatchesHolder, TestIgnoreCase) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make("(?i)ab", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make("(?i)ab", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -800,9 +800,9 @@ TEST_F(TestRegexpMatchesHolder, TestIgnoreCase) {
 }
 
 TEST_F(TestRegexpMatchesHolder, TestCharacterClass) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make("[ab]c", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make("[ab]c", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -814,9 +814,9 @@ TEST_F(TestRegexpMatchesHolder, TestCharacterClass) {
 }
 
 TEST_F(TestRegexpMatchesHolder, TestEscapeCharacter) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make("\\.\\*", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make("\\.\\*", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -826,9 +826,9 @@ TEST_F(TestRegexpMatchesHolder, TestEscapeCharacter) {
 }
 
 TEST_F(TestRegexpMatchesHolder, TestNonAsciiMatches) {
-  std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;
+  std::shared_ptr<RegexpExpressionsHolder> regexp_matches_holder;
 
-  auto status = RegexpMatchesHolder::Make(".*çåå†.*", &regexp_matches_holder);
+  auto status = RegexpExpressionsHolder::Make(".*çåå†.*", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& regexp_matches = *regexp_matches_holder;
@@ -839,46 +839,46 @@ TEST_F(TestRegexpMatchesHolder, TestNonAsciiMatches) {
 
 TEST_F(TestRegexpMatchesHolder, TestOptimise) {
   // optimise for 'starts_with'
-  auto fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("^abc"));
+  auto fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("^abc"));
   EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
   EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) 'abc')");
 
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("^abc.*"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("^abc.*"));
   EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
   EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) 'abc')");
 
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("^ab cd"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("^ab cd"));
   EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
   EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) 'ab cd')");
 
   // optimise for 'ends_with'
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("xyz$"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("xyz$"));
   EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
   EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) 'xyz')");
 
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches(".*xyz$"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches(".*xyz$"));
   EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
   EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) 'xyz')");
 
   // optimise for 'is_substr'
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("xyz"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("xyz"));
   EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
   EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'xyz')");
 
   // no optimisation for others.
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("^xyz$"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("^xyz$"));
   EXPECT_EQ(fnode.descriptor()->name(), "regexp_matches");
 
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("^xy.*z"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("^xy.*z"));
   EXPECT_EQ(fnode.descriptor()->name(), "regexp_matches");
 
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("^.*"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("^.*"));
   EXPECT_EQ(fnode.descriptor()->name(), "regexp_matches");
 
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("x.yz$"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("x.yz$"));
   EXPECT_EQ(fnode.descriptor()->name(), "regexp_matches");
 
-  fnode = RegexpMatchesHolder::TryOptimize(BuildRegexpMatches("^[xyz]"));
+  fnode = RegexpExpressionsHolder::TryOptimize(BuildRegexpMatches("^[xyz]"));
   EXPECT_EQ(fnode.descriptor()->name(), "regexp_matches");
 }
 }  // namespace gandiva

@@ -22,14 +22,14 @@
 
 namespace gandiva {
 
-RE2 RegexpMatchesHolder::starts_with_regex_(R"(\^([\w\s]+)(\.\*)?)");
-RE2 RegexpMatchesHolder::ends_with_regex_(R"((\.\*)?([\w\s]+)\$)");
-RE2 RegexpMatchesHolder::is_substr_regex_(R"((\w|\s)*)");
+RE2 RegexpExpressionsHolder::starts_with_regex_(R"(\^([\w\s]+)(\.\*)?)");
+RE2 RegexpExpressionsHolder::ends_with_regex_(R"((\.\*)?([\w\s]+)\$)");
+RE2 RegexpExpressionsHolder::is_substr_regex_(R"((\w|\s)*)");
 
 // Short-circuit pattern matches for the three common sub cases :
 // - starts_with, ends_with, and contains.
-const FunctionNode RegexpMatchesHolder::TryOptimize(const FunctionNode& node) {
-  std::shared_ptr<RegexpMatchesHolder> holder;
+const FunctionNode RegexpExpressionsHolder::TryOptimize(const FunctionNode& node) {
+  std::shared_ptr<RegexpExpressionsHolder> holder;
   auto status = Make(node, &holder);
   if (status.ok()) {
     std::string& pattern = holder->pattern_;
@@ -74,11 +74,18 @@ const FunctionNode SQLLikeHolder::TryOptimize(const FunctionNode& node) {
   auto literal_type = node.children().at(1)->return_type();
   auto pcre_node =
       std::make_shared<LiteralNode>(literal_type, LiteralHolder(pcre_pattern), false);
+
+  // There is only one optimizer and it is inside the
+  // "RegexpExpressionsHolder::TryOptimize" method. So, a new node redirecting to
+  // "regexp_matches" (would could be 'regexp_like' or 'rlike') is created to call the
+  // "RegexpExpressionsHolder::TryOptimize" method.
   auto new_node = FunctionNode("regexp_matches", {node.children().at(0), pcre_node},
                                node.return_type());
+  auto optimized_node = RegexpExpressionsHolder::TryOptimize(new_node);
 
-  auto optimized_node = RegexpMatchesHolder::TryOptimize(new_node);
-
+  // If it couldn't optimize (starts_with_regex_, ends_with_regex_, is_substr_regex_), it
+  // doesn't want to use the new node created, but the original one that arrived via
+  // parameter.
   if (optimized_node.descriptor()->name() != "regexp_matches") {
     return optimized_node;
   } else {
@@ -86,11 +93,7 @@ const FunctionNode SQLLikeHolder::TryOptimize(const FunctionNode& node) {
   }
 }
 
-// static bool IsArrowStringLiteral(arrow::Type::type type) {
-//  return type == arrow::Type::STRING || type == arrow::Type::BINARY;
-//}
-
-Result<std::string> RegexpMatchesHolder::GetPattern(const FunctionNode& node) {
+Result<std::string> RegexpExpressionsHolder::GetPattern(const FunctionNode& node) {
   auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
   auto pattern = arrow::util::get<std::string>(literal->holder());
   return pattern;
@@ -118,10 +121,10 @@ Result<std::string> SQLLikeHolder::GetPattern(const std::string& sql_pattern,
   return pcre_pattern;
 }
 
-Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
-                                 std::shared_ptr<RegexpMatchesHolder>* holder) {
+Status RegexpExpressionsHolder::Make(const std::string& pcre_pattern,
+                                     std::shared_ptr<RegexpExpressionsHolder>* holder) {
   auto lholder =
-      std::shared_ptr<RegexpMatchesHolder>(new RegexpMatchesHolder(pcre_pattern));
+      std::shared_ptr<RegexpExpressionsHolder>(new RegexpExpressionsHolder(pcre_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
 
@@ -129,11 +132,11 @@ Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
   return Status::OK();
 }
 
-Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
-                                 std::shared_ptr<RegexpMatchesHolder>* holder,
-                                 RE2::Options regex_ops) {
-  auto lholder = std::shared_ptr<RegexpMatchesHolder>(
-      new RegexpMatchesHolder(pcre_pattern, regex_ops));
+Status RegexpExpressionsHolder::Make(const std::string& pcre_pattern,
+                                     std::shared_ptr<RegexpExpressionsHolder>* holder,
+                                     RE2::Options regex_ops) {
+  auto lholder = std::shared_ptr<RegexpExpressionsHolder>(
+      new RegexpExpressionsHolder(pcre_pattern, regex_ops));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
 
@@ -141,8 +144,8 @@ Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
   return Status::OK();
 }
 
-Status RegexpMatchesHolder::Make(const FunctionNode& node,
-                                 std::shared_ptr<RegexpMatchesHolder>* holder) {
+Status RegexpExpressionsHolder::Make(const FunctionNode& node,
+                                     std::shared_ptr<RegexpExpressionsHolder>* holder) {
   // Add regexp_matches validation
   ARROW_RETURN_IF(node.children().size() != 2,
                   Status::Invalid("'regexp_matches' function requires two parameters"));
@@ -243,8 +246,9 @@ Status SQLLikeHolder::Make(const std::string& sql_pattern, const std::string& es
   std::string pcre_pattern;
   ARROW_ASSIGN_OR_RAISE(pcre_pattern, GetPattern(sql_pattern, escape_char));
 
-  std::shared_ptr<RegexpMatchesHolder> base_holder;
-  ARROW_RETURN_NOT_OK(RegexpMatchesHolder::Make(pcre_pattern, &base_holder, regex_op));
+  std::shared_ptr<RegexpExpressionsHolder> base_holder;
+  ARROW_RETURN_NOT_OK(
+      RegexpExpressionsHolder::Make(pcre_pattern, &base_holder, regex_op));
 
   *holder = std::static_pointer_cast<SQLLikeHolder>(base_holder);
   return Status::OK();

@@ -57,7 +57,7 @@ const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode& node) {
   } else if (node.descriptor()->name() == "regexp_matches" ||
              node.descriptor()->name() == "regexp_like" ||
              node.descriptor()->name() == "rlike") {
-    return RegexpMatchesHolder::TryOptimize(node);
+    return RegexpExpressionsHolder::TryOptimize(node);
   } else {
     return node;
   }

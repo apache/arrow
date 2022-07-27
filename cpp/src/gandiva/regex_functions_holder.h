@@ -31,16 +31,16 @@
 
 namespace gandiva {
 
-class GANDIVA_EXPORT RegexpMatchesHolder : public FunctionHolder {
+class GANDIVA_EXPORT RegexpExpressionsHolder : public FunctionHolder {
  public:
   static Status Make(const FunctionNode& node,
-                     std::shared_ptr<RegexpMatchesHolder>* holder);
+                     std::shared_ptr<RegexpExpressionsHolder>* holder);
 
   static Status Make(const std::string& pcre_pattern,
-                     std::shared_ptr<RegexpMatchesHolder>* holder);
+                     std::shared_ptr<RegexpExpressionsHolder>* holder);
 
   static Status Make(const std::string& pcre_pattern,
-                     std::shared_ptr<RegexpMatchesHolder>* holder,
+                     std::shared_ptr<RegexpExpressionsHolder>* holder,
                      RE2::Options regex_ops);
 
   /// Try and optimise a function node with a "regexp_matches" pattern.
@@ -54,10 +54,10 @@ class GANDIVA_EXPORT RegexpMatchesHolder : public FunctionHolder {
   static Result<std::string> GetPattern(const FunctionNode& node);
 
  private:
-  explicit RegexpMatchesHolder(const std::string& pattern)
+  explicit RegexpExpressionsHolder(const std::string& pattern)
       : pattern_(pattern), regex_(pattern) {}
 
-  RegexpMatchesHolder(const std::string& pattern, RE2::Options regex_op)
+  RegexpExpressionsHolder(const std::string& pattern, RE2::Options regex_op)
       : pattern_(pattern), regex_(pattern, regex_op) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
@@ -68,7 +68,7 @@ class GANDIVA_EXPORT RegexpMatchesHolder : public FunctionHolder {
   static RE2 is_substr_regex_;    // pre-compiled pattern for matching is_substr
 };
 
-class GANDIVA_EXPORT SQLLikeHolder : public RegexpMatchesHolder {
+class GANDIVA_EXPORT SQLLikeHolder : public RegexpExpressionsHolder {
  public:
   static Status Make(const FunctionNode& node, std::shared_ptr<SQLLikeHolder>* holder);
 

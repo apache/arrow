@@ -39,8 +39,8 @@ extern "C" {
 
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len) {
-  gandiva::RegexpMatchesHolder* holder =
-      reinterpret_cast<gandiva::RegexpMatchesHolder*>(ptr);
+  gandiva::RegexpExpressionsHolder* holder =
+      reinterpret_cast<gandiva::RegexpExpressionsHolder*>(ptr);
   return (*holder)(std::string(data, data_len));
 }
 
