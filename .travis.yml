@@ -59,6 +59,7 @@ jobs:
         # glog and CMAKE_UNITY_BUILD=ON.
         DOCKER_RUN_ARGS: >-
           "
+          -e ARROW_FLIGHT_SQL=OFF
           -e ARROW_ORC=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
@@ -92,8 +93,6 @@ jobs:
         # aws-sdk-cpp.
         DOCKER_RUN_ARGS: >-
           "
-          -e ARROW_FLIGHT=ON
-          -e ARROW_FLIGHT_SQL=OFF
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
           -e ARROW_ORC=OFF
