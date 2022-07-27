@@ -279,6 +279,27 @@ TEST(ExecPlanExecution, TableSourceSink) {
   }
 }
 
+TEST(ExecPlanExecution, TableSourceNodeOptions) {
+  
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  auto exp_batches = MakeBasicBatches();
+  ASSERT_OK_AND_ASSIGN(auto table,
+                        TableFromExecBatches(exp_batches.schema, exp_batches.batches));
+  auto table_source_options = TableSourceNodeOptions{table, 3};
+
+  ASSERT_OK_AND_ASSIGN(
+      ExecNode * table_source,
+      MakeExecNode("table_source", plan.get(), {}, table_source_options));
+  
+  table_source->SetOptions(&table_source_options);
+  const auto& res_table_options = static_cast<const TableSourceNodeOptions&>(*table_source->options());
+  
+  EXPECT_EQ(table_source_options.table, res_table_options.table);
+  EXPECT_EQ(table_source_options.max_batch_size, res_table_options.max_batch_size);
+}
+
 TEST(ExecPlanExecution, TableSourceSinkError) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
@@ -1479,6 +1500,24 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
   for (const auto& batch : batches) {
     ASSERT_LE(batch.length, ExecPlan::kMaxBatchSize);
   }
+}
+
+TEST(ExecPlan, ExecNodeOption) {
+  auto input = MakeGroupableBatches();
+
+  auto exec_ctx = arrow::internal::make_unique<ExecContext>(
+      default_memory_pool(), arrow::internal::GetCpuThreadPool());
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  SourceNodeOptions options{input.schema, input.gen(/*parallel*/ true, /*slow=*/false)};
+
+  ASSERT_OK_AND_ASSIGN(auto* source, MakeExecNode("source", plan.get(), {}, options));
+  source->SetOptions(&options);
+  const auto& opts = static_cast<const SourceNodeOptions&>(*source->options());
+  ASSERT_EQ(opts.output_schema, options.output_schema);
 }
 
 }  // namespace compute

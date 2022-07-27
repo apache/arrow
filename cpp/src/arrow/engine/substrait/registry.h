@@ -15,41 +15,55 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This API is EXPERIMENTAL.
+// NOTE: API is EXPERIMENTAL and will change without going through a
+// deprecation cycle
 
 #pragma once
 
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/util/visibility.h"
+
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/substrait/extension_types.h"
-#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 
-namespace arrow {
+namespace arrrow {
+
 namespace engine {
 
-/// Information resulting from converting a Substrait relation.
-struct DeclarationInfo {
-  /// The compute declaration produced thus far.
-  compute::Declaration declaration;
+using SubstraitConverter =
+    std::function<std::tuple<substrait::Rel, Schema>(Schema, Declaration)>;
 
-  /// The number of columns returned by the declaration.
-  int num_columns;
+class ARROW_EXPORT SubstraitConversionRegistry {
+ public:
+  ~SubstraitConversionRegistry();
+
+  static std::unique_ptr<SubstraitConversionRegistry> Make();
+
+  static std::unique_ptr<SubstraitConversionRegistry> Make(
+      SubstraitConversionRegistry* parent);
+
+  Status RegisterConverter(const std::string& kind_name, SubstraitConverter converter);
+
+ private:
+  SubstraitConversionRegistry();
+
+  class SubstraitConversionRegistryImpl;
+  std::unique_ptr<SubstraitConversionRegistryImpl> impl_;
+
+  explicit SubstraitConversionRegistry(SubstraitConversionRegistryImpl* impl);
 };
 
-ARROW_ENGINE_EXPORT
-Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
-                                  const ConversionOptions&);
-
-ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration&,
-                                                ExtensionSet*);
-
-ARROW_ENGINE_EXPORT std::tuple<substrait::Rel, Schema> ScanRelationConverter(
-    const arrow::Schema&, const compute::Declaration&);
+ARROW_EXPORT SubstraitConversionRegistry* GetSubstraitConversionRegistry();
 
 }  // namespace engine
-}  // namespace arrow
+}  // namespace arrrow

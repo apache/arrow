@@ -1991,5 +1991,23 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
 
+TEST(ScanNode, NodeOptions) {
+  TestPlan plan;
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->projection = Materialize({});  // set an empty projection
+  ScanNodeOptions scan_node_options{basic.dataset, options};
+  ASSERT_OK_AND_ASSIGN(auto* scan,
+                       compute::MakeExecNode("scan", plan.get(), {}, scan_node_options));
+  scan->SetOptions(&scan_node_options);
+  const auto& res_scan_options = static_cast<const ScanNodeOptions&>(*scan->options());
+
+  ASSERT_EQ(scan_node_options.dataset->schema(), res_scan_options.dataset->schema());
+  ASSERT_EQ(scan_node_options.scan_options->projection,
+            res_scan_options.scan_options->projection);
+}
+
 }  // namespace dataset
 }  // namespace arrow

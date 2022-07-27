@@ -133,5 +133,53 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                             registry);
 }
 
+Status TraversePlan(compute::ExecNode* node,
+                    std::vector<compute::ExecNode*>* node_vector) {
+  if (node->num_inputs() > 0) {
+    const auto& sources = node->inputs();
+    for (const auto& source : sources) {
+      ARROW_RETURN_NOT_OK(TraversePlan(source, node_vector));
+    }
+  }
+  node_vector->push_back(node);
+  return Status::OK();
+}
+
+// arrow::Result<compute::Declaration> MakeDeclaration(compute::ExecNode* node) {
+//   compute::Declaration decl;
+//   const auto* kind_name = node->kind_name();
+//   if(kind_name == std::string("scan")) {
+//     std::vector<compute::ExecNode*> inputs = node->inputs();
+
+//   } else {
+//     return Status::NotImplemented(kind_name, " relation not implemented.");
+//   }
+//   return decl;
+// }
+
+Result<std::unique_ptr<substrait::PlanRel>> ToProto(const compute::ExecPlan& plan,
+                                                    ExtensionSet* ext_set) {
+  auto plan_rel = internal::make_unique<substrait::PlanRel>();
+
+  std::cout << "Plan Show" << std::endl;
+
+  std::cout << plan.ToString() << std::endl;
+  std::cout << "----------" << std::endl;
+  const auto& sinks = plan.sinks();
+  std::vector<compute::ExecNode*> node_vec;
+  ARROW_RETURN_NOT_OK(TraversePlan(sinks[0], &node_vec));
+
+  std::cout << "Printing Node Vector" << std::endl;
+  for (const auto& node : node_vec) {
+    const auto* kind_name = node->kind_name();
+    std::cout << kind_name << std::endl;
+    //const auto& output_schema = node->output_schema();
+    // if (output_schema) {
+    // }
+  }
+
+  return plan_rel;
+}
+
 }  // namespace engine
 }  // namespace arrow

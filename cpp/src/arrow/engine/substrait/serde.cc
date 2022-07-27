@@ -52,9 +52,22 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
   return message;
 }
 
-Result<compute::Declaration> DeserializeRelation(
-    const Buffer& buf, const ExtensionSet& ext_set,
-    const ConversionOptions& conversion_options) {
+Result<std::shared_ptr<Buffer>> SerializePlan(const compute::ExecPlan& plan,
+                                              ExtensionSet* ext_set) {
+  ARROW_ASSIGN_OR_RAISE(auto subs_plan, ToProto(plan, ext_set));
+  std::string serialized = subs_plan->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
+}
+
+Result<std::shared_ptr<Buffer>> SerializeRelation(const compute::Declaration& declaration,
+                                                  ExtensionSet* ext_set) {
+  ARROW_ASSIGN_OR_RAISE(auto relation, ToProto(declaration, ext_set));
+  std::string serialized = relation->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
+}
+
+Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
+                                                 const ExtensionSet& ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto rel, ParseFromBuffer<substrait::Rel>(buf));
   ARROW_ASSIGN_OR_RAISE(auto decl_info, FromProto(rel, ext_set, conversion_options));
   return std::move(decl_info.declaration);

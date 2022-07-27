@@ -199,6 +199,14 @@ class ARROW_EXPORT ExecNode {
   /// This node's exec plan
   ExecPlan* plan() { return plan_; }
 
+  /// Set this node's options 
+  /// This is an optional method included to support Acero to Substrait
+  /// serialization.
+  void SetOptions(ExecNodeOptions* options) { options_ = options; }
+
+  /// This node's options
+  ExecNodeOptions* options() { return options_; }
+
   /// \brief An optional label, for display and debugging
   ///
   /// There is no guarantee that this value is non-empty or unique.
@@ -367,6 +375,8 @@ class ARROW_EXPORT ExecNode {
   Future<> finished_ = Future<>::Make();
 
   util::tracing::Span span_;
+
+  ExecNodeOptions* options_;
 };
 
 /// \brief MapNode is an ExecNode type class which process a task like filter/project

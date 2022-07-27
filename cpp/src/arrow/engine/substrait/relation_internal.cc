@@ -29,8 +29,14 @@
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::make_unique;
+
 namespace engine {
 
 template <typename RelMessage>
@@ -419,6 +425,82 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
   return Status::NotImplemented(
       "conversion to arrow::compute::Declaration from Substrait relation ",
       rel.DebugString());
+}
+
+namespace {
+
+Result<std::unique_ptr<substrait::ReadRel>> MakeReadRelation(
+    const compute::Declaration& declaration, ExtensionSet* ext_set) {
+  auto read_rel = make_unique<substrait::ReadRel>();
+  const auto& scan_node_options =
+      checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
+
+  auto dataset =
+      dynamic_cast<dataset::FileSystemDataset*>(scan_node_options.dataset.get());
+  if (dataset == nullptr) {
+    return Status::Invalid("Can only convert file system datasets to a Substrait plan.");
+  }
+  // set schema
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set));
+  read_rel->set_allocated_base_schema(named_struct.release());
+
+  // set local files
+  auto read_rel_lfs = make_unique<substrait::ReadRel_LocalFiles>();
+  for (const auto& file : dataset->files()) {
+    auto read_rel_lfs_ffs = make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
+    read_rel_lfs_ffs->set_uri_path("file://" + file);
+
+    // set file format
+    // arrow and feather are temporarily handled via the Parquet format until
+    // upgraded to the latest Substrait version.
+    auto format_type_name = dataset->format()->type_name();
+    if (format_type_name == "parquet") {
+      auto parquet_fmt =
+          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions>();
+      read_rel_lfs_ffs->set_allocated_parquet(parquet_fmt.release());
+    } else if (format_type_name == "arrow") {
+      auto arrow_fmt =
+          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions>();
+      read_rel_lfs_ffs->set_allocated_arrow(arrow_fmt.release());
+    } else if (format_type_name == "orc") {
+      auto orc_fmt =
+          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_OrcReadOptions>();
+      read_rel_lfs_ffs->set_allocated_orc(orc_fmt.release());
+    } else {
+      return Status::Invalid("Unsupported file type : ", format_type_name);
+    }
+    read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
+  }
+  *read_rel->mutable_local_files() = *read_rel_lfs.get();
+
+  return read_rel;
+}
+
+Result<std::unique_ptr<substrait::Rel>> MakeRelation(
+    const compute::Declaration& declaration, ExtensionSet* ext_set) {
+  const std::string& rel_name = declaration.factory_name;
+  auto rel = make_unique<substrait::Rel>();
+  if (rel_name == "scan") {
+    rel->set_allocated_read(MakeReadRelation(declaration, ext_set)->release());
+  } else if (rel_name == "filter") {
+    return Status::NotImplemented("Filter operator not supported.");
+  } else if (rel_name == "project") {
+    return Status::NotImplemented("Project operator not supported.");
+  } else if (rel_name == "hashjoin") {
+    return Status::NotImplemented("Join operator not supported.");
+  } else if (rel_name == "aggregate") {
+    return Status::NotImplemented("Aggregate operator not supported.");
+  } else {
+    return Status::Invalid("Unsupported exec node factory name :", rel_name);
+  }
+  return rel;
+}
+
+}  // namespace
+
+Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declaration,
+                                                ExtensionSet* ext_set) {
+  return MakeRelation(declaration, ext_set);
 }
 
 }  // namespace engine

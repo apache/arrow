@@ -48,7 +48,7 @@ namespace {
 struct SourceNode : ExecNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<util::optional<ExecBatch>> generator)
-      : ExecNode(plan, {}, {}, std::move(output_schema),
+      : ExecNode(plan, {}, {}, output_schema,
                  /*num_outputs=*/1),
         generator_(std::move(generator)) {}
 
