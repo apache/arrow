@@ -163,6 +163,21 @@ build_formats <- function(orders) {
   # process the `orders` (even if supplied in the desired format)
   # Processing is needed (instead of passing
   # formats as-is) due to the processing of the character vector in parse_date_time()
+
+  valid_formats <- "[a|A|b|B|d|H|I|j|m|Om|M|Op|p|q|OS|S|U|w|W|y|Y|r|R|T|z]"
+  invalid_orders <- !grepl(valid_formats, orders)
+
+  if (any(invalid_orders)) {
+    arrow_not_supported(
+      paste0(
+        oxford_paste(
+          orders[invalid_orders]
+        ),
+        " `orders`"
+      )
+    )
+  }
+
   orders <- gsub("[^A-Za-z]", "", orders)
   orders <- gsub("Y", "y", orders)
 
@@ -186,20 +201,6 @@ build_formats <- function(orders) {
   orders <- unique(orders)
 
   formats_list <- map(orders, build_format_from_order)
-  formats_length <- map_int(map_int(formats_list, nchar), max)
-  invalid_orders <- formats_length < 6
-
-  if (any(invalid_orders)) {
-    arrow_not_supported(
-      paste0(
-        oxford_paste(
-          orders[invalid_orders]
-        ),
-        " `orders`"
-      )
-    )
-  }
-
   formats <- purrr::flatten_chr(formats_list)
   unique(formats)
 }
@@ -213,23 +214,44 @@ build_formats <- function(orders) {
 #'
 #' @noRd
 build_format_from_order <- function(order) {
+  month_formats <- c("%m", "%B", "%b")
+  week_formats <- c("%a", "%A")
+  year_formats <- c("%y", "%Y")
   char_list <- list(
-    "%T" = "%H-%M-%S",
-    "%y" = "%y", "%Y",
-    "%m" = "%m", "%B", "%b",
-    "%b" = "%m", "%B", "%b"
+    "%y" = year_formats,
+    "%Y" = year_formats,
+    "%m" = month_formats,
+    "%Om" = month_formats,
+    "%b" = month_formats,
+    "%B" = month_formats,
+    "%a" = week_formats,
+    "%A" = week_formats,
+    "%d" = "%d",
+    "%H" = "%H",
+    "%j" = "%j",
+    "%OS" = "%OS",
+    "%I" = "%I",
+    "%S" = "%S",
+    "%q" = "%q",
+    "%M" = "%M",
+    "%U" = "%U",
+    "%w" = "%w",
+    "%W" = "%W",
+    "%p" = "%p",
+    "%z" = "%z",
+    "%r" = c("%H", "%I-%p"),
+    "%R" = c("%H-%M", "%I-%M-%p"),
+    "%T" = c("%I-%M-%S-%p", "%H-%M-%S", "%H-%M-%OS")
   )
 
-  formats <- regmatches(order, gregexpr("(O{0,1}[a-zA-Z])", order))[[1]]
-  formats <- paste0("%", formats)
-  formats <- ifelse(formats %in% names(char_list), char_list[formats], formats)
+  split_order <- regmatches(order, gregexpr("(O{0,1}[a-zA-Z])", order))[[1]]
+  split_order <- paste0("%", split_order)
+  outcome <- expand.grid(char_list[split_order])
 
-  outcome <- expand.grid(formats)
   # we combine formats with and without the "-" separator, we will later
   # coalesce through all of them (benchmarking indicated this is a more
   # computationally efficient approach rather than figuring out if a string has
-  # separators or not and applying only )
-  # during parsing if the string to be parsed does not contain a separator
+  # separators or not and applying the relevant order afterwards)
   formats_with_sep <- do.call(paste, c(outcome, sep = "-"))
   formats_without_sep <- gsub("-", "", formats_with_sep)
   c(formats_with_sep, formats_without_sep)
