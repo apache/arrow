@@ -370,6 +370,12 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
+	case *arrow.LargeListType:
+		fv.dtype = flatbuf.TypeLargeList
+		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
+		flatbuf.LargeListStart(fv.b)
+		fv.offset = flatbuf.LargeListEnd(fv.b)
+
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
 		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
@@ -653,6 +659,13 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 			return nil, fmt.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
 		dt := arrow.ListOfField(children[0])
+		return dt, nil
+
+	case flatbuf.TypeLargeList:
+		if len(children) != 1 {
+			return nil, fmt.Errorf("arrow/ipc: LargeList must have exactly 1 child field (got=%d)", len(children))
+		}
+		dt := arrow.LargeListOfField(children[0])
 		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:

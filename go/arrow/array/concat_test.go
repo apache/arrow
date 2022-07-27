@@ -76,6 +76,7 @@ func TestConcatenate(t *testing.T) {
 		{arrow.BinaryTypes.String},
 		{arrow.BinaryTypes.LargeString},
 		{arrow.ListOf(arrow.PrimitiveTypes.Int8)},
+		{arrow.LargeListOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int8)},
 		{arrow.StructOf()},
 		{arrow.MapOf(arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int8)},
@@ -156,6 +157,32 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Arra
 		offsetsVector[len(offsetsVector)-1] = int32(valuesSize)
 
 		bldr := array.NewListBuilder(memory.DefaultAllocator, arrow.PrimitiveTypes.Int8)
+		defer bldr.Release()
+
+		valid := make([]bool, len(offsetsVector)-1)
+		for i := range valid {
+			valid[i] = true
+		}
+		bldr.AppendValues(offsetsVector, valid)
+		vb := bldr.ValueBuilder().(*array.Int8Builder)
+		for i := 0; i < values.Len(); i++ {
+			if values.IsValid(i) {
+				vb.Append(values.Value(i))
+			} else {
+				vb.AppendNull()
+			}
+		}
+		return bldr.NewArray()
+	case arrow.LARGE_LIST:
+		valuesSize := size * 8
+		values := cts.rng.Int8(valuesSize, 0, 127, nullprob).(*array.Int8)
+		defer values.Release()
+		offsetsVector := cts.largeoffsets(int64(valuesSize), int32(size))
+		// ensure the first and last offsets encompass the whole values
+		offsetsVector[0] = 0
+		offsetsVector[len(offsetsVector)-1] = int64(valuesSize)
+
+		bldr := array.NewLargeListBuilder(memory.DefaultAllocator, arrow.PrimitiveTypes.Int8)
 		defer bldr.Release()
 
 		valid := make([]bool, len(offsetsVector)-1)
@@ -258,6 +285,16 @@ func (cts *ConcatTestSuite) offsets(length, slicecount int32) []int32 {
 	dist := rand.New(rand.NewSource(cts.seed))
 	for i := range offsets {
 		offsets[i] = dist.Int31n(length + 1)
+	}
+	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
+	return offsets
+}
+
+func (cts *ConcatTestSuite) largeoffsets(length int64, slicecount int32) []int64 {
+	offsets := make([]int64, slicecount+1)
+	dist := rand.New(rand.NewSource(cts.seed))
+	for i := range offsets {
+		offsets[i] = dist.Int63n(length + 1)
 	}
 	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
 	return offsets

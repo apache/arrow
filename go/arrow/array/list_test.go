@@ -211,3 +211,190 @@ func TestListArraySlice(t *testing.T) {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
 }
+
+func TestLargeListArray(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
+		lengths = []int{3, 0, 4}
+		isValid = []bool{true, false, true}
+		offsets = []int64{0, 3, 3, 7}
+	)
+
+	lb := array.NewLargeListBuilder(pool, arrow.PrimitiveTypes.Int32)
+	defer lb.Release()
+
+	for i := 0; i < 10; i++ {
+		vb := lb.ValueBuilder().(*array.Int32Builder)
+		vb.Reserve(len(vs))
+
+		pos := 0
+		for i, length := range lengths {
+			lb.Append(isValid[i])
+			for j := 0; j < length; j++ {
+				vb.Append(vs[pos])
+				pos++
+			}
+		}
+
+		arr := lb.NewArray().(*array.LargeList)
+		defer arr.Release()
+
+		arr.Retain()
+		arr.Release()
+
+		if got, want := arr.DataType().ID(), arrow.LARGE_LIST; got != want {
+			t.Fatalf("got=%v, want=%v", got, want)
+		}
+
+		if got, want := arr.Len(), len(isValid); got != want {
+			t.Fatalf("got=%d, want=%d", got, want)
+		}
+
+		for i := range lengths {
+			if got, want := arr.IsValid(i), isValid[i]; got != want {
+				t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+			}
+			if got, want := arr.IsNull(i), lengths[i] == 0; got != want {
+				t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+			}
+		}
+
+		if got, want := arr.Offsets(), offsets; !reflect.DeepEqual(got, want) {
+			t.Fatalf("got=%v, want=%v", got, want)
+		}
+
+		varr := arr.ListValues().(*array.Int32)
+		if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
+			t.Fatalf("got=%v, want=%v", got, want)
+		}
+	}
+}
+
+func TestLargeListArrayEmpty(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	lb := array.NewLargeListBuilder(pool, arrow.PrimitiveTypes.Int32)
+	defer lb.Release()
+	arr := lb.NewArray().(*array.LargeList)
+	defer arr.Release()
+	if got, want := arr.Len(), 0; got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+}
+
+func TestLargeListArrayBulkAppend(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
+		lengths = []int{3, 0, 4}
+		isValid = []bool{true, false, true}
+		offsets = []int64{0, 3, 3, 7}
+	)
+
+	lb := array.NewLargeListBuilder(pool, arrow.PrimitiveTypes.Int32)
+	defer lb.Release()
+	vb := lb.ValueBuilder().(*array.Int32Builder)
+	vb.Reserve(len(vs))
+
+	lb.AppendValues(offsets, isValid)
+	for _, v := range vs {
+		vb.Append(v)
+	}
+
+	arr := lb.NewArray().(*array.LargeList)
+	defer arr.Release()
+
+	if got, want := arr.DataType().ID(), arrow.LARGE_LIST; got != want {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	if got, want := arr.Len(), len(isValid); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	for i := range lengths {
+		if got, want := arr.IsValid(i), isValid[i]; got != want {
+			t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+		}
+		if got, want := arr.IsNull(i), lengths[i] == 0; got != want {
+			t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+		}
+	}
+
+	if got, want := arr.Offsets(), offsets; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	varr := arr.ListValues().(*array.Int32)
+	if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestLargeListArraySlice(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
+		lengths = []int{3, 0, 4}
+		isValid = []bool{true, false, true}
+		offsets = []int64{0, 3, 3, 7}
+	)
+
+	lb := array.NewLargeListBuilder(pool, arrow.PrimitiveTypes.Int32)
+	defer lb.Release()
+	vb := lb.ValueBuilder().(*array.Int32Builder)
+	vb.Reserve(len(vs))
+
+	lb.AppendValues(offsets, isValid)
+	for _, v := range vs {
+		vb.Append(v)
+	}
+
+	arr := lb.NewArray().(*array.LargeList)
+	defer arr.Release()
+
+	if got, want := arr.DataType().ID(), arrow.LARGE_LIST; got != want {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	if got, want := arr.Len(), len(isValid); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	for i := range lengths {
+		if got, want := arr.IsValid(i), isValid[i]; got != want {
+			t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+		}
+		if got, want := arr.IsNull(i), lengths[i] == 0; got != want {
+			t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+		}
+	}
+
+	if got, want := arr.Offsets(), offsets; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	varr := arr.ListValues().(*array.Int32)
+	if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	if got, want := arr.String(), `[[0 1 2] (null) [3 4 5 6]]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	sub := array.NewSlice(arr, 1, 3).(*array.LargeList)
+	defer sub.Release()
+
+	if got, want := sub.String(), `[(null) [3 4 5 6]]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+}

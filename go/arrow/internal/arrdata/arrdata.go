@@ -1445,5 +1445,16 @@ func buildArray(bldr array.Builder, data arrow.Array) {
 				bldr.AppendNull()
 			}
 		}
+
+	case *array.LargeStringBuilder:
+		data := data.(*array.LargeString)
+		for i := 0; i < data.Len(); i++ {
+			switch {
+			case data.IsValid(i):
+				bldr.Append(data.Value(i))
+			default:
+				bldr.AppendNull()
+			}
+		}
 	}
 }

@@ -502,6 +502,23 @@ func createTestListArr() arrow.Array {
 	return bld.NewArray()
 }
 
+func createTestLargeListArr() arrow.Array {
+	bld := array.NewLargeListBuilder(memory.DefaultAllocator, arrow.PrimitiveTypes.Int8)
+	defer bld.Release()
+
+	vb := bld.ValueBuilder().(*array.Int8Builder)
+
+	bld.Append(true)
+	vb.AppendValues([]int8{1, 2}, []bool{true, true})
+
+	bld.Append(true)
+	vb.AppendValues([]int8{3, 0}, []bool{true, false})
+
+	bld.AppendNull()
+
+	return bld.NewArray()
+}
+
 func createTestFixedSizeList() arrow.Array {
 	bld := array.NewFixedSizeListBuilder(memory.DefaultAllocator, 2, arrow.PrimitiveTypes.Int64)
 	defer bld.Release()
@@ -565,6 +582,7 @@ func TestNestedArrays(t *testing.T) {
 		fn   func() arrow.Array
 	}{
 		{"list", createTestListArr},
+		{"large list", createTestLargeListArr},
 		{"fixed size list", createTestFixedSizeList},
 		{"struct", createTestStructArr},
 		{"map", createTestMapArr},

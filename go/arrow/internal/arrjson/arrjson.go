@@ -205,6 +205,8 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		}
 	case *arrow.ListType:
 		typ = nameJSON{"list"}
+	case *arrow.LargeListType:
+		typ = nameJSON{"largelist"}
 	case *arrow.MapType:
 		typ = mapJSON{Name: "map", KeysSorted: dt.KeysSorted}
 	case *arrow.StructType:
@@ -379,6 +381,13 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		}
 	case "list":
 		arrowType = arrow.ListOfField(arrow.Field{
+			Name:     children[0].Name,
+			Type:     children[0].arrowType,
+			Metadata: children[0].arrowMeta,
+			Nullable: children[0].Nullable,
+		})
+	case "largelist":
+		arrowType = arrow.LargeListOfField(arrow.Field{
 			Name:     children[0].Name,
 			Type:     children[0].arrowType,
 			Metadata: children[0].arrowMeta,
@@ -646,15 +655,8 @@ func fieldsToJSON(fields []arrow.Field, parentPos dictutils.FieldPos, mapper *di
 			}
 		}
 
-		switch dt := typ.(type) {
-		case *arrow.ListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()}, pos, mapper)
-		case *arrow.FixedSizeListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()}, pos, mapper)
-		case *arrow.StructType:
+		if dt, ok := typ.(arrow.NestedType); ok {
 			o[i].Children = fieldsToJSON(dt.Fields(), pos, mapper)
-		case *arrow.MapType:
-			o[i].Children = fieldsToJSON([]arrow.Field{dt.ValueField()}, pos, mapper)
 		}
 	}
 	return o
@@ -969,6 +971,19 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))},
+			[]arrow.ArrayData{elems}, nulls, 0)
+
+	case *arrow.LargeListType:
+		valids := validsFromJSON(arr.Valids)
+		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
+		defer elems.Release()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
+			memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Offset.([]int64)))},
 			[]arrow.ArrayData{elems}, nulls, 0)
 
 	case *arrow.FixedSizeListType:
@@ -1286,6 +1301,22 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			},
 		}
 		return o
+
+	case *array.LargeList:
+		offsets := arr.Offsets()
+		strOffsets := make([]string, len(offsets))
+		for i, o := range offsets {
+			strOffsets[i] = strconv.FormatInt(o, 10)
+		}
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Valids: validsToJSON(arr),
+			Offset: strOffsets,
+			Children: []Array{
+				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.LargeListType).Elem()}, arr.ListValues()),
+			},
+		}
 
 	case *array.Map:
 		o := Array{

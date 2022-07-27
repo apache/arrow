@@ -228,6 +228,8 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 		switch f[1] {
 		case 'l': // list
 			dt = arrow.ListOfField(childFields[0])
+		case 'L': // large list
+			dt = arrow.LargeListOfField(childFields[0])
 		case 'w': // fixed size list is w:# where # is the list size.
 			listSize, err := strconv.Atoi(strings.Split(f, ":")[1])
 			if err != nil {
@@ -285,6 +287,11 @@ func (imp *cimporter) doImportChildren() error {
 	switch imp.dt.ID() {
 	case arrow.LIST: // only one child to import
 		imp.children[0].dt = imp.dt.(*arrow.ListType).Elem()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
+	case arrow.LARGE_LIST: // only one child to import
+		imp.children[0].dt = imp.dt.(*arrow.LargeListType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}
@@ -364,6 +371,8 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	case *arrow.LargeBinaryType:
 		return imp.importLargeStringLike()
 	case *arrow.ListType:
+		return imp.importListLike()
+	case *arrow.LargeListType:
 		return imp.importListLike()
 	case *arrow.MapType:
 		return imp.importListLike()
@@ -461,7 +470,8 @@ func (imp *cimporter) importListLike() error {
 		return err
 	}
 
-	offsets := imp.importOffsetsBuffer(1, int64(arrow.Int32SizeBytes))
+	offsetSize := imp.dt.Layout().Buffers[1].ByteWidth
+	offsets := imp.importOffsetsBuffer(1, int64(offsetSize))
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	return nil
 }

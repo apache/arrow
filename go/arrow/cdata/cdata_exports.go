@@ -216,6 +216,8 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "tin"
 	case *arrow.ListType:
 		return "+l"
+	case *arrow.LargeListType:
+		return "+L"
 	case *arrow.FixedSizeListType:
 		return fmt.Sprintf("+w:%d", dt.Len())
 	case *arrow.StructType:
@@ -238,6 +240,9 @@ func (exp *schemaExporter) export(field arrow.Field) {
 
 	switch dt := field.Type.(type) {
 	case *arrow.ListType:
+		exp.children = make([]schemaExporter, 1)
+		exp.children[0].export(dt.ElemField())
+	case *arrow.LargeListType:
 		exp.children = make([]schemaExporter, 1)
 		exp.children[0].export(dt.ElemField())
 	case *arrow.StructType:
