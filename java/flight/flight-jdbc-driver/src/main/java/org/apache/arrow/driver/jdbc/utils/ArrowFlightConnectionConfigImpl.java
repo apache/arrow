@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.String.format;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -137,7 +138,14 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    */
   public CallOption toCallOption() {
     final CallHeaders headers = new FlightCallHeaders();
-    properties.forEach((key, val) -> headers.insert(key.toString(), val.toString()));
+    ArrowFlightConnectionProperty[] builtInProperties = ArrowFlightConnectionProperty.values();
+    properties.forEach(
+        (key, val) -> {
+          // For built-in properties before adding new headers
+          if (Arrays.stream(builtInProperties).noneMatch(buildinPropertie -> buildinPropertie.camelName.equals(key.toString()))) {
+            headers.insert(key.toString(), val.toString());
+          }
+        });
     return new HeaderCallOption(headers);
   }
 

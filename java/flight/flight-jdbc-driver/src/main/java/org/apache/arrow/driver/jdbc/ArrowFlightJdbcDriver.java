@@ -27,12 +27,12 @@ import java.io.Reader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
+import org.apache.arrow.driver.jdbc.utils.UrlParser;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -40,8 +40,6 @@ import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.UnregisteredDriver;
-import org.apache.calcite.avatica.org.apache.http.NameValuePair;
-import org.apache.calcite.avatica.org.apache.http.client.utils.URLEncodedUtils;
 
 /**
  * JDBC driver for querying data from an Apache Arrow Flight server.
@@ -248,8 +246,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     final String extraParams = uri.getRawQuery(); // optional params
 
-    final List<NameValuePair> keyValuePairs = URLEncodedUtils.parse(extraParams, StandardCharsets.UTF_8);
-    keyValuePairs.forEach(p -> resultMap.put(p.getName(), p.getValue()));
+    final Map<String, String> keyValuePairs = UrlParser.parse(extraParams);
+    resultMap.putAll(keyValuePairs);
 
     return resultMap;
   }
