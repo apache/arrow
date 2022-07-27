@@ -69,11 +69,11 @@ Instuctions
     make -j${nproc} install
     cp release/libcls_skyhook.so /usr/lib/x86_64-linux-gnu/rados-classes/
 
-3. Deploy a Ceph cluster with a single in-memory OSD.
+3. Deploy a Ceph cluster with a single in-memory OSD using `this <https://github.com/uccross/skyhookdm/blob/master/scripts/micro-osd.sh>` script.
 
 .. code-block:: bash
 
-    ../examples/scripts/micro-osd.sh /tmp/skyhook
+    ./micro-osd.sh /tmp/skyhook
 
 4. Generate the example dataset.
 
