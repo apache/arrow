@@ -137,8 +137,7 @@ if(ARROW_PARQUET AND ARROW_DATASET)
   add_dependencies(join-example parquet)
 
   add_arrow_example(udf_example)
-  if (ARROW_SKYHOOK)
-    if (ARROW_BUILD_SHARED)
+
   if(ARROW_SKYHOOK)
     if(ARROW_BUILD_SHARED)
       list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_shared)
