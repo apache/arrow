@@ -170,10 +170,8 @@ struct TableGenerationProperties {
 };
 
 /// The table generated in accordance to the TableGenerationProperties has the following
-/// schema: time (int64) id (int32) [properties.column_prefix]0 (float64)
-///     [properties.column_prefix]1 (float64)
-///     ...
-///     [properties.column_prefix][properties.num_columns] (float64)
+/// schema: time (int64) id (int32) [properties.column_prefix]{idx} (float64)
+/// where idx is in [0, properties.num_columns)
 /// Each id has rows corresponding to a singular data point in the time range (start, end,
 /// time_frequency). The table is sorted by time.
 ARROW_TESTING_EXPORT

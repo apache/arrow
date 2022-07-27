@@ -481,9 +481,11 @@ Result<std::shared_ptr<Table>> MakeRandomTimeSeriesTable(
   }
 
   int64_t num_rows = time_column_builder.length();
-  columns.push_back(time_column_builder.Finish().ValueOrDie());
-  columns.push_back(id_column_builder.Finish().ValueOrDie());
-
+  ARROW_ASSIGN_OR_RAISE(auto time_column, time_column_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto id_column, id_column_builder.Finish());
+  columns.push_back(std::move(time_column));
+  columns.push_back(std::move(id_column));
+  
   for (int i = 0; i < properties.num_columns; i++) {
     field_vector.push_back(
         field(properties.column_prefix + std::to_string(i), float64()));
