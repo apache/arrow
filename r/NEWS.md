@@ -19,9 +19,28 @@
 
 # arrow 8.0.0.9000
 
-## Arrays and tables
+## Arrow dplyr queries
 
-* Table and RecordBatch `$num_rows()` method returns a double (previously integer), avoiding integer overflow on larger tables. (ARROW-14989, ARROW-16977)
+* New dplyr verbs:
+  * `dplyr::union` and `dplyr::union_all` (ARROW-15622)
+  * `dplyr::glimpse` (ARROW-16776)
+  * `show_exec_plan()` can be added to the end of a dplyr pipeline to show the underlying plan, similar to `dplyr::show_query()`. `dplyr::show_query()` and `dplyr::explain()` also work and show the same output, but may change in the future. (ARROW-15016)
+* User-defined functions are supported in queries. Use `register_scalar_function()` to create them. (ARROW-16444)
+* `map_batches()` returns a `RecordBatchReader` and requires that the function it maps returns something coercible to a `RecordBatch` through the `as_record_batch()` S3 function. It can also run in streaming fashion if passed `.lazy = TRUE`. (ARROW-15271, ARROW-16703)
+* Functions can be called with package namespace prefixes (e.g. `stringr::`, `lubridate::`) within queries. For example, `stringr::str_length` will now dispatch to the same kernel as `str_length`. (ARROW-14575)
+* Support for new functions:
+  * `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407)
+    * `orders` with year, month, day, hours, minutes, and seconds components are supported.
+    * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
+  * `lubridate` date and datetime parsers such as `lubridate::ymd()`, `lubridate::yq()`, and `lubridate::ymd_hms()` (ARROW-16394, ARROW-16516, ARROW-16395)
+  * `lubridate::fast_strptime()` (ARROW-16439)
+  * `lubridate::floor_date()`, `lubridate::ceiling_date()`, and `lubridate::round_date()` (ARROW-14821)
+  * `strptime()` supports the `tz` argument to pass timezones. (ARROW-16415)
+  * `lubridate::qday()` (day of quarter)
+  * `exp()` and `sqrt()`. (ARROW-16871)
+* Bugfixes:
+  * Count distinct now gives correct result across multiple row groups. (ARROW-16807)
+  * Aggregations over partition columns return correct results. (ARROW-16700)
 
 ## Reading and writing
 
@@ -40,27 +59,10 @@
 * By default, `S3FileSystem` will not create or delete buckets. To enable that, pass the configuration option `allow_bucket_creation` or `allow_bucket_deletion`. (ARROW-15906)
 * `GcsFileSystem` and `gs_bucket()` allow connecting to Google Cloud Storage. (ARROW-13404, ARROW-16887)
 
-## Arrow dplyr queries
 
-* Bugfixes:
-  * Count distinct now gives correct result across multiple row groups. (ARROW-16807)
-  * Aggregations over partition columns return correct results. (ARROW-16700)
-* `dplyr::union` and `dplyr::union_all` are supported. (ARROW-15622)
-* `dplyr::glimpse` is supported. (ARROW-16776)
-* `show_exec_plan()` can be added to the end of a dplyr pipeline to show the underlying plan, similar to `dplyr::show_query()`. `dplyr::show_query()` and `dplyr::explain()` also work in Arrow dplyr pipelines. (ARROW-15016)
-* Functions can be called with package namespace prefixes (e.g. `stringr::`, `lubridate::`) within queries. For example, `stringr::str_length` will now dispatch to the same kernel as `str_length`. (ARROW-14575)
-* User-defined functions are supported in queries. Use `register_scalar_function()` to create them. (ARROW-16444)
-* `lubridate::parse_date_time()` datetime parser: (ARROW-14848, ARROW-16407)
-  * `orders` with year, month, day, hours, minutes, and seconds components are supported.
-  * the `orders` argument in the Arrow binding works as follows: `orders` are transformed into `formats` which subsequently get applied in turn. There is no `select_formats` parameter and no inference takes place (like is the case in `lubridate::parse_date_time()`).
-* `lubridate::ymd()` and related string date parsers supported. (ARROW-16394). Month (`ym`, `my`) and quarter (`yq`) resolution parsers are also added. (ARROW-16516)
-* lubridate family of `ymd_hms` datetime parsing functions are supported. (ARROW-16395)
-* `lubridate::fast_strptime()` supported. (ARROW-16439)
-* `lubridate::floor_date()`, `lubridate::ceiling_date()`, and `lubridate::round_date()` are supported. (ARROW-14821)
-* `strptime()` supports the `tz` argument to pass timezones. (ARROW-16415)
-* added `lubridate::qday()` (day of quarter)
-* `map_batches()` returns a `RecordBatchReader` and requires that the function it maps returns something coercible to a `RecordBatch` through the `as_record_batch()` S3 function. It can also run in streaming fashion if passed `.lazy = TRUE`. (ARROW-15271, ARROW-16703)
-* `exp()` and `sqrt()` supported in dplyr queries. (ARROW-16871)
+## Arrays and tables
+
+* Table and RecordBatch `$num_rows()` method returns a double (previously integer), avoiding integer overflow on larger tables. (ARROW-14989, ARROW-16977)
 
 ## Packaging
 
