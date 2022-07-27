@@ -209,8 +209,7 @@ struct ARROW_EXPORT ExecBatch {
   /// case, it would have scalar rows with length greater than 1.
   ///
   /// If the array values are of length 0 then the length is 0 regardless of
-  /// whether any values are Scalar. In general ExecBatch objects are produced
-  /// by ExecBatchIterator which by design does not yield length-0 batches.
+  /// whether any values are Scalar.
   int64_t length = 0;
 
   /// \brief The sum of bytes in each buffer referenced by the batch
@@ -253,7 +252,7 @@ inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
 struct ExecValue {
-  ArraySpan array;
+  ArraySpan array = {};
   const Scalar* scalar = NULLPTR;
 
   ExecValue(Scalar* scalar)  // NOLINT implicit conversion
@@ -373,22 +372,6 @@ struct ARROW_EXPORT ExecSpan {
     return values[i];
   }
 
-  void AddOffset(int64_t offset) {
-    for (ExecValue& value : values) {
-      if (value.is_array()) {
-        value.array.AddOffset(offset);
-      }
-    }
-  }
-
-  void SetOffset(int64_t offset) {
-    for (ExecValue& value : values) {
-      if (value.is_array()) {
-        value.array.SetOffset(offset);
-      }
-    }
-  }
-
   /// \brief A convenience for the number of values / arguments.
   int num_values() const { return static_cast<int>(values.size()); }
 
@@ -396,6 +379,19 @@ struct ARROW_EXPORT ExecSpan {
     std::vector<TypeHolder> result;
     for (const auto& value : this->values) {
       result.emplace_back(value.type());
+    }
+    return result;
+  }
+
+  ExecBatch ToExecBatch() const {
+    ExecBatch result;
+    result.length = this->length;
+    for (const ExecValue& value : this->values) {
+      if (value.is_array()) {
+        result.values.push_back(value.array.ToArrayData());
+      } else {
+        result.values.push_back(value.scalar->GetSharedPtr());
+      }
     }
     return result;
   }

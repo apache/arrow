@@ -318,3 +318,18 @@ as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
 as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
   Table$create(x, schema = schema)
 }
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.RecordBatchReader <- function(x, ...) {
+  x$read_table()
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.arrow_dplyr_query <- function(x, ...) {
+  # See query-engine.R for ExecPlan/Nodes
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
+  plan$Run(final_node, as_table = TRUE)
+}

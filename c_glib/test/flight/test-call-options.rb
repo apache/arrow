@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,37 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-set -u
+class TestFlightCallOptions < Test::Unit::TestCase
+  def setup
+    omit("Arrow Flight is required") unless defined?(ArrowFlight)
+    @options = ArrowFlight::CallOptions.new
+  end
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <version> <rc-num>"
-  exit
-fi
+  def collect_headers
+    headers = []
+    @options.foreach_header do |name, value|
+      headers << [name, value]
+    end
+    headers
+  end
 
-version=$1
-rc=$2
+  def test_add_headers
+    @options.add_header("name1", "value1")
+    @options.add_header("name2", "value2")
+    assert_equal([
+                   ["name1", "value1"],
+                   ["name2", "value2"],
+                 ],
+                 collect_headers)
+  end
 
-case ${version} in
-  *.0.0) # Major release
-    echo "Do nothing for major release"
-    ;;
-  *.*.0) # Minor release
-    echo "Minor release isn't supported yet"
-    exit 1
-    ;;
-  *) # Patch release
-    echo "Fetching all commits"
-    git fetch --all --prune --tags --force -j$(nproc)
-
-    release_branch=release-${version}-rc${rc}
-    maint_branch=maint-$(echo ${version} | sed -e 's/\.[0-9]*$/.x/')
-    echo "Merging ${release_branch} to ${merge_branch}"
-    git branch -D ${maint_branch}
-    git checkout -b ${maint_branch} apache/${maint_branch}
-    git merge release-${version}-rc${rc}
-    git push apache ${maint_branch}
-    git checkout -
-    ;;
-  *)
-esac
+  def test_clear_headers
+    @options.add_header("name1", "value1")
+    @options.clear_headers
+    assert_equal([], collect_headers)
+  end
+end

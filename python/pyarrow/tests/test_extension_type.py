@@ -34,6 +34,11 @@ class IntegerType(pa.PyExtensionType):
         return IntegerType, ()
 
 
+class UuidScalarType(pa.ExtensionScalar):
+    def as_py(self):
+        return None if self.value is None else UUID(bytes=self.value.as_py())
+
+
 class UuidType(pa.PyExtensionType):
 
     def __init__(self):
@@ -42,8 +47,8 @@ class UuidType(pa.PyExtensionType):
     def __reduce__(self):
         return UuidType, ()
 
-    def scalar_as_py(self, scalar):
-        return UUID(bytes=scalar.as_py())
+    def __arrow_ext_scalar_class__(self):
+        return UuidScalarType
 
 
 class UuidType2(pa.PyExtensionType):
@@ -302,6 +307,10 @@ def test_ext_scalar_from_array():
     scalars_a = list(a)
     assert len(scalars_a) == 4
 
+    assert ty1.__arrow_ext_scalar_class__() == UuidScalarType
+    assert type(a[0]) == UuidScalarType
+    assert type(scalars_a[0]) == UuidScalarType
+
     for s, val in zip(scalars_a, data):
         assert isinstance(s, pa.ExtensionScalar)
         assert s.is_valid == (val is not None)
@@ -316,6 +325,7 @@ def test_ext_scalar_from_array():
     assert len(scalars_b) == 4
 
     for sa, sb in zip(scalars_a, scalars_b):
+        assert isinstance(sb, pa.ExtensionScalar)
         assert sa.is_valid == sb.is_valid
         if sa.as_py() is None:
             assert sa.as_py() == sb.as_py()

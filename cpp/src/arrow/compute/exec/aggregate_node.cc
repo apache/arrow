@@ -137,7 +137,7 @@ class ScalarAggregateNode : public ExecNode {
 
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
-  Status DoConsume(const ExecBatch& batch, size_t thread_index) {
+  Status DoConsume(const ExecSpan& batch, size_t thread_index) {
     util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Consume",
                        {{"aggregate", ToStringExtra()},
@@ -153,7 +153,7 @@ class ScalarAggregateNode : public ExecNode {
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
-      ExecBatch single_column_batch{{batch.values[target_field_ids_[i]]}, batch.length};
+      ExecSpan single_column_batch{{batch.values[target_field_ids_[i]]}, batch.length};
       RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, single_column_batch));
     }
     return Status::OK();
@@ -170,7 +170,7 @@ class ScalarAggregateNode : public ExecNode {
 
     auto thread_index = plan_->GetThreadIndex();
 
-    if (ErrorIfNotOk(DoConsume(std::move(batch), thread_index))) return;
+    if (ErrorIfNotOk(DoConsume(ExecSpan(batch), thread_index))) return;
 
     if (input_counter_.Increment()) {
       ErrorIfNotOk(Finish());
@@ -360,7 +360,7 @@ class GroupByNode : public ExecNode {
 
   const char* kind_name() const override { return "GroupByNode"; }
 
-  Status Consume(ExecBatch batch) {
+  Status Consume(ExecSpan batch) {
     util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Consume",
                        {{"group_by", ToStringExtra()},
@@ -376,11 +376,11 @@ class GroupByNode : public ExecNode {
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
 
     // Create a batch with key columns
-    std::vector<Datum> keys(key_field_ids_.size());
+    std::vector<ExecValue> keys(key_field_ids_.size());
     for (size_t i = 0; i < key_field_ids_.size(); ++i) {
-      keys[i] = batch.values[key_field_ids_[i]];
+      keys[i] = batch[key_field_ids_[i]];
     }
-    ExecBatch key_batch(std::move(keys), batch.length);
+    ExecSpan key_batch(std::move(keys), batch.length);
 
     // Create a batch with group ids
     ARROW_ASSIGN_OR_RAISE(Datum id_batch, state->grouper->Consume(key_batch));
@@ -396,10 +396,8 @@ class GroupByNode : public ExecNode {
       KernelContext kernel_ctx{ctx_};
       kernel_ctx.SetState(state->agg_states[i].get());
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto agg_batch,
-          ExecBatch::Make({batch.values[agg_src_field_ids_[i]], id_batch}));
-
+      ExecSpan agg_batch({batch[agg_src_field_ids_[i]], ExecValue(*id_batch.array())},
+                         batch.length);
       RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state->grouper->num_groups()));
       RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
     }
@@ -419,7 +417,8 @@ class GroupByNode : public ExecNode {
       }
 
       ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, state->grouper->GetUniques());
-      ARROW_ASSIGN_OR_RAISE(Datum transposition, state0->grouper->Consume(other_keys));
+      ARROW_ASSIGN_OR_RAISE(Datum transposition,
+                            state0->grouper->Consume(ExecSpan(other_keys)));
       state->grouper.reset();
 
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
@@ -515,7 +514,7 @@ class GroupByNode : public ExecNode {
 
     DCHECK_EQ(input, inputs_[0]);
 
-    if (ErrorIfNotOk(Consume(std::move(batch)))) return;
+    if (ErrorIfNotOk(Consume(ExecSpan(batch)))) return;
 
     if (input_counter_.Increment()) {
       ErrorIfNotOk(OutputResult());

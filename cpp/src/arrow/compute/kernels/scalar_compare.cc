@@ -158,11 +158,145 @@ struct Maximum {
 
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
-template <typename OutType, typename ArgType, typename Op>
-struct CompareTimestamps
-    : public applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op> {
-  using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
+template <typename Type, typename Op>
+struct ComparePrimitiveArrayArray {
+  using T = typename Type::c_type;
+  static void Exec(const void* left_values_void, const void* right_values_void,
+                   int64_t length, void* out_bitmap_void) {
+    const T* left_values = reinterpret_cast<const T*>(left_values_void);
+    const T* right_values = reinterpret_cast<const T*>(right_values_void);
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
+    int64_t num_batches = length / kBatchSize;
+    uint32_t temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       *right_values++, nullptr);
+      }
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(out_bitmap, bit_index++,
+                         Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       *right_values++, nullptr));
+    }
+  }
+};
 
+template <typename Type, typename Op>
+struct ComparePrimitiveArrayScalar {
+  using T = typename Type::c_type;
+  static void Exec(const void* left_values_void, const void* right_value_void,
+                   int64_t length, void* out_bitmap_void) {
+    const T* left_values = reinterpret_cast<const T*>(left_values_void);
+    const T right_value = *reinterpret_cast<const T*>(right_value_void);
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
+    int64_t num_batches = length / kBatchSize;
+    uint32_t temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] =
+            Op::template Call<bool, T, T>(nullptr, *left_values++, right_value, nullptr);
+      }
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(
+          out_bitmap, bit_index++,
+          Op::template Call<bool, T, T>(nullptr, *left_values++, right_value, nullptr));
+    }
+  }
+};
+
+template <typename Type, typename Op>
+struct ComparePrimitiveScalarArray {
+  using T = typename Type::c_type;
+  static void Exec(const void* left_value_void, const void* right_values_void,
+                   int64_t length, void* out_bitmap_void) {
+    const T left_value = *reinterpret_cast<const T*>(left_value_void);
+    const T* right_values = reinterpret_cast<const T*>(right_values_void);
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
+    int64_t num_batches = length / kBatchSize;
+    uint32_t temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] =
+            Op::template Call<bool, T, T>(nullptr, left_value, *right_values++, nullptr);
+      }
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(
+          out_bitmap, bit_index++,
+          Op::template Call<bool, T, T>(nullptr, left_value, *right_values++, nullptr));
+    }
+  }
+};
+
+using BinaryKernel = void (*)(const void*, const void*, int64_t, void*);
+
+struct CompareData : public KernelState {
+  BinaryKernel func_aa;
+  BinaryKernel func_sa;
+  BinaryKernel func_as;
+  CompareData(BinaryKernel func_aa, BinaryKernel func_sa, BinaryKernel func_as)
+      : func_aa(func_aa), func_sa(func_sa), func_as(func_as) {}
+};
+
+template <typename Type>
+struct CompareKernel {
+  using T = typename Type::c_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
+    DCHECK(kernel);
+    const auto kernel_data = checked_cast<const CompareData*>(kernel->data.get());
+
+    ArraySpan* out_arr = out->array_span();
+
+    // TODO: implement path for offset not multiple of 8
+    const bool out_is_byte_aligned = out_arr->offset % 8 == 0;
+
+    std::shared_ptr<Buffer> out_buffer_tmp;
+    uint8_t* out_buffer;
+    if (out_is_byte_aligned) {
+      out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
+    } else {
+      ARROW_ASSIGN_OR_RAISE(out_buffer_tmp,
+                            ctx->Allocate(bit_util::BytesForBits(batch.length)));
+      out_buffer = out_buffer_tmp->mutable_data();
+    }
+    if (batch[0].is_array() && batch[1].is_array()) {
+      kernel_data->func_aa(batch[0].array.GetValues<T>(1), batch[1].array.GetValues<T>(1),
+                           batch.length, out_buffer);
+    } else if (batch[1].is_scalar()) {
+      T value = UnboxScalar<Type>::Unbox(*batch[1].scalar);
+      kernel_data->func_as(batch[0].array.GetValues<T>(1), &value, batch.length,
+                           out_buffer);
+    } else {
+      T value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
+      kernel_data->func_sa(&value, batch[1].array.GetValues<T>(1), batch.length,
+                           out_buffer);
+    }
+    if (!out_is_byte_aligned) {
+      ::arrow::internal::CopyBitmap(out_buffer, /*offset=*/0, batch.length,
+                                    out_arr->buffers[1].data, out_arr->offset);
+    }
+    return Status::OK();
+  }
+};
+
+template <typename Op>
+struct CompareTimestamps {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
     const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
@@ -171,22 +305,34 @@ struct CompareTimestamps
           "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
           lhs, " and ", rhs);
     }
-    return Base::Exec(ctx, batch, out);
+    return CompareKernel<Int64Type>::Exec(ctx, batch, out);
   }
 };
 
 template <typename Op>
-void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  auto exec =
-      GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
-  DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
+                              ArrayKernelExec exec) {
+  ScalarKernel kernel;
+  kernel.signature = KernelSignature::Make({ty, ty}, boolean());
+  BinaryKernel func_aa =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayArray, Op>(
+          compare_type);
+  BinaryKernel func_sa =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveScalarArray, Op>(
+          compare_type);
+  BinaryKernel func_as =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayScalar, Op>(
+          compare_type);
+  kernel.data = std::make_shared<CompareData>(func_aa, func_sa, func_as);
+  kernel.exec = exec;
+  return kernel;
 }
 
-template <typename InType, typename Op>
-void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(
-      func->AddKernel({ty, ty}, boolean(),
-                      applicator::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
+template <typename Op>
+void AddPrimitiveCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(ty);
+  ScalarKernel kernel = GetCompareKernel<Op>(ty, ty->id(), exec);
+  DCHECK_OK(func->AddKernel(kernel));
 }
 
 struct CompareFunction : ScalarFunction {
@@ -247,45 +393,37 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
       {boolean(), boolean()}, boolean(),
       applicator::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
 
-  for (const std::shared_ptr<DataType>& ty : IntTypes()) {
-    AddIntegerCompare<Op>(ty, func.get());
+  for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
+    AddPrimitiveCompare<Op>(ty, func.get());
   }
-  AddIntegerCompare<Op>(date32(), func.get());
-  AddIntegerCompare<Op>(date64(), func.get());
-
-  AddGenericCompare<FloatType, Op>(float32(), func.get());
-  AddGenericCompare<DoubleType, Op>(float64(), func.get());
+  AddPrimitiveCompare<Op>(date32(), func.get());
+  AddPrimitiveCompare<Op>(date64(), func.get());
 
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(),
-                              CompareTimestamps<BooleanType, TimestampType, Op>::Exec));
+    ScalarKernel kernel =
+        GetCompareKernel<Op>(in_type, Type::INT64, CompareTimestamps<Op>::Exec);
+    DCHECK_OK(func->AddKernel(kernel));
   }
 
   // Duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   // Time32 and Time64
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int32());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int32());
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT32, exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
@@ -310,30 +448,37 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   return func;
 }
 
-struct FlippedData : public KernelState {
+struct FlippedData : public CompareData {
   ArrayKernelExec unflipped_exec;
-  explicit FlippedData(ArrayKernelExec unflipped_exec) : unflipped_exec(unflipped_exec) {}
+  explicit FlippedData(ArrayKernelExec unflipped_exec, BinaryKernel func_aa = nullptr,
+                       BinaryKernel func_sa = nullptr, BinaryKernel func_as = nullptr)
+      : CompareData{func_aa, func_sa, func_as}, unflipped_exec(unflipped_exec) {}
 };
 
-Status FlippedBinaryExec(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
+Status FlippedCompare(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
   const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
-  DCHECK(kernel);
-  const auto kernel_data = static_cast<const FlippedData*>(kernel->data.get());
-
+  const auto kernel_data = checked_cast<const FlippedData*>(kernel->data.get());
   ExecSpan flipped_span = span;
   std::swap(flipped_span.values[0], flipped_span.values[1]);
   return kernel_data->unflipped_exec(ctx, flipped_span, out);
 }
 
-std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
-                                                    const ScalarFunction& func,
-                                                    FunctionDoc doc) {
+std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
+                                                   const ScalarFunction& func,
+                                                   FunctionDoc doc) {
   auto flipped_func =
       std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
-    flipped_kernel.data = std::make_shared<FlippedData>(kernel->exec);
-    flipped_kernel.exec = FlippedBinaryExec;
+    if (kernel->data) {
+      auto compare_data = checked_cast<const CompareData*>(kernel->data.get());
+      flipped_kernel.data =
+          std::make_shared<FlippedData>(kernel->exec, compare_data->func_aa,
+                                        compare_data->func_sa, compare_data->func_as);
+    } else {
+      flipped_kernel.data = std::make_shared<FlippedData>(kernel->exec);
+    }
+    flipped_kernel.exec = FlippedCompare;
     DCHECK_OK(flipped_func->AddKernel(std::move(flipped_kernel)));
   }
   return flipped_func;
@@ -750,8 +895,8 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   auto greater_equal =
       MakeCompareFunction<GreaterEqual>("greater_equal", greater_equal_doc);
 
-  auto less = MakeFlippedFunction("less", *greater, less_doc);
-  auto less_equal = MakeFlippedFunction("less_equal", *greater_equal, less_equal_doc);
+  auto less = MakeFlippedCompare("less", *greater, less_doc);
+  auto less_equal = MakeFlippedCompare("less_equal", *greater_equal, less_equal_doc);
   DCHECK_OK(registry->AddFunction(std::move(less)));
   DCHECK_OK(registry->AddFunction(std::move(less_equal)));
   DCHECK_OK(registry->AddFunction(std::move(greater)));

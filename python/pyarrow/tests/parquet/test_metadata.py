@@ -572,3 +572,15 @@ def test_metadata_schema_filesystem(tmpdir):
                    ' instance or a valid file system URI')
         with pytest.raises(TypeError, match=err_msg):
             pq.read_metadata(fname, filesystem=FileSystem())
+
+
+def test_metadata_equals():
+    table = pa.table({"a": [1, 2, 3]})
+    with pa.BufferOutputStream() as out:
+        pq.write_table(table, out)
+        buf = out.getvalue()
+
+    original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    match = "Argument 'other' has incorrect type"
+    with pytest.raises(TypeError, match=match):
+        original_metadata.equals(None)

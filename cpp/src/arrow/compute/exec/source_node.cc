@@ -85,6 +85,7 @@ struct SourceNode : ExecNode {
       if (stop_requested_) {
         return Status::OK();
       }
+      started_ = true;
     }
 
     CallbackOptions options;
@@ -97,7 +98,12 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
-    started_ = true;
+    ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->BeginExternalTask());
+    if (!scan_task.is_valid()) {
+      finished_.MarkFinished();
+      // Plan has already been aborted, no need to start scanning
+      return Status::OK();
+    }
     auto fut = Loop([this, options] {
                  std::unique_lock<std::mutex> lock(mutex_);
                  int total_batches = batch_count_++;
@@ -111,7 +117,6 @@ struct SourceNode : ExecNode {
                          -> Future<ControlFlow<int>> {
                        std::unique_lock<std::mutex> lock(mutex_);
                        if (IsIterationEnd(maybe_batch) || stop_requested_) {
-                         stop_requested_ = true;
                          return Break(total_batches);
                        }
                        lock.unlock();
@@ -129,23 +134,19 @@ struct SourceNode : ExecNode {
                        return Future<ControlFlow<int>>::MakeFinished(Continue());
                      },
                      [=](const Status& error) -> ControlFlow<int> {
-                       std::unique_lock<std::mutex> lock(mutex_);
-                       stop_requested_ = true;
-                       lock.unlock();
                        outputs_[0]->ErrorReceived(this, error);
-                       finished_.MarkFinished(error);
                        return Break(total_batches);
                      },
                      options);
                })
                    .Then(
-                       [=](int total_batches) {
+                       [this, scan_task](int total_batches) mutable {
                          outputs_[0]->InputFinished(this, total_batches);
-                         if (!finished_.is_finished()) finished_.MarkFinished();
+                         scan_task.MarkFinished();
+                         finished_.MarkFinished();
                        },
                        {}, options);
     if (!executor && finished_.is_finished()) return finished_.status();
-    RETURN_NOT_OK(plan_->AddFuture(fut));
     return Status::OK();
   }
 
@@ -186,7 +187,9 @@ struct SourceNode : ExecNode {
   void StopProducing() override {
     std::unique_lock<std::mutex> lock(mutex_);
     stop_requested_ = true;
-    if (!started_) finished_.MarkFinished();
+    if (!started_) {
+      finished_.MarkFinished();
+    }
   }
 
  private:

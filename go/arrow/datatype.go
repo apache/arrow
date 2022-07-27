@@ -255,6 +255,16 @@ func IsInteger(t Type) bool {
 	return false
 }
 
+// IsUnsignedInteger is a helper that returns true if the type ID provided is
+// one of the uint integral types (uint8, uint16, uint32, uint64)
+func IsUnsignedInteger(t Type) bool {
+	switch t {
+	case UINT8, UINT16, UINT32, UINT64:
+		return true
+	}
+	return false
+}
+
 // IsPrimitive returns true if the provided type ID represents a fixed width
 // primitive type.
 func IsPrimitive(t Type) bool {

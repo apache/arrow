@@ -50,6 +50,13 @@ NULL
 #'   - `fun`: string function name
 #'   - `data`: `Expression` (these are all currently a single field)
 #'   - `options`: list of function options, as passed to call_function
+#' @param update_cache Update .cache$functions at the time of registration.
+#'   the default is FALSE because the majority of usage is to register
+#'   bindings at package load, after which we create the cache once. The
+#'   reason why .cache$functions is needed in addition to nse_funcs for
+#'   non-aggregate functions could be revisited...it is currently used
+#'   as the data mask in mutate, filter, and aggregate (but not
+#'   summarise) because the data mask has to be a list.
 #' @param registry An environment in which the functions should be
 #'   assigned.
 #'
@@ -57,13 +64,14 @@ NULL
 #'   registered function existed.
 #' @keywords internal
 #'
-register_binding <- function(fun_name, fun, registry = nse_funcs) {
+register_binding <- function(fun_name, fun, registry = nse_funcs,
+                             update_cache = FALSE) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
   previous_fun <- registry[[unqualified_name]]
 
   # if the unqualified name exists in the registry, warn
-  if (!is.null(fun) && !is.null(previous_fun)) {
+  if (!is.null(previous_fun)) {
     warn(
       paste0(
         "A \"",
@@ -73,11 +81,36 @@ register_binding <- function(fun_name, fun, registry = nse_funcs) {
   }
 
   # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
-  if (grepl("::", fun_name)) {
-    registry[[unqualified_name]] <- fun
-    registry[[fun_name]] <- fun
-  } else {
-    registry[[unqualified_name]] <- fun
+  # unqualified_name and fun_name will be the same if not prefixed
+  registry[[unqualified_name]] <- fun
+  registry[[fun_name]] <- fun
+
+  if (update_cache) {
+    fun_cache <- .cache$functions
+    fun_cache[[unqualified_name]] <- fun
+    fun_cache[[fun_name]] <- fun
+    .cache$functions <- fun_cache
+  }
+
+  invisible(previous_fun)
+}
+
+unregister_binding <- function(fun_name, registry = nse_funcs,
+                               update_cache = FALSE) {
+  unqualified_name <- sub("^.*?:{+}", "", fun_name)
+  previous_fun <- registry[[unqualified_name]]
+
+  rm(
+    list = unique(c(fun_name, unqualified_name)),
+    envir = registry,
+    inherits = FALSE
+  )
+
+  if (update_cache) {
+    fun_cache <- .cache$functions
+    fun_cache[[unqualified_name]] <- NULL
+    fun_cache[[fun_name]] <- NULL
+    .cache$functions <- fun_cache
   }
 
   invisible(previous_fun)

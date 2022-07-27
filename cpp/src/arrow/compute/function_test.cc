@@ -153,7 +153,7 @@ TEST(FunctionOptions, Equality) {
   }
 }
 
-struct ExecBatch;
+struct ExecSpan;
 
 TEST(Arity, Basics) {
   auto nullary = Arity::Nullary();
@@ -310,10 +310,8 @@ Result<std::unique_ptr<KernelState>> NoopInit(KernelContext*, const KernelInitAr
   return nullptr;
 }
 
-Status NoopConsume(KernelContext*, const ExecBatch&) { return Status::OK(); }
-Status NoopMerge(KernelContext*, const KernelState&, KernelState*) {
-  return Status::OK();
-}
+Status NoopConsume(KernelContext*, const ExecSpan&) { return Status::OK(); }
+Status NoopMerge(KernelContext*, KernelState&&, KernelState*) { return Status::OK(); }
 Status NoopFinalize(KernelContext*, Datum*) { return Status::OK(); }
 
 TEST(ScalarAggregateFunction, DispatchExact) {

@@ -206,6 +206,21 @@ TEST_F(TestPartitioning, DirectoryPartitioning) {
                                           equal(field_ref("beta"), literal("foo"))));
 }
 
+TEST_F(TestPartitioning, DirectoryPartitioningEquals) {
+  auto part = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto other = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("gamma", utf8())}));
+  auto another = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto some_other = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  EXPECT_TRUE(part->Equals(*part));
+  EXPECT_FALSE(part->Equals(*other));
+  EXPECT_TRUE(part->Equals(*another));
+  EXPECT_TRUE(another->Equals(*some_other));
+}
+
 TEST_F(TestPartitioning, FilenamePartitioning) {
   partitioning_ = std::make_shared<FilenamePartitioning>(
       schema({field("alpha", int32()), field("beta", utf8())}));
@@ -220,6 +235,21 @@ TEST_F(TestPartitioning, FilenamePartitioning) {
 
   AssertParse("0_foo_ignored=2341", and_(equal(field_ref("alpha"), literal(0)),
                                          equal(field_ref("beta"), literal("foo"))));
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningEquals) {
+  auto part = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto other_part = std::make_shared<FilenamePartitioning>(
+      schema({field("sigma", int32()), field("beta", utf8())}));
+  auto another_part = std::make_shared<FilenamePartitioning>(
+      schema({field("sigma", int64()), field("beta", utf8())}));
+  auto some_other_part = std::make_shared<FilenamePartitioning>(
+      schema({field("sigma", int64()), field("beta", utf8())}));
+  EXPECT_TRUE(part->Equals(*part));
+  EXPECT_FALSE(part->Equals(*other_part));
+  EXPECT_FALSE(other_part->Equals(*another_part));
+  EXPECT_TRUE(another_part->Equals(*some_other_part));
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
@@ -424,6 +454,41 @@ TEST_F(TestPartitioning, HivePartitioning) {
   AssertParse("/ignored=2341/", literal(true));
 
   AssertParseError("/alpha=0.0/beta=3.25/");  // conversion of "0.0" to int32 fails
+}
+
+TEST_F(TestPartitioning, HivePartitioningEquals) {
+  const auto& array_vector = ArrayVector();
+  ArrayVector other_vector(2);
+  other_vector[0] = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])");
+  other_vector[1] = ArrayFromJSON(utf8(), R"(["bar", "foo", "baz"])");
+  auto part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), array_vector, "xyz");
+  auto other_part = std::make_shared<HivePartitioning>(
+      schema({field("sigma", int32()), field("beta", float32())}), array_vector, "xyz");
+  auto another_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), other_vector, "xyz");
+  auto some_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), array_vector, "abc");
+  auto match_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), array_vector, "xyz");
+  EXPECT_TRUE(part->Equals(*part));
+  EXPECT_FALSE(part->Equals(*other_part));
+  EXPECT_FALSE(part->Equals(*another_part));
+  EXPECT_FALSE(part->Equals(*some_part));
+  EXPECT_TRUE(part->Equals(*match_part));
+}
+
+TEST_F(TestPartitioning, CrossCheckPartitioningEquals) {
+  auto file_part = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto dir_part = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+  auto hive_part = std::make_shared<HivePartitioning>(
+      schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
+  EXPECT_FALSE(file_part->Equals(*dir_part));
+  EXPECT_FALSE(dir_part->Equals(*file_part));
+  EXPECT_FALSE(dir_part->Equals(*hive_part));
+  EXPECT_FALSE(hive_part->Equals(*dir_part));
 }
 
 TEST_F(TestPartitioning, HivePartitioningFormat) {
@@ -890,6 +955,14 @@ class RangePartitioning : public Partitioning {
   explicit RangePartitioning(std::shared_ptr<Schema> s) : Partitioning(std::move(s)) {}
 
   std::string type_name() const override { return "range"; }
+
+  bool Equals(const Partitioning& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    return checked_cast<const RangePartitioning&>(other).type_name() == type_name() &&
+           Partitioning::Equals(other);
+  }
 
   Result<compute::Expression> Parse(const std::string& path) const override {
     std::vector<compute::Expression> ranges;

@@ -110,11 +110,12 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   std::vector<std::vector<std::unique_ptr<KernelState>>> states;
   FieldVector out_fields;
 
-  using arrow::compute::detail::ExecBatchIterator;
-  std::unique_ptr<ExecBatchIterator> argument_batch_iterator;
+  using arrow::compute::detail::ExecSpanIterator;
+  ExecSpanIterator argument_iterator;
 
+  ExecBatch args_batch;
   if (!arguments.empty()) {
-    ARROW_ASSIGN_OR_RAISE(ExecBatch args_batch, ExecBatch::Make(arguments));
+    ARROW_ASSIGN_OR_RAISE(args_batch, ExecBatch::Make(arguments));
 
     // Construct and initialize HashAggregateKernels
     auto argument_types = args_batch.GetTypes();
@@ -129,9 +130,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     ARROW_ASSIGN_OR_RAISE(
         out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_types));
 
-    ARROW_ASSIGN_OR_RAISE(
-        argument_batch_iterator,
-        ExecBatchIterator::Make(args_batch.values, ctx->exec_chunksize()));
+    RETURN_NOT_OK(argument_iterator.Init(args_batch, ctx->exec_chunksize()));
   }
 
   // Construct Groupers
@@ -151,15 +150,13 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     out_fields.push_back(field("key_" + std::to_string(i++), key_type.GetSharedPtr()));
   }
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto key_batch_iterator,
-      ExecBatchIterator::Make(keys_batch.values, ctx->exec_chunksize()));
+  ExecSpanIterator key_iterator;
+  RETURN_NOT_OK(key_iterator.Init(keys_batch, ctx->exec_chunksize()));
 
   // start "streaming" execution
-  ExecBatch key_batch, argument_batch;
-  while ((argument_batch_iterator == NULLPTR ||
-          argument_batch_iterator->Next(&argument_batch)) &&
-         key_batch_iterator->Next(&key_batch)) {
+  ExecSpan key_batch, argument_batch;
+  while ((arguments.empty() || argument_iterator.Next(&argument_batch)) &&
+         key_iterator.Next(&key_batch)) {
     if (key_batch.length == 0) continue;
 
     task_group->Append([&, key_batch, argument_batch] {
@@ -180,9 +177,10 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       for (size_t i = 0; i < kernels.size(); ++i) {
         KernelContext batch_ctx{ctx};
         batch_ctx.SetState(states[thread_index][i].get());
-        ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make({argument_batch[i], id_batch}));
+        ExecSpan kernel_batch({argument_batch[i], *id_batch.array()},
+                              argument_batch.length);
         RETURN_NOT_OK(kernels[i]->resize(&batch_ctx, grouper->num_groups()));
-        RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, batch));
+        RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, kernel_batch));
       }
 
       return Status::OK();
@@ -194,7 +192,8 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   // Merge if necessary
   for (size_t thread_index = 1; thread_index < thread_ids.size(); ++thread_index) {
     ARROW_ASSIGN_OR_RAISE(ExecBatch other_keys, groupers[thread_index]->GetUniques());
-    ARROW_ASSIGN_OR_RAISE(Datum transposition, groupers[0]->Consume(other_keys));
+    ARROW_ASSIGN_OR_RAISE(Datum transposition,
+                          groupers[0]->Consume(ExecSpan(other_keys)));
     groupers[thread_index].reset();
 
     for (size_t idx = 0; idx < kernels.size(); ++idx) {

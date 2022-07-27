@@ -5,7 +5,7 @@
 breathe
 ipython
 numpydoc
-pydata-sphinx-theme
+pydata-sphinx-theme==0.8
 sphinx-design
 sphinx-copybutton
 sphinx>=4.2

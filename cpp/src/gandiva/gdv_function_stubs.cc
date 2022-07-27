@@ -611,6 +611,84 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
   auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
+
+GANDIVA_EXPORT
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
+                                        const char* timezone, gdv_int32 length) {
+  using arrow_vendored::date::locate_zone;
+  using arrow_vendored::date::sys_time;
+  using std::chrono::milliseconds;
+
+  sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
+  try {
+    const auto local_tz = locate_zone(std::string(timezone, length));
+    gdv_timestamp offset = local_tz->get_info(tp).offset.count() * 1000;
+    return time_miliseconds - static_cast<gdv_timestamp>(offset);
+  } catch (...) {
+    std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
+    gdv_fn_context_set_error_msg(context, e_msg.c_str());
+    return 0;
+  }
+}
+
+GANDIVA_EXPORT
+gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
+                                          gdv_timestamp time_miliseconds,
+                                          const char* timezone, gdv_int32 length) {
+  using arrow_vendored::date::make_zoned;
+  using arrow_vendored::date::sys_time;
+  using std::chrono::milliseconds;
+
+  sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
+  const auto utc_tz = make_zoned(std::string("Etc/UTC"), tp);
+  try {
+    const auto local_tz = make_zoned(std::string(timezone, length), utc_tz);
+    gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count() * 1000;
+    return time_miliseconds + static_cast<gdv_timestamp>(offset);
+  } catch (...) {
+    std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
+    gdv_fn_context_set_error_msg(context, e_msg.c_str());
+    return 0;
+  }
+}
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_first_n_utf8_int32(int64_t context, const char* data,
+                                             int32_t data_len, int32_t n_to_show,
+                                             int32_t* out_len) {
+  utf8proc_int32_t utf8_char_buffer;
+  int num_of_chars = static_cast<int>(
+      utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
+                         &utf8_char_buffer, 1, UTF8PROC_STABLE));
+
+  if (num_of_chars < 0) {
+    gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t n_to_mask = num_of_chars - n_to_show;
+  return gdv_mask_last_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
+}
+
+GANDIVA_EXPORT
+const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
+                                            int32_t data_len, int32_t n_to_show,
+                                            int32_t* out_len) {
+  utf8proc_int32_t utf8_char_buffer;
+  int num_of_chars = static_cast<int>(
+      utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
+                         &utf8_char_buffer, 1, UTF8PROC_STABLE));
+
+  if (num_of_chars < 0) {
+    gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));
+    *out_len = 0;
+    return nullptr;
+  }
+
+  int32_t n_to_mask = num_of_chars - n_to_show;
+  return gdv_mask_first_n_utf8_int32(context, data, data_len, n_to_mask, out_len);
+}
 }
 
 namespace gandiva {
@@ -962,5 +1040,45 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
+
+  // to_utc_timezone_timestamp
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // timestamp
+      types->i8_ptr_type(),  // timezone
+      types->i32_type()      // length
+  };
+
+  engine->AddGlobalMappingForFunc("to_utc_timezone_timestamp",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(to_utc_timezone_timestamp));
+  // from_utc_timezone_timestamp
+  args = {
+      types->i64_type(),     // context
+      types->i64_type(),     // timestamp
+      types->i8_ptr_type(),  // timezone
+      types->i32_type()      // length
+  };
+
+  engine->AddGlobalMappingForFunc("from_utc_timezone_timestamp",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(from_utc_timezone_timestamp));
+
+  // mask-show-n
+  mask_args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_length
+      types->i32_type(),     // n_to_show
+      types->i32_ptr_type()  // out_length
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_mask_show_first_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
+      reinterpret_cast<void*>(gdv_mask_show_first_n_utf8_int32));
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_mask_show_last_n_utf8_int32", types->i8_ptr_type() /*return_type*/, mask_args,
+      reinterpret_cast<void*>(gdv_mask_show_last_n_utf8_int32));
 }
 }  // namespace gandiva
