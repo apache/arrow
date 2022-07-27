@@ -174,8 +174,8 @@ test_that("strptime", {
     )
   }
 
-  base_format <- c("%Y-%m-%d")
-  base_format2 <- c("ymd")
+  base_format <- "%Y-%m-%d"
+  base_format2 <- "ymd"
 
   for (fmt in formats) {
     fmt <- paste(base_format, fmt)

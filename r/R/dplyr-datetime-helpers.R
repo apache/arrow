@@ -186,7 +186,7 @@ build_formats <- function(orders) {
   orders <- unique(orders)
 
   formats_list <- map(orders, build_format_from_order)
-  formats_length <- map(map(formats_list, nchar), max)
+  formats_length <- map_int(map_int(formats_list, nchar), max)
   invalid_orders <- formats_length < 6
 
   if (any(invalid_orders)) {
@@ -215,9 +215,9 @@ build_formats <- function(orders) {
 build_format_from_order <- function(order) {
   char_list <- list(
     "%T" = "%H-%M-%S",
-    "%y" = c("%y", "%Y"),
-    "%m" = c("%m", "%B", "%b"),
-    "%b" = c("%m", "%B", "%b")
+    "%y" = "%y", "%Y",
+    "%m" = "%m", "%B", "%b",
+    "%b" = "%m", "%B", "%b"
   )
 
   formats <- regmatches(order, gregexpr("(O{0,1}[a-zA-Z])", order))[[1]]
