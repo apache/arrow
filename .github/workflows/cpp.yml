@@ -117,6 +117,10 @@ jobs:
         run: |
           cd cpp/examples/minimal_build
           docker-compose run --rm minimal
+      - name: Run minimal example (static, system dependencies)
+        run: |
+          cd cpp/examples/minimal_build
+          docker-compose run --rm static-system-dependency
 
   macos:
     name: AMD64 MacOS 10.15 C++
