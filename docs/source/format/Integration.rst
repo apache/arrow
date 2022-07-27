@@ -26,8 +26,14 @@ Our strategy for integration testing between Arrow implementations is:
   designed exclusively for Arrow's integration tests
 * Each implementation provides a testing executable capable of converting
   between the JSON and the binary Arrow file representation
-* The test executable is also capable of validating the contents of a binary
-  file against a corresponding JSON file
+* Each testing executable is used to generate binary Arrow file representations
+  from the JSON-based test datasets. These results are then used to call the
+  testing executable of each other implementation to validate the contents
+  against the corresponding JSON file.
+  - *ie.* the C++ testing executable generates binary arrow files from JSON
+  specified datasets. The resulting files are then used as input to the Java
+  testing executable for validation, confirming that the Java implementation 
+  can correctly read what the C++ implementation wrote.
 
 Running integration tests
 -------------------------
