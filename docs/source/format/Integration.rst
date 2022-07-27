@@ -400,9 +400,7 @@ For "null" type, ``BufferData`` does not contain any buffers.
 Archery Integration Test Cases
 --------------------------------------
 
-For ease of future development, it makes sense to document the current test
-cases which are covered by the :ref:`Archery <archery>` integration tests.
-This can serve to make it easy to understand what manual testing may need to
+This list can make it easier to understand what manual testing may need to
 be done for any future Arrow Format changes by knowing what cases the automated
 integration testing actually tests.
 
