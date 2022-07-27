@@ -185,6 +185,28 @@ dim.arrow_dplyr_query <- function(x) {
 }
 
 #' @export
+unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+
+  if (isTRUE(incomparables)) {
+    arrow_not_supported("`unique()` with `incomparables = TRUE`")
+  }
+
+  if (fromLast == TRUE) {
+    arrow_not_supported("`unique()` with `fromLast = TRUE`")
+  }
+
+  dplyr::distinct(x)
+}
+
+#' @export
+unique.Dataset <- unique.arrow_dplyr_query
+#' @export
+unique.ArrowTabular <- unique.arrow_dplyr_query
+#' @export
+unique.RecordBatchReader <- unique.arrow_dplyr_query
+
+
+#' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
   collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
 }
