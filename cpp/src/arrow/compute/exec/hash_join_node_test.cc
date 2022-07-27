@@ -1240,7 +1240,9 @@ void TestHashJoinDictionaryHelper(
     // side.
     int expected_num_r_no_match,
     // Whether to swap two inputs to the hash join
-    bool swap_sides) {
+    bool swap_sides,
+    // If true, send length=0 batches, if false, skip these batches
+    bool send_empty_batches = true) {
   int64_t l_length = l_key.is_array()       ? l_key.array()->length
                      : l_payload.is_array() ? l_payload.array()->length
                                             : -1;
@@ -1298,12 +1300,12 @@ void TestHashJoinDictionaryHelper(
     }
   }
 
-  // Instead of sending 2 batches of size 0 we should not send any batches
-  // at all to more accurately simulate real world use cases
-  if (l_length == 0) {
+  // When the input is empty we can either send length=0 batches
+  // or bypass the batches entirely
+  if (l_length == 0 && !send_empty_batches) {
     l_batches.batches.resize(0);
   }
-  if (r_length == 0) {
+  if (r_length == 0 && !send_empty_batches) {
     r_batches.batches.resize(0);
   }
 
@@ -1509,23 +1511,25 @@ TEST(HashJoin, Dictionary) {
     for (auto parallel : {false, true}) {
       for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
-          TestHashJoinDictionaryHelper(
-              JoinType::FULL_OUTER, cmp, parallel,
-              // Input
-              DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([])", R"([null, "b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([])", R"(["p", "r", "s"])"),
-              // Expected
-              DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([null, null, null])",
-                                R"(["b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([null, null, null])",
-                                R"(["p", "r", "s"])"),
-              0, swap_sides);
+          for (auto send_empty_batches : {false, true}) {
+            TestHashJoinDictionaryHelper(
+                JoinType::FULL_OUTER, cmp, parallel,
+                // Input
+                DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([])", R"([null, "b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([])", R"(["p", "r", "s"])"),
+                // Expected
+                DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([null, null, null])",
+                                  R"(["b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([null, null, null])",
+                                  R"(["p", "r", "s"])"),
+                0, swap_sides, send_empty_batches);
+          }
         }
       }
     }
@@ -1541,25 +1545,27 @@ TEST(HashJoin, Dictionary) {
     for (auto parallel : {false, true}) {
       for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
-          TestHashJoinDictionaryHelper(
-              JoinType::FULL_OUTER, cmp, parallel,
-              // Input
-              DictArrayFromJSON(l_key_dict_type, R"([])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([])", R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([2, 0, 1, null])",
-                                R"([null, "b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
-                                R"(["p", "r", "s"])"),
-              // Expected
-              DictArrayFromJSON(l_key_dict_type, R"([null, null, null, null])",
-                                R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([null, null, null, null])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([1, null, 0, null])",
-                                R"(["b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
-                                R"(["p", "r", "s"])"),
-              4, swap_sides);
+          for (auto send_empty_batches : {false, true}) {
+            TestHashJoinDictionaryHelper(
+                JoinType::FULL_OUTER, cmp, parallel,
+                // Input
+                DictArrayFromJSON(l_key_dict_type, R"([])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([])", R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([2, 0, 1, null])",
+                                  R"([null, "b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
+                                  R"(["p", "r", "s"])"),
+                // Expected
+                DictArrayFromJSON(l_key_dict_type, R"([null, null, null, null])",
+                                  R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([null, null, null, null])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([1, null, 0, null])",
+                                  R"(["b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
+                                  R"(["p", "r", "s"])"),
+                4, swap_sides, send_empty_batches);
+          }
         }
       }
     }
