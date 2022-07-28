@@ -295,8 +295,15 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
   auto self = checked_pointer_cast<CsvFileFormat>(shared_from_this());
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, options.get(), self->default_fragment_scan_options));
+  auto read_options = fragment_scan_options->read_options;
   ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
-  ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   return csv::CountRowsAsync(options->io_context, std::move(input),
                              ::arrow::internal::GetCpuThreadPool(), read_options,
                              self->parse_options)
