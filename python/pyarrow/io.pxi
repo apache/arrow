@@ -1583,6 +1583,33 @@ class Transcoder:
         return self._encoder.encode(self._decoder.decode(buf, final), final)
 
 
+cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
+        src_encoding, dest_encoding) except *:
+    """
+    Create a function that will add a transcoding transformation to a stream.
+    Data from that stream will be decoded according to ``src_encoding`` and
+    then re-encoded according to ``dest_encoding``.
+    The created function can be used to wrap streams once they are created.
+
+    Parameters
+    ----------
+    src_encoding : str
+        The codec to use when reading data data.
+    dest_encoding : str
+        The codec to use for emitted data.
+    """
+    cdef:
+        shared_ptr[function[StreamWrapFunc]] empty_func
+        CTransformInputStreamVTable vtable
+
+    vtable.transform = _cb_transform
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    return makeStreamTransformFunc(move(vtable),
+                                   Transcoder(src_codec.incrementaldecoder(),
+                                   dest_codec.incrementalencoder()))
+
+
 def transcoding_input_stream(stream, src_encoding, dest_encoding):
     """
     Add a transcoding transformation to the stream.

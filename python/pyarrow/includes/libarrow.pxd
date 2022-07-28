@@ -1212,6 +1212,9 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 ctypedef void CallbackTransform(object, const shared_ptr[CBuffer]& src,
                                 shared_ptr[CBuffer]* dest)
 
+ctypedef CResult[shared_ptr[CInputStream]] StreamWrapFunc(
+    shared_ptr[CInputStream])
+
 
 cdef extern from "arrow/util/cancel.h" namespace "arrow" nogil:
     cdef cppclass CStopToken "arrow::StopToken":
@@ -1379,10 +1382,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         shared_ptr[CInputStream] wrapped, CTransformInputStreamVTable vtable,
         object method_arg)
 
-    ctypedef CResult[shared_ptr[CInputStream]] StreamWrapFunc(
-        shared_ptr[CInputStream])
-
-    function[StreamWrapFunc] makeStreamTransformFunc \
+    shared_ptr[function[StreamWrapFunc]] makeStreamTransformFunc \
         "arrow::py::makeStreamTransformFunc"(
         CTransformInputStreamVTable vtable,
         object method_arg)
