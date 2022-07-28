@@ -83,7 +83,7 @@ namespace Apache.Arrow
             int[] decimalBits = decimal.GetBits(value);
             int decScale = (decimalBits[3] >> 16) & 0x7F;
 #if NETCOREAPP
-            Span<byte> bigIntBytes = stackalloc byte[12];
+            Span<byte> bigIntBytes = stackalloc byte[13];
 
                 for (int i = 0; i < 3; i++)
                 {
@@ -99,7 +99,7 @@ namespace Apache.Arrow
                 }
                 bigInt = new BigInteger(bigIntBytes);
 #else
-            byte[] bigIntBytes = new byte[12];
+            byte[] bigIntBytes = new byte[13];
                 for (int i = 0; i < 3; i++)
                 {
                     int bit = decimalBits[i];
