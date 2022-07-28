@@ -503,5 +503,54 @@ Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& decl
   return MakeRelation(declaration, ext_set);
 }
 
+Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
+    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    ExtensionSet* ext_set) {
+  auto rel = make_unique<substrait::Rel>();
+  auto read_rel = make_unique<substrait::ReadRel>();
+  const auto& scan_node_options =
+      checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
+  auto dataset =
+      dynamic_cast<dataset::FileSystemDataset*>(scan_node_options.dataset.get());
+  if (dataset == nullptr) {
+    return Status::Invalid("Can only convert file system datasets to a Substrait plan.");
+  }
+  // set schema
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set));
+  read_rel->set_allocated_base_schema(named_struct.release());
+
+  // set local files
+  auto read_rel_lfs = make_unique<substrait::ReadRel_LocalFiles>();
+  for (const auto& file : dataset->files()) {
+    auto read_rel_lfs_ffs = make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
+    read_rel_lfs_ffs->set_uri_path("file://" + file);
+
+    // set file format
+    // arrow and feather are temporarily handled via the Parquet format until
+    // upgraded to the latest Substrait version.
+    auto format_type_name = dataset->format()->type_name();
+    if (format_type_name == "parquet") {
+      auto parquet_fmt =
+          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions>();
+      read_rel_lfs_ffs->set_allocated_parquet(parquet_fmt.release());
+    } else if (format_type_name == "arrow") {
+      auto arrow_fmt =
+          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions>();
+      read_rel_lfs_ffs->set_allocated_arrow(arrow_fmt.release());
+    } else if (format_type_name == "orc") {
+      auto orc_fmt =
+          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_OrcReadOptions>();
+      read_rel_lfs_ffs->set_allocated_orc(orc_fmt.release());
+    } else {
+      return Status::Invalid("Unsupported file type : ", format_type_name);
+    }
+    read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
+  }
+  // TODO(Before PR Merge) : evaluate better hand-off of pointers
+  *read_rel->mutable_local_files() = *read_rel_lfs.get();
+  rel->set_allocated_read(read_rel.release());
+  return std::move(rel);
+}
+
 }  // namespace engine
 }  // namespace arrow

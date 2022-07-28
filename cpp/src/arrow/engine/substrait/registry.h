@@ -29,41 +29,30 @@
 #include "arrow/util/visibility.h"
 
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
 #include "substrait/algebra.pb.h"  // IWYU pragma: export
 
-namespace arrrow {
+namespace arrow {
 
 namespace engine {
 
-using SubstraitConverter =
-    std::function<std::tuple<substrait::Rel, Schema>(Schema, Declaration)>;
-
 class ARROW_EXPORT SubstraitConversionRegistry {
  public:
-  ~SubstraitConversionRegistry();
+  virtual ~SubstraitConversionRegistry() = default;
+  using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
+      const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*)>;
 
-  static std::unique_ptr<SubstraitConversionRegistry> Make();
-
-  static std::unique_ptr<SubstraitConversionRegistry> Make(
-      SubstraitConversionRegistry* parent);
-
-  Status RegisterConverter(const std::string& kind_name, SubstraitConverter converter);
-
- private:
-  SubstraitConversionRegistry();
-
-  class SubstraitConversionRegistryImpl;
-  std::unique_ptr<SubstraitConversionRegistryImpl> impl_;
-
-  explicit SubstraitConversionRegistry(SubstraitConversionRegistryImpl* impl);
+  virtual Status RegisterConverter(std::string factory_name,
+                                   SubstraitConverter converter) = 0;
 };
 
 ARROW_EXPORT SubstraitConversionRegistry* GetSubstraitConversionRegistry();
 
 }  // namespace engine
-}  // namespace arrrow
+}  // namespace arrow

@@ -1998,14 +1998,14 @@ TEST(ScanNode, NodeOptions) {
 
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({});  // set an empty projection
-  ScanNodeOptions scan_node_options{basic.dataset, options};
+  auto scan_node_options = std::make_shared<ScanNodeOptions>(basic.dataset, options);
   ASSERT_OK_AND_ASSIGN(auto* scan,
-                       compute::MakeExecNode("scan", plan.get(), {}, scan_node_options));
-  scan->SetOptions(&scan_node_options);
+                       compute::MakeExecNode("scan", plan.get(), {}, *scan_node_options));
+  scan->SetOptions(scan_node_options);
   const auto& res_scan_options = static_cast<const ScanNodeOptions&>(*scan->options());
 
-  ASSERT_EQ(scan_node_options.dataset->schema(), res_scan_options.dataset->schema());
-  ASSERT_EQ(scan_node_options.scan_options->projection,
+  ASSERT_EQ(scan_node_options->dataset->schema(), res_scan_options.dataset->schema());
+  ASSERT_EQ(scan_node_options->scan_options->projection,
             res_scan_options.scan_options->projection);
 }
 

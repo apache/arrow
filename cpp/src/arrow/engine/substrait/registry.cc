@@ -19,56 +19,30 @@
 // deprecation cycle
 
 #include "arrow/engine/substrait/registry.h"
+#include "arrow/engine/substrait/relation_internal.h"
 
 namespace arrow {
 
 namespace engine {
-class SubstraitConversionRegistry::SubstraitConversionRegistryImpl {
+
+class SubstraitConversionRegistryImpl : public SubstraitConversionRegistry {
  public:
-  explicit SubstraitConversionRegistryImpl(
-      SubstraitConversionRegistryImpl* parent = NULLPTR)
-      : parent_(parent) {}
-  ~SubstraitConversionRegistryImpl() {}
+  SubstraitConversionRegistryImpl();
 
-  std::unique_ptr<SubstraitConversionRegistry> Make() {
-    return std::unique_ptr<SubstraitConversionRegistry>(
-        new SubstraitConversionRegistry());
-  }
+  Status RegisterConverter(std::string factory_name,
+                           SubstraitConverter converter) override {
+    auto it_success =
+        name_to_converter_.emplace(std::move(factory_name), std::move(converter));
 
-  std::unique_ptr<SubstraitConversionRegistry> Make(SubstraitConversionRegistry* parent) {
-    return std::unique_ptr<SubstraitConversionRegistry>(new SubstraitConversionRegistry(
-        new SubstraitConversionRegistry::SubstraitConversionRegistryImpl(
-            parent->impl_.get())));
-  }
-
-  Status RegisterConverter(const std::string& kind_name, SubstraitConverter converter) {
-    if (kind_name == "scan") {
-      return Status::NotImplemented("Scan serialization not implemented");
-    } else if (kind_name == "filter") {
-      return Status::NotImplemented("Filter serialization not implemented");
-    } else if (kind_name == "project") {
-      return Status::NotImplemented("Project serialization not implemented");
-    } else if (kind_name == "augmented_project") {
-      return Status::NotImplemented("Augmented Project serialization not implemented");
-    } else if (kind_name == "hashjoin") {
-      return Status::NotImplemented("Filter serialization not implemented");
-    } else if (kind_name == "asofjoin") {
-      return Status::NotImplemented("Asof Join serialization not implemented");
-    } else if (kind_name == "select_k_sink") {
-      return Status::NotImplemented("SelectK serialization not implemented");
-    } else if (kind_name == "union") {
-      return Status::NotImplemented("Union serialization not implemented");
-    } else if (kind_name == "write") {
-      return Status::NotImplemented("Write serialization not implemented");
-    } else if (kind_name == "tee") {
-      return Status::NotImplemented("Tee serialization not implemented");
-    } else {
-      return Status::Invalid("Unsupported ExecNode: ", kind_name);
+    if (!it_success.second) {
+      const auto& factory_name = it_success.first->first;
+      return Status::KeyError("SubstraitConverter named ", factory_name,
+                              " already registered.");
     }
+    return Status::OK();
   }
 
-  SubstraitConversionRegistryImpl* parent_;
-  std::mutex lock_;
+ private:
   std::unordered_map<std::string, SubstraitConverter> name_to_converter_;
 };
 
@@ -82,5 +56,4 @@ SubstraitConversionRegistry* GetSubstraitConversionRegistry() {
 }
 
 }  // namespace engine
-
 }  // namespace arrow

@@ -16,7 +16,8 @@
 // under the License.
 
 #include "arrow/engine/substrait/plan_internal.h"
-
+#include "arrow/dataset/plan.h"
+#include "arrow/dataset/scanner.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -145,17 +146,20 @@ Status TraversePlan(compute::ExecNode* node,
   return Status::OK();
 }
 
-// arrow::Result<compute::Declaration> MakeDeclaration(compute::ExecNode* node) {
-//   compute::Declaration decl;
-//   const auto* kind_name = node->kind_name();
-//   if(kind_name == std::string("scan")) {
-//     std::vector<compute::ExecNode*> inputs = node->inputs();
-
-//   } else {
-//     return Status::NotImplemented(kind_name, " relation not implemented.");
-//   }
-//   return decl;
-// }
+Result<compute::Declaration> MakeDeclaration(compute::ExecNode* node) {
+  const auto* kind_name = node->kind_name();
+  if (kind_name == std::string("scan")) {
+    std::vector<util::Variant<compute::ExecNode*, compute::Declaration>> inputs(
+        node->num_inputs());
+    int64_t idx = 0;
+    for (auto* input : node->inputs()) {
+      inputs[idx++] = input;
+    }
+    return compute::Declaration(kind_name, std::move(inputs), node->options());
+  } else {
+    return Status::NotImplemented(kind_name, " relation not implemented.");
+  }
+}
 
 Result<std::unique_ptr<substrait::PlanRel>> ToProto(const compute::ExecPlan& plan,
                                                     ExtensionSet* ext_set) {
@@ -173,9 +177,12 @@ Result<std::unique_ptr<substrait::PlanRel>> ToProto(const compute::ExecPlan& pla
   for (const auto& node : node_vec) {
     const auto* kind_name = node->kind_name();
     std::cout << kind_name << std::endl;
-    //const auto& output_schema = node->output_schema();
-    // if (output_schema) {
-    // }
+    const auto& output_schema = node->output_schema();
+    auto declaration = MakeDeclaration(node);
+    if (output_schema) {
+      std::cout << "Schema >>> " << std::endl;
+      std::cout << output_schema->ToString(false) << std::endl;
+    }
   }
 
   return plan_rel;
