@@ -848,7 +848,7 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   ASSERT_RAISES(Invalid,
                 DeserializePlans(
                     *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
-  ASSERT_OK(ext_id_reg->AddSubstraitToArrow(
+  ASSERT_OK(ext_id_reg->AddSubstraitCallToArrow(
       {substrait::default_extension_types_uri(), "new_func"}, "multiply"));
   // valid after registration
   ExtensionSet ext_set_valid(ext_id_reg);
@@ -1479,6 +1479,7 @@ TEST(Substrait, AggregateBasic) {
             }],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
               "outputType": {
                 "i64": {}
               }
@@ -1489,13 +1490,13 @@ TEST(Substrait, AggregateBasic) {
     }],
     "extensionUris": [{
       "extension_uri_anchor": 0,
-      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "hash_count"
+        "name": "sum"
       }
     }],
   })"));
@@ -1512,7 +1513,7 @@ TEST(Substrait, AggregateBasic) {
 
   EXPECT_EQ(agg_rel->factory_name, "aggregate");
   EXPECT_EQ(agg_options.aggregates[0].name, "");
-  EXPECT_EQ(agg_options.aggregates[0].function, "hash_count");
+  EXPECT_EQ(agg_options.aggregates[0].function, "hash_sum");
 }
 
 TEST(Substrait, AggregateInvalidRel) {
@@ -1525,13 +1526,13 @@ TEST(Substrait, AggregateInvalidRel) {
     }],
     "extensionUris": [{
       "extension_uri_anchor": 0,
-      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "hash_count"
+        "name": "sum"
       }
     }],
   })"));
@@ -1586,13 +1587,13 @@ TEST(Substrait, AggregateInvalidFunction) {
     }],
     "extensionUris": [{
       "extension_uri_anchor": 0,
-      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "hash_count"
+        "name": "sum"
       }
     }],
   })"));
@@ -1646,6 +1647,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
               "args": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
               "outputType": {
                 "i64": {}
               }
@@ -1656,13 +1658,13 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
     }],
     "extensionUris": [{
       "extension_uri_anchor": 0,
-      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
     }],
     "extensions": [{
       "extension_function": {
         "extension_uri_reference": 0,
         "function_anchor": 0,
-        "name": "hash_count"
+        "name": "sum"
       }
     }],
   })"));
@@ -1716,6 +1718,7 @@ TEST(Substrait, AggregateWithFilter) {
               "args": [],
               "sorts": [],
               "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
               "outputType": {
                 "i64": {}
               }

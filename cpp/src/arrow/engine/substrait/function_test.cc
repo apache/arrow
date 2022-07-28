@@ -111,10 +111,13 @@ std::shared_ptr<compute::ExecPlan> PlanFromTestCase(
     return compute::Declaration("table_source", {}, options, "mock_source");
   };
 
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
   EXPECT_OK_AND_ASSIGN(
       std::shared_ptr<compute::ExecPlan> plan,
       DeserializePlan(*substrait, std::move(consumer), default_extension_id_registry(),
-                      /*ext_set_out=*/nullptr, std::move(table_provider)));
+                      /*ext_set_out=*/nullptr, conversion_options));
   return plan;
 }
 

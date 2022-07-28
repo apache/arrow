@@ -41,6 +41,28 @@ namespace internal {
 using ::arrow::internal::make_unique;
 }  // namespace internal
 
+Status DecodeArg(const substrait::FunctionArgument& arg, int idx, SubstraitCall* call,
+                 const ExtensionSet& ext_set,
+                 const ConversionOptions& conversion_options) {
+  if (arg.has_enum_()) {
+    const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
+    if (enum_val.has_specified()) {
+      call->SetEnumArg(static_cast<uint32_t>(idx), enum_val.specified());
+    } else {
+      call->SetEnumArg(idx, util::nullopt);
+    }
+  } else if (arg.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                          FromProto(arg.value(), ext_set, conversion_options));
+    call->SetValueArg(idx, std::move(expr));
+  } else if (arg.has_type()) {
+    return Status::NotImplemented("Type arguments not currently supported");
+  } else {
+    return Status::NotImplemented("Unrecognized function argument class");
+  }
+  return Status::OK();
+}
+
 Result<SubstraitCall> DecodeScalarFunction(
     Id id, const substrait::Expression::ScalarFunction& scalar_fn,
     const ExtensionSet& ext_set, const ConversionOptions& conversion_options) {
@@ -48,23 +70,37 @@ Result<SubstraitCall> DecodeScalarFunction(
                         FromProto(scalar_fn.output_type(), ext_set, conversion_options));
   SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second);
   for (int i = 0; i < scalar_fn.arguments_size(); i++) {
-    const substrait::FunctionArgument& arg = scalar_fn.arguments(i);
-    if (arg.has_enum_()) {
-      const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
-      if (enum_val.has_specified()) {
-        call.SetEnumArg(static_cast<uint32_t>(i), enum_val.specified());
-      } else {
-        call.SetEnumArg(i, util::nullopt);
-      }
-    } else if (arg.has_value()) {
-      ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
-                            FromProto(arg.value(), ext_set, conversion_options));
-      call.SetValueArg(i, std::move(expr));
-    } else if (arg.has_type()) {
-      return Status::NotImplemented("Type arguments not currently supported");
-    } else {
-      return Status::NotImplemented("Unrecognized function argument class");
-    }
+    ARROW_RETURN_NOT_OK(
+        DecodeArg(scalar_fn.arguments(i), i, &call, ext_set, conversion_options));
+  }
+  return std::move(call);
+}
+
+Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
+                                const ExtensionSet& ext_set,
+                                const ConversionOptions& conversion_options) {
+  if (func.phase() != substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT) {
+    return Status::NotImplemented(
+        "Unsupported aggregation phase.  Only INITIAL_TO_RESULT is supported");
+  }
+  if (func.invocation() !=
+      substrait::AggregateFunction::AggregationInvocation::
+          AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_ALL) {
+    return Status::NotImplemented(
+        "Unsupported aggregation invocation.  Only AGGREGATION_INVOCATION_ALL is "
+        "supported");
+  }
+  if (func.sorts_size() > 0) {
+    return Status::NotImplemented("Aggregation sorts are not supported");
+  }
+  ARROW_ASSIGN_OR_RAISE(auto output_type_and_nullable,
+                        FromProto(func.output_type(), ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(Id id, ext_set.DecodeFunction(func.function_reference()));
+  SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second,
+                     is_hash);
+  for (int i = 0; i < func.arguments_size(); i++) {
+    ARROW_RETURN_NOT_OK(
+        DecodeArg(func.arguments(i), i, &call, ext_set, conversion_options));
   }
   return std::move(call);
 }
@@ -197,7 +233,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       ARROW_ASSIGN_OR_RAISE(Id function_id,
                             ext_set.DecodeFunction(scalar_fn.function_reference()));
       ARROW_ASSIGN_OR_RAISE(auto function_converter,
-                            ext_set.LookupFunctionDecoder(function_id));
+                            ext_set.registry()->GetSubstraitCallToArrow(function_id));
       ARROW_ASSIGN_OR_RAISE(
           SubstraitCall substrait_call,
           DecodeScalarFunction(function_id, scalar_fn, ext_set, conversion_options));
@@ -977,8 +1013,8 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   }
 
   // other expression types dive into extensions immediately
-  ARROW_ASSIGN_OR_RAISE(auto converter,
-                        ext_set->LookupFunctionEncoder(call->function_name));
+  ARROW_ASSIGN_OR_RAISE(
+      auto converter, ext_set->registry()->GetArrowToSubstraitCall(call->function_name));
   ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn,
                         EncodeSubstraitCall(substrait_call, ext_set, conversion_options));

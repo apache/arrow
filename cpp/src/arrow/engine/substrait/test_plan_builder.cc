@@ -36,12 +36,14 @@ using internal::make_unique;
 namespace engine {
 namespace internal {
 
+static const ConversionOptions kPlanBuilderConversionOptions;
+
 Result<std::unique_ptr<substrait::ReadRel>> CreateRead(const Table& table,
                                                        ExtensionSet* ext_set) {
   auto read = make_unique<substrait::ReadRel>();
 
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::NamedStruct> schema,
-                        ToProto(*table.schema(), ext_set));
+                        ToProto(*table.schema(), ext_set, kPlanBuilderConversionOptions));
   read->set_allocated_base_schema(schema.release());
 
   auto named_table = make_unique<substrait::ReadRel::NamedTable>();
@@ -96,8 +98,9 @@ Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
     arg_index++;
   }
 
-  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Type> output_type_substrait,
-                        ToProto(output_type, /*nullable=*/true, ext_set));
+  ARROW_ASSIGN_OR_RAISE(
+      std::unique_ptr<substrait::Type> output_type_substrait,
+      ToProto(output_type, /*nullable=*/true, ext_set, kPlanBuilderConversionOptions));
   call->set_allocated_output_type(output_type_substrait.release());
 
   substrait::Expression* call_expression = project->add_expressions();

@@ -84,12 +84,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       if (read.has_named_table()) {
-        if (!ext_set.has_named_table_provider()) {
+        if (!conversion_options.named_table_provider) {
           return Status::Invalid(
               "plan contained a named table but a NamedTableProvider has not been "
               "configured");
         }
-        const NamedTableProvider& named_table_provider = ext_set.named_table_provider();
+        const NamedTableProvider& named_table_provider =
+            conversion_options.named_table_provider;
         const substrait::ReadRel::NamedTable& named_table = read.named_table();
         std::vector<std::string> table_names(named_table.names().begin(),
                                              named_table.names().end());
@@ -388,25 +389,14 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             return Status::NotImplemented("Aggregate filters are not supported.");
           }
           const auto& agg_func = agg_measure.measure();
-          if (agg_func.arguments_size() != 1) {
-            return Status::NotImplemented("Aggregate function must be a unary function.");
-          }
-          int func_reference = agg_func.function_reference();
-          ARROW_ASSIGN_OR_RAISE(auto func_record, ext_set.DecodeFunction(func_reference));
-          // aggreagte function name
-          auto func_name = std::string(func_record.id.name);
-          // aggregate target
-          auto subs_func_args = agg_func.arguments(0);
-          ARROW_ASSIGN_OR_RAISE(auto field_expr, FromProto(subs_func_args.value(),
-                                                           ext_set, conversion_options));
-          auto target = field_expr.field_ref();
-          if (!target) {
-            return Status::Invalid(
-                "The input expression to an aggregate function must be a direct "
-                "reference.");
-          }
-          aggregates.emplace_back(compute::Aggregate{std::move(func_name), NULLPTR,
-                                                     std::move(*target), std::move("")});
+          ARROW_ASSIGN_OR_RAISE(
+              SubstraitCall aggregate_call,
+              FromProto(agg_func, !keys.empty(), ext_set, conversion_options));
+          ARROW_ASSIGN_OR_RAISE(
+              ExtensionIdRegistry::SubstraitAggregateToArrow converter,
+              ext_set.registry()->GetSubstraitAggregateToArrow(aggregate_call.id()));
+          ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
+          aggregates.push_back(std::move(arrow_agg));
         } else {
           return Status::Invalid("substrait::AggregateFunction not provided");
         }

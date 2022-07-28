@@ -159,9 +159,7 @@ void SubstraitCall::SetValueArg(uint32_t index, compute::Expression value_arg) {
 // A builder used when creating a Substrait plan from an Arrow execution plan.  In
 // that situation we do not have a set of anchor values already defined so we keep
 // a map of what Ids we have seen.
-ExtensionSet::ExtensionSet(const ExtensionIdRegistry* registry,
-                           NamedTableProvider named_table_provider)
-    : registry_(registry), named_table_provider_(named_table_provider) {}
+ExtensionSet::ExtensionSet(const ExtensionIdRegistry* registry) : registry_(registry) {}
 
 Status ExtensionSet::CheckHasUri(util::string_view uri) {
   auto it =
@@ -200,9 +198,8 @@ Status ExtensionSet::AddUri(Id id) {
 Result<ExtensionSet> ExtensionSet::Make(
     std::unordered_map<uint32_t, util::string_view> uris,
     std::unordered_map<uint32_t, Id> type_ids,
-    std::unordered_map<uint32_t, Id> function_ids, const ExtensionIdRegistry* registry,
-    NamedTableProvider table_provider) {
-  ExtensionSet set(default_extension_id_registry(), std::move(table_provider));
+    std::unordered_map<uint32_t, Id> function_ids, const ExtensionIdRegistry* registry) {
+  ExtensionSet set(default_extension_id_registry());
   set.registry_ = registry;
 
   for (auto& uri : uris) {
@@ -282,16 +279,6 @@ Result<Id> ExtensionSet::DecodeFunction(uint32_t anchor) const {
                            " did not have a corresponding anchor in the extension set");
   }
   return functions_.at(anchor);
-}
-
-Result<ExtensionIdRegistry::SubstraitToArrow> ExtensionSet::LookupFunctionDecoder(
-    Id function_id) const {
-  return registry_->GetSubstraitToArrow(function_id);
-}
-
-Result<ExtensionIdRegistry::ArrowToSubstrait> ExtensionSet::LookupFunctionEncoder(
-    const std::string& function_name) const {
-  return registry_->GetArrowToSubstrait(function_name);
 }
 
 Result<uint32_t> ExtensionSet::EncodeFunction(Id function_id) {
@@ -402,16 +389,37 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return Status::OK();
   }
 
-  Status AddSubstraitToArrow(Id substrait_function_id,
-                             SubstraitToArrow conversion_func) override {
-    if (parent_) {
-      ARROW_RETURN_NOT_OK(parent_->CanAddSubstraitToArrow(substrait_function_id));
+  Status CanAddSubstraitCallToArrow(Id substrait_function_id) const override {
+    if (substrait_to_arrow_.find(substrait_function_id) != substrait_to_arrow_.end()) {
+      return Status::Invalid(
+          "Cannot register function converter because a converter already exists");
     }
+    if (parent_) {
+      return parent_->CanAddSubstraitCallToArrow(substrait_function_id);
+    }
+    return Status::OK();
+  }
 
+  Status CanAddSubstraitAggregateToArrow(Id substrait_function_id) const override {
+    if (substrait_to_arrow_agg_.find(substrait_function_id) !=
+        substrait_to_arrow_agg_.end()) {
+      return Status::Invalid(
+          "Cannot register function converter because a converter already exists");
+    }
+    if (parent_) {
+      return parent_->CanAddSubstraitAggregateToArrow(substrait_function_id);
+    }
+    return Status::OK();
+  }
+
+  template <typename ConverterType>
+  Status AddSubstraitToArrowFunc(
+      Id substrait_id, ConverterType conversion_func,
+      std::unordered_map<Id, ConverterType, IdHashEq, IdHashEq>* dest) {
     // Convert id to view into registry-owned memory
-    Id copied_id = ids_.Emplace(substrait_function_id);
+    Id copied_id = ids_.Emplace(substrait_id);
 
-    auto add_result = substrait_to_arrow_.emplace(copied_id, std::move(conversion_func));
+    auto add_result = dest->emplace(copied_id, std::move(conversion_func));
     if (!add_result.second) {
       return Status::Invalid(
           "Failed to register Substrait to Arrow function converter because a converter "
@@ -421,14 +429,29 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return Status::OK();
   }
 
-  Status AddArrowToSubstrait(std::string arrow_function_name,
-                             ArrowToSubstrait converter) override {
+  Status AddSubstraitCallToArrow(Id substrait_function_id,
+                                 SubstraitCallToArrow conversion_func) override {
     if (parent_) {
-      ARROW_RETURN_NOT_OK(parent_->CanAddArrowToSubstrait(arrow_function_name));
+      ARROW_RETURN_NOT_OK(parent_->CanAddSubstraitCallToArrow(substrait_function_id));
     }
+    return AddSubstraitToArrowFunc<SubstraitCallToArrow>(
+        substrait_function_id, std::move(conversion_func), &substrait_to_arrow_);
+  }
 
-    auto add_result =
-        arrow_to_substrait_.emplace(std::move(arrow_function_name), std::move(converter));
+  Status AddSubstraitAggregateToArrow(
+      Id substrait_function_id, SubstraitAggregateToArrow conversion_func) override {
+    if (parent_) {
+      ARROW_RETURN_NOT_OK(
+          parent_->CanAddSubstraitAggregateToArrow(substrait_function_id));
+    }
+    return AddSubstraitToArrowFunc<SubstraitAggregateToArrow>(
+        substrait_function_id, std::move(conversion_func), &substrait_to_arrow_agg_);
+  }
+
+  template <typename ConverterType>
+  Status AddArrowToSubstraitFunc(std::string arrow_function_name, ConverterType converter,
+                                 std::unordered_map<std::string, ConverterType>* dest) {
+    auto add_result = dest->emplace(std::move(arrow_function_name), std::move(converter));
     if (!add_result.second) {
       return Status::Invalid(
           "Failed to register Arrow to Substrait function converter for Arrow function ",
@@ -437,33 +460,53 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return Status::OK();
   }
 
-  Status CanAddSubstraitToArrow(Id substrait_function_id) const override {
-    if (substrait_to_arrow_.find(substrait_function_id) != substrait_to_arrow_.end()) {
-      return Status::Invalid(
-          "Cannot register function converter because a converter already exists");
-    }
+  Status AddArrowToSubstraitCall(std::string arrow_function_name,
+                                 ArrowToSubstraitCall converter) override {
     if (parent_) {
-      return parent_->CanAddSubstraitToArrow(substrait_function_id);
+      ARROW_RETURN_NOT_OK(parent_->CanAddArrowToSubstraitCall(arrow_function_name));
     }
-    return Status::OK();
+    return AddArrowToSubstraitFunc(std::move(arrow_function_name), converter,
+                                   &arrow_to_substrait_);
   }
 
-  Status CanAddArrowToSubstrait(const std::string& function_name) const override {
+  Status AddArrowToSubstraitAggregate(std::string arrow_function_name,
+                                      ArrowToSubstraitAggregate converter) override {
+    if (parent_) {
+      ARROW_RETURN_NOT_OK(parent_->CanAddArrowToSubstraitAggregate(arrow_function_name));
+    }
+    return AddArrowToSubstraitFunc(std::move(arrow_function_name), converter,
+                                   &arrow_to_substrait_agg_);
+  }
+
+  Status CanAddArrowToSubstraitCall(const std::string& function_name) const override {
     if (arrow_to_substrait_.find(function_name) != arrow_to_substrait_.end()) {
       return Status::Invalid(
           "Cannot register function converter because a converter already exists");
     }
     if (parent_) {
-      return parent_->CanAddArrowToSubstrait(function_name);
+      return parent_->CanAddArrowToSubstraitCall(function_name);
     }
     return Status::OK();
   }
 
-  Result<SubstraitToArrow> GetSubstraitToArrow(Id substrait_function_id) const override {
+  Status CanAddArrowToSubstraitAggregate(
+      const std::string& function_name) const override {
+    if (arrow_to_substrait_agg_.find(function_name) != arrow_to_substrait_agg_.end()) {
+      return Status::Invalid(
+          "Cannot register function converter because a converter already exists");
+    }
+    if (parent_) {
+      return parent_->CanAddArrowToSubstraitAggregate(function_name);
+    }
+    return Status::OK();
+  }
+
+  Result<SubstraitCallToArrow> GetSubstraitCallToArrow(
+      Id substrait_function_id) const override {
     auto maybe_converter = substrait_to_arrow_.find(substrait_function_id);
     if (maybe_converter == substrait_to_arrow_.end()) {
       if (parent_) {
-        return parent_->GetSubstraitToArrow(substrait_function_id);
+        return parent_->GetSubstraitCallToArrow(substrait_function_id);
       }
       return Status::NotImplemented(
           "No conversion function exists to convert the Substrait function ",
@@ -473,16 +516,45 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     return maybe_converter->second;
   }
 
-  Result<ArrowToSubstrait> GetArrowToSubstrait(
+  Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrow(
+      Id substrait_function_id) const override {
+    auto maybe_converter = substrait_to_arrow_agg_.find(substrait_function_id);
+    if (maybe_converter == substrait_to_arrow_agg_.end()) {
+      if (parent_) {
+        return parent_->GetSubstraitAggregateToArrow(substrait_function_id);
+      }
+      return Status::NotImplemented(
+          "No conversion function exists to convert the Substrait aggregate function ",
+          substrait_function_id.uri, "#", substrait_function_id.name,
+          " to an Arrow aggregate");
+    }
+    return maybe_converter->second;
+  }
+
+  Result<ArrowToSubstraitCall> GetArrowToSubstraitCall(
       const std::string& arrow_function_name) const override {
     auto maybe_converter = arrow_to_substrait_.find(arrow_function_name);
     if (maybe_converter == arrow_to_substrait_.end()) {
       if (parent_) {
-        return parent_->GetArrowToSubstrait(arrow_function_name);
+        return parent_->GetArrowToSubstraitCall(arrow_function_name);
       }
       return Status::NotImplemented(
           "No conversion function exists to convert the Arrow function ",
           arrow_function_name, " to a Substrait call");
+    }
+    return maybe_converter->second;
+  }
+
+  Result<ArrowToSubstraitAggregate> GetArrowToSubstraitAggregate(
+      const std::string& arrow_function_name) const override {
+    auto maybe_converter = arrow_to_substrait_agg_.find(arrow_function_name);
+    if (maybe_converter == arrow_to_substrait_agg_.end()) {
+      if (parent_) {
+        return parent_->GetArrowToSubstraitAggregate(arrow_function_name);
+      }
+      return Status::NotImplemented(
+          "No conversion function exists to convert the Arrow aggregate ",
+          arrow_function_name, " to a Substrait aggregate");
     }
     return maybe_converter->second;
   }
@@ -502,8 +574,8 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   }
 
   // Defined below since it depends on some helper functions defined below
-  Status AddSubstraitToArrow(Id substrait_function_id,
-                             std::string arrow_function_name) override;
+  Status AddSubstraitCallToArrow(Id substrait_function_id,
+                                 std::string arrow_function_name) override;
 
   // Parent registry, null for the root, non-null for nested
   const ExtensionIdRegistry* parent_;
@@ -513,13 +585,16 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   DataTypeVector types_;
   // There should only be one entry per Arrow function so there is no need
   // to separate ownership and lookup
-  std::unordered_map<std::string, ArrowToSubstrait> arrow_to_substrait_;
+  std::unordered_map<std::string, ArrowToSubstraitCall> arrow_to_substrait_;
+  std::unordered_map<std::string, ArrowToSubstraitAggregate> arrow_to_substrait_agg_;
 
   // non-owning lookup helpers
   std::vector<Id> type_ids_;
   std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_;
   std::unordered_map<const DataType*, int, TypePtrHashEq, TypePtrHashEq> type_to_index_;
-  std::unordered_map<Id, SubstraitToArrow, IdHashEq, IdHashEq> substrait_to_arrow_;
+  std::unordered_map<Id, SubstraitCallToArrow, IdHashEq, IdHashEq> substrait_to_arrow_;
+  std::unordered_map<Id, SubstraitAggregateToArrow, IdHashEq, IdHashEq>
+      substrait_to_arrow_agg_;
 };
 
 template <typename Enum>
@@ -573,7 +648,7 @@ Result<std::vector<compute::Expression>> GetValueArgs(const SubstraitCall& call,
   return std::move(expressions);
 }
 
-ExtensionIdRegistry::SubstraitToArrow DecodeOptionlessOverflowableArithmetic(
+ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessOverflowableArithmetic(
     const std::string& function_name) {
   return [function_name](const SubstraitCall& call) -> Result<compute::Expression> {
     ARROW_ASSIGN_OR_RAISE(OverflowBehavior overflow_behavior,
@@ -596,7 +671,7 @@ ExtensionIdRegistry::SubstraitToArrow DecodeOptionlessOverflowableArithmetic(
 }
 
 template <bool kChecked>
-ExtensionIdRegistry::ArrowToSubstrait EncodeOptionlessOverflowableArithmetic(
+ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessOverflowableArithmetic(
     Id substrait_fn_id) {
   return
       [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
@@ -616,7 +691,7 @@ ExtensionIdRegistry::ArrowToSubstrait EncodeOptionlessOverflowableArithmetic(
       };
 }
 
-ExtensionIdRegistry::SubstraitToArrow DecodeOptionlessBasicMapping(
+ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessBasicMapping(
     const std::string& function_name, uint32_t max_args) {
   return [function_name,
           max_args](const SubstraitCall& call) -> Result<compute::Expression> {
@@ -630,7 +705,7 @@ ExtensionIdRegistry::SubstraitToArrow DecodeOptionlessBasicMapping(
   };
 }
 
-ExtensionIdRegistry::SubstraitToArrow DecodeTemporalExtractionMapping() {
+ExtensionIdRegistry::SubstraitCallToArrow DecodeTemporalExtractionMapping() {
   return [](const SubstraitCall& call) -> Result<compute::Expression> {
     ARROW_ASSIGN_OR_RAISE(TemporalComponent temporal_component,
                           ParseEnumArg(call, 0, kTemporalComponentParser));
@@ -662,12 +737,33 @@ ExtensionIdRegistry::SubstraitToArrow DecodeTemporalExtractionMapping() {
   };
 }
 
-ExtensionIdRegistry::SubstraitToArrow DecodeConcatMapping() {
+ExtensionIdRegistry::SubstraitCallToArrow DecodeConcatMapping() {
   return [](const SubstraitCall& call) -> Result<compute::Expression> {
     ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
                           GetValueArgs(call, 0));
     value_args.push_back(compute::literal(""));
     return compute::call("binary_join_element_wise", std::move(value_args));
+  };
+}
+
+ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
+    const std::string& arrow_function_name) {
+  return [arrow_function_name](const SubstraitCall& call) -> Result<compute::Aggregate> {
+    if (call.size() != 1) {
+      return Status::NotImplemented(
+          "Only unary aggregate functions are currently supported");
+    }
+    ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
+    const FieldRef* arg_ref = arg.field_ref();
+    if (!arg_ref) {
+      return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
+                             call.id().name, " to have a direct reference");
+    }
+    std::string fixed_arrow_func = arrow_function_name;
+    if (call.is_hash()) {
+      fixed_arrow_func = "hash_" + arrow_function_name;
+    }
+    return compute::Aggregate{std::move(fixed_arrow_func), nullptr, *arg_ref, ""};
   };
 }
 
@@ -703,12 +799,12 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     // Mappings with a _checked variant
     for (const auto& function_name : {"add", "subtract", "multiply", "divide"}) {
       DCHECK_OK(
-          AddSubstraitToArrow({kSubstraitArithmeticFunctionsUri, function_name},
-                              DecodeOptionlessOverflowableArithmetic(function_name)));
+          AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
+                                  DecodeOptionlessOverflowableArithmetic(function_name)));
     }
     // Basic mappings that need _kleene appended to them
     for (const auto& function_name : {"or", "and"}) {
-      DCHECK_OK(AddSubstraitToArrow(
+      DCHECK_OK(AddSubstraitCallToArrow(
           {kSubstraitBooleanFunctionsUri, function_name},
           DecodeOptionlessBasicMapping(std::string(function_name) + "_kleene",
                                        /*max_args=*/2)));
@@ -720,46 +816,55 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
              {kSubstraitComparisonFunctionsUri, "equal"},
              {kSubstraitComparisonFunctionsUri, "not_equal"}}) {
       DCHECK_OK(
-          AddSubstraitToArrow({function_name.first, function_name.second},
-                              DecodeOptionlessBasicMapping(
-                                  function_name.second.to_string(), /*max_args=*/2)));
+          AddSubstraitCallToArrow({function_name.first, function_name.second},
+                                  DecodeOptionlessBasicMapping(
+                                      function_name.second.to_string(), /*max_args=*/2)));
     }
     for (const auto& uri :
          {kSubstraitComparisonFunctionsUri, kSubstraitDatetimeFunctionsUri}) {
-      DCHECK_OK(AddSubstraitToArrow(
+      DCHECK_OK(AddSubstraitCallToArrow(
           {uri, "lt"}, DecodeOptionlessBasicMapping("less", /*max_args=*/2)));
-      DCHECK_OK(AddSubstraitToArrow(
+      DCHECK_OK(AddSubstraitCallToArrow(
           {uri, "lte"}, DecodeOptionlessBasicMapping("less_equal", /*max_args=*/2)));
-      DCHECK_OK(AddSubstraitToArrow(
+      DCHECK_OK(AddSubstraitCallToArrow(
           {uri, "gt"}, DecodeOptionlessBasicMapping("greater", /*max_args=*/2)));
-      DCHECK_OK(AddSubstraitToArrow(
+      DCHECK_OK(AddSubstraitCallToArrow(
           {uri, "gte"}, DecodeOptionlessBasicMapping("greater_equal", /*max_args=*/2)));
     }
     // One-off mappings
     DCHECK_OK(
-        AddSubstraitToArrow({kSubstraitBooleanFunctionsUri, "not"},
-                            DecodeOptionlessBasicMapping("invert", /*max_args=*/1)));
-    DCHECK_OK(AddSubstraitToArrow({kSubstraitDatetimeFunctionsUri, "extract"},
-                                  DecodeTemporalExtractionMapping()));
-    DCHECK_OK(AddSubstraitToArrow({kSubstraitStringFunctionsUri, "concat"},
-                                  DecodeConcatMapping()));
+        AddSubstraitCallToArrow({kSubstraitBooleanFunctionsUri, "not"},
+                                DecodeOptionlessBasicMapping("invert", /*max_args=*/1)));
+    DCHECK_OK(AddSubstraitCallToArrow({kSubstraitDatetimeFunctionsUri, "extract"},
+                                      DecodeTemporalExtractionMapping()));
+    DCHECK_OK(AddSubstraitCallToArrow({kSubstraitStringFunctionsUri, "concat"},
+                                      DecodeConcatMapping()));
+
+    // --------------- Substrait -> Arrow Aggregates --------------
+    for (const auto& fn_name : {"sum", "min", "max"}) {
+      DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, fn_name},
+                                             DecodeBasicAggregate(fn_name)));
+    }
+    DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "avg"},
+                                           DecodeBasicAggregate("mean")));
 
     // --------------- Arrow -> Substrait Functions ---------------
     for (const auto& fn_name : {"add", "subtract", "multiply", "divide"}) {
       Id fn_id{kSubstraitArithmeticFunctionsUri, fn_name};
-      DCHECK_OK(AddArrowToSubstrait(
+      DCHECK_OK(AddArrowToSubstraitCall(
           fn_name, EncodeOptionlessOverflowableArithmetic<false>(fn_id)));
-      DCHECK_OK(AddArrowToSubstrait(std::string(fn_name) + "_checked",
-                                    EncodeOptionlessOverflowableArithmetic<true>(fn_id)));
+      DCHECK_OK(
+          AddArrowToSubstraitCall(std::string(fn_name) + "_checked",
+                                  EncodeOptionlessOverflowableArithmetic<true>(fn_id)));
     }
   }
 };
 
 }  // namespace
 
-Status ExtensionIdRegistryImpl::AddSubstraitToArrow(Id substrait_function_id,
-                                                    std::string arrow_function_name) {
-  return AddSubstraitToArrow(
+Status ExtensionIdRegistryImpl::AddSubstraitCallToArrow(Id substrait_function_id,
+                                                        std::string arrow_function_name) {
+  return AddSubstraitCallToArrow(
       substrait_function_id,
       [arrow_function_name](const SubstraitCall& call) -> Result<compute::Expression> {
         ARROW_ASSIGN_OR_RAISE(std::vector<compute::Expression> value_args,
