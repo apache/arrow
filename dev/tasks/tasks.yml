@@ -61,6 +61,7 @@ groups:
     - java-jars
     - nuget
     - python-sdist
+    - r-binary-packages
     - ubuntu-*
     - wheel-*
     - test-ubuntu-default-docs
