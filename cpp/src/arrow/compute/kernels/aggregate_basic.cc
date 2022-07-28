@@ -812,10 +812,9 @@ void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
   AddAggKernel(std::move(sig), init, func, simd_level);
 }
 
-void AddMinMaxKernels(KernelInit init,
-                      const std::vector<std::shared_ptr<DataType>>& types,
+void AddMinMaxKernels(KernelInit init, const std::vector<const DataType*>& types,
                       ScalarAggregateFunction* func, SimdLevel::type simd_level) {
-  for (const auto& ty : types) {
+  for (const DataType* ty : types) {
     AddMinMaxKernel(init, ty, func, simd_level);
   }
 }

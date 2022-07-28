@@ -942,12 +942,12 @@ class TestCountDistinctKernel : public ::testing::Test {
     CheckScalar("count_distinct", {input}, Expected(expected_all), &all);
   }
 
-  void Check(const std::shared_ptr<DataType>& type, util::string_view json,
-             int64_t expected_all, bool has_nulls = true) {
+  void Check(const TypeHolder& type, util::string_view json, int64_t expected_all,
+             bool has_nulls = true) {
     Check(ArrayFromJSON(type, json), expected_all, has_nulls);
   }
 
-  void Check(const std::shared_ptr<DataType>& type, util::string_view json) {
+  void Check(const TypeHolder& type, util::string_view json) {
     auto input = ScalarFromJSON(type, json);
     auto zero = ResultWith(Expected(0));
     auto one = ResultWith(Expected(1));
@@ -962,11 +962,9 @@ class TestCountDistinctKernel : public ::testing::Test {
     EXPECT_THAT(CallFunction("count_distinct", {input}, &all), one);
   }
 
-  void CheckChunkedArr(const DataType* type,
-                       const std::vector<std::string>& json, int64_t expected_all,
-                       bool has_nulls = true) {
-    Check(ChunkedArrayFromJSON(type->GetSharedPtr(), json), expected_all,
-          has_nulls);
+  void CheckChunkedArr(const TypeHolder& type, const std::vector<std::string>& json,
+                       int64_t expected_all, bool has_nulls = true) {
+    Check(ChunkedArrayFromJSON(type, json), expected_all, has_nulls);
   }
 
   CountOptions only_valid{CountOptions::ONLY_VALID};

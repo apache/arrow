@@ -409,8 +409,7 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
   }
 }
 
-std::shared_ptr<Array> ArrayFromJSON(const TypeHolder& type,
-                                     util::string_view json) {
+std::shared_ptr<Array> ArrayFromJSON(const TypeHolder& type, util::string_view json) {
   EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
   return out;
 }
@@ -441,8 +440,7 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
   return *RecordBatch::FromStructArray(struct_array);
 }
 
-std::shared_ptr<Scalar> ScalarFromJSON(const TypeHolder& type,
-                                       util::string_view json) {
+std::shared_ptr<Scalar> ScalarFromJSON(const TypeHolder& type, util::string_view json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
   return out;

@@ -1140,7 +1140,7 @@ TYPED_TEST(TestStringKernels, BinaryRepeatWithScalarRepeat) {
   for (const auto& pair : nrepeats_and_expected) {
     auto num_repeat = pair.first;
     auto expected = pair.second;
-    for (const auto& ty : IntTypes()) {
+    for (const DataType* ty : IntTypes()) {
       this->CheckVarArgs("binary_repeat",
                          {values, Datum(*arrow::MakeScalar(ty, num_repeat))},
                          this->type(), expected);

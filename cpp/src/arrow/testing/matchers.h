@@ -65,14 +65,14 @@ inline PointeesEqualMatcher PointeesEqual() { return {}; }
 
 class AnyOfJSONMatcher {
  public:
-  AnyOfJSONMatcher(std::shared_ptr<DataType> type, std::string array_json)
-      : type_(std::move(type)), array_json_(std::move(array_json)) {}
+  AnyOfJSONMatcher(const TypeHolder& type, std::string array_json)
+      : type_(type), array_json_(std::move(array_json)) {}
 
   template <typename arg_type>
   operator testing::Matcher<arg_type>() const {  // NOLINT runtime/explicit
     struct Impl : testing::MatcherInterface<const arg_type&> {
-      Impl(std::shared_ptr<DataType> type, std::string array_json)
-          : type_(std::move(type)), array_json_(std::move(array_json)) {
+      Impl(const TypeHolder& type, std::string array_json)
+          : type_(type), array_json_(std::move(array_json)) {
         array = ArrayFromJSON(type_, array_json_);
       }
       void DescribeTo(std::ostream* os) const override {
@@ -104,7 +104,7 @@ class AnyOfJSONMatcher {
                          << "' matches no scalar from " << array->ToString();
         return false;
       }
-      const std::shared_ptr<DataType> type_;
+      const TypeHolder& type_;
       const std::string array_json_;
       std::shared_ptr<Array> array;
     };
@@ -113,13 +113,12 @@ class AnyOfJSONMatcher {
   }
 
  private:
-  const std::shared_ptr<DataType> type_;
+  const TypeHolder& type_;
   const std::string array_json_;
 };
 
-inline AnyOfJSONMatcher AnyOfJSON(std::shared_ptr<DataType> type,
-                                  std::string array_json) {
-  return {std::move(type), std::move(array_json)};
+inline AnyOfJSONMatcher AnyOfJSON(const TypeHolder& type, std::string array_json) {
+  return {type, std::move(array_json)};
 }
 
 template <typename ResultMatcher>

@@ -124,8 +124,8 @@ class ConcreteConverter : public Converter {
   template <typename BuilderType>
   Status MakeConcreteBuilder(std::shared_ptr<BuilderType>* out) {
     std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_->GetSharedPtr(),
-                              &builder));
+    RETURN_NOT_OK(
+        MakeBuilder(default_memory_pool(), this->type_->GetSharedPtr(), &builder));
     *out = checked_pointer_cast<BuilderType>(std::move(builder));
     DCHECK(*out);
     return Status::OK();
@@ -349,8 +349,8 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
   explicit TimestampConverter(const DataType* type)
       : timestamp_type_{checked_cast<const TimestampType*>(type)} {
     this->type_ = type;
-    builder_ = std::make_shared<TimestampBuilder>(type->GetSharedPtr(),
-                                                  default_memory_pool());
+    builder_ =
+        std::make_shared<TimestampBuilder>(type->GetSharedPtr(), default_memory_pool());
   }
 
   Status AppendValue(const rj::Value& json_obj) override {
@@ -483,9 +483,7 @@ template <typename BuilderType = typename TypeTraits<FixedSizeBinaryType>::Build
 class FixedSizeBinaryConverter final
     : public ConcreteConverter<FixedSizeBinaryConverter<BuilderType>> {
  public:
-  explicit FixedSizeBinaryConverter(const DataType* type) {
-    this->type_ = type;
-  }
+  explicit FixedSizeBinaryConverter(const DataType* type) { this->type_ = type; }
 
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
@@ -527,9 +525,8 @@ class ListConverter final : public ConcreteConverter<ListConverter<TYPE>> {
     const auto& list_type = checked_cast<const TYPE&>(*this->type_);
     RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
     auto child_builder = child_converter_->builder();
-    builder_ =
-        std::make_shared<BuilderType>(default_memory_pool(), child_builder,
-                                      this->type_->GetSharedPtr());
+    builder_ = std::make_shared<BuilderType>(default_memory_pool(), child_builder,
+                                             this->type_->GetSharedPtr());
     return Status::OK();
   }
 
@@ -613,9 +610,8 @@ class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConve
     list_size_ = list_type.list_size();
     RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
     auto child_builder = child_converter_->builder();
-    builder_ = std::make_shared<FixedSizeListBuilder>(default_memory_pool(),
-                                                      child_builder,
-                                                      type_->GetSharedPtr());
+    builder_ = std::make_shared<FixedSizeListBuilder>(
+        default_memory_pool(), child_builder, type_->GetSharedPtr());
     return Status::OK();
   }
 
@@ -655,9 +651,8 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
       child_converters_.push_back(child_converter);
       child_builders.push_back(child_converter->builder());
     }
-    builder_ = std::make_shared<StructBuilder>(type_->GetSharedPtr(),
-                                               default_memory_pool(),
-                                               std::move(child_builders));
+    builder_ = std::make_shared<StructBuilder>(
+        type_->GetSharedPtr(), default_memory_pool(), std::move(child_builders));
     return Status::OK();
   }
 
@@ -736,13 +731,11 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
       child_builders.push_back(child_converter->builder());
     }
     if (mode_ == UnionMode::DENSE) {
-      builder_ = std::make_shared<DenseUnionBuilder>(default_memory_pool(),
-                                                     std::move(child_builders),
-                                                     type_->GetSharedPtr());
+      builder_ = std::make_shared<DenseUnionBuilder>(
+          default_memory_pool(), std::move(child_builders), type_->GetSharedPtr());
     } else {
-      builder_ = std::make_shared<SparseUnionBuilder>(default_memory_pool(),
-                                                      std::move(child_builders),
-                                                      type_->GetSharedPtr());
+      builder_ = std::make_shared<SparseUnionBuilder>(
+          default_memory_pool(), std::move(child_builders), type_->GetSharedPtr());
     }
     return Status::OK();
   }
@@ -807,13 +800,13 @@ Status GetDictConverter(const TypeHolder& type, std::shared_ptr<Converter>* out)
 
   const auto value_type = checked_cast<const DictionaryType&>(*type).value_type();
 
-#define SIMPLE_CONVERTER_CASE(ID, CLASS, TYPE)                    \
-  case ID:                                                        \
+#define SIMPLE_CONVERTER_CASE(ID, CLASS, TYPE)                         \
+  case ID:                                                             \
     res = std::make_shared<CLASS<DictionaryBuilder<TYPE>>>(type.type); \
     break;
 
-#define PARAM_CONVERTER_CASE(ID, CLASS, TYPE)                           \
-  case ID:                                                              \
+#define PARAM_CONVERTER_CASE(ID, CLASS, TYPE)                                \
+  case ID:                                                                   \
     res = std::make_shared<CLASS<TYPE, DictionaryBuilder<TYPE>>>(type.type); \
     break;
 
@@ -855,8 +848,8 @@ Status GetConverter(const TypeHolder& type, std::shared_ptr<Converter>* out) {
 
   std::shared_ptr<Converter> res;
 
-#define SIMPLE_CONVERTER_CASE(ID, CLASS) \
-  case ID:                               \
+#define SIMPLE_CONVERTER_CASE(ID, CLASS)      \
+  case ID:                                    \
     res = std::make_shared<CLASS>(type.type); \
     break;
 
@@ -948,13 +941,11 @@ Status ChunkedArrayFromJSON(const TypeHolder& type,
     out_chunks.emplace_back();
     ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSON(type, chunk_json));
   }
-  *out = std::make_shared<ChunkedArray>(std::move(out_chunks),
-                                        type.GetSharedPtr());
+  *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type.GetSharedPtr());
   return Status::OK();
 }
 
-Status DictArrayFromJSON(const TypeHolder& type,
-                         util::string_view indices_json,
+Status DictArrayFromJSON(const TypeHolder& type, util::string_view indices_json,
                          util::string_view dictionary_json, std::shared_ptr<Array>* out) {
   if (type.id() != Type::DICTIONARY) {
     return Status::TypeError("DictArrayFromJSON requires dictionary type, got ", *type);
@@ -968,11 +959,12 @@ Status DictArrayFromJSON(const TypeHolder& type,
                         ArrayFromJSON(dictionary_type.value_type(), dictionary_json));
 
   return DictionaryArray::FromArrays(type.GetSharedPtr(), std::move(indices),
-                                     std::move(dictionary)).Value(out);
+                                     std::move(dictionary))
+      .Value(out);
 }
 
-Status ScalarFromJSON(const TypeHolder& type,
-                      util::string_view json_string, std::shared_ptr<Scalar>* out) {
+Status ScalarFromJSON(const TypeHolder& type, util::string_view json_string,
+                      std::shared_ptr<Scalar>* out) {
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(GetConverter(type.type, &converter));
 
@@ -990,8 +982,8 @@ Status ScalarFromJSON(const TypeHolder& type,
   return array->GetScalar(0).Value(out);
 }
 
-Status DictScalarFromJSON(const TypeHolder& type,
-                          util::string_view index_json, util::string_view dictionary_json,
+Status DictScalarFromJSON(const TypeHolder& type, util::string_view index_json,
+                          util::string_view dictionary_json,
                           std::shared_ptr<Scalar>* out) {
   if (type.id() != Type::DICTIONARY) {
     return Status::TypeError("DictScalarFromJSON requires dictionary type, got ", *type);

@@ -26,6 +26,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"

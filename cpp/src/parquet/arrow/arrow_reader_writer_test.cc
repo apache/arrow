@@ -36,6 +36,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -3310,9 +3311,13 @@ void DoNestedRequiredRoundtrip(
 }
 
 TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
-  std::vector<std::shared_ptr<DataType>> types = ::arrow::PrimitiveTypes();
-  types.insert(types.end(), ::arrow::TemporalTypes().begin(),
-               ::arrow::TemporalTypes().end());
+  std::vector<std::shared_ptr<DataType>> types;
+  for (const DataType* ty : ::arrow::compute::PrimitiveTypes()) {
+    types.push_back(ty->GetSharedPtr());
+  }
+  for (const DataType* ty : ::arrow::compute::TemporalTypes()) {
+    types.push_back(ty->GetSharedPtr());
+  }
   types.push_back(::arrow::duration(::arrow::TimeUnit::SECOND));
   types.push_back(::arrow::duration(::arrow::TimeUnit::MILLI));
   types.push_back(::arrow::duration(::arrow::TimeUnit::MICRO));

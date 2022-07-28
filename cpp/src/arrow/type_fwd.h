@@ -593,9 +593,9 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
 /// \param type the field value type
 /// \param nullable whether the values are nullable, default true
 /// \param metadata any custom key-value metadata, default null
-std::shared_ptr<Field> ARROW_EXPORT
-field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
-      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+ARROW_EXPORT std::shared_ptr<Field> field(
+    std::string name, std::shared_ptr<DataType> type, bool nullable = true,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// \brief Create a Field instance with metadata
 ///
@@ -604,9 +604,9 @@ field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
 /// \param name the field name
 /// \param type the field value type
 /// \param metadata any custom key-value metadata
-std::shared_ptr<Field> ARROW_EXPORT
-field(std::string name, std::shared_ptr<DataType> type,
-      std::shared_ptr<const KeyValueMetadata> metadata);
+ARROW_EXPORT std::shared_ptr<Field> field(
+    std::string name, std::shared_ptr<DataType> type,
+    std::shared_ptr<const KeyValueMetadata> metadata);
 
 /// \brief Create a Schema instance
 ///

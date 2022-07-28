@@ -1972,7 +1972,7 @@ void AssertRank(const std::shared_ptr<Array>& input, SortOrder order,
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
-void AssertRankEmpty(std::shared_ptr<DataType> type, SortOrder order,
+void AssertRankEmpty(const TypeHolder& type, SortOrder order,
                      NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker) {
   AssertRank(ArrayFromJSON(type, "[]"), order, null_placement, tiebreaker,
              ArrayFromJSON(uint64(), "[]"));
@@ -2028,7 +2028,7 @@ void AssertRankAllTiebreakers(const std::shared_ptr<Array>& input) {
 }
 
 TEST(TestRankForReal, RankReal) {
-  for (auto real_type : ::arrow::FloatingPointTypes()) {
+  for (const DataType* real_type : FloatingPointTypes()) {
     for (auto null_placement : AllNullPlacements()) {
       for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {
@@ -2046,7 +2046,7 @@ TEST(TestRankForReal, RankReal) {
 }
 
 TEST(TestRankForIntegral, RankIntegral) {
-  for (auto integer_type : ::arrow::IntTypes()) {
+  for (const DataType* integer_type : IntTypes()) {
     for (auto null_placement : AllNullPlacements()) {
       for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {
@@ -2132,7 +2132,7 @@ TEST(TestRankForBool, RankBool) {
 }
 
 TEST(TestRankForTemporal, RankTemporal) {
-  for (auto temporal_type : ::arrow::TemporalTypes()) {
+  for (const DataType* temporal_type : TemporalTypes()) {
     for (auto null_placement : AllNullPlacements()) {
       for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {
@@ -2148,7 +2148,7 @@ TEST(TestRankForTemporal, RankTemporal) {
 }
 
 TEST(TestRankForStrings, RankStrings) {
-  for (auto string_type : ::arrow::StringTypes()) {
+  for (const DataType* string_type : StringTypes()) {
     for (auto null_placement : AllNullPlacements()) {
       for (auto tiebreaker : AllTiebreakers()) {
         for (auto order : AllOrders()) {

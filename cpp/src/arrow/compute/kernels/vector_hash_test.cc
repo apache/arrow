@@ -41,6 +41,7 @@
 #include "arrow/util/decimal.h"
 
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 
 #include "arrow/ipc/json_simple.h"
@@ -685,10 +686,10 @@ TEST_F(TestHashKernel, DictEncodeIntervalMonth) {
 TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
   auto dict_json = "[10, 20, 30, 40]";
   auto dict = ArrayFromJSON(int64(), dict_json);
-  for (auto index_ty : IntTypes()) {
+  for (const DataType* index_ty : IntTypes()) {
     auto indices = ArrayFromJSON(index_ty, "[3, 0, 0, 0, 1, 1, 3, 0, 1, 3, 0, 1]");
 
-    auto dict_ty = dictionary(index_ty, int64());
+    auto dict_ty = dictionary(index_ty->GetSharedPtr(), int64());
 
     auto ex_indices = ArrayFromJSON(index_ty, "[3, 0, 1]");
 

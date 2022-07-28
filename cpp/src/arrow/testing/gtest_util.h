@@ -315,8 +315,7 @@ ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 // ArrayFromJSON: construct an Array from a simple JSON representation
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<Array> ArrayFromJSON(const TypeHolder&,
-                                     util::string_view json);
+std::shared_ptr<Array> ArrayFromJSON(const TypeHolder&, util::string_view json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Array> DictArrayFromJSON(const TypeHolder&,
@@ -332,8 +331,7 @@ std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const TypeHolder&,
                                                    const std::vector<std::string>& json);
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<Scalar> ScalarFromJSON(const TypeHolder&,
-                                       util::string_view json);
+std::shared_ptr<Scalar> ScalarFromJSON(const TypeHolder&, util::string_view json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Scalar> DictScalarFromJSON(const TypeHolder&,

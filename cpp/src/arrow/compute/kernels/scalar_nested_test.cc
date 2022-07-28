@@ -29,7 +29,7 @@
 namespace arrow {
 namespace compute {
 
-static std::shared_ptr<DtaType> GetOffsetType(const DataType& type) {
+static std::shared_ptr<DataType> GetOffsetType(const DataType& type) {
   return type.id() == Type::LIST ? int32() : int64();
 }
 
@@ -46,8 +46,8 @@ TEST(TestScalarNested, ListValueLength) {
 
 TEST(TestScalarNested, ListElementNonFixedListWithNulls) {
   auto sample = "[[7, 5, 81], [6, null, 4, 7, 8], [3, 12, 2, 0], [1, 9], null]";
-  for (auto ty : NumericTypes()) {
-    for (auto list_type : {list(ty), large_list(ty)}) {
+  for (const DataType* ty : NumericTypes()) {
+    for (auto list_type : {list(ty->GetSharedPtr()), large_list(ty->GetSharedPtr())}) {
       auto input = ArrayFromJSON(list_type, sample);
       auto null_input = ArrayFromJSON(list_type, "[null]");
       for (auto index_type : IntTypes()) {
@@ -64,7 +64,7 @@ TEST(TestScalarNested, ListElementNonFixedListWithNulls) {
 TEST(TestScalarNested, ListElementFixedList) {
   auto sample = "[[7, 5, 81], [6, 4, 8], [3, 12, 2], [1, 43, 87]]";
   for (auto ty : NumericTypes()) {
-    auto input = ArrayFromJSON(fixed_size_list(ty, 3), sample);
+    auto input = ArrayFromJSON(fixed_size_list(ty->GetSharedPtr(), 3), sample);
     for (auto index_type : IntTypes()) {
       auto index = ScalarFromJSON(index_type, "0");
       auto expected = ArrayFromJSON(ty, "[7, 6, 3, 1]");

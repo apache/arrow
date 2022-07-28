@@ -2235,8 +2235,7 @@ static void CheckStructToStruct(const std::vector<const DataType*>& value_types)
   }
 }
 
-static void CheckStructToStructSubset(
-    const std::vector<const DataType*>& value_types) {
+static void CheckStructToStructSubset(const std::vector<const DataType*>& value_types) {
   for (const DataType* src_value_type : value_types) {
     ARROW_SCOPED_TRACE("From type: ", src_value_type->ToString());
     for (const DataType* dest_value_type : value_types) {

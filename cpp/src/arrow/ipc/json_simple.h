@@ -30,7 +30,7 @@
 namespace arrow {
 
 class Array;
-class TypeHolder;
+struct TypeHolder;
 
 namespace ipc {
 namespace internal {
@@ -45,8 +45,7 @@ Result<std::shared_ptr<Array>> ArrayFromJSON(const TypeHolder& type,
                                              util::string_view json);
 
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ArrayFromJSON(const TypeHolder& type,
-                                             const char* json);
+Result<std::shared_ptr<Array>> ArrayFromJSON(const TypeHolder& type, const char* json);
 
 ARROW_EXPORT
 Status ChunkedArrayFromJSON(const TypeHolder& type,

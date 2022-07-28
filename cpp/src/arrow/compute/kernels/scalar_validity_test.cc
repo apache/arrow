@@ -19,6 +19,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

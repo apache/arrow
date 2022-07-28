@@ -1678,10 +1678,10 @@ TEST(GroupBy, MinMaxOnly) {
 }
 
 TEST(GroupBy, MinMaxTypes) {
-  std::vector<std::shared_ptr<DataType>> types;
+  std::vector<const DataType*> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
-  types.push_back(month_interval());
+  types.push_back(month_interval().get());
 
   const std::vector<std::string> default_table = {R"([
     [1,    1],
@@ -1739,9 +1739,10 @@ TEST(GroupBy, MinMaxTypes) {
     [{"min": 86400000, "max": 345600000},       null]
     ])";
 
-  for (const auto& ty : types) {
+  for (const DataType* ty : types) {
+    auto shared_ty = ty->GetSharedPtr();
     SCOPED_TRACE(ty->ToString());
-    auto in_schema = schema({field("argument0", ty), field("key", int64())});
+    auto in_schema = schema({field("argument0", shared_ty), field("key", int64())});
     auto table =
         TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
 
@@ -1754,12 +1755,12 @@ TEST(GroupBy, MinMaxTypes) {
     SortBy({"key_0"}, &aggregated_and_grouped);
 
     AssertDatumsEqual(
-        ArrayFromJSON(
-            struct_({
-                field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
-                field("key_0", int64()),
-            }),
-            (ty->name() == "date64") ? date64_expected : default_expected),
+        ArrayFromJSON(struct_({
+                          field("hash_min_max", struct_({field("min", shared_ty),
+                                                         field("max", shared_ty)})),
+                          field("key_0", int64()),
+                      }),
+                      (ty->name() == "date64") ? date64_expected : default_expected),
         aggregated_and_grouped,
         /*verbose=*/true);
   }
@@ -1837,11 +1838,11 @@ TEST(GroupBy, MinMaxDecimal) {
 TEST(GroupBy, MinMaxBinary) {
   for (bool use_exec_plan : {false, true}) {
     for (bool use_threads : {true, false}) {
-      for (const auto& ty : BaseBinaryTypes()) {
+      for (const DataType* ty : BaseBinaryTypes()) {
         SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
         auto table = TableFromJSON(schema({
-                                       field("argument0", ty),
+                                       field("argument0", ty->GetSharedPtr()),
                                        field("key", int64()),
                                    }),
                                    {R"([
@@ -1869,13 +1870,14 @@ TEST(GroupBy, MinMaxBinary) {
         ValidateOutput(aggregated_and_grouped);
         SortBy({"key_0"}, &aggregated_and_grouped);
 
+        auto shared_ty = ty->GetSharedPtr();
         AssertDatumsEqual(
-            ArrayFromJSON(
-                struct_({
-                    field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
-                    field("key_0", int64()),
-                }),
-                R"([
+            ArrayFromJSON(struct_({
+                              field("hash_min_max", struct_({field("min", shared_ty),
+                                                             field("max", shared_ty)})),
+                              field("key_0", int64()),
+                          }),
+                          R"([
     [{"min": "aaaa", "max": "d"},    1],
     [{"min": "babcd", "max": "bcd"}, 2],
     [{"min": null, "max": null},     3],
@@ -2609,10 +2611,10 @@ TEST(GroupBy, OneMiscTypes) {
 }
 
 TEST(GroupBy, OneNumericTypes) {
-  std::vector<std::shared_ptr<DataType>> types;
+  std::vector<const DataType*> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
-  types.push_back(month_interval());
+  types.push_back(month_interval().get());
 
   const std::vector<std::string> numeric_table_json = {R"([
       [null, 1],
@@ -2652,11 +2654,12 @@ TEST(GroupBy, OneNumericTypes) {
       [null,      3]
     ])"};
 
-  for (const auto& type : types) {
+  for (const DataType* type : types) {
     for (bool use_exec_plan : {true, false}) {
       for (bool use_threads : {true, false}) {
+        auto shared_ty = type->GetSharedPtr();
         SCOPED_TRACE(type->ToString());
-        auto in_schema = schema({field("argument0", type), field("key", int64())});
+        auto in_schema = schema({field("argument0", shared_ty), field("key", int64())});
         auto table =
             TableFromJSON(in_schema, (type->name() == "date64") ? temporal_table_json
                                                                 : numeric_table_json);
@@ -2699,11 +2702,11 @@ TEST(GroupBy, OneNumericTypes) {
 TEST(GroupBy, OneBinaryTypes) {
   for (bool use_exec_plan : {true, false}) {
     for (bool use_threads : {true, false}) {
-      for (const auto& type : BaseBinaryTypes()) {
+      for (const DataType* type : BaseBinaryTypes()) {
         SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
         auto table = TableFromJSON(schema({
-                                       field("argument0", type),
+                                       field("argument0", type->GetSharedPtr()),
                                        field("key", int64()),
                                    }),
                                    {R"([
@@ -2778,38 +2781,39 @@ TEST(GroupBy, OneScalar) {
 }
 
 TEST(GroupBy, ListNumeric) {
-  for (const auto& type : NumericTypes()) {
+  for (const DataType* type : NumericTypes()) {
     for (auto use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       {
         SCOPED_TRACE("with nulls");
-        auto table =
-            TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
+        auto table = TableFromJSON(
+            schema({field("argument", type->GetSharedPtr()), field("key", int64())}),
+            {R"([
     [99,  1],
     [99,  1]
 ])",
-                                                                                     R"([
+             R"([
     [88,  2],
     [null,   3],
     [null,   3]
 ])",
-                                                                                     R"([
+             R"([
     [null,   4],
     [null,   4]
 ])",
-                                                                                     R"([
+             R"([
     [77,  null],
     [99,  3]
 ])",
-                                                                                     R"([
+             R"([
     [88,  2],
     [66, 2]
 ])",
-                                                                                     R"([
+             R"([
     [55, null],
     [44,  3]
   ])",
-                                                                                     R"([
+             R"([
     [33,    null],
     [22,    null]
   ])"});
@@ -2854,33 +2858,34 @@ TEST(GroupBy, ListNumeric) {
       }
       {
         SCOPED_TRACE("without nulls");
-        auto table =
-            TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
+        auto table = TableFromJSON(
+            schema({field("argument", type->GetSharedPtr()), field("key", int64())}),
+            {R"([
     [99,  1],
     [99,  1]
 ])",
-                                                                                     R"([
+             R"([
     [88,  2],
     [100,   3],
     [100,   3]
 ])",
-                                                                                     R"([
+             R"([
     [86,   4],
     [86,   4]
 ])",
-                                                                                     R"([
+             R"([
     [77,  null],
     [99,  3]
 ])",
-                                                                                     R"([
+             R"([
     [88,  2],
     [66, 2]
 ])",
-                                                                                     R"([
+             R"([
     [55, null],
     [44,  3]
   ])",
-                                                                                     R"([
+             R"([
     [33,    null],
     [22,    null]
   ])"});
@@ -2929,12 +2934,12 @@ TEST(GroupBy, ListNumeric) {
 
 TEST(GroupBy, ListBinaryTypes) {
   for (bool use_threads : {true, false}) {
-    for (const auto& type : BaseBinaryTypes()) {
+    for (const DataType* type : BaseBinaryTypes()) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       {
         SCOPED_TRACE("with nulls");
         auto table = TableFromJSON(schema({
-                                       field("argument0", type),
+                                       field("argument0", type->GetSharedPtr()),
                                        field("key", int64()),
                                    }),
                                    {R"([
@@ -2996,7 +3001,7 @@ TEST(GroupBy, ListBinaryTypes) {
       {
         SCOPED_TRACE("without nulls");
         auto table = TableFromJSON(schema({
-                                       field("argument0", type),
+                                       field("argument0", type->GetSharedPtr()),
                                        field("key", int64()),
                                    }),
                                    {R"([

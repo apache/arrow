@@ -612,8 +612,7 @@ std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type);
 
 /// \brief Scalar factory for non-null scalars
 template <typename Value>
-Result<std::shared_ptr<Scalar>> MakeScalar(std::shared_ptr<DataType> type,
-                                           Value&& value) {
+Result<std::shared_ptr<Scalar>> MakeScalar(TypeHolder type, Value&& value) {
   return MakeScalarImpl<Value&&>{type, std::forward<Value>(value), NULLPTR}.Finish();
 }
 
@@ -648,14 +647,14 @@ struct MakeScalarImpl {
     ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
     // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`
     out_ = std::make_shared<ScalarType>(
-        static_cast<ValueType>(static_cast<ValueRef>(value_)), std::move(type_));
+        static_cast<ValueType>(static_cast<ValueRef>(value_)), type_.GetSharedPtr());
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& t) {
     ARROW_ASSIGN_OR_RAISE(auto storage,
                           MakeScalar(t.storage_type(), static_cast<ValueRef>(value_)));
-    out_ = std::make_shared<ExtensionScalar>(std::move(storage), type_);
+    out_ = std::make_shared<ExtensionScalar>(std::move(storage), type_.GetSharedPtr());
     return Status::OK();
   }
 
@@ -668,7 +667,7 @@ struct MakeScalarImpl {
   Visit(const T& t) {
     using ScalarType = typename TypeTraits<T>::ScalarType;
     out_ = std::make_shared<ScalarType>(Buffer::FromString(std::move(value_)),
-                                        std::move(type_));
+                                        type_.GetSharedPtr());
     return Status::OK();
   }
 
@@ -682,7 +681,7 @@ struct MakeScalarImpl {
     return std::move(out_);
   }
 
-  std::shared_ptr<DataType> type_;
+  TypeHolder type_;
   ValueRef value_;
   std::shared_ptr<Scalar> out_;
 };

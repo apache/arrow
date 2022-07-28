@@ -29,6 +29,7 @@
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/test_util.h"
 
 namespace arrow {
@@ -36,7 +37,7 @@ namespace compute {
 
 TEST(TestCumulativeSum, Empty) {
   CumulativeSumOptions options;
-  for (auto ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     auto empty_arr = ArrayFromJSON(ty, "[]");
     auto empty_chunked = ChunkedArrayFromJSON(ty, {"[]"});
     CheckVectorUnary("cumulative_sum", empty_arr, empty_arr, &options);
@@ -49,7 +50,7 @@ TEST(TestCumulativeSum, Empty) {
 
 TEST(TestCumulativeSum, AllNulls) {
   CumulativeSumOptions options;
-  for (auto ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     auto nulls_arr = ArrayFromJSON(ty, "[null, null, null]");
     auto nulls_one_chunk = ChunkedArrayFromJSON(ty, {"[null, null, null]"});
     auto nulls_three_chunks = ChunkedArrayFromJSON(ty, {"[null]", "[null]", "[null]"});
@@ -72,7 +73,7 @@ TEST(TestCumulativeSum, ScalarInput) {
   CumulativeSumOptions has_start_no_skip(10);
   CumulativeSumOptions has_start_do_skip(10, true);
 
-  for (auto ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
                      ArrayFromJSON(ty, "[10]"), &no_start_no_skip);
     CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
@@ -167,7 +168,7 @@ TEST(TestCumulativeSum, IntegerOverflow) {
 
 TEST(TestCumulativeSum, NoStartNoSkip) {
   CumulativeSumOptions options;
-  for (auto ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     CheckVectorUnary("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
                      ArrayFromJSON(ty, "[1, 3, 6, 10, 15, 21]"), &options);
     CheckVectorUnary("cumulative_sum_checked", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
@@ -212,7 +213,7 @@ TEST(TestCumulativeSum, NoStartNoSkip) {
 
 TEST(TestCumulativeSum, NoStartDoSkip) {
   CumulativeSumOptions options(0, true);
-  for (auto ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     CheckVectorUnary("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
                      ArrayFromJSON(ty, "[1, 3, 6, 10, 15, 21]"), &options);
     CheckVectorUnary("cumulative_sum_checked", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
@@ -256,7 +257,7 @@ TEST(TestCumulativeSum, NoStartDoSkip) {
 
 TEST(TestCumulativeSum, HasStartNoSkip) {
   CumulativeSumOptions options(10);
-  for (auto ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     CheckVectorUnary("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
                      ArrayFromJSON(ty, "[11, 13, 16, 20, 25, 31]"), &options);
     CheckVectorUnary("cumulative_sum_checked", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
@@ -301,7 +302,7 @@ TEST(TestCumulativeSum, HasStartNoSkip) {
 
 TEST(TestCumulativeSum, HasStartDoSkip) {
   CumulativeSumOptions options(10, true);
-  for (auto ty : NumericTypes()) {
+  for (const DataType* ty : NumericTypes()) {
     CheckVectorUnary("cumulative_sum", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
                      ArrayFromJSON(ty, "[11, 13, 16, 20, 25, 31]"), &options);
     CheckVectorUnary("cumulative_sum_checked", ArrayFromJSON(ty, "[1, 2, 3, 4, 5, 6]"),
