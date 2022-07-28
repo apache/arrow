@@ -219,19 +219,19 @@ class AwsRetryStrategy : S3RetryStrategy {
 
   bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
-    return retry_strategy_.ShouldRetry(error, attempted_retries);
+    return retry_strategy_->ShouldRetry(error, attempted_retries);
   }
 
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                         int64_t attempted_retries) {
-    return retry_strategy_.CalculateDelayBeforeNextRetry(error, attempted_retries);
+    return retry_strategy_->CalculateDelayBeforeNextRetry(error, attempted_retries);
   }
 
  private:
   std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy_;
   static Aws::Client::AWSError<Aws::Client::CoreErrors> DetailToError(
       const S3RetryStrategy::AWSErrorDetail& detail) {
-    return std::make_shared<Aws::Client::AWSError<Aws::Client::CoreErrors>>(
+    return new Aws::Client::AWSError<Aws::Client::CoreErrors>(
         static_cast<Aws::Client::CoreErrors>(detail.error_type), detail.exception_name,
         detail.message, detail.should_retry);
   }
