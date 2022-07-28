@@ -1409,4 +1409,13 @@ test_that("can add in augmented fields", {
     regexp = error_regex
   )
 
+  # this hits the implicit_schema path by joining afterwards
+  expect_error(
+    ds %>%
+      mutate(file = add_filename()) %>%
+      left_join(open_dataset("another_dataset"), by = "int") %>%
+      collect(),
+    regexp = error_regex
+  )
+
 })
