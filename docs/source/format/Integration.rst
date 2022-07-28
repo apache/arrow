@@ -26,8 +26,14 @@ Our strategy for integration testing between Arrow implementations is:
   designed exclusively for Arrow's integration tests
 * Each implementation provides a testing executable capable of converting
   between the JSON and the binary Arrow file representation
-* The test executable is also capable of validating the contents of a binary
-  file against a corresponding JSON file
+* Each testing executable is used to generate binary Arrow file representations
+  from the JSON-based test datasets. These results are then used to call the
+  testing executable of each other implementation to validate the contents
+  against the corresponding JSON file.
+  - *ie.* the C++ testing executable generates binary arrow files from JSON
+  specified datasets. The resulting files are then used as input to the Java
+  testing executable for validation, confirming that the Java implementation 
+  can correctly read what the C++ implementation wrote.
 
 Running integration tests
 -------------------------
@@ -396,3 +402,102 @@ of ``listSize`` 4, then the data inside the "children" of that ``FieldData``
 will have count 28.
 
 For "null" type, ``BufferData`` does not contain any buffers.
+
+Archery Integration Test Cases
+--------------------------------------
+
+This list can make it easier to understand what manual testing may need to
+be done for any future Arrow Format changes by knowing what cases the automated
+integration testing actually tests.
+
+There are two types of integration test cases: the ones populated on the fly
+by the data generator in the Archery utility, and *gold* files that exist
+in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>` 
+repository.
+
+Data Generator Tests
+~~~~~~~~~~~~~~~~~~~~
+
+This is the high-level description of the cases which are generated and
+tested using the ``archery integration`` command (see ``get_generated_json_files`` 
+in ``datagen.py``):
+
+* Primitive Types
+  - No Batches
+  - Various Primitive Values
+  - Batches with Zero Length
+  - String and Binary Large offset cases
+* Null Type
+  * Trivial Null batches
+* Decimal128
+* Decimal256
+* DateTime with various units
+* Durations with various units
+* Intervals
+  - MonthDayNano interval is a separate case
+* Map Types
+  - Non-Canonical Maps
+* Nested Types
+  - Lists
+  - Structs
+  - Lists with Large Offsets
+* Unions
+* Custom Metadata
+* Schemas with Duplicate Field Names
+* Dictionary Types
+  - Signed indices
+  - Unsigned indices
+  - Nested dictionaries
+* Extension Types
+
+
+Gold File Integration Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pre-generated json and arrow IPC files (both file and stream format) exist
+in the `arrow-testing <https://github.com/apache/arrow-testing>` repository
+in the ``data/arrow-ipc-stream/integration`` directory. These serve as
+*gold* files that are assumed to be correct for use in testing. They are 
+referenced by ``runner.py`` in the code for the :ref:`Archery <archery>`
+utility. Below are the test cases which are covered by them:
+
+* Backwards Compatibility
+  - The following cases are tested using the 0.14.1 format:
+    + datetime
+    + decimals
+    + dictionaries
+    + intervals
+    + maps
+    + nested types (list, struct)
+    + primitives 
+    + primitive with no batches
+    + primitive with zero length batches
+  - The following is tested for 0.17.1 format:
+    + unions
+* Endianness
+  - The following cases are tested with both Little Endian and Big Endian versions for auto conversion
+    + custom metadata
+    + datetime
+    + decimals
+    + decimal256
+    + dictionaries
+    + dictionaries with unsigned indices
+    + record batches with duplicate fieldnames
+    + extension types
+    + interval types
+    + map types
+    + non-canonical map data
+    + nested types (lists, structs)
+    + nested dictionaries
+    + nested large offset types
+    + nulls
+    + primitive data
+    + large offset binary and strings
+    + primitives with no batches included
+    + primitive batches with zero length
+    + recursive nested types
+    + union types
+* Compression tests
+  - LZ4
+  - ZSTD
+* Batches with Shared Dictionaries
