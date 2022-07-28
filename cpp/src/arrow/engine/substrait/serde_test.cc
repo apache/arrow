@@ -706,7 +706,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
       },
       {
         "extension_uri_anchor": 18,
-        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+        "uri": ")" + kSubstraitArithmeticFunctionsUri +
                                R"("
       }
     ],
@@ -1117,7 +1117,7 @@ TEST(Substrait, JoinPlanBasic) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
+        "uri": ")" + kSubstraitComparisonFunctionsUri +
                                R"("
       }
     ],
@@ -1260,7 +1260,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
+        "uri": ")" + kSubstraitArithmeticFunctionsUri +
                                R"("
       }
     ],
