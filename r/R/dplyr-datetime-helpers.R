@@ -164,8 +164,11 @@ build_formats <- function(orders) {
   # Processing is needed (instead of passing
   # formats as-is) due to the processing of the character vector in parse_date_time()
 
+  orders <- gsub("[^A-Za-z]", "", orders)
+  orders <- gsub("Y", "y", orders)
+
   valid_formats <- "[a|A|b|B|d|H|I|j|m|Om|M|Op|p|q|OS|S|U|w|W|y|Y|r|R|T|z]"
-  invalid_orders <- !grepl(valid_formats, orders)
+  invalid_orders <- nchar(gsub(valid_formats, "", orders)) > 0
 
   if (any(invalid_orders)) {
     arrow_not_supported(
@@ -177,9 +180,6 @@ build_formats <- function(orders) {
       )
     )
   }
-
-  orders <- gsub("[^A-Za-z]", "", orders)
-  orders <- gsub("Y", "y", orders)
 
   # we separate "ym', "my", and "yq" from the rest of the `orders` vector and
   # transform them. `ym` and `yq` -> `ymd` & `my` -> `myd`
@@ -238,6 +238,7 @@ build_format_from_order <- function(order) {
     "%w" = "%w",
     "%W" = "%W",
     "%p" = "%p",
+    "%Op" = "%Op",
     "%z" = "%z",
     "%r" = c("%H", "%I-%p"),
     "%R" = c("%H-%M", "%I-%M-%p"),

@@ -2832,6 +2832,11 @@ test_that("build_formats() and build_format_from_order()", {
     '"vu" `orders` not supported in Arrow'
   )
 
+  expect_error(
+    build_formats(c("abc")),
+    '"abc" `orders` not supported in Arrow'
+  )
+
   expect_equal(
     build_formats("wIpz"),
     c("%w-%I-%p-%z", "%w%I%p%z")
