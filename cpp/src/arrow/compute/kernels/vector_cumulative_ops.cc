@@ -224,7 +224,7 @@ void AddCumulativeVectorKernel(std::shared_ptr<VectorFunction>& func) {
   kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
   kernel.signature =
-      KernelSignature::Make({InputType::Array(ty)}, OutputType(ValueDescr(ty)));
+      KernelSignature::Make({InputType(ty)}, OutputType(ty));
   kernel.exec =
       ArithmeticExecFromOp<CumulativeKernel, Op, ArrayKernelExec, OptionsType>(ty);
   kernel.exec_chunked = ArithmeticExecFromOp<CumulativeKernelChunked, Op,

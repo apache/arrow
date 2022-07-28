@@ -190,20 +190,73 @@ TEST(TestCumulativeOps, AllNulls) {
   TestAllNulls("cumulative_max", &max_options);
 }
 
-TEST(TestCumulativeOps, ScalarNotSupported) {
-  CumulativeSumOptions sum_options;
-  TestScalarNotSupported("cumulative_sum", &sum_options);
-  TestScalarNotSupported("cumulative_sum_checked", &sum_options);
+TEST(TestCumulativeSum, ScalarInput) {
+  CumulativeSumOptions no_start;
+  CumulativeSumOptions has_start(10);
 
-  CumulativeProductOptions product_options;
-  TestScalarNotSupported("cumulative_product", &product_options);
-  TestScalarNotSupported("cumulative_product_checked", &product_options);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &no_start);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &no_start);
 
-  CumulativeMinOptions min_options;
-  TestScalarNotSupported("cumulative_min", &min_options);
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[20]"), &has_start);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[20]"), &has_start);
 
-  CumulativeMaxOptions max_options;
-  TestScalarNotSupported("cumulative_max", &max_options);
+    CheckVectorUnary("cumulative_sum", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start);
+    CheckVectorUnary("cumulative_sum_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start);
+  }
+}
+
+TEST(TestCumulativeProduct, ScalarInput) {
+  CumulativeProductOptions no_start;
+  CumulativeProductOptions has_start(2);
+
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_product", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &no_start);
+    CheckVectorUnary("cumulative_product_checked", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &no_start);
+
+    CheckVectorUnary("cumulative_product", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[20]"), &has_start);
+    CheckVectorUnary("cumulative_product_checked", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[20]"), &has_start);
+
+    CheckVectorUnary("cumulative_product", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start);
+    CheckVectorUnary("cumulative_product_checked", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &no_start);
+  }
+}
+
+TEST(TestCumulativeMinMax, ScalarInput) {
+  CumulativeMinOptions min_no_start;
+  CumulativeMinOptions min_has_start(1.0);
+
+  CumulativeMaxOptions max_no_start;
+  CumulativeMaxOptions max_has_start(20.0);
+
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_min", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &min_no_start);
+    CheckVectorUnary("cumulative_max", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[10]"), &max_no_start);
+
+    CheckVectorUnary("cumulative_min", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[1]"), &min_has_start);
+    CheckVectorUnary("cumulative_max", ScalarFromJSON(ty, "10"),
+                     ArrayFromJSON(ty, "[20]"), &max_has_start);
+
+    CheckVectorUnary("cumulative_min", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &min_no_start);
+    CheckVectorUnary("cumulative_max", ScalarFromJSON(ty, "null"),
+                     ArrayFromJSON(ty, "[null]"), &max_no_start);
+  }
 }
 
 TEST(TestCumulativeOps, IntegerOverflow) {

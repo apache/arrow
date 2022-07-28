@@ -18,6 +18,7 @@
 from datetime import datetime
 from functools import lru_cache, partial
 import inspect
+from math import isnan
 import os
 import pickle
 import pytest
@@ -148,6 +149,9 @@ def test_option_class_equality():
         pc.PadOptions(5),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.CumulativeSumOptions(start=0, skip_nulls=False),
+        pc.CumulativeProductOptions(start=0, skip_nulls=False),
+        pc.CumulativeMinOptions(start=0, skip_nulls=False),
+        pc.CumulativeMaxOptions(start=0, skip_nulls=False),
         pc.QuantileOptions(),
         pc.RandomOptions(),
         pc.RankOptions(sort_keys="ascending",
@@ -2682,7 +2686,19 @@ def test_cumulative_max(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_max(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.max(pa.array([expected_arrays[i], strt]))
+            expected_values = []
+            if isinstance(strt, pa.Scalar):
+                strt = strt.as_py()
+
+            for val in expected_arrays[i]:
+                py_val = val.as_py()
+                maximum = max(py_val, strt) if py_val is not None else None
+                expected_values.append(maximum)
+
+            if isinstance(expected_arrays[i], pa.Array):
+                expected = pa.array(expected_values)
+            else:
+                expected = pa.chunked_array([expected_values])
             assert result.equals(expected)
 
     starts = [start, pa.scalar(start, type=pa.float32()),
@@ -2695,14 +2711,22 @@ def test_cumulative_max(start, skip_nulls):
         ]
         expected_arrays = [
             np.array([9.125, 27.25, 27.25]),
-            np.array([1, np.nan, np.nan, np.nan, np.nan, np.nan]),
-            np.array([1, np.nan, None, np.nan, None, np.nan])
-            if skip_nulls else np.array([1, np.nan, None, None, None, None])
+            np.array([1, 1, 2, 2, 4, 5]),
+            np.array([1, 1, None, 3, None, 5])
+            if skip_nulls else np.array([1, 1, None, None, None, None])
         ]
         for i, arr in enumerate(arrays):
             result = pc.cumulative_max(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.max(pa.array([expected_arrays[i], strt]))
+            expected_values = []
+            if isinstance(strt, pa.Scalar):
+                strt = strt.as_py()
+
+            for val in expected_arrays[i]:
+                maximum = max(val, strt) if val is not None else None
+                expected_values.append(maximum)
+
+            expected = pa.array(expected_values)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
@@ -2734,7 +2758,19 @@ def test_cumulative_min(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_min(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.min(pa.array([expected_arrays[i], strt]))
+            expected_values = []
+            if isinstance(strt, pa.Scalar):
+                strt = strt.as_py()
+
+            for val in expected_arrays[i]:
+                py_val = val.as_py()
+                minimum = min(py_val, strt) if py_val is not None else None
+                expected_values.append(minimum)
+
+            if isinstance(expected_arrays[i], pa.Array):
+                expected = pa.array(expected_values)
+            else:
+                expected = pa.chunked_array([expected_values])
             assert result.equals(expected)
 
     starts = [start, pa.scalar(start, type=pa.float32()),
@@ -2747,14 +2783,22 @@ def test_cumulative_min(start, skip_nulls):
         ]
         expected_arrays = [
             np.array([9.125, 9.125, 7.03125]),
-            np.array([1, np.nan, np.nan, np.nan, np.nan, np.nan]),
-            np.array([1, np.nan, None, np.nan, None, np.nan])
-            if skip_nulls else np.array([1, np.nan, None, None, None, None])
+            np.array([1, 1, 1, -3, -3, -3]),
+            np.array([1, 1, None, 1, None, 1])
+            if skip_nulls else np.array([1, 1, None, None, None, None])
         ]
         for i, arr in enumerate(arrays):
             result = pc.cumulative_min(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.min(pa.array([expected_arrays[i], strt]))
+            expected_values = []
+            if isinstance(strt, pa.Scalar):
+                strt = strt.as_py()
+
+            for val in expected_arrays[i]:
+                minimum = min(val, strt) if val is not None else None
+                expected_values.append(minimum)
+
+            expected = pa.array(expected_values)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
