@@ -384,7 +384,8 @@ Those functions can then be called from Python as well as C++ (and potentially
 any other implementation wrapping Arrow C++, such as the R ``arrow`` package`)
 using their registered function name.
 
-To register a UDF, a function name, function docs and input types and output type need to be defined.
+To register a UDF, a function name, function docs, input types and
+output type need to be defined. Using :func:`pyarrow.compute.register_scalar_function`,
 
 .. code-block:: python
 
@@ -427,14 +428,19 @@ You can call a user-defined function directly using :func:`pyarrow.compute.call_
    >>> pc.call_function("affine", [pa.scalar(2.5), pa.scalar(10.5), pa.scalar(5.5)])
    <pyarrow.DoubleScalar: 31.75>
 
-.. note::
-   Note that when the passed values to a function are all scalars, internally each scalar 
-   is passed as an array of size 1.
+Generalizing Usage
+------------------
 
-More generally, user-defined functions are usable everywhere a compute function
-can be referred to by its name. For example, they can be called on a dataset's
-column using :meth:`Expression._call`:
-Considering a series of scalar inputs,
+PyArrow UDFs accept input types of both scalar and array. Also it can have
+vivid combinations of these types. It is important that the UDF author must make sure,
+the UDF is defined such that it can handle such combinations well. 
+
+For instance, when the passed values to a function are all scalars, internally
+each scalar is passed as an array of size 1.
+
+To elaborate on this, let's consider a scenario where we have a function
+which computes a scalar `y` value based on scalar inputs 
+`m`, `x` and `c` using python arithmetic operations.
 
 .. code-block:: python
 
@@ -468,23 +474,35 @@ Considering a series of scalar inputs,
    >>> pc.call_function(function_name, [pa.scalar(10.1), pa.scalar(10.2), pa.scalar(20.2)])
    <pyarrow.DoubleScalar: 123.22>
 
-In case of all scalar inputs, make sure to return the final output as an array.
+Note that here the the final output is returned as an array. Depending the usage of vivid libraries
+inside the UDF, make sure it is generalized to support the passed input values and return suitable
+values. 
 
-More generally, UDFs can be used with tabular data by using `dataset` API and apply a UDF function on a
-dataset.
+Working with Datasets
+---------------------
+
+More generally, user-defined functions are usable everywhere a compute function
+can be referred to by its name. For example, they can be called on a dataset's
+column using :meth:`Expression._call`:
+
+Consider an instance where the data is in a table and you need to create a new 
+column using existing values in a column by using a mathematical formula.
+For instance, let's consider a simple affine operation on values using the
+mathematical expression, `y = mx + c`. We will be re-using the registered `affine`
+function.
 
 .. code-block:: python
 
    >>> import pyarrow.dataset as ds
-   >>> sample_data = {'trip_name': ['A', 'B', 'C', 'D'], 'total_amount($)': [10.21, 20.12, 45.32, 15.12]}
+   >>> sample_data = {'category': ['A', 'B', 'C', 'D'], 'value': [10.21, 20.12, 45.32, 15.12]}
    >>> data_table = pa.Table.from_pydict(sample_data)
    >>> dataset = ds.dataset(data_table)
-   >>> func_args = [pc.scalar(5.2), ds.field("total_amount($)"), pc.scalar(2.1)]
+   >>> func_args = [pc.scalar(5.2), ds.field("value"), pc.scalar(2.1)]
    >>> dataset.to_table(
    ...             columns={
-   ...                 'total_amount_projected($)': ds.field('')._call("affine", func_args),
-   ...                 'total_amount($)': ds.field('total_amount($)'),
-   ...                 'trip_name': ds.field('trip_name')
+   ...                 'projected_value': ds.field('')._call("affine", func_args),
+   ...                 'value': ds.field('value'),
+   ...                 'category': ds.field('category')
    ...             })
    pyarrow.Table
    total_amount_projected($): int64
@@ -494,3 +512,23 @@ dataset.
    total_amount_projected($): [[52,102,227,77]]
    total_amount($): [[10,20,45,15]]
    trip_name: [["A","B","C","D"]]
+
+Here note that the `ds.field('')_call()` returns an expression. The passed arguments
+to this function call are expressions not scalar values 
+(i.e `pc.scalar(5.2), ds.field("value"), pc.scalar(2.1)`). This expression is evaluated
+when the project operator uses this expression.
+
+Support
+-------
+
+It is defined that the current support is only for scalar functions. 
+A scalar function (:class:`arrow::compute::ScalarFunction`) executes elementwise operations
+on arrays or scalars. Generally, the result of such an execution doesn't
+depend on the order of values.
+
+There is a limitation in the support to UDFs in the current API.
+For instance, with project node, if a UDF is used as the compute function,
+it expects the function to be a scalar function. Although, this doesn't stop the user
+registering a non-scalar function and using it in a programme. 
+But it could lead to unexpected behaviors or errors when it is applied in such occasions. 
+The current UDF support could enhance with the addition of more settings to the API (i.e aggregate UDFs).
