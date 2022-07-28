@@ -9,3 +9,4 @@ pydata-sphinx-theme==0.8
 sphinx-design
 sphinx-copybutton
 sphinx>=4.2
+pandas
