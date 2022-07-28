@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/engine/substrait/plan_internal.h"
+
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/result.h"
@@ -23,6 +24,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/unreachable.h"
+
+#include "arrow/engine/substrait/registry.h"
 
 #include <unordered_map>
 
@@ -161,10 +164,21 @@ Result<compute::Declaration> MakeDeclaration(compute::ExecNode* node) {
   }
 }
 
+Status SetRelation(const std::unique_ptr<substrait::Rel>& plan,
+                   const std::unique_ptr<substrait::Rel>& partial_plan,
+                   const std::string& factory_name) {
+  if (factory_name == "scan" && partial_plan->has_read()) {
+    plan->set_allocated_read(partial_plan->release_read());
+  } else {
+    return Status::NotImplemented("Substrait converter ", factory_name, "not supported.");
+  }
+  return Status::OK();
+}
+
 Result<std::unique_ptr<substrait::PlanRel>> ToProto(const compute::ExecPlan& plan,
                                                     ExtensionSet* ext_set) {
   auto plan_rel = internal::make_unique<substrait::PlanRel>();
-
+  auto rel = internal::make_unique<substrait::Rel>();
   std::cout << "Plan Show" << std::endl;
 
   std::cout << plan.ToString() << std::endl;
@@ -173,15 +187,21 @@ Result<std::unique_ptr<substrait::PlanRel>> ToProto(const compute::ExecPlan& pla
   std::vector<compute::ExecNode*> node_vec;
   ARROW_RETURN_NOT_OK(TraversePlan(sinks[0], &node_vec));
 
+  SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
+
   std::cout << "Printing Node Vector" << std::endl;
   for (const auto& node : node_vec) {
     const auto* kind_name = node->kind_name();
     std::cout << kind_name << std::endl;
     const auto& output_schema = node->output_schema();
-    auto declaration = MakeDeclaration(node);
+    ARROW_ASSIGN_OR_RAISE(auto declaration, MakeDeclaration(node));
+    ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(kind_name));
     if (output_schema) {
       std::cout << "Schema >>> " << std::endl;
       std::cout << output_schema->ToString(false) << std::endl;
+      ARROW_ASSIGN_OR_RAISE(auto factory_rel,
+                            factory(output_schema, declaration, ext_set));
+      RETURN_NOT_OK(SetRelation(rel, factory_rel, kind_name));
     }
   }
 

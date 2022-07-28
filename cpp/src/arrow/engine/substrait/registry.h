@@ -48,11 +48,13 @@ class ARROW_EXPORT SubstraitConversionRegistry {
   using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
       const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*)>;
 
+  virtual Result<SubstraitConverter> GetConverter(const std::string& factory_name) = 0;
+
   virtual Status RegisterConverter(std::string factory_name,
                                    SubstraitConverter converter) = 0;
 };
 
-ARROW_EXPORT SubstraitConversionRegistry* GetSubstraitConversionRegistry();
+ARROW_EXPORT SubstraitConversionRegistry* default_substrait_conversion_registry();
 
 }  // namespace engine
 }  // namespace arrow

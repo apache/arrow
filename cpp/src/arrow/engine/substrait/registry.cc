@@ -27,7 +27,16 @@ namespace engine {
 
 class SubstraitConversionRegistryImpl : public SubstraitConversionRegistry {
  public:
-  SubstraitConversionRegistryImpl();
+  virtual ~SubstraitConversionRegistryImpl() {}
+
+  Result<SubstraitConverter> GetConverter(const std::string& factory_name) override {
+    auto it = name_to_converter_.find(factory_name);
+    if (it == name_to_converter_.end()) {
+      return Status::KeyError("SubstraitConverter named ", factory_name,
+                              " not present in registry.");
+    }
+    return it->second;
+  }
 
   Status RegisterConverter(std::string factory_name,
                            SubstraitConverter converter) override {
@@ -47,10 +56,12 @@ class SubstraitConversionRegistryImpl : public SubstraitConversionRegistry {
 };
 
 struct DefaultSubstraitConversionRegistry : SubstraitConversionRegistryImpl {
-  DefaultSubstraitConversionRegistry() {}
+  DefaultSubstraitConversionRegistry() {
+    DCHECK_OK(RegisterConverter("scan", ScanRelationConverter));
+  }
 };
 
-SubstraitConversionRegistry* GetSubstraitConversionRegistry() {
+SubstraitConversionRegistry* default_substrait_conversion_registry() {
   static DefaultSubstraitConversionRegistry impl_;
   return &impl_;
 }
