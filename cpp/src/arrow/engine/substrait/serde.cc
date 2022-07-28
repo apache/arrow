@@ -70,12 +70,12 @@ DeclarationFactory MakeConsumingSinkDeclarationFactory(
              compute::Declaration input,
              std::vector<std::string> names) -> Result<compute::Declaration> {
     std::shared_ptr<compute::SinkNodeConsumer> consumer = consumer_factory();
-    if (consumer == NULLPTR) {
+    if (consumer == nullptr) {
       return Status::Invalid("consumer factory is exhausted");
     }
     std::shared_ptr<compute::ExecNodeOptions> options =
         std::make_shared<compute::ConsumingSinkNodeOptions>(
-            compute::ConsumingSinkNodeOptions{consumer_factory(), std::move(names)});
+            compute::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
     return compute::Declaration::Sequence(
         {std::move(input), {"consuming_sink", options}});
   };
@@ -103,7 +103,7 @@ DeclarationFactory MakeWriteDeclarationFactory(
              compute::Declaration input,
              std::vector<std::string> names) -> Result<compute::Declaration> {
     std::shared_ptr<dataset::WriteNodeOptions> options = write_options_factory();
-    if (options == NULLPTR) {
+    if (options == nullptr) {
       return Status::Invalid("write options factory is exhausted");
     }
     compute::Declaration projected = ProjectByNamesDeclaration(input, names);
@@ -161,20 +161,20 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
 
 namespace {
 
-Result<compute::ExecPlan> MakeSingleDeclarationPlan(
+Result<std::shared_ptr<compute::ExecPlan>> MakeSingleDeclarationPlan(
     std::vector<compute::Declaration> declarations) {
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
     ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
-    std::ignore = declarations[0].AddToPlan(plan.get());
-    return *std::move(plan);
+    ARROW_RETURN_NOT_OK(declarations[0].AddToPlan(plan.get()));
+    return plan;
   }
 }
 
 }  // namespace
 
-Result<compute::ExecPlan> DeserializePlan(
+Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
   bool factory_done = false;
@@ -190,7 +190,7 @@ Result<compute::ExecPlan> DeserializePlan(
   return MakeSingleDeclarationPlan(declarations);
 }
 
-Result<compute::ExecPlan> DeserializePlan(
+Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out) {
   bool factory_done = false;
