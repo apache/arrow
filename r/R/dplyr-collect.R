@@ -109,6 +109,14 @@ implicit_schema <- function(.data) {
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
 
+  missing_fields <- .data$selected_columns[
+    setdiff(
+      names(.data$selected_columns),
+      names(old_schm)
+    )]
+
+  purrr::iwalk(missing_fields, ~if(.x$field_name == "__filename") old_schm <<- old_schm$AddField(0, field(.y, string())))
+
   if (is.null(.data$aggregations)) {
     new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
     if (!is.null(.data$join) && !(.data$join$type %in% JoinType[1:4])) {
