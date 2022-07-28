@@ -1605,7 +1605,7 @@ cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
     vtable.transform = _cb_transform
     src_codec = codecs.lookup(src_encoding)
     dest_codec = codecs.lookup(dest_encoding)
-    return makeStreamTransformFunc(move(vtable),
+    return MakeStreamTransformFunc(move(vtable),
                                    Transcoder(src_codec.incrementaldecoder(),
                                    dest_codec.incrementalencoder()))
 
