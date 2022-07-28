@@ -394,7 +394,7 @@ Status TableSinkNodeConsumer::Init(const std::shared_ptr<Schema>& schema,
 Status TableSinkNodeConsumer::Consume(ExecBatch batch) {
   auto guard = consume_mutex_.Lock();
   ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema_, pool_));
-  batches_.push_back(rb);
+  batches_.push_back(std::move(rb));
   return Status::OK();
 }
 

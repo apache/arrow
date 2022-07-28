@@ -37,19 +37,19 @@
 namespace arrow {
 namespace engine {
 
-constexpr const char* kSubstraitArithmeticFunctionsUri =
+const std::string kSubstraitArithmeticFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_arithmetic.yaml";
-constexpr const char* kSubstraitBooleanFunctionsUri =
+const std::string kSubstraitBooleanFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_boolean.yaml";
-constexpr const char* kSubstraitComparisonFunctionsUri =
+const std::string kSubstraitComparisonFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_comparison.yaml";
-constexpr const char* kSubstraitDatetimeFunctionsUri =
+const std::string kSubstraitDatetimeFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_datetime.yaml";
-constexpr const char* kSubstraitStringFunctionsUri =
+const std::string kSubstraitStringFunctionsUri =
     "https://github.com/substrait-io/substrait/blob/main/extensions/"
     "functions_string.yaml";
 
