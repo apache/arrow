@@ -1053,7 +1053,6 @@ Status CastImpl(const BaseListScalar& from, StringScalar* to) {
     } else {
       ss << result.ValueOrDie()->ToString();
     }
-
   }
   ss << '}';
   to->value = Buffer::FromString(ss.str());
