@@ -69,7 +69,7 @@ jobs:
         with:
           select-by-folder: matlab/test
   macos:
-    name: AMD64 MacOS 11 MATLAB
+    name: AMD64 macOS 11 MATLAB
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
