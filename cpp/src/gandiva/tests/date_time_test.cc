@@ -874,7 +874,6 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestTrunc) {
 TEST_F(TestProjector, TestTruncDate) {
   // schema for input fields
   auto field0 = field("f0", arrow::date64());

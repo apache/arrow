@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <charconv>
 #include "./epoch_time_point.h"
 
 extern "C" {
@@ -1004,47 +1005,153 @@ const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_leng
                                    out_len);
 }
 
-#define DATE_TRUNC(TYPE)                                                               \
-  FORCE_INLINE                                                                         \
-  const char* date_trunc##_##TYPE##_##utf8(int64_t context, gdv_##TYPE date,           \
-                                           const char* pattern_name,                   \
-                                           int32_t pattern_length, int32_t* out_len) { \
-    if (pattern_length <= 1) {                                                         \
-      gdv_fn_context_set_error_msg(                                                    \
-          context, "The parameter pattern_length is not contain a valid value");       \
-      *out_len = 0;                                                                    \
-      return "";                                                                       \
-    }                                                                                  \
-                                                                                       \
-    EpochTimePoint tp(date);                                                           \
-    const auto& dayWithoutHoursAndSec = tp.ClearTimeOfDay();                           \
-    int64_t millis;                                                                    \
-    bool foundPattern = false;                                                         \
-    for (int n = 0; n <= 2; n++) {                                                     \
-      if (pattern_length == PARTTERN_MONTH_LEN[n] &&                                   \
-          memcmp(pattern_name, PATTERN_MONTH[n], PARTTERN_MONTH_LEN[n]) == 0) {        \
-        millis = date_trunc_Month_timestamp(dayWithoutHoursAndSec.MillisSinceEpoch()); \
-        foundPattern = true;                                                           \
-        break;                                                                         \
-      } else if (pattern_length == PARTTERN_YEAR_LEN[n] &&                             \
-                 memcmp(pattern_name, PATTERN_YEAR[n], PARTTERN_YEAR_LEN[n]) == 0) {   \
-        millis = date_trunc_Year_timestamp(dayWithoutHoursAndSec.MillisSinceEpoch());  \
-        foundPattern = true;                                                           \
-        break;                                                                         \
-      }                                                                                \
-    }                                                                                  \
-                                                                                       \
-    if (!foundPattern) {                                                               \
-      gdv_fn_context_set_error_msg(context,                                            \
-                                   "The parameter pattern_name is not recognized");    \
-      *out_len = 0;                                                                    \
-      return "";                                                                       \
-    }                                                                                  \
-                                                                                       \
-    return castVARCHAR_timestamp_int64(context, millis, 10L, out_len);                 \
+const char* date_trunc_date64_utf8(int64_t context, gdv_date64 date,
+                                   const char* pattern_name, int32_t pattern_length,
+                                   int32_t* out_len) {
+  if (pattern_length <= 1) {
+    gdv_fn_context_set_error_msg(
+        context, "The parameter pattern_length is not contain a valid value");
+    *out_len = 0;
+    return "";
   }
 
-DATE_TYPES(DATE_TRUNC);
+  gdv_int64 year;
+  gdv_int64 month;
+  gdv_int64 day = 1;
+
+  bool foundPattern = false;
+  for (int n = 0; n <= 2; n++) {
+    if (pattern_length == PARTTERN_MONTH_LEN[n] &&
+        memcmp(pattern_name, PATTERN_MONTH[n], PARTTERN_MONTH_LEN[n]) == 0) {
+      year = extractYear_date64(date);
+      month = extractMonth_date64(date);
+
+      foundPattern = true;
+      break;
+    } else if (pattern_length == PARTTERN_YEAR_LEN[n] &&
+               memcmp(pattern_name, PATTERN_YEAR[n], PARTTERN_YEAR_LEN[n]) == 0) {
+      year = extractYear_date64(date);
+      month = 1;
+
+      foundPattern = true;
+      break;
+    }
+  }
+  if (!foundPattern) {
+    gdv_fn_context_set_error_msg(context, "The parameter pattern_name is not recognized");
+    *out_len = 0;
+    return "";
+  }
+
+  static const int kTimeStampStringLen = 10;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    return "";
+  }
+
+  *out_len = static_cast<gdv_int32>(kTimeStampStringLen);
+  if (*out_len > kTimeStampStringLen) {
+    *out_len = kTimeStampStringLen;
+  }
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
+}
+
+const char* date_trunc_timestamp_utf8(int64_t context, gdv_timestamp date,
+                                      const char* pattern_name, int32_t pattern_length,
+                                      int32_t* out_len) {
+  if (pattern_length <= 1) {
+    gdv_fn_context_set_error_msg(
+        context, "The parameter pattern_length is not contain a valid value");
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int64 year;
+  gdv_int64 month;
+  gdv_int64 day = 1;
+
+  bool foundPattern = false;
+  for (int n = 0; n <= 2; n++) {
+    if (pattern_length == PARTTERN_MONTH_LEN[n] &&
+        memcmp(pattern_name, PATTERN_MONTH[n], PARTTERN_MONTH_LEN[n]) == 0) {
+      year = extractYear_timestamp(date);
+      month = extractMonth_timestamp(date);
+
+      foundPattern = true;
+      break;
+    } else if (pattern_length == PARTTERN_YEAR_LEN[n] &&
+               memcmp(pattern_name, PATTERN_YEAR[n], PARTTERN_YEAR_LEN[n]) == 0) {
+      year = extractYear_timestamp(date);
+      month = 1;
+
+      foundPattern = true;
+      break;
+    }
+  }
+  if (!foundPattern) {
+    gdv_fn_context_set_error_msg(context, "The parameter pattern_name is not recognized");
+    *out_len = 0;
+    return "";
+  }
+
+  static const int kTimeStampStringLen = 10;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    return "";
+  }
+
+  *out_len = static_cast<gdv_int32>(kTimeStampStringLen);
+  if (*out_len > kTimeStampStringLen) {
+    *out_len = kTimeStampStringLen;
+  }
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
+}
 
 // Convert the seconds since epoch argument to timestamp
 #define TO_TIMESTAMP_INTEGER(TYPE)                              \
