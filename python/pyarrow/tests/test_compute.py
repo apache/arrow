@@ -18,7 +18,6 @@
 from datetime import datetime
 from functools import lru_cache, partial
 import inspect
-from math import isnan
 import os
 import pickle
 import pytest
