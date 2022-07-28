@@ -555,7 +555,7 @@ class AwsRetryStrategy : S3RetryStrategy {
         static_cast<Aws::Client::CoreErrors>(detail.error_type), detail.exception_name,
         detail.message, detail.should_retry);
   }
-}
+};
 
 // An AWS RetryStrategy that wraps a provided arrow::fs::S3RetryStrategy
 class WrappedRetryStrategy : public Aws::Client::RetryStrategy {
