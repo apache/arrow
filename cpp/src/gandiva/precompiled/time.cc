@@ -1045,7 +1045,8 @@ const char* date_trunc_date64_utf8(int64_t context, gdv_date64 date,
 
   static const int kTimeStampStringLen = 10;
   const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
-  char char_buffer[char_buffer_length];
+  //  char char_buffer[char_buffer_length];
+  char* char_buffer = new char[char_buffer_length];
 
   // yyyy-MM-dd
   int res = snprintf(char_buffer, char_buffer_length,
@@ -1117,9 +1118,11 @@ const char* date_trunc_timestamp_utf8(int64_t context, gdv_timestamp date,
     return "";
   }
 
-  static const int kTimeStampStringLen = 11;
+  static const int kTimeStampStringLen = 10;
   const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
-  char char_buffer[char_buffer_length];
+  //  char char_buffer[char_buffer_length];
+
+  char* char_buffer = new char[char_buffer_length];
 
   // yyyy-MM-dd
   int res = snprintf(char_buffer, char_buffer_length,
