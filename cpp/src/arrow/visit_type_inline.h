@@ -55,6 +55,16 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   return Status::NotImplemented("Type not implemented");
 }
 
+template <typename VISITOR>
+inline Status VisitScalarTypeInline(const DataType& type, VISITOR* visitor) {
+  switch (type.id()) {
+    ARROW_GENERATE_FOR_ALL_SCALAR_TYPES(TYPE_VISIT_INLINE);
+    default:
+      break;
+  }
+  return Status::NotImplemented("Type not implemented");
+}
+
 #undef TYPE_VISIT_INLINE
 
 #define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \

@@ -52,7 +52,7 @@ namespace arrow {
 template <typename VISITOR>
 inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
   switch (scalar.type->id()) {
-    ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
+    ARROW_GENERATE_FOR_ALL_SCALAR_TYPES(SCALAR_VISIT_INLINE);
     default:
       break;
   }
