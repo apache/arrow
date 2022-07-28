@@ -2705,36 +2705,74 @@ TEST_F(TestProjector, TestConvertFromNumTypes) {
   auto expr_convertDOUBLE =
       TreeExprBuilder::MakeExpression("convert_fromDOUBLE", {field0}, res_convertDOUBLE);
 
-  std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(
-      schema,
-      {expr_convertINT, expr_convertBIGINT, expr_convertFLOAT, expr_convertDOUBLE},
-      TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok());
+  std::shared_ptr<Projector> projector1;
+  auto status1 =
+      Projector::Make(schema, {expr_convertINT}, TestConfiguration(), &projector1);
+  EXPECT_TRUE(status1.ok());
+
+  std::shared_ptr<Projector> projector2;
+  auto status2 =
+      Projector::Make(schema, {expr_convertBIGINT}, TestConfiguration(), &projector2);
+  EXPECT_TRUE(status2.ok());
+
+  std::shared_ptr<Projector> projector3;
+  auto status3 =
+      Projector::Make(schema, {expr_convertFLOAT}, TestConfiguration(), &projector3);
+  EXPECT_TRUE(status3.ok());
+
+  std::shared_ptr<Projector> projector4;
+  auto status4 =
+      Projector::Make(schema, {expr_convertDOUBLE}, TestConfiguration(), &projector4);
+  EXPECT_TRUE(status4.ok());
 
   // Create a row-batch with some sample data
   int num_records = 1;
-  // 123
-  auto array0 = MakeArrowArrayBinary({{0x7B, 0x00, 0x00, 0x00}}, {true});
+  // Num: 123
+  auto arrayINT = MakeArrowArrayBinary({{0x7B, 0x00, 0x00, 0x00}}, {true});
+
+  // Num: 123
+  auto arrayBIGINT =
+      MakeArrowArrayBinary({{0x7B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}}, {true});
+
+  // Num: 50.0
+  auto arrayFLOAT = MakeArrowArrayBinary({{0x00, 0x00, 0x48, 0x42}}, {true});
+
+  // Num: 50.0
+  auto arrayDOUBLE =
+      MakeArrowArrayBinary({{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x49, 0x40}}, {true});
 
   auto exp_convertINT = MakeArrowArrayInt32({123}, {true});
   auto exp_convertBIGINT = MakeArrowArrayInt64({123}, {true});
-  auto exp_convertFLOAT = MakeArrowArrayFloat32({1.72E-43}, {true});
-  auto exp_convertDOUBLE = MakeArrowArrayFloat64({6.1E-322}, {true});
+  auto exp_convertFLOAT = MakeArrowArrayFloat32({50.0}, {true});
+  auto exp_convertDOUBLE = MakeArrowArrayFloat64({50.0}, {true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+  auto in_batchINT = arrow::RecordBatch::Make(schema, num_records, {arrayINT});
+  auto in_batchBIGINT = arrow::RecordBatch::Make(schema, num_records, {arrayBIGINT});
+  auto in_batchFLOAT = arrow::RecordBatch::Make(schema, num_records, {arrayFLOAT});
+  auto in_batchDOUBLE = arrow::RecordBatch::Make(schema, num_records, {arrayDOUBLE});
 
   // Evaluate expression
-  arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
-
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_convertINT, outputs.at(0));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_convertBIGINT, outputs.at(1));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_convertFLOAT, outputs.at(2));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_convertDOUBLE, outputs.at(3));
+  arrow::ArrayVector outputsINT;
+  status1 = projector1->Evaluate(*in_batchINT, pool_, &outputsINT);
+  EXPECT_TRUE(status1.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertINT, outputsINT.at(0));
+
+  arrow::ArrayVector outputsBIGINT;
+  status2 = projector2->Evaluate(*in_batchBIGINT, pool_, &outputsBIGINT);
+  EXPECT_TRUE(status2.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertBIGINT, outputsBIGINT.at(0));
+
+  arrow::ArrayVector outputsFLOAT;
+  status3 = projector3->Evaluate(*in_batchFLOAT, pool_, &outputsFLOAT);
+  EXPECT_TRUE(status3.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertFLOAT, outputsFLOAT.at(0));
+
+  arrow::ArrayVector outputsDOUBLE;
+  status4 = projector4->Evaluate(*in_batchDOUBLE, pool_, &outputsDOUBLE);
+  EXPECT_TRUE(status4.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp_convertDOUBLE, outputsDOUBLE.at(0));
 }
 
 TEST_F(TestProjector, TestAesEncryptDecrypt) {

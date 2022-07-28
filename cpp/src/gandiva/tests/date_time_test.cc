@@ -828,4 +828,92 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
+
+TEST_F(TestProjector, TestConvertFromNumTypes) {
+  // schema for input fields
+  auto f0 = field("f0", arrow::binary());
+  auto schema = arrow::schema({f0});
+
+  // res_convertDATE_EPOCH fields
+  auto res_convertDATE_EPOCH = field("output", arrow::int64());
+  auto res_convertTIME_EPOCH = field("output", arrow::int32());
+  auto res_convertTIMESTAMP_EPOCH = field("output", arrow::int64());
+
+  auto expr_date_epoch = TreeExprBuilder::MakeExpression("convert_fromDATE_EPOCH", {f0},
+                                                         res_convertDATE_EPOCH);
+
+  auto expr_time_epoch = TreeExprBuilder::MakeExpression("convert_fromTIME_EPOCH", {f0},
+                                                         res_convertDATE_EPOCH);
+
+  auto expr_timestamp_epoch = TreeExprBuilder::MakeExpression(
+      "convert_fromTIMESTAMP_EPOCH", {f0}, res_convertDATE_EPOCH);
+
+  std::shared_ptr<Projector> projector1;
+  auto status1 =
+      Projector::Make(schema, {expr_date_epoch}, TestConfiguration(), &projector1);
+  ASSERT_TRUE(status1.ok());
+
+  std::shared_ptr<Projector> projector2;
+  auto status2 =
+      Projector::Make(schema, {expr_time_epoch}, TestConfiguration(), &projector2);
+  ASSERT_TRUE(status2.ok());
+
+  std::shared_ptr<Projector> projector3;
+  auto status3 =
+      Projector::Make(schema, {expr_timestamp_epoch}, TestConfiguration(), &projector3);
+  ASSERT_TRUE(status3.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 1;
+  // Date = 1970-12-29
+  auto arrayDate =
+      MakeArrowArrayBinary({{0x00, 0x18, 0x3E, 0x48, 0x07, 0x00, 0x00, 0x00}}, {true});
+
+  // Time = 09:50:10
+  auto arrayTime =
+      MakeArrowArrayBinary({{0x50, 0x50, 0x1C, 0x02, 0x00, 0x00, 0x00, 0x00}}, {true});
+
+  // Datetime = 1970-12-29 09:50:10.000
+  auto arrayTimestamp =
+      MakeArrowArrayBinary({{0x50, 0x68, 0x5A, 0x4A, 0x07, 0x00, 0x00, 0x00}}, {true});
+
+  time_t epoch = Epoch();
+  // expected res_convertDATE_EPOCH
+  std::vector<int64_t> exp_data = {MillisSince(epoch, 1970, 12, 29, 0, 0, 0, 0)};
+  auto exp_DateEpoch =
+      MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), exp_data, {true});
+
+  // expected res_convertTIME_EPOCH
+  std::vector<int64_t> exp_time = {MillisSince(epoch, 0, 0, 0, 9, 50, 10, 0)};
+  auto exp_TimeEpoch =
+      MakeArrowTypeArray<arrow::Date32Type, int64_t>(date32(), exp_data, {true});
+
+  // expected res_convertDATE_EPOCH
+  std::vector<int64_t> exp_timestamp = {MillisSince(epoch, 1970, 12, 29, 9, 50, 10, 0)};
+  auto exp_TimestampEpoch = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      timestamp(arrow::TimeUnit::MILLI), exp_data, {true});
+
+  // prepare input record batch
+  auto in_batchDATE = arrow::RecordBatch::Make(schema, num_records, {arrayDate});
+  auto in_batchTIME = arrow::RecordBatch::Make(schema, num_records, {arrayTime});
+  auto in_batchTIMESTAMP =
+      arrow::RecordBatch::Make(schema, num_records, {arrayTimestamp});
+
+  // Evaluate expression
+  // Validate results
+  arrow::ArrayVector outputsDATE;
+  status1 = projector1->Evaluate(*in_batchDATE, pool_, &outputsDATE);
+  EXPECT_TRUE(status1.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp_DateEpoch, outputsDATE.at(0));
+
+  arrow::ArrayVector outputsTIME;
+  status2 = projector2->Evaluate(*in_batchDATE, pool_, &outputsTIME);
+  EXPECT_TRUE(status2.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp_DateEpoch, outputsTIME.at(0));
+
+  arrow::ArrayVector outputsTIMESTAMP;
+  status3 = projector3->Evaluate(*in_batchDATE, pool_, &outputsTIMESTAMP);
+  EXPECT_TRUE(status3.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp_DateEpoch, outputsTIMESTAMP.at(0));
+}
 }  // namespace gandiva
