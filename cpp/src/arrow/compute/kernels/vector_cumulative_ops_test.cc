@@ -247,10 +247,8 @@ TEST(TestCumulativeMinMax, ScalarInput) {
     CheckVectorUnary("cumulative_max", ScalarFromJSON(ty, "10"),
                      ArrayFromJSON(ty, "[10]"), &max_no_start);
 
-    CheckVectorUnary("cumulative_min", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[1]"), &min_has_start);
-    CheckVectorUnary("cumulative_max", ScalarFromJSON(ty, "10"),
-                     ArrayFromJSON(ty, "[20]"), &max_has_start);
+    CheckVectorUnary("cumulative_min", ScalarFromJSON(ty, "10"), ArrayFromJSON(ty, "[1]"),
+                     &min_has_start);
 
     CheckVectorUnary("cumulative_min", ScalarFromJSON(ty, "null"),
                      ArrayFromJSON(ty, "[null]"), &min_no_start);
