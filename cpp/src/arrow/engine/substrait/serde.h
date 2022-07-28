@@ -28,6 +28,7 @@
 #include "arrow/compute/exec/options.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
 #include "arrow/util/string_view.h"
@@ -51,11 +52,13 @@ using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
 /// Plan is returned here.
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
-    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
+    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a single-relation Substrait Plan message to an execution plan
 ///
@@ -68,12 +71,14 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 /// relation
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// Plan is returned here.
 /// \return an ExecNode corresponding to the single toplevel relation in the Substrait
 /// Plan
 Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
-    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
+    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
 
 /// Factory function type for generating the write options of a node consuming the batches
 /// produced by each toplevel Substrait relation when deserializing a Substrait Plan.
@@ -91,11 +96,13 @@ using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOpti
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
 /// Plan is returned here.
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
-    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
+    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a single-relation Substrait Plan message to an execution plan
 ///
@@ -109,11 +116,13 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 /// \param[in] registry an extension-id-registry to use, or null for the default one.
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
 /// Plan is returned here.
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
-    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR);
+    const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
@@ -121,21 +130,25 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
 /// message
 /// \param[in] ext_set the extension mapping to use, normally provided by the
 /// surrounding Plan message
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return the corresponding Arrow data type
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf,
-                                                  const ExtensionSet& ext_set);
+Result<std::shared_ptr<DataType>> DeserializeType(
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Serializes an Arrow type to a Substrait Type message
 ///
 /// \param[in] type the Arrow data type to serialize
 /// \param[in,out] ext_set the extension mapping to use; may be updated to add a
 /// mapping for the given type
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a buffer containing the protobuf serialization of the corresponding Substrait
 /// Type message
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type,
-                                              ExtensionSet* ext_set);
+Result<std::shared_ptr<Buffer>> SerializeType(
+    const DataType& type, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a Substrait NamedStruct message to an Arrow schema
 ///
@@ -143,21 +156,25 @@ Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type,
 /// NamedStruct message
 /// \param[in] ext_set the extension mapping to use, normally provided by the
 /// surrounding Plan message
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return the corresponding Arrow schema
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,
-                                                  const ExtensionSet& ext_set);
+Result<std::shared_ptr<Schema>> DeserializeSchema(
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Serializes an Arrow schema to a Substrait NamedStruct message
 ///
 /// \param[in] schema the Arrow schema to serialize
 /// \param[in,out] ext_set the extension mapping to use; may be updated to add
 /// mappings for the types used in the schema
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a buffer containing the protobuf serialization of the corresponding Substrait
 /// NamedStruct message
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
-                                                ExtensionSet* ext_set);
+Result<std::shared_ptr<Buffer>> SerializeSchema(
+    const Schema& schema, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a Substrait Expression message to a compute expression
 ///
@@ -165,21 +182,25 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
 /// Expression message
 /// \param[in] ext_set the extension mapping to use, normally provided by the
 /// surrounding Plan message
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return the corresponding Arrow compute expression
 ARROW_ENGINE_EXPORT
-Result<compute::Expression> DeserializeExpression(const Buffer& buf,
-                                                  const ExtensionSet& ext_set);
+Result<compute::Expression> DeserializeExpression(
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Serializes an Arrow compute expression to a Substrait Expression message
 ///
 /// \param[in] expr the Arrow compute expression to serialize
 /// \param[in,out] ext_set the extension mapping to use; may be updated to add
 /// mappings for the types used in the expression
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a buffer containing the protobuf serialization of the corresponding Substrait
 /// Expression message
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& expr,
-                                                    ExtensionSet* ext_set);
+Result<std::shared_ptr<Buffer>> SerializeExpression(
+    const compute::Expression& expr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
 ///
@@ -187,9 +208,11 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& e
 /// Rel message
 /// \param[in] ext_set the extension mapping to use, normally provided by the
 /// surrounding Plan message
+/// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return the corresponding ExecNode declaration
 ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(
-    const Buffer& buf, const ExtensionSet& ext_set);
+    const Buffer& buf, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options = {});
 
 namespace internal {
 
