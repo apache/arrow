@@ -1117,7 +1117,7 @@ const char* date_trunc_timestamp_utf8(int64_t context, gdv_timestamp date,
     return "";
   }
 
-  static const int kTimeStampStringLen = 10;
+  static const int kTimeStampStringLen = 11;
   const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
   char char_buffer[char_buffer_length];
 
