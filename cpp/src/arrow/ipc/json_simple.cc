@@ -560,7 +560,7 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
     auto key_builder = key_converter_->builder();
     auto item_builder = item_converter_->builder();
     builder_ = std::make_shared<MapBuilder>(default_memory_pool(), key_builder,
-                                            item_builder, type_);
+                                            item_builder, type_->GetSharedPtr());
     return Status::OK();
   }
 

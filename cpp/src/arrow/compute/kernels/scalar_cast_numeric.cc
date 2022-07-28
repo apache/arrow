@@ -677,7 +677,7 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
   // Cast from integer
   for (const DataType* in_ty : IntTypes()) {
     auto exec = GenerateInteger<CastFunctor, Decimal128Type>(in_ty->id());
-    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, exec));
   }
 
   // Cast from other decimal
@@ -706,7 +706,7 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   // Cast from integer
   for (const DataType* in_ty : IntTypes()) {
     auto exec = GenerateInteger<CastFunctor, Decimal256Type>(in_ty->id());
-    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, exec));
   }
 
   // Cast from other decimal

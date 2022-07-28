@@ -340,7 +340,7 @@ struct BinaryTemporalFactory {
   template <typename Duration, typename InType>
   void AddKernel(InputType in_type) {
     auto exec = ExecTemplate<Op, Duration, InType, OutType>::Exec;
-    DCHECK_OK(func->AddKernel({in_type, in_type}, out_type, std::move(exec), init));
+    DCHECK_OK(func->AddKernel({in_type, in_type}, out_type, exec, init));
   }
 };
 

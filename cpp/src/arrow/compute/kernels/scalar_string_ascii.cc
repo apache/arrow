@@ -32,6 +32,10 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+Result<TypeHolder> OutputListOf(KernelContext*, const std::vector<TypeHolder>& types) {
+  return list(types[0].GetSharedPtr());
+}
+
 namespace {
 
 // ----------------------------------------------------------------------
@@ -871,13 +875,13 @@ void AddAsciiStringLength(FunctionRegistry* registry) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int32Type, BinaryLength>(
             ty);
-    DCHECK_OK(func->AddKernel({ty}, int32(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({ty}, int32(), exec));
   }
   for (const auto& ty : {large_binary(), large_utf8()}) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int64Type, BinaryLength>(
             ty);
-    DCHECK_OK(func->AddKernel({ty}, int64(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({ty}, int64(), exec));
   }
   DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),
                             BinaryLength::FixedSizeExec));
@@ -1601,8 +1605,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
                                                  match_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainSubstringMatcher>(ty);
-      DCHECK_OK(
-          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -1612,8 +1615,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec =
           GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
-      DCHECK_OK(
-          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -1622,8 +1624,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
         std::make_shared<ScalarFunction>("ends_with", Arity::Unary(), ends_with_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
-      DCHECK_OK(
-          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -1633,8 +1634,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
                                                  match_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, RegexSubstringMatcher>(ty);
-      DCHECK_OK(
-          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -1643,8 +1643,7 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
         std::make_shared<ScalarFunction>("match_like", Arity::Unary(), match_like_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchLike>(ty);
-      DCHECK_OK(
-          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+      DCHECK_OK(func->AddKernel({ty}, boolean(), exec, MatchSubstringState::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -2120,7 +2119,7 @@ void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
                                                  replace_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringPlain>(ty);
-      ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
+      ScalarKernel kernel{{ty}, ty, exec, ReplaceState::Init};
       kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
       DCHECK_OK(func->AddKernel(std::move(kernel)));
     }
@@ -2132,7 +2131,7 @@ void AddAsciiStringReplaceSubstring(FunctionRegistry* registry) {
         "replace_substring_regex", Arity::Unary(), replace_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<ReplaceSubstringRegex>(ty);
-      ScalarKernel kernel{{ty}, ty, std::move(exec), ReplaceState::Init};
+      ScalarKernel kernel{{ty}, ty, exec, ReplaceState::Init};
       kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
       DCHECK_OK(func->AddKernel(std::move(kernel)));
     }
@@ -2476,8 +2475,7 @@ void AddAsciiStringSplitPattern(FunctionRegistry* registry) {
                                                split_pattern_doc);
   for (const auto& ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitPatternExec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
-                              SplitPatternState::Init));
+    DCHECK_OK(func->AddKernel({ty}, OutputListOf, exec, SplitPatternState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -2547,8 +2545,7 @@ void AddAsciiStringSplitWhitespace(FunctionRegistry* registry) {
 
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
-                              StringSplitState::Init));
+    DCHECK_OK(func->AddKernel({ty}, OutputListOf, exec, StringSplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -2617,8 +2614,7 @@ void AddAsciiStringSplitRegex(FunctionRegistry* registry) {
                                                split_pattern_regex_doc);
   for (const DataType* ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitRegexExec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
-                              SplitPatternState::Init));
+    DCHECK_OK(func->AddKernel({ty}, OutputListOf, exec, SplitPatternState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -3020,8 +3016,8 @@ void AddBinaryJoinForListType(ScalarFunction* func) {
   for (const DataType* ty : BaseBinaryTypes()) {
     auto exec =
         GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ArrayKernelExec, ListType>(*ty);
-    auto list_ty = std::make_shared<ListType>(ty->GetSharedPtr());
-    DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, std::move(exec)));
+    DCHECK_OK(func->AddKernel({match::ListOf(ty->id(), ListType::type_id), InputType(ty)},
+                              ty, exec));
   }
 }
 

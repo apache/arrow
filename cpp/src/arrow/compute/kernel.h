@@ -141,6 +141,9 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
 
+ARROW_EXPORT std::shared_ptr<TypeMatcher> ListOf(Type::type type_id,
+                                                 Type::type list_type = Type::LIST);
+
 }  // namespace match
 
 /// \brief An object used for type-checking arguments to be passed to a kernel
@@ -169,8 +172,7 @@ class ARROW_EXPORT InputType {
   InputType(const DataType* type)  // NOLINT implicit construction
       : kind_(EXACT_TYPE), type_(type) {}
 
-  InputType(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
-      : InputType(type.get()) {}
+  InputType(const std::shared_ptr<DataType>& type);  // NOLINT implicit construction
 
   /// \brief Use the passed TypeMatcher to type check.
   InputType(std::shared_ptr<TypeMatcher> type_matcher)  // NOLINT implicit construction
@@ -268,8 +270,7 @@ class ARROW_EXPORT OutputType {
       : kind_(FIXED), type_(type) {}
 
   /// \brief Output an exact type
-  OutputType(const std::shared_ptr<DataType>& type)  // NOLINT implicit construction
-      : OutputType(type.get()) {}
+  OutputType(const std::shared_ptr<DataType>& type);  // NOLINT implicit construction
 
   /// \brief Output a computed type depending on actual input types
   OutputType(Resolver resolver)  // NOLINT implicit construction

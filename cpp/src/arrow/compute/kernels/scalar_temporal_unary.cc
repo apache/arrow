@@ -76,18 +76,12 @@ using StrptimeState = OptionsWrapper<StrptimeOptions>;
 using AssumeTimezoneState = OptionsWrapper<AssumeTimezoneOptions>;
 using RoundTemporalState = OptionsWrapper<RoundTemporalOptions>;
 
-const std::shared_ptr<DataType>& IsoCalendarType() {
-  static auto type = struct_({field("iso_year", int64()), field("iso_week", int64()),
-                              field("iso_day_of_week", int64())});
-  return type;
-}
+static auto kIsoCalendarType =
+    struct_({field("iso_year", int64()), field("iso_week", int64()),
+             field("iso_day_of_week", int64())});
 
-const std::shared_ptr<DataType>& YearMonthDayType() {
-  static auto type =
-      struct_({field("year", int64()), field("month", int64()), field("day", int64())});
-
-  return type;
-}
+static auto kYearMonthDayType =
+    struct_({field("year", int64()), field("month", int64()), field("day", int64())});
 
 Status ValidateDayOfWeekOptions(const DayOfWeekOptions& options) {
   if (options.week_start < 1 || 7 < options.week_start) {
@@ -338,7 +332,7 @@ struct YearMonthDay {
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
 
     std::unique_ptr<ArrayBuilder> array_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), YearMonthDayType(), &array_builder));
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), kYearMonthDayType, &array_builder));
     StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
     RETURN_NOT_OK(struct_builder->Reserve(in.length));
 
@@ -1479,7 +1473,7 @@ struct ISOCalendar {
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
 
     std::unique_ptr<ArrayBuilder> array_builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), IsoCalendarType(), &array_builder));
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), kIsoCalendarType, &array_builder));
     StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
     RETURN_NOT_OK(struct_builder->Reserve(in.length));
 
@@ -1532,7 +1526,7 @@ struct UnaryTemporalFactory {
   template <typename Duration, typename InType>
   void AddKernel(InputType in_type) {
     auto exec = ExecTemplate<Op, Duration, InType, OutType>::Exec;
-    ScalarKernel kernel({std::move(in_type)}, out_type, std::move(exec), init);
+    ScalarKernel kernel({std::move(in_type)}, out_type, exec, init);
     DCHECK_OK(func->AddKernel(kernel));
   }
 };
@@ -1835,7 +1829,7 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
 
   auto year_month_day =
       SimpleUnaryTemporalFactory<YearMonthDay>::Make<WithDates, WithTimestamps>(
-          "year_month_day", YearMonthDayType(), year_month_day_doc);
+          "year_month_day", kYearMonthDayType.get(), year_month_day_doc);
   DCHECK_OK(registry->AddFunction(std::move(year_month_day)));
 
   static const auto default_day_of_week_options = DayOfWeekOptions::Defaults();
@@ -1887,7 +1881,7 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
 
   auto iso_calendar =
       SimpleUnaryTemporalFactory<ISOCalendar>::Make<WithDates, WithTimestamps>(
-          "iso_calendar", IsoCalendarType(), iso_calendar_doc);
+          "iso_calendar", kIsoCalendarType.get(), iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
   auto quarter =

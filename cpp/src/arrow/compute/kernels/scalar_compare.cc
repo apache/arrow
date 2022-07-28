@@ -428,20 +428,19 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   for (const DataType* ty : BaseBinaryTypes()) {
     auto exec =
         GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
-    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
   }
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
-    DCHECK_OK(
-        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, boolean(), exec));
   }
 
   {
     auto exec =
         applicator::ScalarBinaryEqualTypes<BooleanType, FixedSizeBinaryType, Op>::Exec;
     auto ty = InputType(Type::FIXED_SIZE_BINARY);
-    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({ty, ty}, boolean(), exec));
   }
 
   return func;

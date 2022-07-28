@@ -955,6 +955,10 @@ static inline bool is_base_binary_like(Type::type type_id) {
   return false;
 }
 
+static inline bool is_parameter_free(Type::type type_id) {
+  return is_primitive(type_id) || is_base_binary_like(type_id) || type_id == Type::NA;
+}
+
 static inline bool is_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:

@@ -454,7 +454,7 @@ VectorKernel NewModeKernel(Type::type in_type, ArrayKernelExec exec,
   kernel.can_execute_chunkwise = false;
   kernel.output_chunked = false;
   kernel.signature = KernelSignature::Make({InputType(in_type)}, ModeType);
-  kernel.exec = std::move(exec);
+  kernel.exec = exec;
   kernel.exec_chunked = exec_chunked;
   return kernel;
 }

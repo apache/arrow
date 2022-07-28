@@ -114,6 +114,42 @@ std::shared_ptr<TypeMatcher> SameTypeId(Type::type type_id) {
   return std::make_shared<SameTypeIdMatcher>(type_id);
 }
 
+class ListOfMatcher : public TypeMatcher {
+ public:
+  explicit ListOfMatcher(Type::type accepted_id, Type::type accepted_list_id)
+      : accepted_id_(accepted_id), accepted_list_id_(accepted_list_id) {}
+
+  bool Matches(const DataType& type) const override {
+    if (type.id() != accepted_list_id_) return false;
+    return checked_cast<const BaseListType&>(type).value_type()->id() == accepted_id_;
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "list of Type::" << ::arrow::internal::ToString(accepted_id_);
+    return ss.str();
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const ListOfMatcher*>(&other);
+    if (casted == nullptr) {
+      return false;
+    }
+    return this->accepted_id_ == casted->accepted_id_;
+  }
+
+ private:
+  Type::type accepted_id_;
+  Type::type accepted_list_id_;
+};
+
+std::shared_ptr<TypeMatcher> ListOf(Type::type type_id, Type::type list_type_id) {
+  return std::make_shared<ListOfMatcher>(type_id, list_type_id);
+}
+
 template <typename ArrowType>
 class TimeUnitMatcher : public TypeMatcher {
   using ThisType = TimeUnitMatcher<ArrowType>;
@@ -280,6 +316,10 @@ std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
 // ----------------------------------------------------------------------
 // InputType
 
+InputType::InputType(const std::shared_ptr<DataType>& type) : InputType(type.get()) {
+  DCHECK(is_parameter_free(type->id()));
+}
+
 size_t InputType::Hash() const {
   size_t result = kHashSeed;
   hash_combine(result, static_cast<int>(kind_));
@@ -368,6 +408,10 @@ const TypeMatcher& InputType::type_matcher() const {
 
 // ----------------------------------------------------------------------
 // OutputType
+
+OutputType::OutputType(const std::shared_ptr<DataType>& type) : OutputType(type.get()) {
+  DCHECK(is_parameter_free(type->id()));
+}
 
 Result<TypeHolder> OutputType::Resolve(KernelContext* ctx,
                                        const std::vector<TypeHolder>& types) const {

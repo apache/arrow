@@ -43,7 +43,7 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Transformer>(ty);
-    DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec)));
+    DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -675,12 +675,12 @@ void AddUtf8StringLength(FunctionRegistry* registry) {
       std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), utf8_length_doc);
   {
     auto exec = applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
-    DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({utf8()}, int32(), exec));
   }
   {
     auto exec =
         applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
-    DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({large_utf8()}, int64(), exec));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -1073,8 +1073,8 @@ void AddUtf8StringReplaceSlice(FunctionRegistry* registry) {
 
   for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Utf8ReplaceSlice>(ty);
-    DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec),
-                              ReplaceStringSliceTransformBase::State::Init));
+    DCHECK_OK(
+        func->AddKernel({ty}, ty, exec, ReplaceStringSliceTransformBase::State::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -1261,8 +1261,7 @@ void AddUtf8StringSlice(FunctionRegistry* registry) {
                                                utf8_slice_codeunits_doc);
   for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SliceCodeunits>(ty);
-    DCHECK_OK(
-        func->AddKernel({ty}, ty, std::move(exec), SliceCodeunitsTransform::State::Init));
+    DCHECK_OK(func->AddKernel({ty}, ty, exec, SliceCodeunitsTransform::State::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -1347,8 +1346,7 @@ void AddUtf8StringSplitWhitespace(FunctionRegistry* registry) {
                                        utf8_split_whitespace_doc, &default_options);
   for (const DataType* ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty->GetSharedPtr())}, std::move(exec),
-                              StringSplitState::Init));
+    DCHECK_OK(func->AddKernel({ty}, OutputListOf, exec, StringSplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

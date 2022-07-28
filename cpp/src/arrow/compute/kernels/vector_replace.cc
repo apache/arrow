@@ -812,7 +812,7 @@ void AddKernel(Type::type type_id, std::shared_ptr<KernelSignature> signature,
   }
   kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
   kernel.signature = std::move(signature);
-  kernel.exec = std::move(exec);
+  kernel.exec = exec;
   kernel.exec_chunked = exec_chunked;
   kernel.can_execute_chunkwise = false;
   kernel.output_chunked = false;

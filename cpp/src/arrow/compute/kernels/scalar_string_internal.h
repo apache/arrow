@@ -152,7 +152,7 @@ void MakeUnaryStringBatchKernel(
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<ExecFunctor>(ty);
-    ScalarKernel kernel{{ty}, ty, std::move(exec)};
+    ScalarKernel kernel{{ty}, ty, exec};
     kernel.mem_allocation = mem_allocation;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
@@ -238,7 +238,7 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<StringPredicateFunctor, Predicate>(ty);
-    DCHECK_OK(func->AddKernel({ty}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({ty}, boolean(), exec));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -409,6 +409,8 @@ struct StringSplitExec {
 };
 
 using StringSplitState = OptionsWrapper<SplitOptions>;
+
+Result<TypeHolder> OutputListOf(KernelContext*, const std::vector<TypeHolder>& types);
 
 }  // namespace internal
 }  // namespace compute

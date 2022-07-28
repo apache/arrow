@@ -2663,7 +2663,7 @@ void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar
                                  const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
-    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+    AddCaseWhenKernel(scalar_function, type, exec);
   }
 }
 
@@ -2671,7 +2671,7 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
                               const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticVarBinaryBase<CaseWhenFunctor>(*type);
-    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+    AddCaseWhenKernel(scalar_function, type, exec);
   }
 }
 
@@ -2690,7 +2690,7 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
                                  const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<CoalesceFunctor>(*type);
-    AddCoalesceKernel(scalar_function, type, std::move(exec));
+    AddCoalesceKernel(scalar_function, type, exec);
   }
 }
 
@@ -2709,7 +2709,7 @@ void AddPrimitiveChooseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
                                const std::vector<const DataType*>& types) {
   for (auto&& type : types) {
     auto exec = GenerateTypeAgnosticPrimitive<ChooseFunctor>(*type);
-    AddChooseKernel(scalar_function, type, std::move(exec));
+    AddChooseKernel(scalar_function, type, exec);
   }
 }
 
