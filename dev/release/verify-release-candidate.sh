@@ -998,6 +998,8 @@ test_binary_distribution() {
 }
 
 test_linux_wheels() {
+  local check_gcs=OFF
+
   if [ "$(uname -m)" = "aarch64" ]; then
     local arch="aarch64"
   else
@@ -1014,13 +1016,13 @@ test_linux_wheels() {
       CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
 
 test_macos_wheels() {
-  local check_gcs=ON
+  local check_gcs=OFF
   local check_s3=ON
   local check_flight=ON
 
