@@ -437,6 +437,10 @@ class SchemaWriter {
 
   Status Visit(const DictionaryType& type) { return VisitType(*type.value_type()); }
 
+  Status Visit(const RunLengthEncodedType& type) {
+    return Status::NotImplemented("run-length encoded type in JSON");
+  }
+
   Status Visit(const ExtensionType& type) { return Status::NotImplemented(type.name()); }
 
  private:
@@ -741,6 +745,10 @@ class ArrayWriter {
       children.emplace_back(array.field(i));
     }
     return WriteChildren(type.fields(), children);
+  }
+
+  Status Visit(const RunLengthEncodedArray& type) {
+    return Status::NotImplemented("run-length encoded array in JSON");
   }
 
   Status Visit(const ExtensionArray& array) { return VisitArrayValues(*array.storage()); }
@@ -1540,6 +1548,10 @@ class ArrayReader {
     data_->type = field_->type();
     // data_->dictionary will be filled later by ResolveDictionaries()
     return Status::OK();
+  }
+
+  Status Visit(const RunLengthEncodedType& type) {
+    return Status::NotImplemented("run-length encoded array in JSON");
   }
 
   Status Visit(const ExtensionType& type) {

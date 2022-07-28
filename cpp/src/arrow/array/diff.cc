@@ -118,6 +118,10 @@ struct ValueComparatorVisitor {
     return Status::NotImplemented("dictionary type");
   }
 
+  Status Visit(const RunLengthEncodedType&) {
+    return Status::NotImplemented("dictionary type");
+  }
+
   ValueComparator Create(const DataType& type) {
     DCHECK_OK(VisitTypeInline(type, this));
     return out;
