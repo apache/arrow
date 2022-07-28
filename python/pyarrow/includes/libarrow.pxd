@@ -1382,8 +1382,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         shared_ptr[CInputStream] wrapped, CTransformInputStreamVTable vtable,
         object method_arg)
 
-    shared_ptr[function[StreamWrapFunc]] makeStreamTransformFunc \
-        "arrow::py::makeStreamTransformFunc"(
+    shared_ptr[function[StreamWrapFunc]] MakeStreamTransformFunc \
+        "arrow::py::MakeStreamTransformFunc"(
         CTransformInputStreamVTable vtable,
         object method_arg)
 
