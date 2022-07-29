@@ -1047,12 +1047,8 @@ Status CastImpl(const BaseListScalar& from, StringScalar* to) {
   ss << from.type->ToString() << "{";
   for (int64_t i = 0; i < from.value->length(); i++) {
     if (i > 0) ss << ", ";
-    auto result = from.value->GetScalar(i);
-    if (!result.ok()) {
-      return(result.status());
-    } else {
-      ss << result.ValueOrDie()->ToString();
-    }
+    ARROW_ASSIGN_OR_RAISE(auto value, from.value->GetScalar(i));
+    ss << value->ToString();
   }
   ss << '}';
   to->value = Buffer::FromString(ss.str());
