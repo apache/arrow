@@ -167,7 +167,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int load_frequency
         CS3ProxyOptions proxy_options
         CS3CredentialsKind credentials_kind
-        shared_ptr[const CS3RetryStrategy] retry_strategy
+        shared_ptr[CS3RetryStrategy] retry_strategy
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,
