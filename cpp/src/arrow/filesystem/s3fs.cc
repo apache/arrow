@@ -235,8 +235,8 @@ class AwsRetryStrategy : S3RetryStrategy {
     auto exception_name = new Aws::String(detail.exception_name.c_str());
     auto message = new Aws::String(detail.message.c_str());
     return new Aws::Client::AWSError<Aws::Client::CoreErrors>(
-        static_cast<Aws::Client::CoreErrors>(detail.error_type), exception_name, message,
-        detail.should_retry);
+        static_cast<Aws::Client::CoreErrors>(detail.error_type), *exception_name,
+        *message, detail.should_retry);
   }
 };
 
