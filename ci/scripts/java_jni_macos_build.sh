@@ -88,7 +88,7 @@ cmake \
   -Dre2_SOURCE=BUNDLED \
   -GNinja \
   ${arrow_dir}/cpp
-cmake --build . --target install --verbose
+cmake --build . --target install
 
 if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   ctest
