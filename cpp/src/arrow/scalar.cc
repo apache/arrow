@@ -1044,13 +1044,13 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
 // list based types (list, large list and map (fixed sized list too)) to string
 Status CastImpl(const BaseListScalar& from, StringScalar* to) {
   std::stringstream ss;
-  ss << from.type->ToString() << "{";
+  ss << from.type->ToString() << "[";
   for (int64_t i = 0; i < from.value->length(); i++) {
     if (i > 0) ss << ", ";
     ARROW_ASSIGN_OR_RAISE(auto value, from.value->GetScalar(i));
     ss << value->ToString();
   }
-  ss << '}';
+  ss << ']';
   to->value = Buffer::FromString(ss.str());
   return Status::OK();
 }
