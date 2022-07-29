@@ -746,8 +746,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         format=format,
         partition_base_dir=partition_base_dir,
         exclude_invalid_files=exclude_invalid_files,
-        selector_ignore_prefixes=ignore_prefixes,
-        encoding=encoding
+        selector_ignore_prefixes=ignore_prefixes
     )
 
     if _is_path_like(source):
