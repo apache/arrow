@@ -153,7 +153,7 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 # - libprotobuf-dev only provide sources
 # ARROW-17051: this build uses static Protobuf, so we must also use
 # static Arrow to run Flight/Flight SQL tests
-ENV absl_SOURCE=BUNDLED
+ENV absl_SOURCE=BUNDLED \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
