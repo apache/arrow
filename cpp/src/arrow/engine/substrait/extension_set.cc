@@ -564,6 +564,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     for (const auto& entry : substrait_to_arrow_) {
       encoded_ids.push_back(entry.first.ToString());
     }
+    for (const auto& entry : substrait_to_arrow_agg_) {
+      encoded_ids.push_back(entry.first.ToString());
+    }
     if (parent_) {
       std::vector<std::string> parent_ids = parent_->GetSupportedSubstraitFunctions();
       encoded_ids.insert(encoded_ids.end(), make_move_iterator(parent_ids.begin()),
