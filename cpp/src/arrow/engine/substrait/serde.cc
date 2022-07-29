@@ -172,11 +172,7 @@ Result<std::shared_ptr<compute::ExecPlan>> MakeSingleDeclarationPlan(
   } else {
     ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
     ARROW_RETURN_NOT_OK(declarations[0].AddToPlan(plan.get()));
-<<<<<<< HEAD
-    return plan;
-=======
     return std::move(plan);
->>>>>>> ba3302101 (ARROW-15582: Add fine grained support for Substrait->Arrow function mapping.  Create utilities for building Substrait plans.  Fix ownership bug in DeserializePlan.  Add experimental support for named tables for use in unit tests.  Extract id ownership out of ExtensionIdRegistry and into IdStorage.)
   }
 }
 
