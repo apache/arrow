@@ -74,6 +74,7 @@ func TestConcatenate(t *testing.T) {
 		{arrow.PrimitiveTypes.Float32},
 		{arrow.PrimitiveTypes.Float64},
 		{arrow.BinaryTypes.String},
+		{arrow.BinaryTypes.LargeString},
 		{arrow.ListOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int8)},
 		{arrow.StructOf()},
@@ -143,6 +144,8 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Arra
 		return array.NewNull(int(size))
 	case arrow.STRING:
 		return cts.rng.String(size, 0, 15, nullprob)
+	case arrow.LARGE_STRING:
+		return cts.rng.LargeString(size, 0, 15, nullprob)
 	case arrow.LIST:
 		valuesSize := size * 4
 		values := cts.rng.Int8(valuesSize, 0, 127, nullprob).(*array.Int8)
