@@ -53,6 +53,7 @@ have_glib=yes
 have_parquet=yes
 have_python=yes
 have_ruby=yes
+ruby_devel_packages=(ruby-devel)
 install_command="dnf install -y --enablerepo=crb"
 uninstall_command="dnf remove -y"
 clean_command="dnf clean"
@@ -64,6 +65,7 @@ case "${distribution}-${distribution_version}" in
   almalinux-8)
     distribution_prefix="almalinux"
     have_arrow_libs=yes
+    ruby_devel_packages+=(redhat-rpm-config)
     install_command="dnf install -y --enablerepo=powertools"
     info_command="dnf info --enablerepo=powertools"
     ;;
@@ -104,6 +106,7 @@ case "${distribution}-${distribution_version}" in
   centos-8)
     distribution_prefix="centos"
     repository_version+="-stream"
+    ruby_devel_packages+=(redhat-rpm-config)
     install_command="dnf install -y --enablerepo=powertools"
     info_command="dnf info --enablerepo=powertools"
     ;;
@@ -221,10 +224,11 @@ if [ "${have_glib}" = "yes" ]; then
   ./build
   popd
 
-  ${install_command} ruby-devel
-  gem install gobject-introspection
-  ruby -r gi -e "p GI.load('Arrow')"
-
+  if [ "${have_ruby}" = "yes" ]; then
+    ${install_command} "${ruby_devel_packages[@]}"
+    gem install gobject-introspection
+    ruby -r gi -e "p GI.load('Arrow')"
+  fi
   echo "::endgroup::"
 fi
 
@@ -232,13 +236,17 @@ if [ "${have_flight}" = "yes" ]; then
   echo "::group::Test Apache Arrow Flight"
   ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
-  ruby -r gi -e "p GI.load('ArrowFlight')"
+  if [ "${have_ruby}" = "yes" ]; then
+    ruby -r gi -e "p GI.load('ArrowFlight')"
+  fi
   echo "::endgroup::"
 
   echo "::group::Test Apache Arrow Flight SQL"
   ${install_command} --enablerepo=epel arrow-flight-sql-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-flight-sql-glib-doc-${package_version}
-  ruby -r gi -e "p GI.load('ArrowFlightSQL')"
+  if [ "${have_ruby}" = "yes" ]; then
+    ruby -r gi -e "p GI.load('ArrowFlightSQL')"
+  fi
   echo "::endgroup::"
 fi
 
@@ -252,7 +260,9 @@ echo "::group::Test Plasma"
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
   ${install_command} --enablerepo=epel plasma-glib-doc-${package_version}
-  ruby -r gi -e "p GI.load('Plasma')"
+  if [ "${have_ruby}" = "yes" ]; then
+    ruby -r gi -e "p GI.load('Plasma')"
+  fi
 else
   ${install_command} --enablerepo=epel plasma-devel-${package_version}
 fi
@@ -263,7 +273,9 @@ if [ "${have_gandiva}" = "yes" ]; then
   if [ "${have_glib}" = "yes" ]; then
     ${install_command} --enablerepo=epel gandiva-glib-devel-${package_version}
     ${install_command} --enablerepo=epel gandiva-glib-doc-${package_version}
-    ruby -r gi -e "p GI.load('Gandiva')"
+    if [ "${have_ruby}" = "yes" ]; then
+      ruby -r gi -e "p GI.load('Gandiva')"
+    fi
   else
     ${install_command} --enablerepo=epel gandiva-devel-${package_version}
   fi
@@ -275,7 +287,9 @@ if [ "${have_parquet}" = "yes" ]; then
   if [ "${have_glib}" = "yes" ]; then
     ${install_command} --enablerepo=epel parquet-glib-devel-${package_version}
     ${install_command} --enablerepo=epel parquet-glib-doc-${package_version}
-    ruby -r gi -e "p GI.load('Parquet')"
+    if [ "${have_ruby}" = "yes" ]; then
+      ruby -r gi -e "p GI.load('Parquet')"
+    fi
   else
     ${install_command} --enablerepo=epel parquet-devel-${package_version}
   fi
