@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow/endian"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // BitmapReader is a simple bitmap reader for a byte slice.
@@ -421,4 +422,82 @@ func CopyBitmap(src []byte, srcOffset, length int, dst []byte, dstOffset int) {
 
 	dst[nbytes-1] &= ^trailMask
 	dst[nbytes-1] |= lastData & trailMask
+}
+
+type bitOp struct {
+	opWord func(uint64, uint64) uint64
+	opByte func(byte, byte) byte
+}
+
+var (
+	bitAndOp = bitOp{
+		opWord: func(l, r uint64) uint64 { return l & r },
+		opByte: func(l, r byte) byte { return l & r },
+	}
+	bitOrOp = bitOp{
+		opWord: func(l, r uint64) uint64 { return l | r },
+		opByte: func(l, r byte) byte { return l | r },
+	}
+)
+
+func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out []byte, outOffset int64, length int64) {
+	debug.Assert(lOffset%8 == rOffset%8, "aligned bitmap op called with unaligned offsets")
+	debug.Assert(lOffset%8 == outOffset%8, "aligned bitmap op called with unaligned output offset")
+
+	nbytes := BytesForBits(length + lOffset%8)
+	left = left[lOffset/8:]
+	right = right[rOffset/8:]
+	out = out[outOffset/8:]
+	for i := int64(0); i < nbytes; i++ {
+		out[i] = op.opByte(left[i], right[i])
+	}
+}
+
+func unalignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out []byte, outOffset int64, length int64) {
+	leftRdr := NewBitmapWordReader(left, int(lOffset), int(length))
+	rightRdr := NewBitmapWordReader(right, int(rOffset), int(length))
+	writer := NewBitmapWordWriter(out, int(outOffset), int(length))
+
+	for nwords := leftRdr.Words(); nwords > 0; nwords-- {
+		writer.PutNextWord(op.opWord(leftRdr.NextWord(), rightRdr.NextWord()))
+	}
+	for nbytes := leftRdr.TrailingBytes(); nbytes > 0; nbytes-- {
+		leftByte, leftValid := leftRdr.NextTrailingByte()
+		rightByte, rightValid := rightRdr.NextTrailingByte()
+		debug.Assert(leftValid == rightValid, "unexpected mismatch of valid bits")
+		writer.PutNextTrailingByte(op.opByte(leftByte, rightByte), leftValid)
+	}
+}
+
+func BitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out []byte, outOffset, length int64) {
+	if (outOffset%8 == lOffset%8) && (outOffset%8 == rOffset%8) {
+		// fastcase!
+		alignedBitmapOp(op, left, right, lOffset, rOffset, out, outOffset, length)
+	} else {
+		unalignedBitmapOp(op, left, right, lOffset, rOffset, out, outOffset, length)
+	}
+}
+
+func BitmapOpAlloc(mem memory.Allocator, op bitOp, left, right []byte, lOffset, rOffset int64, length int64, outOffset int64) *memory.Buffer {
+	bits := length + outOffset
+	buf := memory.NewResizableBuffer(mem)
+	buf.Resize(int(BytesForBits(bits)))
+	BitmapOp(op, left, right, lOffset, rOffset, buf.Bytes(), outOffset, length)
+	return buf
+}
+
+func BitmapAnd(left, right []byte, lOffset, rOffset int64, out []byte, outOffset int64, length int64) {
+	BitmapOp(bitAndOp, left, right, lOffset, rOffset, out, outOffset, length)
+}
+
+func BitmapOr(left, right []byte, lOffset, rOffset int64, out []byte, outOffset int64, length int64) {
+	BitmapOp(bitOrOp, left, right, lOffset, rOffset, out, outOffset, length)
+}
+
+func BitmapAndAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset int64, length, outOffset int64) *memory.Buffer {
+	return BitmapOpAlloc(mem, bitAndOp, left, right, lOffset, rOffset, length, outOffset)
+}
+
+func BitmapOrAlloc(mem memory.Allocator, left, right []byte, lOffset, rOffset int64, length, outOffset int64) *memory.Buffer {
+	return BitmapOpAlloc(mem, bitOrOp, left, right, lOffset, rOffset, length, outOffset)
 }

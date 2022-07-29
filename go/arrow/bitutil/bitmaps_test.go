@@ -23,7 +23,9 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 func bitmapFromSlice(vals []int, bitOffset int) []byte {
@@ -355,4 +357,120 @@ func BenchmarkBitmapReader(b *testing.B) {
 			}
 		}
 	})
+}
+
+type bitmapOp struct {
+	noAlloc func(left, right []byte, lOffset, rOffset int64, out []byte, outOffset, length int64)
+	alloc   func(mem memory.Allocator, left, right []byte, lOffset, rOffset int64, length, outOffset int64) *memory.Buffer
+}
+
+type BitmapOpSuite struct {
+	suite.Suite
+}
+
+func (s *BitmapOpSuite) testAligned(op bitmapOp, leftBits, rightBits []int, resultBits []bool) {
+	var (
+		left, right []byte
+		out         *memory.Buffer
+		length      int64
+	)
+	for _, lOffset := range []int64{0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536} {
+		s.Run(fmt.Sprintf("left offset %d", lOffset), func() {
+			left = bitmapFromSlice(leftBits, int(lOffset))
+			length = int64(len(leftBits))
+			for _, rOffset := range []int64{lOffset, lOffset + 8, lOffset + 40} {
+				s.Run(fmt.Sprintf("right offset %d", rOffset), func() {
+					right = bitmapFromSlice(rightBits, int(rOffset))
+					for _, outOffset := range []int64{lOffset, lOffset + 16, lOffset + 24} {
+						s.Run(fmt.Sprintf("out offset %d", outOffset), func() {
+							out = op.alloc(memory.DefaultAllocator, left, right, lOffset, rOffset, length, outOffset)
+							rdr := bitutil.NewBitmapReader(out.Bytes(), int(outOffset), int(length))
+							assertReaderVals(s.T(), rdr, resultBits)
+
+							memory.Set(out.Bytes(), 0x00)
+							op.noAlloc(left, right, lOffset, rOffset, out.Bytes(), outOffset, length)
+							rdr = bitutil.NewBitmapReader(out.Bytes(), int(outOffset), int(length))
+							assertReaderVals(s.T(), rdr, resultBits)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func (s *BitmapOpSuite) testUnaligned(op bitmapOp, leftBits, rightBits []int, resultBits []bool) {
+	var (
+		left, right []byte
+		out         *memory.Buffer
+		length      int64
+		offsets     = []int64{0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536}
+	)
+
+	for _, lOffset := range offsets {
+		s.Run(fmt.Sprintf("left offset %d", lOffset), func() {
+			left = bitmapFromSlice(leftBits, int(lOffset))
+			length = int64(len(leftBits))
+			for _, rOffset := range offsets {
+				s.Run(fmt.Sprintf("right offset %d", rOffset), func() {
+					right = bitmapFromSlice(rightBits, int(rOffset))
+					for _, outOffset := range offsets {
+						s.Run(fmt.Sprintf("out offset %d", outOffset), func() {
+							s.Run("alloc", func() {
+								out = op.alloc(memory.DefaultAllocator, left, right, lOffset, rOffset, length, outOffset)
+								rdr := bitutil.NewBitmapReader(out.Bytes(), int(outOffset), int(length))
+								assertReaderVals(s.T(), rdr, resultBits)
+							})
+							s.Run("noalloc", func() {
+								memory.Set(out.Bytes(), 0x00)
+								op.noAlloc(left, right, lOffset, rOffset, out.Bytes(), outOffset, length)
+								rdr := bitutil.NewBitmapReader(out.Bytes(), int(outOffset), int(length))
+								assertReaderVals(s.T(), rdr, resultBits)
+							})
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func (s *BitmapOpSuite) TestBitmapAnd() {
+	op := bitmapOp{
+		noAlloc: bitutil.BitmapAnd,
+		alloc:   bitutil.BitmapAndAlloc,
+	}
+
+	leftBits := []int{0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1}
+	rightBits := []int{0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}
+	resultBits := []bool{false, false, true, false, false, false, false, false, false, true, false, false, false, false}
+
+	s.Run("aligned", func() {
+		s.testAligned(op, leftBits, rightBits, resultBits)
+	})
+	s.Run("unaligned", func() {
+		s.testUnaligned(op, leftBits, rightBits, resultBits)
+	})
+}
+
+func (s *BitmapOpSuite) TestBitmapOr() {
+	op := bitmapOp{
+		noAlloc: bitutil.BitmapOr,
+		alloc:   bitutil.BitmapOrAlloc,
+	}
+
+	leftBits := []int{0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1}
+	rightBits := []int{0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0}
+	resultBits := []bool{false, true, true, true, true, true, false, true, true, true, true, true, true, true}
+
+	s.Run("aligned", func() {
+		s.testAligned(op, leftBits, rightBits, resultBits)
+	})
+	s.Run("unaligned", func() {
+		s.testUnaligned(op, leftBits, rightBits, resultBits)
+	})
+}
+
+func TestBitmapOps(t *testing.T) {
+	suite.Run(t, new(BitmapOpSuite))
 }
