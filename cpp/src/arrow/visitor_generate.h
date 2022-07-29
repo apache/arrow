@@ -35,6 +35,7 @@ namespace arrow {
   ACTION(Float);                                     \
   ACTION(Double)
 
+// all types that can exist as a Scalar
 #define ARROW_GENERATE_FOR_ALL_SCALAR_TYPES(ACTION) \
   ACTION(Null);                                     \
   ACTION(Boolean);                                  \
