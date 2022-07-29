@@ -3891,12 +3891,14 @@ macro(build_grpc)
 
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
-       ${GRPC_GPR_ABSL_LIBRARIES}
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
+  if(ABS_VENDORED)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
+  endif()
 endmacro()
 
 if(ARROW_WITH_GRPC)
