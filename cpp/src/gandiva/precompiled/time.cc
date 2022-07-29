@@ -269,7 +269,7 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
     }                                                                                    \
                                                                                          \
     char* up = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));    \
-    if (ret == nullptr) {                                                                \
+    if (up == nullptr) {                                                                 \
       gdv_fn_context_set_error_msg(context,                                              \
                                    "Could not allocate memory for output string");       \
       return 0;                                                                          \
