@@ -1731,31 +1731,5 @@ TEST(Substrait, AggregateWithFilter) {
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
-TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
-    "relations": [],
-    "extension_uris": [
-      {
-        "extension_uri_anchor": 7,
-        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
-      }
-    ],
-    "extensions": [
-      {"extension_function": {
-        "extension_uri_reference": 7,
-        "function_anchor": 42,
-        "name": "does_not_exist"
-      }}
-    ]
-  })"));
-
-  ExtensionSet ext_set;
-  ASSERT_RAISES(
-      Invalid,
-      DeserializePlan(
-          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
-}
-
 }  // namespace engine
 }  // namespace arrow

@@ -518,11 +518,6 @@ arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
   return Connect(location, FlightClientOptions::Defaults());
 }
 
-arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
-    const Location& location) {
-  return Connect(location, FlightClientOptions::Defaults());
-}
-
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
   return Connect(location, FlightClientOptions::Defaults()).Value(client);
