@@ -1,0 +1,17 @@
+diff --git a/cpp/src/arrow/ipc/CMakeLists.txt b/cpp/src/arrow/ipc/CMakeLists.txt
+index 495018e..f6cee6f 100644
+--- a/cpp/src/arrow/ipc/CMakeLists.txt
++++ b/cpp/src/arrow/ipc/CMakeLists.txt
+@@ -61,8 +61,12 @@ endif()
+ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
+   add_executable(arrow-file-to-stream file_to_stream.cc)
+   target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
++  install(TARGETS arrow-file-to-stream ${INSTALL_IS_OPTIONAL}
++    DESTINATION ${CMAKE_INSTALL_BINDIR})
+   add_executable(arrow-stream-to-file stream_to_file.cc)
+   target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
++  install(TARGETS arrow-stream-to-file ${INSTALL_IS_OPTIONAL}
++    DESTINATION ${CMAKE_INSTALL_BINDIR})
+ 
+   if(ARROW_BUILD_INTEGRATION)
+     add_dependencies(arrow-integration arrow-file-to-stream)

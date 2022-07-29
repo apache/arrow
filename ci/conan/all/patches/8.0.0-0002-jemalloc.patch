@@ -1,0 +1,26 @@
+diff --git a/cpp/src/arrow/CMakeLists.txt b/cpp/src/arrow/CMakeLists.txt
+index 690c51a..c518b7d 100644
+--- a/cpp/src/arrow/CMakeLists.txt
++++ b/cpp/src/arrow/CMakeLists.txt
+@@ -326,7 +326,7 @@ set(ARROW_TESTING_SRCS
+ 
+ set(_allocator_dependencies "") # Empty list
+ if(ARROW_JEMALLOC)
+-  list(APPEND _allocator_dependencies jemalloc_ep)
++  list(APPEND _allocator_dependencies jemalloc::jemalloc)
+ endif()
+ if(ARROW_MIMALLOC)
+   list(APPEND _allocator_dependencies mimalloc_ep)
+diff --git a/cpp/src/arrow/memory_pool.cc b/cpp/src/arrow/memory_pool.cc
+index 2fab6f3..1f8f896 100644
+--- a/cpp/src/arrow/memory_pool.cc
++++ b/cpp/src/arrow/memory_pool.cc
+@@ -52,7 +52,7 @@
+ // Needed to support jemalloc 3 and 4
+ #define JEMALLOC_MANGLE
+ // Explicitly link to our version of jemalloc
+-#include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
++#include "jemalloc/jemalloc.h"
+ #endif
+ 
+ #ifdef ARROW_MIMALLOC

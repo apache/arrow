@@ -1,0 +1,43 @@
+diff --git a/cpp/CMakeLists.txt b/cpp/CMakeLists.txt
+index aba18c8..bb463d0 100644
+--- a/cpp/CMakeLists.txt
++++ b/cpp/CMakeLists.txt
+@@ -721,7 +721,7 @@ if(ARROW_WITH_BZ2)
+ endif()
+ 
+ if(ARROW_WITH_LZ4)
+-  list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
++  list(APPEND ARROW_STATIC_LINK_LIBS lz4::lz4)
+   if(Lz4_SOURCE STREQUAL "SYSTEM")
+     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
+   endif()
+@@ -907,8 +907,8 @@ endif()
+ if(ARROW_JEMALLOC)
+   add_definitions(-DARROW_JEMALLOC)
+   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
+-  list(APPEND ARROW_LINK_LIBS jemalloc::jemalloc)
+-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
++  list(APPEND ARROW_LINK_LIBS jemalloc)
++  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc)
+ endif()
+ 
+ if(ARROW_MIMALLOC)
+diff --git a/cpp/src/arrow/ipc/CMakeLists.txt b/cpp/src/arrow/ipc/CMakeLists.txt
+index 495018e..3dcb35d 100644
+--- a/cpp/src/arrow/ipc/CMakeLists.txt
++++ b/cpp/src/arrow/ipc/CMakeLists.txt
+@@ -61,9 +61,13 @@ endif()
+ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
+   add_executable(arrow-file-to-stream file_to_stream.cc)
+   target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
++  install(TARGETS arrow-file-to-stream ${INSTALL_IS_OPTIONAL}
++    DESTINATION ${CMAKE_INSTALL_BINDIR})
+   add_executable(arrow-stream-to-file stream_to_file.cc)
+   target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
+-
++  install(TARGETS arrow-stream-to-file ${INSTALL_IS_OPTIONAL}
++    DESTINATION ${CMAKE_INSTALL_BINDIR})
++  
+   if(ARROW_BUILD_INTEGRATION)
+     add_dependencies(arrow-integration arrow-file-to-stream)
+     add_dependencies(arrow-integration arrow-stream-to-file)

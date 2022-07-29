@@ -1,0 +1,13 @@
+diff --git a/cpp/cmake_modules/DefineOptions.cmake b/cpp/cmake_modules/DefineOptions.cmake
+index ab7d2ed..6f1e411 100644
+--- a/cpp/cmake_modules/DefineOptions.cmake
++++ b/cpp/cmake_modules/DefineOptions.cmake
+@@ -82,7 +82,7 @@ macro(define_option_string name description default)
+ endmacro()
+ 
+ # Top level cmake dir
+-if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
++if(1)
+   #----------------------------------------------------------------------
+   set_option_category("Compile and link")
+ 

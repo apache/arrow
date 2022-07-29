@@ -1,0 +1,13 @@
+diff --git a/cpp/src/arrow/memory_pool.cc b/cpp/src/arrow/memory_pool.cc
+index 1f8f896..37a89da 100644
+--- a/cpp/src/arrow/memory_pool.cc
++++ b/cpp/src/arrow/memory_pool.cc
+@@ -767,7 +767,7 @@ MemoryPool* default_memory_pool() {
+ 
+ Status jemalloc_set_decay_ms(int ms) {
+ #ifdef ARROW_JEMALLOC
+-  ssize_t decay_time_ms = static_cast<ssize_t>(ms);
++  size_t decay_time_ms = static_cast<ssize_t>(ms);
+ 
+   int err = mallctl("arenas.dirty_decay_ms", nullptr, nullptr, &decay_time_ms,
+                     sizeof(decay_time_ms));
