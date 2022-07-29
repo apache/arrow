@@ -345,8 +345,6 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
-                retry_strategy=frombytes(opts.retry_strategy),
-                retry_max_attempts=opts.retry_max_attempts,
             ),)
         )
 
