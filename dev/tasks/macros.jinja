@@ -94,10 +94,10 @@ on:
     shell: bash
     run: |
       archery crossbow \
-        --no-fetch \
         --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
         download-artifacts \
+        --no-fetch \
         {{ task.tag }}
     env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
@@ -198,10 +198,10 @@ on:
     {% endif %}
   - |
     archery crossbow \
-      --no-fetch \
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \
       download-artifacts \
+      --no-fetch \
       {{ task.tag }}
 {% endmacro %}
 
