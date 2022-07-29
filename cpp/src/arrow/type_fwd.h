@@ -405,6 +405,8 @@ struct Type {
     /// Calendar interval type with three fields.
     INTERVAL_MONTH_DAY_NANO,
 
+    RUN_LENGTH_ENCODED,
+
     // Leave this at the end
     MAX_ID
   };
@@ -546,6 +548,10 @@ std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 /// \brief Create a StructType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
+
+/// \brief Create a RunLengthEncoded instance
+std::shared_ptr<DataType> ARROW_EXPORT
+run_length_encoded(std::shared_ptr<DataType> encoded_type);
 
 /// \brief Create a SparseUnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT sparse_union(FieldVector child_fields,
