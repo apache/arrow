@@ -101,6 +101,7 @@ std::vector<Type::type> AllTypeIds() {
           Type::DENSE_UNION,
           Type::SPARSE_UNION,
           Type::DICTIONARY,
+          Type::RUN_LENGTH_ENCODED,
           Type::EXTENSION,
           Type::INTERVAL_MONTH_DAY_NANO};
 }
