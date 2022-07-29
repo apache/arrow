@@ -47,6 +47,12 @@
 
 #include "arrow/compute/exec/options.h"  // IWYU pragma: export
 
+/// \defgroup execnode-components Execution plan entities
+/// @{
+/// @}
+
+#include "arrow/compute/exec/options.h"  // IWYU pragma: export
+
 /// \defgroup execnode-row Utilities for working with data in a row-major format
 /// @{
 /// @}
