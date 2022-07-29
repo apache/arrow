@@ -16,7 +16,7 @@
 # under the License.
 import base64
 
-import pyarrow.parquet_encryption as pe
+import pyarrow.parquet.encryption as pe
 
 
 class InMemoryKmsClient(pe.KmsClient):

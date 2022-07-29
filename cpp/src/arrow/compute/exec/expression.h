@@ -55,7 +55,7 @@ class ARROW_EXPORT Expression {
     std::shared_ptr<Function> function;
     const Kernel* kernel = NULLPTR;
     std::shared_ptr<KernelState> kernel_state;
-    ValueDescr descr;
+    TypeHolder type;
 
     void ComputeHash();
   };
@@ -70,7 +70,7 @@ class ARROW_EXPORT Expression {
   /// Bind this expression to the given input type, looking up Kernels and field types.
   /// Some expression simplification may be performed and implicit casts will be inserted.
   /// Any state necessary for execution will be initialized and returned.
-  Result<Expression> Bind(const ValueDescr& in, ExecContext* = NULLPTR) const;
+  Result<Expression> Bind(const TypeHolder& in, ExecContext* = NULLPTR) const;
   Result<Expression> Bind(const Schema& in_schema, ExecContext* = NULLPTR) const;
 
   // XXX someday
@@ -82,8 +82,8 @@ class ARROW_EXPORT Expression {
   // Result<ExpressionState> CloneState() const;
   // Status SetState(ExpressionState);
 
-  /// Return true if all an expression's field references have explicit ValueDescr and all
-  /// of its functions' kernels are looked up.
+  /// Return true if all an expression's field references have explicit types
+  /// and all of its functions' kernels are looked up.
   bool IsBound() const;
 
   /// Return true if this expression is composed only of Scalar literals, field
@@ -93,7 +93,8 @@ class ARROW_EXPORT Expression {
   /// Return true if this expression is literal and entirely null.
   bool IsNullLiteral() const;
 
-  /// Return true if this expression could evaluate to true.
+  /// Return true if this expression could evaluate to true. Will return true for any
+  /// unbound, non-boolean, or unsimplified Expressions
   bool IsSatisfiable() const;
 
   // XXX someday
@@ -106,9 +107,8 @@ class ARROW_EXPORT Expression {
   /// Access a FieldRef or return nullptr if this expression is not a field_ref
   const FieldRef* field_ref() const;
 
-  /// The type and shape to which this expression will evaluate
-  ValueDescr descr() const;
-  std::shared_ptr<DataType> type() const { return descr().type; }
+  /// The type to which this expression will evaluate
+  const DataType* type() const;
   // XXX someday
   // NullGeneralization::type nullable() const;
 
@@ -116,7 +116,7 @@ class ARROW_EXPORT Expression {
     FieldRef ref;
 
     // post-bind properties
-    ValueDescr descr;
+    TypeHolder type;
     ::arrow::internal::SmallVector<int, 2> indices;
   };
   const Parameter* parameter() const;
@@ -171,8 +171,10 @@ std::vector<FieldRef> FieldsInExpression(const Expression&);
 ARROW_EXPORT
 bool ExpressionHasFieldRefs(const Expression&);
 
-/// Assemble a mapping from field references to known values.
 struct ARROW_EXPORT KnownFieldValues;
+
+/// Assemble a mapping from field references to known values. This derives known values
+/// from "equal" and "is_null" Expressions referencing a field and a literal.
 ARROW_EXPORT
 Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);
@@ -224,7 +226,8 @@ Result<Expression> SimplifyWithGuarantee(Expression,
 /// RecordBatch which may have missing or incorrectly ordered columns.
 /// Missing fields will be replaced with null scalars.
 ARROW_EXPORT Result<ExecBatch> MakeExecBatch(const Schema& full_schema,
-                                             const Datum& partial);
+                                             const Datum& partial,
+                                             Expression guarantee = literal(true));
 
 /// Execute a scalar expression against the provided state and input ExecBatch. This
 /// expression must be bound.

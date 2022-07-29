@@ -20,7 +20,7 @@
 namespace arrow {
 
 struct Datum;
-struct ValueDescr;
+struct TypeHolder;
 
 namespace compute {
 

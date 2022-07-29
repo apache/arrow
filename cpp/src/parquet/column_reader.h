@@ -25,6 +25,7 @@
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
@@ -104,8 +105,14 @@ class PARQUET_EXPORT PageReader {
 
   static std::unique_ptr<PageReader> Open(
       std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
-      Compression::type codec, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      Compression::type codec, bool always_compressed = false,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
+  static std::unique_ptr<PageReader> Open(std::shared_ptr<ArrowInputStream> stream,
+                                          int64_t total_num_rows, Compression::type codec,
+                                          const ReaderProperties& properties,
+                                          bool always_compressed = false,
+                                          const CryptoContext* ctx = NULLPTR);
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise

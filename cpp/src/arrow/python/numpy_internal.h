@@ -167,8 +167,9 @@ inline bool PyBoolScalar_Check(PyObject* obj) {
 }
 
 static inline PyArray_Descr* GetSafeNumPyDtype(int type) {
-  if (type == NPY_DATETIME) {
-    // It is not safe to mutate the result of DescrFromType
+  if (type == NPY_DATETIME || type == NPY_TIMEDELTA) {
+    // It is not safe to mutate the result of DescrFromType for datetime and
+    // timedelta descriptors
     return PyArray_DescrNewFromType(type);
   } else {
     return PyArray_DescrFromType(type);

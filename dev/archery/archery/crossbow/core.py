@@ -24,6 +24,7 @@ import logging
 import mimetypes
 import subprocess
 import textwrap
+import uuid
 from io import StringIO
 from pathlib import Path
 from datetime import date
@@ -42,8 +43,10 @@ try:
     import pygit2
 except ImportError:
     PygitRemoteCallbacks = object
+    GitError = Exception
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
+    GitError = pygit2.GitError
 
 from ..utils.source import ArrowSources
 
@@ -265,9 +268,18 @@ class Repo:
                                 "Crossbow: {}".format(remote.url))
         return remote
 
-    def fetch(self):
+    def fetch(self, retry=3):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
-        self.origin.fetch([refspec])
+        attempt = 1
+        while True:
+            try:
+                self.origin.fetch([refspec])
+                break
+            except GitError as e:
+                if retry and attempt < retry:
+                    attempt += 1
+                else:
+                    raise e
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
@@ -530,6 +542,24 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
+    def github_pr(self, title, head=None, base="master", body=None,
+                  github_token=None, create=False):
+        github_token = github_token or self.github_token
+        repo = self.as_github_repo(github_token=github_token)
+        if create:
+            return repo.create_pull(title=title, base=base, head=head,
+                                    body=body)
+        else:
+            # Retrieve open PR for base and head.
+            # There should be a single open one with that title.
+            for pull in repo.pull_requests(state="open", head=head,
+                                           base=base):
+                if title in pull.title:
+                    return pull
+            raise CrossbowError(
+                f"Pull request with Title: {title} not found"
+            )
+
 
 class Queue(Repo):
 
@@ -563,6 +593,11 @@ class Queue(Repo):
         """Auto increments the branch's identifier based on the prefix"""
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
+
+    def _new_hex_id(self, prefix):
+        """Append a new id to branch's identifier based on the prefix"""
+        hex_id = uuid.uuid4().hex[:10]
+        return '{}-{}'.format(prefix, hex_id)
 
     def latest_for_prefix(self, prefix):
         prefix_date = self._prefix_contains_date(prefix)
@@ -617,16 +652,20 @@ class Queue(Repo):
         job.queue = self
         return job
 
-    def put(self, job, prefix='build'):
+    def put(self, job, prefix='build', increment_job_id=True):
         if not isinstance(job, Job):
             raise CrossbowError('`job` must be an instance of Job')
         if job.branch is not None:
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
 
-        # auto increment and set next job id, e.g. build-85
         job._queue = self
-        job.branch = self._next_job_id(prefix)
+        if increment_job_id:
+            # auto increment and set next job id, e.g. build-85
+            job.branch = self._next_job_id(prefix)
+        else:
+            # set new branch to something unique, e.g. build-41d017af40
+            job.branch = self._new_hex_id(prefix)
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
@@ -947,8 +986,6 @@ class Job(Serializable):
             raise ValueError('each `tasks` mus be an instance of Task')
         if not isinstance(target, Target):
             raise ValueError('`target` must be an instance of Target')
-        if not isinstance(target, Target):
-            raise ValueError('`target` must be an instance of Target')
         if not isinstance(params, dict):
             raise ValueError('`params` must be an instance of dict')
 
@@ -1219,3 +1256,5 @@ yaml = YAML()
 yaml.register_class(Job)
 yaml.register_class(Task)
 yaml.register_class(Target)
+yaml.register_class(Queue)
+yaml.register_class(TaskStatus)

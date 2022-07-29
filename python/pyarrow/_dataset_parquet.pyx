@@ -160,7 +160,9 @@ cdef class ParquetFileFormat(FileFormat):
             parquet_metadata.init(metadata)
             parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
 
-        return WrittenFile(path, parquet_metadata)
+        size = GetResultValue(file_writer.GetBytesWritten())
+
+        return WrittenFile(path, parquet_metadata, size)
 
     @property
     def read_options(self):
@@ -301,7 +303,13 @@ cdef class ParquetFileFragment(FileFragment):
 
     def __reduce__(self):
         buffer = self.buffer
-        row_groups = [row_group.id for row_group in self.row_groups]
+        # parquet_file_fragment.row_groups() is empty if the metadata
+        # information of the file is not yet populated
+        if not bool(self.parquet_file_fragment.row_groups()):
+            row_groups = None
+        else:
+            row_groups = [row_group.id for row_group in self.row_groups]
+
         return self.format.make_fragment, (
             self.path if buffer is None else buffer,
             self.filesystem,
@@ -592,6 +600,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
         filesystems.
+    thrift_string_size_limit : int, default None
+        If not None, override the maximum total string size allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
+    thrift_container_size_limit : int, default None
+        If not None, override the maximum total size of containers allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
     """
 
     cdef:
@@ -600,14 +616,20 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, bint use_buffered_stream=False,
+    def __init__(self, *, bint use_buffered_stream=False,
                  buffer_size=8192,
-                 bint pre_buffer=False):
+                 bint pre_buffer=False,
+                 thrift_string_size_limit=None,
+                 thrift_container_size_limit=None):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
         self.pre_buffer = pre_buffer
+        if thrift_string_size_limit is not None:
+            self.thrift_string_size_limit = thrift_string_size_limit
+        if thrift_container_size_limit is not None:
+            self.thrift_container_size_limit = thrift_container_size_limit
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -648,17 +670,49 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def pre_buffer(self, bint pre_buffer):
         self.arrow_reader_properties().set_pre_buffer(pre_buffer)
 
+    @property
+    def thrift_string_size_limit(self):
+        return self.reader_properties().thrift_string_size_limit()
+
+    @thrift_string_size_limit.setter
+    def thrift_string_size_limit(self, size):
+        if size <= 0:
+            raise ValueError("size must be larger than zero")
+        self.reader_properties().set_thrift_string_size_limit(size)
+
+    @property
+    def thrift_container_size_limit(self):
+        return self.reader_properties().thrift_container_size_limit()
+
+    @thrift_container_size_limit.setter
+    def thrift_container_size_limit(self, size):
+        if size <= 0:
+            raise ValueError("size must be larger than zero")
+        self.reader_properties().set_thrift_container_size_limit(size)
+
     def equals(self, ParquetFragmentScanOptions other):
-        return (
-            self.use_buffered_stream == other.use_buffered_stream and
-            self.buffer_size == other.buffer_size and
-            self.pre_buffer == other.pre_buffer
-        )
+        attrs = (
+            self.use_buffered_stream, self.buffer_size, self.pre_buffer,
+            self.thrift_string_size_limit, self.thrift_container_size_limit)
+        other_attrs = (
+            other.use_buffered_stream, other.buffer_size, other.pre_buffer,
+            other.thrift_string_size_limit,
+            other.thrift_container_size_limit)
+        return attrs == other_attrs
+
+    @classmethod
+    def _reconstruct(cls, kwargs):
+        return cls(**kwargs)
 
     def __reduce__(self):
-        return ParquetFragmentScanOptions, (
-            self.use_buffered_stream, self.buffer_size, self.pre_buffer
+        kwargs = dict(
+            use_buffered_stream=self.use_buffered_stream,
+            buffer_size=self.buffer_size,
+            pre_buffer=self.pre_buffer,
+            thrift_string_size_limit=self.thrift_string_size_limit,
+            thrift_container_size_limit=self.thrift_container_size_limit,
         )
+        return type(self)._reconstruct, (kwargs,)
 
 
 cdef class ParquetFactoryOptions(_Weakrefable):
@@ -782,7 +836,7 @@ cdef class ParquetDatasetFactory(DatasetFactory):
                  FileFormat format not None,
                  ParquetFactoryOptions options=None):
         cdef:
-            c_string path
+            c_string c_path
             shared_ptr[CFileSystem] c_filesystem
             shared_ptr[CParquetFileFormat] c_format
             CResult[shared_ptr[CDatasetFactory]] result
@@ -795,8 +849,9 @@ cdef class ParquetDatasetFactory(DatasetFactory):
         options = options or ParquetFactoryOptions()
         c_options = options.unwrap()
 
-        result = CParquetDatasetFactory.MakeFromMetaDataPath(
-            c_path, c_filesystem, c_format, c_options)
+        with nogil:
+            result = CParquetDatasetFactory.MakeFromMetaDataPath(
+                c_path, c_filesystem, c_format, c_options)
         self.init(GetResultValue(result))
 
     cdef init(self, shared_ptr[CDatasetFactory]& sp):

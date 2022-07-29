@@ -92,13 +92,13 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 			},
@@ -107,13 +107,13 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: false},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 			},
@@ -122,13 +122,13 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f0", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f0", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f0": 0},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 			},
@@ -137,14 +137,14 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 			},
@@ -153,14 +153,14 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 			},
@@ -169,13 +169,13 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f2", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f2": 0},
 			},
@@ -184,32 +184,15 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
-				},
-				index: map[string]int{"f1": 0, "f2": 1},
-			},
-			true, false,
-		},
-		{
-			&StructType{
-				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
-				},
-				index: map[string]int{"f1": 0, "f2": 1},
-			},
-			&StructType{
-				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 			},
@@ -218,16 +201,33 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+				},
+				index: map[string]int{"f1": 0, "f2": 1},
+			},
+			&StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+				},
+				index: map[string]int{"f1": 0, "f2": 1},
+			},
+			true, false,
+		},
+		{
+			&StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 				meta:  MetadataFrom(map[string]string{"k1": "v1", "k2": "v2"}),
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 				meta:  MetadataFrom(map[string]string{"k2": "v2", "k1": "v1"}),
@@ -237,14 +237,14 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 				meta:  MetadataFrom(map[string]string{"k1": "v1"}),
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
+					{Name: "f1", Type: PrimitiveTypes.Uint32, Nullable: true},
 				},
 				index: map[string]int{"f1": 0},
 				meta:  MetadataFrom(map[string]string{"k1": "v2"}),
@@ -254,15 +254,15 @@ func TestTypeEqual(t *testing.T) {
 		{
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true, Metadata: MetadataFrom(map[string]string{"k1": "v1"})},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true, Metadata: MetadataFrom(map[string]string{"k1": "v1"})},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 			},
 			&StructType{
 				fields: []Field{
-					Field{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true, Metadata: MetadataFrom(map[string]string{"k1": "v2"})},
-					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
+					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true, Metadata: MetadataFrom(map[string]string{"k1": "v2"})},
+					{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 			},

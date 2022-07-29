@@ -38,8 +38,8 @@ namespace :dependency do
                                     Parquet::Version::MAJOR,
                                     Parquet::Version::MINOR,
                                     Parquet::Version::MICRO)
-      unless NativePackageInstaller.install(:debian => "libparquet-glib-dev",
-                                            :redhat => "parquet-glib-devel")
+      unless NativePackageInstaller.install(debian: "libparquet-glib-dev",
+                                            redhat: "parquet-glib-devel")
         exit(false)
       end
     end

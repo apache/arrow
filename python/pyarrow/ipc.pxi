@@ -100,6 +100,60 @@ cdef _wrap_read_stats(CIpcReadStats c):
                      c.num_replaced_dictionaries)
 
 
+cdef class IpcReadOptions(_Weakrefable):
+    """
+    Serialization options for reading IPC format.
+
+    Parameters
+    ----------
+    use_threads : bool
+        Whether to use the global CPU thread pool to parallelize any
+        computational tasks like decompression.
+    ensure_native_endian : bool
+        Whether to convert incoming data to platform-native endianness.
+        Default is true.
+    included_fields : list
+        If empty (the default), return all deserialized fields.
+        If non-empty, the values are the indices of fields to read on
+        the top-level schema.
+    """
+    __slots__ = ()
+
+    # cdef block is in lib.pxd
+
+    def __init__(self, *, bint ensure_native_endian=True,
+                 bint use_threads=True, list included_fields=None):
+        self.c_options = CIpcReadOptions.Defaults()
+        self.ensure_native_endian = ensure_native_endian
+        self.use_threads = use_threads
+        if included_fields is not None:
+            self.included_fields = included_fields
+
+    @property
+    def ensure_native_endian(self):
+        return self.c_options.ensure_native_endian
+
+    @ensure_native_endian.setter
+    def ensure_native_endian(self, bint value):
+        self.c_options.ensure_native_endian = value
+
+    @property
+    def use_threads(self):
+        return self.c_options.use_threads
+
+    @use_threads.setter
+    def use_threads(self, bint value):
+        self.c_options.use_threads = value
+
+    @property
+    def included_fields(self):
+        return self.c_options.included_fields
+
+    @included_fields.setter
+    def included_fields(self, list value not None):
+        self.c_options.included_fields = value
+
+
 cdef class IpcWriteOptions(_Weakrefable):
     """
     Serialization options for the IPC format.
@@ -347,7 +401,8 @@ cdef class MessageReader(_Weakrefable):
     @staticmethod
     def open_stream(source):
         """
-        Open stream from source.
+        Open stream from source, if you want to use memory map use
+        MemoryMappedFile as source.
 
         Parameters
         ----------
@@ -543,7 +598,7 @@ class _ReadPandasMixin:
 cdef class RecordBatchReader(_Weakrefable):
     """Base class for reading stream of record batches.
 
-    Record batch readers function as iterators of record batches that also 
+    Record batch readers function as iterators of record batches that also
     provide the schema (without the need to get any batches).
 
     Warnings
@@ -553,19 +608,19 @@ cdef class RecordBatchReader(_Weakrefable):
 
     Notes
     -----
-    To import and export using the Arrow C stream interface, use the 
+    To import and export using the Arrow C stream interface, use the
     ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
-    interface is experimental and intended for expert users.
+    interface is intended for expert users.
 
     Examples
     --------
+    >>> import pyarrow as pa
     >>> schema = pa.schema([('x', pa.int64())])
     >>> def iter_record_batches():
     ...     for i in range(2):
-    ...     yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
+    ...         yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
     >>> reader = pa.RecordBatchReader.from_batches(schema, iter_record_batches())
     >>> print(reader.schema)
-    pyarrow.Schema
     x: int64
     >>> for batch in reader:
     ...     print(batch)
@@ -647,11 +702,18 @@ cdef class RecordBatchReader(_Weakrefable):
 
     read_pandas = _ReadPandasMixin.read_pandas
 
+    def close(self):
+        """
+        Release any resources associated with the reader.
+        """
+        with nogil:
+            check_status(self.reader.get().Close())
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        self.close()
 
     def _export_to_c(self, out_ptr):
         """
@@ -737,7 +799,10 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
     def __cinit__(self):
         pass
 
-    def _open(self, source):
+    def _open(self, source, IpcReadOptions options=IpcReadOptions(),
+              MemoryPool memory_pool=None):
+        self.options = options.c_options
+        self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
         _get_input_stream(source, &self.in_stream)
         with nogil:
             self.reader = GetResultValue(CRecordBatchStreamReader.Open(
@@ -780,13 +845,17 @@ cdef class _RecordBatchFileReader(_Weakrefable):
     def __cinit__(self):
         pass
 
-    def _open(self, source, footer_offset=None):
+    def _open(self, source, footer_offset=None,
+              IpcReadOptions options=IpcReadOptions(),
+              MemoryPool memory_pool=None):
+        self.options = options.c_options
+        self.options.memory_pool = maybe_unbox_memory_pool(memory_pool)
         try:
             source = as_buffer(source)
         except TypeError:
             pass
 
-        get_reader(source, True, &self.file)
+        get_reader(source, False, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -1028,7 +1097,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
-    get_reader(obj, True, &cpp_file)
+    get_reader(obj, False, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo

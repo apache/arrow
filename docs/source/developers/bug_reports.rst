@@ -111,9 +111,9 @@ understand the issue and provide those supporting details up front.
 
 Good reproducible examples or minimal bug reports can be found in next tabs:
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: Python
+   .. tab-item:: Python
 
       The ``print`` method of a timestamp with timezone errors:
 
@@ -137,7 +137,7 @@ Good reproducible examples or minimal bug reports can be found in next tabs:
          #  File "pyarrow/scalar.pxi", line 393, in pyarrow.lib._datetime_from_int
          #ValueError: fromutc: dt.tzinfo is not self
 
-   .. tab:: R
+   .. tab-item:: R
 
       Error when reading a CSV file with ``col_types`` option ``"T"`` or ``"t"`` when source data is in millisecond precision:
 

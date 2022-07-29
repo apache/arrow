@@ -257,7 +257,7 @@ class WriteClientStream : public UcxClientStream {
   }
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
     std::unique_lock<std::mutex> guard(driver_mutex_);
-    if (finished_ || writes_done_) return Status::Invalid("Already done writing");
+    if (finished_ || writes_done_) return false;
     outgoing_ = driver_->SendFlightPayload(payload);
     working_cv_.notify_all();
     completed_cv_.wait(guard, [this] { return outgoing_.is_finished(); });
@@ -513,11 +513,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
   virtual ~UcxClientImpl() {
     if (!ucp_context_) return;
-    auto status = Close();
-    if (!status.ok()) {
-      ARROW_LOG(WARNING) << "UcxClientImpl errored in Close() in destructor: "
-                         << status.ToString();
-    }
+    ARROW_WARN_NOT_OK(Close(), "UcxClientImpl errored in Close() in destructor");
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,

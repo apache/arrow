@@ -117,11 +117,17 @@ class ARROW_EXPORT AsyncTaskGroup {
   /// completed then adding a task will fail.
   Status AddTask(std::function<Result<Future<>>()> task);
   /// Same as AddTask but doesn't add the task if End() has been called.
-  Status AddTaskIfNotEnded(std::function<Result<Future<>>()> task);
+  ///
+  /// \return true if the task was started, false if the group had already ended
+  Result<bool> AddTaskIfNotEnded(std::function<Result<Future<>>()> task);
   /// Add a task that has already been started
   Status AddTask(const Future<>& task);
-  /// Same as AddTask but doesn't add the task if End() has been called.
-  Status AddTaskIfNotEnded(const Future<>& task);
+  /// \brief Attempt to add a task that has already been started to this group's tracking
+  ///
+  /// The return value must be paid attention to.  If the return value is false then the
+  /// task could not be added because the group had already ended and so the caller must
+  /// track the external task some other way.
+  Result<bool> AddTaskIfNotEnded(const Future<>& task);
   /// Signal that top level tasks are done being added
   ///
   /// It is allowed for tasks to be added after this call provided the future has not yet
@@ -205,65 +211,6 @@ class ARROW_EXPORT SerializedAsyncTaskGroup {
   bool ended_ = false;
   Status err_;
   Future<> processing_;
-};
-
-class ARROW_EXPORT AsyncToggle {
- public:
-  /// Get a future that will complete when the toggle next becomes open
-  ///
-  /// If the toggle is open this returns immediately
-  /// If the toggle is closed this future will be unfinished until the next call to Open
-  Future<> WhenOpen();
-  /// \brief Close the toggle
-  ///
-  /// After this call any call to WhenOpen will be delayed until the next open
-  void Close();
-  /// \brief Open the toggle
-  ///
-  /// Note: This call may complete a future, triggering any callbacks, and generally
-  /// should not be done while holding any locks.
-  ///
-  /// Note: If Open is called from multiple threads it could lead to a situation where
-  /// callbacks from the second open finish before callbacks on the first open.
-  ///
-  /// All current waiters will be released to enter, even if another close call
-  /// quickly follows
-  void Open();
-
-  /// \brief Return true if the toggle is currently open
-  bool IsOpen();
-
- private:
-  Future<> when_open_ = Future<>::MakeFinished();
-  bool closed_ = false;
-  util::Mutex mutex_;
-};
-
-/// \brief Options to control backpressure behavior
-struct ARROW_EXPORT BackpressureOptions {
-  /// \brief Create default options that perform no backpressure
-  BackpressureOptions() : toggle(NULLPTR), resume_if_below(0), pause_if_above(0) {}
-  /// \brief Create options that will perform backpressure
-  ///
-  /// \param toggle A toggle to be shared between the producer and consumer
-  /// \param resume_if_below The producer should resume producing if the backpressure
-  ///                        queue has fewer than resume_if_below items.
-  /// \param pause_if_above The producer should pause producing if the backpressure
-  ///                       queue has more than pause_if_above items
-  BackpressureOptions(std::shared_ptr<util::AsyncToggle> toggle, uint32_t resume_if_below,
-                      uint32_t pause_if_above)
-      : toggle(std::move(toggle)),
-        resume_if_below(resume_if_below),
-        pause_if_above(pause_if_above) {}
-
-  static BackpressureOptions Make(uint32_t resume_if_below = 32,
-                                  uint32_t pause_if_above = 64);
-
-  static BackpressureOptions NoBackpressure();
-
-  std::shared_ptr<util::AsyncToggle> toggle;
-  uint32_t resume_if_below;
-  uint32_t pause_if_above;
 };
 
 }  // namespace util

@@ -44,6 +44,11 @@ class ARROW_FLIGHT_EXPORT AddCallHeaders {
   virtual ~AddCallHeaders() = default;
 
   /// \brief Add a header to be sent to the client.
+  ///
+  /// \param[in] key The header name. Must be lowercase ASCII; some
+  ///   transports may reject invalid header names.
+  /// \param[in] value The header value. Some transports may only
+  ///   accept binary header values if the header name ends in "-bin".
   virtual void AddHeader(const std::string& key, const std::string& value) = 0;
 };
 

@@ -19,6 +19,7 @@ package org.apache.arrow.adapter.jdbc;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowConfig.DEFAULT_TARGET_BATCH_SIZE;
 
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Function;
@@ -37,9 +38,11 @@ public class JdbcToArrowConfigBuilder {
   private boolean reuseVectorSchemaRoot;
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
-
+  private Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex;
+  private Map<String, JdbcFieldInfo> explicitTypesByColumnName;
   private int targetBatchSize;
   private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
+  private RoundingMode bigDecimalRoundingMode;
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
@@ -53,6 +56,9 @@ public class JdbcToArrowConfigBuilder {
     this.reuseVectorSchemaRoot = false;
     this.arraySubTypesByColumnIndex = null;
     this.arraySubTypesByColumnName = null;
+    this.explicitTypesByColumnIndex = null;
+    this.explicitTypesByColumnName = null;
+    this.bigDecimalRoundingMode = null;
   }
 
   /**
@@ -164,19 +170,69 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  /**
+   * Sets the mapping of column-index-to-{@link JdbcFieldInfo} used for column types.
+   * <p>
+   * This can be useful to override type information from JDBC drivers that provide incomplete type info,
+   * e.g. DECIMAL with precision = scale = 0.
+   * <p>
+   * The column index is 1-based, to match the JDBC column index.
+   * @param map The mapping.
+   */
+  public JdbcToArrowConfigBuilder setExplicitTypesByColumnIndex(Map<Integer, JdbcFieldInfo> map) {
+    this.explicitTypesByColumnIndex = map;
+    return this;
+  }
+
+  /**
+   * Sets the mapping of column-name-to-{@link JdbcFieldInfo} used for column types.
+   * <p>
+   * This can be useful to override type information from JDBC drivers that provide incomplete type info,
+   * e.g. DECIMAL with precision = scale = 0.
+   * @param map The mapping.
+   */
+  public JdbcToArrowConfigBuilder setExplicitTypesByColumnName(Map<String, JdbcFieldInfo> map) {
+    this.explicitTypesByColumnName = map;
+    return this;
+  }
+
+  /**
+   * Set the target number of rows to convert at once.
+   * <p>
+   * Use {@link JdbcToArrowConfig#NO_LIMIT_BATCH_SIZE} to read all rows at once.
+   */
   public JdbcToArrowConfigBuilder setTargetBatchSize(int targetBatchSize) {
     this.targetBatchSize = targetBatchSize;
     return this;
   }
 
+  /**
+   * Set the function used to convert JDBC types to Arrow types.
+   * <p>
+   * Defaults to wrapping {@link JdbcToArrowUtils#getArrowTypeFromJdbcType(JdbcFieldInfo, Calendar)}.
+   */
   public JdbcToArrowConfigBuilder setJdbcToArrowTypeConverter(
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter;
     return this;
   }
 
+  /**
+   * Set whether to use the same {@link org.apache.arrow.vector.VectorSchemaRoot} instance on each iteration,
+   * or to allocate a new one.
+   */
   public JdbcToArrowConfigBuilder setReuseVectorSchemaRoot(boolean reuseVectorSchemaRoot) {
     this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
+    return this;
+  }
+
+  /**
+   * Set the rounding mode used when the scale of the actual value does not match the declared scale.
+   * <p>
+   * By default, an error is raised in such cases.
+   */
+  public JdbcToArrowConfigBuilder setBigDecimalRoundingMode(RoundingMode bigDecimalRoundingMode) {
+    this.bigDecimalRoundingMode = bigDecimalRoundingMode;
     return this;
   }
 
@@ -196,6 +252,9 @@ public class JdbcToArrowConfigBuilder {
         arraySubTypesByColumnIndex,
         arraySubTypesByColumnName,
         targetBatchSize,
-        jdbcToArrowTypeConverter);
+        jdbcToArrowTypeConverter,
+        explicitTypesByColumnIndex,
+        explicitTypesByColumnName,
+        bigDecimalRoundingMode);
   }
 }

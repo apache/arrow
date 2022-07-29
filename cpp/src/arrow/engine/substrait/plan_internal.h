@@ -20,7 +20,7 @@
 #pragma once
 
 #include "arrow/engine/substrait/extension_set.h"
-#include "arrow/engine/visibility.h"
+#include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
 #include "substrait/plan.pb.h"  // IWYU pragma: export
@@ -49,7 +49,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
-    ExtensionIdRegistry* registry = default_extension_id_registry());
+    const ExtensionIdRegistry* registry = default_extension_id_registry());
 
 }  // namespace engine
 }  // namespace arrow

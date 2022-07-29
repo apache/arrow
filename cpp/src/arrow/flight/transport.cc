@@ -17,6 +17,7 @@
 
 #include "arrow/flight/transport.h"
 
+#include <sstream>
 #include <unordered_map>
 
 #include "arrow/flight/client_auth.h"
@@ -157,6 +158,198 @@ Status TransportRegistry::RegisterServer(const std::string& scheme,
 TransportRegistry* GetDefaultTransportRegistry() {
   static TransportRegistry kRegistry;
   return &kRegistry;
+}
+
+//------------------------------------------------------------
+// Error propagation helpers
+
+TransportStatus TransportStatus::FromStatus(const Status& arrow_status) {
+  if (arrow_status.ok()) {
+    return TransportStatus{TransportStatusCode::kOk, ""};
+  }
+
+  TransportStatusCode code = TransportStatusCode::kUnknown;
+  std::string message = arrow_status.message();
+  if (arrow_status.detail()) {
+    message += ". Detail: ";
+    message += arrow_status.detail()->ToString();
+  }
+
+  std::shared_ptr<FlightStatusDetail> flight_status =
+      FlightStatusDetail::UnwrapStatus(arrow_status);
+  if (flight_status) {
+    switch (flight_status->code()) {
+      case FlightStatusCode::Internal:
+        code = TransportStatusCode::kInternal;
+        break;
+      case FlightStatusCode::TimedOut:
+        code = TransportStatusCode::kTimedOut;
+        break;
+      case FlightStatusCode::Cancelled:
+        code = TransportStatusCode::kCancelled;
+        break;
+      case FlightStatusCode::Unauthenticated:
+        code = TransportStatusCode::kUnauthenticated;
+        break;
+      case FlightStatusCode::Unauthorized:
+        code = TransportStatusCode::kUnauthorized;
+        break;
+      case FlightStatusCode::Unavailable:
+        code = TransportStatusCode::kUnavailable;
+        break;
+      default:
+        break;
+    }
+  } else if (arrow_status.IsKeyError()) {
+    code = TransportStatusCode::kNotFound;
+  } else if (arrow_status.IsInvalid()) {
+    code = TransportStatusCode::kInvalidArgument;
+  } else if (arrow_status.IsCancelled()) {
+    code = TransportStatusCode::kCancelled;
+  } else if (arrow_status.IsNotImplemented()) {
+    code = TransportStatusCode::kUnimplemented;
+  } else if (arrow_status.IsAlreadyExists()) {
+    code = TransportStatusCode::kAlreadyExists;
+  }
+  return TransportStatus{code, std::move(message)};
+}
+
+TransportStatus TransportStatus::FromCodeStringAndMessage(const std::string& code_str,
+                                                          std::string message) {
+  int code_int = 0;
+  try {
+    code_int = std::stoi(code_str);
+  } catch (...) {
+    return TransportStatus{
+        TransportStatusCode::kUnknown,
+        message + ". Also, server sent unknown or invalid Arrow status code " + code_str};
+  }
+  switch (code_int) {
+    case static_cast<int>(TransportStatusCode::kOk):
+    case static_cast<int>(TransportStatusCode::kUnknown):
+    case static_cast<int>(TransportStatusCode::kInternal):
+    case static_cast<int>(TransportStatusCode::kInvalidArgument):
+    case static_cast<int>(TransportStatusCode::kTimedOut):
+    case static_cast<int>(TransportStatusCode::kNotFound):
+    case static_cast<int>(TransportStatusCode::kAlreadyExists):
+    case static_cast<int>(TransportStatusCode::kCancelled):
+    case static_cast<int>(TransportStatusCode::kUnauthenticated):
+    case static_cast<int>(TransportStatusCode::kUnauthorized):
+    case static_cast<int>(TransportStatusCode::kUnimplemented):
+    case static_cast<int>(TransportStatusCode::kUnavailable):
+      return TransportStatus{static_cast<TransportStatusCode>(code_int),
+                             std::move(message)};
+    default: {
+      return TransportStatus{
+          TransportStatusCode::kUnknown,
+          message + ". Also, server sent unknown or invalid Arrow status code " +
+              code_str};
+    }
+  }
+}
+
+Status TransportStatus::ToStatus() const {
+  switch (code) {
+    case TransportStatusCode::kOk:
+      return Status::OK();
+    case TransportStatusCode::kUnknown: {
+      std::stringstream ss;
+      ss << "Flight RPC failed with message: " << message;
+      return Status::UnknownError(ss.str()).WithDetail(
+          std::make_shared<FlightStatusDetail>(FlightStatusCode::Failed));
+    }
+    case TransportStatusCode::kInternal:
+      return Status::IOError("Flight returned internal error, with message: ", message)
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal));
+    case TransportStatusCode::kInvalidArgument:
+      return Status::Invalid("Flight returned invalid argument error, with message: ",
+                             message);
+    case TransportStatusCode::kTimedOut:
+      return Status::IOError("Flight returned timeout error, with message: ", message)
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::TimedOut));
+    case TransportStatusCode::kNotFound:
+      return Status::KeyError("Flight returned not found error, with message: ", message);
+    case TransportStatusCode::kAlreadyExists:
+      return Status::AlreadyExists("Flight returned already exists error, with message: ",
+                                   message);
+    case TransportStatusCode::kCancelled:
+      return Status::Cancelled("Flight cancelled call, with message: ", message)
+          .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Cancelled));
+    case TransportStatusCode::kUnauthenticated:
+      return Status::IOError("Flight returned unauthenticated error, with message: ",
+                             message)
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthenticated));
+    case TransportStatusCode::kUnauthorized:
+      return Status::IOError("Flight returned unauthorized error, with message: ",
+                             message)
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unauthorized));
+    case TransportStatusCode::kUnimplemented:
+      return Status::NotImplemented("Flight returned unimplemented error, with message: ",
+                                    message);
+    case TransportStatusCode::kUnavailable:
+      return Status::IOError("Flight returned unavailable error, with message: ", message)
+          .WithDetail(
+              std::make_shared<FlightStatusDetail>(FlightStatusCode::Unavailable));
+    default:
+      return Status::UnknownError("Flight failed with error code ",
+                                  static_cast<int>(code), " and message: ", message);
+  }
+}
+
+Status ReconstructStatus(const std::string& code_str, const Status& current_status,
+                         util::optional<std::string> message,
+                         util::optional<std::string> detail_message,
+                         util::optional<std::string> detail_bin,
+                         std::shared_ptr<FlightStatusDetail> detail) {
+  // Bounce through std::string to get a proper null-terminated C string
+  StatusCode status_code = current_status.code();
+  std::stringstream status_message;
+  try {
+    const auto code_int = std::stoi(code_str);
+    switch (code_int) {
+      case static_cast<int>(StatusCode::OutOfMemory):
+      case static_cast<int>(StatusCode::KeyError):
+      case static_cast<int>(StatusCode::TypeError):
+      case static_cast<int>(StatusCode::Invalid):
+      case static_cast<int>(StatusCode::IOError):
+      case static_cast<int>(StatusCode::CapacityError):
+      case static_cast<int>(StatusCode::IndexError):
+      case static_cast<int>(StatusCode::Cancelled):
+      case static_cast<int>(StatusCode::UnknownError):
+      case static_cast<int>(StatusCode::NotImplemented):
+      case static_cast<int>(StatusCode::SerializationError):
+      case static_cast<int>(StatusCode::RError):
+      case static_cast<int>(StatusCode::CodeGenError):
+      case static_cast<int>(StatusCode::ExpressionValidationError):
+      case static_cast<int>(StatusCode::ExecutionError):
+      case static_cast<int>(StatusCode::AlreadyExists): {
+        status_code = static_cast<StatusCode>(code_int);
+        break;
+      }
+      default: {
+        status_message << ". Also, server sent unknown or invalid Arrow status code "
+                       << code_str;
+        break;
+      }
+    }
+  } catch (...) {
+    status_message << ". Also, server sent unknown or invalid Arrow status code "
+                   << code_str;
+  }
+
+  status_message << (message.has_value() ? *message : current_status.message());
+  if (detail_message.has_value()) {
+    status_message << ". Detail: " << *detail_message;
+  }
+  if (detail_bin.has_value()) {
+    if (!detail) {
+      detail = std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal);
+    }
+    detail->set_extra_info(std::move(*detail_bin));
+  }
+  return Status(status_code, status_message.str(), std::move(detail));
 }
 
 }  // namespace internal

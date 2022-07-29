@@ -167,6 +167,8 @@ The :class:`FileFormat` objects can be customized using keywords. For example::
 
 Will configure column ``"a"`` to be dictionary encoded on scan.
 
+.. _py-filter-dataset:
+
 Filtering data
 --------------
 
@@ -353,7 +355,7 @@ specifying a S3 path:
 
 .. code-block:: python
 
-    dataset = ds.dataset("s3://ursa-labs-taxi-data/", partitioning=["year", "month"])
+    dataset = ds.dataset("s3://voltrondata-labs-datasets/nyc-taxi/")
 
 Typically, you will want to customize the connection parameters, and then
 a file system object can be created and passed to the ``filesystem`` keyword:
@@ -363,8 +365,7 @@ a file system object can be created and passed to the ``filesystem`` keyword:
     from pyarrow import fs
 
     s3  = fs.S3FileSystem(region="us-east-2")
-    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=s3,
-                         partitioning=["year", "month"])
+    dataset = ds.dataset("voltrondata-labs-datasets/nyc-taxi/", filesystem=s3)
 
 The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
 :class:`~pyarrow.fs.HadoopFileSystem`. See the :ref:`filesystem` docs for more
@@ -384,9 +385,8 @@ useful for testing or benchmarking.
     from pyarrow import fs
 
     # By default, MinIO will listen for unencrypted HTTP traffic.
-    minio = fs.S3FileSystem(scheme="http", endpoint="localhost:9000")
-    dataset = ds.dataset("ursa-labs-taxi-data/", filesystem=minio,
-                         partitioning=["year", "month"])
+    minio = fs.S3FileSystem(scheme="http", endpoint_override="localhost:9000")
+    dataset = ds.dataset("voltrondata-labs-datasets/nyc-taxi/", filesystem=minio)
 
 
 Working with Parquet Datasets
@@ -570,7 +570,7 @@ dataset to be partitioned.  For example:
     part = ds.partitioning(
         pa.schema([("c", pa.int16())]), flavor="hive"
     )
-    ds.write_dataset(table, "sample_dataset", format="parquet", partitioning=part)
+    ds.write_dataset(table, "partitioned_dataset", format="parquet", partitioning=part)
 
 This will create two files.  Half our data will be in the dataset_root/c=1 directory and
 the other half will be in the dataset_root/c=2 directory.
@@ -613,6 +613,77 @@ guidelines apply. Row groups can provide parallelism when reading and allow data
 based on statistics, but very small groups can cause metadata to be a significant portion
 of file size. Arrow's file writer provides sensible defaults for group sizing in most cases.
 
+Configuring files open during a write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When writing data to the disk, there are a few parameters that can be 
+important to optimize the writes, such as the number of rows per file and
+the maximum number of open files allowed during the write.
+
+Set the maximum number of files opened with the ``max_open_files`` parameter of
+:meth:`write_dataset`.
+
+If  ``max_open_files`` is set greater than 0 then this will limit the maximum 
+number of files that can be left open. This only applies to writing partitioned
+datasets, where rows are dispatched to the appropriate file depending on their
+partition values. If an attempt is made to open too many  files then the least
+recently used file will be closed.  If this setting is set too low you may end
+up fragmenting your data into many small files.
+
+If your process is concurrently using other file handlers, either with a 
+dataset scanner or otherwise, you may hit a system file handler limit. For 
+example, if you are scanning a dataset with 300 files and writing out to
+900 files, the total of 1200 files may be over a system limit. (On Linux,
+this might be a "Too Many Open Files" error.) You can either reduce this
+``max_open_files`` setting or increase the file handler limit on your
+system. The default value is 900 which allows some number of files
+to be open by the scanner before hitting the default Linux limit of 1024. 
+
+Another important configuration used in :meth:`write_dataset` is ``max_rows_per_file``. 
+
+Set the maximum number of rows written in each file with the ``max_rows_per_files``
+parameter of :meth:`write_dataset`.
+
+If ``max_rows_per_file`` is set greater than 0 then this will limit how many 
+rows are placed in any single file. Otherwise there will be no limit and one
+file will be created in each output directory unless files need to be closed to respect
+``max_open_files``. This setting is the primary way to control file size.
+For workloads writing a lot of data, files can get very large without a
+row count cap, leading to out-of-memory errors in downstream readers. The
+relationship between row count and file size depends on the dataset schema
+and how well compressed (if at all) the data is.
+
+Configuring rows per group during a write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The volume of data written to the disk per each group can be configured.
+This configuration includes a lower and an upper bound.
+The minimum number of rows required to form a row group is 
+defined with the ``min_rows_per_group`` parameter of :meth:`write_dataset`.
+
+.. note::
+    If ``min_rows_per_group`` is set greater than 0 then this will cause the 
+    dataset writer to batch incoming data and only write the row groups to the 
+    disk when sufficient rows have accumulated. The final row group size may be 
+    less than this value if other options such as ``max_open_files`` or 
+    ``max_rows_per_file`` force smaller row group sizes.
+
+The maximum number of rows allowed per group is defined with the
+``max_rows_per_group`` parameter of :meth:`write_dataset`.
+
+If ``max_rows_per_group`` is set greater than 0 then the dataset writer may split 
+up large incoming batches into multiple row groups.  If this value is set then 
+``min_rows_per_group`` should also be set or else you may end up with very small 
+row groups (e.g. if the incoming row group size is just barely larger than this value).
+
+Row groups are built into the Parquet and IPC/Feather formats but don't affect JSON or CSV.
+When reading back Parquet and IPC formats in Arrow, the row group boundaries become the
+record batch boundaries, determining the default batch size of downstream readers.
+Additionally, row groups in Parquet files have column statistics which can help readers
+skip irrelevant data but can add size to the file. As an extreme example, if one sets
+max_rows_per_group=1 in Parquet, they will have large files because most of the files
+will be row group statistics.
+
 Writing large amounts of data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -630,7 +701,7 @@ into memory:
     new_part = ds.partitioning(
         pa.schema([("c", pa.int16())]), flavor=None
     )
-    input_dataset = ds.dataset("sample_dataset", partitioning=old_part)
+    input_dataset = ds.dataset("partitioned_dataset", partitioning=old_part)
     # A scanner can act as an iterator of record batches but you could also receive
     # data from the network (e.g. via flight), from your own scanning, or from any
     # other method that yields record batches.  In addition, you can pass a dataset
@@ -660,6 +731,7 @@ to supply a visitor that will be called as each file is created:
 
     def file_visitor(written_file):
         print(f"path={written_file.path}")
+        print(f"size={written_file.size} bytes")
         print(f"metadata={written_file.metadata}")
 
 .. ipython:: python
@@ -670,7 +742,7 @@ to supply a visitor that will be called as each file is created:
 This will allow you to collect the filenames that belong to the dataset and store them elsewhere
 which can be useful when you want to avoid scanning directories the next time you need to read
 the data.  It can also be used to generate the _metadata index file used by other tools such as
-dask or spark to create an index of the dataset.
+Dask or Spark to create an index of the dataset.
 
 Configuring format-specific parameters during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

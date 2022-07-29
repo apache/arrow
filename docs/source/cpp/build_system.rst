@@ -176,13 +176,13 @@ text version of the IANA timezone database and add the Windows timezone mapping
 XML. To download, you can use the following batch script:
 
 .. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
-   :language: cmd
+   :language: batch
    :start-after: @rem (Doc section: Download timezone database)
    :end-before: @rem (Doc section: Download timezone database)
 
 By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
 but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
 
-   arrow::ArrowGlobalOptions options;
-   options.tz_db_path = "path/to/tzdata";
+   arrow::GlobalOptions options;
+   options.timezone_db_path = "path/to/tzdata";
    ARROW_RETURN_NOT_OK(arrow::Initialize(options));

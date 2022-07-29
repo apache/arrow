@@ -49,6 +49,12 @@ enum class ParquetDataPageVersion { V1, V2 };
 /// Align the default buffer size to a small multiple of a page size.
 constexpr int64_t kDefaultBufferSize = 4096 * 4;
 
+constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
+// Structs in the thrift definition are relatively large (at least 300 bytes).
+// This limits total memory to the same order of magnitude as
+// kDefaultStringSizeLimit.
+constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
+
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
@@ -73,6 +79,14 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size() const { return buffer_size_; }
   void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
+  int32_t thrift_string_size_limit() const { return thrift_string_size_limit_; }
+  void set_thrift_string_size_limit(int32_t size) { thrift_string_size_limit_ = size; }
+
+  int32_t thrift_container_size_limit() const { return thrift_container_size_limit_; }
+  void set_thrift_container_size_limit(int32_t size) {
+    thrift_container_size_limit_ = size;
+  }
+
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
   }
@@ -84,6 +98,8 @@ class PARQUET_EXPORT ReaderProperties {
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
+  int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
+  int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
@@ -166,7 +182,7 @@ class PARQUET_EXPORT WriterProperties {
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
           pagesize_(kDefaultDataPageSize),
-          version_(ParquetVersion::PARQUET_1_0),
+          version_(ParquetVersion::PARQUET_2_4),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY) {}
     virtual ~Builder() {}
@@ -246,7 +262,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Specify the Parquet file version.
-    /// Default PARQUET_1_0.
+    /// Default PARQUET_2_4.
     Builder* version(ParquetVersion::type version) {
       version_ = version;
       return this;

@@ -301,6 +301,51 @@ TEST_F(TestDecimal, TestCompare) {
                             outputs[5]);  // greater_than_or_equal_to
 }
 
+TEST_F(TestDecimal, TestNegative) {
+  // schema for input fields
+  constexpr int32_t precision = 3;
+  constexpr int32_t scale = 1;
+
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
+  auto field_a = field("a", decimal_type);
+  auto schema = arrow::schema({field_a});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("negative", {field_a},
+                                      field("res_negative", decimal_type)),
+  };
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto validity = {true, true, true, true};
+  auto array_a = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"10.5", "-10.5", "-50.2", "50.2"}, scale),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  // negative(x)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(decimal_type,
+                            MakeDecimalVector({"-10.5", "10.5", "50.2", "-50.2"}, scale),
+                            validity),
+      outputs[0]);
+}
+
 // ARROW-9092: This test is conditionally disabled when building with LLVM 9
 // because it hangs.
 #if GANDIVA_LLVM_VERSION != 9

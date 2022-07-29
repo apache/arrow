@@ -332,13 +332,13 @@ Status LocalFileSystem::DeleteDir(const std::string& path) {
   return Status::OK();
 }
 
-Status LocalFileSystem::DeleteDirContents(const std::string& path) {
+Status LocalFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   RETURN_NOT_OK(ValidatePath(path));
   if (internal::IsEmptyPath(path)) {
     return internal::InvalidDeleteDirContents(path);
   }
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  auto st = ::arrow::internal::DeleteDirContents(fn, /*allow_not_found=*/false).status();
+  auto st = ::arrow::internal::DeleteDirContents(fn, missing_dir_ok).status();
   if (!st.ok()) {
     std::stringstream ss;
     ss << "Cannot delete directory contents in '" << path << "': " << st.message();
@@ -439,10 +439,11 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   const bool write_only = true;
   ARROW_ASSIGN_OR_RAISE(
-      int fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
-  auto maybe_stream = io::FileOutputStream::Open(fd);
+      auto fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
+  int raw_fd = fd.Detach();
+  auto maybe_stream = io::FileOutputStream::Open(raw_fd);
   if (!maybe_stream.ok()) {
-    ARROW_UNUSED(::arrow::internal::FileClose(fd));
+    ARROW_UNUSED(::arrow::internal::FileClose(raw_fd));
   }
   return maybe_stream;
 }

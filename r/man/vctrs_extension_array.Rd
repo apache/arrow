@@ -7,7 +7,7 @@
 \usage{
 vctrs_extension_array(x, ptype = vctrs::vec_ptype(x), storage_type = NULL)
 
-vctrs_extension_type(ptype, storage_type = type(vctrs::vec_data(ptype)))
+vctrs_extension_type(x, storage_type = infer_type(vctrs::vec_data(x)))
 }
 \arguments{
 \item{x}{A vctr (i.e., \code{\link[vctrs:vec_assert]{vctrs::vec_is()}} returns \code{TRUE}).}
@@ -37,7 +37,6 @@ create a \code{\link[=vctrs_extension_array]{vctrs_extension_array()}}, which pa
 converted back into an R vector.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 (array <- vctrs_extension_array(as.POSIXlt("2022-01-02 03:45", tz = "UTC")))
 array$type
 as.vector(array)
@@ -46,5 +45,4 @@ temp_feather <- tempfile()
 write_feather(arrow_table(col = array), temp_feather)
 read_feather(temp_feather)
 unlink(temp_feather)
-\dontshow{\}) # examplesIf}
 }

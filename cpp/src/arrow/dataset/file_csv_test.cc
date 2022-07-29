@@ -359,6 +359,8 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
 
 TEST_P(TestCsvFileFormat, CountRows) { TestCountRows(); }
 
+TEST_P(TestCsvFileFormat, FragmentEquals) { TestFragmentEquals(); }
+
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
                          ::testing::Values(Compression::UNCOMPRESSED));
 #ifdef ARROW_WITH_BZ2
@@ -397,6 +399,7 @@ TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestCsvFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),

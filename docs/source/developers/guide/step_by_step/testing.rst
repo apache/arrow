@@ -32,9 +32,9 @@ Testing 🧪
 
 In this section we outline steps needed for unit testing in Arrow.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: PyArrow
+   .. tab-item:: PyArrow
 
       We use `pytest <https://docs.pytest.org/en/latest/>`_ for
       unit tests in Python. For more info about the required
@@ -119,7 +119,7 @@ In this section we outline steps needed for unit testing in Arrow.
       `Full pytest documentation <https://docs.pytest.org/en/stable/contents.html>`_
 
 
-   .. tab:: R package
+   .. tab-item:: R package
 
       We use `testthat <https://testthat.r-lib.org/index.html>`_ for
       unit testing in R. More specifically, we use the `3rd edition

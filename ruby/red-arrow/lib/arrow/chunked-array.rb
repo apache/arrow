@@ -18,6 +18,8 @@
 module Arrow
   class ChunkedArray
     include Enumerable
+
+    include ArrayComputable
     include GenericFilterable
     include GenericTakeable
 
@@ -86,6 +88,25 @@ module Arrow
       else
         first_chunk.class.new(to_a)
       end
+    end
+
+    def count(options: nil)
+      compute("count", options: options).value
+    end
+
+    def sum(options: nil)
+      compute("sum", options: options).value
+    end
+
+    def unique
+      compute("unique")
+    end
+
+    def cast(target_data_type, options: nil)
+      casted_chunks = chunks.collect do |chunk|
+        chunk.cast(target_data_type, options)
+      end
+      self.class.new(casted_chunks)
     end
   end
 end

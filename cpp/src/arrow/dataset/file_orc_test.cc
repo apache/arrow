@@ -62,6 +62,7 @@ TEST_F(TestOrcFileFormat, InspectFailureWithRelevantError) {
 TEST_F(TestOrcFileFormat, Inspect) { TestInspect(); }
 TEST_F(TestOrcFileFormat, IsSupported) { TestIsSupported(); }
 TEST_F(TestOrcFileFormat, CountRows) { TestCountRows(); }
+TEST_F(TestOrcFileFormat, FragmentEquals) { TestFragmentEquals(); }
 
 // TODO add TestOrcFileSystemDataset if write support is added
 
@@ -85,6 +86,7 @@ TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestOrcFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 INSTANTIATE_TEST_SUITE_P(TestScan, TestOrcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);

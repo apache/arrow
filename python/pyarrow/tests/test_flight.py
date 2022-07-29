@@ -32,7 +32,7 @@ import numpy as np
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import tobytes
+from pyarrow.lib import IpcReadOptions, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -119,6 +119,12 @@ def simple_dicts_table():
     return pa.Table.from_arrays(data, names=['some_dicts'])
 
 
+def multiple_column_table():
+    return pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
+                                 pa.array([1, 2, 3, 4])],
+                                names=['a', 'b'])
+
+
 class ConstantFlightServer(FlightServerBase):
     """A Flight server that always returns the same data.
 
@@ -134,6 +140,7 @@ class ConstantFlightServer(FlightServerBase):
         self.table_factories = {
             b'ints': simple_ints_table,
             b'dicts': simple_dicts_table,
+            b'multi': multiple_column_table,
         }
         self.options = options
 
@@ -355,17 +362,23 @@ class SlowFlightServer(FlightServerBase):
 class ErrorFlightServer(FlightServerBase):
     """A Flight server that uses all the Flight-specific errors."""
 
+    @staticmethod
+    def error_cases():
+        return {
+            "internal": flight.FlightInternalError,
+            "timedout": flight.FlightTimedOutError,
+            "cancel": flight.FlightCancelledError,
+            "unauthenticated": flight.FlightUnauthenticatedError,
+            "unauthorized": flight.FlightUnauthorizedError,
+            "notimplemented": NotImplementedError,
+            "invalid": pa.ArrowInvalid,
+            "key": KeyError,
+        }
+
     def do_action(self, context, action):
-        if action.type == "internal":
-            raise flight.FlightInternalError("foo")
-        elif action.type == "timedout":
-            raise flight.FlightTimedOutError("foo")
-        elif action.type == "cancel":
-            raise flight.FlightCancelledError("foo")
-        elif action.type == "unauthenticated":
-            raise flight.FlightUnauthenticatedError("foo")
-        elif action.type == "unauthorized":
-            raise flight.FlightUnauthorizedError("foo")
+        error_cases = ErrorFlightServer.error_cases()
+        if action.type in error_cases:
+            raise error_cases[action.type]("foo")
         elif action.type == "protobuf":
             err_msg = b'this is an error message'
             raise flight.FlightUnauthorizedError("foo", err_msg)
@@ -806,6 +819,9 @@ class MultiHeaderClientMiddleware(ClientMiddleware):
     EXPECTED = {
         "x-text": ["foo", "bar"],
         "x-binary-bin": [b"\x00", b"\x01"],
+        # ARROW-16606: ensure mixed-case headers are accepted
+        "x-MIXED-case": ["baz"],
+        b"x-other-MIXED-case": ["baz"],
     }
 
     def __init__(self, factory):
@@ -1158,6 +1174,23 @@ def test_timeout_passes():
         client.do_get(flight.Ticket(b'ints'), options=options).read_all()
 
 
+def test_read_options():
+    """Make sure ReadOptions can be used."""
+    expected = pa.Table.from_arrays([pa.array([1, 2, 3, 4])], names=["b"])
+    with ConstantFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        options = flight.FlightCallOptions(
+            read_options=IpcReadOptions(included_fields=[1]))
+        response1 = client.do_get(flight.Ticket(
+            b'multi'), options=options).read_all()
+        response2 = client.do_get(flight.Ticket(b'multi')).read_all()
+
+        assert response2.num_columns == 2
+        assert response1.num_columns == 1
+        assert response1 == expected
+        assert response2 == multiple_column_table()
+
+
 basic_auth_handler = HttpBasicServerAuthHandler(creds={
     b"test": b"p4ssw0rd",
 })
@@ -1487,7 +1520,8 @@ def test_cancel_do_get():
             FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b'ints'))
         reader.cancel()
-        with pytest.raises(flight.FlightCancelledError, match=".*Cancel.*"):
+        with pytest.raises(flight.FlightCancelledError,
+                           match="(?i).*cancel.*"):
             reader.read_chunk()
 
 
@@ -1561,16 +1595,9 @@ def test_roundtrip_errors():
     with ErrorFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
 
-        with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
-            list(client.do_action(flight.Action("internal", b"")))
-        with pytest.raises(flight.FlightTimedOutError, match=".*foo.*"):
-            list(client.do_action(flight.Action("timedout", b"")))
-        with pytest.raises(flight.FlightCancelledError, match=".*foo.*"):
-            list(client.do_action(flight.Action("cancel", b"")))
-        with pytest.raises(flight.FlightUnauthenticatedError, match=".*foo.*"):
-            list(client.do_action(flight.Action("unauthenticated", b"")))
-        with pytest.raises(flight.FlightUnauthorizedError, match=".*foo.*"):
-            list(client.do_action(flight.Action("unauthorized", b"")))
+        for arg, exc_type in ErrorFlightServer.error_cases().items():
+            with pytest.raises(exc_type, match=".*foo.*"):
+                list(client.do_action(flight.Action(arg, b"")))
         with pytest.raises(flight.FlightInternalError, match=".*foo.*"):
             list(client.list_flights())
 
@@ -1886,6 +1913,9 @@ def test_middleware_multi_header():
             client_headers = ast.literal_eval(raw_headers)
             # Don't directly compare; gRPC may add headers like User-Agent.
             for header, values in MultiHeaderClientMiddleware.EXPECTED.items():
+                header = header.lower()
+                if isinstance(header, bytes):
+                    header = header.decode("ascii")
                 assert client_headers.get(header) == values
                 assert headers.last_headers.get(header) == values
 
@@ -1970,6 +2000,11 @@ def test_interrupt():
         descriptor = flight.FlightDescriptor.for_command(b"echo")
         writer, reader = client.do_exchange(descriptor)
         test(reader.read_all)
+        try:
+            writer.close()
+        except (KeyboardInterrupt, flight.FlightCancelledError):
+            # Silence the Cancelled/Interrupt exception
+            pass
 
 
 def test_never_sends_data():
@@ -2062,3 +2097,83 @@ def test_none_action_side_effect():
         client.do_action(flight.Action("append", b""))
         r = client.do_action(flight.Action("get_value", b""))
         assert json.loads(next(r).body.to_pybytes()) == [True]
+
+
+@pytest.mark.slow  # Takes a while for gRPC to "realize" writes fail
+def test_write_error_propagation():
+    """
+    Ensure that exceptions during writing preserve error context.
+
+    See https://issues.apache.org/jira/browse/ARROW-16592.
+    """
+    expected_message = "foo"
+    expected_info = b"bar"
+    exc = flight.FlightCancelledError(
+        expected_message, extra_info=expected_info)
+    descriptor = flight.FlightDescriptor.for_command(b"")
+    schema = pa.schema([("int64", pa.int64())])
+
+    class FailServer(flight.FlightServerBase):
+        def do_put(self, context, descriptor, reader, writer):
+            raise exc
+
+        def do_exchange(self, context, descriptor, reader, writer):
+            raise exc
+
+    with FailServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        # DoPut
+        writer, reader = client.do_put(descriptor, schema)
+
+        # Set a concurrent reader - ensure this doesn't block the
+        # writer side from calling Close()
+        def _reader():
+            try:
+                while True:
+                    reader.read()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_batch(pa.record_batch([[1]], schema=schema))
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()
+
+        # DoExchange
+        writer, reader = client.do_exchange(descriptor)
+
+        def _reader():
+            try:
+                while True:
+                    reader.read_chunk()
+            except flight.FlightError:
+                return
+
+        thread = threading.Thread(target=_reader, daemon=True)
+        thread.start()
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            while True:
+                writer.write_metadata(b" ")
+        assert exc_info.value.extra_info == expected_info
+
+        with pytest.raises(flight.FlightCancelledError) as exc_info:
+            writer.close()
+        assert exc_info.value.extra_info == expected_info
+        thread.join()
+
+
+def test_interpreter_shutdown():
+    """
+    Ensure that the gRPC server is stopped at interpreter shutdown.
+
+    See https://issues.apache.org/jira/browse/ARROW-16597.
+    """
+    util.invoke_script("arrow_16597.py")

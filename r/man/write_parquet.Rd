@@ -8,7 +8,7 @@ write_parquet(
   x,
   sink,
   chunk_size = NULL,
-  version = NULL,
+  version = "2.4",
   compression = default_parquet_compression(),
   compression_level = NULL,
   use_dictionary = NULL,
@@ -16,9 +16,7 @@ write_parquet(
   data_page_size = NULL,
   use_deprecated_int96_timestamps = FALSE,
   coerce_timestamps = NULL,
-  allow_truncated_timestamps = FALSE,
-  properties = NULL,
-  arrow_properties = NULL
+  allow_truncated_timestamps = FALSE
 )
 }
 \arguments{
@@ -28,41 +26,38 @@ write_parquet(
 system (\code{SubTreeFileSystem})}
 
 \item{chunk_size}{how many rows of data to write to disk at once. This
-directly corresponds to how many rows will be in each row group in parquet.
-If \code{NULL}, a best guess will be made for optimal size (based on the number of
-columns and number of rows), though if the data has fewer than 250 million
-cells (rows x cols), then the total number of rows is used.}
+directly corresponds to how many rows will be in each row group in
+parquet. If \code{NULL}, a best guess will be made for optimal size (based on
+the number of columns and number of rows), though if the data has fewer
+than 250 million cells (rows x cols), then the total number of rows is
+used.}
 
-\item{version}{parquet version, "1.0" or "2.0". Default "1.0". Numeric values
-are coerced to character.}
+\item{version}{parquet version: "1.0", "2.0" (deprecated), "2.4" (default),
+"2.6", or "latest" (currently equivalent to 2.6). Numeric values are
+coerced to character.}
 
 \item{compression}{compression algorithm. Default "snappy". See details.}
 
-\item{compression_level}{compression level. Meaning depends on compression algorithm}
+\item{compression_level}{compression level. Meaning depends on compression
+algorithm}
 
-\item{use_dictionary}{Specify if we should use dictionary encoding. Default \code{TRUE}}
+\item{use_dictionary}{logical: use dictionary encoding? Default \code{TRUE}}
 
-\item{write_statistics}{Specify if we should write statistics. Default \code{TRUE}}
+\item{write_statistics}{logical: include statistics? Default \code{TRUE}}
 
 \item{data_page_size}{Set a target threshold for the approximate encoded
 size of data pages within a column chunk (in bytes). Default 1 MiB.}
 
-\item{use_deprecated_int96_timestamps}{Write timestamps to INT96 Parquet format. Default \code{FALSE}.}
+\item{use_deprecated_int96_timestamps}{logical: write timestamps to INT96
+Parquet format, which has been deprecated? Default \code{FALSE}.}
 
 \item{coerce_timestamps}{Cast timestamps a particular resolution. Can be
 \code{NULL}, "ms" or "us". Default \code{NULL} (no casting)}
 
-\item{allow_truncated_timestamps}{Allow loss of data when coercing timestamps to a
-particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
-to "ms", do not raise an exception}
-
-\item{properties}{A \code{ParquetWriterProperties} object, used instead of the options
-enumerated in this function's signature. Providing \code{properties} as an argument
-is deprecated; if you need to assemble \code{ParquetWriterProperties} outside
-of \code{write_parquet()}, use \code{ParquetFileWriter} instead.}
-
-\item{arrow_properties}{A \code{ParquetArrowWriterProperties} object. Like
-\code{properties}, this argument is deprecated.}
+\item{allow_truncated_timestamps}{logical: Allow loss of data when coercing
+timestamps to a particular resolution. E.g. if microsecond or nanosecond
+data is lost when coercing to "ms", do not raise an exception. Default
+\code{FALSE}.}
 }
 \value{
 the input \code{x} invisibly.
@@ -109,4 +104,7 @@ if (codec_is_available("gzip")) {
   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
 }
 \dontshow{\}) # examplesIf}
+}
+\seealso{
+\link{ParquetFileWriter} for a lower-level interface to Parquet writing.
 }

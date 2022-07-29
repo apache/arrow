@@ -18,15 +18,17 @@ package ipc
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 )
 
 // Reader reads records from an io.Reader.
@@ -40,8 +42,9 @@ type Reader struct {
 	rec      arrow.Record
 	err      error
 
-	types dictTypeMap
-	memo  dictMemo
+	// types dictTypeMap
+	memo             dictutils.Memo
+	readInitialDicts bool
 
 	mem memory.Allocator
 
@@ -51,7 +54,12 @@ type Reader struct {
 // NewReaderFromMessageReader allows constructing a new reader object with the
 // provided MessageReader allowing injection of reading messages other than
 // by simple streaming bytes such as Arrow Flight which receives a protobuf message
-func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error) {
+func NewReaderFromMessageReader(r MessageReader, opts ...Option) (reader *Reader, err error) {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+		}
+	}()
 	cfg := newConfig()
 	for _, opt := range opts {
 		opt(cfg)
@@ -60,14 +68,14 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 	rr := &Reader{
 		r:        r,
 		refCount: 1,
-		types:    make(dictTypeMap),
-		memo:     newMemo(),
-		mem:      cfg.alloc,
+		// types:    make(dictTypeMap),
+		memo: dictutils.NewMemo(),
+		mem:  cfg.alloc,
 	}
 
-	err := rr.readSchema(cfg.schema)
+	err = rr.readSchema(cfg.schema)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read schema from stream: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read schema from stream: %w", err)
 	}
 
 	return rr, nil
@@ -87,31 +95,20 @@ func (r *Reader) Schema() *arrow.Schema { return r.schema }
 func (r *Reader) readSchema(schema *arrow.Schema) error {
 	msg, err := r.r.Message()
 	if err != nil {
-		return xerrors.Errorf("arrow/ipc: could not read message schema: %w", err)
+		return fmt.Errorf("arrow/ipc: could not read message schema: %w", err)
 	}
 
 	if msg.Type() != MessageSchema {
-		return xerrors.Errorf("arrow/ipc: invalid message type (got=%v, want=%v)", msg.Type(), MessageSchema)
+		return fmt.Errorf("arrow/ipc: invalid message type (got=%v, want=%v)", msg.Type(), MessageSchema)
 	}
 
 	// FIXME(sbinet) refactor msg-header handling.
 	var schemaFB flatbuf.Schema
 	initFB(&schemaFB, msg.msg.Header)
 
-	r.types, err = dictTypesFromFB(&schemaFB)
-	if err != nil {
-		return xerrors.Errorf("arrow/ipc: could read dictionary types from message schema: %w", err)
-	}
-
-	// TODO(sbinet): in the future, we may want to reconcile IDs in the stream with
-	// those found in the schema.
-	for range r.types {
-		panic("not implemented") // FIXME(sbinet): ReadNextDictionary
-	}
-
 	r.schema, err = schemaFromFB(&schemaFB, &r.memo)
 	if err != nil {
-		return xerrors.Errorf("arrow/ipc: could not decode schema from message schema: %w", err)
+		return fmt.Errorf("arrow/ipc: could not decode schema from message schema: %w", err)
 	}
 
 	// check the provided schema match the one read from stream.
@@ -160,23 +157,74 @@ func (r *Reader) Next() bool {
 	return r.next()
 }
 
+func (r *Reader) getInitialDicts() bool {
+	var msg *Message
+	// we have to get all dictionaries before reconstructing the first
+	// record. subsequent deltas and replacements modify the memo
+	numDicts := r.memo.Mapper.NumDicts()
+	// there should be numDicts dictionary messages
+	for i := 0; i < numDicts; i++ {
+		msg, r.err = r.r.Message()
+		if r.err != nil {
+			r.done = true
+			if r.err == io.EOF {
+				if i == 0 {
+					r.err = nil
+				} else {
+					r.err = fmt.Errorf("arrow/ipc: IPC stream ended without reading the expected (%d) dictionaries", numDicts)
+				}
+			}
+			return false
+		}
+
+		if msg.Type() != MessageDictionaryBatch {
+			r.err = fmt.Errorf("arrow/ipc: IPC stream did not have the expected (%d) dictionaries at the start of the stream", numDicts)
+		}
+		if _, err := readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem); err != nil {
+			r.done = true
+			r.err = err
+			return false
+		}
+	}
+	r.readInitialDicts = true
+	return true
+}
+
 func (r *Reader) next() bool {
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			r.err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+		}
+	}()
+
+	if !r.readInitialDicts && !r.getInitialDicts() {
+		return false
+	}
+
 	var msg *Message
 	msg, r.err = r.r.Message()
+
+	for msg != nil && msg.Type() == MessageDictionaryBatch {
+		if _, r.err = readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem); r.err != nil {
+			r.done = true
+			return false
+		}
+		msg, r.err = r.r.Message()
+	}
 	if r.err != nil {
 		r.done = true
-		if r.err == io.EOF {
+		if errors.Is(r.err, io.EOF) {
 			r.err = nil
 		}
 		return false
 	}
 
 	if got, want := msg.Type(), MessageRecordBatch; got != want {
-		r.err = xerrors.Errorf("arrow/ipc: invalid message type (got=%v, want=%v", got, want)
+		r.err = fmt.Errorf("arrow/ipc: invalid message type (got=%v, want=%v", got, want)
 		return false
 	}
 
-	r.rec = newRecord(r.schema, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem)
+	r.rec = newRecord(r.schema, &r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem)
 	return true
 }
 

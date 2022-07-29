@@ -228,7 +228,7 @@ class PARQUET_EXPORT Statistics {
   /// \brief The number of distinct values, may not be set
   virtual int64_t distinct_count() const = 0;
 
-  /// \brief The total number of values in the column
+  /// \brief The number of non-null values in the column
   virtual int64_t num_values() const = 0;
 
   /// \brief Return true if the min and max statistics are set. Obtain
@@ -278,7 +278,7 @@ class TypedStatistics : public Statistics {
   virtual void Merge(const TypedStatistics<DType>& other) = 0;
 
   /// \brief Batch statistics update
-  virtual void Update(const T* values, int64_t num_not_null, int64_t num_null) = 0;
+  virtual void Update(const T* values, int64_t num_values, int64_t null_count) = 0;
 
   /// \brief Batch statistics update with supplied validity bitmap
   /// \param[in] values pointer to column values
@@ -287,13 +287,13 @@ class TypedStatistics : public Statistics {
   ///                              data begins.
   /// \param[in] num_spaced_values The length of values in values/valid_bits to inspect
   ///                              when calculating statistics. This can be smaller than
-  ///                              num_not_null+num_null as num_null can include nulls
+  ///                              num_values+null_count as null_count can include nulls
   ///                              from parents while num_spaced_values does not.
-  /// \param[in] num_not_null Number of values that are not null.
-  /// \param[in] num_null Number of values that are null.
+  /// \param[in] num_values Number of values that are not null.
+  /// \param[in] null_count Number of values that are null.
   virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
                             int64_t valid_bits_offset, int64_t num_spaced_values,
-                            int64_t num_not_null, int64_t num_null) = 0;
+                            int64_t num_values, int64_t null_count) = 0;
 
   /// \brief EXPERIMENTAL: Update statistics with an Arrow array without
   /// conversion to a primitive Parquet C type. Only implemented for certain

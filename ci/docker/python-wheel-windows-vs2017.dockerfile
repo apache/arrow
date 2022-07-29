@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# NOTE: You must update PYTHON_WHEEL_WINDOWS_IMAGE_REVISION in .env
+# when you update this file.
+
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
 # contains choco and vs2017 preinstalled
 FROM abrarov/msvc-2017:2.11.0

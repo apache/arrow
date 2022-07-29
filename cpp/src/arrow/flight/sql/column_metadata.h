@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "arrow/flight/sql/visibility.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -26,7 +27,7 @@ namespace flight {
 namespace sql {
 
 /// \brief Helper class to set column metadata.
-class ColumnMetadata {
+class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
  private:
   std::shared_ptr<const arrow::KeyValueMetadata> metadata_map_;
 
@@ -81,7 +82,7 @@ class ColumnMetadata {
   /// \return The table name.
   arrow::Result<std::string> GetTableName() const;
 
-  /// \brief  Return the type name set in the KeyValueMetadata.
+  /// \brief  Return the data source-specific name for the data type of the column.
   /// \return The type name.
   arrow::Result<std::string> GetTypeName() const;
 
@@ -114,7 +115,7 @@ class ColumnMetadata {
   const std::shared_ptr<const arrow::KeyValueMetadata>& metadata_map() const;
 
   /// \brief A builder class to construct the ColumnMetadata object.
-  class ColumnMetadataBuilder {
+  class ARROW_FLIGHT_SQL_EXPORT ColumnMetadataBuilder {
    public:
     friend class ColumnMetadata;
 

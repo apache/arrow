@@ -17,13 +17,15 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/v8/arrow/memory"
-	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/utils"
-	"github.com/apache/arrow/go/v8/parquet/schema"
+	"fmt"
+
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v9/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v9/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v9/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -339,9 +341,9 @@ func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 		case format.Encoding_RLE_DICTIONARY:
 			return xerrors.New("parquet: dictionary page must be before data page")
 		case format.Encoding_BYTE_STREAM_SPLIT:
-			return xerrors.Errorf("parquet: unsupported data encoding %s", encoding)
+			return fmt.Errorf("parquet: unsupported data encoding %s", encoding)
 		default:
-			return xerrors.Errorf("parquet: unknown encoding type %s", encoding)
+			return fmt.Errorf("parquet: unknown encoding type %s", encoding)
 		}
 	}
 
@@ -433,8 +435,14 @@ func (c *columnChunkReader) skipValues(nvalues int64, readFn func(batch int64, b
 				valsRead  int64 = 0
 			)
 
+			// TODO(ARROW-16790): ideally we should re-use a shared pool of buffers to avoid unnecessary memory allocation for skips
 			scratch := memory.NewResizableBuffer(c.mem)
-			scratch.Reserve(c.decoderTraits.BytesRequired(int(batchSize)))
+			bufMult := 1
+			if c.descr.PhysicalType() == parquet.Types.Boolean {
+				// for bools, BytesRequired returns 1 byte per 8 bool, but casting []byte to []bool requires 1 byte per 1 bool
+				bufMult = 8
+			}
+			scratch.Reserve(c.decoderTraits.BytesRequired(int(batchSize) * bufMult))
 			defer scratch.Release()
 
 			for {

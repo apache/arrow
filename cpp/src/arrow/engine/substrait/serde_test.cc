@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/substrait/serde.h"
-
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/type_resolver_util.h>
@@ -24,8 +22,14 @@
 
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/file_ipc.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/filesystem/mockfs.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
@@ -33,12 +37,29 @@
 using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
+using testing::UnorderedElementsAre;
 
 namespace arrow {
 
 using internal::checked_cast;
 
 namespace engine {
+
+class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
+ public:
+  Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*) override {
+    return Status::OK();
+  }
+  Status Consume(compute::ExecBatch exec_batch) override { return Status::OK(); }
+  Future<> Finish() override { return Status::OK(); }
+
+ public:
+  static std::shared_ptr<NullSinkNodeConsumer> Make() {
+    return std::make_shared<NullSinkNodeConsumer>();
+  }
+};
+
+const auto kNullConsumer = std::make_shared<NullSinkNodeConsumer>();
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
     field("bool", boolean()),
@@ -183,7 +204,8 @@ TEST(Substrait, SupportedExtensionTypes) {
     ASSERT_OK_AND_ASSIGN(
         auto buf,
         internal::SubstraitFromJSON(
-            "Type", "{\"user_defined_type_reference\": " + std::to_string(anchor) + "}"));
+            "Type", "{\"user_defined\": { \"type_reference\": " + std::to_string(anchor) +
+                        ", \"nullability\": \"NULLABILITY_NULLABLE\" } }"));
 
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
     EXPECT_EQ(*type, *expected_type);
@@ -258,8 +280,9 @@ TEST(Substrait, NamedStruct) {
 }
 
 TEST(Substrait, NoEquivalentArrowType) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON(
-                                     "Type", R"({"user_defined_type_reference": 99})"));
+  ASSERT_OK_AND_ASSIGN(
+      auto buf,
+      internal::SubstraitFromJSON("Type", R"({"user_defined": {"type_reference": 99}})"));
   ExtensionSet empty;
   ASSERT_THAT(
       DeserializeType(*buf, empty),
@@ -629,11 +652,11 @@ TEST(Substrait, ReadRel) {
         "items": [
           {
             "uri_file": "file:///tmp/dat1.parquet",
-            "format": "FILE_FORMAT_PARQUET"
+            "parquet": {}
           },
           {
             "uri_file": "file:///tmp/dat2.parquet",
-            "format": "FILE_FORMAT_PARQUET"
+            "parquet": {}
           }
         ]
       }
@@ -654,13 +677,14 @@ TEST(Substrait, ReadRel) {
   ASSERT_EQ(scan_node_options.dataset->type_name(), "filesystem");
   const auto& dataset =
       checked_cast<const dataset::FileSystemDataset&>(*scan_node_options.dataset);
-  EXPECT_THAT(dataset.files(), ElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
+  EXPECT_THAT(dataset.files(),
+              UnorderedElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
   EXPECT_EQ(dataset.format()->type_name(), "parquet");
   EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
 }
 
 TEST(Substrait, ExtensionSetFromPlan) {
-  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  std::string substrait_json = R"({
     "relations": [
       {"rel": {
         "read": {
@@ -677,7 +701,8 @@ TEST(Substrait, ExtensionSetFromPlan) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
       }
     ],
     "extensions": [
@@ -686,42 +711,1024 @@ TEST(Substrait, ExtensionSetFromPlan) {
         "type_anchor": 42,
         "name": "null"
       }},
-      {"extension_type_variation": {
-        "extension_uri_reference": 7,
-        "type_variation_anchor": 23,
-        "name": "u8"
-      }},
       {"extension_function": {
         "extension_uri_reference": 7,
         "function_anchor": 42,
         "name": "add"
       }}
     ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                         DeserializePlans(
+                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+
+    EXPECT_OK_AND_ASSIGN(auto decoded_null_type, ext_set.DecodeType(42));
+    EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
+    EXPECT_EQ(decoded_null_type.id.name, "null");
+    EXPECT_EQ(*decoded_null_type.type, NullType());
+
+    EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set.DecodeFunction(42));
+    EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
+    EXPECT_EQ(decoded_add_func.id.name, "add");
+    EXPECT_EQ(decoded_add_func.name, "add");
+  }
+}
+
+TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
+  std::string substrait_json = R"({
+    "relations": [],
+    "extension_uris": [
+      {
+        "extension_uri_anchor": 7,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 7,
+        "function_anchor": 42,
+        "name": "does_not_exist"
+      }}
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  }
+}
+
+TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
+  std::string substrait_json = R"({
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [ {"i64": {}}, {"bool": {}} ]
+            },
+            "names": ["i", "b"]
+          },
+          "local_files": { "items": [] }
+        }
+      }}
+    ],
+    "extension_uris": [
+      {
+        "extension_uri_anchor": 7,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 7,
+        "function_anchor": 42,
+        "name": "add"
+      }}
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_RAISES(
+        Invalid,
+        DeserializePlans(
+            *buf, []() -> std::shared_ptr<compute::SinkNodeConsumer> { return nullptr; },
+            ext_id_reg, &ext_set));
+    ASSERT_RAISES(
+        Invalid,
+        DeserializePlans(
+            *buf, []() -> std::shared_ptr<dataset::WriteNodeOptions> { return nullptr; },
+            ext_id_reg, &ext_set));
+  }
+}
+
+TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
+  std::string substrait_json = R"({
+    "relations": [],
+    "extension_uris": [
+      {
+        "extension_uri_anchor": 7,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 7,
+        "function_anchor": 42,
+        "name": "new_func"
+      }}
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  // invalid before registration
+  ExtensionSet ext_set_invalid(ext_id_reg);
+  ASSERT_RAISES(Invalid,
+                DeserializePlans(
+                    *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
+  ASSERT_OK(substrait::RegisterFunction(
+      *ext_id_reg, substrait::default_extension_types_uri(), "new_func", "multiply"));
+  // valid after registration
+  ExtensionSet ext_set_valid(ext_id_reg);
+  ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
+                                            *buf, [] { return kNullConsumer; },
+                                            ext_id_reg, &ext_set_valid));
+  EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set_valid.DecodeFunction(42));
+  EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
+  EXPECT_EQ(decoded_add_func.id.name, "new_func");
+  EXPECT_EQ(decoded_add_func.name, "multiply");
+}
+
+Result<std::string> GetSubstraitJSON() {
+  ARROW_ASSIGN_OR_RAISE(std::string dir_string,
+                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto file_name =
+      arrow::internal::PlatformFilename::FromString(dir_string)->Join("binary.parquet");
+  auto file_path = file_name->ToString();
+  std::string substrait_json = R"({
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [
+                         {"binary": {}}
+                       ]
+            },
+            "names": [
+                      "foo"
+                      ]
+          },
+          "local_files": {
+            "items": [
+              {
+                "uri_file": "file://FILENAME_PLACEHOLDER",
+                "parquet": {}
+              }
+            ]
+          }
+        }
+      }}
+    ]
+  })";
+  std::string filename_placeholder = "FILENAME_PLACEHOLDER";
+  substrait_json.replace(substrait_json.find(filename_placeholder),
+                         filename_placeholder.size(), file_path);
+  return substrait_json;
+}
+
+TEST(Substrait, DeserializeWithConsumerFactory) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto declarations,
+                       DeserializePlans(*buf, NullSinkNodeConsumer::Make));
+  ASSERT_EQ(declarations.size(), 1);
+  compute::Declaration* decl = &declarations[0];
+  ASSERT_EQ(decl->factory_name, "consuming_sink");
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
+  ASSERT_EQ(sink_node->num_inputs(), 1);
+  auto& prev_node = sink_node->inputs()[0];
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
+#endif
+}
+
+TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       DeserializePlan(*buf, NullSinkNodeConsumer::Make()));
+  ASSERT_EQ(1, plan->sinks().size());
+  compute::ExecNode* sink_node = plan->sinks()[0];
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
+  ASSERT_EQ(sink_node->num_inputs(), 1);
+  auto& prev_node = sink_node->inputs()[0];
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
+#endif
+}
+
+TEST(Substrait, DeserializeWithWriteOptionsFactory) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  dataset::internal::Initialize();
+  fs::TimePoint mock_now = std::chrono::system_clock::now();
+  fs::FileInfo testdir = ::arrow::fs::Dir("testdir");
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> fs,
+                       fs::internal::MockFileSystem::Make(mock_now, {testdir}));
+  auto write_options_factory = [&fs] {
+    std::shared_ptr<dataset::IpcFileFormat> format =
+        std::make_shared<dataset::IpcFileFormat>();
+    dataset::FileSystemDatasetWriteOptions options;
+    options.file_write_options = format->DefaultWriteOptions();
+    options.filesystem = fs;
+    options.basename_template = "chunk-{i}.arrow";
+    options.base_dir = "testdir";
+    options.partitioning =
+        std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
+    return std::make_shared<dataset::WriteNodeOptions>(options);
+  };
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto declarations, DeserializePlans(*buf, write_options_factory));
+  ASSERT_EQ(declarations.size(), 1);
+  compute::Declaration* decl = &declarations[0];
+  ASSERT_EQ(decl->factory_name, "write");
+  ASSERT_EQ(decl->inputs.size(), 1);
+  decl = util::get_if<compute::Declaration>(&decl->inputs[0]);
+  ASSERT_NE(decl, nullptr);
+  ASSERT_EQ(decl->factory_name, "scan");
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
+  ASSERT_EQ(sink_node->num_inputs(), 1);
+  auto& prev_node = sink_node->inputs()[0];
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
+#endif
+}
+
+static void test_with_registries(
+    std::function<void(ExtensionIdRegistry*, compute::FunctionRegistry*)> test) {
+  auto default_func_reg = compute::GetFunctionRegistry();
+  auto nested_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  auto nested_func_reg = compute::FunctionRegistry::Make(default_func_reg);
+  test(nullptr, default_func_reg);
+  test(nullptr, nested_func_reg.get());
+  test(nested_ext_id_reg.get(), default_func_reg);
+  test(nested_ext_id_reg.get(), nested_func_reg.get());
+}
+
+TEST(Substrait, GetRecordBatchReader) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
+                                         compute::FunctionRegistry* func_registry) {
+    ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+    ASSERT_OK_AND_ASSIGN(auto reader, substrait::ExecuteSerializedPlan(*buf));
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
+    // Note: assuming the binary.parquet file contains fixed amount of records
+    // in case of a test failure, re-evalaute the content in the file
+    EXPECT_EQ(table->num_rows(), 12);
+  });
+#endif
+}
+
+TEST(Substrait, InvalidPlan) {
+  std::string substrait_json = R"({
+    "relations": [
+    ]
+  })";
+  test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
+                                         compute::FunctionRegistry* func_registry) {
+    ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+    ASSERT_RAISES(Invalid, substrait::ExecuteSerializedPlan(*buf));
+  });
+}
+
+TEST(Substrait, JoinPlanBasic) {
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "A"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat2.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 5
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }}
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                         DeserializePlans(
+                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+
+    auto join_decl = sink_decls[0].inputs[0];
+
+    const auto& join_rel = join_decl.get<compute::Declaration>();
+
+    const auto& join_options =
+        checked_cast<const compute::HashJoinNodeOptions&>(*join_rel->options);
+
+    EXPECT_EQ(join_rel->factory_name, "hashjoin");
+    EXPECT_EQ(join_options.join_type, compute::JoinType::INNER);
+
+    const auto& left_rel = join_rel->inputs[0].get<compute::Declaration>();
+    const auto& right_rel = join_rel->inputs[1].get<compute::Declaration>();
+
+    const auto& l_options =
+        checked_cast<const dataset::ScanNodeOptions&>(*left_rel->options);
+    const auto& r_options =
+        checked_cast<const dataset::ScanNodeOptions&>(*right_rel->options);
+
+    AssertSchemaEqual(
+        l_options.dataset->schema(),
+        schema({field("A", int32()), field("B", int32()), field("C", int32())}));
+    AssertSchemaEqual(
+        r_options.dataset->schema(),
+        schema({field("X", int32()), field("Y", int32()), field("A", int32())}));
+
+    EXPECT_EQ(join_options.key_cmp[0], compute::JoinKeyCmp::EQ);
+  }
+}
+
+TEST(Substrait, JoinPlanInvalidKeyCmp) {
+  std::string substrait_json = R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "A"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat2.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 5
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }],
+  "extension_uris": [
+      {
+        "extension_uri_anchor": 0,
+        "uri": ")" + substrait::default_extension_types_uri() +
+                               R"("
+      }
+    ],
+    "extensions": [
+      {"extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "add"
+      }}
+    ]
+  })";
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  }
+}
+
+TEST(Substrait, JoinPlanInvalidExpression) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "right": {
+          "read": {
+            "base_schema": {
+              "names": ["X", "Y", "A"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat2.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "expression": {"literal": {"list": {"values": []}}},
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }]
+  })"));
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  }
+}
+
+TEST(Substrait, JoinPlanInvalidKeys) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+  "relations": [{
+    "rel": {
+      "join": {
+        "left": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {
+                "types": [{
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }, {
+                  "i32": {}
+                }]
+              }
+            },
+            "local_files": {
+              "items": [
+                {
+                  "uri_file": "file:///tmp/dat1.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "expression": {
+          "scalarFunction": {
+            "functionReference": 0,
+            "arguments": [{
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }, {
+              "value": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 5
+                    }
+                  },
+                  "rootReference": {
+                  }
+                }
+              }
+            }]
+          }
+        },
+        "type": "JOIN_TYPE_INNER"
+      }
+    }
+  }]
+  })"));
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_RAISES(Invalid, DeserializePlans(
+                               *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+  }
+}
+
+TEST(Substrait, AggregateBasic) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 1
+                      }
+                    }
+                  }
+                }
+            }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "hash_count"
+      }
+    }],
   })"));
 
-  ExtensionSet ext_set;
-  ASSERT_OK_AND_ASSIGN(
-      auto sink_decls,
-      DeserializePlan(
-          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
-          &ext_set));
+  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  ASSERT_OK_AND_ASSIGN(auto sink_decls,
+                       DeserializePlans(*buf, [] { return kNullConsumer; }));
+  auto agg_decl = sink_decls[0].inputs[0];
 
-  EXPECT_OK_AND_ASSIGN(auto decoded_null_type, ext_set.DecodeType(42));
-  EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
-  EXPECT_EQ(decoded_null_type.id.name, "null");
-  EXPECT_EQ(*decoded_null_type.type, NullType());
-  EXPECT_FALSE(decoded_null_type.is_variation);
+  const auto& agg_rel = agg_decl.get<compute::Declaration>();
 
-  EXPECT_OK_AND_ASSIGN(auto decoded_uint8_type, ext_set.DecodeType(23));
-  EXPECT_EQ(decoded_uint8_type.id.uri, kArrowExtTypesUri);
-  EXPECT_EQ(decoded_uint8_type.id.name, "u8");
-  EXPECT_EQ(*decoded_uint8_type.type, UInt8Type());
-  EXPECT_TRUE(decoded_uint8_type.is_variation);
+  const auto& agg_options =
+      checked_cast<const compute::AggregateNodeOptions&>(*agg_rel->options);
 
-  EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set.DecodeFunction(42));
-  EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
-  EXPECT_EQ(decoded_add_func.id.name, "add");
-  EXPECT_EQ(decoded_add_func.name, "add");
+  EXPECT_EQ(agg_rel->factory_name, "aggregate");
+  EXPECT_EQ(agg_options.aggregates[0].name, "");
+  EXPECT_EQ(agg_options.aggregates[0].function, "hash_count");
+}
+
+TEST(Substrait, AggregateInvalidRel) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "hash_count"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, AggregateInvalidFunction) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "hash_count"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, AggregateInvalidAggFuncArgs) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "args": [],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "hash_count"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
+TEST(Substrait, AggregateWithFilter) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "local_files": {
+                "items": [
+                  {
+                    "uri_file": "file:///tmp/dat.parquet",
+                    "parquet": {}
+                  }
+                ]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "args": [],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "equal"
+      }
+    }],
+  })"));
+
+  ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
 TEST(Substrait, ExtensionSetFromPlanMissingFunc) {

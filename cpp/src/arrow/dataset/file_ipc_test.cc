@@ -89,6 +89,7 @@ TEST_F(TestIpcFileFormat, InspectFailureWithRelevantError) {
 TEST_F(TestIpcFileFormat, Inspect) { TestInspect(); }
 TEST_F(TestIpcFileFormat, IsSupported) { TestIsSupported(); }
 TEST_F(TestIpcFileFormat, CountRows) { TestCountRows(); }
+TEST_F(TestIpcFileFormat, FragmentEquals) { TestFragmentEquals(); }
 
 class TestIpcFileSystemDataset : public testing::Test,
                                  public WriteFileSystemDatasetMixin {
@@ -150,6 +151,7 @@ TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
+TEST_P(TestIpcFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   auto reader = GetRecordBatchReader(
       // ARROW-12077: on Windows/mimalloc/release, nullable list column leads to crash

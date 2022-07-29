@@ -32,6 +32,7 @@ import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * ArrowBuf serves as a facade over underlying memory by providing
@@ -692,12 +693,14 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   private void checkIndex(long index, long fieldLength) {
-    // check reference count
-    this.ensureAccessible();
-    // check bounds
-    if (isOutOfBounds(index, fieldLength, this.capacity())) {
-      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
-        index, fieldLength, this.capacity()));
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      // check reference count
+      this.ensureAccessible();
+      // check bounds
+      if (isOutOfBounds(index, fieldLength, this.capacity())) {
+        throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+                index, fieldLength, this.capacity()));
+      }
     }
   }
 
@@ -1095,13 +1098,14 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Prints information of this buffer into <code>sb</code> at the given
+   * Print information of this buffer into <code>sb</code> at the given
    * indentation and verbosity level.
    *
    * <p>It will include history if BaseAllocator.DEBUG is true and
    * the verbosity.includeHistoricalLog are true.
    *
    */
+  @VisibleForTesting
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
     CommonUtil.indent(sb, indent).append(toString());
 
@@ -1109,6 +1113,16 @@ public final class ArrowBuf implements AutoCloseable {
       sb.append("\n");
       historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
     }
+  }
+
+  /**
+   * Print detailed information of this buffer into <code>sb</code>.
+   *
+   * <p>Most information will only be present if BaseAllocator.DEBUG is true.
+   *
+   */
+  public void print(StringBuilder sb, int indent) {
+    print(sb, indent, Verbosity.LOG_WITH_STACKTRACE);
   }
 
   /**

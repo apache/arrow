@@ -24,7 +24,7 @@ public enum FileFormat {
   PARQUET(0),
   NONE(-1);
 
-  private int id;
+  private final int id;
 
   FileFormat(int id) {
     this.id = id;

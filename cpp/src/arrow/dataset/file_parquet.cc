@@ -69,6 +69,10 @@ parquet::ReaderProperties MakeReaderProperties(
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
   properties.file_decryption_properties(
       parquet_scan_options->reader_properties->file_decryption_properties());
+  properties.set_thrift_string_size_limit(
+      parquet_scan_options->reader_properties->thrift_string_size_limit());
+  properties.set_thrift_container_size_limit(
+      parquet_scan_options->reader_properties->thrift_container_size_limit());
   return properties;
 }
 
@@ -128,17 +132,27 @@ util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
   auto maybe_min = min->CastTo(field->type());
   auto maybe_max = max->CastTo(field->type());
   if (maybe_min.ok() && maybe_max.ok()) {
-    auto col_min = maybe_min.MoveValueUnsafe();
-    auto col_max = maybe_max.MoveValueUnsafe();
-    if (col_min->Equals(col_max)) {
-      return compute::equal(std::move(field_expr), compute::literal(std::move(col_min)));
+    min = maybe_min.MoveValueUnsafe();
+    max = maybe_max.MoveValueUnsafe();
+
+    if (min->Equals(max)) {
+      auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
+
+      if (statistics->null_count() == 0) {
+        return single_value;
+      }
+      return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
     }
 
     auto lower_bound =
-        compute::greater_equal(field_expr, compute::literal(std::move(col_min)));
-    auto upper_bound =
-        compute::less_equal(std::move(field_expr), compute::literal(std::move(col_max)));
-    return compute::and_(std::move(lower_bound), std::move(upper_bound));
+        compute::greater_equal(field_expr, compute::literal(std::move(min)));
+    auto upper_bound = compute::less_equal(field_expr, compute::literal(std::move(max)));
+
+    auto in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
+    if (statistics->null_count() != 0) {
+      return compute::or_(std::move(in_range), compute::is_null(field_expr));
+    }
+    return in_range;
   }
 
   return util::nullopt;
@@ -374,6 +388,48 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       });
 }
 
+struct SlicingGenerator {
+  SlicingGenerator(RecordBatchGenerator source, int64_t batch_size)
+      : state(std::make_shared<State>(source, batch_size)) {}
+
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    if (state->current) {
+      return state->SliceOffABatch();
+    } else {
+      auto state_capture = state;
+      return state->source().Then(
+          [state_capture](const std::shared_ptr<RecordBatch>& next) {
+            if (IsIterationEnd(next)) {
+              return next;
+            }
+            state_capture->current = next;
+            return state_capture->SliceOffABatch();
+          });
+    }
+  }
+
+  struct State {
+    State(RecordBatchGenerator source, int64_t batch_size)
+        : source(std::move(source)), current(), batch_size(batch_size) {}
+
+    std::shared_ptr<RecordBatch> SliceOffABatch() {
+      if (current->num_rows() <= batch_size) {
+        auto sliced = current;
+        current = nullptr;
+        return sliced;
+      }
+      auto slice = current->Slice(0, batch_size);
+      current = current->Slice(batch_size);
+      return slice;
+    }
+
+    RecordBatchGenerator source;
+    std::shared_ptr<RecordBatch> current;
+    int64_t batch_size;
+  };
+  std::shared_ptr<State> state;
+};
+
 Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& file) const {
@@ -389,6 +445,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     pre_filtered = true;
     if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
   }
+  int64_t batch_size = options->batch_size;
   // Open the reader and pay the real IO cost.
   auto make_generator =
       [=](const std::shared_ptr<parquet::arrow::FileReader>& reader) mutable
@@ -407,14 +464,16 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         auto parquet_scan_options,
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, options.get(), default_fragment_scan_options));
-    // Assume 1 row group corresponds to 1 batch (this factor could be
-    // improved by looking at metadata)
-    int row_group_readahead = options->batch_readahead;
-    ARROW_ASSIGN_OR_RAISE(
-        auto generator, reader->GetRecordBatchGenerator(
-                            reader, row_groups, column_projection,
-                            ::arrow::internal::GetCpuThreadPool(), row_group_readahead));
-    return generator;
+    int batch_readahead = options->batch_readahead;
+    int64_t rows_to_readahead = batch_readahead * batch_size;
+    ARROW_ASSIGN_OR_RAISE(auto generator,
+                          reader->GetRecordBatchGenerator(
+                              reader, row_groups, column_projection,
+                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    RecordBatchGenerator sliced = SlicingGenerator(std::move(generator), batch_size);
+    RecordBatchGenerator sliced_readahead =
+        MakeSerialReadaheadGenerator(std::move(sliced), batch_readahead);
+    return sliced_readahead;
   };
   auto generator = MakeFromFuture(GetReaderAsync(parquet_fragment->source(), options)
                                       .Then(std::move(make_generator)));
@@ -839,7 +898,7 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
     auto row_groups = Iota(metadata_subset->num_row_groups());
 
     auto partition_expression =
-        partitioning.Parse(StripPrefixAndFilename(path, options_.partition_base_dir))
+        partitioning.Parse(StripPrefix(path, options_.partition_base_dir))
             .ValueOr(compute::literal(true));
 
     ARROW_ASSIGN_OR_RAISE(

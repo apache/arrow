@@ -29,7 +29,7 @@
 class ApacheArrowGlib < Formula
   desc "GLib bindings for Apache Arrow"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-8.0.0-SNAPSHOT/apache-arrow-8.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-9.0.0-SNAPSHOT/apache-arrow-9.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git"
@@ -38,10 +38,12 @@ class ApacheArrowGlib < Formula
     formula "apache-arrow"
   end
 
+  depends_on "glib-utils" => :build
   depends_on "gobject-introspection" => :build
   depends_on "meson" => :build
   depends_on "ninja" => :build
   depends_on "pkg-config" => :build
+  depends_on "vala" => :build
   depends_on "apache-arrow"
   depends_on "glib"
 
@@ -53,7 +55,7 @@ class ApacheArrowGlib < Formula
 
   def install
     mkdir "build" do
-      system "meson", *std_meson_args, "../c_glib"
+      system "meson", *std_meson_args, "-Dvapi=true", "../c_glib"
       system "ninja", "-v"
       system "ninja", "install", "-v"
     end

@@ -93,6 +93,15 @@ all_funs <- function(expr) {
     expr <- quo_get_expr(expr)
   }
   names <- all.names(expr)
+  # if we have namespace-qualified functions, we rebuild the function name with
+  # the `pkg::` prefix
+  if ("::" %in% names) {
+    for (i in seq_along(names)) {
+      if (names[i] == "::") {
+        names[i] <- paste0(names[i + 1], names[i], names[i + 2])
+      }
+    }
+  }
   names[map_lgl(names, ~ is_function(expr, .))]
 }
 
@@ -125,31 +134,29 @@ read_compressed_error <- function(e) {
   stop(e)
 }
 
-handle_parquet_io_error <- function(e, format) {
+handle_parquet_io_error <- function(e, format, call) {
   msg <- conditionMessage(e)
   if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
     # If length(format) > 1, that means it is (almost certainly) the default/not specified value
     # so let the user know that they should specify the actual (not parquet) format
-    abort(c(
+    msg <- c(
       msg,
       i = "Did you mean to specify a 'format' other than the default (parquet)?"
-    ))
+    )
   }
-  stop(e)
+  abort(msg, call = call)
 }
 
-is_writable_table <- function(x) {
-  inherits(x, c("data.frame", "ArrowTabular"))
-}
-
-# This attribute is used when is_writable is passed into assert_that, and allows
-# the call to form part of the error message when is_writable is FALSE
-attr(is_writable_table, "fail") <- function(call, env) {
-  paste0(
-    deparse(call$x),
-    " must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '",
-    class(env[[deparse(call$x)]])[[1]],
-    "'."
+as_writable_table <- function(x) {
+  tryCatch(
+    as_arrow_table(x),
+    arrow_no_method_as_arrow_table = function(e) {
+      abort(
+        "Object must be coercible to an Arrow Table using `as_arrow_table()`",
+        parent = e,
+        call = rlang::caller_env(2)
+      )
+    }
   )
 }
 
@@ -160,7 +167,7 @@ attr(is_writable_table, "fail") <- function(call, env) {
 #' @keywords internal
 recycle_scalars <- function(arrays) {
   # Get lengths of items in arrays
-  arr_lens <- map_int(arrays, NROW)
+  arr_lens <- map_dbl(arrays, NROW)
 
   is_scalar <- arr_lens == 1
 
@@ -198,19 +205,22 @@ repeat_value_as_array <- function(object, n) {
   return(Scalar$create(object)$as_array(n))
 }
 
-handle_csv_read_error <- function(e, schema) {
+handle_csv_read_error <- function(e, schema, call) {
   msg <- conditionMessage(e)
 
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
-    abort(c(
+    msg <- c(
       msg,
       i = paste(
         "If you have supplied a schema and your data contains a header",
         "row, you should supply the argument `skip = 1` to prevent the",
         "header being read in as data."
       )
-    ))
+    )
   }
+  abort(msg, call = call)
+}
 
-  abort(msg)
+is_compressed <- function(compression) {
+  !identical(compression, "uncompressed")
 }

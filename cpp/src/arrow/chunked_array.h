@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -35,6 +36,10 @@ namespace arrow {
 class Array;
 class DataType;
 class MemoryPool;
+namespace stl {
+template <typename T, typename V>
+class ChunkedArrayIterator;
+}  // namespace stl
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
@@ -106,7 +111,7 @@ class ARROW_EXPORT ChunkedArray {
   int num_chunks() const { return static_cast<int>(chunks_.size()); }
 
   /// \return chunk a particular chunk from the chunked array
-  std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
+  const std::shared_ptr<Array>& chunk(int i) const { return chunks_[i]; }
 
   /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
@@ -177,11 +182,14 @@ class ARROW_EXPORT ChunkedArray {
 
  protected:
   ArrayVector chunks_;
+  std::shared_ptr<DataType> type_;
   int64_t length_;
   int64_t null_count_;
-  std::shared_ptr<DataType> type_;
 
  private:
+  template <typename T, typename V>
+  friend class ::arrow::stl::ChunkedArrayIterator;
+  internal::ChunkResolver chunk_resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 

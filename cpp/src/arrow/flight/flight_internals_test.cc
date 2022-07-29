@@ -482,5 +482,61 @@ TEST_F(TestCookieParsing, CookieCache) {
   AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=0; id1=1; id2=2");
 }
 
+// ----------------------------------------------------------------------
+// Transport abstraction tests
+
+TEST(TransportErrorHandling, ReconstructStatus) {
+  Status current = Status::Invalid("Base error message");
+  // Invalid code
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(". Also, server sent unknown or invalid Arrow status code -1"),
+      internal::ReconstructStatus("-1", current, util::nullopt, util::nullopt,
+                                  util::nullopt, /*detail=*/nullptr));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          ". Also, server sent unknown or invalid Arrow status code foobar"),
+      internal::ReconstructStatus("foobar", current, util::nullopt, util::nullopt,
+                                  util::nullopt, /*detail=*/nullptr));
+
+  // Override code
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists, ::testing::HasSubstr("Base error message"),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          util::nullopt, util::nullopt, util::nullopt, /*detail=*/nullptr));
+
+  // Override message
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists, ::testing::HasSubstr("Custom error message"),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          "Custom error message", util::nullopt, util::nullopt, /*detail=*/nullptr));
+
+  // With detail
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists,
+      ::testing::AllOf(::testing::HasSubstr("Custom error message"),
+                       ::testing::HasSubstr(". Detail: Detail message")),
+      internal::ReconstructStatus(
+          std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+          "Custom error message", "Detail message", util::nullopt, /*detail=*/nullptr));
+
+  // With detail and bin
+  auto reconstructed = internal::ReconstructStatus(
+      std::to_string(static_cast<int>(StatusCode::AlreadyExists)), current,
+      "Custom error message", "Detail message", "Binary error details",
+      /*detail=*/nullptr);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      AlreadyExists,
+      ::testing::AllOf(::testing::HasSubstr("Custom error message"),
+                       ::testing::HasSubstr(". Detail: Detail message")),
+      reconstructed);
+  auto detail = FlightStatusDetail::UnwrapStatus(reconstructed);
+  ASSERT_NE(detail, nullptr);
+  ASSERT_EQ(detail->extra_info(), "Binary error details");
+}
+
 }  // namespace flight
 }  // namespace arrow

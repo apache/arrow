@@ -27,9 +27,9 @@ In this section we will provide links to the existing documentation
 to make it easier for you to find the relevant information about
 linters and styling of the code.
 
-.. tabs::
+.. tab-set::
 
-   .. tab:: PyArrow
+   .. tab-item:: PyArrow
 
       We use flake8 linting for styling issues in Python. To help
       developers check styling of the code, among other common
@@ -40,7 +40,7 @@ linters and styling of the code.
       can be found in the Coding Style section of the
       :ref:`python-development`.
 
-   .. tab:: R package
+   .. tab-item:: R package
 
       For the R package you can use ``{lintr}`` or ``{styler}``
       to check if the code follows the

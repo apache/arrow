@@ -72,7 +72,10 @@ case $# in
      ;;
 esac
 
+# Note that these point to the current verify-release-candidate.sh directories
+# which is different from the ARROW_SOURCE_DIR set in ensure_source_directory()
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
 
 show_header() {
   echo ""
@@ -182,9 +185,7 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:buster" \
-                "arm64v8/debian:buster" \
-                "debian:bullseye" \
+  for target in "debian:bullseye" \
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
@@ -192,10 +193,6 @@ test_apt() {
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
-                "ubuntu:hirsute" \
-                "arm64v8/ubuntu:hirsute" \
-                "ubuntu:impish" \
-                "arm64v8/ubuntu:impish" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy"; do \
     case "${target}" in
@@ -215,7 +212,7 @@ test_apt() {
         fi
         ;;
     esac
-    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -229,9 +226,12 @@ test_apt() {
 test_yum() {
   show_header "Testing Yum packages"
 
-  for target in "almalinux:8" \
+  for target in "almalinux:9" \
+                "arm64v8/almalinux:9" \
+                "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
+                "quay.io/centos/centos:stream9" \
                 "quay.io/centos/centos:stream8" \
                 "centos:7"; do
     case "${target}" in
@@ -242,10 +242,18 @@ test_yum() {
           continue
         fi
         ;;
+      centos:7)
+        if [ "$(arch)" = "x86_64" ]; then
+          : # OK
+        else
+          continue
+        fi
+        ;;
     esac
     if ! docker run \
            --rm \
-           --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
+           --security-opt="seccomp=unconfined" \
+           --volume "${ARROW_DIR}":/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
@@ -256,11 +264,13 @@ test_yum() {
   done
 
   if [ "$(arch)" != "aarch64" -a -e /usr/bin/qemu-aarch64-static ]; then
-    for target in "quay.io/centos/centos:stream8"; do
+    for target in "quay.io/centos/centos:stream9" \
+                  "quay.io/centos/centos:stream8"; do
       if ! docker run \
              --platform linux/arm64 \
              --rm \
-             --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
+             --security-opt="seccomp=unconfined" \
+             --volume "${ARROW_DIR}":/arrow:delegated \
              "${target}" \
              /arrow/dev/release/verify-yum.sh \
              "${VERSION}" \
@@ -342,7 +352,7 @@ install_csharp() {
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=3.1.405
+    local dotnet_version=6.0.202
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -381,6 +391,11 @@ install_go() {
   # Install go
   if [ "${GO_ALREADY_INSTALLED:-0}" -gt 0 ]; then
     show_info "$(go version) already installed at $(which go)"
+    return 0
+  fi
+
+  if command -v go > /dev/null; then
+    show_info "Found $(go version) at $(command -v go)"
     return 0
   fi
 
@@ -447,7 +462,7 @@ install_conda() {
 
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
-  local env="conda-${ENV:-source}"
+  local env="conda-${CONDA_ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -471,14 +486,14 @@ maybe_setup_conda() {
     conda activate $env
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
-    echo "Deactivate the environment using `conda deactive` before running the verification script."
+    echo "Deactivate the environment using \`conda deactivate\` before running the verification script."
     return 1
   fi
 }
 
 maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
-  local env="venv-${ENV:-source}"
+  local env="venv-${VENV_ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
   local python=${PYTHON:-"python${pyver}"}
   local virtualenv="${ARROW_TMPDIR}/${env}"
@@ -510,8 +525,8 @@ maybe_setup_virtualenv() {
       $python -m venv ${virtualenv}
       # Activate the environment
       source "${virtualenv}/bin/activate"
-      # Upgrade pip
-      pip install -U pip
+      # Upgrade pip and setuptools
+      pip install -U pip setuptools
     else
       show_info "Using already created virtualenv at ${virtualenv}"
       # Activate the environment
@@ -618,19 +633,19 @@ test_and_install_cpp() {
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
+  export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
   cmake --build . --target install
 
   # Explicitly set site-package directory, otherwise the C++ tests are unable
   # to load numpy in a python virtualenv
   local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
 
-  # TODO: ARROW-5036: plasma-serialization_tests broken
-  # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
     --exclude-regex "plasma-serialization_tests" \
-    -j$NPROC \
+    --label-regex unittest \
     --output-on-failure \
-    -L unittest
+    --parallel $NPROC \
+    --timeout 300
 
   popd
 }
@@ -656,6 +671,9 @@ test_python() {
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     export PYARROW_WITH_GANDIVA=1
+  fi
+  if [ "${ARROW_GCS}" = "ON" ]; then
+    export PYARROW_WITH_GCS=1
   fi
   if [ "${ARROW_PLASMA}" = "ON" ]; then
     export PYARROW_WITH_PLASMA=1
@@ -689,12 +707,16 @@ import pyarrow.parquet
   if [ "${ARROW_GANDIVA}" == "ON" ]; then
     python -c "import pyarrow.gandiva"
   fi
+  if [ "${ARROW_GCS}" == "ON" ]; then
+    python -c "import pyarrow._gcsfs"
+  fi
   if [ "${ARROW_PLASMA}" == "ON" ]; then
     python -c "import pyarrow.plasma"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
   fi
+
 
   # Install test dependencies
   pip install -r requirements-test.txt
@@ -759,6 +781,9 @@ test_ruby() {
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
     modules="${modules} red-arrow-flight"
   fi
+  if [ "${ARROW_FLIGHT_SQL}" = "ON" ]; then
+    modules="${modules} red-arrow-flight-sql"
+  fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
   fi
@@ -795,7 +820,7 @@ test_csharp() {
   fi
 
   sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb
+  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
 
   popd
 }
@@ -871,7 +896,7 @@ ensure_source_directory() {
   if [ "${SOURCE_KIND}" = "local" ]; then
     # Local arrow repository, testing repositories should be already present
     if [ -z "$ARROW_SOURCE_DIR" ]; then
-      export ARROW_SOURCE_DIR="$(cd ${SOURCE_DIR}/../.. && pwd)"
+      export ARROW_SOURCE_DIR="${ARROW_DIR}"
     fi
     echo "Verifying local Arrow checkout at ${ARROW_SOURCE_DIR}"
   elif [ "${SOURCE_KIND}" = "git" ]; then
@@ -885,7 +910,7 @@ ensure_source_directory() {
     fi
   else
     # Release tarball, testing repositories must be cloned separately
-    echo "Verifying official Arrow release candidate ${VERSION}-rc{$RC_NUMBER}"
+    echo "Verifying official Arrow release candidate ${VERSION}-rc${RC_NUMBER}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/${dist_name}"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
@@ -911,13 +936,14 @@ ensure_source_directory() {
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
+    export DYLD_LIBRARY_PATH=$ARROW_HOME/lib:${DYLD_LIBRARY_PATH:-}
   else
     NPROC=$(nproc)
+    export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
   fi
 
   pushd $ARROW_SOURCE_DIR
@@ -972,6 +998,8 @@ test_binary_distribution() {
 }
 
 test_linux_wheels() {
+  local check_gcs=OFF
+
   if [ "$(uname -m)" = "aarch64" ]; then
     local arch="aarch64"
   else
@@ -979,21 +1007,22 @@ test_linux_wheels() {
   fi
 
   local python_versions="3.7m 3.8 3.9 3.10"
-  local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
+  local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
 
 test_macos_wheels() {
+  local check_gcs=OFF
   local check_s3=ON
   local check_flight=ON
 
@@ -1013,15 +1042,16 @@ test_macos_wheels() {
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
       if [[ "$platform" == *"10_9"* ]]; then
+        check_gcs=OFF
         check_s3=OFF
       fi
 
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-        ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 
@@ -1034,12 +1064,12 @@ test_macos_wheels() {
 
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
-        ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
+        VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
         # install pyarrow's universal2 wheel
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests
         INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
-          arch -${arch} ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
       done
     done
   fi
@@ -1088,6 +1118,14 @@ test_jars() {
          --package_type=jars
 
   verify_dir_artifact_signatures ${download_dir}
+
+  # TODO: This should be replaced with real verification by ARROW-15486.
+  # https://issues.apache.org/jira/browse/ARROW-15486
+  # [Release][Java] Verify staged maven artifacts
+  if [ ! -d "${download_dir}/arrow-memory/${VERSION}" ]; then
+    echo "Artifacts for ${VERSION} isn't uploaded yet."
+    return 1
+  fi
 }
 
 # By default test all functionalities.
@@ -1139,11 +1177,12 @@ if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
 : ${ARROW_CUDA:=OFF}
+: ${ARROW_FLIGHT_SQL:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
+: ${ARROW_GCS:=OFF}
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=OFF}
-: ${ARROW_GCS:=OFF}
 
 TEST_SUCCESS=no
 

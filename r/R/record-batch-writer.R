@@ -59,8 +59,8 @@
 #'
 #' @rdname RecordBatchWriter
 #' @name RecordBatchWriter
-#' @include arrow-package.R
-#' @examplesIf arrow_available()
+#' @include arrow-object.R
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #'
@@ -105,7 +105,7 @@ RecordBatchWriter <- R6Class("RecordBatchWriter",
       } else if (inherits(x, "Table")) {
         self$write_table(x)
       } else {
-        self$write_table(Table$create(x))
+        self$write_table(as_arrow_table(x))
       }
     },
     close = function() ipc___RecordBatchWriter__Close(self)

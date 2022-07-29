@@ -112,10 +112,6 @@ struct ARROW_EXPORT IpcWriteOptions {
   static IpcWriteOptions Defaults();
 };
 
-#ifndef ARROW_NO_DEPRECATED_API
-using IpcOptions = IpcWriteOptions;
-#endif
-
 /// \brief Options for reading Arrow IPC messages
 struct ARROW_EXPORT IpcReadOptions {
   /// \brief The maximum permitted schema nesting depth.

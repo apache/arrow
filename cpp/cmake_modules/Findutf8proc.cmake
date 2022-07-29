@@ -95,7 +95,7 @@ if(utf8proc_FOUND)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${utf8proc_INCLUDE_DIR}")
   if(NOT ARROW_UTF8PROC_USE_SHARED)
-    set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILER_DEFINITIONS
+    set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILE_DEFINITIONS
                                                         "UTF8PROC_STATIC")
   endif()
 endif()

@@ -17,7 +17,13 @@
 
 skip_if(on_old_windows())
 
-withr::local_options(list(arrow.summarise.sort = TRUE))
+withr::local_options(list(
+  arrow.summarise.sort = TRUE,
+  rlib_warning_verbosity = "verbose",
+  # This prevents the warning in `summarize()` about having grouped output without
+  # also specifying what to do with `.groups`
+  dplyr.summarise.inform = FALSE
+))
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -97,7 +103,10 @@ test_that("Group by mean on dataset", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(mean = mean(int, na.rm = FALSE)) %>%
+      summarize(
+        mean = mean(int, na.rm = FALSE),
+        mean2 = base::mean(int, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -115,7 +124,10 @@ test_that("Group by sd on dataset", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(sd = sd(int, na.rm = FALSE)) %>%
+      summarize(
+        sd = sd(int, na.rm = FALSE),
+        sd2 = stats::sd(int, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -133,7 +145,10 @@ test_that("Group by var on dataset", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(var = var(int, na.rm = FALSE)) %>%
+      summarize(
+        var = var(int, na.rm = FALSE),
+        var2 = stats::var(int, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -150,7 +165,10 @@ test_that("n()", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(counts = n()) %>%
+      summarize(
+        counts = n(),
+        counts2 = dplyr::n()
+      ) %>%
       arrange(some_grouping) %>%
       collect(),
     tbl
@@ -161,14 +179,20 @@ test_that("Group by any/all", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(any(lgl, na.rm = TRUE)) %>%
+      summarize(
+        any(lgl, na.rm = TRUE),
+        base::any(lgl, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
-      summarize(all(lgl, na.rm = TRUE)) %>%
+      summarize(
+        all(lgl, na.rm = TRUE),
+        base::all(lgl, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -212,8 +236,19 @@ test_that("Group by any/all", {
   )
 })
 
+test_that("n_distinct() with many batches", {
+  skip_if_not_available("parquet")
+
+  tf <- tempfile()
+  write_parquet(dplyr::starwars, tf, chunk_size = 20)
+
+  ds <- open_dataset(tf)
+  expect_equal(ds %>% summarise(n_distinct(sex, na.rm = FALSE)) %>% collect(),
+               ds %>% collect() %>% summarise(n_distinct(sex, na.rm = FALSE)))
+})
+
 test_that("n_distinct() on dataset", {
-  # With groupby
+  # With group_by
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%
@@ -237,7 +272,10 @@ test_that("n_distinct() on dataset", {
   )
   compare_dplyr_binding(
     .input %>%
-      summarize(distinct = n_distinct(lgl, na.rm = TRUE)) %>%
+      summarize(
+        distinct = n_distinct(lgl, na.rm = TRUE),
+        distinct2 = dplyr::n_distinct(lgl, na.rm = TRUE)
+      ) %>%
       collect(),
     tbl
   )
@@ -296,52 +334,58 @@ test_that("median()", {
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
 
-  # Use old testthat behavior here so we don't have to assert the same warning
-  # over and over
-  local_edition(2)
-
   # with groups
-  compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        med_dbl = median(dbl),
-        med_int = as.double(median(int)),
-        med_dbl_narmf = median(dbl, FALSE),
-        med_int_narmf = as.double(median(int, na.rm = FALSE)),
-        med_dbl_narmt = median(dbl, na.rm = TRUE),
-        med_int_narmt = as.double(median(int, TRUE))
-      ) %>%
-      arrange(some_grouping) %>%
-      collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  suppressWarnings(
+    compare_dplyr_binding(
+      .input %>%
+        group_by(some_grouping) %>%
+        summarize(
+          med_dbl = median(dbl),
+          med_int = as.double(median(int)),
+          med_dbl_narmf = median(dbl, FALSE),
+          med_int_narmf = as.double(median(int, na.rm = FALSE)),
+          med_dbl_narmt = median(dbl, na.rm = TRUE),
+          med_int_narmt = as.double(median(int, TRUE))
+        ) %>%
+        arrange(some_grouping) %>%
+        collect(),
+      tbl,
+      warning = "median\\(\\) currently returns an approximate median in Arrow"
+    ),
+    classes = "arrow.median.approximate"
   )
   # without groups, with na.rm = TRUE
-  compare_dplyr_binding(
-    .input %>%
-      summarize(
-        med_dbl_narmt = median(dbl, na.rm = TRUE),
-        med_int_narmt = as.double(median(int, TRUE))
-      ) %>%
-      collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  suppressWarnings(
+    compare_dplyr_binding(
+      .input %>%
+        summarize(
+          med_dbl_narmt = median(dbl, na.rm = TRUE),
+          med_int_narmt = as.double(median(int, TRUE))
+        ) %>%
+        collect(),
+      tbl,
+      warning = "median\\(\\) currently returns an approximate median in Arrow"
+    ),
+    classes = "arrow.median.approximate"
   )
   # without groups, with na.rm = FALSE (the default)
-  compare_dplyr_binding(
-    .input %>%
-      summarize(
-        med_dbl = median(dbl),
-        med_int = as.double(median(int)),
-        med_dbl_narmf = median(dbl, FALSE),
-        med_int_narmf = as.double(median(int, na.rm = FALSE))
-      ) %>%
-      collect(),
-    tbl,
-    warning = "median\\(\\) currently returns an approximate median in Arrow"
+  suppressWarnings(
+    compare_dplyr_binding(
+      .input %>%
+        summarize(
+          med_dbl = median(dbl),
+          med_int = as.double(median(int)),
+          med_dbl2 = stats::median(dbl),
+          med_int2 = base::as.double(stats::median(int)),
+          med_dbl_narmf = median(dbl, FALSE),
+          med_int_narmf = as.double(median(int, na.rm = FALSE))
+        ) %>%
+        collect(),
+      tbl,
+      warning = "median\\(\\) currently returns an approximate median in Arrow"
+    ),
+    classes = "arrow.median.approximate"
   )
-  local_edition(3)
 })
 
 test_that("quantile()", {
@@ -367,71 +411,78 @@ test_that("quantile()", {
   # return output of type float64. The calls to quantile(int, ...) in the tests
   # below are enclosed in as.double() to work around this known difference.
 
-  local_edition(2)
   # with groups
-  expect_warning(
-    expect_equal(
-      tbl %>%
-        group_by(some_grouping) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-          q_int = as.double(
-            quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
-          )
-        ) %>%
-        arrange(some_grouping),
-      Table$create(tbl) %>%
-        group_by(some_grouping) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
-          q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
-        ) %>%
-        arrange(some_grouping) %>%
-        collect()
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tbl %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+            q_int = as.double(
+              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+            )
+          ) %>%
+          arrange(some_grouping),
+        Table$create(tbl) %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+          ) %>%
+          arrange(some_grouping) %>%
+          collect()
+      ),
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
     ),
-    "quantile() currently returns an approximate quantile in Arrow",
-    fixed = TRUE
+    classes = "arrow.quantile.approximate"
   )
 
   # without groups
-  expect_warning(
-    expect_equal(
-      tbl %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
-          q_int = as.double(
-            quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
-          )
-        ),
-      Table$create(tbl) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
-          q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
-        ) %>%
-        collect()
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tbl %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+            q_int = as.double(
+              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+            )
+          ),
+        Table$create(tbl) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+          ) %>%
+          collect()
+      ),
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
     ),
-    "quantile() currently returns an approximate quantile in Arrow",
-    fixed = TRUE
+    classes = "arrow.quantile.approximate"
   )
 
   # with missing values and na.rm = FALSE
-  expect_warning(
-    expect_equal(
-      tibble(
-        q_dbl = NA_real_,
-        q_int = NA_real_
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tibble(
+          q_dbl = NA_real_,
+          q_int = NA_real_
+        ),
+        Table$create(tbl) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = FALSE))
+          ) %>%
+          collect()
       ),
-      Table$create(tbl) %>%
-        summarize(
-          q_dbl = quantile(dbl, probs = 0.5, na.rm = FALSE),
-          q_int = as.double(quantile(int, probs = 0.5, na.rm = FALSE))
-        ) %>%
-        collect()
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
     ),
-    "quantile() currently returns an approximate quantile in Arrow",
-    fixed = TRUE
+    classes = "arrow.quantile.approximate"
   )
-  local_edition(3)
 
   # with a vector of 2+ probs
   expect_warning(
@@ -439,6 +490,35 @@ test_that("quantile()", {
       summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
     "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
+  )
+})
+
+test_that("quantile() with namespacing", {
+  suppressWarnings(
+    expect_warning(
+      expect_equal(
+        tbl %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = quantile(dbl, probs = 0.5, na.rm = TRUE, names = FALSE),
+            q_int = as.double(
+              quantile(int, probs = 0.5, na.rm = TRUE, names = FALSE)
+            )
+          ) %>%
+          arrange(some_grouping),
+        Table$create(tbl) %>%
+          group_by(some_grouping) %>%
+          summarize(
+            q_dbl = stats::quantile(dbl, probs = 0.5, na.rm = TRUE),
+            q_int = as.double(quantile(int, probs = 0.5, na.rm = TRUE))
+          ) %>%
+          arrange(some_grouping) %>%
+          collect()
+      ),
+      "quantile() currently returns an approximate quantile in Arrow",
+      fixed = TRUE
+    ),
+    classes = "arrow.quantile.approximate"
   )
 })
 
@@ -474,7 +554,9 @@ test_that("summarize() with min() and max()", {
       select(int) %>%
       summarize(
         min_int = min(int, na.rm = TRUE),
-        max_int = max(int, na.rm = TRUE)
+        max_int = max(int, na.rm = TRUE),
+        min_int2 = base::min(int, na.rm = TRUE),
+        max_int2 = base::max(int, na.rm = TRUE)
       ) %>%
       collect(),
     tbl,
@@ -531,7 +613,6 @@ test_that("min() and max() on character strings", {
       collect(),
     tbl,
   )
-  skip("Strings not supported by hash_min_max (ARROW-13988)")
   compare_dplyr_binding(
     .input %>%
       group_by(fct) %>%
@@ -539,6 +620,7 @@ test_that("min() and max() on character strings", {
         min_chr = min(chr, na.rm = TRUE),
         max_chr = max(chr, na.rm = TRUE)
       ) %>%
+      arrange(min_chr) %>%
       collect(),
     tbl,
   )
@@ -980,5 +1062,30 @@ test_that("summarise() can handle scalars and literal values", {
   expect_identical(
     record_batch(tbl) %>% summarise(y = !!some_scalar_value) %>% collect(),
     tibble(y = 2L)
+  )
+})
+
+test_that("summarise() supports namespacing", {
+  compare_dplyr_binding(
+    .input %>%
+      summarize(total = base::sum(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      summarise(
+        log_total = sum(base::log(int) + 1, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      summarise(
+        log_total = base::round(base::sum(base::log(int) + dbl, na.rm = TRUE))
+      ) %>%
+      collect(),
+    tbl
   )
 })

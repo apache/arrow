@@ -58,7 +58,7 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
       TIMESTAMP_DIFF_FN(timestampdiffSecond, {}),
       TIMESTAMP_DIFF_FN(timestampdiffMinute, {}),
       TIMESTAMP_DIFF_FN(timestampdiffHour, {}),
-      TIMESTAMP_DIFF_FN(timestampdiffDay, {"datediff"}),
+      TIMESTAMP_DIFF_FN(timestampdiffDay, {}),
       TIMESTAMP_DIFF_FN(timestampdiffWeek, {}),
       TIMESTAMP_DIFF_FN(timestampdiffMonth, {}),
       TIMESTAMP_DIFF_FN(timestampdiffQuarter, {}),

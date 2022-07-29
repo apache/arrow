@@ -27,7 +27,6 @@ per element of \code{x} it it is present in \code{table}.
 it. This function exposes the analogous functions in the Arrow C++ library.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # note that the returned value is 0-indexed
 cars_tbl <- arrow_table(name = rownames(mtcars), mtcars)
 match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
@@ -49,5 +48,4 @@ is_in(c(4, 6, 8), mtcars$cyl) # returns vector
 is_in(Scalar$create(4), mtcars$cyl) # returns Scalar
 is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl) # returns Array
 is_in(ChunkedArray$create(c(4, 6), 8), cars_tbl$cyl) # returns ChunkedArray
-\dontshow{\}) # examplesIf}
 }

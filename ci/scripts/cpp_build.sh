@@ -25,6 +25,10 @@ build_dir=${2}/cpp
 : ${ARROW_USE_CCACHE:=OFF}
 : ${BUILD_DOCS_CPP:=OFF}
 
+if [ -x "$(command -v git)" ]; then
+  git config --global --add safe.directory ${1}
+fi
+
 # TODO(kszucs): consider to move these to CMake
 if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
@@ -81,7 +85,6 @@ cmake \
   -DARROW_DATASET=${ARROW_DATASET:-ON} \
   -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
   -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
-  -DARROW_ENGINE=${ARROW_ENGINE:-ON} \
   -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM:-ON} \
   -DARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
@@ -92,7 +95,6 @@ cmake \
   -DARROW_GANDIVA=${ARROW_GANDIVA:-OFF} \
   -DARROW_GCS=${ARROW_GCS:-OFF} \
   -DARROW_HDFS=${ARROW_HDFS:-ON} \
-  -DARROW_HIVESERVER2=${ARROW_HIVESERVER2:-OFF} \
   -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
   -DARROW_JNI=${ARROW_JNI:-OFF} \
@@ -108,6 +110,7 @@ cmake \
   -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
   -DARROW_S3=${ARROW_S3:-OFF} \
   -DARROW_SKYHOOK=${ARROW_SKYHOOK:-OFF} \
+  -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-ON} \
   -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
   -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \
   -DARROW_USE_ASAN=${ARROW_USE_ASAN:-OFF} \
@@ -145,7 +148,7 @@ cmake \
   -Dgoogle_cloud_cpp_storage_SOURCE=${google_cloud_cpp_storage_SOURCE:-} \
   -DgRPC_SOURCE=${gRPC_SOURCE:-} \
   -DGTest_SOURCE=${GTest_SOURCE:-} \
-  -DLz4_SOURCE=${Lz4_SOURCE:-} \
+  -Dlz4_SOURCE=${lz4_SOURCE:-} \
   -DORC_SOURCE=${ORC_SOURCE:-} \
   -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
   -DPARQUET_BUILD_EXECUTABLES=${PARQUET_BUILD_EXECUTABLES:-OFF} \
@@ -157,6 +160,7 @@ cmake \
   -DThrift_SOURCE=${Thrift_SOURCE:-} \
   -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
   -Dzstd_SOURCE=${zstd_SOURCE:-} \
+  -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
   -G "${CMAKE_GENERATOR:-Ninja}" \
   ${CMAKE_ARGS} \
   ${source_dir}

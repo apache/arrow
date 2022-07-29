@@ -65,12 +65,14 @@
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace ipc {
 class Message;
 }
 namespace flight {
+class FlightStatusDetail;
 namespace internal {
 
 /// Internal, not user-visible type used for memory-efficient reads
@@ -219,6 +221,54 @@ class ARROW_FLIGHT_EXPORT TransportRegistry {
 /// \brief Get the registry of transport implementations.
 ARROW_FLIGHT_EXPORT
 TransportRegistry* GetDefaultTransportRegistry();
+
+//------------------------------------------------------------
+// Error propagation helpers
+
+/// \brief Abstract status code as per the Flight specification.
+enum class TransportStatusCode {
+  kOk = 0,
+  kUnknown = 1,
+  kInternal = 2,
+  kInvalidArgument = 3,
+  kTimedOut = 4,
+  kNotFound = 5,
+  kAlreadyExists = 6,
+  kCancelled = 7,
+  kUnauthenticated = 8,
+  kUnauthorized = 9,
+  kUnimplemented = 10,
+  kUnavailable = 11,
+};
+
+/// \brief Abstract error status.
+///
+/// Transport implementations may use side channels (e.g. HTTP
+/// trailers) to convey additional information to reconstruct the
+/// original C++ status for implementations that can use it.
+struct ARROW_FLIGHT_EXPORT TransportStatus {
+  TransportStatusCode code;
+  std::string message;
+
+  /// \brief Convert a C++ status to an abstract transport status.
+  static TransportStatus FromStatus(const Status& arrow_status);
+
+  /// \brief Reconstruct a string-encoded TransportStatus.
+  static TransportStatus FromCodeStringAndMessage(const std::string& code_str,
+                                                  std::string message);
+
+  /// \brief Convert an abstract transport status to a C++ status.
+  Status ToStatus() const;
+};
+
+/// \brief Convert the string representation of an Arrow status code
+///   back to an Arrow status.
+ARROW_FLIGHT_EXPORT
+Status ReconstructStatus(const std::string& code_str, const Status& current_status,
+                         util::optional<std::string> message,
+                         util::optional<std::string> detail_message,
+                         util::optional<std::string> detail_bin,
+                         std::shared_ptr<FlightStatusDetail> detail);
 
 }  // namespace internal
 }  // namespace flight

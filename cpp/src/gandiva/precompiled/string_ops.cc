@@ -705,6 +705,17 @@ CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 CAST_VARBINARY_FROM_STRING_AND_BINARY(utf8)
 CAST_VARBINARY_FROM_STRING_AND_BINARY(binary)
 
+#define CAST_BINARY_FROM_STRING_AND_BINARY(TYPE)                      \
+  GANDIVA_EXPORT                                                      \
+  const char* castBINARY_##TYPE(const char* data, gdv_int32 data_len, \
+                                int32_t* out_length) {                \
+    *out_length = data_len;                                           \
+    return data;                                                      \
+  }
+
+CAST_BINARY_FROM_STRING_AND_BINARY(utf8)
+CAST_BINARY_FROM_STRING_AND_BINARY(binary)
+
 #undef CAST_VARBINARY_FROM_STRING_AND_BINARY
 
 #define IS_NULL(NAME, TYPE)                                                \
@@ -1407,14 +1418,7 @@ FORCE_INLINE
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len) {
   *out_len = len;
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  memcpy(ret, bin_in, *out_len);
-  return ret;
+  return bin_in;
 }
 
 FORCE_INLINE
@@ -2394,151 +2398,273 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
 }
 
 FORCE_INLINE
+void concat_word(char* out_buf, int* out_idx, const char* in_buf, int in_len,
+                 bool in_validity, const char* separator, int separator_len,
+                 bool* seenAnyValidInput) {
+  if (!in_validity) {
+    return;
+  }
+
+  // input is valid
+  if (*seenAnyValidInput) {
+    // copy the separator and update *out_idx
+    memcpy(out_buf + *out_idx, separator, separator_len);
+    *out_idx += separator_len;
+  }
+  // copy the input and update *out_idx
+  memcpy(out_buf + *out_idx, in_buf, in_len);
+  *seenAnyValidInput = true;
+  *out_idx += in_len;
+}
+
+FORCE_INLINE
 const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
-                                int32_t separator_len, const char* word1,
-                                int32_t word1_len, const char* word2, int32_t word2_len,
-                                int32_t* out_len) {
-  if (word1_len < 0 || word2_len < 0 || separator_len < 0) {
-    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+                                int32_t separator_len, bool separator_validity,
+                                const char* word1, int32_t word1_len, bool word1_validity,
+                                const char* word2, int32_t word2_len, bool word2_validity,
+                                bool* out_valid, int32_t* out_len) {
+  *out_len = 0;
+  int numValidInput = 0;
+  // If separator is null, always return null
+  if (!separator_validity) {
     *out_len = 0;
+    *out_valid = false;
     return "";
   }
 
-  *out_len = word1_len + separator_len + word2_len;
+  if (word1_validity) {
+    *out_len += word1_len;
+    numValidInput++;
+  }
+  if (word2_validity) {
+    *out_len += word2_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+  if (*out_len == 0) {
+    *out_valid = true;
+    return "";
+  }
+
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
+    *out_valid = false;
     return "";
   }
 
   char* tmp = out;
-  memcpy(tmp, word1, word1_len);
-  tmp += word1_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word2, word2_len);
+  int out_idx = 0;
+  bool seenAnyValidInput = false;
 
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
+
+  *out_valid = true;
+  *out_len = out_idx;
   return out;
 }
 
 FORCE_INLINE
-const char* concat_ws_utf8_utf8_utf8(int64_t context, const char* separator,
-                                     int32_t separator_len, const char* word1,
-                                     int32_t word1_len, const char* word2,
-                                     int32_t word2_len, const char* word3,
-                                     int32_t word3_len, int32_t* out_len) {
-  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || separator_len < 0) {
-    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+const char* concat_ws_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, bool* out_valid, int32_t* out_len) {
+  *out_len = 0;
+  int numValidInput = 0;
+  // If separator is null, always return null
+  if (!separator_validity) {
     *out_len = 0;
+    *out_valid = false;
     return "";
   }
 
-  *out_len = word1_len + word2_len + word3_len + (2 * separator_len);
+  if (word1_validity) {
+    *out_len += word1_len;
+    numValidInput++;
+  }
+  if (word2_validity) {
+    *out_len += word2_len;
+    numValidInput++;
+  }
+  if (word3_validity) {
+    *out_len += word3_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+
+  if (*out_len == 0) {
+    *out_len = 0;
+    *out_valid = true;
+    return "";
+  }
+
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
+    *out_valid = false;
     return "";
   }
 
   char* tmp = out;
-  memcpy(tmp, word1, word1_len);
-  tmp += word1_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word2, word2_len);
-  tmp += word2_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word3, word3_len);
+  int out_idx = 0;
+  bool seenAnyValidInput = false;
 
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
+              &seenAnyValidInput);
+
+  *out_valid = true;
+  *out_len = out_idx;
   return out;
 }
 
 FORCE_INLINE
-const char* concat_ws_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
-                                          int32_t separator_len, const char* word1,
-                                          int32_t word1_len, const char* word2,
-                                          int32_t word2_len, const char* word3,
-                                          int32_t word3_len, const char* word4,
-                                          int32_t word4_len, int32_t* out_len) {
-  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 ||
-      separator_len < 0) {
-    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+const char* concat_ws_utf8_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
+    bool word4_validity, bool* out_valid, int32_t* out_len) {
+  *out_len = 0;
+  int numValidInput = 0;
+  // If separator is null, always return null
+  if (!separator_validity) {
     *out_len = 0;
+    *out_valid = false;
+    return "";
+  }
+  if (word1_validity) {
+    *out_len += word1_len;
+    numValidInput++;
+  }
+  if (word2_validity) {
+    *out_len += word2_len;
+    numValidInput++;
+  }
+  if (word3_validity) {
+    *out_len += word3_len;
+    numValidInput++;
+  }
+  if (word4_validity) {
+    *out_len += word4_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+
+  if (*out_len == 0) {
+    *out_len = 0;
+    *out_valid = true;
     return "";
   }
 
-  *out_len = word1_len + word2_len + word3_len + word4_len + (3 * separator_len);
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_valid = false;
     *out_len = 0;
     return "";
   }
 
   char* tmp = out;
-  memcpy(tmp, word1, word1_len);
-  tmp += word1_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word2, word2_len);
-  tmp += word2_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word3, word3_len);
-  tmp += word3_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word4, word4_len);
+  int out_idx = 0;
+  bool seenAnyValidInput = false;
 
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len,
+              &seenAnyValidInput);
+
+  *out_valid = true;
+  *out_len = out_idx;
   return out;
 }
 
 FORCE_INLINE
-const char* concat_ws_utf8_utf8_utf8_utf8_utf8(int64_t context, const char* separator,
-                                               int32_t separator_len, const char* word1,
-                                               int32_t word1_len, const char* word2,
-                                               int32_t word2_len, const char* word3,
-                                               int32_t word3_len, const char* word4,
-                                               int32_t word4_len, const char* word5,
-                                               int32_t word5_len, int32_t* out_len) {
-  if (word1_len < 0 || word2_len < 0 || word3_len < 0 || word4_len < 0 || word5_len < 0 ||
-      separator_len < 0) {
-    gdv_fn_context_set_error_msg(context, "All words can not be null.");
+const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
+    bool word4_validity, const char* word5, int32_t word5_len, bool word5_validity,
+    bool* out_valid, int32_t* out_len) {
+  *out_len = 0;
+  int numValidInput = 0;
+  // If separator is null, always return null
+  if (!separator_validity) {
     *out_len = 0;
+    *out_valid = false;
+    return "";
+  }
+  if (word1_validity) {
+    *out_len += word1_len;
+    numValidInput++;
+  }
+  if (word2_validity) {
+    *out_len += word2_len;
+    numValidInput++;
+  }
+  if (word3_validity) {
+    *out_len += word3_len;
+    numValidInput++;
+  }
+  if (word4_validity) {
+    *out_len += word4_len;
+    numValidInput++;
+  }
+  if (word5_validity) {
+    *out_len += word5_len;
+    numValidInput++;
+  }
+
+  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+
+  if (*out_len == 0) {
+    *out_len = 0;
+    *out_valid = true;
     return "";
   }
 
-  *out_len =
-      word1_len + word2_len + word3_len + word4_len + word5_len + (4 * separator_len);
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
+    *out_valid = false;
     return "";
   }
 
   char* tmp = out;
-  memcpy(tmp, word1, word1_len);
-  tmp += word1_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word2, word2_len);
-  tmp += word2_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word3, word3_len);
-  tmp += word3_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word4, word4_len);
-  tmp += word4_len;
-  memcpy(tmp, separator, separator_len);
-  tmp += separator_len;
-  memcpy(tmp, word5, word5_len);
+  int out_idx = 0;
+  bool seenAnyValidInput = false;
 
+  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len,
+              &seenAnyValidInput);
+  concat_word(tmp, &out_idx, word5, word5_len, word5_validity, separator, separator_len,
+              &seenAnyValidInput);
+
+  *out_valid = true;
+  *out_len = out_idx;
   return out;
 }
 
@@ -2789,9 +2915,9 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 // the input string followed by a phonetic code. Characters that are not alphabetic are
 // ignored. If expression evaluates to the null value, null is returned.
 //
-// The soundex algorith works with the following steps:
+// The soundex algorithm works with the following steps:
 //    1. Retain the first letter of the string and drop all other occurrences of a, e, i,
-//    o, u, y, h, w.
+//    o, u, y, h, w. (let's call them special letters)
 //    2. Replace consonants with digits as follows (after the first letter):
 //        b, f, p, v → 1
 //        c, g, j, k, q, s, x, z → 2
@@ -2799,61 +2925,90 @@ static char mappings[] = {'0', '1', '2', '3', '0', '1', '2', '0', '0',
 //        l → 4
 //        m, n → 5
 //        r → 6
-//    3. If two or more letters with the same number are adjacent in the original name
-//    (before step 1), only retain the first letter; also two letters with the same number
-//    separated by 'h' or 'w' are coded as a single number, whereas such letters separated
-//    by a vowel are coded twice. This rule also applies to the first letter.
+//    3. If two or more letters with the same number were adjacent in the original name
+//    (before step 1), then omit all but the first. This rule also applies to the first
+//    letter.
 //    4. If the string have too few letters in the word that you can't assign three
 //    numbers, append with zeros until there are three numbers. If you have four or more
 //    numbers, retain only the first three.
 FORCE_INLINE
-const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
-                         int32_t* out_len) {
+const char* soundex_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
+                         bool in_validity, bool* out_valid, int32_t* out_len) {
   if (in_len <= 0) {
+    *out_valid = true;
     *out_len = 0;
     return "";
   }
 
   // The soundex code is composed by one letter and three numbers
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, 4));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string");
+  char* soundex = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len));
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 4));
+
+  if (soundex == nullptr || ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_valid = false;
     *out_len = 0;
     return "";
   }
 
   int si = 1;
+  int ret_len = 1;
   unsigned char c;
 
   int start_idx = 0;
   for (int i = 0; i < in_len; ++i) {
     if (isalpha(in[i]) > 0) {
+      // Retain the first letter
       ret[0] = toupper(in[i]);
       start_idx = i + 1;
       break;
     }
   }
 
-  for (int i = start_idx, l = in_len; i < l; i++) {
+  // If ret[0] is not initialised, return validity false
+  if (start_idx == 0) {
+    *out_valid = false;
+    *out_len = 0;
+    return "";
+  }
+
+  soundex[0] = '\0';
+  // Replace consonants with digits and special letters with 0
+  for (int i = start_idx; i < in_len; i++) {
     if (isalpha(in[i]) > 0) {
       c = toupper(in[i]) - 65;
-      if (mappings[c] != '0') {
-        if (mappings[c] != ret[si - 1]) {
-          ret[si] = mappings[c];
-          si++;
-        }
-
-        if (si > 3) break;
+      if (mappings[c] != soundex[si - 1]) {
+        soundex[si] = mappings[c];
+        si++;
       }
     }
   }
 
-  if (si <= 3) {
-    while (si <= 3) {
-      ret[si] = '0';
-      si++;
+  int i = 1;
+  // If the saved letter's digit is the same as the resulting first digit, skip it
+  if (si > 1) {
+    if (soundex[1] == mappings[ret[0] - 65]) {
+      i = 2;
+    }
+
+    for (; i < si; i++) {
+      // If it is a special letter, we ignore, because it has been dropped in first step
+      if (soundex[i] != '0') {
+        ret[ret_len] = soundex[i];
+        ret_len++;
+      }
+      if (ret_len > 3) break;
     }
   }
+
+  // If the return have too few numbers, append with zeros until there are three
+  if (ret_len <= 3) {
+    while (ret_len <= 3) {
+      ret[ret_len] = '0';
+      ret_len++;
+    }
+  }
+  *out_valid = true;
   *out_len = 4;
   return ret;
 }

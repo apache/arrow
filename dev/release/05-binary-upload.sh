@@ -21,6 +21,9 @@ set -e
 set -u
 set -o pipefail
 
+export LANG=C
+export LC_CTYPE=C
+
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$#" -ne 2 ]; then
@@ -71,6 +74,7 @@ fi
 : ${UPLOAD_DOCS:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_NUGET:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_R:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
 
 rake_tasks=()
@@ -100,6 +104,9 @@ if [ ${UPLOAD_NUGET} -gt 0 ]; then
 fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)
+fi
+if [ ${UPLOAD_R} -gt 0 ]; then
+  rake_tasks+=(r:rc)
 fi
 if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
   rake_tasks+=(apt:rc)

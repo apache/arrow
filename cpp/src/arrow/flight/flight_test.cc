@@ -73,41 +73,61 @@ const char kAuthHeader[] = "authorization";
 //------------------------------------------------------------
 // Common transport tests
 
-class GrpcConnectivityTest : public ConnectivityTest {
+class GrpcConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 
-class GrpcDataTest : public DataTest {
+class GrpcDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 
-class GrpcDoPutTest : public DoPutTest {
+class GrpcDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 
-class GrpcAppMetadataTest : public AppMetadataTest {
+class GrpcAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 
-class GrpcIpcOptionsTest : public IpcOptionsTest {
+class GrpcIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 
-class GrpcCudaDataTest : public CudaDataTest {
+class GrpcCudaDataTest : public CudaDataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
+
+class GrpcErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
+ protected:
+  std::string transport() const override { return "grpc"; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
+};
+ARROW_FLIGHT_TEST_ERROR_HANDLING(GrpcErrorHandlingTest);
 
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
@@ -1166,10 +1186,11 @@ TEST_F(TestBasicAuthHandler, FailUnauthenticatedCalls) {
   std::shared_ptr<Schema> schema(
       (new arrow::Schema(std::vector<std::shared_ptr<Field>>())));
   FlightClient::DoPutResult do_put_result;
-  status = client_->DoPut(FlightDescriptor{}, schema).Value(&do_put_result);
   // May or may not succeed depending on if the transport buffers the write
-  ARROW_UNUSED(status);
-  status = do_put_result.writer->Close();
+  status = client_->DoPut(FlightDescriptor{}, schema).Value(&do_put_result);
+  if (do_put_result.writer) {
+    status = do_put_result.writer->Close();
+  }
   // But this should definitely fail
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));

@@ -155,3 +155,10 @@ garrow_utf8_normalize_options_new_raw(
   const arrow::compute::Utf8NormalizeOptions *arrow_options);
 arrow::compute::Utf8NormalizeOptions *
 garrow_utf8_normalize_options_get_raw(GArrowUTF8NormalizeOptions *options);
+
+
+GArrowQuantileOptions *
+garrow_quantile_options_new_raw(
+  const arrow::compute::QuantileOptions *arrow_options);
+arrow::compute::QuantileOptions *
+garrow_quantile_options_get_raw(GArrowQuantileOptions *options);

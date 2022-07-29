@@ -114,7 +114,7 @@ void ConnectivityTest::TestBrokenConnection() {
 //------------------------------------------------------------
 // Tests of data plane methods
 
-void DataTest::SetUp() {
+void DataTest::SetUpTest() {
   server_ = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
@@ -123,7 +123,7 @@ void DataTest::SetUp() {
 
   ASSERT_OK(ConnectClient());
 }
-void DataTest::TearDown() {
+void DataTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
@@ -236,6 +236,21 @@ void DataTest::TestDoGetLargeBatch() {
   ASSERT_OK(ExampleLargeBatches(&expected_batches));
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
+}
+// Ensure FlightDataStream/RecordBatchStream::Close errors are propagated
+void DataTest::TestFlightDataStreamError() {
+  Ticket ticket{"ticket-stream-error"};
+
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
+  Status status;
+  while (true) {
+    FlightStreamChunk chunk;
+    status = stream->Next().Value(&chunk);
+    if (!chunk.data) break;
+    if (!status.ok()) break;
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
+                                  status);
 }
 void DataTest::TestOverflowServerBatch() {
   // Regression test for ARROW-13253
@@ -637,14 +652,14 @@ class DoPutTestServer : public FlightServerBase {
   friend class DoPutTest;
 };
 
-void DoPutTest::SetUp() {
+void DoPutTest::SetUpTest() {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<DoPutTestServer>(
       location, &server_, &client_,
       [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-void DoPutTest::TearDown() {
+void DoPutTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
   reinterpret_cast<DoPutTestServer*>(server_.get())->batches_.clear();
@@ -865,14 +880,14 @@ Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
   return Status::OK();
 }
 
-void AppMetadataTest::SetUp() {
+void AppMetadataTest::SetUpTest() {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<AppMetadataTestServer>(
       location, &server_, &client_,
       [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-void AppMetadataTest::TearDown() {
+void AppMetadataTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
@@ -1044,14 +1059,14 @@ class IpcOptionsTestServer : public FlightServerBase {
   }
 };
 
-void IpcOptionsTest::SetUp() {
+void IpcOptionsTest::SetUpTest() {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<IpcOptionsTestServer>(
       location, &server_, &client_,
       [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-void IpcOptionsTest::TearDown() {
+void IpcOptionsTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
@@ -1232,7 +1247,7 @@ class CudaDataTest::Impl {
   std::shared_ptr<cuda::CudaContext> context;
 };
 
-void CudaDataTest::SetUp() {
+void CudaDataTest::SetUpTest() {
   ASSERT_OK_AND_ASSIGN(auto manager, cuda::CudaDeviceManager::Instance());
   ASSERT_OK_AND_ASSIGN(auto device, manager->GetDevice(0));
   ASSERT_OK_AND_ASSIGN(auto context, device->GetContext());
@@ -1251,7 +1266,7 @@ void CudaDataTest::SetUp() {
       [](FlightClientOptions* options) { return Status::OK(); }, impl_->device,
       impl_->context));
 }
-void CudaDataTest::TearDown() {
+void CudaDataTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
@@ -1353,8 +1368,8 @@ void CudaDataTest::TestDoExchange() {
 
 #else
 
-void CudaDataTest::SetUp() {}
-void CudaDataTest::TearDown() {}
+void CudaDataTest::SetUpTest() {}
+void CudaDataTest::TearDownTest() {}
 void CudaDataTest::TestDoGet() { GTEST_SKIP() << "Arrow was built without ARROW_CUDA"; }
 void CudaDataTest::TestDoPut() { GTEST_SKIP() << "Arrow was built without ARROW_CUDA"; }
 void CudaDataTest::TestDoExchange() {
@@ -1362,6 +1377,205 @@ void CudaDataTest::TestDoExchange() {
 }
 
 #endif
+
+//------------------------------------------------------------
+// Test error handling
+
+namespace {
+static const std::vector<StatusCode> kStatusCodes = {
+    StatusCode::OutOfMemory,
+    StatusCode::KeyError,
+    StatusCode::TypeError,
+    StatusCode::Invalid,
+    StatusCode::IOError,
+    StatusCode::CapacityError,
+    StatusCode::IndexError,
+    StatusCode::Cancelled,
+    StatusCode::UnknownError,
+    StatusCode::NotImplemented,
+    StatusCode::SerializationError,
+    StatusCode::RError,
+    StatusCode::CodeGenError,
+    StatusCode::ExpressionValidationError,
+    StatusCode::ExecutionError,
+    StatusCode::AlreadyExists,
+};
+
+static const std::vector<FlightStatusCode> kFlightStatusCodes = {
+    FlightStatusCode::Internal,     FlightStatusCode::TimedOut,
+    FlightStatusCode::Cancelled,    FlightStatusCode::Unauthenticated,
+    FlightStatusCode::Unauthorized, FlightStatusCode::Unavailable,
+    FlightStatusCode::Failed,
+};
+
+arrow::Result<StatusCode> TryConvertStatusCode(int raw_code) {
+  for (const auto status_code : kStatusCodes) {
+    if (raw_code == static_cast<int>(status_code)) {
+      return status_code;
+    }
+  }
+  return Status::Invalid(raw_code);
+}
+arrow::Result<FlightStatusCode> TryConvertFlightStatusCode(int raw_code) {
+  for (const auto status_code : kFlightStatusCodes) {
+    if (raw_code == static_cast<int>(status_code)) {
+      return status_code;
+    }
+  }
+  return Status::Invalid(raw_code);
+}
+
+class TestStatusDetail : public StatusDetail {
+ public:
+  const char* type_id() const override { return "test-status-detail"; }
+  std::string ToString() const override { return "Custom status detail"; }
+};
+class ErrorHandlingTestServer : public FlightServerBase {
+ public:
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) override {
+    if (request.path.size() >= 2) {
+      const int raw_code = std::atoi(request.path[0].c_str());
+      ARROW_ASSIGN_OR_RAISE(StatusCode code, TryConvertStatusCode(raw_code));
+
+      if (request.path.size() == 2) {
+        return Status(code, request.path[1]);
+      } else if (request.path.size() == 3) {
+        return Status(code, request.path[1], std::make_shared<TestStatusDetail>());
+      } else {
+        const int raw_code = std::atoi(request.path[2].c_str());
+        ARROW_ASSIGN_OR_RAISE(FlightStatusCode flight_code,
+                              TryConvertFlightStatusCode(raw_code));
+        return Status(code, request.path[1],
+                      std::make_shared<FlightStatusDetail>(flight_code, request.path[3]));
+      }
+    }
+    return Status::NotImplemented("NYI");
+  }
+
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader,
+               std::unique_ptr<FlightMetadataWriter> writer) override {
+    return MakeFlightError(FlightStatusCode::Unauthorized, "Unauthorized", "extra info");
+  }
+
+  Status DoExchange(const ServerCallContext& context,
+                    std::unique_ptr<FlightMessageReader> reader,
+                    std::unique_ptr<FlightMessageWriter> writer) override {
+    return MakeFlightError(FlightStatusCode::Unauthorized, "Unauthorized", "extra info");
+  }
+};
+}  // namespace
+
+void ErrorHandlingTest::SetUpTest() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
+  ASSERT_OK(MakeServer<ErrorHandlingTestServer>(
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
+      [](FlightClientOptions* options) { return Status::OK(); }));
+}
+void ErrorHandlingTest::TearDownTest() {
+  ASSERT_OK(client_->Close());
+  ASSERT_OK(server_->Shutdown());
+}
+
+void ErrorHandlingTest::TestGetFlightInfo() {
+  std::unique_ptr<FlightInfo> info;
+  for (const auto code : kStatusCodes) {
+    ARROW_SCOPED_TRACE("C++ status code: ", static_cast<int>(code));
+    auto descr = FlightDescriptor::Path(
+        {std::to_string(static_cast<int>(code)), "Expected message"});
+    auto status = client_->GetFlightInfo(descr).status();
+    EXPECT_EQ(status.code(), code);
+    EXPECT_THAT(status.message(), ::testing::HasSubstr("Expected message"));
+
+    // Custom status detail
+    descr = FlightDescriptor::Path(
+        {std::to_string(static_cast<int>(code)), "Expected message", ""});
+    status = client_->GetFlightInfo(descr).status();
+    EXPECT_EQ(status.code(), code);
+    EXPECT_THAT(status.message(), ::testing::HasSubstr("Expected message"));
+    EXPECT_THAT(status.message(), ::testing::HasSubstr("Detail: Custom status detail"));
+
+    // Flight status detail
+    for (const auto flight_code : kFlightStatusCodes) {
+      ARROW_SCOPED_TRACE("Flight status code: ", static_cast<int>(flight_code));
+      descr = FlightDescriptor::Path(
+          {std::to_string(static_cast<int>(code)), "Expected message",
+           std::to_string(static_cast<int>(flight_code)), "Expected detail message"});
+      status = client_->GetFlightInfo(descr).status();
+      // Don't check status code, since Flight code may override it
+      EXPECT_THAT(status.message(), ::testing::HasSubstr("Expected message"));
+      auto detail = FlightStatusDetail::UnwrapStatus(status);
+      ASSERT_NE(detail, nullptr);
+      EXPECT_EQ(detail->code(), flight_code);
+      EXPECT_THAT(detail->extra_info(), ::testing::HasSubstr("Expected detail message"));
+    }
+  }
+}
+
+void CheckErrorDetail(const Status& status) {
+  auto detail = FlightStatusDetail::UnwrapStatus(status);
+  ASSERT_NE(detail, nullptr) << status.ToString();
+  ASSERT_EQ(detail->code(), FlightStatusCode::Unauthorized);
+  ASSERT_EQ(detail->extra_info(), "extra info");
+}
+
+void ErrorHandlingTest::TestDoPut() {
+  // ARROW-16592
+  auto schema = arrow::schema({field("int64", int64())});
+  auto descr = FlightDescriptor::Path({""});
+  FlightClient::DoPutResult stream;
+  auto status = client_->DoPut(descr, schema).Value(&stream);
+  if (!status.ok()) {
+    ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+    return;
+  }
+
+  std::thread reader_thread([&]() {
+    std::shared_ptr<Buffer> out;
+    while (true) {
+      if (!stream.reader->ReadMetadata(&out).ok()) {
+        return;
+      }
+    }
+  });
+
+  auto batch = RecordBatchFromJSON(schema, "[[0]]");
+  while (true) {
+    status = stream.writer->WriteRecordBatch(*batch);
+    if (!status.ok()) break;
+  }
+
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(stream.writer->Close()));
+  reader_thread.join();
+}
+
+void ErrorHandlingTest::TestDoExchange() {
+  // ARROW-16592
+  FlightClient::DoExchangeResult stream;
+  auto status = client_->DoExchange(FlightDescriptor::Path({""})).Value(&stream);
+  if (!status.ok()) {
+    ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+    return;
+  }
+
+  std::thread reader_thread([&]() {
+    while (true) {
+      if (!stream.reader->Next().ok()) return;
+    }
+  });
+
+  while (true) {
+    status = stream.writer->WriteMetadata(Buffer::FromString("foo"));
+    if (!status.ok()) break;
+  }
+
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
+  ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(stream.writer->Close()));
+  reader_thread.join();
+}
 
 }  // namespace flight
 }  // namespace arrow

@@ -1045,6 +1045,19 @@ static inline int bit_width(Type::type type_id) {
   return 0;
 }
 
+static inline bool is_list_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::FIXED_SIZE_LIST:
+    case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_nested(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:

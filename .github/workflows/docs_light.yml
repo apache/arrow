@@ -40,12 +40,12 @@ jobs:
     name: AMD64 Conda Python 3.9 Sphinx Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       PYTHON: "3.9"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
@@ -55,7 +55,7 @@ jobs:
           key: conda-docs-${{ hashFiles('cpp/**') }}
           restore-keys: conda-docs-
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery

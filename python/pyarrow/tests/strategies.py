@@ -16,6 +16,7 @@
 # under the License.
 
 import datetime
+import sys
 
 import pytest
 import hypothesis as h
@@ -29,6 +30,11 @@ try:
     import zoneinfo
 except ImportError:
     zoneinfo = None
+if sys.platform == 'win32':
+    try:
+        import tzdata  # noqa:F401
+    except ImportError:
+        zoneinfo = None
 import numpy as np
 
 import pyarrow as pa
@@ -103,6 +109,7 @@ time_types = st.sampled_from([
     pa.time64('us'),
     pa.time64('ns')
 ])
+
 if tzst and zoneinfo:
     timezones = st.one_of(st.none(), tzst.timezones(), st.timezones())
 elif tzst:
@@ -277,7 +284,7 @@ def arrays(draw, type, size=None, nullable=True):
         value = st.dates()
     elif pa.types.is_timestamp(ty):
         if zoneinfo is None:
-            pytest.skip('no module named zoneinfo')
+            pytest.skip('no module named zoneinfo (or tzdata on Windows)')
         if ty.tz is None:
             pytest.skip('requires timezone not None')
         min_int64 = -(2**63)

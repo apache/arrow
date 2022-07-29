@@ -23,8 +23,20 @@ Arrow Flight RPC
 ================
 
 Arrow Flight is an RPC framework for efficient transfer of Flight data
-over the network. See :doc:`../format/Flight` for full details on
-the protocol, or :doc:`./api/flight` for API docs.
+over the network.
+
+.. seealso::
+
+   :doc:`Flight protocol documentation <../format/Flight>`
+        Documentation of the Flight protocol, including how to use
+        Flight conceptually.
+
+   :doc:`Flight API documentation <./api/flight>`
+        C++ API documentation listing all of the various client and
+        server types.
+
+   `C++ Cookbook <https://arrow.apache.org/cookbook/cpp/flight.html>`_
+        Recipes for using Arrow Flight in C++.
 
 Writing a Flight Service
 ========================
@@ -82,41 +94,83 @@ server stops.
    std::cout << "Server listening on localhost:" << server->port() << std::endl;
    ARROW_CHECK_OK(server->Serve());
 
-
-Enabling TLS and Authentication
--------------------------------
-
-TLS can be enabled by providing a certificate and key pair to
-:func:`FlightServerBase::Init
-<arrow::flight::FlightServerBase::Init>`. Additionally, use
-:func:`Location::ForGrpcTls <arrow::flight::Location::ForGrpcTls>` to
-construct the :class:`arrow::flight::Location` to listen on.
-
-Similarly, authentication can be enabled by providing an
-implementation of :class:`ServerAuthHandler
-<arrow::flight::ServerAuthHandler>`. Authentication consists of two
-parts: on initial client connection, the server and client
-authentication implementations can perform any negotiation needed;
-then, on each RPC thereafter, the client provides a token. The server
-authentication handler validates the token and provides the identity
-of the client. This identity can be obtained from the
-:class:`arrow::flight::ServerCallContext`.
-
 Using the Flight Client
 =======================
 
 To connect to a Flight service, create an instance of
 :class:`arrow::flight::FlightClient` by calling :func:`Connect
-<arrow::flight::FlightClient::Connect>`. This takes a Location and
-returns the client through an out parameter. To authenticate, call
+<arrow::flight::FlightClient::Connect>`.
+
+Each RPC method returns :class:`arrow::Result` to indicate the
+success/failure of the request, and the result object if the request
+succeeded. Some calls are streaming calls, so they will return a
+reader and/or a writer object; the final call status isn't known until
+the stream is completed.
+
+Cancellation and Timeouts
+=========================
+
+When making a call, clients can optionally provide
+:class:`FlightCallOptions <arrow::flight::FlightCallOptions>`. This
+allows clients to set a timeout on calls or provide custom HTTP
+headers, among other features. Also, some objects returned by client
+RPC calls expose a ``Cancel`` method which allows terminating a call
+early.
+
+On the server side, no additional code is needed to implement
+timeouts. For cancellation, the server needs to manually poll
+:func:`ServerCallContext::is_cancelled
+<arrow::flight::ServerCallContext::is_cancelled>` to check if the
+client has cancelled the call, and if so, break out of any processing
+the server is currently doing.
+
+Enabling TLS
+============
+
+TLS can be enabled when setting up a server by providing a certificate
+and key pair to :func:`FlightServerBase::Init
+<arrow::flight::FlightServerBase::Init>`.
+
+On the client side, use :func:`Location::ForGrpcTls
+<arrow::flight::Location::ForGrpcTls>` to construct the
+:class:`arrow::flight::Location` to listen on.
+
+Enabling Authentication
+=======================
+
+.. warning:: Authentication is insecure without enabling TLS.
+
+Handshake-based authentication can be enabled by implementing
+:class:`ServerAuthHandler <arrow::flight::ServerAuthHandler>` and
+providing this to the server during construction.
+
+Authentication consists of two parts: on initial client connection,
+the server and client authentication implementations can perform any
+negotiation needed. The client authentication handler then provides a
+token that will be attached to future calls. This is done by calling
 :func:`Authenticate <arrow::flight::FlightClient::Authenticate>` with
 the desired client authentication implementation.
 
-Each RPC method returns :class:`arrow::Status` to indicate the
-success/failure of the request. Any other return values are specified
-through out parameters. They also take an optional :class:`options
-<arrow::flight::FlightCallOptions>` parameter that allows specifying a
-timeout for the call.
+On each RPC thereafter, the client handler's token is automatically
+added to the call in the request headers. The server authentication
+handler validates the token and provides the identity of the
+client. On the server, this identity can be obtained from the
+:class:`arrow::flight::ServerCallContext`.
+
+Custom Middleware
+=================
+
+Servers and clients support custom middleware (or interceptors) that
+are called on every request and can modify the request in a limited
+fashion.  These can be implemented by subclassing :class:`ServerMiddleware
+<arrow::flight::ServerMiddleware>` and :class:`ClientMiddleware
+<arrow::flight::ClientMiddleware>`, then providing them when creating
+the client or server.
+
+Middleware are fairly limited, but they can add headers to a
+request/response. On the server, they can inspect incoming headers and
+fail the request; hence, they can be used to implement custom
+authentication methods.
 
 Alternative Transports
 ======================

@@ -151,6 +151,8 @@ function for any numeric (integer or float) array:
 See :ref:`type-predicates-api` for a list of these.
 
 
+.. _cpp-visitor-pattern:
+
 Visitor Pattern
 ---------------
 

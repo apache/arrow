@@ -210,12 +210,17 @@ class ARROW_EXPORT RecordBatch {
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
 };
 
+struct ARROW_EXPORT RecordBatchWithMetadata {
+  std::shared_ptr<RecordBatch> batch;
+  std::shared_ptr<KeyValueMetadata> custom_metadata;
+};
+
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
   using ValueType = std::shared_ptr<RecordBatch>;
 
-  virtual ~RecordBatchReader() = default;
+  virtual ~RecordBatchReader();
 
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
@@ -227,12 +232,19 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
+  virtual Result<RecordBatchWithMetadata> ReadNext() {
+    return Status::NotImplemented("ReadNext with custom metadata");
+  }
+
   /// \brief Iterator interface
   Result<std::shared_ptr<RecordBatch>> Next() {
     std::shared_ptr<RecordBatch> batch;
     ARROW_RETURN_NOT_OK(ReadNext(&batch));
     return batch;
   }
+
+  /// \brief finalize reader
+  virtual Status Close() { return Status::OK(); }
 
   class RecordBatchReaderIterator {
    public:

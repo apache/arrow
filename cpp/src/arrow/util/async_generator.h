@@ -835,24 +835,8 @@ class ReadaheadGenerator {
 template <typename T>
 class PushGenerator {
   struct State {
-    explicit State(util::BackpressureOptions backpressure)
-        : backpressure(std::move(backpressure)) {}
+    State() {}
 
-    void OpenBackpressureIfFreeUnlocked(util::Mutex::Guard&& guard) {
-      if (backpressure.toggle && result_q.size() < backpressure.resume_if_below) {
-        // Open might trigger callbacks so release the lock first
-        guard.Unlock();
-        backpressure.toggle->Open();
-      }
-    }
-
-    void CloseBackpressureIfFullUnlocked() {
-      if (backpressure.toggle && result_q.size() > backpressure.pause_if_above) {
-        backpressure.toggle->Close();
-      }
-    }
-
-    util::BackpressureOptions backpressure;
     util::Mutex mutex;
     std::deque<Result<T>> result_q;
     util::optional<Future<T>> consumer_fut;
@@ -888,7 +872,6 @@ class PushGenerator {
         fut.MarkFinished(std::move(result));
       } else {
         state->result_q.push_back(std::move(result));
-        state->CloseBackpressureIfFullUnlocked();
       }
       return true;
     }
@@ -937,8 +920,7 @@ class PushGenerator {
     const std::weak_ptr<State> weak_state_;
   };
 
-  explicit PushGenerator(util::BackpressureOptions backpressure = {})
-      : state_(std::make_shared<State>(std::move(backpressure))) {}
+  PushGenerator() : state_(std::make_shared<State>()) {}
 
   /// Read an item from the queue
   Future<T> operator()() const {
@@ -947,7 +929,6 @@ class PushGenerator {
     if (!state_->result_q.empty()) {
       auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
       state_->result_q.pop_front();
-      state_->OpenBackpressureIfFreeUnlocked(std::move(lock));
       return fut;
     }
     if (state_->finished) {
@@ -1112,7 +1093,7 @@ class MergedGenerator {
         state_->all_finished.MarkFinished();
       } else {
         delivered_job->deliverer().AddCallback(
-            InnerCallback{state_, delivered_job->index});
+            InnerCallback(state_, delivered_job->index));
       }
       return std::move(delivered_job->value);
     }
@@ -1272,6 +1253,9 @@ class MergedGenerator {
   };
 
   struct InnerCallback {
+    InnerCallback(std::shared_ptr<State> state, std::size_t index, bool recursive = false)
+        : state(std::move(state)), index(index), recursive(recursive) {}
+
     void operator()(const Result<T>& maybe_next_ref) {
       // An item has been delivered by one of the inner subscriptions
       Future<T> next_fut;
@@ -1351,6 +1335,10 @@ class MergedGenerator {
         }
 
         if (pull_next_sub) {
+          if (recursive) {
+            was_empty = true;
+            return;
+          }
           // We pulled an end token so we need to start a new subscription
           // in our spot
           state->PullSource().AddCallback(OuterCallback{state, index});
@@ -1359,7 +1347,7 @@ class MergedGenerator {
           // so lets fetch the next result from our subscription
           sink.MarkFinished(*maybe_next);
           next_fut = state->active_subscriptions[index]();
-          if (next_fut.TryAddCallback([this]() { return *this; })) {
+          if (next_fut.TryAddCallback([this]() { return InnerCallback(state, index); })) {
             return;
           }
           // Already completed. Avoid very deep recursion by looping
@@ -1374,49 +1362,81 @@ class MergedGenerator {
     }
     std::shared_ptr<State> state;
     std::size_t index;
+    bool recursive;
+    bool was_empty = false;
   };
 
   struct OuterCallback {
-    void operator()(const Result<AsyncGenerator<T>>& maybe_next) {
-      // We have been given a new inner subscription
-      bool should_continue = false;
-      bool should_mark_gen_complete = false;
-      bool should_deliver_error = false;
-      bool source_exhausted = maybe_next.ok() && IsIterationEnd(*maybe_next);
-      Future<T> error_sink;
-      {
-        auto guard = state->mutex.Lock();
-        if (!maybe_next.ok() || source_exhausted || state->broken) {
-          // If here then we will not pull any more from the outer source
-          if (!state->broken && !maybe_next.ok()) {
-            state->SignalErrorUnlocked(guard);
-            // If here then we are the first error so we need to deliver it
-            should_deliver_error = true;
-            if (!state->waiting_jobs.empty()) {
-              error_sink = std::move(*state->waiting_jobs.front());
-              state->waiting_jobs.pop_front();
+    void operator()(const Result<AsyncGenerator<T>>& initial_maybe_next) {
+      Result<AsyncGenerator<T>> maybe_next = initial_maybe_next;
+      while (true) {
+        // We have been given a new inner subscription
+        bool should_continue = false;
+        bool should_mark_gen_complete = false;
+        bool should_deliver_error = false;
+        bool source_exhausted = maybe_next.ok() && IsIterationEnd(*maybe_next);
+        Future<T> error_sink;
+        {
+          auto guard = state->mutex.Lock();
+          if (!maybe_next.ok() || source_exhausted || state->broken) {
+            // If here then we will not pull any more from the outer source
+            if (!state->broken && !maybe_next.ok()) {
+              state->SignalErrorUnlocked(guard);
+              // If here then we are the first error so we need to deliver it
+              should_deliver_error = true;
+              if (!state->waiting_jobs.empty()) {
+                error_sink = std::move(*state->waiting_jobs.front());
+                state->waiting_jobs.pop_front();
+              }
+            }
+            if (source_exhausted) {
+              state->source_exhausted = true;
+              state->num_running_subscriptions--;
+            }
+            if (state->MarkTaskFinishedUnlocked(guard)) {
+              should_mark_gen_complete = true;
+            }
+          } else {
+            state->active_subscriptions[index] = *maybe_next;
+            should_continue = true;
+          }
+        }
+        if (should_deliver_error) {
+          state->MarkFinalError(maybe_next.status(), std::move(error_sink));
+        }
+        if (should_mark_gen_complete) {
+          state->MarkFinishedAndPurge();
+        }
+        if (should_continue) {
+          // There is a possibility that a large sequence of immediately available inner
+          // callbacks could lead to a stack overflow.  To avoid this we need to
+          // synchronously loop through inner/outer callbacks until we either find an
+          // unfinished future or we find an actual item to deliver.
+          Future<T> next_item = (*maybe_next)();
+          if (!next_item.TryAddCallback([this] { return InnerCallback(state, index); })) {
+            // By setting recursive to true we signal to the inner callback that, if it is
+            // empty, instead of adding a new outer callback, it should just immediately
+            // return, flagging was_empty so that we know we need to check the next
+            // subscription.
+            InnerCallback immediate_inner(state, index, /*recursive=*/true);
+            immediate_inner(next_item.result());
+            if (immediate_inner.was_empty) {
+              Future<AsyncGenerator<T>> next_source = state->PullSource();
+              if (next_source.TryAddCallback([this] {
+                    return OuterCallback{state, index};
+                  })) {
+                // We hit an unfinished future so we can stop looping
+                return;
+              }
+              // The current subscription was immediately and synchronously empty
+              // and we were able to synchronously pull the next subscription so we
+              // can keep looping.
+              maybe_next = next_source.result();
+              continue;
             }
           }
-          if (source_exhausted) {
-            state->source_exhausted = true;
-            state->num_running_subscriptions--;
-          }
-          if (state->MarkTaskFinishedUnlocked(guard)) {
-            should_mark_gen_complete = true;
-          }
-        } else {
-          state->active_subscriptions[index] = *maybe_next;
-          should_continue = true;
         }
-      }
-      if (should_deliver_error) {
-        state->MarkFinalError(maybe_next.status(), std::move(error_sink));
-      }
-      if (should_mark_gen_complete) {
-        state->MarkFinishedAndPurge();
-      }
-      if (should_continue) {
-        (*maybe_next)().AddCallback(InnerCallback{state, index});
+        return;
       }
     }
     std::shared_ptr<State> state;
@@ -1971,50 +1991,6 @@ struct CancellableGenerator {
 template <typename T>
 AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token) {
   return CancellableGenerator<T>{std::move(source), std::move(stop_token)};
-}
-
-template <typename T>
-struct PauseableGenerator {
- public:
-  PauseableGenerator(AsyncGenerator<T> source, std::shared_ptr<util::AsyncToggle> toggle)
-      : state_(std::make_shared<PauseableGeneratorState>(std::move(source),
-                                                         std::move(toggle))) {}
-
-  Future<T> operator()() { return (*state_)(); }
-
- private:
-  struct PauseableGeneratorState
-      : public std::enable_shared_from_this<PauseableGeneratorState> {
-    PauseableGeneratorState(AsyncGenerator<T> source,
-                            std::shared_ptr<util::AsyncToggle> toggle)
-        : source_(std::move(source)), toggle_(std::move(toggle)) {}
-
-    Future<T> operator()() {
-      std::shared_ptr<PauseableGeneratorState> self = this->shared_from_this();
-      return toggle_->WhenOpen().Then([self] {
-        util::Mutex::Guard guard = self->mutex_.Lock();
-        return self->source_();
-      });
-    }
-
-    AsyncGenerator<T> source_;
-    std::shared_ptr<util::AsyncToggle> toggle_;
-    util::Mutex mutex_;
-  };
-  std::shared_ptr<PauseableGeneratorState> state_;
-};
-
-/// \brief Allow an async generator to be paused
-///
-/// This generator is NOT async-reentrant and calling it in an async-reentrant fashion
-/// may lead to items getting reordered (and potentially truncated if the end token is
-/// reordered ahead of valid items)
-///
-/// This generator forwards async-reentrant pressure
-template <typename T>
-AsyncGenerator<T> MakePauseable(AsyncGenerator<T> source,
-                                std::shared_ptr<util::AsyncToggle> toggle) {
-  return PauseableGenerator<T>(std::move(source), std::move(toggle));
 }
 
 template <typename T>

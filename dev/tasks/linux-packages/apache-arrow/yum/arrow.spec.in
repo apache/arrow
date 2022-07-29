@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+%define __python /usr/bin/python3
+
 %define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
 %define is_amazon_linux (%{_amzn} != 0)
 
@@ -31,8 +33,8 @@
     echo 3; \
   fi)
 %define python_version %( \
-  if [ %{rhel} -eq 7 ]; then \
-    echo 36; \
+  if [ %{rhel} -lt 9 ]; then \
+    echo 39; \
   else \
     echo 3; \
   fi)
@@ -42,23 +44,36 @@
     echo ">= 1.8.0"; \
   fi)
 
+%if %{rhel} >= 9
+%define arrow_cmake_builddir %{__cmake_builddir}
+%define arrow_cmake %cmake
+%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
+%define arrow_cmake_install %cmake_install
+%else
+%define arrow_cmake_builddir build
+%define arrow_cmake %cmake3 -S . -B %{arrow_cmake_builddir}
+%define arrow_cmake_build make -C %{arrow_cmake_builddir} %{?_smp_mflags}
+%define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
+%endif
+
 %define use_boost (!%{is_amazon_linux})
-%define use_flight (%{rhel} >= 8)
-%define use_gandiva (%{rhel} >= 8 && %{_arch} != "aarch64")
-%define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
+# TODO: Enable this on aarch64 too. This causes timeout on Travis CI.
+%define use_flight (%{rhel} >= 8 && "%{_arch}" != "aarch64")
+%define use_gandiva (%{rhel} >= 8 && "%{_arch}" != "aarch64")
+%define use_gcs (%{rhel} >= 8)
 %define use_gflags (!%{is_amazon_linux})
+%define use_glog (%{rhel} <= 8)
 %define use_mimalloc (%{rhel} >= 8)
-%define use_python (!%{is_amazon_linux})
+%define use_python (%{rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %define use_s3 (%{rhel} >= 8)
+# %%define use_s3 (%%{rhel} >= 8)
 %define use_s3 0
 
-%define have_rapidjson (%{rhel} == 7)
+%define have_rapidjson (%{rhel} != 8)
 %define have_re2 (%{rhel} >= 8)
-# EPEL ships utf8proc but it's old.
-# %define have_utf8proc (%{rhel} == 7)
-%define have_utf8proc 0
+%define have_thrift (%{rhel} >= 8)
+%define have_utf8proc (%{rhel} >= 9)
 %define have_zstd (!%{is_amazon_linux})
 
 Name:		@PACKAGE@
@@ -87,7 +102,10 @@ BuildRequires:	gcc-c++
 BuildRequires:	gflags-devel
 %endif
 BuildRequires:	git
+%if %{use_glog}
 BuildRequires:	glog-devel
+%endif
+BuildRequires:	jemalloc-devel
 %if %{use_gcs}
 BuildRequires:	json-devel
 %endif
@@ -109,6 +127,9 @@ BuildRequires:	rapidjson-devel
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
+%if %{have_thrift}
+BuildRequires:	thrift-devel
+%endif
 %if %{have_utf8proc}
 BuildRequires:	utf8proc-devel
 %endif
@@ -121,6 +142,7 @@ BuildRequires:	ncurses-devel
 
 BuildRequires:	gobject-introspection-devel
 BuildRequires:	gtk-doc
+BuildRequires:	vala
 
 %description
 Apache Arrow is a data processing library for analysis.
@@ -130,13 +152,13 @@ Apache Arrow is a data processing library for analysis.
 
 %build
 cpp_build_type=release
-mkdir cpp/build
-cd cpp/build
-%cmake3 .. \
+cd cpp
+%arrow_cmake \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
 %if %{use_flight}
   -DARROW_FLIGHT=ON \
+  -DARROW_FLIGHT_SQL=ON \
 %endif
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
@@ -159,6 +181,7 @@ cd cpp/build
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
+  -DARROW_USE_CCACHE=OFF \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
@@ -166,41 +189,48 @@ cd cpp/build
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
-  -DARROW_USE_CCACHE=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
 %if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
 %endif
-  -GNinja
-
-ninja %{?_smp_mflags}
+  -Djemalloc_SOURCE=SYSTEM \
+  -G"Unix Makefiles"
+%arrow_cmake_build
 cd -
 
 cd c_glib
-pip3 install meson
+%if (%{rhel} >= 8 || "%{_arch}" != "aarch64")
+  pip3 install meson
+%else
+  # Meson 0.57.0 or later requires Ninja 1.8.2 or later but EPEL for
+  # Amazon Linux 2 aarch64 provides Ninja 1.7.2. We can remove
+  # '<0.57.0' once we drop support for Amazon Linux 2.
+  pip3 install 'meson<0.57.0'
+%endif
 meson setup build \
   --default-library=both \
   --libdir=%{_libdir} \
   --prefix=%{_prefix} \
-  -Darrow_cpp_build_dir=../cpp/build \
+  -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
-  -Dgtk_doc=true
-LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
-  ninja -C build %{?_smp_mflags}
+  -Dgtk_doc=true \
+  -Dvapi=true
+
+LD_LIBRARY_PATH=$PWD/../cpp/%{arrow_cmake_builddir}/$cpp_build_type \
+  meson compile -C build %{?_smp_mflags}
 cd -
 
 %install
 cpp_build_type=release
 
 cd c_glib
-DESTDIR=$RPM_BUILD_ROOT ninja -C build install
-ninja -C build clean
+DESTDIR=%{buildroot} meson install -C build
 cd -
 
-cd cpp/build
-DESTDIR=$RPM_BUILD_ROOT ninja install
-ninja clean
+cd cpp
+%arrow_cmake_install
+rm -rf %{buildroot}%{_docdir}/arrow/
 cd -
 
 %package -n %{name}%{major_version}-libs
@@ -210,7 +240,10 @@ Requires:	brotli
 %if %{use_gflags}
 Requires:	gflags
 %endif
+%if %{use_glog}
 Requires:	glog
+%endif
+Requires:	jemalloc
 %if %{have_zstd}
 Requires:	libzstd
 %endif
@@ -229,8 +262,8 @@ This package contains the libraries for Apache Arrow C++.
 
 %files -n %{name}%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
-%{_docdir}/arrow/
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow.so.*
 
 %package devel
@@ -242,6 +275,7 @@ Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
 %endif
+Requires:	jemalloc-devel
 %if %{use_gcs}
 Requires:	json-devel
 %endif
@@ -267,7 +301,10 @@ Libraries and header files for Apache Arrow C++.
 
 %files devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_datadir}/arrow/gdb/
+%{_datadir}/gdb/auto-load/
 %{_includedir}/arrow/
 %exclude %{_includedir}/arrow/dataset/
 %if %{use_flight}
@@ -279,11 +316,15 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/ArrowTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrow.cmake
 %{_libdir}/cmake/arrow/FindBrotli.cmake
-%{_libdir}/cmake/arrow/FindLz4.cmake
-%{_libdir}/cmake/arrow/FindSnappy.cmake
+%{_libdir}/cmake/arrow/FindSnappyAlt.cmake
+%if %{have_thrift}
+%{_libdir}/cmake/arrow/FindThrift.cmake
+%endif
 %if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
+%{_libdir}/cmake/arrow/Findjemalloc.cmake
+%{_libdir}/cmake/arrow/Findlz4Alt.cmake
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake
 %endif
@@ -314,7 +355,8 @@ This package contains the libraries for Apache Arrow dataset.
 
 %files -n %{name}%{major_version}-dataset-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_dataset.so.*
 
 %package dataset-devel
@@ -328,7 +370,8 @@ Libraries and header files for Apache Arrow dataset.
 
 %files dataset-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/dataset/
 %{_libdir}/cmake/arrow/ArrowDatasetConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowDatasetTargets*.cmake
@@ -342,9 +385,7 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-%if %{use_flight}
 Requires:	c-ares
-%endif
 Requires:	openssl
 
 %description -n %{name}%{major_version}-flight-libs
@@ -352,7 +393,8 @@ This package contains the libraries for Apache Arrow Flight.
 
 %files -n %{name}%{major_version}-flight-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_flight.so.*
 
 %package flight-devel
@@ -366,14 +408,51 @@ Libraries and header files for Apache Arrow Flight.
 
 %files flight-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/
+%exclude %{_includedir}/arrow/flight/sql/
 %{_libdir}/cmake/arrow/ArrowFlightConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowFlightTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrowFlight.cmake
 %{_libdir}/libarrow_flight.a
 %{_libdir}/libarrow_flight.so
 %{_libdir}/pkgconfig/arrow-flight.pc
+
+%package -n %{name}%{major_version}-flight-sql-libs
+Summary:	C++ library for interacting with SQL databases.
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
+
+%description -n %{name}%{major_version}-flight-sql-libs
+This package contains the libraries for Apache Arrow Flight SQL.
+
+%files -n %{name}%{major_version}-flight-sql-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_flight_sql.so.*
+
+%package flight-sql-devel
+Summary:	Libraries and header files for Apache Arrow Flight SQL.
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-sql-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description flight-sql-devel
+Libraries and header files for Apache Arrow Flight SQL.
+
+%files flight-sql-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/flight/sql/
+%{_libdir}/cmake/arrow/ArrowFlightSqlConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowFlightSqlTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrowFlightSql.cmake
+%{_libdir}/libarrow_flight_sql.a
+%{_libdir}/libarrow_flight_sql.so
+%{_libdir}/pkgconfig/arrow-flight-sql.pc
 %endif
 
 %if %{use_gandiva}
@@ -388,7 +467,8 @@ This package contains the libraries for Gandiva.
 
 %files -n gandiva%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libgandiva.so.*
 
 %package -n gandiva-devel
@@ -403,7 +483,8 @@ Libraries and header files for Gandiva.
 
 %files -n gandiva-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/gandiva/
 %{_libdir}/cmake/arrow/GandivaConfig*.cmake
 %{_libdir}/cmake/arrow/GandivaTargets*.cmake
@@ -425,7 +506,8 @@ This package contains the Python integration library for Apache Arrow.
 
 %files -n %{name}%{major_version}-python-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_python.so.*
 
 %package python-devel
@@ -440,7 +522,8 @@ Libraries and header files for Python integration library for Apache Arrow.
 
 %files python-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/python/
 %exclude %{_includedir}/arrow/python/flight.h
 %{_libdir}/cmake/arrow/ArrowPythonConfig*.cmake
@@ -462,7 +545,8 @@ This package contains the Python integration library for Apache Arrow Flight.
 
 %files -n %{name}%{major_version}-python-flight-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_python_flight.so.*
 
 %package python-flight-devel
@@ -478,7 +562,8 @@ Apache Arrow Flight.
 
 %files python-flight-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/python/flight.h
 %{_libdir}/cmake/arrow/ArrowPythonFlightConfig*.cmake
 %{_libdir}/cmake/arrow/ArrowPythonFlightTargets*.cmake
@@ -499,7 +584,8 @@ This package contains the libraries for Plasma in-memory object store.
 
 %files -n plasma%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libplasma.so.*
 
 %package -n plasma-store-server
@@ -512,7 +598,8 @@ This package contains the server for Plasma in-memory object store.
 
 %files -n plasma-store-server
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_bindir}/plasma-store-server
 
 %package -n plasma-devel
@@ -526,7 +613,8 @@ Libraries and header files for Plasma in-memory object store.
 
 %files -n plasma-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/plasma/
 %{_libdir}/cmake/arrow/PlasmaConfig*.cmake
 %{_libdir}/cmake/arrow/PlasmaTargets*.cmake
@@ -546,7 +634,8 @@ This package contains the libraries for Apache Parquet C++.
 
 %files -n parquet%{major_version}-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libparquet.so.*
 
 %package -n parquet-devel
@@ -561,7 +650,8 @@ Libraries and header files for Apache Parquet C++.
 
 %files -n parquet-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/parquet/
 %{_libdir}/cmake/arrow/ParquetConfig*.cmake
 %{_libdir}/cmake/arrow/ParquetTargets*.cmake
@@ -581,7 +671,8 @@ This package contains the libraries for Apache Arrow GLib.
 
 %files -n %{name}%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow-glib.so.*
 %{_datadir}/gir-1.0/Arrow-1.0.gir
 
@@ -598,7 +689,8 @@ Libraries and header files for Apache Arrow GLib.
 
 %files glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow-glib/
 %{_libdir}/libarrow-glib.a
 %{_libdir}/libarrow-glib.so
@@ -606,6 +698,7 @@ Libraries and header files for Apache Arrow GLib.
 %{_libdir}/pkgconfig/arrow-orc-glib.pc
 %{_libdir}/girepository-1.0/Arrow-1.0.typelib
 %{_datadir}/arrow-glib/example/
+%{_datadir}/vala/vapi/arrow-glib.*
 
 %package glib-doc
 Summary:	Documentation for Apache Arrow GLib
@@ -616,7 +709,8 @@ Documentation for Apache Arrow GLib.
 
 %files glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_docdir}/arrow-glib/
 %{_datadir}/gtk-doc/html/arrow-glib/
 
@@ -631,7 +725,8 @@ This package contains the libraries for Apache Arrow Dataset GLib.
 
 %files -n %{name}%{major_version}-dataset-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow-dataset-glib.so.*
 %{_datadir}/gir-1.0/ArrowDataset-1.0.gir
 
@@ -647,12 +742,14 @@ Libraries and header files for Apache Arrow Dataset GLib.
 
 %files dataset-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow-dataset-glib/
 %{_libdir}/libarrow-dataset-glib.a
 %{_libdir}/libarrow-dataset-glib.so
 %{_libdir}/pkgconfig/arrow-dataset-glib.pc
 %{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
+%{_datadir}/vala/vapi/arrow-dataset-glib.*
 
 %package dataset-glib-doc
 Summary:	Documentation for Apache Arrow Dataset GLib
@@ -663,7 +760,8 @@ Documentation for Apache Arrow dataset GLib.
 
 %files dataset-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/arrow-dataset-glib/
 
 %if %{use_flight}
@@ -678,7 +776,8 @@ This package contains the libraries for Apache Arrow Flight GLib.
 
 %files -n %{name}%{major_version}-flight-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow-flight-glib.so.*
 %{_datadir}/gir-1.0/ArrowFlight-1.0.gir
 
@@ -694,12 +793,14 @@ Libraries and header files for Apache Arrow Flight GLib.
 
 %files flight-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/arrow-flight-glib/
 %{_libdir}/libarrow-flight-glib.a
 %{_libdir}/libarrow-flight-glib.so
 %{_libdir}/pkgconfig/arrow-flight-glib.pc
 %{_libdir}/girepository-1.0/ArrowFlight-1.0.typelib
+%{_datadir}/vala/vapi/arrow-flight-glib.*
 
 %package flight-glib-doc
 Summary:	Documentation for Apache Arrow Flight GLib
@@ -710,8 +811,59 @@ Documentation for Apache Arrow Flight GLib.
 
 %files flight-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/arrow-flight-glib/
+
+%package -n %{name}%{major_version}-flight-sql-glib-libs
+Summary:	Runtime libraries for Apache Arrow Flight SQL GLib
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-sql-libs = %{version}-%{release}
+Requires:	%{name}%{major_version}-flight-glib-libs = %{version}-%{release}
+
+%description -n %{name}%{major_version}-flight-sql-glib-libs
+This package contains the libraries for Apache Arrow Flight SQL GLib.
+
+%files -n %{name}%{major_version}-flight-sql-glib-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-flight-sql-glib.so.*
+%{_datadir}/gir-1.0/ArrowFlightSQL-1.0.gir
+
+%package flight-sql-glib-devel
+Summary:	Libraries and header files for Apache Arrow Flight SQL GLib
+License:	Apache-2.0
+Requires:	%{name}%{major_version}-flight-sql-glib-libs = %{version}-%{release}
+Requires:	%{name}-flight-sql-devel = %{version}-%{release}
+Requires:	%{name}-flight-glib-devel = %{version}-%{release}
+
+%description flight-sql-glib-devel
+Libraries and header files for Apache Arrow Flight SQL GLib.
+
+%files flight-sql-glib-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-flight-sql-glib/
+%{_libdir}/libarrow-flight-sql-glib.a
+%{_libdir}/libarrow-flight-sql-glib.so
+%{_libdir}/pkgconfig/arrow-flight-sql-glib.pc
+%{_libdir}/girepository-1.0/ArrowFlightSQL-1.0.typelib
+%{_datadir}/vala/vapi/arrow-flight-sql-glib.*
+
+%package flight-sql-glib-doc
+Summary:	Documentation for Apache Arrow Flight SQL GLib
+License:	Apache-2.0
+
+%description flight-sql-glib-doc
+Documentation for Apache Arrow Flight SQL GLib.
+
+%files flight-sql-glib-doc
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/arrow-flight-sql-glib/
 %endif
 
 %if %{use_gandiva}
@@ -726,7 +878,8 @@ This package contains the libraries for Gandiva GLib.
 
 %files -n gandiva%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libgandiva-glib.so.*
 %{_datadir}/gir-1.0/Gandiva-1.0.gir
 
@@ -742,12 +895,14 @@ Libraries and header files for Gandiva GLib.
 
 %files -n gandiva-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/gandiva-glib/
 %{_libdir}/libgandiva-glib.a
 %{_libdir}/libgandiva-glib.so
 %{_libdir}/pkgconfig/gandiva-glib.pc
 %{_libdir}/girepository-1.0/Gandiva-1.0.typelib
+%{_datadir}/vala/vapi/gandiva-glib.*
 
 %package -n gandiva-glib-doc
 Summary:	Documentation for Gandiva GLib
@@ -758,7 +913,8 @@ Documentation for Gandiva GLib.
 
 %files -n gandiva-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/gandiva-glib/
 %endif
 
@@ -773,7 +929,8 @@ This package contains the libraries for Plasma GLib.
 
 %files -n plasma%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libplasma-glib.so.*
 %{_datadir}/gir-1.0/Plasma-1.0.gir
 
@@ -789,12 +946,14 @@ Libraries and header files for Plasma GLib.
 
 %files -n plasma-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/plasma-glib/
 %{_libdir}/libplasma-glib.a
 %{_libdir}/libplasma-glib.so
 %{_libdir}/pkgconfig/plasma-glib.pc
 %{_libdir}/girepository-1.0/Plasma-1.0.typelib
+%{_datadir}/vala/vapi/plasma-glib.*
 
 %package -n plasma-glib-doc
 Summary:	Documentation for Plasma GLib
@@ -805,7 +964,8 @@ Documentation for Plasma GLib.
 
 %files -n plasma-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/plasma-glib/
 
 %package -n parquet%{major_version}-glib-libs
@@ -819,7 +979,8 @@ This package contains the libraries for Apache Parquet GLib.
 
 %files -n parquet%{major_version}-glib-libs
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_libdir}/libparquet-glib.so.*
 %{_datadir}/gir-1.0/Parquet-1.0.gir
 
@@ -835,12 +996,14 @@ Libraries and header files for Apache Parquet GLib.
 
 %files -n parquet-glib-devel
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_includedir}/parquet-glib/
 %{_libdir}/libparquet-glib.a
 %{_libdir}/libparquet-glib.so
 %{_libdir}/pkgconfig/parquet-glib.pc
 %{_libdir}/girepository-1.0/Parquet-1.0.typelib
+%{_datadir}/vala/vapi/parquet-glib.*
 
 %package -n parquet-glib-doc
 Summary:	Documentation for Apache Parquet GLib
@@ -851,10 +1014,14 @@ Documentation for Apache Parquet GLib.
 
 %files -n parquet-glib-doc
 %defattr(-,root,root,-)
-%doc README.md LICENSE.txt NOTICE.txt
+%doc README.md
+%license LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Tue May 03 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 8.0.0-1
+- New upstream release.
+
 * Sat Jan 29 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 7.0.0-1
 - New upstream release.
 

@@ -56,10 +56,10 @@ public class FlightSqlClientDemoApp implements AutoCloseable {
     options.addRequiredOption("port", "port", true, "Port to connect to");
     options.addRequiredOption("command", "command", true, "Method to run");
 
-    options.addOption("query", "query", false, "Query");
-    options.addOption("catalog", "catalog", false, "Catalog");
-    options.addOption("schema", "schema", false, "Schema");
-    options.addOption("table", "table", false, "Table");
+    options.addOption("query", "query", true, "Query");
+    options.addOption("catalog", "catalog", true, "Catalog");
+    options.addOption("schema", "schema", true, "Schema");
+    options.addOption("table", "table", true, "Table");
 
     CommandLineParser parser = new DefaultParser();
     HelpFormatter formatter = new HelpFormatter();

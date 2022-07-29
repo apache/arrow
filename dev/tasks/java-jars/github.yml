@@ -29,7 +29,7 @@ jobs:
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ Libs
         run: archery docker run java-jni-manylinux-2014
-      - name: Compress into single artifact
+      - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
@@ -47,19 +47,20 @@ jobs:
     name: Build C++ Libs MacOS
     runs-on: macos-latest
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.11"
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Install Dependencies
-        run: brew bundle --file=arrow/cpp/Brewfile
-      - name: Build C Data Interface lib
         run: |
-          set -e
-          arrow/ci/scripts/java_cdata_build.sh \
-            $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/java-native-build \
-            $GITHUB_WORKSPACE/arrow/java-dist
+          brew install --overwrite git
+          brew bundle --file=arrow/cpp/Brewfile
+          # We want to link aws-sdk-cpp statically but Homebrew's
+          # aws-sdk-cpp provides only shared library. If we have
+          # Homebrew's aws-sdk-cpp, our build mix Homebrew's
+          # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
+          # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
+          brew uninstall aws-sdk-cpp
       - name: Build C++ Libs
         run: |
           set -e
@@ -67,7 +68,7 @@ jobs:
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
             $GITHUB_WORKSPACE/arrow/java-dist
-      - name: Compress into single artifact
+      - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
@@ -91,10 +92,11 @@ jobs:
           name: macos-shared-lib
       - name: Descompress artifacts
         run: |
-          tar -xvzf arrow-shared-libs-macos.tar.gz
           tar -xvzf arrow-shared-libs-linux.tar.gz
+          tar -xvzf arrow-shared-libs-macos.tar.gz
       - name: Test that Shared Libraries Exist
         run: |
+          set -x
           test -f arrow/java-dist/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/libgandiva_jni.dylib

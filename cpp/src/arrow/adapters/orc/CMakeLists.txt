@@ -29,8 +29,8 @@ arrow_add_pkg_config("arrow-orc")
 set(ORC_MIN_TEST_LIBS
     GTest::gtest_main
     GTest::gtest
-    Snappy::snappy
-    LZ4::lz4
+    ${Snappy_TARGET}
+    lz4::lz4
     ZLIB::ZLIB)
 
 if(ARROW_BUILD_STATIC)

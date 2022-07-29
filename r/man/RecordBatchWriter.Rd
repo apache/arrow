@@ -46,7 +46,6 @@ to be closed separately.
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 
@@ -80,7 +79,6 @@ all.equal(df, chickwts, check.attributes = FALSE)
 # Unlike the Writers, we don't have to close RecordBatchReaders,
 # but we do still need to close the file connection
 read_file_obj$close()
-\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link[=write_ipc_stream]{write_ipc_stream()}} and \code{\link[=write_feather]{write_feather()}} provide a much simpler

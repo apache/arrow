@@ -45,17 +45,27 @@ static constexpr uint32_t kStartDate =
 static constexpr uint32_t kEndDate =
     10591;  // December 12, 1998 is 10591 days after January 1, 1970
 
-Result<std::vector<ExecBatch>> GenerateTable(
-    Result<ExecNode*> (TpchGen::*table)(std::vector<std::string>),
-    double scale_factor = 1.0) {
+using TableNodeFn = Result<ExecNode*> (TpchGen::*)(std::vector<std::string>);
+
+constexpr double kDefaultScaleFactor = 0.1;
+
+Status AddTableAndSinkToPlan(ExecPlan& plan, TpchGen& gen,
+                             AsyncGenerator<util::optional<ExecBatch>>& sink_gen,
+                             TableNodeFn table) {
+  ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.*table)({})));
+  Declaration sink("sink", {Declaration::Input(table_node)}, SinkNodeOptions{&sink_gen});
+  ARROW_RETURN_NOT_OK(sink.AddToPlan(&plan));
+  return Status::OK();
+}
+
+Result<std::vector<ExecBatch>> GenerateTable(TableNodeFn table,
+                                             double scale_factor = kDefaultScaleFactor) {
   ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<TpchGen> gen,
                         TpchGen::Make(plan.get(), scale_factor));
-  ARROW_ASSIGN_OR_RAISE(ExecNode * table_node, ((gen.get()->*table)({})));
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-  Declaration sink("sink", {Declaration::Input(table_node)}, SinkNodeOptions{&sink_gen});
-  ARROW_RETURN_NOT_OK(sink.AddToPlan(plan.get()));
+  ARROW_RETURN_NOT_OK(AddTableAndSinkToPlan(*plan, *gen, sink_gen, table));
   auto fut = StartAndCollect(plan.get(), sink_gen);
   return fut.MoveResult();
 }
@@ -333,24 +343,15 @@ void CountModifiedComments(const Datum& d, int* good_count, int* bad_count) {
   }
 }
 
-TEST(TpchNode, ScaleFactor) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier, 0.25));
-
-  int64_t kExpectedRows = 2500;
-  int64_t num_rows = 0;
-  for (auto& batch : res) num_rows += batch.length;
-  ASSERT_EQ(num_rows, kExpectedRows);
-}
-
-TEST(TpchNode, Supplier) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier));
-  int64_t kExpectedRows = 10000;
+void VerifySupplier(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
+  int64_t kExpectedRows = static_cast<int64_t>(10000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_suppkey;
   int good_count = 0;
   int bad_count = 0;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_suppkey, batch[0],
                     /*min=*/1,
@@ -365,18 +366,22 @@ TEST(TpchNode, Supplier) {
   }
   ASSERT_EQ(seen_suppkey.size(), kExpectedRows);
   ASSERT_EQ(num_rows, kExpectedRows);
-  ASSERT_EQ(good_count, 5);
-  ASSERT_EQ(bad_count, 5);
+  ASSERT_EQ(good_count, static_cast<int64_t>(5 * scale_factor));
+  ASSERT_EQ(bad_count, static_cast<int64_t>(5 * scale_factor));
 }
 
-TEST(TpchNode, Part) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Part));
+TEST(TpchNode, Supplier) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Supplier));
+  VerifySupplier(res);
+}
 
-  int64_t kExpectedRows = 200000;
+void VerifyPart(const std::vector<ExecBatch>& batches,
+                double scale_factor = kDefaultScaleFactor) {
+  int64_t kExpectedRows = static_cast<int64_t>(200000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_partkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_partkey, batch[0],
                     /*min=*/1,
@@ -401,14 +406,18 @@ TEST(TpchNode, Part) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, PartSupp) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::PartSupp));
+TEST(TpchNode, Part) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Part));
+  VerifyPart(res);
+}
 
-  constexpr int64_t kExpectedRows = 800000;
+void VerifyPartSupp(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
+  const int64_t kExpectedRows = static_cast<int64_t>(800000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_map<int32_t, int32_t> counts;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     CountInstances(&counts, batch[0]);
     VerifyAllBetween(batch[2], 1, 9999);
@@ -423,14 +432,18 @@ TEST(TpchNode, PartSupp) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Customer) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Customer));
+TEST(TpchNode, PartSupp) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::PartSupp));
+  VerifyPartSupp(res);
+}
 
-  const int64_t kExpectedRows = 150000;
+void VerifyCustomer(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
+  const int64_t kExpectedRows = static_cast<int64_t>(150000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_custkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_custkey, batch[0],
                     /*min=*/1,
@@ -449,14 +462,18 @@ TEST(TpchNode, Customer) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Orders) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Orders));
+TEST(TpchNode, Customer) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Customer));
+  VerifyCustomer(res);
+}
 
-  constexpr int64_t kExpectedRows = 1500000;
+void VerifyOrders(const std::vector<ExecBatch>& batches,
+                  double scale_factor = kDefaultScaleFactor) {
+  const int64_t kExpectedRows = static_cast<int64_t>(1500000 * scale_factor);
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_orderkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_orderkey, batch[0],
                     /*min=*/1,
@@ -484,14 +501,19 @@ TEST(TpchNode, Orders) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Lineitem) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Lineitem));
+TEST(TpchNode, Orders) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Orders));
+  VerifyOrders(res);
+}
 
+void VerifyLineitem(const std::vector<ExecBatch>& batches,
+                    double scale_factor = kDefaultScaleFactor) {
   std::unordered_map<int32_t, int32_t> counts;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     CountInstances(&counts, batch[0]);
-    VerifyAllBetween(batch[1], /*min=*/1, /*max=*/200000);
+    VerifyAllBetween(batch[1], /*min=*/1,
+                     /*max=*/static_cast<int32_t>(200000 * scale_factor));
     VerifyAllBetween(batch[3], /*min=*/1, /*max=*/7);
     VerifyDecimalsBetween(batch[4], /*min=*/100, /*max=*/5000);
     VerifyDecimalsBetween(batch[6], /*min=*/0, /*max=*/10);
@@ -527,14 +549,18 @@ TEST(TpchNode, Lineitem) {
   }
 }
 
-TEST(TpchNode, Nation) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Nation));
+TEST(TpchNode, Lineitem) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Lineitem));
+  VerifyLineitem(res);
+}
 
+void VerifyNation(const std::vector<ExecBatch>& batches,
+                  double scale_factor = kDefaultScaleFactor) {
   constexpr int64_t kExpectedRows = 25;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_nationkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_nationkey, batch[0], 0, kExpectedRows - 1);
     VerifyOneOf(
@@ -551,14 +577,18 @@ TEST(TpchNode, Nation) {
   ASSERT_EQ(num_rows, kExpectedRows);
 }
 
-TEST(TpchNode, Region) {
-  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Region));
+TEST(TpchNode, Nation) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Nation));
+  VerifyNation(res);
+}
 
+void VerifyRegion(const std::vector<ExecBatch>& batches,
+                  double scale_factor = kDefaultScaleFactor) {
   constexpr int64_t kExpectedRows = 5;
   int64_t num_rows = 0;
 
   std::unordered_set<int32_t> seen_regionkey;
-  for (auto& batch : res) {
+  for (auto& batch : batches) {
     ValidateBatch(batch);
     VerifyUniqueKey(&seen_regionkey, batch[0], 0, kExpectedRows - 1);
     VerifyOneOf(batch[1],
@@ -568,6 +598,45 @@ TEST(TpchNode, Region) {
     num_rows += batch.length;
   }
   ASSERT_EQ(num_rows, 5);
+}
+
+TEST(TpchNode, Region) {
+  ASSERT_OK_AND_ASSIGN(auto res, GenerateTable(&TpchGen::Region));
+  VerifyRegion(res);
+}
+
+TEST(TpchNode, AllTables) {
+  constexpr double kScaleFactor = 0.05;
+  constexpr int kNumTables = 8;
+  std::array<TableNodeFn, kNumTables> tables = {
+      &TpchGen::Supplier, &TpchGen::Part,     &TpchGen::PartSupp, &TpchGen::Customer,
+      &TpchGen::Orders,   &TpchGen::Lineitem, &TpchGen::Nation,   &TpchGen::Region,
+  };
+  using VerifyFn = void(const std::vector<ExecBatch>&, double);
+  std::array<VerifyFn*, kNumTables> verify_fns = {
+      &VerifySupplier, &VerifyPart,     &VerifyPartSupp, &VerifyCustomer,
+      &VerifyOrders,   &VerifyLineitem, &VerifyNation,   &VerifyRegion,
+  };
+
+  std::array<AsyncGenerator<util::optional<ExecBatch>>, kNumTables> gens;
+  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<TpchGen> gen,
+                       TpchGen::Make(plan.get(), kScaleFactor));
+  for (int i = 0; i < kNumTables; i++) {
+    ASSERT_OK(AddTableAndSinkToPlan(*plan, *gen, gens[i], tables[i]));
+  }
+
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_OK(plan->finished().status());
+  for (int i = 0; i < kNumTables; i++) {
+    auto fut = CollectAsyncGenerator(gens[i]);
+    ASSERT_OK_AND_ASSIGN(auto maybe_batches, fut.MoveResult());
+    std::vector<ExecBatch> batches;
+    for (auto& maybe_batch : maybe_batches) batches.emplace_back(std::move(*maybe_batch));
+    verify_fns[i](batches, kScaleFactor);
+  }
 }
 
 }  // namespace internal

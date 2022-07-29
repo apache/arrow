@@ -109,24 +109,54 @@ class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
+///
+/// If the keys attribute is a non-empty vector, then each aggregate in `aggregates` is
+/// expected to be a HashAggregate function. If the keys attribute is an empty vector,
+/// then each aggregate is assumed to be a ScalarAggregate function.
 class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
  public:
-  AggregateNodeOptions(std::vector<internal::Aggregate> aggregates,
-                       std::vector<FieldRef> targets, std::vector<std::string> names,
-                       std::vector<FieldRef> keys = {})
-      : aggregates(std::move(aggregates)),
-        targets(std::move(targets)),
-        names(std::move(names)),
-        keys(std::move(keys)) {}
+  explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,
+                                std::vector<FieldRef> keys = {})
+      : aggregates(std::move(aggregates)), keys(std::move(keys)) {}
 
   // aggregations which will be applied to the targetted fields
-  std::vector<internal::Aggregate> aggregates;
-  // fields to which aggregations will be applied
-  std::vector<FieldRef> targets;
-  // output field names for aggregations
-  std::vector<std::string> names;
+  std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped
   std::vector<FieldRef> keys;
+};
+
+constexpr int32_t kDefaultBackpressureHighBytes = 1 << 30;  // 1GiB
+constexpr int32_t kDefaultBackpressureLowBytes = 1 << 28;   // 256MiB
+
+class ARROW_EXPORT BackpressureMonitor {
+ public:
+  virtual ~BackpressureMonitor() = default;
+  virtual uint64_t bytes_in_use() const = 0;
+  virtual bool is_paused() const = 0;
+};
+
+/// \brief Options to control backpressure behavior
+struct ARROW_EXPORT BackpressureOptions {
+  /// \brief Create default options that perform no backpressure
+  BackpressureOptions() : resume_if_below(0), pause_if_above(0) {}
+  /// \brief Create options that will perform backpressure
+  ///
+  /// \param resume_if_below The producer should resume producing if the backpressure
+  ///                        queue has fewer than resume_if_below items.
+  /// \param pause_if_above The producer should pause producing if the backpressure
+  ///                       queue has more than pause_if_above items
+  BackpressureOptions(uint32_t resume_if_below, uint32_t pause_if_above)
+      : resume_if_below(resume_if_below), pause_if_above(pause_if_above) {}
+
+  static BackpressureOptions DefaultBackpressure() {
+    return BackpressureOptions(kDefaultBackpressureLowBytes,
+                               kDefaultBackpressureHighBytes);
+  }
+
+  bool should_apply_backpressure() const { return pause_if_above > 0; }
+
+  uint64_t resume_if_below;
+  uint64_t pause_if_above;
 };
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
@@ -135,11 +165,46 @@ class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
   explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
-                           util::BackpressureOptions backpressure = {})
-      : generator(generator), backpressure(std::move(backpressure)) {}
+                           BackpressureOptions backpressure = {},
+                           BackpressureMonitor** backpressure_monitor = NULLPTR)
+      : generator(generator),
+        backpressure(std::move(backpressure)),
+        backpressure_monitor(backpressure_monitor) {}
 
+  /// \brief A pointer to a generator of batches.
+  ///
+  /// This will be set when the node is added to the plan and should be used to consume
+  /// data from the plan.  If this function is not called frequently enough then the sink
+  /// node will start to accumulate data and may apply backpressure.
   std::function<Future<util::optional<ExecBatch>>()>* generator;
-  util::BackpressureOptions backpressure;
+  /// \brief Options to control when to apply backpressure
+  ///
+  /// This is optional, the default is to never apply backpressure.  If the plan is not
+  /// consumed quickly enough the system may eventually run out of memory.
+  BackpressureOptions backpressure;
+  /// \brief A pointer to a backpressure monitor
+  ///
+  /// This will be set when the node is added to the plan.  This can be used to inspect
+  /// the amount of data currently queued in the sink node.  This is an optional utility
+  /// and backpressure can be applied even if this is not used.
+  BackpressureMonitor** backpressure_monitor;
+};
+
+/// \brief Control used by a SinkNodeConsumer to pause & resume
+///
+/// Callers should ensure that they do not call Pause and Resume simultaneously and they
+/// should sequence things so that a call to Pause() is always followed by an eventual
+/// call to Resume()
+class ARROW_EXPORT BackpressureControl {
+ public:
+  virtual ~BackpressureControl() = default;
+  /// \brief Ask the input to pause
+  ///
+  /// This is best effort, batches may continue to arrive
+  /// Must eventually be followed by a call to Resume() or deadlock will occur
+  virtual void Pause() = 0;
+  /// \brief Ask the input to resume
+  virtual void Resume() = 0;
 };
 
 class ARROW_EXPORT SinkNodeConsumer {
@@ -150,7 +215,8 @@ class ARROW_EXPORT SinkNodeConsumer {
   /// This will be run once the schema is finalized as the plan is starting and
   /// before any calls to Consume.  A common use is to save off the schema so that
   /// batches can be interpreted.
-  virtual Status Init(const std::shared_ptr<Schema>& schema) = 0;
+  virtual Status Init(const std::shared_ptr<Schema>& schema,
+                      BackpressureControl* backpressure_control) = 0;
   /// \brief Consume a batch of data
   virtual Status Consume(ExecBatch batch) = 0;
   /// \brief Signal to the consumer that the last batch has been delivered
@@ -162,10 +228,16 @@ class ARROW_EXPORT SinkNodeConsumer {
 /// \brief Add a sink node which consumes data within the exec plan run
 class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer)
-      : consumer(std::move(consumer)) {}
+  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer,
+                                    std::vector<std::string> names = {})
+      : consumer(std::move(consumer)), names(std::move(names)) {}
 
   std::shared_ptr<SinkNodeConsumer> consumer;
+  /// \brief Names to rename the sink's schema fields to
+  ///
+  /// If specified then names must be provided for all fields. Currently, only a flat
+  /// schema is supported (see ARROW-15901).
+  std::vector<std::string> names;
 };
 
 /// \brief Make a node which sorts rows passed through it
@@ -211,25 +283,41 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       JoinType in_join_type, std::vector<FieldRef> in_left_keys,
       std::vector<FieldRef> in_right_keys, Expression filter = literal(true),
       std::string output_suffix_for_left = default_output_suffix_for_left,
-      std::string output_suffix_for_right = default_output_suffix_for_right)
+      std::string output_suffix_for_right = default_output_suffix_for_right,
+      bool disable_bloom_filter = false)
       : join_type(in_join_type),
         left_keys(std::move(in_left_keys)),
         right_keys(std::move(in_right_keys)),
         output_all(true),
         output_suffix_for_left(std::move(output_suffix_for_left)),
         output_suffix_for_right(std::move(output_suffix_for_right)),
-        filter(std::move(filter)) {
+        filter(std::move(filter)),
+        disable_bloom_filter(disable_bloom_filter) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
     }
+  }
+  HashJoinNodeOptions(std::vector<FieldRef> in_left_keys,
+                      std::vector<FieldRef> in_right_keys)
+      : left_keys(std::move(in_left_keys)), right_keys(std::move(in_right_keys)) {
+    this->join_type = JoinType::INNER;
+    this->output_all = true;
+    this->output_suffix_for_left = default_output_suffix_for_left;
+    this->output_suffix_for_right = default_output_suffix_for_right;
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+    this->filter = literal(true);
   }
   HashJoinNodeOptions(
       JoinType join_type, std::vector<FieldRef> left_keys,
       std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
       std::vector<FieldRef> right_output, Expression filter = literal(true),
       std::string output_suffix_for_left = default_output_suffix_for_left,
-      std::string output_suffix_for_right = default_output_suffix_for_right)
+      std::string output_suffix_for_right = default_output_suffix_for_right,
+      bool disable_bloom_filter = false)
       : join_type(join_type),
         left_keys(std::move(left_keys)),
         right_keys(std::move(right_keys)),
@@ -238,7 +326,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         right_output(std::move(right_output)),
         output_suffix_for_left(std::move(output_suffix_for_left)),
         output_suffix_for_right(std::move(output_suffix_for_right)),
-        filter(std::move(filter)) {
+        filter(std::move(filter)),
+        disable_bloom_filter(disable_bloom_filter) {
     this->key_cmp.resize(this->left_keys.size());
     for (size_t i = 0; i < this->left_keys.size(); ++i) {
       this->key_cmp[i] = JoinKeyCmp::EQ;
@@ -250,7 +339,8 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
       std::vector<FieldRef> right_output, std::vector<JoinKeyCmp> key_cmp,
       Expression filter = literal(true),
       std::string output_suffix_for_left = default_output_suffix_for_left,
-      std::string output_suffix_for_right = default_output_suffix_for_right)
+      std::string output_suffix_for_right = default_output_suffix_for_right,
+      bool disable_bloom_filter = false)
       : join_type(join_type),
         left_keys(std::move(left_keys)),
         right_keys(std::move(right_keys)),
@@ -260,17 +350,20 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
         key_cmp(std::move(key_cmp)),
         output_suffix_for_left(std::move(output_suffix_for_left)),
         output_suffix_for_right(std::move(output_suffix_for_right)),
-        filter(std::move(filter)) {}
+        filter(std::move(filter)),
+        disable_bloom_filter(disable_bloom_filter) {}
+
+  HashJoinNodeOptions() = default;
 
   // type of join (inner, left, semi...)
-  JoinType join_type;
+  JoinType join_type = JoinType::INNER;
   // key fields from left input
   std::vector<FieldRef> left_keys;
   // key fields from right input
   std::vector<FieldRef> right_keys;
   // if set all valid fields from both left and right input will be output
   // (and field ref vectors for output fields will be ignored)
-  bool output_all;
+  bool output_all = false;
   // output fields passed from left input
   std::vector<FieldRef> left_output;
   // output fields passed from right input
@@ -288,7 +381,38 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   // the filter are not included.  The filter is applied against the
   // concatenated input schema (left fields then right fields) and can reference
   // fields that are not included in the output.
-  Expression filter;
+  Expression filter = literal(true);
+  // whether or not to disable Bloom filters in this join
+  bool disable_bloom_filter = false;
+};
+
+/// \brief Make a node which implements asof join operation
+///
+/// Note, this API is experimental and will change in the future
+///
+/// This node takes one left table and any number of right tables, and asof joins them
+/// together. Batches produced by each input must be ordered by the "on" key.
+/// This node will output one row for each row in the left table.
+class ARROW_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
+ public:
+  AsofJoinNodeOptions(FieldRef on_key, FieldRef by_key, int64_t tolerance)
+      : on_key(std::move(on_key)), by_key(std::move(by_key)), tolerance(tolerance) {}
+
+  /// \brief "on" key for the join. Each
+  ///
+  /// All inputs tables must be sorted by the "on" key. Inexact
+  /// match is used on the "on" key. i.e., a row is considiered match iff
+  /// left_on - tolerance <= right_on <= left_on.
+  /// Currently, "on" key must be an int64 field
+  FieldRef on_key;
+  /// \brief "by" key for the join.
+  ///
+  /// All input tables must have the "by" key.  Exact equality
+  /// is used for the "by" key.
+  /// Currently, the "by" key must be an int32 field
+  FieldRef by_key;
+  /// Tolerance for inexact "on" key matching
+  int64_t tolerance;
 };
 
 /// \brief Make a node which select top_k/bottom_k rows passed through it
@@ -305,7 +429,6 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   /// SelectK options
   SelectKOptions select_k_options;
 };
-/// @}
 
 /// \brief Adapt a Table as a sink node
 ///
@@ -318,6 +441,8 @@ class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
 
   std::shared_ptr<Table>* output_table;
 };
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

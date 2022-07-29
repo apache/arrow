@@ -14,6 +14,7 @@ DELETE_BEFORE = pd.Timestamp.now() - pd.Timedelta(days=30)
 PLATFORMS = [
     "linux-64",
     "linux-aarch64",
+    "linux-ppc64le",
     "osx-64",
     "osx-arm64",
     "win-64",

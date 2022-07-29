@@ -28,7 +28,13 @@ Java modules are regularly built and tested on macOS and Linux distributions.
 Java Compatibility
 ------------------
 
-Java modules are currently compatible with JDK 8, 9, 10, or 11, but only JDK 11 is tested in CI.
+Java modules are currently compatible with JDK 8, 9, 10, 11, 17, and 18.
+Currently, JDK 8, 11, 17, and 18 are tested in CI.
+
+When using Java 9 or later, some JDK internals must be exposed by
+adding ``--add-opens=java.base/java.nio=ALL-UNNAMED``. Otherwise,
+you may see errors like ``module java.base does not "opens
+java.nio" to unnamed module``.
 
 Installing from Maven
 ---------------------
@@ -101,6 +107,29 @@ transitive dependencies of Flight.
         </build>
     </project>
 
+The ``--add-opens`` flag can be added when running unit tests through Maven:
+
+.. code-block::
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M6</version>
+                <configuration>
+                        <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+Or they can be added via environment variable, for example when executing your code:
+
+.. code-block::
+
+    _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" mvn exec:java -Dexec.mainClass="YourMainCode"
+
 Installing from Source
 ----------------------
 
@@ -115,8 +144,37 @@ Installing Nightly Packages
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
 The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
-Maven cannot directly use the artifacts from GitHub.
-Instead, install them to the local Maven repository:
+Installing from Apache Nightlies
+********************************
+1. Look up the nightly version number for the Arrow libraries used.
+
+   For example, for ``arrow-memory``, visit  https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what versions are available (e.g. 9.0.0.dev191).
+2. Add Apache Nightlies Repository to the Maven/Gradle project.
+
+.. code-block:: xml
+
+    <properties>
+        <arrow.version>9.0.0.dev191</arrow.version>
+    </properties>
+    ...
+    <repositories>
+        <repository>
+            <id>arrow-apache-nightlies</id>
+            <url>https://nightlies.apache.org/arrow/java</url>
+        </repository>
+    </repositories>
+    ...
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-vector</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+    </dependencies>
+    ...
+
+Installing Manually
+*******************
 
 1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-19-0-github-java-jars
 2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memeory-core and arrow-memory-netty).

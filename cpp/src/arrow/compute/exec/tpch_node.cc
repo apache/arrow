@@ -663,8 +663,7 @@ class PartAndPartSupplierGenerator {
     return SetOutputColumns(cols, kPartsuppTypes, kPartsuppNameMap, partsupp_cols_);
   }
 
-  Result<util::optional<ExecBatch>> NextPartBatch() {
-    size_t thread_index = thread_indexer_();
+  Result<util::optional<ExecBatch>> NextPartBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     {
       std::lock_guard<std::mutex> lock(part_output_queue_mutex_);
@@ -719,8 +718,7 @@ class PartAndPartSupplierGenerator {
     return ExecBatch::Make(std::move(part_result));
   }
 
-  Result<util::optional<ExecBatch>> NextPartSuppBatch() {
-    size_t thread_index = thread_indexer_();
+  Result<util::optional<ExecBatch>> NextPartSuppBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     {
       std::lock_guard<std::mutex> lock(partsupp_output_queue_mutex_);
@@ -844,7 +842,7 @@ class PartAndPartSupplierGenerator {
   Status AllocatePartBatch(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.part[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[column]);
+    int32_t byte_width = kPartTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.part_to_generate * byte_width));
     ArrayData ad(kPartTypes[column], tld.part_to_generate, {nullptr, std::move(buff)});
@@ -917,7 +915,7 @@ class PartAndPartSupplierGenerator {
       RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_MFGR));
       char* p_mfgr = reinterpret_cast<char*>(
           tld.part[PART::P_MFGR].array()->buffers[1]->mutable_data());
-      int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_MFGR]);
+      int32_t byte_width = kPartTypes[PART::P_MFGR]->byte_width();
       for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
         std::strncpy(p_mfgr + byte_width * irow, manufacturer, byte_width);
         char mfgr_id = '0' + dist(tld.rng);
@@ -939,8 +937,8 @@ class PartAndPartSupplierGenerator {
           tld.part[PART::P_MFGR].array()->buffers[1]->data());
       char* p_brand = reinterpret_cast<char*>(
           tld.part[PART::P_BRAND].array()->buffers[1]->mutable_data());
-      int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_BRAND]);
-      int32_t mfgr_byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_MFGR]);
+      int32_t byte_width = kPartTypes[PART::P_BRAND]->byte_width();
+      int32_t mfgr_byte_width = kPartTypes[PART::P_MFGR]->byte_width();
       const size_t mfgr_id_offset = std::strlen("Manufacturer#");
       for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
         char* row = p_brand + byte_width * irow;
@@ -1023,7 +1021,7 @@ class PartAndPartSupplierGenerator {
       RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_CONTAINER));
       char* p_container = reinterpret_cast<char*>(
           tld.part[PART::P_CONTAINER].array()->buffers[1]->mutable_data());
-      int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_CONTAINER]);
+      int32_t byte_width = kPartTypes[PART::P_CONTAINER]->byte_width();
       for (int64_t irow = 0; irow < tld.part_to_generate; irow++) {
         int container1_idx = dist1(tld.rng);
         int container2_idx = dist2(tld.rng);
@@ -1090,12 +1088,23 @@ class PartAndPartSupplierGenerator {
 
   Status AllocatePartSuppBatch(size_t thread_index, size_t ibatch, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    int32_t byte_width = arrow::internal::GetByteWidth(*kPartsuppTypes[column]);
+    int32_t byte_width = kPartsuppTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
-                          AllocateBuffer(batch_size_ * byte_width));
+                          AllocateResizableBuffer(batch_size_ * byte_width));
     ArrayData ad(kPartsuppTypes[column], batch_size_, {nullptr, std::move(buff)});
     tld.partsupp[ibatch][column] = std::move(ad);
     return Status::OK();
+  }
+
+  Status SetPartSuppColumnSize(size_t thread_index, size_t ibatch, int column,
+                               size_t new_size) {
+    ThreadLocalData& tld = thread_local_data_[thread_index];
+    int32_t byte_width = kPartsuppTypes[column]->byte_width();
+    tld.partsupp[ibatch][column].array()->length = static_cast<int64_t>(new_size);
+    ResizableBuffer* buff = checked_cast<ResizableBuffer*>(
+        tld.partsupp[ibatch][column].array()->buffers[1].get());
+    return buff->Resize(static_cast<int64_t>(new_size * byte_width),
+                        /*shrink_to_fit=*/false);
   }
 
   Status PS_PARTKEY(size_t thread_index) {
@@ -1129,8 +1138,9 @@ class PartAndPartSupplierGenerator {
             ipart++;
           }
         }
+        RETURN_NOT_OK(
+            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_PARTKEY, next_run));
         irow += next_run;
-        tld.partsupp[ibatch][PARTSUPP::PS_PARTKEY].array()->length = batch_offset;
       }
     }
     return Status::OK();
@@ -1173,8 +1183,9 @@ class PartAndPartSupplierGenerator {
             ipart++;
           }
         }
+        RETURN_NOT_OK(
+            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_SUPPKEY, next_run));
         irow += next_run;
-        tld.partsupp[ibatch][PARTSUPP::PS_SUPPKEY].array()->length = batch_offset;
       }
     }
     return Status::OK();
@@ -1197,7 +1208,8 @@ class PartAndPartSupplierGenerator {
         int64_t next_run = std::min(batch_size_, ps_to_generate - irow);
         for (int64_t irun = 0; irun < next_run; irun++) ps_availqty[irun] = dist(tld.rng);
 
-        tld.partsupp[ibatch][PARTSUPP::PS_AVAILQTY].array()->length = next_run;
+        RETURN_NOT_OK(
+            SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_AVAILQTY, next_run));
         irow += next_run;
       }
     }
@@ -1223,7 +1235,8 @@ class PartAndPartSupplierGenerator {
         for (int64_t irun = 0; irun < next_run; irun++)
           ps_supplycost[irun] = {dist(tld.rng)};
 
-        tld.partsupp[ibatch][PARTSUPP::PS_SUPPLYCOST].array()->length = next_run;
+        RETURN_NOT_OK(SetPartSuppColumnSize(thread_index, ibatch, PARTSUPP::PS_SUPPLYCOST,
+                                            next_run));
         irow += next_run;
       }
     }
@@ -1232,7 +1245,8 @@ class PartAndPartSupplierGenerator {
 
   Status PS_COMMENT(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
-    if (tld.part[PARTSUPP::PS_COMMENT].kind() == Datum::NONE) {
+    if (!tld.generated_partsupp[PARTSUPP::PS_COMMENT]) {
+      tld.generated_partsupp[PARTSUPP::PS_COMMENT] = true;
       int64_t irow = 0;
       int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
       for (size_t ibatch = 0; ibatch < tld.partsupp.size(); ibatch++) {
@@ -1268,7 +1282,6 @@ class PartAndPartSupplierGenerator {
   int64_t part_rows_generated_{0};
   std::vector<int> part_cols_;
   std::vector<int> partsupp_cols_;
-  ThreadIndexer thread_indexer_;
 
   std::atomic<int64_t> part_batches_generated_ = {0};
   std::atomic<int64_t> partsupp_batches_generated_ = {0};
@@ -1310,8 +1323,7 @@ class OrdersAndLineItemGenerator {
     return SetOutputColumns(cols, kLineitemTypes, kLineitemNameMap, lineitem_cols_);
   }
 
-  Result<util::optional<ExecBatch>> NextOrdersBatch() {
-    size_t thread_index = thread_indexer_();
+  Result<util::optional<ExecBatch>> NextOrdersBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     {
       std::lock_guard<std::mutex> lock(orders_output_queue_mutex_);
@@ -1327,13 +1339,14 @@ class OrdersAndLineItemGenerator {
             std::min(batch_size_, orders_rows_to_generate_ - orders_rows_generated_);
         orders_rows_generated_ += tld.orders_to_generate;
         orders_batches_generated_.fetch_add(1);
+        tld.first_batch_offset = 0;
+        RETURN_NOT_OK(GenerateRowCounts(thread_index));
+        lineitem_batches_generated_.fetch_add(static_cast<int64_t>(tld.lineitem.size()));
         ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
       }
     }
     tld.orders.resize(ORDERS::kNumCols);
     std::fill(tld.orders.begin(), tld.orders.end(), Datum());
-    RETURN_NOT_OK(GenerateRowCounts(thread_index));
-    tld.first_batch_offset = 0;
     tld.generated_lineitem.reset();
 
     for (int col : orders_cols_) RETURN_NOT_OK(kOrdersGenerators[col](thread_index));
@@ -1365,8 +1378,7 @@ class OrdersAndLineItemGenerator {
     return ExecBatch::Make(std::move(orders_result));
   }
 
-  Result<util::optional<ExecBatch>> NextLineItemBatch() {
-    size_t thread_index = thread_indexer_();
+  Result<util::optional<ExecBatch>> NextLineItemBatch(size_t thread_index) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ExecBatch queued;
     bool from_queue = false;
@@ -1395,15 +1407,16 @@ class OrdersAndLineItemGenerator {
       tld.orders_to_generate =
           std::min(batch_size_, orders_rows_to_generate_ - orders_rows_generated_);
       orders_rows_generated_ += tld.orders_to_generate;
-      orders_batches_generated_.fetch_add(1ll);
+      orders_batches_generated_.fetch_add(1);
+      RETURN_NOT_OK(GenerateRowCounts(thread_index));
+      lineitem_batches_generated_.fetch_add(
+          static_cast<int64_t>(tld.lineitem.size() - from_queue));
       ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
     }
     tld.orders.resize(ORDERS::kNumCols);
     std::fill(tld.orders.begin(), tld.orders.end(), Datum());
-    RETURN_NOT_OK(GenerateRowCounts(thread_index));
     tld.generated_lineitem.reset();
     if (from_queue) {
-      lineitem_batches_generated_.fetch_sub(1);
       for (size_t i = 0; i < lineitem_cols_.size(); i++)
         if (tld.lineitem[0][lineitem_cols_[i]].kind() == Datum::NONE)
           tld.lineitem[0][lineitem_cols_[i]] = std::move(queued[i]);
@@ -1435,7 +1448,6 @@ class OrdersAndLineItemGenerator {
       ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(lineitem_result)));
       lineitem_results.emplace_back(std::move(eb));
     }
-    lineitem_batches_generated_.fetch_add(static_cast<int64_t>(lineitem_results.size()));
     // Return the first batch, enqueue the rest.
     {
       std::lock_guard<std::mutex> lock(lineitem_output_queue_mutex_);
@@ -1537,7 +1549,7 @@ class OrdersAndLineItemGenerator {
   Status AllocateOrdersBatch(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.orders[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kOrdersTypes[column]);
+    int32_t byte_width = kOrdersTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.orders_to_generate * byte_width));
     ArrayData ad(kOrdersTypes[column], tld.orders_to_generate,
@@ -1694,8 +1706,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.orders[ORDERS::O_ORDERPRIORITY].kind() == Datum::NONE) {
       RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_ORDERPRIORITY));
-      int32_t byte_width =
-          arrow::internal::GetByteWidth(*kOrdersTypes[ORDERS::O_ORDERPRIORITY]);
+      int32_t byte_width = kOrdersTypes[ORDERS::O_ORDERPRIORITY]->byte_width();
       std::uniform_int_distribution<int32_t> dist(0, kNumPriorities - 1);
       char* o_orderpriority = reinterpret_cast<char*>(
           tld.orders[ORDERS::O_ORDERPRIORITY].array()->buffers[1]->mutable_data());
@@ -1711,7 +1722,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.orders[ORDERS::O_CLERK].kind() == Datum::NONE) {
       RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_CLERK));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kOrdersTypes[ORDERS::O_CLERK]);
+      int32_t byte_width = kOrdersTypes[ORDERS::O_CLERK]->byte_width();
       int64_t max_clerk_id = static_cast<int64_t>(scale_factor_ * 1000);
       std::uniform_int_distribution<int64_t> dist(1, max_clerk_id);
       char* o_clerk = reinterpret_cast<char*>(
@@ -1774,9 +1785,10 @@ class OrdersAndLineItemGenerator {
                                         size_t& out_batch_offset) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.lineitem[ibatch][column].kind() == Datum::NONE) {
-      int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[column]);
+      ARROW_DCHECK(ibatch != 0 || tld.first_batch_offset == 0);
+      int32_t byte_width = kLineitemTypes[column]->byte_width();
       ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
-                            AllocateBuffer(batch_size_ * byte_width));
+                            AllocateResizableBuffer(batch_size_ * byte_width));
       ArrayData ad(kLineitemTypes[column], batch_size_, {nullptr, std::move(buff)});
       tld.lineitem[ibatch][column] = std::move(ad);
       out_batch_offset = 0;
@@ -1784,6 +1796,17 @@ class OrdersAndLineItemGenerator {
     if (ibatch == 0) out_batch_offset = tld.first_batch_offset;
 
     return Status::OK();
+  }
+
+  Status SetLineItemColumnSize(size_t thread_index, size_t ibatch, int column,
+                               size_t new_size) {
+    ThreadLocalData& tld = thread_local_data_[thread_index];
+    int32_t byte_width = kLineitemTypes[column]->byte_width();
+    tld.lineitem[ibatch][column].array()->length = static_cast<int64_t>(new_size);
+    ResizableBuffer* buff = checked_cast<ResizableBuffer*>(
+        tld.lineitem[ibatch][column].array()->buffers[1].get());
+    return buff->Resize(static_cast<int64_t>(new_size * byte_width),
+                        /*shrink_to_fit=*/false);
   }
 
   Status L_ORDERKEY(size_t thread_index) {
@@ -1817,8 +1840,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_ORDERKEY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_ORDERKEY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1847,8 +1870,8 @@ class OrdersAndLineItemGenerator {
           l_partkey[batch_offset] = dist(tld.rng);
 
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_PARTKEY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_PARTKEY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1885,8 +1908,8 @@ class OrdersAndLineItemGenerator {
               (partkey + (supplier * ((S / 4) + (partkey - 1) / S))) % S + 1;
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SUPPKEY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_SUPPKEY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1922,8 +1945,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_LINENUMBER].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_LINENUMBER,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1954,8 +1977,8 @@ class OrdersAndLineItemGenerator {
           l_quantity[batch_offset++] = {quantity};
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_QUANTITY].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_QUANTITY,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -1998,8 +2021,8 @@ class OrdersAndLineItemGenerator {
           l_extendedprice[batch_offset] = {extended_price};
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_EXTENDEDPRICE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch,
+                                            LINEITEM::L_EXTENDEDPRICE, batch_offset));
       }
     }
     return Status::OK();
@@ -2027,8 +2050,8 @@ class OrdersAndLineItemGenerator {
         for (int64_t i = 0; i < next_run; i++, batch_offset++)
           l_discount[batch_offset] = {dist(tld.rng)};
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_DISCOUNT].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_DISCOUNT,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2052,8 +2075,8 @@ class OrdersAndLineItemGenerator {
         for (int64_t i = 0; i < next_run; i++, batch_offset++)
           l_tax[batch_offset] = {dist(tld.rng)};
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_TAX].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(
+            SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_TAX, batch_offset));
       }
     }
     return Status::OK();
@@ -2093,8 +2116,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_RETURNFLAG].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_RETURNFLAG,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2131,8 +2154,8 @@ class OrdersAndLineItemGenerator {
             l_linestatus[batch_offset] = 'F';
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_LINESTATUS].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_LINESTATUS,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2169,8 +2192,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SHIPDATE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_SHIPDATE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2207,8 +2230,8 @@ class OrdersAndLineItemGenerator {
           }
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_COMMITDATE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_COMMITDATE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2243,8 +2266,8 @@ class OrdersAndLineItemGenerator {
           l_receiptdate[batch_offset] = l_shipdate[batch_offset] + dist(tld.rng);
 
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_RECEIPTDATE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_RECEIPTDATE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2254,8 +2277,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (!tld.generated_lineitem[LINEITEM::L_SHIPINSTRUCT]) {
       tld.generated_lineitem[LINEITEM::L_SHIPINSTRUCT] = true;
-      int32_t byte_width =
-          arrow::internal::GetByteWidth(*kLineitemTypes[LINEITEM::L_SHIPINSTRUCT]);
+      int32_t byte_width = kLineitemTypes[LINEITEM::L_SHIPINSTRUCT]->byte_width();
       size_t ibatch = 0;
       std::uniform_int_distribution<size_t> dist(0, kNumInstructions - 1);
       for (int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++) {
@@ -2278,8 +2300,8 @@ class OrdersAndLineItemGenerator {
           std::strncpy(l_shipinstruct + batch_offset * byte_width, str, byte_width);
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SHIPINSTRUCT].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch,
+                                            LINEITEM::L_SHIPINSTRUCT, batch_offset));
       }
     }
     return Status::OK();
@@ -2289,8 +2311,7 @@ class OrdersAndLineItemGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (!tld.generated_lineitem[LINEITEM::L_SHIPMODE]) {
       tld.generated_lineitem[LINEITEM::L_SHIPMODE] = true;
-      int32_t byte_width =
-          arrow::internal::GetByteWidth(*kLineitemTypes[LINEITEM::L_SHIPMODE]);
+      int32_t byte_width = kLineitemTypes[LINEITEM::L_SHIPMODE]->byte_width();
       size_t ibatch = 0;
       std::uniform_int_distribution<size_t> dist(0, kNumModes - 1);
       for (int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++) {
@@ -2311,8 +2332,8 @@ class OrdersAndLineItemGenerator {
           std::strncpy(l_shipmode + batch_offset * byte_width, str, byte_width);
         }
         irow += next_run;
-        tld.lineitem[ibatch][LINEITEM::L_SHIPMODE].array()->length =
-            static_cast<int64_t>(batch_offset);
+        RETURN_NOT_OK(SetLineItemColumnSize(thread_index, ibatch, LINEITEM::L_SHIPMODE,
+                                            batch_offset));
       }
     }
     return Status::OK();
@@ -2323,16 +2344,17 @@ class OrdersAndLineItemGenerator {
     if (!tld.generated_lineitem[LINEITEM::L_COMMENT]) {
       tld.generated_lineitem[LINEITEM::L_COMMENT] = true;
 
-      size_t batch_offset = tld.first_batch_offset;
       size_t ibatch = 0;
       for (int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++) {
         // Comments are kind of sneaky: we always generate the full batch and then just
         // bump the length
+        size_t batch_offset = 0;
         if (tld.lineitem[ibatch][LINEITEM::L_COMMENT].kind() == Datum::NONE) {
           ARROW_ASSIGN_OR_RAISE(tld.lineitem[ibatch][LINEITEM::L_COMMENT],
                                 g_text.GenerateComments(batch_size_, 10, 43, tld.rng));
           batch_offset = 0;
         }
+        if (irow == 0) batch_offset = tld.first_batch_offset;
 
         int64_t remaining_in_batch = static_cast<int64_t>(batch_size_ - batch_offset);
         int64_t next_run = std::min(tld.lineitem_to_generate - irow, remaining_in_batch);
@@ -2370,7 +2392,6 @@ class OrdersAndLineItemGenerator {
   int64_t orders_rows_generated_;
   std::vector<int> orders_cols_;
   std::vector<int> lineitem_cols_;
-  ThreadIndexer thread_indexer_;
 
   std::atomic<size_t> orders_batches_generated_ = {0};
   std::atomic<size_t> lineitem_batches_generated_ = {0};
@@ -2500,7 +2521,7 @@ class SupplierGenerator : public TpchTableGenerator {
   Status AllocateColumn(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.batch[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[column]);
+    int32_t byte_width = kTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.to_generate * byte_width));
     ArrayData ad(kTypes[column], tld.to_generate, {nullptr, std::move(buff)});
@@ -2528,7 +2549,7 @@ class SupplierGenerator : public TpchTableGenerator {
       const int32_t* s_suppkey = reinterpret_cast<const int32_t*>(
           tld.batch[SUPPLIER::S_SUPPKEY].array()->buffers[1]->data());
       RETURN_NOT_OK(AllocateColumn(thread_index, SUPPLIER::S_NAME));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[SUPPLIER::S_NAME]);
+      int32_t byte_width = kTypes[SUPPLIER::S_NAME]->byte_width();
       char* s_name = reinterpret_cast<char*>(
           tld.batch[SUPPLIER::S_NAME].array()->buffers[1]->mutable_data());
       // Look man, I'm just following the spec ok? Section 4.2.3 as of March 1 2022
@@ -2570,7 +2591,7 @@ class SupplierGenerator : public TpchTableGenerator {
     if (tld.batch[SUPPLIER::S_PHONE].kind() == Datum::NONE) {
       RETURN_NOT_OK(S_NATIONKEY(thread_index));
       RETURN_NOT_OK(AllocateColumn(thread_index, SUPPLIER::S_PHONE));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[SUPPLIER::S_PHONE]);
+      int32_t byte_width = kTypes[SUPPLIER::S_PHONE]->byte_width();
       const int32_t* s_nationkey = reinterpret_cast<const int32_t*>(
           tld.batch[SUPPLIER::S_NATIONKEY].array()->buffers[1]->data());
       char* s_phone = reinterpret_cast<char*>(
@@ -2685,17 +2706,20 @@ class PartGenerator : public TpchTableGenerator {
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
  private:
-  Status ProduceCallback(size_t) {
+  Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
-    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch, gen_->NextPartBatch());
+    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
+                          gen_->NextPartBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->part_batches_generated();
       if (batches_generated == batches_outputted_.load()) {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -2744,18 +2768,20 @@ class PartSuppGenerator : public TpchTableGenerator {
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
  private:
-  Status ProduceCallback(size_t) {
+  Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
     ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
-                          gen_->NextPartSuppBatch());
+                          gen_->NextPartSuppBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->partsupp_batches_generated();
       if (batches_generated == batches_outputted_.load()) {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -2879,7 +2905,7 @@ class CustomerGenerator : public TpchTableGenerator {
   Status AllocateColumn(size_t thread_index, int column) {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     ARROW_DCHECK(tld.batch[column].kind() == Datum::NONE);
-    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[column]);
+    int32_t byte_width = kTypes[column]->byte_width();
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff,
                           AllocateBuffer(tld.to_generate * byte_width));
     ArrayData ad(kTypes[column], tld.to_generate, {nullptr, std::move(buff)});
@@ -2960,7 +2986,7 @@ class CustomerGenerator : public TpchTableGenerator {
     if (tld.batch[CUSTOMER::C_PHONE].kind() == Datum::NONE) {
       RETURN_NOT_OK(C_NATIONKEY(thread_index));
       RETURN_NOT_OK(AllocateColumn(thread_index, CUSTOMER::C_PHONE));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[CUSTOMER::C_PHONE]);
+      int32_t byte_width = kTypes[CUSTOMER::C_PHONE]->byte_width();
       const int32_t* c_nationkey = reinterpret_cast<const int32_t*>(
           tld.batch[CUSTOMER::C_NATIONKEY].array()->buffers[1]->data());
       char* c_phone = reinterpret_cast<char*>(
@@ -2989,7 +3015,7 @@ class CustomerGenerator : public TpchTableGenerator {
     ThreadLocalData& tld = thread_local_data_[thread_index];
     if (tld.batch[CUSTOMER::C_MKTSEGMENT].kind() == Datum::NONE) {
       RETURN_NOT_OK(AllocateColumn(thread_index, CUSTOMER::C_MKTSEGMENT));
-      int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[CUSTOMER::C_MKTSEGMENT]);
+      int32_t byte_width = kTypes[CUSTOMER::C_MKTSEGMENT]->byte_width();
       char* c_mktsegment = reinterpret_cast<char*>(
           tld.batch[CUSTOMER::C_MKTSEGMENT].array()->buffers[1]->mutable_data());
       std::uniform_int_distribution<int32_t> dist(0, kNumSegments - 1);
@@ -3061,17 +3087,20 @@ class OrdersGenerator : public TpchTableGenerator {
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
  private:
-  Status ProduceCallback(size_t) {
+  Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
-    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch, gen_->NextOrdersBatch());
+    ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
+                          gen_->NextOrdersBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->orders_batches_generated();
       if (batches_generated == batches_outputted_.load()) {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -3120,18 +3149,21 @@ class LineitemGenerator : public TpchTableGenerator {
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
  private:
-  Status ProduceCallback(size_t) {
+  Status ProduceCallback(size_t thread_index) {
     if (done_.load()) return Status::OK();
     ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
-                          gen_->NextLineItemBatch());
+                          gen_->NextLineItemBatch(thread_index));
     if (!maybe_batch.has_value()) {
       int64_t batches_generated = gen_->lineitem_batches_generated();
       if (batches_generated == batches_outputted_.load()) {
         bool expected = false;
         if (done_.compare_exchange_strong(expected, true))
           finished_callback_(batches_outputted_.load());
+        return Status::OK();
       }
-      return Status::OK();
+      // We may have generated but not outputted all of the batches.
+      return schedule_callback_(
+          [this](size_t thread_index) { return this->ProduceCallback(thread_index); });
     }
     ExecBatch batch = std::move(*maybe_batch);
     output_callback_(std::move(batch));
@@ -3343,7 +3375,7 @@ class TpchNode : public ExecNode {
 
   Status StartProducing() override {
     return generator_->StartProducing(
-        thread_indexer_.Capacity(),
+        plan_->max_concurrency(),
         [this](ExecBatch batch) { this->OutputBatchCallback(std::move(batch)); },
         [this](int64_t num_batches) { this->FinishedCallback(num_batches); },
         [this](std::function<Status(size_t)> func) -> Status {
@@ -3351,8 +3383,12 @@ class TpchNode : public ExecNode {
         });
   }
 
-  void PauseProducing(ExecNode* output) override {}
-  void ResumeProducing(ExecNode* output) override {}
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16087)
+  }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    // TODO(ARROW-16087)
+  }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
@@ -3360,10 +3396,10 @@ class TpchNode : public ExecNode {
   }
 
   void StopProducing() override {
-    if (generator_->Abort()) std::ignore = task_group_.End();
+    if (generator_->Abort()) finished_.MarkFinished();
   }
 
-  Future<> finished() override { return task_group_.OnFinished(); }
+  Future<> finished() override { return finished_; }
 
  private:
   void OutputBatchCallback(ExecBatch batch) {
@@ -3372,42 +3408,23 @@ class TpchNode : public ExecNode {
 
   void FinishedCallback(int64_t total_num_batches) {
     outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
-    std::ignore = task_group_.End();
+    finished_.MarkFinished();
   }
 
   Status ScheduleTaskCallback(std::function<Status(size_t)> func) {
-    auto executor = plan_->exec_context()->executor();
-
-    // Due to the way that the generators schedule tasks, there may be more tasks
-    // than output batches. After outputting the last batch, the generator will
-    // end the task group, but there may still be other threads that try to schedule
-    // tasks while the task group is being ended. This can result in adding tasks after
-    // the task group is ended. If those tasks were to be executed, correctness would
-    // not be affected as they'd see the generator is done and exit immediately. As such,
-    // if the task group is ended we can just skip scheduling these tasks in general.
-    if (executor) {
-      RETURN_NOT_OK(task_group_.AddTaskIfNotEnded([&] {
-        return executor->Submit([this, func] {
-          size_t thread_index = thread_indexer_();
-          Status status = func(thread_index);
-          if (!status.ok()) {
-            StopProducing();
-            ErrorIfNotOk(status);
-            return;
-          }
-        });
-      }));
-    } else {
-      return func(0);
-    }
-    return Status::OK();
+    if (finished_.is_finished()) return Status::OK();
+    return plan_->ScheduleTask([this, func](size_t thread_index) {
+      Status status = func(thread_index);
+      if (!status.ok()) {
+        StopProducing();
+        ErrorIfNotOk(status);
+      }
+      return status;
+    });
   }
 
   const char* name_;
   std::unique_ptr<TpchTableGenerator> generator_;
-
-  util::AsyncTaskGroup task_group_;
-  ThreadIndexer thread_indexer_;
 };
 
 class TpchGenImpl : public TpchGen {

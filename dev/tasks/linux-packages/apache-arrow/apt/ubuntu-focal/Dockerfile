@@ -50,6 +50,7 @@ RUN \
     libgmock-dev \
     libgoogle-glog-dev \
     libgtest-dev \
+    libjemalloc-dev \
     liblz4-dev \
     libre2-dev \
     libsnappy-dev \
@@ -68,6 +69,7 @@ RUN \
     python3-setuptools \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

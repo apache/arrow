@@ -180,6 +180,11 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
   explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
 
   ~OwnedRefNoGIL() {
+    // This destructor may be called after the Python interpreter is finalized.
+    // At least avoid spurious attempts to take the GIL when not necessary.
+    if (obj() == NULLPTR) {
+      return;
+    }
     PyAcquireGIL lock;
     reset();
   }

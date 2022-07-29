@@ -81,6 +81,14 @@ using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
 
+/// \brief Assert a dataset produces data with the schema
+void AssertDatasetHasSchema(std::shared_ptr<Dataset> ds, std::shared_ptr<Schema> schema) {
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, ds->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  ASSERT_EQ(*table->schema(), *schema);
+}
+
 class FileSourceFixtureMixin : public ::testing::Test {
  public:
   std::unique_ptr<FileSource> GetSource(std::shared_ptr<Buffer> buffer) {
@@ -547,6 +555,20 @@ class FileFormatFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
     ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
   }
+  void TestFragmentEquals() {
+    auto options = std::make_shared<ScanOptions>();
+    auto this_schema = schema({field("f64", float64())});
+    auto other_schema = schema({field("f32", float32())});
+    auto reader = this->GetRecordBatchReader(this_schema);
+    auto other_reader = this->GetRecordBatchReader(other_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto other_source = this->GetFileSource(other_reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    EXPECT_TRUE(fragment->Equals(*fragment));
+    auto other = this->MakeFragment(*other_source);
+    EXPECT_FALSE(fragment->Equals(*other));
+  }
 
  protected:
   std::shared_ptr<typename FormatHelper::FormatType> format_;
@@ -853,6 +875,27 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     ASSERT_RAISES(Invalid,
                   ProjectionDescr::FromNames({"i32"}, *this->opts_->dataset_schema));
   }
+  void TestScanWithPushdownNulls() {
+    // Regression test for ARROW-15312
+    auto i64 = field("i64", int64());
+    this->SetSchema({i64});
+    this->SetFilter(is_null(field_ref("i64")));
+
+    auto rb = RecordBatchFromJSON(schema({i64}), R"([
+      [null],
+      [32]
+    ])");
+    ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({rb}));
+    auto source = this->GetFileSource(reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    int64_t row_count = 0;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, 1);
+  }
 
  protected:
   using FileFormatFixtureMixin<FormatHelper>::opts_;
@@ -1002,13 +1045,11 @@ struct MakeFileSystemDatasetMixin {
         continue;
       }
 
-      ASSERT_OK_AND_ASSIGN(partitions[i], partitions[i].Bind(*s));
       ASSERT_OK_AND_ASSIGN(auto fragment,
                            format->MakeFragment({info, fs_}, partitions[i]));
       fragments.push_back(std::move(fragment));
     }
 
-    ASSERT_OK_AND_ASSIGN(root_partition, root_partition.Bind(*s));
     ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(s, root_partition, format, fs_,
                                                            std::move(fragments)));
   }
@@ -1059,9 +1100,6 @@ static std::vector<compute::Expression> PartitionExpressionsOf(
 void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
                                              std::vector<compute::Expression> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
-  for (auto& expr : expected) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));
-  }
   // Ordering is not guaranteed.
   EXPECT_THAT(PartitionExpressionsOf(IteratorToVector(std::move(fragment_it))),
               testing::UnorderedElementsAreArray(expected));

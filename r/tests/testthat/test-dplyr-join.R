@@ -310,27 +310,33 @@ test_that("summarize and join", {
   expect_equal(expected_col_names, res_col_names)
 })
 
-test_that("arrow dplyr query can join with tibble", {
-  # ARROW-14908
+test_that("arrow dplyr query can join two datasets", {
+  # ARROW-14908 and ARROW-15718
+  skip_if_not_available("dataset")
 
   # By default, snappy encoding will be used, and
   # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
   skip_on_linux_devel()
-  skip_if_not_available("dataset")
 
   dir_out <- tempdir()
-  write_dataset(iris, file.path(dir_out, "iris"))
-  species_codes <- data.frame(
-    Species = c("setosa", "versicolor", "virginica"),
-    code = c("SET", "VER", "VIR")
-  )
+
+  quakes %>%
+    select(stations, lat, long) %>%
+    group_by(stations) %>%
+    write_dataset(file.path(dir_out, "ds1"))
+
+  quakes %>%
+    select(stations, mag, depth) %>%
+    group_by(stations) %>%
+    write_dataset(file.path(dir_out, "ds2"))
 
   withr::with_options(
     list(arrow.use_threads = FALSE),
     {
-      iris <- open_dataset(file.path(dir_out, "iris"))
-      res <- left_join(iris, species_codes) %>% collect() # We should not segfault here.
-      expect_equal(nrow(res), 150)
+      res <- open_dataset(file.path(dir_out, "ds1")) %>%
+        left_join(open_dataset(file.path(dir_out, "ds2")), by = "stations") %>%
+        collect() # We should not segfault here.
+      expect_equal(nrow(res), 21872)
     }
   )
 })

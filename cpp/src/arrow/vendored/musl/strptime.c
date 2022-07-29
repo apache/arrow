@@ -47,7 +47,7 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 		if (*f == '+') f++;
 		if (isdigit(*f)) {
 			char *new_f;
-			w=strtoul(f, &new_f, 10);
+			w=(int)(strtoul(f, &new_f, 10));
 			f = new_f;
 		} else {
 			w=-1;

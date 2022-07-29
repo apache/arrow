@@ -73,6 +73,9 @@ ARROW_EXPORT
 util::string_view RemoveTrailingSlash(util::string_view s);
 
 ARROW_EXPORT
+Status AssertNoTrailingSlash(util::string_view s);
+
+ARROW_EXPORT
 bool IsAncestorOf(util::string_view ancestor, util::string_view descendant);
 
 ARROW_EXPORT
@@ -127,6 +130,17 @@ bool IsEmptyPath(util::string_view s);
 
 ARROW_EXPORT
 bool IsLikelyUri(util::string_view s);
+
+class ARROW_EXPORT Globber {
+ public:
+  ~Globber();
+  explicit Globber(std::string pattern);
+  bool Matches(const std::string& path);
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
 
 }  // namespace internal
 }  // namespace fs

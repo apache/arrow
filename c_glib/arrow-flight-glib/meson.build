@@ -56,27 +56,42 @@ arrow_flight_glib = declare_dependency(link_with: libarrow_flight_glib,
                                        dependencies: dependencies)
 
 pkgconfig.generate(libarrow_flight_glib,
+                   description: 'C API for Apache Arrow Flight based on GLib',
                    filebase: 'arrow-flight-glib',
                    name: 'Apache Arrow Flight GLib',
-                   description: 'C API for Apache Arrow Flight based on GLib',
-                   version: version,
-                   requires: ['arrow-glib', 'arrow-flight'])
+                   requires: ['arrow-glib', 'arrow-flight'],
+                   variables: pkgconfig_variables,
+                   version: version)
 
 if have_gi
-  gnome.generate_gir(libarrow_flight_glib,
-                     dependencies: declare_dependency(sources: arrow_glib_gir),
-                     sources: sources + c_headers,
-                     namespace: 'ArrowFlight',
-                     nsversion: api_version,
-                     identifier_prefix: 'GAFlight',
-                     symbol_prefix: 'gaflight',
-                     export_packages: 'arrow-flight-glib',
-                     includes: [
-                       'Arrow-1.0',
-                     ],
-                     install: true,
-                     extra_args: [
-                       '--warn-all',
-                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                     ])
+  flight_glib_gir = \
+    gnome.generate_gir(libarrow_flight_glib,
+                       dependencies: declare_dependency(sources: arrow_glib_gir),
+                       export_packages: 'arrow-flight-glib',
+                       extra_args: [
+                         '--warn-all',
+                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                       ],
+                       fatal_warnings: gi_fatal_warnings,
+                       header: 'arrow-flight-glib/arrow-flight-glib.h',
+                       identifier_prefix: 'GAFlight',
+                       includes: [
+                         'Arrow-1.0',
+                       ],
+                       install: true,
+                       namespace: 'ArrowFlight',
+                       nsversion: api_version,
+                       sources: sources + c_headers,
+                       symbol_prefix: 'gaflight')
+
+  if generate_vapi
+    flight_glib_vapi = \
+      gnome.generate_vapi('arrow-flight-glib',
+                          install: true,
+                          packages: [
+                            arrow_glib_vapi,
+                            'gio-2.0',
+                          ],
+                          sources: [flight_glib_gir[0]])
+  endif
 endif

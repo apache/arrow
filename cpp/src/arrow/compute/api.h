@@ -46,3 +46,9 @@
 /// @}
 
 #include "arrow/compute/exec/options.h"  // IWYU pragma: export
+
+/// \defgroup execnode-row Utilities for working with data in a row-major format
+/// @{
+/// @}
+
+#include "arrow/compute/row/grouper.h"  // IWYU pragma: export

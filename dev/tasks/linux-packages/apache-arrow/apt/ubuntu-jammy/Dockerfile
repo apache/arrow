@@ -51,6 +51,7 @@ RUN \
     libgoogle-glog-dev \
     libgrpc++-dev \
     libgtest-dev \
+    libjemalloc-dev \
     liblz4-dev \
     libprotoc-dev \
     libprotobuf-dev \
@@ -72,6 +73,7 @@ RUN \
     python3-setuptools \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   if apt list | grep -q '^libcuda1'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \

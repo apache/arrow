@@ -25,10 +25,9 @@
 #include "arrow/status.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/interval_holder.h"
-#include "gandiva/like_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
-#include "gandiva/replace_holder.h"
+#include "gandiva/regex_functions_holder.h"
 #include "gandiva/to_date_holder.h"
 
 namespace gandiva {
@@ -51,7 +50,11 @@ class FunctionHolderRegistry {
 
   static Status Make(const std::string& name, const FunctionNode& node,
                      FunctionHolderPtr* holder) {
-    auto found = makers().find(name);
+    std::string data = name;
+    std::transform(data.begin(), data.end(), data.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
+    auto found = makers().find(data);
     if (found == makers().end()) {
       return Status::Invalid("function holder not registered for function " + name);
     }
@@ -67,6 +70,7 @@ class FunctionHolderRegistry {
                                  {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
+                                 {"regexp_extract", LAMBDA_MAKER(ExtractHolder)},
                                  {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
                                  {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
     return maker_map;

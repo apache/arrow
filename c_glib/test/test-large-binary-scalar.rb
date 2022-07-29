@@ -38,7 +38,11 @@ class TestLargeBinaryScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal(<<-BINARY.strip, @scalar.to_s)
+[
+  030102
+]
+                 BINARY
   end
 
   def test_value

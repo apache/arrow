@@ -382,6 +382,7 @@ class MockFileSystem::Impl {
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path, bool append,
       const std::shared_ptr<const KeyValueMetadata>& metadata) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     auto parts = SplitAbstractPath(path);
     RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -412,6 +413,7 @@ class MockFileSystem::Impl {
   }
 
   Result<std::shared_ptr<io::BufferReader>> OpenInputReader(const std::string& path) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     auto parts = SplitAbstractPath(path);
     RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -489,7 +491,7 @@ Status MockFileSystem::DeleteDir(const std::string& path) {
   return Status::OK();
 }
 
-Status MockFileSystem::DeleteDirContents(const std::string& path) {
+Status MockFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   RETURN_NOT_OK(ValidatePath(path));
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
@@ -503,6 +505,9 @@ Status MockFileSystem::DeleteDirContents(const std::string& path) {
 
   Entry* entry = impl_->FindEntry(parts);
   if (entry == nullptr) {
+    if (missing_dir_ok) {
+      return Status::OK();
+    }
     return PathNotFound(path);
   }
   if (!entry->is_dir()) {
@@ -724,6 +729,7 @@ Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenOutputStream(
 
 Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenAppendStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   RETURN_NOT_OK(ValidatePath(path));
   auto guard = impl_->lock_guard();
 

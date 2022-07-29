@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/util/tracing_internal.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing.h"
 
 #include <iostream>
@@ -134,7 +136,23 @@ std::unique_ptr<sdktrace::SpanExporter> InitializeExporter() {
   return nullptr;
 }
 
+struct StorageSingleton : public Executor::Resource {
+  StorageSingleton()
+      : storage_(otel::context::RuntimeContext::GetConstRuntimeContextStorage()) {}
+  nostd::shared_ptr<const otel::context::RuntimeContextStorage> storage_;
+};
+
+std::shared_ptr<Executor::Resource> GetStorageSingleton() {
+  static std::shared_ptr<StorageSingleton> storage_singleton =
+      std::make_shared<StorageSingleton>();
+  return storage_singleton;
+}
+
 nostd::shared_ptr<sdktrace::TracerProvider> InitializeSdkTracerProvider() {
+  // Bind the lifetime of the OT runtime context to the CPU and I/O thread
+  // pools.  This will keep OT alive until all thread tasks have finished.
+  internal::GetCpuThreadPool()->KeepAlive(GetStorageSingleton());
+  io::default_io_context().executor()->KeepAlive(GetStorageSingleton());
   auto exporter = InitializeExporter();
   if (exporter) {
     sdktrace::BatchSpanProcessorOptions options;
@@ -184,14 +202,38 @@ opentelemetry::trace::Tracer* GetTracer() {
   return tracer.get();
 }
 
-#ifdef ARROW_WITH_OPENTELEMETRY
+opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+    ::arrow::util::tracing::SpanDetails* span) {
+  SpanImpl* span_impl = checked_cast<SpanImpl*>(span);
+  ARROW_CHECK(span_impl->ot_span)
+      << "Attempted to dereference a null pointer. Use Span::Set before "
+         "dereferencing.";
+  return span_impl->ot_span;
+}
+
+const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+    const ::arrow::util::tracing::SpanDetails* span) {
+  const SpanImpl* span_impl = checked_cast<const SpanImpl*>(span);
+  ARROW_CHECK(span_impl->ot_span)
+      << "Attempted to dereference a null pointer. Use Span::Set before "
+         "dereferencing.";
+  return span_impl->ot_span;
+}
+
+opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
+    ::arrow::util::tracing::SpanDetails* span,
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span) {
+  SpanImpl* span_impl = checked_cast<SpanImpl*>(span);
+  span_impl->ot_span = std::move(ot_span);
+  return span_impl->ot_span;
+}
+
 opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
     const util::tracing::Span& parent_span) {
   opentelemetry::trace::StartSpanOptions options;
-  options.parent = parent_span.Get().span->GetContext();
+  options.parent = UnwrapSpan(parent_span.details.get())->GetContext();
   return options;
 }
-#endif
 
 }  // namespace tracing
 }  // namespace internal

@@ -19,12 +19,15 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 
-#include "arrow/engine/visibility.h"
+#include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
+
+#include "arrow/util/hash_util.h"
 
 namespace arrow {
 namespace engine {
@@ -55,15 +58,20 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
     bool empty() const { return uri.empty() && name.empty(); }
   };
 
+  struct IdHashEq {
+    size_t operator()(Id id) const;
+    bool operator()(Id l, Id r) const;
+  };
+
   /// \brief A mapping between a Substrait ID and an arrow::DataType
   struct TypeRecord {
     Id id;
     const std::shared_ptr<DataType>& type;
-    bool is_variation;
   };
   virtual util::optional<TypeRecord> GetType(const DataType&) const = 0;
-  virtual util::optional<TypeRecord> GetType(Id, bool is_variation) const = 0;
-  virtual Status RegisterType(Id, std::shared_ptr<DataType>, bool is_variation) = 0;
+  virtual util::optional<TypeRecord> GetType(Id) const = 0;
+  virtual Status CanRegisterType(Id, const std::shared_ptr<DataType>& type) const = 0;
+  virtual Status RegisterType(Id, std::shared_ptr<DataType>) = 0;
 
   /// \brief A mapping between a Substrait ID and an Arrow function
   ///
@@ -84,7 +92,13 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   virtual util::optional<FunctionRecord> GetFunction(Id) const = 0;
   virtual util::optional<FunctionRecord> GetFunction(
       util::string_view arrow_function_name) const = 0;
+  virtual Status CanRegisterFunction(Id,
+                                     const std::string& arrow_function_name) const = 0;
+  // registers a function without taking ownership of uri and name within Id
   virtual Status RegisterFunction(Id, std::string arrow_function_name) = 0;
+  // registers a function while taking ownership of uri and name
+  virtual Status RegisterFunction(std::string uri, std::string name,
+                                  std::string arrow_function_name) = 0;
 };
 
 constexpr util::string_view kArrowExtTypesUri =
@@ -95,6 +109,19 @@ constexpr util::string_view kArrowExtTypesUri =
 ///
 /// Note: Function support is currently very minimal, see ARROW-15538
 ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
+
+/// \brief Make a nested registry with a given parent.
+///
+/// A nested registry supports registering types and functions other and on top of those
+/// already registered in its parent registry. No conflicts in IDs and names used for
+/// lookup are allowed. Normally, the given parent is the default registry.
+///
+/// One use case for a nested registry is for dynamic registration of functions defined
+/// within a Substrait plan while keeping these registrations specific to the plan. When
+/// the Substrait plan is disposed of, normally after its execution, the nested registry
+/// can be disposed of as well.
+ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> nested_extension_id_registry(
+    const ExtensionIdRegistry* parent);
 
 /// \brief A set of extensions used within a plan
 ///
@@ -127,6 +154,7 @@ ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
 class ARROW_ENGINE_EXPORT ExtensionSet {
  public:
   using Id = ExtensionIdRegistry::Id;
+  using IdHashEq = ExtensionIdRegistry::IdHashEq;
 
   struct FunctionRecord {
     Id id;
@@ -136,11 +164,10 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   struct TypeRecord {
     Id id;
     std::shared_ptr<DataType> type;
-    bool is_variation;
   };
 
   /// Construct an empty ExtensionSet to be populated during serialization.
-  explicit ExtensionSet(ExtensionIdRegistry* = default_extension_id_registry());
+  explicit ExtensionSet(const ExtensionIdRegistry* = default_extension_id_registry());
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExtensionSet);
 
   /// Construct an ExtensionSet with explicit extension ids for efficient referencing
@@ -158,14 +185,12 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// An extension set should instead be created using
   /// arrow::engine::GetExtensionSetFromPlan
   static Result<ExtensionSet> Make(
-      std::vector<util::string_view> uris, std::vector<Id> type_ids,
-      std::vector<bool> type_is_variation, std::vector<Id> function_ids,
-      ExtensionIdRegistry* = default_extension_id_registry());
+      std::unordered_map<uint32_t, util::string_view> uris,
+      std::unordered_map<uint32_t, Id> type_ids,
+      std::unordered_map<uint32_t, Id> function_ids,
+      const ExtensionIdRegistry* = default_extension_id_registry());
 
-  // index in these vectors == value of _anchor/_reference fields
-  /// TODO(ARROW-15583) this assumes that _anchor/_references won't be huge, which is not
-  /// guaranteed. Could it be?
-  const std::vector<util::string_view>& uris() const { return uris_; }
+  const std::unordered_map<uint32_t, util::string_view>& uris() const { return uris_; }
 
   /// \brief Returns a data type given an anchor
   ///
@@ -224,16 +249,26 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   std::size_t num_functions() const { return functions_.size(); }
 
  private:
-  ExtensionIdRegistry* registry_;
-  /// The subset of extension registry URIs referenced by this extension set
-  std::vector<util::string_view> uris_;
-  std::vector<TypeRecord> types_;
+  const ExtensionIdRegistry* registry_;
 
-  std::vector<FunctionRecord> functions_;
+  // Map from anchor values to URI values referenced by this extension set
+  std::unordered_map<uint32_t, util::string_view> uris_;
+  // Map from anchor values to type definitions, used during Substrait->Arrow
+  // and populated from the Substrait extension set
+  std::unordered_map<uint32_t, TypeRecord> types_;
+  // Map from anchor values to function definitions, used during Substrait->Arrow
+  // and populated from the Substrait extension set
+  std::unordered_map<uint32_t, FunctionRecord> functions_;
+  // Map from type names to anchor values.  Used during Arrow->Substrait
+  // and built as the plan is created.
+  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_map_;
+  // Map from function names to anchor values.  Used during Arrow->Substrait
+  // and built as the plan is created.
+  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> functions_map_;
 
-  // pimpl pattern to hide lookup details
-  struct Impl;
-  std::unique_ptr<Impl, void (*)(Impl*)> impl_;
+  Status CheckHasUri(util::string_view uri);
+  void AddUri(std::pair<uint32_t, util::string_view> uri);
+  Status AddUri(Id id);
 };
 
 }  // namespace engine

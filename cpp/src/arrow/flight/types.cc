@@ -67,6 +67,8 @@ std::string FlightStatusDetail::CodeAsString() const {
       return "Unauthorized";
     case FlightStatusCode::Unavailable:
       return "Unavailable";
+    case FlightStatusCode::Failed:
+      return "Failed";
     default:
       return "Unknown";
   }
@@ -146,6 +148,12 @@ arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
     ipc::DictionaryMemo* dictionary_memo) const {
   io::BufferReader schema_reader(raw_schema_);
   return ipc::ReadSchema(&schema_reader, dictionary_memo);
+}
+
+arrow::Result<SchemaResult> SchemaResult::Make(const Schema& schema) {
+  std::string schema_in;
+  RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
+  return SchemaResult(std::move(schema_in));
 }
 
 Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,

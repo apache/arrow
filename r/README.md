@@ -75,11 +75,11 @@ and thus are only available in R >= 4.0.
 ### Installing a development version
 
 Development versions of the package (binary and source) are built
-nightly and hosted at <https://arrow-r-nightly.s3.amazonaws.com>. To
+nightly and hosted at <https://nightlies.apache.org/arrow/r/>. To
 install from there:
 
 ``` r
-install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
+install.packages("arrow", repos = c(arrow = "https://nightlies.apache.org/arrow/r", getOption("repos")))
 ```
 
 Conda users can install `arrow` nightly builds with

@@ -158,6 +158,7 @@ set(ARROW_SRCS
     builder.cc
     buffer.cc
     chunked_array.cc
+    chunk_resolver.cc
     compare.cc
     config.cc
     datum.cc
@@ -237,6 +238,10 @@ set(ARROW_SRCS
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
+
+if(ARROW_JEMALLOC)
+  list(APPEND ARROW_SRCS memory_pool_jemalloc.cc)
+endif()
 
 append_avx2_src(util/bpacking_avx2.cc)
 append_avx512_src(util/bpacking_avx512.cc)
@@ -324,10 +329,10 @@ set(ARROW_TESTING_SRCS
 # (see https://gitlab.kitware.com/cmake/cmake/issues/19677)
 
 set(_allocator_dependencies "") # Empty list
-if(ARROW_JEMALLOC)
+if(jemalloc_VENDORED)
   list(APPEND _allocator_dependencies jemalloc_ep)
 endif()
-if(ARROW_MIMALLOC)
+if(mimalloc_VENDORED)
   list(APPEND _allocator_dependencies mimalloc_ep)
 endif()
 
@@ -379,7 +384,10 @@ if(ARROW_COMPUTE)
        compute/api_vector.cc
        compute/cast.cc
        compute/exec.cc
+       compute/exec/aggregate.cc
+       compute/exec/accumulation_queue.cc
        compute/exec/aggregate_node.cc
+       compute/exec/asof_join_node.cc
        compute/exec/bloom_filter.cc
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
@@ -388,17 +396,15 @@ if(ARROW_COMPUTE)
        compute/exec/hash_join_dict.cc
        compute/exec/hash_join_node.cc
        compute/exec/ir_consumer.cc
-       compute/exec/key_compare.cc
-       compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
-       compute/exec/options.cc
        compute/exec/order_by_impl.cc
        compute/exec/partition_util.cc
        compute/exec/options.cc
        compute/exec/project_node.cc
        compute/exec/sink_node.cc
        compute/exec/source_node.cc
+       compute/exec/swiss_join.cc
        compute/exec/task_util.cc
        compute/exec/tpch_node.cc
        compute/exec/union_node.cc
@@ -406,6 +412,7 @@ if(ARROW_COMPUTE)
        compute/function.cc
        compute/function_internal.cc
        compute/kernel.cc
+       compute/light_array.cc
        compute/registry.cc
        compute/kernels/aggregate_basic.cc
        compute/kernels/aggregate_mode.cc
@@ -436,21 +443,27 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_validity.cc
        compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
+       compute/kernels/vector_cumulative_ops.cc
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
-       compute/kernels/vector_sort.cc)
+       compute/kernels/vector_sort.cc
+       compute/row/encode_internal.cc
+       compute/row/compare_internal.cc
+       compute/row/grouper.cc
+       compute/row/row_internal.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
 
   append_avx2_src(compute/exec/bloom_filter_avx2.cc)
-  append_avx2_src(compute/exec/key_compare_avx2.cc)
-  append_avx2_src(compute/exec/key_encode_avx2.cc)
   append_avx2_src(compute/exec/key_hash_avx2.cc)
   append_avx2_src(compute/exec/key_map_avx2.cc)
+  append_avx2_src(compute/exec/swiss_join_avx2.cc)
   append_avx2_src(compute/exec/util_avx2.cc)
+  append_avx2_src(compute/row/compare_internal_avx2.cc)
+  append_avx2_src(compute/row/encode_internal_avx2.cc)
 
   list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
 endif()
@@ -571,6 +584,33 @@ add_arrow_lib(arrow
               ${ARROW_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
+# The following block includes a code for MSYS2 but GDB on MSYS2 doesn't
+# auto load our plugin. GDB's auto load may not be supported on MSYS2...
+# So it's disabled for now.
+if(ARROW_BUILD_SHARED AND NOT WIN32)
+  configure_file(libarrow_gdb.py.in "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py" @ONLY)
+  set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL FALSE)
+  if(WIN32)
+    find_program(cygpath "cygpath")
+    if(cygpath)
+      execute_process(COMMAND cygpath "${CMAKE_INSTALL_FULL_BINDIR}"
+                      OUTPUT_VARIABLE MSYS2_CMAKE_INSTALL_FULL_BINDIR
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
+          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_CMAKE_INSTALL_FULL_BINDIR}")
+      set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
+    endif()
+  else()
+    set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
+        "${ARROW_GDB_AUTO_LOAD_DIR}/${CMAKE_INSTALL_FULL_LIBDIR}")
+    set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
+  endif()
+  if(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py"
+            DESTINATION "${ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR}"
+            RENAME "$<TARGET_FILE_NAME:arrow_shared>-gdb.py")
+  endif()
+endif()
 
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
@@ -620,10 +660,15 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
+                arrow::flatbuffers
+                rapidjson::rapidjson
                 arrow_shared
                 GTest::gtest
                 STATIC_LINK_LIBS
-                arrow_static)
+                arrow::flatbuffers
+                rapidjson::rapidjson
+                arrow_static
+                GTest::gtest)
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
@@ -641,11 +686,11 @@ arrow_install_all_headers("arrow")
 
 config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
-        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+        DESTINATION "${ARROW_CMAKE_DIR}")
 
 # For backward compatibility for find_package(arrow)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
-        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+        DESTINATION "${ARROW_CMAKE_DIR}")
 
 #
 # Unit tests
@@ -729,7 +774,7 @@ if(ARROW_COMPUTE)
   add_subdirectory(compute)
 endif()
 
-if(ARROW_ENGINE)
+if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
 endif()
 
@@ -751,20 +796,6 @@ if(ARROW_FLIGHT)
   if(ARROW_WITH_UCX)
     add_subdirectory(flight/transport/ucx)
   endif()
-endif()
-
-if(ARROW_FLIGHT_SQL)
-  add_subdirectory(flight/sql)
-endif()
-
-if(ARROW_FLIGHT
-   AND ARROW_FLIGHT_SQL
-   AND ARROW_BUILD_INTEGRATION)
-  add_subdirectory(flight/integration_tests)
-endif()
-
-if(ARROW_HIVESERVER2)
-  add_subdirectory(dbi/hiveserver2)
 endif()
 
 if(ARROW_IPC)

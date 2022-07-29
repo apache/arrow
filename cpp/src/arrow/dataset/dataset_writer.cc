@@ -328,17 +328,19 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    if (!directory_.empty()) {
-      init_future_ =
-          DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
-              [this]() { return write_options_.filesystem->CreateDir(directory_); }));
-    } else {
+    if (directory_.empty() || !write_options_.create_dir) {
       init_future_ = Future<>::MakeFinished();
-    }
-    if (write_options_.existing_data_behavior ==
-        ExistingDataBehavior::kDeleteMatchingPartitions) {
-      init_future_ = init_future_.Then([this]() {
-        return write_options_.filesystem->DeleteDirContentsAsync(directory_);
+    } else {
+      if (write_options_.existing_data_behavior ==
+          ExistingDataBehavior::kDeleteMatchingPartitions) {
+        init_future_ = write_options_.filesystem->DeleteDirContentsAsync(
+            directory_, /*missing_dir_ok=*/true);
+      } else {
+        init_future_ = Future<>::MakeFinished();
+      }
+      init_future_ = init_future_.Then([this] {
+        return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
+            [this]() { return write_options_.filesystem->CreateDir(directory_); }));
       });
     }
   }
@@ -396,6 +398,12 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
 
 Status ValidateOptions(const FileSystemDatasetWriteOptions& options) {
   ARROW_RETURN_NOT_OK(ValidateBasenameTemplate(options.basename_template));
+  if (!options.file_write_options) {
+    return Status::Invalid("Must provide file_write_options");
+  }
+  if (!options.filesystem) {
+    return Status::Invalid("Must provide filesystem");
+  }
   if (options.max_rows_per_group <= 0) {
     return Status::Invalid("max_rows_per_group must be a positive number");
   }
@@ -421,7 +429,7 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
       // If the path doesn't exist then continue
       return Status::OK();
     }
-    if (maybe_files->size() > 1) {
+    if (maybe_files->size() > 0) {
       return Status::Invalid(
           "Could not write to ", options.base_dir,
           " as the directory is not empty and existing_data_behavior is to error");

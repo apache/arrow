@@ -24,9 +24,9 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/internal/debug"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -177,6 +177,10 @@ func (b *BinaryBuilder) ReserveData(n int) {
 func (b *BinaryBuilder) Resize(n int) {
 	b.offsets.resize((n + 1) * arrow.Int32SizeBytes)
 	b.builder.resize(n, b.init)
+}
+
+func (b *BinaryBuilder) ResizeData(n int) {
+	b.values.length = n
 }
 
 // NewArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder

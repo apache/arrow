@@ -318,7 +318,7 @@ public class FlightSqlClient implements AutoCloseable {
     }
 
     Objects.requireNonNull(tableRef.getTable());
-    builder.setTable(tableRef.getTable()).build();
+    builder.setTable(tableRef.getTable());
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -345,7 +345,7 @@ public class FlightSqlClient implements AutoCloseable {
     }
 
     Objects.requireNonNull(tableRef.getTable());
-    builder.setTable(tableRef.getTable()).build();
+    builder.setTable(tableRef.getTable());
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);
@@ -373,7 +373,7 @@ public class FlightSqlClient implements AutoCloseable {
     }
 
     Objects.requireNonNull(tableRef.getTable());
-    builder.setTable(tableRef.getTable()).build();
+    builder.setTable(tableRef.getTable());
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);

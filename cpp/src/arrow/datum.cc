@@ -178,65 +178,6 @@ bool Datum::Equals(const Datum& other) const {
   }
 }
 
-ValueDescr Datum::descr() const {
-  if (this->is_arraylike()) {
-    return ValueDescr(this->type(), ValueDescr::ARRAY);
-  } else if (this->is_scalar()) {
-    return ValueDescr(this->type(), ValueDescr::SCALAR);
-  } else {
-    DCHECK(false) << "Datum is not value-like, this method should not be called";
-    return ValueDescr();
-  }
-}
-
-ValueDescr::Shape Datum::shape() const {
-  if (this->is_arraylike()) {
-    return ValueDescr::ARRAY;
-  } else if (this->is_scalar()) {
-    return ValueDescr::SCALAR;
-  } else {
-    DCHECK(false) << "Datum is not value-like, this method should not be called";
-    return ValueDescr::ANY;
-  }
-}
-
-static std::string FormatValueDescr(const ValueDescr& descr) {
-  std::stringstream ss;
-  switch (descr.shape) {
-    case ValueDescr::ANY:
-      ss << "any";
-      break;
-    case ValueDescr::ARRAY:
-      ss << "array";
-      break;
-    case ValueDescr::SCALAR:
-      ss << "scalar";
-      break;
-    default:
-      DCHECK(false);
-      break;
-  }
-  ss << "[" << descr.type->ToString() << "]";
-  return ss.str();
-}
-
-std::string ValueDescr::ToString() const { return FormatValueDescr(*this); }
-
-std::string ValueDescr::ToString(const std::vector<ValueDescr>& descrs) {
-  std::stringstream ss;
-  ss << "(";
-  for (size_t i = 0; i < descrs.size(); ++i) {
-    if (i > 0) {
-      ss << ", ";
-    }
-    ss << descrs[i].ToString();
-  }
-  ss << ")";
-  return ss.str();
-}
-
-void PrintTo(const ValueDescr& descr, std::ostream* os) { *os << descr.ToString(); }
-
 std::string Datum::ToString() const {
   switch (this->kind()) {
     case Datum::NONE:
@@ -257,15 +198,6 @@ std::string Datum::ToString() const {
   }
 }
 
-ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args) {
-  for (const auto& descr : args) {
-    if (descr.shape == ValueDescr::ARRAY) {
-      return ValueDescr::ARRAY;
-    }
-  }
-  return ValueDescr::SCALAR;
-}
-
 void PrintTo(const Datum& datum, std::ostream* os) {
   switch (datum.kind()) {
     case Datum::SCALAR:
@@ -276,6 +208,26 @@ void PrintTo(const Datum& datum, std::ostream* os) {
       break;
     default:
       *os << datum.ToString();
+  }
+}
+
+std::string ToString(Datum::Kind kind) {
+  switch (kind) {
+    case Datum::NONE:
+      return "None";
+    case Datum::SCALAR:
+      return "Scalar";
+    case Datum::ARRAY:
+      return "Array";
+    case Datum::CHUNKED_ARRAY:
+      return "ChunkedArray";
+    case Datum::RECORD_BATCH:
+      return "RecordBatch";
+    case Datum::TABLE:
+      return "Table";
+    default:
+      DCHECK(false);
+      return "";
   }
 }
 

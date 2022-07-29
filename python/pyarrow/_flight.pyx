@@ -25,13 +25,15 @@ import socket
 import time
 import threading
 import warnings
+import weakref
 
 from cython.operator cimport dereference as deref
 from cython.operator cimport postincrement
 from libcpp cimport bool as c_bool
 
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowException, ArrowInvalid, SignalStopHandler
+from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
+                         SignalStopHandler)
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
@@ -106,7 +108,8 @@ cdef class FlightCallOptions(_Weakrefable):
     cdef:
         CFlightCallOptions options
 
-    def __init__(self, timeout=None, write_options=None, headers=None):
+    def __init__(self, timeout=None, write_options=None, headers=None,
+                 IpcReadOptions read_options=None):
         """Create call options.
 
         Parameters
@@ -119,14 +122,22 @@ cdef class FlightCallOptions(_Weakrefable):
             by environment variables (see pyarrow.ipc).
         headers : List[Tuple[str, str]], optional
             A list of arbitrary headers as key, value tuples
+        read_options : pyarrow.ipc.IpcReadOptions, optional
+            Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
+        cdef IpcReadOptions c_read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
         if write_options is not None:
             c_write_options = _get_options(write_options)
             self.options.write_options = c_write_options.c_options
+        if read_options is not None:
+            if not isinstance(read_options, IpcReadOptions):
+                raise TypeError("expected IpcReadOptions, got {}"
+                                .format(type(read_options)))
+            self.options.read_options = read_options.c_options
         if headers is not None:
             self.options.headers = headers
 
@@ -148,6 +159,27 @@ class CertKeyPair(_CertKeyPair):
 
 
 cdef class FlightError(Exception):
+    """
+    The base class for Flight-specific errors.
+
+    A server may raise this class or one of its subclasses to provide
+    a more detailed error to clients.
+
+    Parameters
+    ----------
+    message : str, optional
+        The error message.
+    extra_info : bytes, optional
+        Extra binary error details that were provided by the
+        server/will be sent to the client.
+
+    Attributes
+    ----------
+    extra_info : bytes
+        Extra binary error details that were provided by the
+        server/will be sent to the client.
+  """
+
     cdef dict __dict__
 
     def __init__(self, message='', extra_info=b''):
@@ -158,43 +190,58 @@ cdef class FlightError(Exception):
         message = tobytes("Flight error: {}".format(str(self)))
         return CStatus_UnknownError(message)
 
+
 cdef class FlightInternalError(FlightError, ArrowException):
+    """An error internal to the Flight server occurred."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusInternal,
                                tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightTimedOutError(FlightError, ArrowException):
+    """The Flight RPC call timed out."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusTimedOut,
                                tobytes(str(self)), self.extra_info)
 
 
-cdef class FlightCancelledError(FlightError, ArrowException):
+cdef class FlightCancelledError(FlightError, ArrowCancelled):
+    """The operation was cancelled."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)),
                                self.extra_info)
 
 
 cdef class FlightServerError(FlightError, ArrowException):
+    """A server error occurred."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusFailed, tobytes(str(self)),
                                self.extra_info)
 
 
 cdef class FlightUnauthenticatedError(FlightError, ArrowException):
+    """The client is not authenticated."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(
             CFlightStatusUnauthenticated, tobytes(str(self)), self.extra_info)
 
 
 cdef class FlightUnauthorizedError(FlightError, ArrowException):
+    """The client is not authorized to perform the given operation."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusUnauthorized, tobytes(str(self)),
                                self.extra_info)
 
 
 cdef class FlightUnavailableError(FlightError, ArrowException):
+    """The server is not reachable or available."""
+
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)),
                                self.extra_info)
@@ -2074,7 +2121,8 @@ cdef CStatus _middleware_sending_headers(
             if isinstance(values, (str, bytes)):
                 values = (values,)
             # Headers in gRPC (and HTTP/1, HTTP/2) are required to be
-            # valid ASCII.
+            # valid, lowercase ASCII.
+            header = header.lower()
             if isinstance(header, str):
                 header = header.encode("ascii")
             for value in values:
@@ -2301,6 +2349,8 @@ cdef class ClientMiddleware(_Weakrefable):
             not support them or may restrict them. For gRPC, binary
             values are only allowed on headers ending in "-bin".
 
+            Header names must be lowercase ASCII.
+
         """
 
     def received_headers(self, headers):
@@ -2400,6 +2450,8 @@ cdef class ServerMiddleware(_Weakrefable):
             not support them or may restrict them. For gRPC, binary
             values are only allowed on headers ending in "-bin".
 
+            Header names must be lowercase ASCII.
+
         """
 
     def call_completed(self, exception):
@@ -2460,6 +2512,8 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
             # Manually merge with existing headers (since headers are
             # multi-valued)
             for key, values in more_headers.items():
+                # ARROW-16606 gRPC aborts given non-lowercase headers
+                key = key.lower()
                 if isinstance(values, (bytes, str)):
                     values = (values,)
                 headers[key].extend(values)
@@ -2468,6 +2522,33 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
     def call_completed(self, exception):
         for instance in self.middleware.values():
             instance.call_completed(exception)
+
+
+cdef class _FlightServerFinalizer(_Weakrefable):
+    """
+    A finalizer that shuts down the server on destruction.
+
+    See ARROW-16597. If the server is still active at interpreter
+    exit, the process may segfault.
+    """
+
+    cdef:
+        shared_ptr[PyFlightServer] server
+
+    def finalize(self):
+        cdef:
+            PyFlightServer* server = self.server.get()
+            CStatus status
+        if server == NULL:
+            return
+        try:
+            with nogil:
+                status = server.Shutdown()
+                if status.ok():
+                    status = server.Wait()
+            check_flight_status(status)
+        finally:
+            self.server.reset()
 
 
 cdef class FlightServerBase(_Weakrefable):
@@ -2496,19 +2577,21 @@ cdef class FlightServerBase(_Weakrefable):
     root_certificates : bytes optional, default None
         If enabling mutual TLS, this specifies the PEM-encoded root
         certificate used to validate client certificates.
-    middleware : list optional, default None
-        A dictionary of :class:`ServerMiddlewareFactory` items. The
-        keys are used to retrieve the middleware instance during calls
-        (see :meth:`ServerCallContext.get_middleware`).
+    middleware : dict optional, default None
+        A dictionary of :class:`ServerMiddlewareFactory` instances. The
+        string keys can be used to retrieve the middleware instance within
+        RPC handlers (see :meth:`ServerCallContext.get_middleware`).
 
     """
 
     cdef:
-        unique_ptr[PyFlightServer] server
+        shared_ptr[PyFlightServer] server
+        object finalizer
 
     def __init__(self, location=None, auth_handler=None,
                  tls_certificates=None, verify_client=None,
                  root_certificates=None, middleware=None):
+        self.finalizer = None
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -2576,6 +2659,9 @@ cdef class FlightServerBase(_Weakrefable):
         self.server.reset(c_server)
         with nogil:
             check_flight_status(c_server.Init(deref(c_options)))
+        cdef _FlightServerFinalizer finalizer = _FlightServerFinalizer()
+        finalizer.server = self.server
+        self.finalizer = weakref.finalize(self, finalizer.finalize)
 
     @property
     def port(self):
@@ -2797,20 +2883,21 @@ cdef class FlightServerBase(_Weakrefable):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.shutdown()
-        self.wait()
+        if self.finalizer:
+            self.finalizer()
 
 
 def connect(location, **kwargs):
     """
-    Connect to the Flight server
+    Connect to a Flight server.
+
     Parameters
     ----------
-    location : str, tuple or Location
-        Location to connect to. Either a gRPC URI like `grpc://localhost:port`,
-        a tuple of (host, port) pair, or a Location instance.
+    location : str, tuple, or Location
+        Location to connect to. Either a URI like "grpc://localhost:port",
+        a tuple of (host, port), or a Location instance.
     tls_root_certs : bytes or None
-        PEM-encoded
+        PEM-encoded.
     cert_chain: str or None
         If provided, enables TLS mutual authentication.
     private_key: str or None
@@ -2831,6 +2918,7 @@ def connect(location, **kwargs):
     generic_options : list or None
         A list of generic (string, int or string) options to pass to
         the underlying transport.
+
     Returns
     -------
     client : FlightClient

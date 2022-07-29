@@ -292,6 +292,25 @@ test_that("more informative error when reading a CSV with headers and schema", {
   )
 })
 
+test_that("read_csv_arrow() and write_csv_arrow() accept connection objects", {
+  skip_if_not(CanRunWithCapturedR())
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # make this big enough that we might expose concurrency problems,
+  # but not so big that it slows down the tests
+  test_tbl <- tibble::tibble(
+    x = 1:1e4,
+    y = vapply(x, rlang::hash, character(1), USE.NAMES = FALSE),
+    z = vapply(y, rlang::hash, character(1), USE.NAMES = FALSE)
+  )
+
+  write_csv_arrow(test_tbl, file(tf))
+  expect_identical(read_csv_arrow(tf), test_tbl)
+  expect_identical(read_csv_arrow(file(tf)), read_csv_arrow(tf))
+})
+
 test_that("CSV reader works on files with non-UTF-8 encoding", {
   strings <- c("a", "\u00e9", "\U0001f4a9")
   file_string <- paste0(
@@ -541,6 +560,44 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   tbl_in <- read_csv_arrow(csv_file)
   expect_named(tbl_in, c("dbl", "lgl", "false", "chr"))
   expect_equal(nrow(tbl_in), 3)
+})
+
+test_that("read/write compressed file successfully", {
+  skip_if_not_available("gzip")
+  tfgz <- tempfile(fileext = ".csv.gz")
+  tf <- tempfile(fileext = ".csv")
+
+  write_csv_arrow(tbl, tf)
+  write_csv_arrow(tbl, tfgz)
+  expect_lt(file.size(tfgz), file.size(tf))
+
+  expect_identical(
+    read_csv_arrow(tfgz),
+    tbl
+  )
+  skip_if_not_available("lz4")
+  tflz4 <- tempfile(fileext = ".csv.lz4")
+  write_csv_arrow(tbl, tflz4)
+  expect_false(file.size(tfgz) == file.size(tflz4))
+  expect_identical(
+    read_csv_arrow(tflz4),
+    tbl
+  )
+})
+
+test_that("read/write compressed filesystem path", {
+  skip_if_not_available("zstd")
+  tfzst <- tempfile(fileext = ".csv.zst")
+  fs <- LocalFileSystem$create()$path(tfzst)
+  write_csv_arrow(tbl, fs)
+
+  tf <- tempfile(fileext = ".csv")
+  write_csv_arrow(tbl, tf)
+  expect_lt(file.size(tfzst), file.size(tf))
+  expect_identical(
+    read_csv_arrow(fs),
+    tbl
+  )
 })
 
 test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {

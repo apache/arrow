@@ -23,8 +23,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -112,6 +112,19 @@ func (a *String) setData(data *Data) {
 
 	if offsets := data.buffers[1]; offsets != nil {
 		a.offsets = arrow.Int32Traits.CastFromBytes(offsets.Bytes())
+	}
+
+	if a.array.data.length < 1 {
+		return
+	}
+
+	expNumOffsets := a.array.data.offset + a.array.data.length + 1
+	if len(a.offsets) < expNumOffsets {
+		panic(fmt.Errorf("arrow/array: string offset buffer must have at least %d values", expNumOffsets))
+	}
+
+	if int(a.offsets[expNumOffsets-1]) > len(a.values) {
+		panic("arrow/array: string offsets out of bounds of data buffer")
 	}
 }
 
@@ -218,6 +231,12 @@ func (b *StringBuilder) Reserve(n int) {
 	b.builder.Reserve(n)
 }
 
+// ReserveData ensures there is enough space for appending n bytes
+// by checking the capacity and resizing the data buffer if necessary.
+func (b *StringBuilder) ReserveData(n int) {
+	b.builder.ReserveData(n)
+}
+
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *StringBuilder) Resize(n int) {
@@ -284,6 +303,6 @@ func (b *StringBuilder) UnmarshalJSON(data []byte) error {
 }
 
 var (
-	_ Interface = (*String)(nil)
-	_ Builder   = (*StringBuilder)(nil)
+	_ arrow.Array = (*String)(nil)
+	_ Builder     = (*StringBuilder)(nil)
 )

@@ -46,10 +46,10 @@ conda info -a
 @rem
 @rem Install mamba to the base environment
 @rem
-conda install -q -y -c conda-forge mamba || exit /B
+conda install -q -y -c conda-forge mamba python=3.9 || exit /B
 
 @rem Update for newer CA certificates
-mamba update -q -y --all || exit /B
+mamba update -q -y -c conda-forge --all || exit /B
 
 @rem
 @rem Create conda environment for Build and Toolchain jobs
@@ -71,19 +71,13 @@ if "%JOB%" NEQ "Build_Debug" (
   mamba create -n arrow -q -y -c conda-forge ^
     --file=ci\conda_env_python.txt ^
     %CONDA_PACKAGES%  ^
-    "cmake=3.17" ^
+    "cmake" ^
     "ninja" ^
     "nomkl" ^
     "pandas" ^
     "fsspec" ^
     "python=%PYTHON%" ^
     || exit /B
-
-  @rem On Windows, GTest is always bundled from source instead of using
-  @rem conda binaries, avoid any interference between the two versions.
-  if "%JOB%" == "Toolchain" (
-    mamba uninstall -n arrow -q -y -c conda-forge gtest || exit /B
-  )
 )
 
 @rem
@@ -96,6 +90,8 @@ if defined need_vcvarsall (
         exit /B
     )
     call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+    set CC=cl.exe
+    set CXX=cl.exe
 )
 
 @rem
@@ -113,7 +109,7 @@ powershell.exe -Command "Start-Process clcache-server" || exit /B
 @rem Download Minio somewhere on PATH, for unit tests
 @rem
 if "%ARROW_S3%" == "ON" (
-    appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/minio.exe -FileName C:\Windows\Minio.exe || exit /B
+    appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z -FileName C:\Windows\Minio.exe || exit /B
 )
 
 

@@ -26,12 +26,21 @@ pushd ${source_dir}
 
 printenv
 
+# Run the nixlibs.R test suite, which is not included in the installed package
+ ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+
 # Before release, we always copy the relevant parts of the cpp source into the
 # package. In some CI checks, we will use this version of the source:
 # this is done by setting ARROW_SOURCE_HOME to something other than "/arrow"
 # (which is where the arrow git checkout is found in docker and other CI jobs)
 # In the other CI checks the files are synced but ignored.
 make sync-cpp
+
+if [ "$ARROW_R_FORCE_TESTS" = "true" ]; then
+  export ARROW_R_DEV=TRUE
+  export NOT_CRAN=true
+  export ARROW_LARGE_MEMORY_TESTS=TRUE
+fi
 
 if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
@@ -50,10 +59,8 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
 fi
 
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
-if [ "$TEST_R_WITHOUT_LIBARROW" != "TRUE" ]; then
-  # --run-donttest was used in R < 4.0, this is used now
-  export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
-fi
+# --run-donttest was used in R < 4.0, this is used now
+export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
 # Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
@@ -90,9 +97,24 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       message('Running minio for S3 tests (if build supports them)')
       minio_dir <- tempfile()
       dir.create(minio_dir)
-      pid <- sys::exec_background('minio', c('server', minio_dir))
-      on.exit(tools::pskill(pid))
+      pid_minio <- sys::exec_background('minio', c('server', minio_dir))
+      on.exit(tools::pskill(pid_minio), add = TRUE)
     }
+  }
+
+  if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {
+      message('Running flight demo server for tests.')
+      pid_flight <- sys::exec_background(
+          'python',
+          c(
+              '-c',
+              paste0(
+                  '__import__(\"sys\").path.append(\"./inst\"); ',
+                  '__import__(\"demo_flight_server\").DemoFlightServer(port=8089).serve()'
+              )
+          )
+      )
+      on.exit(tools::pskill(pid_flight), add = TRUE)
   }
 
   run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')

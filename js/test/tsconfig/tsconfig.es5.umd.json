@@ -2,8 +2,8 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "esnext",
-    "module": "umd",
+    "target": "ESNext",
+    "module": "UMD",
     "declaration": false,
     "noEmitHelpers": true,
     "importHelpers": true,

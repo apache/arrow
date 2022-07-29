@@ -62,6 +62,7 @@ target environment.**
    :caption: Cookbooks
 
    C++ <https://arrow.apache.org/cookbook/cpp/>
+   Java <https://arrow.apache.org/cookbook/java/>
    Python <https://arrow.apache.org/cookbook/py/>
    R <https://arrow.apache.org/cookbook/r/>
 
@@ -79,6 +80,7 @@ target environment.**
    format/CDataInterface
    format/CStreamInterface
    format/Other
+   format/Glossary
 
 .. _toc.development:
 
@@ -97,4 +99,5 @@ target environment.**
    developers/continuous_integration/index
    developers/benchmarks
    developers/documentation
+   developers/release
    developers/computeir

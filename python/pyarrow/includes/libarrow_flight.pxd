@@ -227,6 +227,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightCallOptions()
         CTimeoutDuration timeout
         CIpcWriteOptions write_options
+        CIpcReadOptions read_options
         vector[pair[c_string, c_string]] headers
         CStopToken stop_token
 

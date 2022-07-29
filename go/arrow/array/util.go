@@ -20,9 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v9/internal/hashing"
 	"github.com/goccy/go-json"
 )
 
@@ -36,6 +39,7 @@ func min(a, b int) int {
 type fromJSONCfg struct {
 	multiDocument bool
 	startOffset   int64
+	useNumber     bool
 }
 
 type FromJSONOption func(*fromJSONCfg)
@@ -54,6 +58,16 @@ func WithMultipleDocs() FromJSONOption {
 func WithStartOffset(off int64) FromJSONOption {
 	return func(c *fromJSONCfg) {
 		c.startOffset = off
+	}
+}
+
+// WithUseNumber enables the 'UseNumber' option on the json decoder, using
+// the json.Number type instead of assuming float64 for numbers. This is critical
+// if you have numbers that are larger than what can fit into the 53 bits of
+// an IEEE float64 mantissa and want to preserve its value.
+func WithUseNumber() FromJSONOption {
+	return func(c *fromJSONCfg) {
+		c.useNumber = true
 	}
 }
 
@@ -132,6 +146,10 @@ func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...From
 		}
 	}()
 
+	if cfg.useNumber {
+		dec.UseNumber()
+	}
+
 	if !cfg.multiDocument {
 		t, err := dec.Token()
 		if err != nil {
@@ -159,7 +177,7 @@ func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...From
 
 // RecordToStructArray constructs a struct array from the columns of the record batch
 // by referencing them, zero-copy.
-func RecordToStructArray(rec Record) *Struct {
+func RecordToStructArray(rec arrow.Record) *Struct {
 	cols := make([]arrow.ArrayData, rec.NumCols())
 	for i, c := range rec.Columns() {
 		cols[i] = c.Data()
@@ -176,7 +194,7 @@ func RecordToStructArray(rec Record) *Struct {
 // of the struct will be used to define the record batch. Otherwise the passed in
 // schema will be used to create the record batch. If passed in, the schema must match
 // the fields of the struct column.
-func RecordFromStructArray(in *Struct, schema *arrow.Schema) Record {
+func RecordFromStructArray(in *Struct, schema *arrow.Schema) arrow.Record {
 	if schema == nil {
 		schema = arrow.NewSchema(in.DataType().(*arrow.StructType).Fields(), nil)
 	}
@@ -189,7 +207,7 @@ func RecordFromStructArray(in *Struct, schema *arrow.Schema) Record {
 //
 // A record batch from JSON is equivalent to reading a struct array in from json and then
 // converting it to a record batch.
-func RecordFromJSON(mem memory.Allocator, schema *arrow.Schema, r io.Reader, opts ...FromJSONOption) (Record, int64, error) {
+func RecordFromJSON(mem memory.Allocator, schema *arrow.Schema, r io.Reader, opts ...FromJSONOption) (arrow.Record, int64, error) {
 	st := arrow.StructOf(schema.Fields()...)
 	arr, off, err := FromJSON(mem, st, r, opts...)
 	if err != nil {
@@ -202,7 +220,7 @@ func RecordFromJSON(mem memory.Allocator, schema *arrow.Schema, r io.Reader, opt
 
 // RecordToJSON writes out the given record following the format of each row is a single object
 // on a single line of the output.
-func RecordToJSON(rec Record, w io.Writer) error {
+func RecordToJSON(rec arrow.Record, w io.Writer) error {
 	enc := json.NewEncoder(w)
 
 	fields := rec.Schema().Fields()
@@ -217,4 +235,67 @@ func RecordToJSON(rec Record, w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func getDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
+	dictLen := memoTable.Size() - startOffset
+	buffers := []*memory.Buffer{nil, nil}
+
+	buffers[1] = memory.NewResizableBuffer(mem)
+	defer buffers[1].Release()
+
+	switch tbl := memoTable.(type) {
+	case hashing.NumericMemoTable:
+		nbytes := tbl.TypeTraits().BytesRequired(dictLen)
+		buffers[1].Resize(nbytes)
+		tbl.WriteOutSubset(startOffset, buffers[1].Bytes())
+	case *hashing.BinaryMemoTable:
+		switch valueType.ID() {
+		case arrow.BINARY, arrow.STRING:
+			buffers = append(buffers, memory.NewResizableBuffer(mem))
+			defer buffers[2].Release()
+
+			buffers[1].Resize(arrow.Int32Traits.BytesRequired(dictLen + 1))
+			offsets := arrow.Int32Traits.CastFromBytes(buffers[1].Bytes())
+			tbl.CopyOffsetsSubset(startOffset, offsets)
+
+			valuesz := offsets[len(offsets)-1] - offsets[0]
+			buffers[2].Resize(int(valuesz))
+			tbl.CopyValuesSubset(startOffset, buffers[2].Bytes())
+		default: // fixed size
+			bw := int(bitutil.BytesForBits(int64(valueType.(arrow.FixedWidthDataType).BitWidth())))
+			buffers[1].Resize(dictLen * bw)
+			tbl.CopyFixedWidthValues(startOffset, bw, buffers[1].Bytes())
+		}
+	default:
+		return nil, fmt.Errorf("arrow/array: dictionary unifier unimplemented type: %s", valueType)
+	}
+
+	var nullcount int
+	if idx, ok := memoTable.GetNull(); ok && idx >= startOffset {
+		buffers[0] = memory.NewResizableBuffer(mem)
+		defer buffers[0].Release()
+		nullcount = 1
+		buffers[0].Resize(int(bitutil.BytesForBits(int64(dictLen))))
+		memory.Set(buffers[0].Bytes(), 0xFF)
+		bitutil.ClearBit(buffers[0].Bytes(), idx)
+	}
+
+	return NewData(valueType, dictLen, buffers, nil, nullcount, 0), nil
+}
+
+func DictArrayFromJSON(mem memory.Allocator, dt *arrow.DictionaryType, indicesJSON, dictJSON string) (arrow.Array, error) {
+	indices, _, err := FromJSON(mem, dt.IndexType, strings.NewReader(indicesJSON))
+	if err != nil {
+		return nil, err
+	}
+	defer indices.Release()
+
+	dict, _, err := FromJSON(mem, dt.ValueType, strings.NewReader(dictJSON))
+	if err != nil {
+		return nil, err
+	}
+	defer dict.Release()
+
+	return NewDictionaryArray(dt, indices, dict), nil
 }

@@ -96,6 +96,7 @@ RUN apt-get update -y -q && \
         nlohmann-json3-dev \
         pkg-config \
         protobuf-compiler \
+        python3-dev \
         python3-pip \
         python3-rados \
         rados-objclass-dev \
@@ -122,7 +123,10 @@ RUN /arrow/ci/scripts/install_ceph.sh
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
-ENV ARROW_BUILD_TESTS=ON \
+# ARROW-17051: this build uses static Protobuf, so we must also use
+# static Arrow to run Flight/Flight SQL tests
+ENV ARROW_BUILD_STATIC=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
@@ -142,18 +146,19 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
-    ARROW_WITH_OPENTELEMETRY=OFF \
+    ARROW_WITH_OPENTELEMETRY=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
-    PYTHON=python3
+    PATH=/usr/lib/ccache/:$PATH \
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

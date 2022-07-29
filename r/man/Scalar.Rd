@@ -7,6 +7,26 @@
 \description{
 A \code{Scalar} holds a single value of an Arrow type.
 }
+\section{Factory}{
+
+The \code{Scalar$create()} factory method instantiates a \code{Scalar} and takes the following arguments:
+\itemize{
+\item \code{x}: an R vector, list, or \code{data.frame}
+\item \code{type}: an optional \link[=data-type]{data type} for \code{x}. If omitted, the type will be inferred from the data.
+}
+}
+
+\section{Usage}{
+
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{a <- Scalar$create(x)
+length(a)
+
+print(a)
+a == a
+}\if{html}{\out{</div>}}
+}
+
 \section{Methods}{
 
 \itemize{
@@ -24,7 +44,6 @@ to a different type
 }
 
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 Scalar$create(pi)
 Scalar$create(404)
 # If you pass a vector into Scalar$create, you get a list containing your items
@@ -38,5 +57,4 @@ my_scalar$Equals(Scalar$create(99.000009)) # FALSE
 my_scalar$Equals(Scalar$create(99L)) # FALSE (types don't match)
 
 my_scalar$ToString()
-\dontshow{\}) # examplesIf}
 }

@@ -278,7 +278,7 @@ TEST_F(TestChunkedArray, GetScalar) {
   check_scalar(carr, 4, **MakeScalar(ty, 3));
   check_scalar(carr, 6, **MakeScalar(ty, 5));
 
-  ASSERT_RAISES(Invalid, carr.GetScalar(7));
+  ASSERT_RAISES(IndexError, carr.GetScalar(7));
 }
 
 }  // namespace arrow

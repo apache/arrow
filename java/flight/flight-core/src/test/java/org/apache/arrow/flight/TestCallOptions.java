@@ -104,8 +104,7 @@ public class TestCallOptions {
         FlightServer s =
             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
-      client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext();
-
+      Assert.assertFalse(client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext());
       final CallHeaders incomingHeaders = producer.headers();
       for (String key : headers.keys()) {
         if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {

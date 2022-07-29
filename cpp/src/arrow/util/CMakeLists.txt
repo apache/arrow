@@ -67,6 +67,7 @@ add_arrow_test(utility-test
                tdigest_test.cc
                test_common.cc
                time_test.cc
+               tracing_test.cc
                trie_test.cc
                uri_test.cc
                utf8_util_test.cc
