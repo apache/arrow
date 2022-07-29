@@ -1169,6 +1169,9 @@ cdef class CsvFileFormat(FileFormat):
         General read options.
     default_fragment_scan_options : CsvFragmentScanOptions
         Default options for fragments scan.
+    encoding : str, optional (default 'utf8')
+        The character encoding of the CSV data.  Columns that cannot
+        decode using this encoding can still be read as Binary.
     """
     cdef:
         CCsvFileFormat* csv_format
