@@ -41,6 +41,7 @@ RUN apt-get update -y -q && \
         gcc \
         gdb \
         git \
+        libabsl-dev \
         libbenchmark-dev \
         libboost-all-dev \
         libbrotli-dev \

@@ -8,6 +8,7 @@ Build-Depends:
   git,
   gobject-introspection,
   gtk-doc-tools,
+@USE_SYSTEM_ABSL@  libabsl-dev,
   libboost-filesystem-dev,
   libboost-system-dev,
   libbrotli-dev,
@@ -142,6 +143,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow900 (= ${binary:Version}),
+@USE_SYSTEM_ABSL@  libabsl-dev,
   libbrotli-dev,
   libbz2-dev,
 @USE_SYSTEM_C_ARES@  libc-ares-dev,

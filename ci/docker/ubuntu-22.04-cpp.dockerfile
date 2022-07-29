@@ -70,6 +70,7 @@ RUN apt-get update -y -q && \
         cmake \
         gdb \
         git \
+        libabsl-dev \
         libbenchmark-dev \
         libboost-filesystem-dev \
         libboost-system-dev \
