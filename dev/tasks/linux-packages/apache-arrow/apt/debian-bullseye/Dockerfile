@@ -41,7 +41,6 @@ RUN \
     devscripts \
     git \
     gtk-doc-tools \
-    libabsl-dev \
     libboost-filesystem-dev \
     libboost-system-dev \
     libbrotli-dev \

@@ -2659,6 +2659,7 @@ endmacro()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
+set(ARROW_ABSL_REQUIRED_VERSION "20211102.0")
 macro(build_absl)
   # This may be called multiple times.
   if(NOT ABSL_VENDORED)
@@ -3609,7 +3610,7 @@ macro(build_grpc)
                      TRUE
                      PC_PACKAGE_NAMES
                      libcares)
-  resolve_dependency(absl)
+  resolve_dependency(absl REQUIRED_VERSION ${ARROW_ABSL_REQUIRED_VERSION})
 
   message(STATUS "Building gRPC from source")
 
@@ -4015,7 +4016,7 @@ macro(build_google_cloud_cpp_storage)
   message(STATUS "Only building the google-cloud-cpp::storage component")
 
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/master/doc/packaging.md
-  resolve_dependency(absl)
+  resolve_dependency(absl REQUIRED_VERSION ${ARROW_ABSL_REQUIRED_VERSION})
   build_crc32c_once()
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
