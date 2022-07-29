@@ -94,6 +94,7 @@ on:
     shell: bash
     run: |
       archery crossbow \
+        --no-fetch \
         --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
         download-artifacts \
@@ -197,6 +198,7 @@ on:
     {% endif %}
   - |
     archery crossbow \
+      --no-fetch \
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \
       download-artifacts \
