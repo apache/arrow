@@ -1180,7 +1180,8 @@ cdef class CsvFileFormat(FileFormat):
     def __init__(self, ParseOptions parse_options=None,
                  default_fragment_scan_options=None,
                  ConvertOptions convert_options=None,
-                 ReadOptions read_options=None, encoding='utf8'):
+                 ReadOptions read_options=None,
+                 encoding='utf8'):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
@@ -1200,6 +1201,9 @@ cdef class CsvFileFormat(FileFormat):
             raise TypeError('`default_fragment_scan_options` must be either '
                             'a dictionary or an instance of '
                             'CsvFragmentScanOptions')
+        else :
+            # default_fragment_scan_options is needed to add a transcoder
+            self.default_fragment_scan_options = CsvFragmentScanOptions()
         # Python-specific option
         self.encoding = encoding
 
