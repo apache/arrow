@@ -66,7 +66,7 @@ namespace arrow {
   ACTION(Dictionary);                               \
   ACTION(Extension)
 
-#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION) \
+#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)   \
   ARROW_GENERATE_FOR_ALL_SCALAR_TYPES(ACTION); \
   ACTION(RunLengthEncoded)
 
