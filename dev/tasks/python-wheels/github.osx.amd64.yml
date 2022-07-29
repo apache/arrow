@@ -35,7 +35,7 @@ env:
 jobs:
   build:
     name: Build wheel for OS X
-    runs-on: macos-11
+    runs-on: macos-12
     env:
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
     steps:
