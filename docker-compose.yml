@@ -1736,8 +1736,8 @@ services:
 
   almalinux-verify-rc:
     # Usage:
-    #   docker-compose build almalinux-verify-rc-source
-    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc-source
+    #   docker-compose build almalinux-verify-rc
+    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc
     # Parameters:
     #   ALMALINUX: 8
     image: ${REPO}:${ARCH}-almalinux-${ALMALINUX}-verify-rc
@@ -1764,10 +1764,10 @@ services:
 
   ubuntu-verify-rc:
     # Usage:
-    #   docker-compose build ubuntu-verify-rc-source
-    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc-source
+    #   docker-compose build ubuntu-verify-rc
+    #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc
     # Parameters:
-    #   UBUNTU: 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
     build:
       context: .

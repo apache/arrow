@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,10 +18,40 @@
 # under the License.
 
 # A script to install dependencies required for release
-# verification on Ubuntu 20.04
+# verification on Ubuntu.
 
-apt-get update
-apt-get -y install \
+set -exu
+
+codename=$(. /etc/os-release && echo ${UBUNTU_CODENAME})
+
+case ${codename} in
+  bionic)
+    llvm=12
+    nlohmann_json=
+    python=3.8
+    apt-get update -y -q
+    apt-get install -y -q --no-install-recommends \
+      apt-transport-https \
+      ca-certificates \
+      gnupg \
+      wget
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb https://apt.llvm.org/${codename}/ llvm-toolchain-${codename}-${llvm} main" > \
+      /etc/apt/sources.list.d/llvm.list
+    apt-get update -y -q
+    apt-get install -y -q --no-install-recommends \
+      llvm-${llvm}-dev
+    ;;
+  *)
+    nlohmann_json=3
+    python=3
+    apt-get update -y -q
+    apt-get install -y -q --no-install-recommends \
+      llvm-dev
+    ;;
+esac
+
+apt-get install -y -q --no-install-recommends \
   build-essential \
   clang \
   cmake \
@@ -30,12 +62,22 @@ apt-get -y install \
   libglib2.0-dev \
   libsqlite3-dev \
   libssl-dev \
-  llvm-dev \
   maven \
   ninja-build \
+  nlohmann-json${nlohmann_json}-dev \
   openjdk-11-jdk \
   pkg-config \
   python3-pip \
-  python3-venv \
+  python${python}-dev \
+  python${python}-venv \
   ruby-dev \
-  wget
+  wget \
+  tzdata
+
+case ${codename} in
+  bionic)
+    python${python} -m pip install -U pip
+    update-alternatives \
+      --install /usr/bin/python3 python3 /usr/bin/python${python} 1
+    ;;
+esac

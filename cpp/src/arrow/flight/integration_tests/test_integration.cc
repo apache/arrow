@@ -51,7 +51,7 @@ class AuthBasicProtoServer : public FlightServerBase {
 Status CheckActionResults(FlightClient* client, const Action& action,
                           std::vector<std::string> results) {
   std::unique_ptr<ResultStream> stream;
-  RETURN_NOT_OK(client->DoAction(action, &stream));
+  ARROW_ASSIGN_OR_RAISE(stream, client->DoAction(action));
   std::unique_ptr<Result> result;
   for (const std::string& expected : results) {
     ARROW_ASSIGN_OR_RAISE(result, stream->Next());
@@ -91,7 +91,7 @@ class AuthBasicProtoScenario : public Scenario {
     Action action;
     std::unique_ptr<ResultStream> stream;
     std::shared_ptr<FlightStatusDetail> detail;
-    const auto& status = client->DoAction(action, &stream);
+    const auto& status = client->DoAction(action).Value(&stream);
     detail = FlightStatusDetail::UnwrapStatus(status);
     // This client is unauthenticated and should fail.
     if (detail == nullptr) {
@@ -231,12 +231,11 @@ class MiddlewareScenario : public Scenario {
   }
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
-    std::unique_ptr<FlightInfo> info;
     // This call is expected to fail. In gRPC/Java, this causes the
     // server to combine headers and HTTP/2 trailers, so to read the
     // expected header, Flight must check for both headers and
     // trailers.
-    if (client->GetFlightInfo(FlightDescriptor::Command(""), &info).ok()) {
+    if (client->GetFlightInfo(FlightDescriptor::Command("")).status().ok()) {
       return Status::Invalid("Expected call to fail");
     }
     if (client_middleware_->received_header_ != "expected value") {
@@ -248,7 +247,8 @@ class MiddlewareScenario : public Scenario {
 
     // This call should succeed
     client_middleware_->received_header_ = "";
-    RETURN_NOT_OK(client->GetFlightInfo(FlightDescriptor::Command("success"), &info));
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("success")));
     if (client_middleware_->received_header_ != "expected value") {
       return Status::Invalid(
           "Expected to receive header 'x-middleware: expected value', but instead got '",

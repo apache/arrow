@@ -19,7 +19,7 @@ ARG arch=amd64
 ARG go=1.15
 FROM ${arch}/golang:${go}-buster
 
-RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@latest
+RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
 
 # TODO(kszucs):
 # 1. add the files required to install the dependencies to .dockerignore

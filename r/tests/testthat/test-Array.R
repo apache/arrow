@@ -260,17 +260,38 @@ test_that("array supports POSIXct (ARROW-3340)", {
   expect_array_roundtrip(times2, timestamp("us", "US/Eastern"))
 })
 
-test_that("array supports POSIXct without timezone", {
-  # Make sure timezone is not set
+test_that("array uses local timezone for POSIXct without timezone", {
   withr::with_envvar(c(TZ = ""), {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
-    expect_array_roundtrip(times, timestamp("us", ""))
+    expect_equal(attr(times, "tzone"), NULL)
+    expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
 
     # Also test the INTSXP code path
     skip("Ingest_POSIXct only implemented for REALSXP")
     times_int <- as.integer(times)
     attributes(times_int) <- attributes(times)
     expect_array_roundtrip(times_int, timestamp("us", ""))
+  })
+
+  # If there is a timezone set, we record that
+  withr::with_timezone("Pacific/Marquesas", {
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
+    expect_equal(attr(times, "tzone"), "Pacific/Marquesas")
+    expect_array_roundtrip(times, timestamp("us", "Pacific/Marquesas"))
+
+    times_with_tz <- strptime(
+      "2019-02-03 12:34:56",
+      format = "%Y-%m-%d %H:%M:%S",
+      tz = "Asia/Katmandu") + 1:10
+    expect_equal(attr(times, "tzone"), "Asia/Katmandu")
+    expect_array_roundtrip(times, timestamp("us", "Asia/Katmandu"))
+  })
+
+  # and although the TZ is NULL in R, we set it to the Sys.timezone()
+  withr::with_timezone(NA, {
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
+    expect_equal(attr(times, "tzone"), NULL)
+    expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
   })
 })
 

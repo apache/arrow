@@ -29,6 +29,7 @@
 #include <cpp11/altrep.hpp>
 #include <type_traits>
 
+#include "./extension.h"
 #include "./r_task_group.h"
 
 namespace arrow {
@@ -1154,6 +1155,35 @@ class Converter_Null : public Converter {
   }
 };
 
+// Unlike other types, conversion of ExtensionType (chunked) arrays occurs at
+// R level via the ExtensionType (or subclass) R6 instance. We do this via Allocate,
+// since it is called once per ChunkedArray.
+class Converter_Extension : public Converter {
+ public:
+  explicit Converter_Extension(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    auto extension_type =
+        dynamic_cast<const RExtensionType*>(chunked_array_->type().get());
+    if (extension_type == nullptr) {
+      Rf_error("Converter_Extension can't be used with a non-R extension type");
+    }
+
+    return extension_type->Convert(chunked_array_);
+  }
+
+  // At this point we have already done the conversion
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    return Status::OK();
+  }
+};
+
 bool ArraysCanFitInteger(ArrayVector arrays) {
   bool all_can_fit = true;
   auto i32 = arrow::int32();
@@ -1315,6 +1345,9 @@ std::shared_ptr<Converter> Converter::Make(
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(chunked_array);
+
+    case Type::EXTENSION:
+      return std::make_shared<arrow::r::Converter_Extension>(chunked_array);
 
     default:
       break;

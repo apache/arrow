@@ -45,6 +45,7 @@ public class FlightSqlColumnMetadata {
   private static final String CATALOG_NAME = "ARROW:FLIGHT:SQL:CATALOG_NAME";
   private static final String SCHEMA_NAME = "ARROW:FLIGHT:SQL:SCHEMA_NAME";
   private static final String TABLE_NAME = "ARROW:FLIGHT:SQL:TABLE_NAME";
+  private static final String TYPE_NAME = "ARROW:FLIGHT:SQL:TYPE_NAME";
   private static final String PRECISION = "ARROW:FLIGHT:SQL:PRECISION";
   private static final String SCALE = "ARROW:FLIGHT:SQL:SCALE";
   private static final String IS_AUTO_INCREMENT = "ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT";
@@ -94,6 +95,14 @@ public class FlightSqlColumnMetadata {
    */
   public String getTableName() {
     return metadataMap.get(TABLE_NAME);
+  }
+
+  /**
+   * Returns the type name.
+   * @return The type name.
+   */
+  public String getTypeName() {
+    return metadataMap.get(TYPE_NAME);
   }
 
   /**
@@ -214,6 +223,16 @@ public class FlightSqlColumnMetadata {
      */
     public Builder tableName(String tableName) {
       metadataMap.put(TABLE_NAME, tableName);
+      return this;
+    }
+
+    /**
+     * Sets the type name.
+     * @param typeName The type name.
+     * @return This builder.
+     */
+    public Builder typeName(String typeName) {
+      metadataMap.put(TYPE_NAME, typeName);
       return this;
     }
 

@@ -40,12 +40,20 @@
 #include "arrow/flight/test_util.h"
 
 #ifdef ARROW_CUDA
+#include <cuda.h>
 #include "arrow/gpu/cuda_api.h"
+#endif
+#ifdef ARROW_WITH_UCX
+#include "arrow/flight/transport/ucx/ucx.h"
 #endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
 DEFINE_string(transport, "grpc",
-              "The network transport to use. Supported: \"grpc\" (default).");
+              "The network transport to use. Supported: \"grpc\" (default)"
+#ifdef ARROW_WITH_UCX
+              ", \"ucx\""
+#endif  // ARROW_WITH_UCX
+              ".");
 DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
@@ -123,8 +131,7 @@ struct PerformanceStats {
 Status WaitForReady(FlightClient* client, const FlightCallOptions& call_options) {
   Action action{"ping", nullptr};
   for (int attempt = 0; attempt < 10; attempt++) {
-    std::unique_ptr<ResultStream> stream;
-    if (client->DoAction(call_options, action, &stream).ok()) {
+    if (client->DoAction(call_options, action).ok()) {
       return Status::OK();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -138,7 +145,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
                                               const FlightEndpoint& endpoint,
                                               PerformanceStats* stats) {
   std::unique_ptr<FlightStreamReader> reader;
-  RETURN_NOT_OK(client->DoGet(call_options, endpoint.ticket, &reader));
+  ARROW_ASSIGN_OR_RAISE(reader, client->DoGet(call_options, endpoint.ticket));
 
   FlightStreamChunk batch;
 
@@ -246,10 +253,10 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   StopWatch timer;
   int64_t num_records = 0;
   int64_t num_bytes = 0;
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
-  RETURN_NOT_OK(client->DoPut(call_options, FlightDescriptor{},
-                              batches[0].batch->schema(), &writer, &reader));
+  ARROW_ASSIGN_OR_RAISE(
+      auto do_put_result,
+      client->DoPut(call_options, FlightDescriptor{}, batches[0].batch->schema()));
+  std::unique_ptr<FlightStreamWriter> writer = std::move(do_put_result.writer);
   for (size_t i = 0; i < batches.size(); i++) {
     auto batch = batches[i];
     auto is_last = i == (batches.size() - 1);
@@ -283,8 +290,7 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   descriptor.type = FlightDescriptor::CMD;
   perf.SerializeToString(&descriptor.cmd);
 
-  std::unique_ptr<FlightInfo> plan;
-  RETURN_NOT_OK(client->GetFlightInfo(call_options, descriptor, &plan));
+  ARROW_ASSIGN_OR_RAISE(auto plan, client->GetFlightInfo(call_options, descriptor));
 
   // Read the streams in parallel
   ipc::DictionaryMemo dict_memo;
@@ -300,8 +306,9 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
     if (endpoint.locations.empty()) {
       data_client = client;
     } else {
-      RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), client_options,
-                                          &local_client));
+      ARROW_ASSIGN_OR_RAISE(
+          local_client,
+          FlightClient::Connect(endpoint.locations.front(), client_options));
       data_client = local_client.get();
     }
 
@@ -498,6 +505,21 @@ int main(int argc, char** argv) {
         options.disable_server_verification = true;
       }
     }
+  } else if (FLAGS_transport == "ucx") {
+#ifdef ARROW_WITH_UCX
+    arrow::flight::transport::ucx::InitializeFlightUcx();
+    if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
+      std::cerr << "Transport does not support domain sockets: " << FLAGS_transport
+                << std::endl;
+      return EXIT_FAILURE;
+    }
+    ARROW_CHECK_OK(arrow::flight::Location::Parse("ucx://" + FLAGS_server_host + ":" +
+                                                  std::to_string(FLAGS_server_port))
+                       .Value(&location));
+#else
+    std::cerr << "Not built with transport: " << FLAGS_transport << std::endl;
+    return EXIT_FAILURE;
+#endif
   } else {
     std::cerr << "Unknown transport: " << FLAGS_transport << std::endl;
     return EXIT_FAILURE;
@@ -515,14 +537,23 @@ int main(int argc, char** argv) {
     ABORT_NOT_OK(arrow::cuda::CudaDeviceManager::Instance().Value(&manager));
     ABORT_NOT_OK(manager->GetDevice(0).Value(&device));
     call_options.memory_manager = device->default_memory_manager();
+
+    // Needed to prevent UCX warning
+    // cuda_md.c:162  UCX  ERROR cuMemGetAddressRange(0x7f2ab5dc0000) error: invalid
+    // device context
+    std::shared_ptr<arrow::cuda::CudaContext> context;
+    ABORT_NOT_OK(device->GetContext().Value(&context));
+    auto cuda_status = cuCtxPushCurrent(reinterpret_cast<CUcontext>(context->handle()));
+    if (cuda_status != CUDA_SUCCESS) {
+      ARROW_LOG(WARNING) << "CUDA error " << cuda_status;
+    }
 #else
     std::cerr << "-cuda requires that Arrow is built with ARROW_CUDA" << std::endl;
     return 1;
 #endif
   }
 
-  std::unique_ptr<arrow::flight::FlightClient> client;
-  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
+  auto client = arrow::flight::FlightClient::Connect(location, options).ValueOrDie();
   ABORT_NOT_OK(arrow::flight::WaitForReady(client.get(), call_options));
 
   arrow::Status s = arrow::flight::RunPerformanceTest(client.get(), options, call_options,

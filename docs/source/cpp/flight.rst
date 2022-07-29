@@ -117,3 +117,38 @@ success/failure of the request. Any other return values are specified
 through out parameters. They also take an optional :class:`options
 <arrow::flight::FlightCallOptions>` parameter that allows specifying a
 timeout for the call.
+
+Alternative Transports
+======================
+
+The standard transport for Arrow Flight is gRPC_. The C++
+implementation also experimentally supports a transport based on
+UCX_. To use it, use the protocol scheme ``ucx:`` when starting a
+server or creating a client.
+
+UCX Transport
+-------------
+
+Not all features of the gRPC transport are supported. See
+:ref:`status-flight-rpc` for details. Also note these specific
+caveats:
+
+- The server creates an independent UCP worker for each client. This
+  consumes more resources but provides better throughput.
+- The client creates an independent UCP worker for each RPC
+  call. Again, this trades off resource consumption for
+  performance. This also means that unlike with gRPC, it is
+  essentially equivalent to make all calls with a single client or
+  with multiple clients.
+- The UCX transport attempts to avoid copies where possible. In some
+  cases, it can directly reuse UCX-allocated buffers to back
+  :class:`arrow::Buffer` objects, however, this will also extend the
+  lifetime of associated UCX resources beyond the lifetime of the
+  Flight client or server object.
+- Depending on the transport that UCX itself selects, you may find
+  that increasing ``UCX_MM_SEG_SIZE`` from the default (around 8KB) to
+  around 60KB improves performance (UCX will copy more data in a
+  single call).
+
+.. _gRPC: https://grpc.io/
+.. _UCX: https://openucx.org/

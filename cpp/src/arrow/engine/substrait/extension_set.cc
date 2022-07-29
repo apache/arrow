@@ -164,7 +164,7 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
       set.functions_[i] = {rec->id, rec->function_name};
       continue;
     }
-    return Status::Invalid("Function ", function_ids[i].uri, "#", type_ids[i].name,
+    return Status::Invalid("Function ", function_ids[i].uri, "#", function_ids[i].name,
                            " not found");
   }
 

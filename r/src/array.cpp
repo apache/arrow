@@ -41,6 +41,8 @@ const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>
       return "FixedSizeListArray";
     case arrow::Type::MAP:
       return "MapArray";
+    case arrow::Type::EXTENSION:
+      return "ExtensionArray";
 
     default:
       return "Array";

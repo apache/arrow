@@ -148,10 +148,6 @@ cdef class Dataset(_Weakrefable):
     can accelerate queries that only touch some partitions (files).
     """
 
-    cdef:
-        shared_ptr[CDataset] wrapped
-        CDataset* dataset
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -1354,8 +1350,9 @@ cdef class KeyValuePartitioning(Partitioning):
             if arr.get() == nullptr:
                 # Partitioning object has not been created through
                 # inspected Factory
-                continue
-            res.append(pyarrow_wrap_array(arr))
+                res.append(None)
+            else:
+                res.append(pyarrow_wrap_array(arr))
         return res
 
 
@@ -2049,8 +2046,10 @@ class TaggedRecordBatch(collections.namedtuple(
 
     Parameters
     ----------
-    record_batch : The record batch.
-    fragment : fragment of the record batch.
+    record_batch : RecordBatch
+        The record batch.
+    fragment : Fragment
+        Fragment of the record batch.
     """
 
 
@@ -2145,15 +2144,24 @@ cdef class Scanner(_Weakrefable):
     dataset : Dataset
         Dataset to scan.
     columns : list of str or dict, default None
-        The columns to project. This can be a list of column names to include
-        (order and duplicates will be preserved), or a dictionary with
-        {new_column_name: expression} values for more advanced projections.
+        The columns to project. This can be a list of column names to
+        include (order and duplicates will be preserved), or a dictionary
+        with {{new_column_name: expression}} values for more advanced
+        projections.
+
+        The list of columns or expressions may use the special fields
+        `__batch_index` (the index of the batch within the fragment), 
+        `__fragment_index` (the index of the fragment within the dataset), 
+        `__last_in_fragment` (whether the batch is last in fragment), and
+        `__filename` (the name of the source file or a description of the 
+        source fragment).
+
         The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
-        By default all of the available columns are projected. Raises
-        an exception if any of the referenced column names does not exist
-        in the dataset's Schema.
+        By default all of the available columns are projected. 
+        Raises an exception if any of the referenced column names does 
+        not exist in the dataset's Schema.
     filter : Expression, default None
         Scan will return only the rows matching the filter.
         If possible the predicate will be pushed down to exploit the
@@ -2214,6 +2222,14 @@ cdef class Scanner(_Weakrefable):
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
             projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -2284,6 +2300,14 @@ cdef class Scanner(_Weakrefable):
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
             projections.
+
+            The list of columns or expressions may use the special fields
+            `__batch_index` (the index of the batch within the fragment), 
+            `__fragment_index` (the index of the fragment within the dataset), 
+            `__last_in_fragment` (whether the batch is last in fragment), and
+            `__filename` (the name of the source file or a description of the 
+            source fragment).
+
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -2530,7 +2554,12 @@ cdef class Scanner(_Weakrefable):
         return GetResultValue(result)
 
     def to_reader(self):
-        """Consume this scanner as a RecordBatchReader."""
+        """Consume this scanner as a RecordBatchReader.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = GetResultValue(self.scanner.ToRecordBatchReader())

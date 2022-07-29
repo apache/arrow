@@ -1322,8 +1322,9 @@ Parameters
 path_or_paths : str or List[str]
     A directory name, single file name, or list of file names.
 filesystem : FileSystem, default None
-    If nothing passed, paths assumed to be found in the local on-disk
-    filesystem.
+    If nothing passed, will be inferred based on path.
+    Path will try to be found in the local on-disk filesystem otherwise
+    it will be parsed as an URI to determine the filesystem.
 metadata : pyarrow.parquet.FileMetaData
     Use metadata obtained elsewhere to validate file schemas.
 schema : pyarrow.parquet.Schema
@@ -1790,10 +1791,7 @@ class _ParquetDatasetV2:
 
         # check for single fragment dataset
         single_file = None
-        if isinstance(path_or_paths, list):
-            if len(path_or_paths) == 1:
-                single_file = path_or_paths[0]
-        else:
+        if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
                 path_or_paths = _stringify_path(path_or_paths)
                 if filesystem is None:
@@ -1956,8 +1954,9 @@ ignore_prefixes : list, optional
     By default this is ['.', '_'].
     Note that discovery happens only if a directory is passed as source.
 filesystem : FileSystem, default None
-    If nothing passed, paths assumed to be found in the local on-disk
-    filesystem.
+    If nothing passed, will be inferred based on path.
+    Path will try to be found in the local on-disk filesystem otherwise
+    it will be parsed as an URI to determine the filesystem.
 filters : List[Tuple] or List[List[Tuple]] or None (default)
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
@@ -2223,8 +2222,9 @@ def write_to_dataset(table, root_path, partition_cols=None,
     root_path : str, pathlib.Path
         The root directory of the dataset
     filesystem : FileSystem, default None
-        If nothing passed, paths assumed to be found in the local on-disk
-        filesystem
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
     partition_cols : list,
         Column names by which to partition the dataset
         Columns are partitioned in the order they are given
@@ -2412,6 +2412,23 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
     Returns
     -------
     metadata : FileMetadata
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.parquet as pq
+    >>> table = pa.table({'n_legs': [4, 5, 100],
+    ...                   'animal': ["Dog", "Brittle stars", "Centipede"]})
+    >>> pq.write_table(table, 'example.parquet')
+
+    >>> pq.read_metadata('example.parquet')
+    <pyarrow._parquet.FileMetaData object at ...>
+      created_by: parquet-cpp-arrow version ...
+      num_columns: 2
+      num_rows: 3
+      num_row_groups: 1
+      format_version: 1.0
+      serialized_size: 561
     """
     return ParquetFile(where, memory_map=memory_map,
                        decryption_properties=decryption_properties).metadata
@@ -2432,6 +2449,18 @@ def read_schema(where, memory_map=False, decryption_properties=None):
     Returns
     -------
     schema : pyarrow.Schema
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.parquet as pq
+    >>> table = pa.table({'n_legs': [4, 5, 100],
+    ...                   'animal': ["Dog", "Brittle stars", "Centipede"]})
+    >>> pq.write_table(table, 'example.parquet')
+
+    >>> pq.read_schema('example.parquet')
+    n_legs: int64
+    animal: string
     """
     return ParquetFile(
         where, memory_map=memory_map,

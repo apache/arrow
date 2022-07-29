@@ -51,3 +51,21 @@
     ...
     fun:*re2*Prog*
 }
+{
+    <OpenTelemetry>:Thread locals don't appear to be freed
+    Memcheck:Leak
+    ...
+    fun:*opentelemetry*ThreadLocalContextStorage*GetStack*
+}
+{
+    <OpenTelemetry>:Thread locals don't appear to be freed
+    Memcheck:Leak
+    ...
+    fun:*opentelemetry*ThreadLocalContextStorage*Stack*Resize*
+}
+{
+    <OpenTelemetry>:Thread locals don't appear to be freed
+    Memcheck:Leak
+    ...
+    fun:_dl_allocate_tls
+}

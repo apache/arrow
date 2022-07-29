@@ -30,6 +30,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
 
+#include "arrow/util/tracing_internal.h"
+
 namespace arrow {
 namespace internal {
 
@@ -70,6 +72,20 @@ SerialExecutor::~SerialExecutor() {
 
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  // Wrap the task to propagate a parent tracing span to it
+  struct SpanWrapper {
+    void operator()() {
+      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+      std::move(func)();
+    }
+    FnOnce<void()> func;
+    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
+  };
+  SpanWrapper wrapper{std::move(task),
+                      ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
+  task = std::move(wrapper);
+#endif
   // While the SerialExecutor runs tasks synchronously on its main thread,
   // SpawnReal may be called from external threads (e.g. when transferring back
   // from blocking I/O threads), so we need to keep the state alive *and* to
@@ -412,6 +428,19 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
       // We can still spin up more workers so spin up a new worker
       LaunchWorkersUnlocked(/*threads=*/1);
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // Wrap the task to propagate a parent tracing span to it
+    struct {
+      void operator()() {
+        auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
+        std::move(func)();
+      }
+      FnOnce<void()> func;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
+    } wrapper{std::forward<FnOnce<void()>>(task),
+              ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
+    task = std::move(wrapper);
+#endif
     state_->pending_tasks_.push_back(
         {std::move(task), std::move(stop_token), std::move(stop_callback)});
   }

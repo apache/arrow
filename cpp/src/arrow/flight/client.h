@@ -192,17 +192,22 @@ class ARROW_FLIGHT_EXPORT FlightClient {
 
   /// \brief Connect to an unauthenticated flight service
   /// \param[in] location the URI
-  /// \param[out] client the created FlightClient
-  /// \return Status OK status may not indicate that the connection was
-  /// successful
+  /// \return Arrow result with the created FlightClient, OK status may not indicate that
+  /// the connection was successful
+  static arrow::Result<std::unique_ptr<FlightClient>> Connect(const Location& location);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Connect(const Location& location, std::unique_ptr<FlightClient>* client);
 
   /// \brief Connect to an unauthenticated flight service
   /// \param[in] location the URI
   /// \param[in] options Other options for setting up the client
-  /// \param[out] client the created FlightClient
-  /// \return Status OK status may not indicate that the connection was
-  /// successful
+  /// \return Arrow result with the created FlightClient, OK status may not indicate that
+  /// the connection was successful
+  static arrow::Result<std::unique_ptr<FlightClient>> Connect(
+      const Location& location, const FlightClientOptions& options);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Connect(const Location& location, const FlightClientOptions& options,
                         std::unique_ptr<FlightClient>* client);
 
@@ -227,21 +232,34 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// of results, if any
   /// \param[in] options Per-RPC options
   /// \param[in] action the action to be performed
-  /// \param[out] results an iterator object for reading the returned results
-  /// \return Status
+  /// \return Arrow result with an iterator object for reading the returned results
+  arrow::Result<std::unique_ptr<ResultStream>> DoAction(const FlightCallOptions& options,
+                                                        const Action& action);
+  arrow::Result<std::unique_ptr<ResultStream>> DoAction(const Action& action) {
+    return DoAction({}, action);
+  }
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoAction(const FlightCallOptions& options, const Action& action,
                   std::unique_ptr<ResultStream>* results);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoAction(const Action& action, std::unique_ptr<ResultStream>* results) {
-    return DoAction({}, action, results);
+    return DoAction({}, action).Value(results);
   }
 
   /// \brief Retrieve a list of available Action types
   /// \param[in] options Per-RPC options
-  /// \param[out] actions the available actions
-  /// \return Status
+  /// \return Arrow result with the available actions
+  arrow::Result<std::vector<ActionType>> ListActions(const FlightCallOptions& options);
+  arrow::Result<std::vector<ActionType>> ListActions() {
+    return ListActions(FlightCallOptions());
+  }
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status ListActions(const FlightCallOptions& options, std::vector<ActionType>* actions);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status ListActions(std::vector<ActionType>* actions) {
-    return ListActions({}, actions);
+    return ListActions().Value(actions);
   }
 
   /// \brief Request access plan for a single flight, which may be an existing
@@ -249,14 +267,22 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request, whether a named dataset or
   /// command
-  /// \param[out] info the FlightInfo describing where to access the dataset
-  /// \return Status
+  /// \return Arrow result with the FlightInfo describing where to access the dataset
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor);
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
+      const FlightDescriptor& descriptor) {
+    return GetFlightInfo({}, descriptor);
+  }
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetFlightInfo(const FlightCallOptions& options,
                        const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* info);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status GetFlightInfo(const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* info) {
-    return GetFlightInfo({}, descriptor, info);
+    return GetFlightInfo({}, descriptor).Value(info);
   }
 
   /// \brief Request schema for a single flight, which may be an existing
@@ -283,15 +309,20 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   }
 
   /// \brief List all available flights known to the server
-  /// \param[out] listing an iterator that returns a FlightInfo for each flight
-  /// \return Status
+  /// \return Arrow result with an iterator that returns a FlightInfo for each flight
+  arrow::Result<std::unique_ptr<FlightListing>> ListFlights();
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status ListFlights(std::unique_ptr<FlightListing>* listing);
 
   /// \brief List available flights given indicated filter criteria
   /// \param[in] options Per-RPC options
   /// \param[in] criteria the filter criteria (opaque)
-  /// \param[out] listing an iterator that returns a FlightInfo for each flight
-  /// \return Status
+  /// \return Arrow result with an iterator that returns a FlightInfo for each flight
+  arrow::Result<std::unique_ptr<FlightListing>> ListFlights(
+      const FlightCallOptions& options, const Criteria& criteria);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
                      std::unique_ptr<FlightListing>* listing);
 
@@ -299,14 +330,28 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// stream. Returns record batch stream reader
   /// \param[in] options Per-RPC options
   /// \param[in] ticket The flight ticket to use
-  /// \param[out] stream the returned RecordBatchReader
-  /// \return Status
-  Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-               std::unique_ptr<FlightStreamReader>* stream);
-  Status DoGet(const Ticket& ticket, std::unique_ptr<FlightStreamReader>* stream) {
-    return DoGet({}, ticket, stream);
+  /// \return Arrow result with the returned RecordBatchReader
+  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
+      const FlightCallOptions& options, const Ticket& ticket);
+  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(const Ticket& ticket) {
+    return DoGet({}, ticket);
   }
 
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
+               std::unique_ptr<FlightStreamReader>* stream);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status DoGet(const Ticket& ticket, std::unique_ptr<FlightStreamReader>* stream) {
+    return DoGet({}, ticket).Value(stream);
+  }
+
+  /// \brief DoPut return value
+  struct DoPutResult {
+    /// \brief a writer to write record batches to
+    std::unique_ptr<FlightStreamWriter> writer;
+    /// \brief a reader for application metadata from the server
+    std::unique_ptr<FlightMetadataReader> reader;
+  };
   /// \brief Upload data to a Flight described by the given
   /// descriptor. The caller must call Close() on the returned stream
   /// once they are done writing.
@@ -318,26 +363,53 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the descriptor of the stream
   /// \param[in] schema the schema for the data to upload
-  /// \param[out] stream a writer to write record batches to
-  /// \param[out] reader a reader for application metadata from the server
-  /// \return Status
-  Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-               const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightStreamWriter>* stream,
-               std::unique_ptr<FlightMetadataReader>* reader);
-  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightStreamWriter>* stream,
-               std::unique_ptr<FlightMetadataReader>* reader) {
-    return DoPut({}, descriptor, schema, stream, reader);
+  /// \return Arrow result with a DoPutResult struct holding a reader and a writer
+  arrow::Result<DoPutResult> DoPut(const FlightCallOptions& options,
+                                   const FlightDescriptor& descriptor,
+                                   const std::shared_ptr<Schema>& schema);
+
+  arrow::Result<DoPutResult> DoPut(const FlightDescriptor& descriptor,
+                                   const std::shared_ptr<Schema>& schema) {
+    return DoPut({}, descriptor, schema);
   }
 
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+               const std::shared_ptr<Schema>& schema,
+               std::unique_ptr<FlightStreamWriter>* writer,
+               std::unique_ptr<FlightMetadataReader>* reader);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
+               std::unique_ptr<FlightStreamWriter>* writer,
+               std::unique_ptr<FlightMetadataReader>* reader) {
+    ARROW_ASSIGN_OR_RAISE(auto output, DoPut({}, descriptor, schema));
+    *writer = std::move(output.writer);
+    *reader = std::move(output.reader);
+    return Status::OK();
+  }
+
+  struct DoExchangeResult {
+    std::unique_ptr<FlightStreamWriter> writer;
+    std::unique_ptr<FlightStreamReader> reader;
+  };
+  arrow::Result<DoExchangeResult> DoExchange(const FlightCallOptions& options,
+                                             const FlightDescriptor& descriptor);
+  arrow::Result<DoExchangeResult> DoExchange(const FlightDescriptor& descriptor) {
+    return DoExchange({}, descriptor);
+  }
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoExchange(const FlightCallOptions& options, const FlightDescriptor& descriptor,
                     std::unique_ptr<FlightStreamWriter>* writer,
                     std::unique_ptr<FlightStreamReader>* reader);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status DoExchange(const FlightDescriptor& descriptor,
                     std::unique_ptr<FlightStreamWriter>* writer,
                     std::unique_ptr<FlightStreamReader>* reader) {
-    return DoExchange({}, descriptor, writer, reader);
+    ARROW_ASSIGN_OR_RAISE(auto output, DoExchange({}, descriptor));
+    *writer = std::move(output.writer);
+    *reader = std::move(output.reader);
+    return Status::OK();
   }
 
   /// \brief Explicitly shut down and clean up the client.

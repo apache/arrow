@@ -2045,6 +2045,7 @@ def test_table_to_recordbatchreader():
     assert reader.read_next_batch().num_rows == 1
 
 
+@pytest.mark.dataset
 def test_table_join():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2071,6 +2072,7 @@ def test_table_join():
     })
 
 
+@pytest.mark.dataset
 def test_table_join_unique_key():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2097,6 +2099,7 @@ def test_table_join_unique_key():
     })
 
 
+@pytest.mark.dataset
 def test_table_join_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],

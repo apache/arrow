@@ -93,8 +93,7 @@ Status UploadBatchesToFlight(const std::vector<std::shared_ptr<RecordBatch>>& ch
 Status ConsumeFlightLocation(
     FlightClient* read_client, const Ticket& ticket,
     const std::vector<std::shared_ptr<RecordBatch>>& retrieved_data) {
-  std::unique_ptr<FlightStreamReader> stream;
-  RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream, read_client->DoGet(ticket));
 
   int counter = 0;
   const int expected = static_cast<int>(retrieved_data.size());
@@ -161,14 +160,14 @@ class IntegrationTestScenario : public Scenario {
     std::vector<std::shared_ptr<RecordBatch>> original_data;
     ABORT_NOT_OK(ReadBatches(reader, &original_data));
 
-    std::unique_ptr<FlightStreamWriter> write_stream;
-    std::unique_ptr<FlightMetadataReader> metadata_reader;
-    ABORT_NOT_OK(client->DoPut(descr, original_schema, &write_stream, &metadata_reader));
+    auto do_put_result = client->DoPut(descr, original_schema).ValueOrDie();
+    std::unique_ptr<FlightStreamWriter> write_stream = std::move(do_put_result.writer);
+    std::unique_ptr<FlightMetadataReader> metadata_reader =
+        std::move(do_put_result.reader);
     ABORT_NOT_OK(UploadBatchesToFlight(original_data, *write_stream, *metadata_reader));
 
     // 2. Get the ticket for the data.
-    std::unique_ptr<FlightInfo> info;
-    ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
+    std::unique_ptr<FlightInfo> info = client->GetFlightInfo(descr).ValueOrDie();
 
     std::shared_ptr<Schema> schema;
     ipc::DictionaryMemo dict_memo;
@@ -189,7 +188,7 @@ class IntegrationTestScenario : public Scenario {
         for (const auto& location : endpoint.locations) {
           std::cout << "Verifying location " << location.ToString() << std::endl;
           std::unique_ptr<FlightClient> read_client;
-          RETURN_NOT_OK(FlightClient::Connect(location, &read_client));
+          ARROW_ASSIGN_OR_RAISE(read_client, FlightClient::Connect(location));
           RETURN_NOT_OK(ConsumeFlightLocation(read_client.get(), ticket, original_data));
           RETURN_NOT_OK(read_client->Close());
         }
@@ -212,7 +211,7 @@ arrow::Status RunScenario(arrow::flight::integration_tests::Scenario* scenario) 
   RETURN_NOT_OK(scenario->MakeClient(&options));
   ARROW_ASSIGN_OR_RAISE(auto location,
                         arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
-  RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
+  ARROW_ASSIGN_OR_RAISE(client, arrow::flight::FlightClient::Connect(location, options));
   return scenario->RunClient(std::move(client));
 }
 

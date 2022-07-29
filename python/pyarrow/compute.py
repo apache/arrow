@@ -79,7 +79,6 @@ from pyarrow._compute import (  # noqa
     # Expressions
     Expression,
 )
-from pyarrow import _exec_plan  # noqa
 
 from collections import namedtuple
 import inspect

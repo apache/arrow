@@ -56,7 +56,11 @@
 #include <llvm/MC/SubtargetFeature.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Host.h>
+#if LLVM_VERSION_MAJOR >= 14
+#include <llvm/MC/TargetRegistry.h>
+#else
 #include <llvm/Support/TargetRegistry.h>
+#endif
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>

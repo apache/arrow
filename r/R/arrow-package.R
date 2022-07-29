@@ -23,7 +23,7 @@
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
-#' @importFrom rlang is_list call2 is_empty as_function
+#' @importFrom rlang is_list call2 is_empty as_function as_label
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -31,6 +31,11 @@
 
 #' @importFrom vctrs s3_register vec_size vec_cast vec_unique
 .onLoad <- function(...) {
+  if (arrow_available()) {
+    # Make sure C++ knows on which thread it is safe to call the R API
+    InitializeMainRThread()
+  }
+
   dplyr_methods <- paste0(
     "dplyr::",
     c(
@@ -75,6 +80,11 @@
     }
   }
 
+  if (arrow_available()) {
+    # register extension types that we use internally
+    reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
+  }
+
   invisible()
 }
 
@@ -97,7 +107,12 @@
       #
       # Let's print a message if some are off
       if (some_features_are_off(features)) {
-        packageStartupMessage("See arrow_info() for available features")
+        packageStartupMessage(
+          paste(
+            "Some features are not enabled in this build of Arrow.",
+            "Run `arrow_info()` for more information."
+          )
+        )
       }
     })
   }
@@ -254,7 +269,7 @@ arrow_info <- function() {
 some_features_are_off <- function(features) {
   # `features` is a named logical vector (as in arrow_info()$capabilities)
   # Let's exclude some less relevant ones
-  blocklist <- c("lzo", "bz2", "brotli")
+  blocklist <- c("lzo", "bz2", "brotli", "engine")
   # Return TRUE if any of the other features are FALSE
   !all(features[setdiff(names(features), blocklist)])
 }

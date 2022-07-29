@@ -49,6 +49,7 @@ jobs:
       - name: Check
         env:
           _R_CHECK_CRAN_INCOMING_: false
+          ARROW_R_VERBOSE_TEST: true
         run: arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out

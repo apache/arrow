@@ -22,10 +22,11 @@
 * `read_csv_arrow()`'s readr-style type `T` is now mapped to `timestamp(unit = "ns")` instead of `timestamp(unit = "s")`.
 * `lubridate`:
   * component extraction functions: `tz()` (timezone), `semester()` (semester), `dst()` (daylight savings time indicator), `date()` (extract date), `epiyear()` (epiyear), improvements to `month()`, which now works with integer inputs.
-  * `make_date()` & `make_datetime()` + `ISOdatetime()` & `ISOdate()` to create date-times from numeric representations. 
+  * Added `make_date()` & `make_datetime()` + `ISOdatetime()` & `ISOdate()` to create date-times from numeric representations. 
+  * Added `decimal_date()` and `date_decimal()`
 * date-time functionality:
-  * `difftime` and `as.difftime()` 
-  * `as.Date()` to convert to date
+  * Added `difftime` and `as.difftime()` 
+  * Added `as.Date()` to convert to date
 
 # arrow 7.0.0
 

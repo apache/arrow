@@ -34,8 +34,8 @@ rename.Dataset <- rename.ArrowTabular <- rename.RecordBatchReader <- rename.arro
 
 rename_with.arrow_dplyr_query <- function(.data, .fn, .cols = everything(), ...) {
   .fn <- as_function(.fn)
-  old_names <- names(select(.data, {{ .cols }}))
-  rename(.data, !!set_names(old_names, .fn(old_names)))
+  old_names <- names(dplyr::select(.data, {{ .cols }}))
+  dplyr::rename(.data, !!set_names(old_names, .fn(old_names)))
 }
 rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader <- rename_with.arrow_dplyr_query
 

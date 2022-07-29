@@ -108,6 +108,7 @@ Collate:
     'table.R'
     'dplyr.R'
     'duckdb.R'
+    'extension.R'
     'feather.R'
     'field.R'
     'filesystem.R'

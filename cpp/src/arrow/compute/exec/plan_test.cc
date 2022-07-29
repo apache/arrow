@@ -493,6 +493,10 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
         TestConsumer(std::atomic<uint32_t>* batches_seen, Future<> finish)
             : batches_seen(batches_seen), finish(std::move(finish)) {}
 
+        Status Init(const std::shared_ptr<Schema>& schema) override {
+          return Status::OK();
+        }
+
         Status Consume(ExecBatch batch) override {
           (*batches_seen)++;
           return Status::OK();
@@ -539,7 +543,7 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
 
       auto basic_data = MakeBasicBatches();
 
-      TableSinkNodeOptions options{&out, basic_data.schema};
+      TableSinkNodeOptions options{&out};
 
       ASSERT_OK_AND_ASSIGN(
           auto source, MakeExecNode("source", plan.get(), {},
@@ -560,16 +564,26 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
 }
 
 TEST(ExecPlanExecution, ConsumingSinkError) {
+  struct InitErrorConsumer : public SinkNodeConsumer {
+    Status Init(const std::shared_ptr<Schema>& schema) override {
+      return Status::Invalid("XYZ");
+    }
+    Status Consume(ExecBatch batch) override { return Status::OK(); }
+    Future<> Finish() override { return Future<>::MakeFinished(); }
+  };
   struct ConsumeErrorConsumer : public SinkNodeConsumer {
+    Status Init(const std::shared_ptr<Schema>& schema) override { return Status::OK(); }
     Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
     Future<> Finish() override { return Future<>::MakeFinished(); }
   };
   struct FinishErrorConsumer : public SinkNodeConsumer {
+    Status Init(const std::shared_ptr<Schema>& schema) override { return Status::OK(); }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
     Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
   };
   std::vector<std::shared_ptr<SinkNodeConsumer>> consumers{
-      std::make_shared<ConsumeErrorConsumer>(), std::make_shared<FinishErrorConsumer>()};
+      std::make_shared<InitErrorConsumer>(), std::make_shared<ConsumeErrorConsumer>(),
+      std::make_shared<FinishErrorConsumer>()};
 
   for (auto& consumer : consumers) {
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
@@ -585,33 +599,15 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
                      SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
     ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
                            ConsumingSinkNodeOptions(consumer)));
-    ASSERT_OK(plan->StartProducing());
-    ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
+    // If we fail at init we see it during StartProducing.  Other
+    // failures are not seen until we start running.
+    if (std::dynamic_pointer_cast<InitErrorConsumer>(consumer)) {
+      ASSERT_RAISES(Invalid, plan->StartProducing());
+    } else {
+      ASSERT_OK(plan->StartProducing());
+      ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
+    }
   }
-}
-
-TEST(ExecPlanExecution, ConsumingSinkErrorFinish) {
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  struct FinishErrorConsumer : public SinkNodeConsumer {
-    Status Consume(ExecBatch batch) override { return Status::OK(); }
-    Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
-  };
-  std::shared_ptr<FinishErrorConsumer> consumer = std::make_shared<FinishErrorConsumer>();
-
-  auto basic_data = MakeBasicBatches();
-  ASSERT_OK(
-      Declaration::Sequence(
-          {{"source", SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
-           {"consuming_sink", ConsumingSinkNodeOptions(consumer)}})
-          .AddToPlan(plan.get()));
-  ASSERT_OK_AND_ASSIGN(
-      auto source,
-      MakeExecNode("source", plan.get(), {},
-                   SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
-  ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
-                         ConsumingSinkNodeOptions(consumer)));
-  ASSERT_OK(plan->StartProducing());
-  ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
 }
 
 TEST(ExecPlanExecution, StressSourceSink) {

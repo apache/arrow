@@ -162,9 +162,8 @@ class TestFlightSqlServer : public ::testing::Test {
     ss << "grpc://localhost:" << port;
     std::string uri = ss.str();
 
-    std::unique_ptr<FlightClient> client;
     ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
-    ASSERT_OK(FlightClient::Connect(location, &client));
+    ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
 
     sql_client.reset(new FlightSqlClient(std::move(client)));
   }

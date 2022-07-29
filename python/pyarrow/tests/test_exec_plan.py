@@ -16,9 +16,15 @@
 # under the License.
 
 import pytest
-
 import pyarrow as pa
-import pyarrow._exec_plan as ep
+
+try:
+    import pyarrow.dataset as ds
+    import pyarrow._exec_plan as ep
+except ImportError:
+    pass
+
+pytestmark = pytest.mark.dataset
 
 
 def test_joins_corner_cases():
@@ -33,13 +39,13 @@ def test_joins_corner_cases():
     })
 
     with pytest.raises(pa.ArrowInvalid):
-        ep.tables_join("left outer", t1, "", t2, "")
+        ep._perform_join("left outer", t1, "", t2, "")
 
     with pytest.raises(TypeError):
-        ep.tables_join("left outer", None, "colA", t2, "colB")
+        ep._perform_join("left outer", None, "colA", t2, "colB")
 
     with pytest.raises(ValueError):
-        ep.tables_join("super mario join", t1, "colA", t2, "colB")
+        ep._perform_join("super mario join", t1, "colA", t2, "colB")
 
 
 @pytest.mark.parametrize("jointype,expected", [
@@ -81,7 +87,8 @@ def test_joins_corner_cases():
     })
 ])
 @pytest.mark.parametrize("use_threads", [True, False])
-def test_joins(jointype, expected, use_threads):
+@pytest.mark.parametrize("use_datasets", [False, True])
+def test_joins(jointype, expected, use_threads, use_datasets):
     # Allocate table here instead of using parametrize
     # this prevents having arrow allocated memory forever around.
     expected = pa.table(expected)
@@ -96,8 +103,12 @@ def test_joins(jointype, expected, use_threads):
         "col3": ["Z", "B", "A"]
     })
 
-    r = ep.tables_join(jointype, t1, "colA", t2, "colB",
-                       use_threads=use_threads, coalesce_keys=True)
+    if use_datasets:
+        t1 = ds.dataset([t1])
+        t2 = ds.dataset([t2])
+
+    r = ep._perform_join(jointype, t1, "colA", t2, "colB",
+                         use_threads=use_threads, coalesce_keys=True)
     r = r.combine_chunks()
     if "right" in jointype:
         r = r.sort_by("colB")
@@ -120,7 +131,7 @@ def test_table_join_collisions():
         "colA": [99, 2, 1],
     })
 
-    result = ep.tables_join(
+    result = ep._perform_join(
         "full outer", t1, ["colA", "colB"], t2, ["colA", "colB"])
     assert result.combine_chunks() == pa.table([
         [1, 2, 6, None],
@@ -132,8 +143,9 @@ def test_table_join_collisions():
         [1, 2, None, 99],
     ], names=["colA", "colB", "colVals", "colB", "colVals", "colUniq", "colA"])
 
-    result = ep.tables_join("full outer", t1, "colA",
-                            t2, "colA", right_suffix="_r", coalesce_keys=False)
+    result = ep._perform_join("full outer", t1, "colA",
+                              t2, "colA", right_suffix="_r",
+                              coalesce_keys=False)
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, None],
         "colB": [10, 20, 60, None],
@@ -144,8 +156,9 @@ def test_table_join_collisions():
         "colA_r": [1, 2, None, 99],
     })
 
-    result = ep.tables_join("full outer", t1, "colA",
-                            t2, "colA", right_suffix="_r", coalesce_keys=True)
+    result = ep._perform_join("full outer", t1, "colA",
+                              t2, "colA", right_suffix="_r",
+                              coalesce_keys=True)
     assert result.combine_chunks() == pa.table({
         "colA": [1, 2, 6, 99],
         "colB": [10, 20, 60, None],
@@ -168,9 +181,9 @@ def test_table_join_keys_order():
         "colX": [99, 2, 1],
     })
 
-    result = ep.tables_join("full outer", t1, "colA", t2, "colX",
-                            left_suffix="_l", right_suffix="_r",
-                            coalesce_keys=True)
+    result = ep._perform_join("full outer", t1, "colA", t2, "colX",
+                              left_suffix="_l", right_suffix="_r",
+                              coalesce_keys=True)
     assert result.combine_chunks() == pa.table({
         "colB": [10, 20, 60, None],
         "colA": [1, 2, 6, 99],

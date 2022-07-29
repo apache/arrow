@@ -25,6 +25,34 @@ cdef class ChunkedArray(_PandasConvertible):
     Warnings
     --------
     Do not call this class's constructor directly.
+
+    Examples
+    --------
+    To construct a ChunkedArray object use :func:`pyarrow.chunked_array`:
+
+    >>> import pyarrow as pa
+    >>> pa.chunked_array([], type=pa.int8())
+    <pyarrow.lib.ChunkedArray object at ...>
+    [
+    ...
+    ]
+
+    >>> pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+    <pyarrow.lib.ChunkedArray object at ...>
+    [
+      [
+        2,
+        2,
+        4
+      ],
+      [
+        4,
+        5,
+        100
+      ]
+    ]
+    >>> isinstance(pa.chunked_array([[2, 2, 4], [4, 5, 100]]), pa.ChunkedArray)
+    True
     """
 
     def __cinit__(self):
@@ -51,9 +79,29 @@ cdef class ChunkedArray(_PandasConvertible):
 
     @property
     def type(self):
+        """
+        Return data type of a ChunkedArray.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.type
+        DataType(int64)
+        """
         return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
 
     def length(self):
+        """
+        Return length of a ChunkedArray.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.length()
+        6
+        """
         return self.chunked_array.length()
 
     def __len__(self):
@@ -85,6 +133,13 @@ cdef class ChunkedArray(_PandasConvertible):
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.to_string(skip_new_lines=True)
+        '[[2,2,4],[4,5,100]]'
         """
         cdef:
             c_string result
@@ -144,6 +199,13 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.null_count
+        1
         """
         return self.chunked_array.null_count()
 
@@ -162,6 +224,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
         The dictionary of dictionary arrays will always be counted in their 
         entirety even if the array only references a portion of the dictionary.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.nbytes
+        49
         """
         cdef:
             CResult[int64_t] c_res_buffer
@@ -180,6 +249,13 @@ cdef class ChunkedArray(_PandasConvertible):
 
         If a buffer is referenced multiple times then it will
         only be counted once.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.get_total_buffer_size()
+        49
         """
         cdef:
             int64_t total_buffer_size
@@ -235,6 +311,25 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         array : boolean Array or ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.is_null()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            false,
+            false,
+            false
+          ],
+          [
+            false,
+            true,
+            false
+          ]
+        ]
         """
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
@@ -242,6 +337,25 @@ cdef class ChunkedArray(_PandasConvertible):
     def is_valid(self):
         """
         Return boolean array indicating the non-null values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.is_valid()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            true,
+            true,
+            true
+          ],
+          [
+            true,
+            false,
+            true
+          ]
+        ]
         """
         return _pc().is_valid(self)
 
@@ -253,7 +367,9 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def fill_null(self, fill_value):
         """
-        See :func:`pyarrow.compute.fill_null` for usage.
+        Replace each null element in values with fill_value.
+
+        See :func:`pyarrow.compute.fill_null` for full usage.
 
         Parameters
         ----------
@@ -264,6 +380,24 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         result : Array or ChunkedArray
             A new array with nulls replaced by the given value.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> fill_value = pa.scalar(5, type=pa.int8())
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.fill_null(fill_value)
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4,
+            4,
+            5,
+            100
+          ]
+        ]
         """
         return _pc().fill_null(self, fill_value)
 
@@ -279,6 +413,19 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         are_equal : bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> animals = pa.chunked_array((
+        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Horse", "Brittle stars", "Centipede"]
+        ...             ))
+        >>> n_legs.equals(n_legs)
+        True
+        >>> n_legs.equals(animals)
+        False
         """
         if other is None:
             return False
@@ -303,6 +450,13 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         array : numpy.ndarray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.to_numpy()
+        array([  2,   2,   4,   4,   5, 100])
         """
         cdef:
             PyObject* out
@@ -357,6 +511,19 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         cast : Array or ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs.type
+        DataType(int64)
+
+        Change the data type of an array:
+
+        >>> n_legs_seconds = n_legs.cast(pa.duration('s'))
+        >>> n_legs_seconds.type
+        DurationType(duration[s])
         """
         return _pc().cast(self, target_type, safe=safe)
 
@@ -375,6 +542,50 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         encoded : ChunkedArray
             A dictionary-encoded version of this array.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> animals = pa.chunked_array((
+        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Horse", "Brittle stars", "Centipede"]
+        ...             ))
+        >>> animals.dictionary_encode()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+        ...
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ],
+        ...
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              3,
+              4,
+              5
+            ]
+        ]
         """
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
@@ -392,6 +603,53 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         result : list of ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> c_arr = pa.chunked_array(n_legs.value_counts())
+        >>> c_arr
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          -- is_valid: all not null
+          -- child 0 type: int64
+            [
+              2,
+              4,
+              5,
+              100
+            ]
+          -- child 1 type: int64
+            [
+              2,
+              2,
+              1,
+              1
+            ]
+        ]
+        >>> c_arr.flatten()
+        [<pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            4,
+            5,
+            100
+          ]
+        ], <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            1,
+            1
+          ]
+        ]]
+        >>> c_arr.type
+        StructType(struct<values: int64, counts: int64>)
+        >>> n_legs.type
+        DataType(int64)
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] flattened
@@ -414,6 +672,35 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         result : Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.combine_chunks()
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          2,
+          2,
+          4,
+          4,
+          5,
+          100
+        ]
         """
         return concat_arrays(self.chunks)
 
@@ -424,6 +711,33 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         pyarrow.Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.unique()
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          2,
+          4,
+          5,
+          100
+        ]
         """
         return _pc().call_function('unique', [self])
 
@@ -434,6 +748,42 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         An array of  <input type "Values", int64_t "Counts"> structs
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.value_counts()
+        <pyarrow.lib.StructArray object at ...>
+        -- is_valid: all not null
+        -- child 0 type: int64
+          [
+            2,
+            4,
+            5,
+            100
+          ]
+        -- child 1 type: int64
+          [
+            2,
+            2,
+            1,
+            1
+          ]
         """
         return _pc().call_function('value_counts', [self])
 
@@ -452,6 +802,35 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         sliced : ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.slice(2,2)
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            4
+          ],
+          [
+            4
+          ]
+        ]
         """
         cdef shared_ptr[CChunkedArray] result
 
@@ -484,6 +863,49 @@ cdef class ChunkedArray(_PandasConvertible):
         filtered : Array or ChunkedArray
             An array of the same type, with only the elements selected by
             the boolean mask.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> mask = pa.array([True, False, None, True, False, True])
+        >>> n_legs.filter(mask)
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2
+          ],
+          [
+            4,
+            100
+          ]
+        ]
+        >>> n_legs.filter(mask, null_selection_behavior="emit_null")
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            null
+          ],
+          [
+            4,
+            100
+          ]
+        ]
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -508,6 +930,29 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         index : Int64Scalar
             The index of the value in the array (-1 if not found).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.index(4)
+        <pyarrow.Int64Scalar: 2>
+        >>> n_legs.index(4, start=3)
+        <pyarrow.Int64Scalar: 3>
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
@@ -526,6 +971,34 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         taken : Array or ChunkedArray
             An array with the same datatype, containing the taken values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            4
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.take([1,4,5])
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            5,
+            100
+          ]
+        ]
         """
         return _pc().take(self, indices)
 
@@ -533,6 +1006,38 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Remove missing values from a chunked array.
         See :func:`pyarrow.compute.drop_null` for full description.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            null
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.drop_null()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
         """
         return _pc().drop_null(self)
 
@@ -555,6 +1060,79 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         result : ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> arr_1 = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> arr_2 = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
+        >>> c_arr = pa.chunked_array([arr_1, arr_2])
+        >>> c_arr
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+        ...
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ],
+        ...
+          -- dictionary:
+            [
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ]
+        ]
+        >>> c_arr.unify_dictionaries()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+        ...
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              0,
+              1,
+              2
+            ],
+        ...
+          -- dictionary:
+            [
+              "Flamingo",
+              "Parot",
+              "Dog",
+              "Horse",
+              "Brittle stars",
+              "Centipede"
+            ]
+          -- indices:
+            [
+              3,
+              4,
+              5
+            ]
+        ]
         """
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -569,17 +1147,24 @@ cdef class ChunkedArray(_PandasConvertible):
     @property
     def num_chunks(self):
         """
-        Number of underlying chunks
+        Number of underlying chunks.
 
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs.num_chunks
+        2
         """
         return self.chunked_array.num_chunks()
 
     def chunk(self, i):
         """
-        Select a chunk by its index
+        Select a chunk by its index.
 
         Parameters
         ----------
@@ -588,6 +1173,18 @@ cdef class ChunkedArray(_PandasConvertible):
         Returns
         -------
         pyarrow.Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs.chunk(1)
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          4,
+          5,
+          100
+        ]
         """
         if i >= self.num_chunks or i < 0:
             raise IndexError('Chunk index out of range.')
@@ -596,15 +1193,70 @@ cdef class ChunkedArray(_PandasConvertible):
 
     @property
     def chunks(self):
+        """
+        Convert to a list of single-chunked arrays.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, None], [4, 5, 100]])
+        >>> n_legs
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            2,
+            null
+          ],
+          [
+            4,
+            5,
+            100
+          ]
+        ]
+        >>> n_legs.chunks
+        [<pyarrow.lib.Int64Array object at ...>
+        [
+          2,
+          2,
+          null
+        ], <pyarrow.lib.Int64Array object at ...>
+        [
+          4,
+          5,
+          100
+        ]]
+        """
         return list(self.iterchunks())
 
     def iterchunks(self):
+        """
+        Convert to an iterator of ChunkArrays.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> for i in n_legs.iterchunks():
+        ...     print(i.null_count)
+        ...
+        0
+        1
+
+        """
         for i in range(self.num_chunks):
             yield self.chunk(i)
 
     def to_pylist(self):
         """
         Convert to a list of native Python objects.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, None, 100]])
+        >>> n_legs.to_pylist()
+        [2, 2, 4, 4, None, 100]
         """
         result = []
         for i in range(self.num_chunks):
@@ -625,6 +1277,30 @@ def chunked_array(arrays, type=None):
     Returns
     -------
     ChunkedArray
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.chunked_array([], type=pa.int8())
+    <pyarrow.lib.ChunkedArray object at ...>
+    [
+    ...
+    ]
+
+    >>> pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+    <pyarrow.lib.ChunkedArray object at ...>
+    [
+      [
+        2,
+        2,
+        4
+      ],
+      [
+        4,
+        5,
+        100
+      ]
+    ]
     """
     cdef:
         Array arr
@@ -820,7 +1496,7 @@ cdef class RecordBatch(_PandasConvertible):
         int: int64
         str: string
         >>> pa.RecordBatch.from_pylist(pylist)[0]
-        <pyarrow.lib.Int64Array object at 0x1256b08e0>
+        <pyarrow.lib.Int64Array object at ...>
         [
           1,
           2
@@ -1476,6 +2152,108 @@ cdef class Table(_PandasConvertible):
     --------
     Do not call this class's constructor directly, use one of the ``from_*``
     methods instead.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> n_legs = pa.array([2, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    >>> names = ["n_legs", "animals"]
+
+    Construct a Table from arrays:
+
+    >>> pa.Table.from_arrays([n_legs, animals], names=names)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from a RecordBatch:
+
+    >>> batch = pa.record_batch([n_legs, animals], names=names)
+    >>> pa.Table.from_batches([batch])
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from pandas DataFrame:
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+    ...                    'n_legs': [2, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+    >>> pa.Table.from_pandas(df)
+    pyarrow.Table
+    year: int64
+    n_legs: int64
+    animals: string
+    ----
+    year: [[2020,2022,2019,2021]]
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from a dictionary of arrays:
+
+    >>> pydict = {'n_legs': n_legs, 'animals': animals}
+    >>> pa.Table.from_pydict(pydict)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    >>> pa.Table.from_pydict(pydict).schema
+    n_legs: int64
+    animals: string
+
+    Construct a Table from a dictionary of arrays with metadata:
+
+    >>> my_metadata={"n_legs": "Number of legs per animal"}
+    >>> pa.Table.from_pydict(pydict, metadata=my_metadata).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+
+    Construct a Table from a list of rows:
+
+    >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'}, {'year': 2021, 'animals': 'Centipede'}]
+    >>> pa.Table.from_pylist(pylist)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,null]]
+    animals: [["Flamingo","Centipede"]]
+
+    Construct a Table from a list of rows with pyarrow schema:
+
+    >>> my_schema = pa.schema([
+    ...     pa.field('year', pa.int64()),
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"year": "Year of entry"})
+    >>> pa.Table.from_pylist(pylist, schema=my_schema).schema
+    year: int64
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    year: 'Year of entry'
+
+    Construct a Table with :func:`pyarrow.table`:
+
+    >>> pa.table([n_legs, animals], names=names)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
     """
 
     def __cinit__(self):
@@ -1591,6 +2369,42 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.slice(length=3)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022,2019]]
+        n_legs: [[2,4,5]]
+        animals: [["Flamingo","Horse","Brittle stars"]]
+        >>> table.slice(offset=2)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2019,2021]]
+        n_legs: [[5,100]]
+        animals: [["Brittle stars","Centipede"]]
+        >>> table.slice(offset=2, length=1)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2019]]
+        n_legs: [[5]]
+        animals: [["Brittle stars"]]
         """
         cdef shared_ptr[CTable] result
 
@@ -1623,6 +2437,37 @@ cdef class Table(_PandasConvertible):
         filtered : Table
             A table of the same schema, with only the rows selected
             by the boolean mask.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Define a mask and select rows:
+
+        >>> mask=[True, True, False, None]
+        >>> table.filter(mask)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022]]
+        n_legs: [[2,4]]
+        animals: [["Flamingo","Horse"]]
+        >>> table.filter(mask, null_selection_behavior='emit_null')
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022,null]]
+        n_legs: [[2,4,null]]
+        animals: [["Flamingo","Horse",null]]
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
@@ -1641,6 +2486,24 @@ cdef class Table(_PandasConvertible):
         -------
         taken : Table
             A table with the same schema, containing the taken rows.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.take([1,3])
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2022,2021]]
+        n_legs: [[4,100]]
+        animals: [["Horse","Centipede"]]
         """
         return _pc().take(self, indices)
 
@@ -1648,6 +2511,24 @@ cdef class Table(_PandasConvertible):
         """
         Remove missing values from a Table.
         See :func:`pyarrow.compute.drop_null` for full usage.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.drop_null()
+        pyarrow.Table
+        year: double
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2022,2021]]
+        n_legs: [[4,100]]
+        animals: [["Horse","Centipede"]]
         """
         return _pc().drop_null(self)
 
@@ -1666,6 +2547,27 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.select([0,1])
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        ----
+        year: [[2020,2022,2019,2021]]
+        n_legs: [[2,4,5,100]]
+        >>> table.select(["year"])
+        pyarrow.Table
+        year: int64
+        ----
+        year: [[2020,2022,2019,2021]]
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1694,6 +2596,44 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Constructing a Table with pyarrow schema and metadata:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> table= pa.table(df, my_schema)
+        >>> table.schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+        pandas: ...
+
+        Create a shallow copy of a Table with deleted schema metadata:
+
+        >>> table.replace_schema_metadata().schema
+        n_legs: int64
+        animals: string
+
+        Create a shallow copy of a Table with new schema metadata:
+
+        >>> metadata={"animals": "Which animal"}
+        >>> table.replace_schema_metadata(metadata = metadata).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        animals: 'Which animal'
         """
         cdef:
             shared_ptr[const CKeyValueMetadata] c_meta
@@ -1721,6 +2661,46 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
+        ...                    {'year': 2022, 'n_legs': 4}])
+        >>> month = pa.array([4, 6])
+        >>> table = pa.Table.from_arrays([struct,month],
+        ...                              names = ["a", "month"])
+        >>> table
+        pyarrow.Table
+        a: struct<animals: string, n_legs: int64, year: int64>
+          child 0, animals: string
+          child 1, n_legs: int64
+          child 2, year: int64
+        month: int64
+        ----
+        a: [
+          -- is_valid: all not null
+          -- child 0 type: string
+        ["Parrot",null]
+          -- child 1 type: int64
+        [2,4]
+          -- child 2 type: int64
+        [null,2022]]
+        month: [[4,6]]
+
+        Flatten the columns with struct field:
+
+        >>> table.flatten()
+        pyarrow.Table
+        a.animals: string
+        a.n_legs: int64
+        a.year: int64
+        month: int64
+        ----
+        a.animals: [["Parrot",null]]
+        a.n_legs: [[2,4]]
+        a.year: [[null,2022]]
+        month: [[4,6]]
         """
         cdef:
             shared_ptr[CTable] flattened
@@ -1746,6 +2726,28 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+        >>> animals = pa.chunked_array([["Flamingo", "Parrot", "Dog"], ["Horse", "Brittle stars", "Centipede"]])
+        >>> names = ["n_legs", "animals"]
+        >>> table = pa.table([n_legs, animals], names=names)
+        >>> table
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,2,4],[4,5,100]]
+        animals: [["Flamingo","Parrot","Dog"],["Horse","Brittle stars","Centipede"]]
+        >>> table.combine_chunks()
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,2,4,4,5,100]]
+        animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
         """
         cdef:
             shared_ptr[CTable] combined
@@ -1774,6 +2776,35 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> arr_1 = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> arr_2 = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
+        >>> c_arr = pa.chunked_array([arr_1, arr_2])
+        >>> table = pa.table([c_arr], names=["animals"])
+        >>> table
+        pyarrow.Table
+        animals: dictionary<values=string, indices=int32, ordered=0>
+        ----
+        animals: [  -- dictionary:
+        ["Flamingo","Parot","Dog"]  -- indices:
+        [0,1,2],  -- dictionary:
+        ["Horse","Brittle stars","Centipede"]  -- indices:
+        [0,1,2]]
+
+        Unify dictionaries across both chunks:
+
+        >>> table.unify_dictionaries()
+        pyarrow.Table
+        animals: dictionary<values=string, indices=int32, ordered=0>
+        ----
+        animals: [  -- dictionary:
+        ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+        [0,1,2],  -- dictionary:
+        ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+        [3,4,5]]
         """
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -1805,6 +2836,26 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         bool
+
+        Examples
+        --------
+        >>> import pyarrow as pa  
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> names=["n_legs", "animals"]
+        >>> table = pa.Table.from_arrays([n_legs, animals], names=names)
+        >>> table_0 = pa.Table.from_arrays([])
+        >>> table_1 = pa.Table.from_arrays([n_legs, animals],
+        ...                                 names=names,
+        ...                                 metadata={"n_legs": "Number of legs per animal"})
+        >>> table.equals(table)
+        True
+        >>> table.equals(table_0)
+        False
+        >>> table.equals(table_1)
+        True
+        >>> table.equals(table_1, check_metadata=True)
+        False
         """
         if other is None:
             return False
@@ -1833,6 +2884,33 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+
+        Define new schema and cast table values:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.duration('s')),
+        ...     pa.field('animals', pa.string())]
+        ...     )
+        >>> table.cast(target_schema=my_schema)
+        pyarrow.Table
+        n_legs: duration[s]
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
         cdef:
             ChunkedArray column, casted
@@ -1900,15 +2978,17 @@ cdef class Table(_PandasConvertible):
 
         Examples
         --------
-
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df = pd.DataFrame({
-            ...     'int': [1, 2],
-            ...     'str': ['a', 'b']
-            ... })
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> pa.Table.from_pandas(df)
-        <pyarrow.lib.Table object at 0x7f05d1fb1b40>
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -1947,6 +3027,64 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> names = ["n_legs", "animals"]
+
+        Construct a Table from arrays:
+
+        >>> pa.Table.from_arrays([n_legs, animals], names=names)
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+        Construct a Table from arrays with metadata:
+
+        >>> my_metadata={"n_legs": "Number of legs per animal"}
+        >>> pa.Table.from_arrays([n_legs, animals],
+        ...                       names=names,
+        ...                       metadata=my_metadata)
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        >>> pa.Table.from_arrays([n_legs, animals],
+        ...                       names=names,
+        ...                       metadata=my_metadata).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+
+        Construct a Table from arrays with pyarrow schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"animals": "Name of the animal species"})
+        >>> pa.Table.from_arrays([n_legs, animals],
+        ...                       schema=my_schema)
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        >>> pa.Table.from_arrays([n_legs, animals],
+        ...                       schema=my_schema).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        animals: 'Name of the animal species'
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] columns
@@ -1994,14 +3132,31 @@ cdef class Table(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> pydict = {'int': [1, 2], 'str': ['a', 'b']}
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> pydict = {'n_legs': n_legs, 'animals': animals}
+
+        Construct a Table from a dictionary of arrays:
+
         >>> pa.Table.from_pydict(pydict)
         pyarrow.Table
-        int: int64
-        str: string
+        n_legs: int64
+        animals: string
         ----
-        int: [[1,2]]
-        str: [["a","b"]]
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        >>> pa.Table.from_pydict(pydict).schema
+        n_legs: int64
+        animals: string
+
+        Construct a Table from a dictionary of arrays with metadata:
+
+        >>> my_metadata={"n_legs": "Number of legs per animal"}
+        >>> pa.Table.from_pydict(pydict, metadata=my_metadata).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
         """
 
         return _from_pydict(cls=Table,
@@ -2031,14 +3186,34 @@ cdef class Table(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
+        ...           {'year': 2021, 'animals': 'Centipede'}]
+
+        Construct a Table from a list of rows:
+
         >>> pa.Table.from_pylist(pylist)
         pyarrow.Table
-        int: int64
-        str: string
+        n_legs: int64
+        animals: string
         ----
-        int: [[1,2]]
-        str: [["a","b"]]
+        n_legs: [[2,null]]
+        animals: [["Flamingo","Centipede"]]
+
+        Construct a Table from a list of rows with pyarrow schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('year', pa.int64()),
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"year": "Year of entry"})
+        >>> pa.Table.from_pylist(pylist, schema=my_schema).schema
+        year: int64
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        year: 'Year of entry'
         """
 
         return _from_pylist(cls=Table,
@@ -2061,6 +3236,39 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.record_batch([n_legs, animals], names=names)
+        >>> batch.to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+
+        Construct a Table from a RecordBatch:
+
+        >>> pa.Table.from_batches([batch])
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+        Construct a Table from a sequence of RecordBatches:
+
+        >>> pa.Table.from_batches([batch, batch])
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100],[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Flamingo","Horse","Brittle stars","Centipede"]]
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
@@ -2101,6 +3309,34 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         list[RecordBatch]
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Convert a Table to a RecordBatch:
+
+        >>> table.to_batches()[0].to_pandas()
+           n_legs        animals
+        0       2       Flamingo
+        1       4          Horse
+        2       5  Brittle stars
+        3     100      Centipede
+
+        Convert a Table to a list of RecordBatches:
+
+        >>> table.to_batches(max_chunksize=2)[0].to_pandas()
+           n_legs   animals
+        0       2  Flamingo
+        1       4     Horse
+        >>> table.to_batches(max_chunksize=2)[1].to_pandas()
+           n_legs        animals
+        0       5  Brittle stars
+        1     100      Centipede
         """
         cdef:
             unique_ptr[TableBatchReader] reader
@@ -2140,7 +3376,34 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        RecordBatchReader        
+        RecordBatchReader
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Convert a Table to a RecordBatchReader:
+
+        >>> table.to_reader()
+        <pyarrow.lib.RecordBatchReader object at ...>
+
+        >>> reader = table.to_reader()
+        >>> reader.schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+        >>> reader.read_all()
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
         cdef:
             shared_ptr[CRecordBatchReader] c_reader
@@ -2177,12 +3440,12 @@ cdef class Table(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.table([
-        ...     pa.array([1, 2]),
-        ...     pa.array(["a", "b"])
-        ... ], names=["int", "str"])
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
         >>> table.to_pydict()
-        {'int': [1, 2], 'str': ['a', 'b']}
+        {'n_legs': [2, 4, 5, 100], 'animals': ['Flamingo', 'Horse', 'Brittle stars', 'Centipede']}
         """
         cdef:
             size_t i
@@ -2207,12 +3470,12 @@ cdef class Table(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.table([
-        ...     pa.array([1, 2]),
-        ...     pa.array(["a", "b"])
-        ... ], names=["int", "str"])
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
         >>> table.to_pylist()
-        [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
         """
         pydict = self.to_pydict()
         names = self.schema.names
@@ -2228,6 +3491,19 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Schema
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' ...
         """
         return pyarrow_wrap_schema(self.table.schema())
 
@@ -2243,6 +3519,18 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Field
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.field(0)
+        pyarrow.Field<n_legs: int64>
+        >>> table.field(1)
+        pyarrow.Field<animals: string>
         """
         return self.schema.field(i)
 
@@ -2278,6 +3566,40 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Select a column by numeric index:
+
+        >>> table.column(0)
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            4,
+            5,
+            100
+          ]
+        ]
+
+        Select a column by its name:
+
+        >>> table.column("animals")
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            "Flamingo",
+            "Horse",
+            "Brittle stars",
+            "Centipede"
+          ]
+        ]
         """
         return self._column(self._ensure_integer_index(i))
 
@@ -2307,6 +3629,20 @@ cdef class Table(_PandasConvertible):
         Yields
         ------
         ChunkedArray
+        ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> for i in table.itercolumns():
+        ...     print(i.null_count)
+        ... 
+        2
+        1
         """
         for i in range(self.num_columns):
             yield self._column(i)
@@ -2319,6 +3655,32 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         list of ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.columns
+        [<pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            null,
+            4,
+            5,
+            null
+          ]
+        ], <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            "Flamingo",
+            "Horse",
+            null,
+            "Centipede"
+          ]
+        ]]
         """
         return [self._column(i) for i in range(self.num_columns)]
 
@@ -2330,6 +3692,16 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.num_columns
+        2
         """
         return self.table.num_columns()
 
@@ -2344,6 +3716,16 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.num_rows
+        4
         """
         return self.table.num_rows()
 
@@ -2359,6 +3741,16 @@ cdef class Table(_PandasConvertible):
         -------
         (int, int)
             Number of rows and number of columns.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.shape
+        (4, 2)
         """
         return (self.num_rows, self.num_columns)
 
@@ -2377,6 +3769,16 @@ cdef class Table(_PandasConvertible):
 
         The dictionary of dictionary arrays will always be counted in their
         entirety even if the array only references a portion of the dictionary.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.nbytes
+        72
         """
         cdef:
             CResult[int64_t] c_res_buffer
@@ -2395,6 +3797,16 @@ cdef class Table(_PandasConvertible):
 
         If a buffer is referenced multiple times then it will
         only be counted once.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.get_total_buffer_size()
+        76
         """
         cdef:
             int64_t total_buffer_size
@@ -2426,6 +3838,37 @@ cdef class Table(_PandasConvertible):
         -------
         Table
             New table with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Add column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> table.add_column(0,"year", [year])
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2021,2022,2019,2021]]
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+        Original table is left unchanged:
+
+        >>> table
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -2464,6 +3907,27 @@ cdef class Table(_PandasConvertible):
         -------
         Table
             New table with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Append column at the end:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> table.append_column('year', [year])
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        year: int64
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        year: [[2021,2022,2019,2021]]
         """
         return self.add_column(self.num_columns, field_, column)
 
@@ -2480,6 +3944,19 @@ cdef class Table(_PandasConvertible):
         -------
         Table
             New table without the column.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.remove_column(1)
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
         """
         cdef shared_ptr[CTable] c_table
 
@@ -2506,6 +3983,25 @@ cdef class Table(_PandasConvertible):
         -------
         Table
             New table with the passed column set.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Replace a column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> table.set_column(1,'year', [year])
+        pyarrow.Table
+        n_legs: int64
+        year: int64
+        ----
+        n_legs: [[2,4,5,100]]
+        year: [[2021,2022,2019,2021]]
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -2536,6 +4032,16 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         list of str
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.column_names
+        ['n_legs', 'animals']
         """
         names = self.table.ColumnNames()
         return [frombytes(name) for name in names]
@@ -2552,6 +4058,22 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> new_names = ["n", "name"]
+        >>> table.rename_columns(new_names)
+        pyarrow.Table
+        n: int64
+        name: string
+        ----
+        n: [[2,4,5,100]]
+        name: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -2583,6 +4105,29 @@ cdef class Table(_PandasConvertible):
         -------
         Table
             New table without the columns.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Drop one column:
+
+        >>> table.drop(["animals"])
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
+
+        Drop more columns:
+
+        >>> table.drop(["n_legs", "animals"])
+        pyarrow.Table
+        ...
+        ----
         """
         indices = []
         for col in columns:
@@ -2640,12 +4185,78 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df1 = pd.DataFrame({'id': [1, 2, 3],
+        ...                     'year': [2020, 2022, 2019]})
+        >>> df2 = pd.DataFrame({'id': [3, 4],
+        ...                     'n_legs': [5, 100],
+        ...                     'animal': ["Brittle stars", "Centipede"]})
+        >>> t1 = pa.Table.from_pandas(df1)
+        >>> t2 = pa.Table.from_pandas(df2)
+
+        Left outer join:
+
+        >>> t1.join(t2, 'id')
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[3,1,2]]
+        year: [[2019,2020,2022]]
+        n_legs: [[5,null,null]]
+        animal: [["Brittle stars",null,null]]
+
+        Full outer join:
+
+        >>> t1.join(t2, 'id', join_type="full outer")
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[3,1,2],[4]]
+        year: [[2019,2020,2022],[null]]
+        n_legs: [[5,null,null],[100]]
+        animal: [["Brittle stars",null,null],["Centipede"]]
+
+        Right outer join:
+
+        >>> t1.join(t2, 'id', join_type="right outer")
+        pyarrow.Table
+        year: int64
+        id: int64
+        n_legs: int64
+        animal: string
+        ----
+        year: [[2019],[null]]
+        id: [[3],[4]]
+        n_legs: [[5],[100]]
+        animal: [["Brittle stars"],["Centipede"]]
+
+        Right anti join
+
+        >>> t1.join(t2, 'id', join_type="right anti")
+        pyarrow.Table
+        id: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[4]]
+        n_legs: [[100]]
+        animal: [["Centipede"]]
         """
         if right_keys is None:
             right_keys = keys
-        return _pc()._exec_plan.tables_join(join_type, self, keys, right_table, right_keys,
-                                            left_suffix=left_suffix, right_suffix=right_suffix,
-                                            use_threads=use_threads, coalesce_keys=coalesce_keys)
+        return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
+                                              left_suffix=left_suffix, right_suffix=right_suffix,
+                                              use_threads=use_threads, coalesce_keys=coalesce_keys)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
@@ -2665,6 +4276,23 @@ cdef class Table(_PandasConvertible):
         See Also
         --------
         TableGroupBy.aggregate
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.group_by('year').aggregate([('n_legs', 'sum')])
+        pyarrow.Table
+        n_legs_sum: int64
+        year: int64
+        ----
+        n_legs_sum: [[2,6,104,5]]
+        year: [[2020,2022,2021,2019]]
         """
         return TableGroupBy(self, keys)
 
@@ -2684,6 +4312,25 @@ cdef class Table(_PandasConvertible):
         -------
         Table
             A new table sorted according to the sort keys.
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.sort_by('animal')
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        year: [[2019,2021,2021,2020,2022,2022]]
+        n_legs: [[5,100,4,2,4,2]]
+        animal: [["Brittle stars","Centipede","Dog","Flamingo","Horse","Parrot"]]
         """
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
@@ -2775,6 +4422,74 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     See Also
     --------
     Table.from_arrays, Table.from_pandas, Table.from_pydict
+
+    Example
+    -------
+    >>> import pyarrow as pa
+    >>> n_legs = pa.array([2, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    >>> names = ["n_legs", "animals"]
+
+    Construct a Table from arrays:
+
+    >>> pa.table([n_legs, animals], names=names)
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from arrays with metadata:
+
+    >>> my_metadata={"n_legs": "Number of legs per animal"}
+    >>> pa.table([n_legs, animals], names=names, metadata = my_metadata).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+
+    Construct a Table from pandas DataFrame:
+
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+    ...                    'n_legs': [2, 4, 5, 100],
+    ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+    >>> pa.table(df)
+    pyarrow.Table
+    year: int64
+    n_legs: int64
+    animals: string
+    ----
+    year: [[2020,2022,2019,2021]]
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+
+    Construct a Table from pandas DataFrame with pyarrow schema:
+
+    >>> my_schema = pa.schema([
+    ...     pa.field('n_legs', pa.int64()),
+    ...     pa.field('animals', pa.string())],
+    ...     metadata={"n_legs": "Number of legs per animal"})
+    >>> pa.table(df, my_schema).schema
+    n_legs: int64
+    animals: string
+    -- schema metadata --
+    n_legs: 'Number of legs per animal'
+    pandas: '{"index_columns": [], "column_indexes": [{"name": null, ...
+
+    Construct a Table from chunked arrays:
+
+    >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
+    >>> animals = pa.chunked_array([["Flamingo", "Parrot", "Dog"], ["Horse", "Brittle stars", "Centipede"]])
+    >>> table = pa.table([n_legs, animals], names=names)
+    >>> table
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,2,4],[4,5,100]]
+    animals: [["Flamingo","Parrot","Dog"],["Horse","Brittle stars","Centipede"]]
     """
     # accept schema as first argument for backwards compatibility / usability
     if isinstance(names, Schema) and schema is None:
@@ -2825,6 +4540,26 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
         If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> t1 = pa.table([
+    ...     pa.array([2, 4, 5, 100]),
+    ...     pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> t2 = pa.table([
+    ...     pa.array([2, 4]),
+    ...     pa.array(["Parrot", "Dog"])
+    ...     ], names=['n_legs', 'animals'])
+    >>> pa.concat_tables([t1,t2])
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100],[2,4]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Parrot","Dog"]]
+
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables
@@ -2943,6 +4678,29 @@ class TableGroupBy:
         Input table to execute the aggregation on.
     keys : str or list[str]
         Name of the grouped columns.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> t = pa.table([
+    ...       pa.array(["a", "a", "b", "b", "c"]),
+    ...       pa.array([1, 2, 3, 4, 5]),
+    ... ], names=["keys", "values"])
+
+    Grouping of columns:
+
+    >>> pa.TableGroupBy(t,"keys")
+    <pyarrow.lib.TableGroupBy object at ...>
+
+    Perform aggregations:
+
+    >>> pa.TableGroupBy(t,"keys").aggregate([("values", "sum")])
+    pyarrow.Table
+    values_sum: int64
+    keys: string
+    ----
+    values_sum: [[3,7,5]]
+    keys: [["a","b","c"]]
     """
 
     def __init__(self, table, keys):

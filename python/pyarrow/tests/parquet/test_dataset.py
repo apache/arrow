@@ -640,6 +640,20 @@ def test_read_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
 
 
 @pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_read_single_file_list(tempdir, use_legacy_dataset):
+    data_path = str(tempdir / 'data.parquet')
+
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, data_path)
+
+    result = pq.ParquetDataset(
+        [data_path], use_legacy_dataset=use_legacy_dataset
+    ).read()
+    assert result.equals(table)
+
+
+@pytest.mark.pandas
 @pytest.mark.s3
 @parametrize_legacy_dataset
 def test_read_partitioned_directory_s3fs_wrapper(
@@ -1551,6 +1565,7 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
         assert c1.equals(ex_chunks[0])
 
 
+@pytest.mark.dataset
 @pytest.mark.pandas
 def test_read_table_schema(tempdir):
     # test that schema keyword is passed through in read_table
