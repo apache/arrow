@@ -229,7 +229,9 @@ struct SumLikeInit {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new KernelClass<BooleanType>(boolean().get(), options));
+    const DataType* ty =
+        TypeTraits<typename KernelClass<BooleanType>::SumType>::type_singleton().get();
+    state.reset(new KernelClass<BooleanType>(ty, options));
     return Status::OK();
   }
 

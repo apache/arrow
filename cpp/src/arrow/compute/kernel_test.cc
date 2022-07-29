@@ -145,9 +145,11 @@ TEST(InputType, Equals) {
   ASSERT_NE(InputType(int8()), InputType(Type::INT32));
 
   // Check that field metadata excluded from equality checks
-  InputType t9 = list(
+  auto ty9 = list(
       field("item", utf8(), /*nullable=*/true, key_value_metadata({"foo"}, {"bar"})));
-  InputType t10 = list(field("item", utf8()));
+  auto ty10 = list(field("item", utf8()));
+  InputType t9 = ty9.get();
+  InputType t10 = ty10.get();
   ASSERT_TRUE(t9.Equals(t10));
 }
 

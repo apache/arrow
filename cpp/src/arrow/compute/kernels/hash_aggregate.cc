@@ -2802,7 +2802,7 @@ void PopulateNumericHashKernels(Result<HashAggregateKernel> make_kernel(const Da
         AddHashAggKernels({null().get(), boolean().get()}, make_kernel, func.get()));
   }
   // Type parameters are ignored
-  DCHECK_OK(AddHashAggKernels(decimal_types, GroupedTDigestFactory::Make, func.get()));
+  DCHECK_OK(AddHashAggKernels(decimal_types, make_kernel, func.get()));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
