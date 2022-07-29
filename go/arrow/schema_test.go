@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/apache/arrow/go/v9/arrow/endian"
 )
 
 func TestMetadata(t *testing.T) {
@@ -135,6 +137,7 @@ func TestSchema(t *testing.T) {
 		md        *Metadata
 		err       error
 		serialize string
+		addEndian bool
 	}{
 		{
 			fields: []Field{
@@ -185,6 +188,27 @@ func TestSchema(t *testing.T) {
     - dup: type=int32
     - dup: type=int64`,
 		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true},
+				{Name: "f2", Type: PrimitiveTypes.Uint8},
+				{Name: "f3", Type: BinaryTypes.String, Nullable: true},
+				{Name: "f4", Type: ListOf(PrimitiveTypes.Int16), Nullable: true},
+			},
+			md: func() *Metadata {
+				md := MetadataFrom(map[string]string{"k1": "v1", "k2": "v2"})
+				return &md
+			}(),
+			addEndian: true, // only print endianness if non-native endian
+			serialize: `schema:
+  fields: 4
+    - f1: type=int32, nullable
+    - f2: type=uint8
+    - f3: type=utf8, nullable
+    - f4: type=list<item: int16, nullable>, nullable
+  endianness: ` + endian.NonNativeEndian.String() + `
+  metadata: ["k1": "v1", "k2": "v2"]`,
+		},
 	} {
 		t.Run("", func(t *testing.T) {
 			if tc.err != nil {
@@ -209,6 +233,9 @@ func TestSchema(t *testing.T) {
 			}
 
 			s := NewSchema(tc.fields, tc.md)
+			if tc.addEndian {
+				s = s.WithEndianness(endian.NonNativeEndian)
+			}
 
 			if got, want := len(s.Fields()), len(tc.fields); got != want {
 				t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
@@ -341,6 +368,26 @@ func TestSchemaEqual(t *testing.T) {
 				{Name: "fx", Type: PrimitiveTypes.Int64},
 			}, md),
 			want: false,
+		},
+		{
+			a:    NewSchemaWithEndian(fields, nil, endian.LittleEndian),
+			b:    NewSchemaWithEndian(fields, nil, endian.LittleEndian),
+			want: true,
+		},
+		{
+			a:    NewSchemaWithEndian(fields, nil, endian.LittleEndian),
+			b:    NewSchemaWithEndian(fields, nil, endian.BigEndian),
+			want: false,
+		},
+		{
+			a:    NewSchemaWithEndian(fields, nil, endian.LittleEndian),
+			b:    NewSchema(fields, nil),
+			want: !endian.IsBigEndian,
+		},
+		{
+			a:    NewSchemaWithEndian(fields, nil, endian.BigEndian),
+			b:    NewSchema(fields, nil),
+			want: endian.IsBigEndian,
 		},
 	} {
 		t.Run("", func(t *testing.T) {

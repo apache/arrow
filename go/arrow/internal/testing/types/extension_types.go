@@ -273,15 +273,51 @@ func (p *DictExtensionType) Deserialize(storage arrow.DataType, data string) (ar
 	return NewDictExtensionType(), nil
 }
 
+// SmallintArray is an int16 array
+type SmallintArray struct {
+	array.ExtensionArrayBase
+}
+
+type SmallintType struct {
+	arrow.ExtensionBase
+}
+
+func NewSmallintType() *SmallintType {
+	return &SmallintType{ExtensionBase: arrow.ExtensionBase{
+		Storage: arrow.PrimitiveTypes.Int16}}
+}
+
+func (SmallintType) ArrayType() reflect.Type { return reflect.TypeOf(SmallintArray{}) }
+
+func (SmallintType) ExtensionName() string { return "smallint" }
+
+func (SmallintType) Serialize() string { return "smallint" }
+
+func (s *SmallintType) ExtensionEquals(other arrow.ExtensionType) bool {
+	return s.Name() == other.Name()
+}
+
+func (SmallintType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
+	if data != "smallint" {
+		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
+	}
+	if !arrow.TypeEqual(storageType, arrow.PrimitiveTypes.Int16) {
+		return nil, fmt.Errorf("invalid storage type for SmallintType: %s", storageType)
+	}
+	return NewSmallintType(), nil
+}
+
 var (
 	_ arrow.ExtensionType  = (*UUIDType)(nil)
 	_ arrow.ExtensionType  = (*Parametric1Type)(nil)
 	_ arrow.ExtensionType  = (*Parametric2Type)(nil)
 	_ arrow.ExtensionType  = (*ExtStructType)(nil)
 	_ arrow.ExtensionType  = (*DictExtensionType)(nil)
+	_ arrow.ExtensionType  = (*SmallintType)(nil)
 	_ array.ExtensionArray = (*UUIDArray)(nil)
 	_ array.ExtensionArray = (*Parametric1Array)(nil)
 	_ array.ExtensionArray = (*Parametric2Array)(nil)
 	_ array.ExtensionArray = (*ExtStructArray)(nil)
 	_ array.ExtensionArray = (*DictExtensionArray)(nil)
+	_ array.ExtensionArray = (*SmallintArray)(nil)
 )

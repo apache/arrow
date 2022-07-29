@@ -36,6 +36,7 @@ func (d *testDataType) Name() string              { panic("implement me") }
 func (d *testDataType) BitWidth() int             { return 8 }
 func (d *testDataType) Fingerprint() string       { return "" }
 func (testDataType) Layout() arrow.DataTypeLayout { return arrow.DataTypeLayout{} }
+func (testDataType) String() string               { return "" }
 
 func TestMakeFromData(t *testing.T) {
 	tests := []struct {

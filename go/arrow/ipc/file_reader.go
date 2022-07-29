@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v9/arrow"
 	"github.com/apache/arrow/go/v9/arrow/array"
 	"github.com/apache/arrow/go/v9/arrow/bitutil"
+	"github.com/apache/arrow/go/v9/arrow/endian"
 	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v9/arrow/memory"
@@ -50,7 +51,8 @@ type FileReader struct {
 	irec int   // current record index. used for the arrio.Reader interface
 	err  error // last error
 
-	mem memory.Allocator
+	mem            memory.Allocator
+	swapEndianness bool
 }
 
 // NewFileReader opens an Arrow file using the provided reader r.
@@ -79,7 +81,7 @@ func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 		return nil, fmt.Errorf("arrow/ipc: could not decode footer: %w", err)
 	}
 
-	err = f.readSchema()
+	err = f.readSchema(cfg.ensureNativeEndian)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not decode schema: %w", err)
 	}
@@ -131,7 +133,7 @@ func (f *FileReader) readFooter() error {
 	return err
 }
 
-func (f *FileReader) readSchema() error {
+func (f *FileReader) readSchema(ensureNativeEndian bool) error {
 	var (
 		err  error
 		kind dictutils.Kind
@@ -144,6 +146,11 @@ func (f *FileReader) readSchema() error {
 	f.schema, err = schemaFromFB(schema, &f.memo)
 	if err != nil {
 		return fmt.Errorf("arrow/ipc: could not read schema: %w", err)
+	}
+
+	if ensureNativeEndian && !f.schema.IsNativeEndian() {
+		f.swapEndianness = true
+		f.schema = f.schema.WithEndianness(endian.NativeEndian)
 	}
 
 	for i := 0; i < f.NumDictionaries(); i++ {
@@ -165,7 +172,7 @@ func (f *FileReader) readSchema() error {
 			return err
 		}
 
-		kind, err = readDictionary(&f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem)
+		kind, err = readDictionary(&f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.swapEndianness, f.mem)
 		if err != nil {
 			return err
 		}
@@ -293,7 +300,7 @@ func (f *FileReader) RecordAt(i int) (arrow.Record, error) {
 		return nil, fmt.Errorf("arrow/ipc: message %d is not a Record", i)
 	}
 
-	return newRecord(f.schema, &f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem), nil
+	return newRecord(f.schema, &f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.swapEndianness, f.mem), nil
 }
 
 // Read reads the current record from the underlying stream and an error, if any.
@@ -315,7 +322,7 @@ func (f *FileReader) ReadAt(i int64) (arrow.Record, error) {
 	return f.Record(int(i))
 }
 
-func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, mem memory.Allocator) arrow.Record {
+func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, swapEndianness bool, mem memory.Allocator) arrow.Record {
 	var (
 		msg   = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 		md    flatbuf.RecordBatch
@@ -349,6 +356,10 @@ func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, 
 
 		if err := dictutils.ResolveFieldDict(memo, data, pos.Child(int32(i)), mem); err != nil {
 			panic(err)
+		}
+
+		if swapEndianness {
+			swapEndianArrayData(data.(*array.Data))
 		}
 
 		cols[i] = array.MakeFromData(data)
@@ -598,7 +609,7 @@ func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData 
 	return array.NewData(dt, int(field.Length()), buffers, subs, int(field.NullCount()), 0)
 }
 
-func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, mem memory.Allocator) (dictutils.Kind, error) {
+func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, swapEndianness bool, mem memory.Allocator) (dictutils.Kind, error) {
 	var (
 		msg   = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 		md    flatbuf.DictionaryBatch
@@ -634,6 +645,10 @@ func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker
 
 	dict := ctx.loadArray(valueType)
 	defer dict.Release()
+
+	if swapEndianness {
+		swapEndianArrayData(dict.(*array.Data))
+	}
 
 	if md.IsDelta() {
 		memo.AddDelta(id, dict)
