@@ -365,17 +365,19 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
             "than one item");
       }
       std::vector<FieldRef> keys;
-      auto group = aggregate.groupings(0);
-      keys.reserve(group.grouping_expressions_size());
-      for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
-        ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(group.grouping_expressions(exp_id),
-                                                   ext_set, conversion_options));
-        const auto* field_ref = expr.field_ref();
-        if (field_ref) {
-          keys.emplace_back(std::move(*field_ref));
-        } else {
-          return Status::Invalid(
-              "The grouping expression for an aggregate must be a direct reference.");
+      if (aggregate.groupings_size() > 0) {
+        auto group = aggregate.groupings(0);
+        keys.reserve(group.grouping_expressions_size());
+        for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
+          ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(group.grouping_expressions(exp_id),
+                                                     ext_set, conversion_options));
+          const auto* field_ref = expr.field_ref();
+          if (field_ref) {
+            keys.emplace_back(std::move(*field_ref));
+          } else {
+            return Status::Invalid(
+                "The grouping expression for an aggregate must be a direct reference.");
+          }
         }
       }
 

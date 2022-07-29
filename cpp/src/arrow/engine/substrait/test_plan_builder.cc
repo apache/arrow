@@ -53,6 +53,20 @@ Result<std::unique_ptr<substrait::ReadRel>> CreateRead(const Table& table,
   return read;
 }
 
+void CreateDirectReference(int32_t index, substrait::Expression* expr) {
+  auto reference = make_unique<substrait::Expression::FieldReference>();
+  auto reference_segment = make_unique<substrait::Expression::ReferenceSegment>();
+  auto struct_field = make_unique<substrait::Expression::ReferenceSegment::StructField>();
+  struct_field->set_field(index);
+  reference_segment->set_allocated_struct_field(struct_field.release());
+  reference->set_allocated_direct_reference(reference_segment.release());
+
+  auto root_reference =
+      make_unique<substrait::Expression::FieldReference::RootReference>();
+  reference->set_allocated_root_reference(root_reference.release());
+  expr->set_allocated_selection(reference.release());
+}
+
 Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
     Id function_id, const std::vector<std::string>& arguments,
     const std::vector<std::shared_ptr<DataType>>& arg_types, const DataType& output_type,
@@ -70,18 +84,7 @@ Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
     if (arg_type) {
       // If it has a type then it's a reference to the input table
       auto expression = make_unique<substrait::Expression>();
-      auto reference = make_unique<substrait::Expression::FieldReference>();
-      auto reference_segment = make_unique<substrait::Expression::ReferenceSegment>();
-      auto struct_field =
-          make_unique<substrait::Expression::ReferenceSegment::StructField>();
-      struct_field->set_field(static_cast<int32_t>(table_arg_index++));
-      reference_segment->set_allocated_struct_field(struct_field.release());
-      reference->set_allocated_direct_reference(reference_segment.release());
-
-      auto root_reference =
-          make_unique<substrait::Expression::FieldReference::RootReference>();
-      reference->set_allocated_root_reference(root_reference.release());
-      expression->set_allocated_selection(reference.release());
+      CreateDirectReference(static_cast<int32_t>(table_arg_index++), expression.get());
       argument->set_allocated_value(expression.release());
     } else {
       // If it doesn't have a type then it's an enum
@@ -109,21 +112,53 @@ Result<std::unique_ptr<substrait::ProjectRel>> CreateProject(
   return project;
 }
 
-Result<std::unique_ptr<substrait::Plan>> CreatePlan(
-    std::unique_ptr<substrait::ReadRel> read,
-    std::unique_ptr<substrait::ProjectRel> project, ExtensionSet* ext_set) {
+Result<std::unique_ptr<substrait::AggregateRel>> CreateAgg(Id function_id,
+                                                           const std::vector<int>& keys,
+                                                           int arg_idx,
+                                                           const DataType& output_type,
+                                                           ExtensionSet* ext_set) {
+  auto agg = make_unique<substrait::AggregateRel>();
+
+  if (!keys.empty()) {
+    substrait::AggregateRel::Grouping* grouping = agg->add_groupings();
+    for (int key : keys) {
+      substrait::Expression* key_expr = grouping->add_grouping_expressions();
+      CreateDirectReference(key, key_expr);
+    }
+  }
+
+  substrait::AggregateRel::Measure* measure_wrapper = agg->add_measures();
+  auto agg_func = make_unique<substrait::AggregateFunction>();
+  ARROW_ASSIGN_OR_RAISE(uint32_t function_anchor, ext_set->EncodeFunction(function_id));
+
+  agg_func->set_function_reference(function_anchor);
+
+  substrait::FunctionArgument* arg = agg_func->add_arguments();
+  auto arg_expr = make_unique<substrait::Expression>();
+  CreateDirectReference(arg_idx, arg_expr.get());
+  arg->set_allocated_value(arg_expr.release());
+
+  agg_func->set_phase(substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT);
+  agg_func->set_invocation(
+      substrait::AggregateFunction::AggregationInvocation::
+          AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_ALL);
+
+  ARROW_ASSIGN_OR_RAISE(
+      std::unique_ptr<substrait::Type> output_type_substrait,
+      ToProto(output_type, /*nullable=*/true, ext_set, kPlanBuilderConversionOptions));
+  agg_func->set_allocated_output_type(output_type_substrait.release());
+  measure_wrapper->set_allocated_measure(agg_func.release());
+
+  return agg;
+}
+
+Result<std::unique_ptr<substrait::Plan>> CreatePlan(std::unique_ptr<substrait::Rel> root,
+                                                    ExtensionSet* ext_set) {
   auto plan = make_unique<substrait::Plan>();
-
-  auto read_rel = make_unique<substrait::Rel>();
-  read_rel->set_allocated_read(read.release());
-  project->set_allocated_input(read_rel.release());
-
-  auto project_rel = make_unique<substrait::Rel>();
-  project_rel->set_allocated_project(project.release());
 
   substrait::PlanRel* plan_rel = plan->add_relations();
   auto rel_root = make_unique<substrait::RelRoot>();
-  rel_root->set_allocated_input(project_rel.release());
+  rel_root->set_allocated_input(root.release());
   plan_rel->set_allocated_root(rel_root.release());
 
   ARROW_RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, plan.get()));
@@ -135,14 +170,44 @@ Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     const std::vector<std::string>& arguments,
     const std::vector<std::shared_ptr<DataType>>& data_types,
     const DataType& output_type) {
-  ExtensionSet extension_set;
+  ExtensionSet ext_set;
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::ReadRel> read,
-                        CreateRead(*input_table, &extension_set));
+                        CreateRead(*input_table, &ext_set));
   ARROW_ASSIGN_OR_RAISE(
       std::unique_ptr<substrait::ProjectRel> project,
-      CreateProject(function_id, arguments, data_types, output_type, &extension_set));
+      CreateProject(function_id, arguments, data_types, output_type, &ext_set));
+
+  auto read_rel = make_unique<substrait::Rel>();
+  read_rel->set_allocated_read(read.release());
+  project->set_allocated_input(read_rel.release());
+
+  auto project_rel = make_unique<substrait::Rel>();
+  project_rel->set_allocated_project(project.release());
+
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Plan> plan,
-                        CreatePlan(std::move(read), std::move(project), &extension_set));
+                        CreatePlan(std::move(project_rel), &ext_set));
+  return Buffer::FromString(plan->SerializeAsString());
+}
+
+Result<std::shared_ptr<Buffer>> CreateScanAggSubstrait(
+    Id function_id, const std::shared_ptr<Table>& input_table,
+    const std::vector<int>& key_idxs, int arg_idx, const DataType& output_type) {
+  ExtensionSet ext_set;
+
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::ReadRel> read,
+                        CreateRead(*input_table, &ext_set));
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::AggregateRel> agg,
+                        CreateAgg(function_id, key_idxs, arg_idx, output_type, &ext_set));
+
+  auto read_rel = make_unique<substrait::Rel>();
+  read_rel->set_allocated_read(read.release());
+  agg->set_allocated_input(read_rel.release());
+
+  auto agg_rel = make_unique<substrait::Rel>();
+  agg_rel->set_allocated_aggregate(agg.release());
+
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Plan> plan,
+                        CreatePlan(std::move(agg_rel), &ext_set));
   return Buffer::FromString(plan->SerializeAsString());
 }
 

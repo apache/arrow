@@ -45,6 +45,10 @@ Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     const std::vector<std::shared_ptr<DataType>>& data_types,
     const DataType& output_type);
 
+Result<std::shared_ptr<Buffer>> CreateScanAggSubstrait(
+    Id function_id, const std::shared_ptr<Table>& input_table,
+    const std::vector<int>& key_idxs, int arg_idx, const DataType& output_type);
+
 }  // namespace internal
 }  // namespace engine
 }  // namespace arrow
