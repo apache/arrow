@@ -44,7 +44,6 @@ RUN apt-get update -y -q && \
         gcc \
         gdb \
         git \
-        libabsl-dev \
         libbenchmark-dev \
         libboost-all-dev \
         libbrotli-dev \
@@ -77,7 +76,8 @@ RUN apt-get update -y -q && \
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
-ENV ARROW_BUILD_TESTS=ON \
+ENV absl_SOURCE=BUNDLED \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=ON \
