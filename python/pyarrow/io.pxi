@@ -1589,12 +1589,12 @@ cdef shared_ptr[function[StreamWrapFunc]] make_streamwrap_func(
     Create a function that will add a transcoding transformation to a stream.
     Data from that stream will be decoded according to ``src_encoding`` and
     then re-encoded according to ``dest_encoding``.
-    The created function can be used to wrap streams once they are created.
+    The created function can be used to wrap streams.
 
     Parameters
     ----------
     src_encoding : str
-        The codec to use when reading data data.
+        The codec to use when reading data.
     dest_encoding : str
         The codec to use for emitted data.
     """
@@ -1621,7 +1621,7 @@ def transcoding_input_stream(stream, src_encoding, dest_encoding):
     stream : NativeFile
         The stream to which the transformation should be applied.
     src_encoding : str
-        The codec to use when reading data data.
+        The codec to use when reading data.
     dest_encoding : str
         The codec to use for emitted data.
     """
