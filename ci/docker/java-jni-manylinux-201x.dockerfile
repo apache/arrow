@@ -28,7 +28,8 @@ RUN vcpkg install \
         --x-feature=gcs \
         --x-feature=json \
         --x-feature=parquet \
-        --x-feature=gandiva
+        --x-feature=gandiva \
+        --x-feature=s3
 
 # Install Java
 ARG java=1.8.0

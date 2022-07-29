@@ -47,6 +47,7 @@ RUN apt-get update -y -q && \
         g++ \
         gcc \
         libboost-all-dev \
+        libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -81,6 +82,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_PARQUET=ON \
     ARROW_PLASMA_JAVA_CLIENT=ON \
     ARROW_PLASMA=ON \
+    ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     CC=gcc \
     CXX=g++ \
