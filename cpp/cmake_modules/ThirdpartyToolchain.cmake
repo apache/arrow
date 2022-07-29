@@ -2659,7 +2659,7 @@ endmacro()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-set(ARROW_ABSL_REQUIRED_VERSION "20211102.0")
+set(ARROW_ABSL_REQUIRED_VERSION "20211102")
 macro(build_absl)
   # This may be called multiple times.
   if(NOT ABSL_VENDORED)
