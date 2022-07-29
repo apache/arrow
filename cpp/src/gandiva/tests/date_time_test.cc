@@ -884,9 +884,9 @@ TEST_F(TestProjector, TestConvertFromNumTypes) {
       MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), exp_data, {true});
 
   // expected res_convertTIME_EPOCH
-  std::vector<int64_t> exp_time = {MillisSince(epoch, 0, 0, 0, 9, 50, 10, 0)};
+  std::vector<int32_t> exp_time = {MillisInDay(9, 50, 10, 0)};
   auto exp_TimeEpoch =
-      MakeArrowTypeArray<arrow::Date32Type, int64_t>(date32(), exp_data, {true});
+      MakeArrowTypeArray<arrow::Date32Type, int32_t>(date32(), exp_time, {true});
 
   // expected res_convertDATE_EPOCH
   std::vector<int64_t> exp_timestamp = {MillisSince(epoch, 1970, 12, 29, 9, 50, 10, 0)};
