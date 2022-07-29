@@ -284,6 +284,10 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
+  Status Visit(const RunLengthEncodedType& type) {
+    return Status::NotImplemented("Byte-swap run-length encoded data");
+  }
+
   const std::shared_ptr<ArrayData>& data_;
   std::shared_ptr<ArrayData> out_;
 };
@@ -542,7 +546,7 @@ class RepeatedArrayFactory {
       : pool_(pool), scalar_(scalar), length_(length) {}
 
   Result<std::shared_ptr<Array>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(*scalar_.type, this));
+    RETURN_NOT_OK(VisitScalarTypeInline(*scalar_.type, this));
     return out_;
   }
 
