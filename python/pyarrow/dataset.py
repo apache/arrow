@@ -422,7 +422,7 @@ def _ensure_single_source(path, filesystem=None):
 def _filesystem_dataset(source, schema=None, filesystem=None,
                         partitioning=None, format=None,
                         partition_base_dir=None, exclude_invalid_files=None,
-                        selector_ignore_prefixes=None, encoding='utf8'):
+                        selector_ignore_prefixes=None):
     """
     Create a FileSystemDataset which can be used to build a Dataset.
 
@@ -434,7 +434,8 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     """
     format = _ensure_format(format or 'parquet')
     if format.default_fragment_scan_options.type_name == 'csv':
-        format.default_fragment_scan_options.add_transcoder(encoding, "utf8")
+        format.default_fragment_scan_options.add_transcoder(format.encoding, 
+                                                            "utf8")
 
     partitioning = _ensure_partitioning(partitioning)
 
@@ -542,7 +543,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
 
 def dataset(source, schema=None, format=None, filesystem=None,
             partitioning=None, partition_base_dir=None,
-            exclude_invalid_files=None, ignore_prefixes=None, encoding='utf8'):
+            exclude_invalid_files=None, ignore_prefixes=None):
     """
     Open a dataset.
 
