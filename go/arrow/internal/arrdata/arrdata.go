@@ -49,7 +49,7 @@ func init() {
 	Records["decimal128"] = makeDecimal128sRecords()
 	Records["maps"] = makeMapsRecords()
 	Records["extension"] = makeExtensionRecords()
-	// Records["union"] = makeUnionRecords()
+	Records["union"] = makeUnionRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -898,6 +898,51 @@ func makeExtensionRecords() []arrow.Record {
 	}
 
 	return recs
+}
+
+func makeUnionRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+
+	unionFields := []arrow.Field{
+		{Name: "u0", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "u1", Type: arrow.PrimitiveTypes.Uint8, Nullable: true},
+	}
+
+	typeCodes := []arrow.UnionTypeCode{5, 10}
+	sparseType := arrow.SparseUnionOf(unionFields, typeCodes)
+	denseType := arrow.DenseUnionOf(unionFields, typeCodes)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "sparse", Type: sparseType, Nullable: true},
+		{Name: "dense", Type: denseType, Nullable: true},
+	}, nil)
+
+	sparseChildren := make([]arrow.Array, 2)
+	denseChildren := make([]arrow.Array, 2)
+
+	const length = 7
+
+	typeIDsBuffer := memory.NewBufferBytes(arrow.Uint8Traits.CastToBytes([]uint8{5, 10, 5, 5, 10, 10, 5}))
+	sparseChildren[0] = arrayOf(mem, []int32{0, 1, 2, 3, 4, 5, 6}, nil)
+	defer sparseChildren[0].Release()
+	sparseChildren[1] = arrayOf(mem, []uint8{10, 11, 12, 13, 14, 15, 16}, nil)
+	defer sparseChildren[1].Release()
+
+	denseChildren[0] = arrayOf(mem, []int32{0, 2, 3, 7}, nil)
+	defer denseChildren[0].Release()
+	denseChildren[1] = arrayOf(mem, []uint8{11, 14, 15}, nil)
+	defer denseChildren[1].Release()
+
+	offsetsBuffer := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes([]int32{0, 0, 1, 2, 1, 2, 3}))
+	sparse := array.NewSparseUnion(sparseType, length, sparseChildren, typeIDsBuffer, 0)
+	dense := array.NewDenseUnion(denseType, length, denseChildren, typeIDsBuffer, offsetsBuffer, 0)
+
+	defer sparse.Release()
+	defer dense.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{sparse, dense}, -1)
+	rec.Retain()
+	return []arrow.Record{rec, rec}
 }
 
 func extArray(mem memory.Allocator, dt arrow.ExtensionType, a interface{}, valids []bool) arrow.Array {
