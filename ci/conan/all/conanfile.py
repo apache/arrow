@@ -237,7 +237,7 @@ class ArrowConan(ConanFile):
 
     def _with_utf8proc(self, required=False):
         if required or self.options.with_utf8proc == "auto":
-            return False
+            return self._compute() or self.gandiva
         else:
             return bool(self.options.with_utf8proc)
 
