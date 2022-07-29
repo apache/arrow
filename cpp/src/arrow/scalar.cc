@@ -768,7 +768,7 @@ struct MakeNullImpl {
 
   std::shared_ptr<Scalar> Finish() && {
     // Should not fail.
-    DCHECK_OK(VisitTypeInline(*type_, this));
+    DCHECK_OK(VisitScalarTypeInline(*type_, this));
     return std::move(out_);
   }
 
@@ -835,7 +835,7 @@ struct ScalarParseImpl {
   Status FinishWithBuffer() { return Finish(Buffer::FromString(std::string(s_))); }
 
   Result<std::shared_ptr<Scalar>> Finish() && {
-    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    RETURN_NOT_OK(VisitScalarTypeInline(*type_, this));
     return std::move(out_);
   }
 
@@ -1101,7 +1101,7 @@ struct ToTypeVisitor : CastImplVisitor {
   template <typename ToType>
   Status Visit(const ToType&) {
     FromTypeVisitor<ToType> unpack_from_type{from_, to_type_, out_};
-    return VisitTypeInline(*from_.type, &unpack_from_type);
+    return VisitScalarTypeInline(*from_.type, &unpack_from_type);
   }
 
   Status Visit(const NullType&) {
@@ -1128,7 +1128,7 @@ Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) con
   if (is_valid) {
     out->is_valid = true;
     ToTypeVisitor unpack_to_type{*this, to, out.get()};
-    RETURN_NOT_OK(VisitTypeInline(*to, &unpack_to_type));
+    RETURN_NOT_OK(VisitScalarTypeInline(*to, &unpack_to_type));
   }
   return out;
 }
