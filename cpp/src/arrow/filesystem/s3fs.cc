@@ -215,7 +215,6 @@ class AwsRetryStrategy : public S3RetryStrategy {
   AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy) {
     retry_strategy_ = retry_strategy;
   }
-  ~AwsRetryStrategy() override;
 
   bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
