@@ -142,7 +142,7 @@ std::shared_ptr<arrow::Table> ExecPlan_read_table(
   auto prepared_plan = ExecPlan_prepare(plan, final_node, sort_options, metadata, head);
 
   auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
-      [&]() -> arrow::Result<std::shared_ptr<arrow::Table>> {
+      [prepared_plan]() -> arrow::Result<std::shared_ptr<arrow::Table>> {
         ARROW_RETURN_NOT_OK(prepared_plan.first->StartProducing());
         return prepared_plan.second->ToTable();
       });
@@ -273,7 +273,7 @@ void ExecPlan_Write(
 
   StopIfNotOk(plan->Validate());
 
-  arrow::Status result = RunWithCapturedRIfPossibleVoid([&]() {
+  arrow::Status result = RunWithCapturedRIfPossibleVoid([&plan]() {
     RETURN_NOT_OK(plan->StartProducing());
     RETURN_NOT_OK(plan->finished().status());
     return arrow::Status::OK();
