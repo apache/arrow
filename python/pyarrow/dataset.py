@@ -433,7 +433,8 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     FileSystemDataset
     """
     format = _ensure_format(format or 'parquet')
-    format.default_fragment_scan_options.add_transcoder(encoding, "utf8")
+    if format.default_fragment_scan_options.type_name == 'csv':
+        format.default_fragment_scan_options.add_transcoder(encoding, "utf8")
 
     partitioning = _ensure_partitioning(partitioning)
 
