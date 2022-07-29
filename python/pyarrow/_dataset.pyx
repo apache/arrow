@@ -1172,6 +1172,7 @@ cdef class CsvFileFormat(FileFormat):
     """
     cdef:
         CCsvFileFormat* csv_format
+        public object encoding
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1179,7 +1180,7 @@ cdef class CsvFileFormat(FileFormat):
     def __init__(self, ParseOptions parse_options=None,
                  default_fragment_scan_options=None,
                  ConvertOptions convert_options=None,
-                 ReadOptions read_options=None):
+                 ReadOptions read_options=None, encoding=None):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
@@ -1199,6 +1200,8 @@ cdef class CsvFileFormat(FileFormat):
             raise TypeError('`default_fragment_scan_options` must be either '
                             'a dictionary or an instance of '
                             'CsvFragmentScanOptions')
+        # Python-specific option
+        self.encoding = encoding
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1228,7 +1231,8 @@ cdef class CsvFileFormat(FileFormat):
         return (
             self.parse_options.equals(other.parse_options) and
             self.default_fragment_scan_options ==
-            other.default_fragment_scan_options)
+            other.default_fragment_scan_options and
+            self.encoding == other.encoding)
 
     def __reduce__(self):
         return CsvFileFormat, (self.parse_options,
