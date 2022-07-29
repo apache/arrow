@@ -56,24 +56,6 @@ class ARROW_EXPORT RunLengthEncodedArray : public Array {
                         std::shared_ptr<Array>& values_array,
                         std::shared_ptr<Buffer> run_ends_buffer,
                         int64_t null_count = kUnknownNullCount, int64_t offset = 0);
-
-  /// \brief Construct a RunLengthEncodedArray from values and run ends arrays
-  ///
-  /// The length and data type are automatically inferred from the arguments.
-  /// They need to be the same length.
-  static Result<std::shared_ptr<StructArray>> Make(std::shared_ptr<Array>& values_array,
-                                                   std::shared_ptr<Array>& run_ends_array,
-                                                   int64_t null_count = kUnknownNullCount,
-                                                   int64_t offset = 0);
-
-  const RunLengthEncodedType* encoding_type() const;
-  const DataType* encoded_type() const;
-
-  // Return a shared pointer in case the requestor desires to share ownership
-  // with this array.  The returned array has its offset, length and null
-  // count adjusted.
-  std::shared_ptr<Array> values() const;
-  int64_t* run_ends() const;
 };
 
 /// @}
