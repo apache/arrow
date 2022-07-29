@@ -1169,13 +1169,9 @@ cdef class CsvFileFormat(FileFormat):
         General read options.
     default_fragment_scan_options : CsvFragmentScanOptions
         Default options for fragments scan.
-    encoding : str, optional (default 'utf8')
-        The character encoding of the CSV data.  Columns that cannot
-        decode using this encoding can still be read as Binary.
     """
     cdef:
         CCsvFileFormat* csv_format
-        public object encoding
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1183,8 +1179,7 @@ cdef class CsvFileFormat(FileFormat):
     def __init__(self, ParseOptions parse_options=None,
                  default_fragment_scan_options=None,
                  ConvertOptions convert_options=None,
-                 ReadOptions read_options=None,
-                 encoding='utf8'):
+                 ReadOptions read_options=None):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
@@ -1207,8 +1202,6 @@ cdef class CsvFileFormat(FileFormat):
         else :
             # default_fragment_scan_options is needed to add a transcoder
             self.default_fragment_scan_options = CsvFragmentScanOptions()
-        # Python-specific option
-        self.encoding = encoding
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1238,8 +1231,7 @@ cdef class CsvFileFormat(FileFormat):
         return (
             self.parse_options.equals(other.parse_options) and
             self.default_fragment_scan_options ==
-            other.default_fragment_scan_options and
-            self.encoding == other.encoding)
+            other.default_fragment_scan_options)
 
     def __reduce__(self):
         return CsvFileFormat, (self.parse_options,
@@ -1263,6 +1255,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     cdef:
         CCsvFragmentScanOptions* csv_options
+        object encoding
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1275,6 +1268,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
             self.convert_options = convert_options
         if read_options is not None:
             self.read_options = read_options
+            self.encoding = read_options.encoding
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -1290,18 +1284,21 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     @property
     def read_options(self):
-        return ReadOptions.wrap(self.csv_options.read_options)
+        read_options = ReadOptions.wrap(self.csv_options.read_options)
+        if self.encoding is not None:
+            # The encoding field in ReadOptions does not exist
+            # in the C struct. Re-set it here.
+            read_options.encoding = self.encoding
+        return read_options
 
     @read_options.setter
     def read_options(self, ReadOptions read_options not None):
         self.csv_options.read_options = deref(read_options.options)
 
     def add_transcoder(self, src_encoding, dest_encoding):
-        if src_encoding == dest_encoding:
-            return
-
-        self.csv_options.stream_transform_func = deref(
-            make_streamwrap_func(src_encoding, dest_encoding))
+        if src_encoding != dest_encoding:
+            self.csv_options.stream_transform_func = deref(
+                    make_streamwrap_func(src_encoding, dest_encoding))
 
     def equals(self, CsvFragmentScanOptions other):
         return (
