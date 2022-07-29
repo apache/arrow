@@ -433,7 +433,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     FileSystemDataset
     """
     format = _ensure_format(format or 'parquet')
-    if format.default_fragment_scan_options.type_name == 'csv':
+    if isinstance(format, CsvFileFormat):
         format.default_fragment_scan_options.add_transcoder(format.encoding, 
                                                             "utf8")
 
