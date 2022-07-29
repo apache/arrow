@@ -195,7 +195,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
                                   const int load_frequency)
 
         @staticmethod
-        shared_ptr[CS3RetryStrategy] GetS3RetryStrategy(const std::string& name,
+        shared_ptr[CS3RetryStrategy] GetS3RetryStrategy(const c_string& name,
                                                         long retry_attempts);
 
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
