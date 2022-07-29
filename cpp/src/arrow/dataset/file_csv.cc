@@ -187,7 +187,7 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
       auto fragment_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
           kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
-  auto reader_options = fragment_scan_options->read_options;
+  ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
   if (fragment_scan_options->stream_transform_func) {
     ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
@@ -299,7 +299,7 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
       auto fragment_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
           kCsvTypeName, options.get(), self->default_fragment_scan_options));
-  auto read_options = fragment_scan_options->read_options;
+  ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
   ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
   if (fragment_scan_options->stream_transform_func) {
     ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
