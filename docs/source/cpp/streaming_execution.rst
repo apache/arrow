@@ -144,6 +144,17 @@ Join Relations
    join key is supported.
  * The ``post_join_filter`` property is not supported and will be ignored.
 
+Aggregate Relations
+^^^^^^^^^^^^^^^^^^^
+
+ * At most one grouping set is supported.
+ * Each grouping expression must be a direct reference.
+ * Each measure's arguments must be direct references.
+ * A measure may not have a filter
+ * A measure may not have sorts
+ * A measure's invocation must be AGGREGATION_INVOCATION_ALL
+ * A measure's phase must be AGGREGATION_PHASE_INITIAL_TO_RESULT
+
 Expressions (general)
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -271,6 +282,9 @@ Functions
      * ``starts_with``
      * ``ends_with``
      * ``contains``
+     * ``count``
+     * ``count_distinct``
+     * ``approx_count_distinct``
 
  * The functions above must be referenced using the URI
    ``https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml``
