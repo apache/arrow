@@ -291,7 +291,8 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_deletion = allow_bucket_deletion
 
         if retry_strategy:
-            options.retry_strategy = options.GetS3RetryStrategy(retry_strategy, retry_max_attempts);
+            options.retry_strategy = options.GetS3RetryStrategy(
+                retry_strategy, retry_max_attempts);
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
