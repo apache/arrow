@@ -25,6 +25,7 @@ import (
 
 	"github.com/apache/arrow/go/v9/arrow"
 	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v9/arrow/endian"
 	"github.com/apache/arrow/go/v9/arrow/internal/debug"
 	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
@@ -45,10 +46,10 @@ type Reader struct {
 	// types dictTypeMap
 	memo             dictutils.Memo
 	readInitialDicts bool
+	done             bool
+	swapEndianness   bool
 
 	mem memory.Allocator
-
-	done bool
 }
 
 // NewReaderFromMessageReader allows constructing a new reader object with the
@@ -76,6 +77,11 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (reader *Reader
 	err = rr.readSchema(cfg.schema)
 	if err != nil {
 		return nil, fmt.Errorf("arrow/ipc: could not read schema from stream: %w", err)
+	}
+
+	if cfg.ensureNativeEndian && !rr.schema.IsNativeEndian() {
+		rr.swapEndianness = true
+		rr.schema = rr.schema.WithEndianness(endian.NativeEndian)
 	}
 
 	return rr, nil
@@ -180,7 +186,7 @@ func (r *Reader) getInitialDicts() bool {
 		if msg.Type() != MessageDictionaryBatch {
 			r.err = fmt.Errorf("arrow/ipc: IPC stream did not have the expected (%d) dictionaries at the start of the stream", numDicts)
 		}
-		if _, err := readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem); err != nil {
+		if _, err := readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.swapEndianness, r.mem); err != nil {
 			r.done = true
 			r.err = err
 			return false
@@ -205,7 +211,7 @@ func (r *Reader) next() bool {
 	msg, r.err = r.r.Message()
 
 	for msg != nil && msg.Type() == MessageDictionaryBatch {
-		if _, r.err = readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem); r.err != nil {
+		if _, r.err = readDictionary(&r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.swapEndianness, r.mem); r.err != nil {
 			r.done = true
 			return false
 		}
@@ -224,7 +230,7 @@ func (r *Reader) next() bool {
 		return false
 	}
 
-	r.rec = newRecord(r.schema, &r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem)
+	r.rec = newRecord(r.schema, &r.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), r.swapEndianness, r.mem)
 	return true
 }
 

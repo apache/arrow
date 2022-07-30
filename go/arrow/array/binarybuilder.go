@@ -30,25 +30,56 @@ import (
 	"github.com/goccy/go-json"
 )
 
-const (
-	binaryArrayMaximumCapacity = math.MaxInt32
-)
-
 // A BinaryBuilder is used to build a Binary array using the Append methods.
 type BinaryBuilder struct {
 	builder
 
 	dtype   arrow.BinaryDataType
-	offsets *int32BufferBuilder
+	offsets bufBuilder
 	values  *byteBufferBuilder
+
+	appendOffsetVal func(int)
+	getOffsetVal    func(int) int
+	maxCapacity     uint64
+	offsetByteWidth int
 }
 
+// NewBinaryBuilder can be used for any of the variable length binary types,
+// Binary, LargeBinary, String, LargeString by passing the appropriate data type
 func NewBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryBuilder {
+	var (
+		offsets         bufBuilder
+		offsetValFn     func(int)
+		maxCapacity     uint64
+		offsetByteWidth int
+		getOffsetVal    func(int) int
+	)
+	switch dtype.Layout().Buffers[1].ByteWidth {
+	case 4:
+		b := newInt32BufferBuilder(mem)
+		offsetValFn = func(v int) { b.AppendValue(int32(v)) }
+		getOffsetVal = func(i int) int { return int(b.Value(i)) }
+		offsets = b
+		maxCapacity = math.MaxInt32
+		offsetByteWidth = arrow.Int32SizeBytes
+	case 8:
+		b := newInt64BufferBuilder(mem)
+		offsetValFn = func(v int) { b.AppendValue(int64(v)) }
+		getOffsetVal = func(i int) int { return int(b.Value(i)) }
+		offsets = b
+		maxCapacity = math.MaxInt64
+		offsetByteWidth = arrow.Int64SizeBytes
+	}
+
 	b := &BinaryBuilder{
-		builder: builder{refCount: 1, mem: mem},
-		dtype:   dtype,
-		offsets: newInt32BufferBuilder(mem),
-		values:  newByteBufferBuilder(mem),
+		builder:         builder{refCount: 1, mem: mem},
+		dtype:           dtype,
+		offsets:         offsets,
+		values:          newByteBufferBuilder(mem),
+		appendOffsetVal: offsetValFn,
+		maxCapacity:     maxCapacity,
+		offsetByteWidth: offsetByteWidth,
+		getOffsetVal:    getOffsetVal,
 	}
 	return b
 }
@@ -135,20 +166,19 @@ func (b *BinaryBuilder) AppendStringValues(v []string, valid []bool) {
 }
 
 func (b *BinaryBuilder) Value(i int) []byte {
-	offsets := b.offsets.Values()
-	start := int(offsets[i])
+	start := b.getOffsetVal(i)
 	var end int
 	if i == (b.length - 1) {
 		end = b.values.Len()
 	} else {
-		end = int(offsets[i+1])
+		end = b.getOffsetVal(i + 1)
 	}
 	return b.values.Bytes()[start:end]
 }
 
 func (b *BinaryBuilder) init(capacity int) {
 	b.builder.init(capacity)
-	b.offsets.resize((capacity + 1) * arrow.Int32SizeBytes)
+	b.offsets.resize((capacity + 1) * b.offsetByteWidth)
 }
 
 // DataLen returns the number of bytes in the data array.
@@ -175,7 +205,7 @@ func (b *BinaryBuilder) ReserveData(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may be reduced.
 func (b *BinaryBuilder) Resize(n int) {
-	b.offsets.resize((n + 1) * arrow.Int32SizeBytes)
+	b.offsets.resize((n + 1) * b.offsetByteWidth)
 	b.builder.resize(n, b.init)
 }
 
@@ -185,15 +215,36 @@ func (b *BinaryBuilder) ResizeData(n int) {
 
 // NewArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder
 // so it can be used to build a new array.
+//
+// Builds the appropriate Binary or LargeBinary array based on the datatype
+// it was initialized with.
 func (b *BinaryBuilder) NewArray() arrow.Array {
-	return b.NewBinaryArray()
+	if b.offsetByteWidth == arrow.Int32SizeBytes {
+		return b.NewBinaryArray()
+	}
+	return b.NewLargeBinaryArray()
 }
 
 // NewBinaryArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder
 // so it can be used to build a new array.
 func (b *BinaryBuilder) NewBinaryArray() (a *Binary) {
+	if b.offsetByteWidth != arrow.Int32SizeBytes {
+		panic("arrow/array: invalid call to NewBinaryArray when building a LargeBinary array")
+	}
+
 	data := b.newData()
 	a = NewBinaryData(data)
+	data.Release()
+	return
+}
+
+func (b *BinaryBuilder) NewLargeBinaryArray() (a *LargeBinary) {
+	if b.offsetByteWidth != arrow.Int64SizeBytes {
+		panic("arrow/array: invalid call to NewLargeBinaryArray when building a Binary array")
+	}
+
+	data := b.newData()
+	a = NewLargeBinaryData(data)
 	data.Release()
 	return
 }
@@ -217,8 +268,8 @@ func (b *BinaryBuilder) newData() (data *Data) {
 
 func (b *BinaryBuilder) appendNextOffset() {
 	numBytes := b.values.Len()
-	debug.Assert(numBytes <= binaryArrayMaximumCapacity, "exceeded maximum capacity of binary array")
-	b.offsets.AppendValue(int32(numBytes))
+	debug.Assert(uint64(numBytes) <= b.maxCapacity, "exceeded maximum capacity of binary array")
+	b.appendOffsetVal(numBytes)
 }
 
 func (b *BinaryBuilder) unmarshalOne(dec *json.Decoder) error {

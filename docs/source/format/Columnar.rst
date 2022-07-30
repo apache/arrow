@@ -1045,7 +1045,11 @@ file. Further more, it is invalid to have more than one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
 supported). Delta dictionaries are applied in the order they appear in
 the file footer. We recommend the ".arrow" extension for files created with
-this format.
+this format. Note that files created with this format are sometimes called
+"Feather V2" or with the ".feather" extension, the name and the extension
+derived from "Feather (V1)", which was a proof of concept early in
+the Arrow project for language-agnostic fast data frame storage for
+Python (pandas) and R.
 
 Dictionary Messages
 -------------------

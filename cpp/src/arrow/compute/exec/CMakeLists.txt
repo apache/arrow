@@ -62,6 +62,8 @@ add_arrow_benchmark(project_benchmark
                     benchmark_util.cc
                     project_benchmark.cc)
 
+add_arrow_benchmark(asof_join_benchmark PREFIX "arrow-compute")
+
 add_arrow_benchmark(tpch_benchmark PREFIX "arrow-compute")
 
 if(ARROW_BUILD_OPENMP_BENCHMARKS)

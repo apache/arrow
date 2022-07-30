@@ -65,6 +65,48 @@ func TestBinary(t *testing.T) {
 	b.Release()
 }
 
+func TestLargeBinary(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+
+	values := [][]byte{
+		[]byte("AAA"),
+		nil,
+		[]byte("BBBB"),
+	}
+	valid := []bool{true, false, true}
+	b.AppendValues(values, valid)
+
+	b.Retain()
+	b.Release()
+
+	assert.Panics(t, func() {
+		b.NewBinaryArray()
+	})
+
+	a := b.NewLargeBinaryArray()
+	assert.Equal(t, 3, a.Len())
+	assert.Equal(t, 1, a.NullN())
+	assert.Equal(t, []byte("AAA"), a.Value(0))
+	assert.Equal(t, []byte{}, a.Value(1))
+	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	a.Release()
+
+	// Test builder reset and NewArray API.
+	b.AppendValues(values, valid)
+	a = b.NewArray().(*LargeBinary)
+	assert.Equal(t, 3, a.Len())
+	assert.Equal(t, 1, a.NullN())
+	assert.Equal(t, []byte("AAA"), a.Value(0))
+	assert.Equal(t, []byte{}, a.Value(1))
+	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	a.Release()
+
+	b.Release()
+}
+
 func TestBinarySliceData(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -336,6 +378,33 @@ func TestBinaryValueOffset(t *testing.T) {
 	}
 }
 
+func TestLargeBinaryValueOffset(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
+	defer slice.Release()
+
+	offset := 3
+	vs := values[2:9]
+
+	for i, v := range vs {
+		assert.EqualValues(t, offset, slice.ValueOffset(i))
+		offset += len(v)
+	}
+}
+
 func TestBinaryValueLen(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -352,6 +421,31 @@ func TestBinaryValueLen(t *testing.T) {
 	defer arr.Release()
 
 	slice := NewSlice(arr, 2, 9).(*Binary)
+	defer slice.Release()
+
+	vs := values[2:9]
+
+	for i, v := range vs {
+		assert.Equal(t, len(v), slice.ValueLen(i))
+	}
+}
+
+func TestLargeBinaryValueLen(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
 	defer slice.Release()
 
 	vs := values[2:9]
@@ -384,6 +478,29 @@ func TestBinaryValueOffsets(t *testing.T) {
 	assert.Equal(t, []int32{3, 3, 3, 7, 9, 9, 12, 12}, slice.ValueOffsets())
 }
 
+func TestLargeBinaryValueOffsets(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	assert.Equal(t, []int64{0, 1, 3, 3, 3, 7, 9, 9, 12, 12, 14}, arr.ValueOffsets())
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
+	defer slice.Release()
+
+	assert.Equal(t, []int64{3, 3, 3, 7, 9, 9, 12, 12}, slice.ValueOffsets())
+}
+
 func TestBinaryValueBytes(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -407,6 +524,29 @@ func TestBinaryValueBytes(t *testing.T) {
 	assert.Equal(t, []byte{'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q'}, slice.ValueBytes())
 }
 
+func TestLargeBinaryValueBytes(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	assert.Equal(t, []byte{'a', 'b', 'c', 'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q', 't', 'u'}, arr.ValueBytes())
+
+	slice := NewSlice(arr, 2, 9).(*LargeBinary)
+	defer slice.Release()
+
+	assert.Equal(t, []byte{'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q'}, slice.ValueBytes())
+}
+
 func TestBinaryStringer(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -420,6 +560,29 @@ func TestBinaryStringer(t *testing.T) {
 	b.AppendStringValues(values, valids)
 
 	arr := b.NewArray().(*Binary)
+	defer arr.Release()
+
+	got := arr.String()
+	want := `["a" "bc" (null) "é" (null) "hijk" "lm" "" "opq" (null) "tu"]`
+
+	if got != want {
+		t.Fatalf("invalid stringer:\ngot= %s\nwant=%s\n", got, want)
+	}
+}
+
+func TestLargeBinaryStringer(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "é", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, true, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*LargeBinary)
 	defer arr.Release()
 
 	got := arr.String()

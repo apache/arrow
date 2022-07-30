@@ -66,14 +66,16 @@ type config struct {
 	footer struct {
 		offset int64
 	}
-	codec      flatbuf.CompressionType
-	compressNP int
+	codec              flatbuf.CompressionType
+	compressNP         int
+	ensureNativeEndian bool
 }
 
 func newConfig(opts ...Option) *config {
 	cfg := &config{
-		alloc: memory.NewGoAllocator(),
-		codec: -1, // uncompressed
+		alloc:              memory.NewGoAllocator(),
+		codec:              -1, // uncompressed
+		ensureNativeEndian: true,
 	}
 
 	for _, opt := range opts {
@@ -131,6 +133,20 @@ func WithZstd() Option {
 func WithCompressConcurrency(n int) Option {
 	return func(cfg *config) {
 		cfg.compressNP = n
+	}
+}
+
+// WithEnsureNativeEndian specifies whether or not to automatically byte-swap
+// buffers with endian-sensitive data if the schema's endianness is not the
+// platform-native endianness. This includes all numeric types, temporal types,
+// decimal types, as well as the offset buffers of variable-sized binary and
+// list-like types.
+//
+// This is only relevant to ipc Reader objects, not to writers. This defaults
+// to true.
+func WithEnsureNativeEndian(v bool) Option {
+	return func(cfg *config) {
+		cfg.ensureNativeEndian = v
 	}
 }
 

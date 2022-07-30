@@ -40,6 +40,7 @@
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -457,6 +458,43 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
     }
   }
   *os << "}";
+}
+
+Result<std::shared_ptr<Table>> MakeRandomTimeSeriesTable(
+    const TableGenerationProperties& properties) {
+  int total_columns = properties.num_columns + 2;
+  std::vector<std::shared_ptr<Array>> columns;
+  columns.reserve(total_columns);
+  arrow::FieldVector field_vector;
+  field_vector.reserve(total_columns);
+
+  field_vector.push_back(field("time", int64()));
+  field_vector.push_back(field("id", int32()));
+  Int64Builder time_column_builder;
+  Int32Builder id_column_builder;
+  for (int64_t time = properties.start; time <= properties.end;
+       time += properties.time_frequency) {
+    for (int32_t id = 0; id < properties.num_ids; id++) {
+      ARROW_RETURN_NOT_OK(time_column_builder.Append(time));
+      ARROW_RETURN_NOT_OK(id_column_builder.Append(id));
+    }
+  }
+
+  int64_t num_rows = time_column_builder.length();
+  ARROW_ASSIGN_OR_RAISE(auto time_column, time_column_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto id_column, id_column_builder.Finish());
+  columns.push_back(std::move(time_column));
+  columns.push_back(std::move(id_column));
+
+  for (int i = 0; i < properties.num_columns; i++) {
+    field_vector.push_back(
+        field(properties.column_prefix + std::to_string(i), float64()));
+    random::RandomArrayGenerator rand(properties.seed + i);
+    columns.push_back(
+        rand.Float64(num_rows, properties.min_column_value, properties.max_column_value));
+  }
+  std::shared_ptr<arrow::Schema> schema = arrow::schema(std::move(field_vector));
+  return Table::Make(schema, columns, num_rows);
 }
 
 }  // namespace compute

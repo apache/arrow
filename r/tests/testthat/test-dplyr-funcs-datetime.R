@@ -150,6 +150,71 @@ test_that("strptime", {
     as.POSIXct(tstamp),
     ignore_attr = "tzone"
   )
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
+  tz <- "Pacific/Marquesas"
+  set.seed(42)
+  times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "sec")
+  times <- sample(times, 100)
+
+  # Op format is currently not supported by strptime
+  formats <- c(
+    "%d", "%H", "%j", "%m", "%T",
+    "%S", "%q", "%M", "%U", "%w", "%W", "%y", "%Y", "%R", "%T"
+  )
+  formats2 <- c(
+    "a", "A", "b", "B", "d", "H", "j", "m", "Om", "T", "OS", "Ip",
+    "S", "q", "M", "U", "w", "W", "y", "Y", "r", "R", "Tz"
+  )
+  base_format <- "%Y-%m-%d"
+  base_format2 <- "ymd"
+
+  # Some formats are not supported on Windows
+  if (!tolower(Sys.info()[["sysname"]]) == "windows") {
+    formats <- c(formats, "%a", "%A", "%b", "%B", "%Om", "%OS", "%I%p", "%r", "%T%z")
+  }
+
+  for (fmt in formats) {
+    fmt <- paste(base_format, fmt)
+    test_df <- tibble::tibble(x = strftime(times, format = fmt))
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+          mutate(x = strptime(x, format = fmt)) %>%
+          collect(),
+      test_df %>%
+        mutate(x = as.POSIXct(strptime(x, format = fmt))) %>%
+        collect()
+    )
+  }
+
+  for (fmt in formats2) {
+    fmt2 <- paste(base_format2, fmt)
+    fmt <- paste(base_format, paste0("%", fmt))
+    test_df <- tibble::tibble(x = strftime(times, format = fmt))
+    expect_equal(
+      test_df %>%
+        arrow_table() %>%
+          mutate(x = strptime(x, format = fmt2)) %>%
+          collect(),
+      test_df %>%
+        mutate(x = as.POSIXct(strptime(x, format = fmt2))) %>%
+        collect()
+    )
+  }
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%m-d-%T")
+      ) %>%
+      collect(),
+    tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
+  )
+
 })
 
 test_that("strptime returns NA when format doesn't match the data", {
@@ -2045,6 +2110,118 @@ test_that("ym, my & yq parsers", {
   )
 })
 
+test_that("parse_date_time's other formats", {
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
+  # q, OS, Op, z formats are currently not supported by strptime
+  test_df <- tibble(
+    string_a = c("2023-12-30-Sat", NA),
+    string_A = c("2023-12-30-Saturday", NA),
+    string_b = c("2023-12-30-Dec", NA),
+    string_B = c("2023-12-30-December", NA),
+    string_H = c("2023-12-30-01", NA),
+    string_I = c("2023-12-30-01", NA),
+    string_j = c("2023-12-30-364", NA),
+    string_M = c("2023-12-30-00", NA),
+    string_p = c("2023-12-30-AM", NA),
+    string_S = c("2023-12-30-00", NA),
+    string_U = c("2023-12-30-52", NA),
+    string_w = c("2023-12-30-6", NA),
+    string_W = c("2023-12-30-52", NA),
+    string_y = c("23-12-30", NA),
+    string_Y = c("2023-12-30", NA),
+    string_Om = c("2023-01-30", NA),
+    string_r = c("2023-12-30-01", NA),
+    string_R = c("2023-12-30-01:00", NA),
+    string_T = c("2023-12-30-01:00:00", NA)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_H = parse_date_time(string_H, orders = "%Y-%m-%d-%H"),
+        parsed_I = parse_date_time(string_I, orders = "%Y-%m-%d-%I"),
+        parsed_j = parse_date_time(string_j, orders = "%Y-%m-%d-%j"),
+        parsed_M = parse_date_time(string_M, orders = "%Y-%m-%d-%M"),
+        parsed_S = parse_date_time(string_S, orders = "%Y-%m-%d-%S"),
+        parsed_U = parse_date_time(string_U, orders = "%Y-%m-%d-%U"),
+        parsed_w = parse_date_time(string_w, orders = "%Y-%m-%d-%w"),
+        parsed_W = parse_date_time(string_W, orders = "%Y-%m-%d-%W"),
+        parsed_y = parse_date_time(string_y, orders = "%y-%m-%d"),
+        parsed_Y = parse_date_time(string_Y, orders = "%Y-%m-%d"),
+        parsed_R = parse_date_time(string_R, orders = "%Y-%m-%d-%R"),
+        parsed_T = parse_date_time(string_T, orders = "%Y-%m-%d-%T")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_H = parse_date_time(string_H, orders = "ymdH"),
+        parsed_I = parse_date_time(string_I, orders = "ymdI"),
+        parsed_j = parse_date_time(string_j, orders = "ymdj"),
+        parsed_M = parse_date_time(string_M, orders = "ymdM"),
+        parsed_S = parse_date_time(string_S, orders = "ymdS"),
+        parsed_U = parse_date_time(string_U, orders = "ymdU"),
+        parsed_w = parse_date_time(string_w, orders = "ymdw"),
+        parsed_W = parse_date_time(string_W, orders = "ymdW"),
+        parsed_y = parse_date_time(string_y, orders = "ymd"),
+        parsed_Y = parse_date_time(string_Y, orders = "Ymd"),
+        parsed_R = parse_date_time(string_R, orders = "ymdR"),
+        parsed_T = parse_date_time(string_T, orders = "ymdT")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # Some formats are not supported on Windows
+  if (!tolower(Sys.info()[["sysname"]]) == "windows") {
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          parsed_a = parse_date_time(string_a, orders = "%Y-%m-%d-%a"),
+          parsed_A = parse_date_time(string_A, orders = "%Y-%m-%d-%A"),
+          parsed_b = parse_date_time(string_b, orders = "%Y-%m-%d-%b"),
+          parsed_B = parse_date_time(string_B, orders = "%Y-%m-%d-%B"),
+          parsed_Om = parse_date_time(string_Om, orders = "%Y-%Om-%d"),
+          parsed_p = parse_date_time(string_p, orders = "%Y-%m-%d-%p"),
+          parsed_r = parse_date_time(string_r, orders = "%Y-%m-%d-%r")
+        ) %>%
+        collect(),
+      test_df
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          parsed_a = parse_date_time(string_a, orders = "ymda"),
+          parsed_A = parse_date_time(string_A, orders = "ymdA"),
+          parsed_b = parse_date_time(string_b, orders = "ymdb"),
+          parsed_B = parse_date_time(string_B, orders = "ymdB"),
+          parsed_Om = parse_date_time(string_Om, orders = "yOmd"),
+          parsed_p = parse_date_time(string_p, orders = "ymdp"),
+          parsed_r = parse_date_time(string_r, orders = "ymdr")
+        ) %>%
+        collect(),
+      test_df
+    )
+
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          parsed_date_ymd = parse_date_time(string_1, orders = "Y-%b-d-%T")
+        ) %>%
+        collect(),
+      tibble::tibble(string_1 = c("2022-Feb-11-12:23:45", NA))
+    )
+  }
+
+})
+
 test_that("lubridate's fast_strptime", {
   compare_dplyr_binding(
     .input %>%
@@ -2578,6 +2755,19 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 })
 
 test_that("build_formats() and build_format_from_order()", {
+
+  ymd_formats <- c(
+    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
+    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
+  )
+
+  ymd_hms_formats <- c(
+    "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
+    "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
+    "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
+    "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
+  )
+
   expect_equal(
     build_formats(c("ym", "myd", "%Y-%d-%m")),
     c(
@@ -2595,20 +2785,11 @@ test_that("build_formats() and build_format_from_order()", {
 
   expect_equal(
     build_formats("ymd_HMS"),
-    c(
-      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
-      "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
-      "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
-    )
+    ymd_hms_formats
   )
 
-  # when order is one of "yq", "qy", "ym" or"my" the data is augmented to "ymd"
+  # when order is one of "yq", "qy", "ym" or "my" the data is augmented to "ymd"
   # or "ydm" and the formats are built accordingly
-  ymd_formats <- c(
-    "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-    "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
-  )
   expect_equal(
     build_formats("yq"),
     ymd_formats
@@ -2638,33 +2819,42 @@ test_that("build_formats() and build_format_from_order()", {
     )
   )
 
-  # ab not supported yet
-  expect_error(
-    build_formats("abd"),
-    '"abd" `orders` not supported in Arrow'
+  expect_equal(
+    build_format_from_order("abp"),
+    c(
+      "%a-%m-%p", "%A-%m-%p", "%a-%B-%p", "%A-%B-%p", "%a-%b-%p", "%A-%b-%p",
+      "%a%m%p", "%A%m%p", "%a%B%p", "%A%B%p", "%a%b%p", "%A%b%p"
+    )
   )
 
   expect_error(
-    build_formats("vup"),
-    '"vup" `orders` not supported in Arrow'
+    build_formats(c("vu", "ymd")),
+    '"vu" `orders` not supported in Arrow'
+  )
+
+  expect_error(
+    build_formats(c("abc")),
+    '"abc" `orders` not supported in Arrow'
+  )
+
+  expect_equal(
+    build_formats("wIpz"),
+    c("%w-%I-%p-%z", "%w%I%p%z")
+  )
+
+  expect_equal(
+    build_formats("yOmd"),
+    ymd_formats
   )
 
   expect_equal(
     build_format_from_order("ymd"),
-    c(
-      "%y-%m-%d", "%Y-%m-%d", "%y-%B-%d", "%Y-%B-%d", "%y-%b-%d", "%Y-%b-%d",
-      "%y%m%d", "%Y%m%d", "%y%B%d", "%Y%B%d", "%y%b%d", "%Y%b%d"
-    )
+    ymd_formats
   )
 
   expect_equal(
     build_format_from_order("ymdHMS"),
-    c(
-      "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S", "%y-%B-%d-%H-%M-%S",
-      "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
-      "%y%m%d%H%M%S", "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S",
-      "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
-    )
+    ymd_hms_formats
   )
 
   expect_equal(
@@ -2684,6 +2874,29 @@ test_that("build_formats() and build_format_from_order()", {
       "%Y-%B-%d-%H", "%y-%b-%d-%H", "%Y-%b-%d-%H",
       "%y%m%d%H", "%Y%m%d%H", "%y%B%d%H", "%Y%B%d%H",
       "%y%b%d%H", "%Y%b%d%H"
+    )
+  )
+
+  expect_equal(
+    build_formats("y-%b-d-%T"),
+    c(
+      "%y-%m-%d-%I-%M-%S-%p", "%Y-%m-%d-%I-%M-%S-%p", "%y-%B-%d-%I-%M-%S-%p", "%Y-%B-%d-%I-%M-%S-%p",
+      "%y-%b-%d-%I-%M-%S-%p", "%Y-%b-%d-%I-%M-%S-%p", "%y-%m-%d-%H-%M-%S", "%Y-%m-%d-%H-%M-%S",
+      "%y-%B-%d-%H-%M-%S", "%Y-%B-%d-%H-%M-%S", "%y-%b-%d-%H-%M-%S", "%Y-%b-%d-%H-%M-%S",
+      "%y-%m-%d-%H-%M-%OS", "%Y-%m-%d-%H-%M-%OS", "%y-%B-%d-%H-%M-%OS", "%Y-%B-%d-%H-%M-%OS",
+      "%y-%b-%d-%H-%M-%OS", "%Y-%b-%d-%H-%M-%OS", "%y%m%d%I%M%S%p", "%Y%m%d%I%M%S%p",
+      "%y%B%d%I%M%S%p", "%Y%B%d%I%M%S%p", "%y%b%d%I%M%S%p", "%Y%b%d%I%M%S%p", "%y%m%d%H%M%S",
+      "%Y%m%d%H%M%S", "%y%B%d%H%M%S", "%Y%B%d%H%M%S", "%y%b%d%H%M%S", "%Y%b%d%H%M%S", "%y%m%d%H%M%OS",
+      "%Y%m%d%H%M%OS", "%y%B%d%H%M%OS", "%Y%B%d%H%M%OS", "%y%b%d%H%M%OS", "%Y%b%d%H%M%OS"
+    )
+  )
+
+  expect_equal(
+    build_formats("%YdmH%p"),
+    c(
+      "%y-%d-%m-%H-%p", "%Y-%d-%m-%H-%p", "%y-%d-%B-%H-%p", "%Y-%d-%B-%H-%p",
+      "%y-%d-%b-%H-%p", "%Y-%d-%b-%H-%p", "%y%d%m%H%p", "%Y%d%m%H%p",
+      "%y%d%B%H%p", "%Y%d%B%H%p", "%y%d%b%H%p", "%Y%d%b%H%p"
     )
   )
 })

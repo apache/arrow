@@ -14,17 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build s390x
-// +build s390x
-
 package endian
 
-import "encoding/binary"
+import (
+	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
+)
 
-var Native = binary.BigEndian
+type Endianness flatbuf.Endianness
 
 const (
-	IsBigEndian     = true
-	NativeEndian    = BigEndian
-	NonNativeEndian = LittleEndian
+	LittleEndian Endianness = Endianness(flatbuf.EndiannessLittle)
+	BigEndian    Endianness = Endianness(flatbuf.EndiannessBig)
 )
+
+func (e Endianness) String() string {
+	switch e {
+	case LittleEndian:
+		return "little"
+	case BigEndian:
+		return "big"
+	default:
+		debug.Assert(false, "wtf? bad endianness value")
+		return "???"
+	}
+}

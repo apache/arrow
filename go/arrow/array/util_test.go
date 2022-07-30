@@ -138,6 +138,27 @@ func TestStringsJSON(t *testing.T) {
 		})
 	}
 
+	for _, tt := range tests {
+		t.Run("large json "+tt.jsonstring, func(t *testing.T) {
+			bldr := array.NewLargeStringBuilder(memory.DefaultAllocator)
+			defer bldr.Release()
+
+			bldr.AppendValues(tt.values, tt.valids)
+			expected := bldr.NewLargeStringArray()
+			defer expected.Release()
+
+			arr, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.LargeString, strings.NewReader(tt.jsonstring))
+			assert.NoError(t, err)
+			defer arr.Release()
+
+			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+			data, err := json.Marshal(arr)
+			assert.NoError(t, err)
+			assert.JSONEq(t, tt.jsonstring, string(data))
+		})
+	}
+
 	t.Run("errors", func(t *testing.T) {
 		_, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.String, strings.NewReader("[0]"))
 		assert.Error(t, err)

@@ -271,6 +271,10 @@ class ConsumingSinkNode : public ExecNode, public BackpressureControl {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "SinkNode"));
 
     const auto& sink_options = checked_cast<const ConsumingSinkNodeOptions&>(options);
+    if (!sink_options.consumer) {
+      return Status::Invalid("A SinkNodeConsumer is required");
+    }
+
     return plan->EmplaceNode<ConsumingSinkNode>(plan, std::move(inputs),
                                                 std::move(sink_options.consumer),
                                                 std::move(sink_options.names));

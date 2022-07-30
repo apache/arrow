@@ -77,6 +77,19 @@ func NewDataWithDictionary(dtype arrow.DataType, length int, buffers []*memory.B
 	return data
 }
 
+func (d *Data) Copy() *Data {
+	// don't pass the slices directly, otherwise it retains the connection
+	// we need to make new slices and populate them with the same pointers
+	bufs := make([]*memory.Buffer, len(d.buffers))
+	copy(bufs, d.buffers)
+	children := make([]arrow.ArrayData, len(d.childData))
+	copy(children, d.childData)
+
+	data := NewData(d.dtype, d.length, bufs, children, d.nulls, d.offset)
+	data.SetDictionary(d.dictionary)
+	return data
+}
+
 // Reset sets the Data for re-use.
 func (d *Data) Reset(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []arrow.ArrayData, nulls, offset int) {
 	// Retain new buffers before releasing existing buffers in-case they're the same ones to prevent accidental premature

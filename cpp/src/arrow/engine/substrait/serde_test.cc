@@ -15,12 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/substrait/serde.h"
-#include "arrow/dataset/plan.h"
-#include "arrow/engine/substrait/util.h"
-#include "arrow/filesystem/mockfs.h"
-#include "arrow/filesystem/test_util.h"
-
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/type_resolver_util.h>
@@ -28,8 +22,14 @@
 
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/file_ipc.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/util.h"
+#include "arrow/filesystem/mockfs.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
@@ -807,12 +807,12 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
     ASSERT_RAISES(
         Invalid,
         DeserializePlans(
-            *buf, []() -> std::shared_ptr<compute::SinkNodeConsumer> { return NULLPTR; },
+            *buf, []() -> std::shared_ptr<compute::SinkNodeConsumer> { return nullptr; },
             ext_id_reg, &ext_set));
     ASSERT_RAISES(
         Invalid,
         DeserializePlans(
-            *buf, []() -> std::shared_ptr<dataset::WriteNodeOptions> { return NULLPTR; },
+            *buf, []() -> std::shared_ptr<dataset::WriteNodeOptions> { return nullptr; },
             ext_id_reg, &ext_set));
   }
 }
@@ -905,13 +905,36 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
                        DeserializePlans(*buf, NullSinkNodeConsumer::Make));
   ASSERT_EQ(declarations.size(), 1);
   compute::Declaration* decl = &declarations[0];
-  ASSERT_TRUE(decl->factory_name == std::string("consuming_sink"));
+  ASSERT_EQ(decl->factory_name, "consuming_sink");
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
-  ASSERT_TRUE(sink_node->kind_name() == std::string("ConsumingSinkNode"));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
-  ASSERT_TRUE(prev_node->kind_name() == std::string("SourceNode"));
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
+#endif
+}
+
+TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
+  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                       DeserializePlan(*buf, NullSinkNodeConsumer::Make()));
+  ASSERT_EQ(1, plan->sinks().size());
+  compute::ExecNode* sink_node = plan->sinks()[0];
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
+  ASSERT_EQ(sink_node->num_inputs(), 1);
+  auto& prev_node = sink_node->inputs()[0];
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
 #endif
 }
 
@@ -925,10 +948,15 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> fs,
                        fs::internal::MockFileSystem::Make(mock_now, {testdir}));
   auto write_options_factory = [&fs] {
+    std::shared_ptr<dataset::IpcFileFormat> format =
+        std::make_shared<dataset::IpcFileFormat>();
     dataset::FileSystemDatasetWriteOptions options;
+    options.file_write_options = format->DefaultWriteOptions();
     options.filesystem = fs;
     options.basename_template = "chunk-{i}.arrow";
     options.base_dir = "testdir";
+    options.partitioning =
+        std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
     return std::make_shared<dataset::WriteNodeOptions>(options);
   };
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
@@ -936,17 +964,20 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   ASSERT_OK_AND_ASSIGN(auto declarations, DeserializePlans(*buf, write_options_factory));
   ASSERT_EQ(declarations.size(), 1);
   compute::Declaration* decl = &declarations[0];
-  ASSERT_TRUE(decl->factory_name == std::string("write"));
+  ASSERT_EQ(decl->factory_name, "write");
   ASSERT_EQ(decl->inputs.size(), 1);
   decl = util::get_if<compute::Declaration>(&decl->inputs[0]);
-  ASSERT_TRUE(decl != NULLPTR);
-  ASSERT_TRUE(decl->factory_name == std::string("scan"));
+  ASSERT_NE(decl, nullptr);
+  ASSERT_EQ(decl->factory_name, "scan");
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
-  ASSERT_TRUE(sink_node->kind_name() == std::string("ConsumingSinkNode"));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
-  ASSERT_TRUE(prev_node->kind_name() == std::string("SourceNode"));
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  ASSERT_OK(plan->StartProducing());
+  ASSERT_FINISHES_OK(plan->finished());
 #endif
 }
 
@@ -955,8 +986,8 @@ static void test_with_registries(
   auto default_func_reg = compute::GetFunctionRegistry();
   auto nested_ext_id_reg = substrait::MakeExtensionIdRegistry();
   auto nested_func_reg = compute::FunctionRegistry::Make(default_func_reg);
-  test(NULLPTR, default_func_reg);
-  test(NULLPTR, nested_func_reg.get());
+  test(nullptr, default_func_reg);
+  test(nullptr, nested_func_reg.get());
   test(nested_ext_id_reg.get(), default_func_reg);
   test(nested_ext_id_reg.get(), nested_func_reg.get());
 }
@@ -1402,7 +1433,7 @@ TEST(Substrait, AggregateBasic) {
                   }]
                 }
               },
-              "local_files": { 
+              "local_files": {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",
@@ -1518,7 +1549,7 @@ TEST(Substrait, AggregateInvalidFunction) {
                   }]
                 }
               },
-              "local_files": { 
+              "local_files": {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",
@@ -1579,7 +1610,7 @@ TEST(Substrait, AggregateInvalidAggFuncArgs) {
                   }]
                 }
               },
-              "local_files": { 
+              "local_files": {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",
@@ -1649,7 +1680,7 @@ TEST(Substrait, AggregateWithFilter) {
                   }]
                 }
               },
-              "local_files": { 
+              "local_files": {
                 "items": [
                   {
                     "uri_file": "file:///tmp/dat.parquet",

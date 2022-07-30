@@ -305,3 +305,33 @@ func (r *RandomArrayGenerator) String(size int64, minLength, maxLength int, null
 
 	return bldr.NewArray()
 }
+
+func (r *RandomArrayGenerator) LargeString(size int64, minLength, maxLength int64, nullprob float64) arrow.Array {
+	lengths := r.Int64(size, minLength, maxLength, nullprob).(*array.Int64)
+	defer lengths.Release()
+
+	bldr := array.NewLargeStringBuilder(r.mem)
+	defer bldr.Release()
+
+	r.extra++
+	dist := rand.New(rand.NewSource(r.seed + r.extra))
+
+	buf := make([]byte, 0, maxLength)
+	gen := func(n int64) string {
+		out := buf[:n]
+		for i := range out {
+			out[i] = uint8(dist.Int63n(int64('z')-int64('A')+1) + int64('A'))
+		}
+		return string(out)
+	}
+
+	for i := 0; i < lengths.Len(); i++ {
+		if lengths.IsValid(i) {
+			bldr.Append(gen(lengths.Value(i)))
+		} else {
+			bldr.AppendNull()
+		}
+	}
+
+	return bldr.NewArray()
+}

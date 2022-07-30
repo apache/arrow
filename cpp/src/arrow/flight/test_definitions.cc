@@ -237,6 +237,21 @@ void DataTest::TestDoGetLargeBatch() {
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
 }
+// Ensure FlightDataStream/RecordBatchStream::Close errors are propagated
+void DataTest::TestFlightDataStreamError() {
+  Ticket ticket{"ticket-stream-error"};
+
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
+  Status status;
+  while (true) {
+    FlightStreamChunk chunk;
+    status = stream->Next().Value(&chunk);
+    if (!chunk.data) break;
+    if (!status.ok()) break;
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
+                                  status);
+}
 void DataTest::TestOverflowServerBatch() {
   // Regression test for ARROW-13253
   // N.B. this is rather a slow and memory-hungry test
