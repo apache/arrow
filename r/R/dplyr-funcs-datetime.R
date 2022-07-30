@@ -580,12 +580,23 @@ register_bindings_datetime_parsers <- function() {
     }
   })
 
-  ymd_parser_vec <- c("ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq")
+  parser_vec <- c(
+    "ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq",
+    "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H",
+    "mdy_HMS", "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
+  )
 
-  ymd_parser_map_factory <- function(order) {
+  parser_map_factory <- function(order) {
     force(order)
-    function(x, tz = NULL) {
-      parse_x <- call_binding("parse_date_time", x, order, tz)
+    function(x, quiet = TRUE, tz = NULL, locale = NULL, truncated = 0) {
+      if (!is.null(locale)) {
+        arrow_not_supported("`locale`")
+      }
+      # Parsers returning datetimes return UTC by default and never return dates.
+      if (is.null(tz) && nchar(order) > 3) {
+        tz <- "UTC"
+      }
+      parse_x <- call_binding("parse_date_time", x, order, tz, truncated, quiet)
       if (is.null(tz)) {
         # we cast so we can mimic the behaviour of the `tz` argument in lubridate
         # "If NULL (default), a Date object is returned. Otherwise a POSIXct with
@@ -596,10 +607,10 @@ register_bindings_datetime_parsers <- function() {
     }
   }
 
-  for (ymd_order in ymd_parser_vec) {
+  for (order in parser_vec) {
     register_binding(
-      paste0("lubridate::", ymd_order),
-      ymd_parser_map_factory(ymd_order)
+      paste0("lubridate::", tolower(order)),
+      parser_map_factory(order)
     )
   }
 
