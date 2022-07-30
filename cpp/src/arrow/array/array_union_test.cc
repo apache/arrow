@@ -74,7 +74,7 @@ TEST(TestSparseUnionArray, ValidateFullNullable) {
   auto ty = sparse_union(
       {field("ints", int64()), field("strs", utf8(), /*nullable*/ false)}, {2, 7});
   auto ints = ArrayFromJSON(int64(), "[0, 1, 2, 3]");
-  auto strs = ArrayFromJSON(utf8(), R"(["a", null, "c", "d"])");
+  auto strs = ArrayFromJSON(utf8(), R"([null, "a", "c", "d"])");
   auto strs_no_null = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])");
   auto ids = ArrayFromJSON(int8(), "[2, 7, 2, 7]")->data()->buffers[1];
   const int length = 4;

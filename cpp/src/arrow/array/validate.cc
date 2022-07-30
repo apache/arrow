@@ -510,23 +510,25 @@ struct ValidateArrayImpl {
     }
 
     if (full_validation) {
-      int64_t actual_null_count;
-      if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
-        // Do not call GetNullCount() as it would also set the `null_count` member
-        actual_null_count =
-            data.length - CountSetBits(data.buffers[0]->data(), data.offset, data.length);
-      } else if (data.type->storage_id() == Type::NA) {
-        actual_null_count = data.length;
-      } else {
-        actual_null_count = 0;
-      }
-      if (data.null_count != kUnknownNullCount && actual_null_count != data.null_count) {
-        return Status::Invalid("null_count value (", data.null_count,
-                               ") doesn't match actual number of nulls in array (",
-                               actual_null_count, ")");
-      }
-      if (!nullable && actual_null_count > 0) {
-        return Status::Invalid("Null found but field is not nullable");
+      if (data.null_count != kUnknownNullCount || !nullable) {
+        int64_t actual_null_count;
+        if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
+          // Do not call GetNullCount() as it would also set the `null_count` member
+          actual_null_count =
+              data.length - CountSetBits(data.buffers[0]->data(), data.offset, data.length);
+        } else if (data.type->storage_id() == Type::NA) {
+          actual_null_count = data.length;
+        } else {
+          actual_null_count = 0;
+        }
+        if (data.null_count != kUnknownNullCount && actual_null_count != data.null_count) {
+          return Status::Invalid("null_count value (", data.null_count,
+                                ") doesn't match actual number of nulls in array (",
+                                actual_null_count, ")");
+        }
+        if (!nullable && actual_null_count > 0) {
+          return Status::Invalid("Null found but field is not nullable");
+        }
       }
     }
     return Status::OK();

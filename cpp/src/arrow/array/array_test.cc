@@ -81,8 +81,10 @@ class TestArray : public ::testing::Test {
 TEST_F(TestArray, ValidateFullNullableList) {
   auto f1 = field("f1", int32(), /*nullable=*/false);
   auto ty = list(f1);
-  auto array = ArrayFromJSON(ty, "[[0, 1, 2, null], null, [4, 5]]");
-  ASSERT_RAISES(Invalid, array->ValidateFull());
+  auto array = ArrayFromJSON(ty, "[[0, 1, 2, 3], null, [4, 5]]");
+  auto array_nested_null = ArrayFromJSON(ty, "[[0, 1, 2, null], [3,6], [4, 5]]");
+  // ASSERT_RAISES(Invalid, array->ValidateFull());
+  ASSERT_RAISES(Invalid, array_nested_null->ValidateFull());
 }
 
 TEST_F(TestArray, ValidateFullNullableFixedSizeList) {
