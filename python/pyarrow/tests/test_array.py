@@ -3192,3 +3192,13 @@ def test_to_pandas_timezone():
     arr = pa.chunked_array([arr])
     s = arr.to_pandas()
     assert s.dt.tz is not None
+
+
+def test_chunked_array_can_combine_chunks_with_no_chunks():
+    # https://issues.apache.org/jira/browse/ARROW-17256
+    assert pa.chunked_array([], type=pa.bool_()).combine_chunks() == pa.array(
+        [], type=pa.bool_()
+    )
+    assert pa.chunked_array(
+        [pa.array([], type=pa.bool_())], type=pa.bool_()
+    ).combine_chunks() == pa.array([], type=pa.bool_())

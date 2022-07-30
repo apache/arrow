@@ -697,7 +697,10 @@ cdef class ChunkedArray(_PandasConvertible):
           100
         ]
         """
-        return concat_arrays(self.chunks)
+        if self.num_chunks == 0:
+            return array([], type=self.type)
+        else:
+            return concat_arrays(self.chunks)
 
     def unique(self):
         """
