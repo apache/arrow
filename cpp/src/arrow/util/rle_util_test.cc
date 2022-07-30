@@ -27,16 +27,17 @@ namespace arrow {
 namespace rle_util {
 
 TEST(TestRleUtil, FindPhysicalOffsetTest) {
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){1}, 1, 0), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){1, 2, 3}, 3, 0), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){1, 2, 3}, 3, 1), 1);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){1, 2, 3}, 3, 2), 2);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){1, 2, 3}, 3, 3), 3);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){2, 3, 4}, 3, 0), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){2, 3, 4}, 3, 1), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){2, 3, 4}, 3, 2), 1);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){2, 3, 4}, 3, 3), 2);
-  ASSERT_EQ(FindPhysicalOffset((const int64_t[]){2, 4, 6}, 3, 3), 1);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1}, 1, 0), 0);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3*4, 0), 0);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3*4, 1), 1);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3*4, 2), 2);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3*4, 3), 3);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3*4, 0), 0);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3*4, 1), 0);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3*4, 2), 1);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3*4, 3), 2);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 3*4, 3), 1);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4, 5}, 3*4+3, 100), 2);
 }
 
 }  // namespace rle_util
