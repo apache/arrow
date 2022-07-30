@@ -27,6 +27,7 @@ import java.io.Reader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -247,8 +248,15 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     final String extraParams = uri.getRawQuery(); // optional params
 
     final Map<String, String> keyValuePairs = UrlParser.parse(extraParams, "&");
-    resultMap.putAll(keyValuePairs);
+    final Map<String, String> lowerCaseKeyValuePairs = lowerCaseKeys(keyValuePairs);
+    resultMap.putAll(lowerCaseKeyValuePairs);
 
+    return resultMap;
+  }
+
+  private Map<String, String> lowerCaseKeys(final Map<String, String> keyValues) {
+    Map<String, String> resultMap = new HashMap<>();
+    keyValues.forEach((k, v) -> resultMap.put(k.toLowerCase(), v));
     return resultMap;
   }
 }

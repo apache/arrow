@@ -202,9 +202,9 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     public Object get(final Properties properties) {
       Preconditions.checkNotNull(properties, "Properties cannot be null.");
       Preconditions.checkState(
-          properties.containsKey(camelName) || !required,
+          properties.containsKey(camelName.toLowerCase()) || !required,
           format("Required property not provided: <%s>.", this));
-      return properties.getOrDefault(camelName, defaultValue);
+      return properties.getOrDefault(camelName.toLowerCase(), defaultValue);
     }
 
     /**

@@ -36,14 +36,12 @@ public class UrlParser {
 
     for (String keyValue : keyValues) {
       int separatorKey = keyValue.indexOf("="); // Find the first equal sign to split key and value.
-      String key = keyValue.substring(0, separatorKey);
-      String value = "";
-      if (!keyValue.endsWith("=")) { // Avoid crashes for empty values.
-        value = keyValue.substring(separatorKey + 1);
+      if (separatorKey != -1) { // Avoid crashes when not finding an equal sign in the property value.
+        String key = keyValue.substring(0, separatorKey);
+        String value = keyValue.substring(separatorKey + 1);
+        resultMap.put(key, value);
       }
-      resultMap.put(key, value);
     }
-
     return resultMap;
   }
 }
