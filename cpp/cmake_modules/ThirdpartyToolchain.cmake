@@ -2659,11 +2659,39 @@ endmacro()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-set(ARROW_ABSL_REQUIRED_VERSION "20211102")
+macro(ensure_absl)
+  if(NOT absl_FOUND)
+    if(${absl_SOURCE} STREQUAL "AUTO")
+      # We can't use resolve_dependency(absl 20211102) to use Abseil
+      # 20211102 or later because Abseil's CMake package uses "EXACT"
+      # version match strategy. Our CMake configuration will work with
+      # Abseil LTS 20211102 or later. So we want to accept Abseil LTS
+      # 20211102 or later. We need to update
+      # ARROW_ABSL_REQUIRED_LTS_VERSIONS list when new Abseil LTS is
+      # released.
+      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20211102 20220623)
+      foreach(_VERSION ${ARROW_ABSL_REQUIRED_LTS_VERSIONS})
+        find_package(absl ${_VERSION})
+        if(absl_FOUND)
+          break()
+        endif()
+      endforeach()
+      # If we can't find Abseil LTS 20211102 or later, we use bundled
+      # Abseil.
+      if(NOT absl_FOUND)
+        set(absl_SOURCE "BUNDLED")
+      endif()
+    endif()
+    resolve_dependency(absl)
+  endif()
+endmacro()
+
 macro(build_absl)
   # This may be called multiple times.
   if(NOT ABSL_VENDORED)
     message(STATUS "Building Abseil-cpp from source")
+    set(absl_FOUND TRUE)
+    set(absl_VERSION ${ARROW_ABSL_BUILD_VERSION})
     set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
     set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
     set(ABSL_CMAKE_ARGS
@@ -3610,7 +3638,7 @@ macro(build_grpc)
                      TRUE
                      PC_PACKAGE_NAMES
                      libcares)
-  resolve_dependency(absl REQUIRED_VERSION ${ARROW_ABSL_REQUIRED_VERSION})
+  ensure_absl()
 
   message(STATUS "Building gRPC from source")
 
@@ -4016,7 +4044,7 @@ macro(build_google_cloud_cpp_storage)
   message(STATUS "Only building the google-cloud-cpp::storage component")
 
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/master/doc/packaging.md
-  resolve_dependency(absl REQUIRED_VERSION ${ARROW_ABSL_REQUIRED_VERSION})
+  ensure_absl()
   build_crc32c_once()
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
