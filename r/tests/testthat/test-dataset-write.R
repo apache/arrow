@@ -142,6 +142,19 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
 test_that("Writing a dataset: `basename_template` default behavier", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
 
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".parquet")
+  )
+
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(ds, dst_dir, format = "parquet", basename_template = "part-i.parquet"),
+    "basename_template did not contain '\\{i\\}'"
+  )
+
   feather_dir <- make_temp_dir()
   write_dataset(ds, feather_dir, format = "feather", partitioning = "int")
   expect_identical(
