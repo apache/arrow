@@ -124,7 +124,7 @@ write_dataset <- function(dataset,
                           path,
                           format = c("parquet", "feather", "arrow", "ipc", "csv"),
                           partitioning = dplyr::group_vars(dataset),
-                          basename_template = NULL,
+                          basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           max_partitions = 1024L,
@@ -134,6 +134,7 @@ write_dataset <- function(dataset,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
   format <- match.arg(format)
+  format <- ifelse(as.character(format) %in% c("feather", "ipc"), "arrow", as.character(format))
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)
@@ -169,11 +170,6 @@ write_dataset <- function(dataset,
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
-  }
-
-  if (is.null(basename_template)) {
-    format <- ifelse(as.character(format) %in% c("feather", "ipc"), "arrow", format)
-    basename_template <- paste0("part-{i}.", as.character(format))
   }
 
   path_and_fs <- get_path_and_filesystem(path)
