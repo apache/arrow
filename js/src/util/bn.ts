@@ -104,7 +104,7 @@ if (!BigIntAvailable) {
 
 /** @ignore */
 function decimalToString<T extends BN<BigNumArray>>(a: T) {
-    let digits = '';
+    let digits: string | null = null;
     const base64 = new Uint32Array(2);
     let base32 = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);
     const checks = new Uint32Array((base32 = new Uint16Array(base32).reverse()).buffer);
@@ -119,7 +119,7 @@ function decimalToString<T extends BN<BigNumArray>>(a: T) {
         base64[0] = base64[0] - base64[1] * 10;
         digits = `${base64[0]}${digits}`;
     } while (checks[0] || checks[1] || checks[2] || checks[3]);
-    return digits ? digits : `0`;
+    return digits ?? `0`;
 }
 
 /** @ignore */
