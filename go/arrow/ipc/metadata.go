@@ -23,6 +23,7 @@ import (
 	"sort"
 
 	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v9/arrow/endian"
 	"github.com/apache/arrow/go/v9/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v9/arrow/memory"
@@ -922,7 +923,7 @@ func schemaFromFB(schema *flatbuf.Schema, memo *dictutils.Memo) (*arrow.Schema, 
 		return nil, fmt.Errorf("arrow/ipc: could not convert schema metadata from flatbuf: %w", err)
 	}
 
-	return arrow.NewSchema(fields, &md), nil
+	return arrow.NewSchemaWithEndian(fields, &md, endian.Endianness(schema.Endianness())), nil
 }
 
 func schemaToFB(b *flatbuffers.Builder, schema *arrow.Schema, memo *dictutils.Mapper) flatbuffers.UOffsetT {
@@ -941,7 +942,7 @@ func schemaToFB(b *flatbuffers.Builder, schema *arrow.Schema, memo *dictutils.Ma
 	metaFB := metadataToFB(b, schema.Metadata(), flatbuf.SchemaStartCustomMetadataVector)
 
 	flatbuf.SchemaStart(b)
-	flatbuf.SchemaAddEndianness(b, flatbuf.EndiannessLittle)
+	flatbuf.SchemaAddEndianness(b, flatbuf.Endianness(schema.Endianness()))
 	flatbuf.SchemaAddFields(b, fieldsFB)
 	flatbuf.SchemaAddCustomMetadata(b, metaFB)
 	offset := flatbuf.SchemaEnd(b)

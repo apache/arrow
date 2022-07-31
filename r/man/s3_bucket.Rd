@@ -23,6 +23,6 @@ relative path.
 }
 \examples{
 \dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-bucket <- s3_bucket("ursa-labs-taxi-data")
+bucket <- s3_bucket("voltrondata-labs-datasets")
 \dontshow{\}) # examplesIf}
 }

@@ -24,6 +24,19 @@ import (
 	"github.com/apache/arrow/go/v9/arrow/memory"
 )
 
+type bufBuilder interface {
+	Retain()
+	Release()
+	Len() int
+	Cap() int
+	Bytes() []byte
+	resize(int)
+	Advance(int)
+	Append([]byte)
+	Reset()
+	Finish() *memory.Buffer
+}
+
 // A bufferBuilder provides common functionality for populating memory with a sequence of type-specific values.
 // Specialized implementations provide type-safe APIs for appending and accessing the memory.
 type bufferBuilder struct {

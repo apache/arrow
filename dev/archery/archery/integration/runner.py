@@ -134,7 +134,6 @@ class IntegrationRunner(object):
                 skip.add("Java")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
                 skip.add("C#")
-                skip.add("Go")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
@@ -148,7 +147,6 @@ class IntegrationRunner(object):
 
             if prefix == '4.0.0-shareddict':
                 skip.add("C#")
-                skip.add("Go")
 
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',

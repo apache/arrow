@@ -64,6 +64,8 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status Next(FlightPayload* payload) { return Next().Value(payload); }
+
+  virtual Status Close();
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
@@ -85,6 +87,7 @@ class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
   arrow::Result<FlightPayload> GetSchemaPayload() override;
 
   arrow::Result<FlightPayload> Next() override;
+  Status Close() override;
 
  private:
   class RecordBatchStreamImpl;

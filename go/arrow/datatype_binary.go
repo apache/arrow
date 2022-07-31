@@ -40,12 +40,40 @@ func (t *StringType) Layout() DataTypeLayout {
 		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
 }
 
+type LargeBinaryType struct{}
+
+func (t *LargeBinaryType) ID() Type            { return LARGE_BINARY }
+func (t *LargeBinaryType) Name() string        { return "large_binary" }
+func (t *LargeBinaryType) String() string      { return "large_binary" }
+func (t *LargeBinaryType) binary()             {}
+func (t *LargeBinaryType) Fingerprint() string { return typeFingerprint(t) }
+func (t *LargeBinaryType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
+		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
+}
+
+type LargeStringType struct{}
+
+func (t *LargeStringType) ID() Type            { return LARGE_STRING }
+func (t *LargeStringType) Name() string        { return "large_utf8" }
+func (t *LargeStringType) String() string      { return "large_utf8" }
+func (t *LargeStringType) binary()             {}
+func (t *LargeStringType) Fingerprint() string { return typeFingerprint(t) }
+func (t *LargeStringType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
+		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
+}
+
 var (
 	BinaryTypes = struct {
-		Binary BinaryDataType
-		String BinaryDataType
+		Binary      BinaryDataType
+		String      BinaryDataType
+		LargeBinary BinaryDataType
+		LargeString BinaryDataType
 	}{
-		Binary: &BinaryType{},
-		String: &StringType{},
+		Binary:      &BinaryType{},
+		String:      &StringType{},
+		LargeBinary: &LargeBinaryType{},
+		LargeString: &LargeStringType{},
 	}
 )

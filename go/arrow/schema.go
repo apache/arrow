@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/apache/arrow/go/v9/arrow/endian"
 )
 
 type Metadata struct {
@@ -136,18 +138,24 @@ func (md Metadata) Equal(rhs Metadata) bool {
 // Schema is a sequence of Field values, describing the columns of a table or
 // a record batch.
 type Schema struct {
-	fields []Field
-	index  map[string][]int
-	meta   Metadata
+	fields     []Field
+	index      map[string][]int
+	meta       Metadata
+	endianness endian.Endianness
 }
 
 // NewSchema returns a new Schema value from the slice of fields and metadata.
 //
 // NewSchema panics if there is a field with an invalid DataType.
 func NewSchema(fields []Field, metadata *Metadata) *Schema {
+	return NewSchemaWithEndian(fields, metadata, endian.NativeEndian)
+}
+
+func NewSchemaWithEndian(fields []Field, metadata *Metadata, e endian.Endianness) *Schema {
 	sc := &Schema{
-		fields: make([]Field, 0, len(fields)),
-		index:  make(map[string][]int, len(fields)),
+		fields:     make([]Field, 0, len(fields)),
+		index:      make(map[string][]int, len(fields)),
+		endianness: e,
 	}
 	if metadata != nil {
 		sc.meta = metadata.clone()
@@ -162,9 +170,15 @@ func NewSchema(fields []Field, metadata *Metadata) *Schema {
 	return sc
 }
 
-func (sc *Schema) Metadata() Metadata { return sc.meta }
-func (sc *Schema) Fields() []Field    { return sc.fields }
-func (sc *Schema) Field(i int) Field  { return sc.fields[i] }
+func (sc *Schema) WithEndianness(e endian.Endianness) *Schema {
+	return NewSchemaWithEndian(sc.fields, &sc.meta, e)
+}
+
+func (sc *Schema) Endianness() endian.Endianness { return sc.endianness }
+func (sc *Schema) IsNativeEndian() bool          { return sc.endianness == endian.NativeEndian }
+func (sc *Schema) Metadata() Metadata            { return sc.meta }
+func (sc *Schema) Fields() []Field               { return sc.fields }
+func (sc *Schema) Field(i int) Field             { return sc.fields[i] }
 
 func (sc *Schema) FieldsByName(n string) ([]Field, bool) {
 	indices, ok := sc.index[n]
@@ -196,6 +210,8 @@ func (sc *Schema) Equal(o *Schema) bool {
 		return false
 	case len(sc.fields) != len(o.fields):
 		return false
+	case sc.endianness != o.endianness:
+		return false
 	}
 
 	for i := range sc.fields {
@@ -214,6 +230,9 @@ func (s *Schema) String() string {
 			o.WriteString("\n")
 		}
 		fmt.Fprintf(o, "    - %v", f)
+	}
+	if s.endianness != endian.NativeEndian {
+		fmt.Fprintf(o, "\n  endianness: %v", s.endianness)
 	}
 	if meta := s.Metadata(); meta.Len() > 0 {
 		fmt.Fprintf(o, "\n  metadata: %v", meta)
@@ -237,7 +256,11 @@ func (s *Schema) Fingerprint() string {
 		b.WriteString(fieldFingerprint)
 		b.WriteByte(';')
 	}
-	// endianness
+	if s.endianness == endian.LittleEndian {
+		b.WriteByte('L')
+	} else {
+		b.WriteByte('B')
+	}
 	b.WriteByte('}')
 	return b.String()
 }

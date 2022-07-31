@@ -236,3 +236,36 @@ test_that("as_record_batch_reader() works for data.frame", {
   reader <- as_record_batch_reader(df)
   expect_equal(reader$read_next_batch(), record_batch(a = 1, b = "two"))
 })
+
+test_that("as_record_batch_reader() works for function", {
+  batches <- list(
+    record_batch(a = 1, b = "two"),
+    record_batch(a = 2, b = "three")
+  )
+
+  i <- 0
+  fun <- function() {
+    i <<- i + 1
+    if (i > length(batches)) NULL else batches[[i]]
+  }
+
+  reader <- as_record_batch_reader(fun, schema = batches[[1]]$schema)
+  expect_equal(reader$read_next_batch(), batches[[1]])
+  expect_equal(reader$read_next_batch(), batches[[2]])
+  expect_null(reader$read_next_batch())
+
+  # check invalid returns
+  fun_bad_type <- function() "not a record batch"
+  reader <- as_record_batch_reader(fun_bad_type, schema = schema())
+  expect_error(
+    reader$read_next_batch(),
+    "Expected fun\\(\\) to return an arrow::RecordBatch"
+  )
+
+  fun_bad_schema <- function() record_batch(a = 1)
+  reader <- as_record_batch_reader(fun_bad_schema, schema = schema(a = string()))
+  expect_error(
+    reader$read_next_batch(),
+    "Expected fun\\(\\) to return batch with schema 'a: string'"
+  )
+})
