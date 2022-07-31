@@ -36,7 +36,7 @@
 #' Must contain `"{i}"`, which will be replaced with an autoincremented
 #' integer to generate basenames of datafiles. For example, `"part-{i}.arrow"`
 #' will yield `"part-0.arrow", ...`.
-#' If not specified, it defaults to "part-{i}." + format.
+#' If not specified, it defaults to "part-{i}.<default extension>".
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param existing_data_behavior The behavior to use when there is already data
