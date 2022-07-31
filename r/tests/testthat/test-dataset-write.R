@@ -501,6 +501,9 @@ test_that("Dataset writing: unsupported features/input validation", {
   expect_error(
     write_dataset(ds, tempfile(), basename_template = "something_without_i")
   )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = "NULL")
+  )
 })
 
 # see https://issues.apache.org/jira/browse/ARROW-12315
