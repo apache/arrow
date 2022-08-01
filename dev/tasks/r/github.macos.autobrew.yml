@@ -25,6 +25,7 @@ jobs:
     name: "Autobrew {{ "${{ matrix.platform }}" }}"
     runs-on: {{ "${{ matrix.platform }}" }}
     strategy:
+      fail-fast: false
       matrix:
           platform:
             - macos-11
@@ -46,7 +47,6 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          working-directory: arrow
           extra-packages: |
             any::rcmdcheck
             any::sys
