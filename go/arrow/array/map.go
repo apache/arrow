@@ -165,6 +165,8 @@ func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysS
 	}
 }
 
+func (b *MapBuilder) Type() arrow.DataType { return b.etype }
+
 // Retain increases the reference count by 1 for the sub-builders (list, key, item).
 // Retain may be called simultaneously from multiple goroutines.
 func (b *MapBuilder) Retain() {
@@ -200,6 +202,10 @@ func (b *MapBuilder) Append(v bool) {
 // AppendNull adds a null map entry to the array.
 func (b *MapBuilder) AppendNull() {
 	b.Append(false)
+}
+
+func (b *MapBuilder) AppendEmptyValue() {
+	b.Append(true)
 }
 
 // Reserve enough space for n maps

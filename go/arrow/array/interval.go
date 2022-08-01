@@ -136,6 +136,8 @@ func NewMonthIntervalBuilder(mem memory.Allocator) *MonthIntervalBuilder {
 	return &MonthIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *MonthIntervalBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.MonthInterval }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *MonthIntervalBuilder) Release() {
@@ -162,6 +164,10 @@ func (b *MonthIntervalBuilder) Append(v arrow.MonthInterval) {
 func (b *MonthIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *MonthIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.MonthInterval(0))
 }
 
 func (b *MonthIntervalBuilder) UnsafeAppend(v arrow.MonthInterval) {
@@ -393,6 +399,8 @@ func NewDayTimeIntervalBuilder(mem memory.Allocator) *DayTimeIntervalBuilder {
 	return &DayTimeIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *DayTimeIntervalBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.DayTimeInterval }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *DayTimeIntervalBuilder) Release() {
@@ -419,6 +427,10 @@ func (b *DayTimeIntervalBuilder) Append(v arrow.DayTimeInterval) {
 func (b *DayTimeIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *DayTimeIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.DayTimeInterval{})
 }
 
 func (b *DayTimeIntervalBuilder) UnsafeAppend(v arrow.DayTimeInterval) {
@@ -651,6 +663,10 @@ func NewMonthDayNanoIntervalBuilder(mem memory.Allocator) *MonthDayNanoIntervalB
 	return &MonthDayNanoIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *MonthDayNanoIntervalBuilder) Type() arrow.DataType {
+	return arrow.FixedWidthTypes.MonthDayNanoInterval
+}
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *MonthDayNanoIntervalBuilder) Release() {
@@ -677,6 +693,10 @@ func (b *MonthDayNanoIntervalBuilder) Append(v arrow.MonthDayNanoInterval) {
 func (b *MonthDayNanoIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *MonthDayNanoIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.MonthDayNanoInterval{})
 }
 
 func (b *MonthDayNanoIntervalBuilder) UnsafeAppend(v arrow.MonthDayNanoInterval) {

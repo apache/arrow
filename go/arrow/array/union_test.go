@@ -206,6 +206,47 @@ func TestSparseUnionGetFlattenedField(t *testing.T) {
 	})
 }
 
+func TestSparseUnionValidate(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	a, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[4, 5]`))
+	defer a.Release()
+	dt := arrow.SparseUnionOf([]arrow.Field{{Name: "a", Type: arrow.PrimitiveTypes.Int32, Nullable: true}}, []arrow.UnionTypeCode{0})
+	children := []arrow.Array{a}
+
+	typeIDsArr, _, _ := array.FromJSON(mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[0, 0, 0]`))
+	defer typeIDsArr.Release()
+	typeIDs := typeIDsArr.Data().Buffers()[1]
+
+	arr := array.NewSparseUnion(dt, 2, children, typeIDs, 0)
+	assert.NoError(t, arr.ValidateFull())
+	arr.Release()
+
+	arr = array.NewSparseUnion(dt, 1, children, typeIDs, 1)
+	assert.NoError(t, arr.ValidateFull())
+	arr.Release()
+
+	arr = array.NewSparseUnion(dt, 0, children, typeIDs, 2)
+	assert.NoError(t, arr.ValidateFull())
+	arr.Release()
+
+	// length + offset < child length but that's ok!
+	arr = array.NewSparseUnion(dt, 1, children, typeIDs, 0)
+	assert.NoError(t, arr.ValidateFull())
+	arr.Release()
+
+	// length + offset > child length! BAD!
+	assert.Panics(t, func() {
+		arr = array.NewSparseUnion(dt, 1, children, typeIDs, 2)
+	})
+
+	// offset > child length
+	assert.Panics(t, func() {
+		arr = array.NewSparseUnion(dt, 0, children, typeIDs, 3)
+	})
+}
+
 type UnionFactorySuite struct {
 	suite.Suite
 
@@ -440,6 +481,419 @@ func (s *UnionFactorySuite) TestMakeSparse() {
 	})
 }
 
-func TestUnionFactories(t *testing.T) {
+type UnionBuilderSuite struct {
+	suite.Suite
+
+	I8  arrow.UnionTypeCode
+	STR arrow.UnionTypeCode
+	DBL arrow.UnionTypeCode
+
+	mem              *memory.CheckedAllocator
+	expectedTypes    []arrow.UnionTypeCode
+	expectedTypesArr arrow.Array
+	i8Bldr           *array.Int8Builder
+	strBldr          *array.StringBuilder
+	dblBldr          *array.Float64Builder
+	unionBldr        array.UnionBuilder
+	actual           array.Union
+}
+
+func (s *UnionBuilderSuite) SetupTest() {
+	s.I8, s.STR, s.DBL = 8, 13, 7
+
+	s.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+	s.expectedTypes = make([]arrow.UnionTypeCode, 0)
+
+	s.i8Bldr = array.NewInt8Builder(s.mem)
+	s.strBldr = array.NewStringBuilder(s.mem)
+	s.dblBldr = array.NewFloat64Builder(s.mem)
+}
+
+func (s *UnionBuilderSuite) TearDownTest() {
+	if s.expectedTypesArr != nil {
+		s.expectedTypesArr.Release()
+	}
+	s.i8Bldr.Release()
+	s.strBldr.Release()
+	s.dblBldr.Release()
+	if s.actual != nil {
+		s.actual.Release()
+	}
+
+	s.mem.AssertSize(s.T(), 0)
+}
+
+func (s *UnionBuilderSuite) createExpectedTypesArr() {
+	data := array.NewData(arrow.PrimitiveTypes.Int8, len(s.expectedTypes),
+		[]*memory.Buffer{nil, memory.NewBufferBytes(arrow.Int8Traits.CastToBytes(s.expectedTypes))}, nil, 0, 0)
+	defer data.Release()
+	s.expectedTypesArr = array.MakeFromData(data)
+}
+
+func (s *UnionBuilderSuite) appendInt(i int8) {
+	s.expectedTypes = append(s.expectedTypes, s.I8)
+	s.unionBldr.Append(s.I8)
+	s.i8Bldr.Append(i)
+	if s.unionBldr.Mode() == arrow.SparseMode {
+		s.strBldr.AppendEmptyValue()
+		s.dblBldr.AppendEmptyValue()
+	}
+}
+
+func (s *UnionBuilderSuite) appendString(str string) {
+	s.expectedTypes = append(s.expectedTypes, s.STR)
+	s.unionBldr.Append(s.STR)
+	s.strBldr.Append(str)
+	if s.unionBldr.Mode() == arrow.SparseMode {
+		s.i8Bldr.AppendEmptyValue()
+		s.dblBldr.AppendEmptyValue()
+	}
+}
+
+func (s *UnionBuilderSuite) appendDbl(dbl float64) {
+	s.expectedTypes = append(s.expectedTypes, s.DBL)
+	s.unionBldr.Append(s.DBL)
+	s.dblBldr.Append(dbl)
+	if s.unionBldr.Mode() == arrow.SparseMode {
+		s.strBldr.AppendEmptyValue()
+		s.i8Bldr.AppendEmptyValue()
+	}
+}
+
+func (s *UnionBuilderSuite) appendBasics() {
+	s.appendInt(33)
+	s.appendString("abc")
+	s.appendDbl(1.0)
+	s.appendDbl(-1.0)
+	s.appendString("")
+	s.appendInt(10)
+	s.appendString("def")
+	s.appendInt(-10)
+	s.appendDbl(0.5)
+
+	s.actual = s.unionBldr.NewArray().(array.Union)
+	s.NoError(s.actual.ValidateFull())
+	s.createExpectedTypesArr()
+}
+
+func (s *UnionBuilderSuite) appendNullsAndEmptyValues() {
+	s.appendString("abc")
+	s.unionBldr.AppendNull()
+	s.unionBldr.AppendEmptyValue()
+	s.expectedTypes = append(s.expectedTypes, s.I8, s.I8, s.I8)
+	s.appendInt(42)
+	s.unionBldr.AppendNulls(2)
+	s.unionBldr.AppendEmptyValues(2)
+	s.expectedTypes = append(s.expectedTypes, s.I8, s.I8, s.I8)
+
+	s.actual = s.unionBldr.NewArray().(array.Union)
+	s.NoError(s.actual.ValidateFull())
+	s.createExpectedTypesArr()
+}
+
+func (s *UnionBuilderSuite) appendInferred() {
+	s.I8 = s.unionBldr.AppendChild(s.i8Bldr, "i8")
+	s.EqualValues(0, s.I8)
+	s.appendInt(33)
+	s.appendInt(10)
+
+	s.STR = s.unionBldr.AppendChild(s.strBldr, "str")
+	s.EqualValues(1, s.STR)
+	s.appendString("abc")
+	s.appendString("")
+	s.appendString("def")
+	s.appendInt(-10)
+
+	s.DBL = s.unionBldr.AppendChild(s.dblBldr, "dbl")
+	s.EqualValues(2, s.DBL)
+	s.appendDbl(1.0)
+	s.appendDbl(-1.0)
+	s.appendDbl(0.5)
+
+	s.actual = s.unionBldr.NewArray().(array.Union)
+	s.NoError(s.actual.ValidateFull())
+	s.createExpectedTypesArr()
+
+	s.EqualValues(0, s.I8)
+	s.EqualValues(1, s.STR)
+	s.EqualValues(2, s.DBL)
+}
+
+func (s *UnionBuilderSuite) appendListOfInferred(utyp arrow.UnionType) *array.List {
+	listBldr := array.NewListBuilder(s.mem, utyp)
+	defer listBldr.Release()
+
+	s.unionBldr = listBldr.ValueBuilder().(array.UnionBuilder)
+
+	listBldr.Append(true)
+	s.I8 = s.unionBldr.AppendChild(s.i8Bldr, "i8")
+	s.EqualValues(0, s.I8)
+	s.appendInt(10)
+
+	listBldr.Append(true)
+	s.STR = s.unionBldr.AppendChild(s.strBldr, "str")
+	s.EqualValues(1, s.STR)
+	s.appendString("abc")
+	s.appendInt(-10)
+
+	listBldr.Append(true)
+	s.DBL = s.unionBldr.AppendChild(s.dblBldr, "dbl")
+	s.EqualValues(2, s.DBL)
+	s.appendDbl(0.5)
+
+	s.createExpectedTypesArr()
+	return listBldr.NewListArray()
+}
+
+func (s *UnionBuilderSuite) assertArraysEqual(expected, actual arrow.Array) {
+	s.Truef(array.Equal(expected, actual), "expected: %s, got: %s", expected, actual)
+}
+
+func (s *UnionBuilderSuite) TestDenseUnionBasics() {
+	s.unionBldr = array.NewDenseUnionBuilderWithBuilders(s.mem,
+		arrow.DenseUnionOf([]arrow.Field{
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+			{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+			{Name: "dbl", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		}, []arrow.UnionTypeCode{s.I8, s.STR, s.DBL}),
+		[]array.Builder{s.i8Bldr, s.strBldr, s.dblBldr})
+	defer s.unionBldr.Release()
+
+	s.appendBasics()
+
+	expectedI8, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[33, 10, -10]`))
+	expectedStr, _, _ := array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc", "", "def"]`))
+	expectedDbl, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[1.0, -1.0, 0.5]`))
+	expectedOffsets, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[0, 0, 0, 1, 1, 1, 2, 2, 2]`))
+
+	defer func() {
+		expectedI8.Release()
+		expectedStr.Release()
+		expectedDbl.Release()
+		expectedOffsets.Release()
+	}()
+
+	expected, err := array.NewDenseUnionFromArraysWithFieldCodes(s.expectedTypesArr,
+		expectedOffsets,
+		[]arrow.Array{expectedI8, expectedStr, expectedDbl},
+		[]string{"i8", "str", "dbl"},
+		[]arrow.UnionTypeCode{s.I8, s.STR, s.DBL})
+	s.NoError(err)
+	defer expected.Release()
+
+	s.Equal(expected.DataType().String(), s.actual.DataType().String())
+	s.assertArraysEqual(expected, s.actual)
+}
+
+func (s *UnionBuilderSuite) TestDenseBuilderNullsAndEmpty() {
+	s.unionBldr = array.NewDenseUnionBuilderWithBuilders(s.mem,
+		arrow.DenseUnionOf([]arrow.Field{
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+			{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+			{Name: "dbl", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		}, []arrow.UnionTypeCode{s.I8, s.STR, s.DBL}),
+		[]array.Builder{s.i8Bldr, s.strBldr, s.dblBldr})
+	defer s.unionBldr.Release()
+
+	s.appendNullsAndEmptyValues()
+
+	// four null / empty values (the latter implementation-defined) appended to I8
+	expectedI8, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[null, 0, 42, null, 0]`))
+	expectedStr, _, _ := array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc"]`))
+	expectedDbl, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[]`))
+	expectedOffsets, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[0, 0, 1, 2, 3, 3, 4, 4]`))
+
+	defer func() {
+		expectedI8.Release()
+		expectedStr.Release()
+		expectedDbl.Release()
+		expectedOffsets.Release()
+	}()
+
+	expected, err := array.NewDenseUnionFromArraysWithFieldCodes(s.expectedTypesArr,
+		expectedOffsets,
+		[]arrow.Array{expectedI8, expectedStr, expectedDbl},
+		[]string{"i8", "str", "dbl"},
+		[]arrow.UnionTypeCode{s.I8, s.STR, s.DBL})
+	s.NoError(err)
+	defer expected.Release()
+
+	s.Equal(expected.DataType().String(), s.actual.DataType().String())
+	s.assertArraysEqual(expected, s.actual)
+
+	// physical arrays must be as expected
+	s.assertArraysEqual(expectedI8, s.actual.Field(0))
+	s.assertArraysEqual(expectedStr, s.actual.Field(1))
+	s.assertArraysEqual(expectedDbl, s.actual.Field(2))
+}
+
+func (s *UnionBuilderSuite) TestDenseUnionInferredTyped() {
+	s.unionBldr = array.NewEmptyDenseUnionBuilder(s.mem)
+	defer s.unionBldr.Release()
+
+	s.appendInferred()
+
+	expectedI8, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[33, 10, -10]`))
+	expectedStr, _, _ := array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc", "", "def"]`))
+	expectedDbl, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[1.0, -1.0, 0.5]`))
+	expectedOffsets, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int32, strings.NewReader(`[0, 1, 0, 1, 2, 2, 0, 1, 2]`))
+
+	defer func() {
+		expectedI8.Release()
+		expectedStr.Release()
+		expectedDbl.Release()
+		expectedOffsets.Release()
+	}()
+
+	expected, err := array.NewDenseUnionFromArraysWithFieldCodes(s.expectedTypesArr,
+		expectedOffsets,
+		[]arrow.Array{expectedI8, expectedStr, expectedDbl},
+		[]string{"i8", "str", "dbl"},
+		[]arrow.UnionTypeCode{s.I8, s.STR, s.DBL})
+	s.NoError(err)
+	defer expected.Release()
+
+	s.Equal(expected.DataType().String(), s.actual.DataType().String())
+	s.assertArraysEqual(expected, s.actual)
+}
+
+func (s *UnionBuilderSuite) TestDenseUnionListOfInferredType() {
+	actual := s.appendListOfInferred(arrow.DenseUnionOf([]arrow.Field{}, []arrow.UnionTypeCode{}))
+	defer actual.Release()
+
+	expectedType := arrow.ListOf(arrow.DenseUnionOf(
+		[]arrow.Field{
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+			{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+			{Name: "dbl", Type: arrow.PrimitiveTypes.Float64, Nullable: true}},
+		[]arrow.UnionTypeCode{s.I8, s.STR, s.DBL}))
+	s.Equal(expectedType.String(), actual.DataType().String())
+}
+
+func (s *UnionBuilderSuite) TestSparseUnionBasics() {
+	s.unionBldr = array.NewSparseUnionBuilderWithBuilders(s.mem,
+		arrow.SparseUnionOf([]arrow.Field{
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+			{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+			{Name: "dbl", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		}, []arrow.UnionTypeCode{s.I8, s.STR, s.DBL}),
+		[]array.Builder{s.i8Bldr, s.strBldr, s.dblBldr})
+	defer s.unionBldr.Release()
+
+	s.appendBasics()
+
+	expectedI8, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8,
+		strings.NewReader(`[33, null, null, null, null, 10, null, -10, null]`))
+	expectedStr, _, _ := array.FromJSON(s.mem, arrow.BinaryTypes.String,
+		strings.NewReader(`[null, "abc", null, null, "", null, "def", null, null]`))
+	expectedDbl, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64,
+		strings.NewReader(`[null, null, 1.0, -1.0, null, null, null, null, 0.5]`))
+
+	defer func() {
+		expectedI8.Release()
+		expectedStr.Release()
+		expectedDbl.Release()
+	}()
+
+	expected, err := array.NewSparseUnionFromArraysWithFieldCodes(s.expectedTypesArr,
+		[]arrow.Array{expectedI8, expectedStr, expectedDbl},
+		[]string{"i8", "str", "dbl"},
+		[]arrow.UnionTypeCode{s.I8, s.STR, s.DBL})
+	s.NoError(err)
+	defer expected.Release()
+
+	s.Equal(expected.DataType().String(), s.actual.DataType().String())
+	s.assertArraysEqual(expected, s.actual)
+}
+
+func (s *UnionBuilderSuite) TestSparseBuilderNullsAndEmpty() {
+	s.unionBldr = array.NewSparseUnionBuilderWithBuilders(s.mem,
+		arrow.SparseUnionOf([]arrow.Field{
+			{Name: "i8", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+			{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+			{Name: "dbl", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		}, []arrow.UnionTypeCode{s.I8, s.STR, s.DBL}),
+		[]array.Builder{s.i8Bldr, s.strBldr, s.dblBldr})
+	defer s.unionBldr.Release()
+
+	s.appendNullsAndEmptyValues()
+
+	// "abc", null, 0, 42, null, null, 0, 0
+	// getting 0 for empty values is implementation-defined
+	expectedI8, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8,
+		strings.NewReader(`[0, null, 0, 42, null, null, 0, 0]`))
+	expectedStr, _, _ := array.FromJSON(s.mem, arrow.BinaryTypes.String,
+		strings.NewReader(`["abc", "", "", "", "", "", "", ""]`))
+	expectedDbl, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64,
+		strings.NewReader(`[0, 0, 0, 0, 0, 0, 0, 0]`))
+
+	defer func() {
+		expectedI8.Release()
+		expectedStr.Release()
+		expectedDbl.Release()
+	}()
+
+	expected, err := array.NewSparseUnionFromArraysWithFieldCodes(s.expectedTypesArr,
+		[]arrow.Array{expectedI8, expectedStr, expectedDbl},
+		[]string{"i8", "str", "dbl"},
+		[]arrow.UnionTypeCode{s.I8, s.STR, s.DBL})
+	s.NoError(err)
+	defer expected.Release()
+
+	s.Equal(expected.DataType().String(), s.actual.DataType().String())
+	s.assertArraysEqual(expected, s.actual)
+
+	// physical arrays must be as expected
+	s.assertArraysEqual(expectedI8, s.actual.Field(0))
+	s.assertArraysEqual(expectedStr, s.actual.Field(1))
+	s.assertArraysEqual(expectedDbl, s.actual.Field(2))
+}
+
+func (s *UnionBuilderSuite) TestSparseUnionInferredType() {
+	s.unionBldr = array.NewEmptySparseUnionBuilder(s.mem)
+	defer s.unionBldr.Release()
+
+	s.appendInferred()
+
+	expectedI8, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8,
+		strings.NewReader(`[33, 10, null, null, null, -10, null, null, null]`))
+	expectedStr, _, _ := array.FromJSON(s.mem, arrow.BinaryTypes.String,
+		strings.NewReader(`[null, null, "abc", "", "def", null, null, null, null]`))
+	expectedDbl, _, _ := array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64,
+		strings.NewReader(`[null, null, null, null, null, null,1.0, -1.0, 0.5]`))
+
+	defer func() {
+		expectedI8.Release()
+		expectedStr.Release()
+		expectedDbl.Release()
+	}()
+
+	expected, err := array.NewSparseUnionFromArraysWithFieldCodes(s.expectedTypesArr,
+		[]arrow.Array{expectedI8, expectedStr, expectedDbl},
+		[]string{"i8", "str", "dbl"},
+		[]arrow.UnionTypeCode{s.I8, s.STR, s.DBL})
+	s.NoError(err)
+	defer expected.Release()
+
+	s.Equal(expected.DataType().String(), s.actual.DataType().String())
+	s.assertArraysEqual(expected, s.actual)
+}
+
+func (s *UnionBuilderSuite) TestSparseUnionStructWithUnion() {
+	bldr := array.NewStructBuilder(s.mem, arrow.StructOf(arrow.Field{Name: "u", Type: arrow.SparseUnionFromArrays(nil, nil, nil)}))
+	defer bldr.Release()
+
+	unionBldr := bldr.FieldBuilder(0).(array.UnionBuilder)
+	int32Bldr := array.NewInt32Builder(s.mem)
+	defer int32Bldr.Release()
+
+	s.EqualValues(0, unionBldr.AppendChild(int32Bldr, "i"))
+	expectedType := arrow.StructOf(arrow.Field{Name: "u",
+		Type: arrow.SparseUnionOf([]arrow.Field{{Name: "i", Type: arrow.PrimitiveTypes.Int32, Nullable: true}}, []arrow.UnionTypeCode{0})})
+	s.Truef(arrow.TypeEqual(expectedType, bldr.Type()), "expected: %s, got: %s", expectedType, bldr.Type())
+}
+
+func TestUnions(t *testing.T) {
 	suite.Run(t, new(UnionFactorySuite))
+	suite.Run(t, new(UnionBuilderSuite))
 }

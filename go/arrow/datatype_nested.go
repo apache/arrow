@@ -351,6 +351,7 @@ type UnionType interface {
 	Mode() UnionMode
 	ChildIDs() []int
 	TypeCodes() []UnionTypeCode
+	MaxTypeCode() UnionTypeCode
 }
 
 func UnionOf(mode UnionMode, fields []Field, typeCodes []UnionTypeCode) UnionType {

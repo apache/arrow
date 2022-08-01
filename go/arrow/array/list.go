@@ -149,8 +149,7 @@ func (a *List) Release() {
 type ListBuilder struct {
 	builder
 
-	etype   arrow.DataType // data type of the list's elements.
-	values  Builder        // value builder for the list's elements.
+	values  Builder // value builder for the list's elements.
 	offsets *Int32Builder
 }
 
@@ -159,11 +158,12 @@ type ListBuilder struct {
 func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 	return &ListBuilder{
 		builder: builder{refCount: 1, mem: mem},
-		etype:   etype,
 		values:  NewBuilder(mem, etype),
 		offsets: NewInt32Builder(mem),
 	}
 }
+
+func (b *ListBuilder) Type() arrow.DataType { return arrow.ListOf(b.values.Type()) }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -195,6 +195,10 @@ func (b *ListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
 	b.appendNextOffset()
+}
+
+func (b *ListBuilder) AppendEmptyValue() {
+	b.Append(true)
 }
 
 func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
@@ -277,7 +281,7 @@ func (b *ListBuilder) newData() (data *Data) {
 	}
 
 	data = NewData(
-		arrow.ListOf(b.etype), b.length,
+		arrow.ListOf(values.DataType()), b.length,
 		[]*memory.Buffer{
 			b.nullBitmap,
 			offsets,
@@ -311,7 +315,7 @@ func (b *ListBuilder) unmarshalOne(dec *json.Decoder) error {
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
-			Struct: arrow.ListOf(b.etype).String(),
+			Struct: arrow.ListOf(b.Type()).String(),
 		}
 	}
 

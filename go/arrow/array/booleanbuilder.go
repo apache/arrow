@@ -41,6 +41,8 @@ func NewBooleanBuilder(mem memory.Allocator) *BooleanBuilder {
 	return &BooleanBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *BooleanBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.Boolean }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 // Release may be called simultaneously from multiple goroutines.
@@ -73,6 +75,11 @@ func (b *BooleanBuilder) AppendByte(v byte) {
 func (b *BooleanBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *BooleanBuilder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.UnsafeAppend(false)
 }
 
 func (b *BooleanBuilder) UnsafeAppend(v bool) {
