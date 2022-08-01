@@ -115,7 +115,8 @@ func (t *SerializeTestSuite) fileSerializeTest(codec compress.Compression, expec
 			t.False(chunk.HasIndexPage())
 			t.DefLevelsOut = make([]int16, t.rowsPerRG)
 			t.RepLevelsOut = make([]int16, t.rowsPerRG)
-			colReader := rgr.Column(i)
+			colReader, err := rgr.Column(i)
+			t.NoError(err)
 			t.SetupValuesOut(int64(t.rowsPerRG))
 			valuesRead = t.ReadBatch(colReader, int64(t.rowsPerRG), 0, t.DefLevelsOut, t.RepLevelsOut)
 			t.EqualValues(t.rowsPerRG, valuesRead)
@@ -310,7 +311,9 @@ func TestBufferedMultiPageDisabledDictionary(t *testing.T) {
 		assert.EqualValues(t, valueCount, rgr.NumRows())
 
 		var totalRead int64
-		colReader := rgr.Column(0).(*file.Int32ColumnChunkReader)
+		col, err := rgr.Column(0)
+		assert.NoError(t, err)
+		colReader := col.(*file.Int32ColumnChunkReader)
 		for colReader.HasNext() {
 			total, _, _ := colReader.ReadBatch(valueCount-totalRead, valuesOut[totalRead:], nil, nil)
 			totalRead += total
@@ -350,7 +353,9 @@ func TestAllNulls(t *testing.T) {
 	assert.NoError(t, err)
 
 	rgr := reader.RowGroup(0)
-	cr := rgr.Column(0).(*file.Int32ColumnChunkReader)
+	col, err := rgr.Column(0)
+	assert.NoError(t, err)
+	cr := col.(*file.Int32ColumnChunkReader)
 
 	defLevels[0] = -1
 	defLevels[1] = -1
