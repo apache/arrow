@@ -1238,10 +1238,11 @@ class Config(dict):
             version='1.0.0dev123',
             email='dummy@example.ltd'
         )
-        job = Job(
-            target=target,
-            tasks=self['tasks'],
-        )
+        job = Job.from_config(config=self,
+                              target=target,
+                              tasks=self['tasks'],
+                              groups=self['groups'],
+                              params={})
 
         for task_name, task in self['tasks'].items():
             task = Task(**task)
