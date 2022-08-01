@@ -40,5 +40,20 @@ TEST(TestRleUtil, FindPhysicalOffsetTest) {
   ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4, 5}, 3*4+3, 100), 2);
 }
 
+TEST(TestRleUtil, VisitMergedRuns) {
+  /*std::vector<int32_t> left = {5, 10, 5, 5};
+  std::vector<int32_t> right = {5, 4, 16};*/
+  std::vector<int32_t> merged = {5, 4, 6, 5, 5};
+
+  size_t merged_position = 0;
+
+  rle_util::VisitMergedRuns()
+
+
+  ASSERT_EQ(merged_position, merged.size());
+
+
+}
+
 }  // namespace rle_util
 }  // namespace arrow
