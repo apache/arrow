@@ -66,7 +66,7 @@ apt-get install -y -q --no-install-recommends \
   maven \
   ninja-build \
   nlohmann-json${nlohmann_json}-dev \
-  openjdk-11-jdk \
+  openjdk-18-jdk \
   pkg-config \
   python${python}-dev \
   python${python}-venv \
