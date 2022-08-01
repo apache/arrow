@@ -45,7 +45,7 @@ jobs:
         with:
           r-version: {{ '${{ matrix.r-version }}' }}
           use-public-rspm: true
-          working-directory: r
+          working-directory: arrow/r
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: |
