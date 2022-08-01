@@ -199,7 +199,7 @@ struct PhysicalTypeVisitor {
 }  // namespace
 
 const DataType* GetPhysicalType(const DataType* real_type) {
-  PhysicalTypeVisitor visitor{real_type, {}};
+  PhysicalTypeVisitor visitor{real_type, nullptr};
   ARROW_CHECK_OK(VisitTypeInline(*real_type, &visitor));
   return visitor.result;
 }
