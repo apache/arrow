@@ -105,13 +105,8 @@ class Downloader:
         url = f'{self.URL_ROOT}/{path}'
 
         cmd = [
-            'curl',
-            '--fail',
-            '--location',
-            '--output', dest_path,
-            '--retry', '5',
-            '--retry-all-errors',
-            url,
+            'curl', '--fail', '--location', '--retry', '5',
+            '--output', dest_path, url
         ]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
