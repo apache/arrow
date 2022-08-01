@@ -372,14 +372,8 @@ void ExecPlan_Write(
                      ds::WriteNodeOptions{std::move(opts), std::move(kv)});
 
   StopIfNotOk(plan->Validate());
-
-  arrow::Status result = RunWithCapturedRIfPossibleVoid([&plan]() {
-    RETURN_NOT_OK(plan->StartProducing());
-    RETURN_NOT_OK(plan->finished().status());
-    return arrow::Status::OK();
-  });
-
-  StopIfNotOk(result);
+  StopIfNotOk(plan->StartProducing());
+  StopIfNotOk(plan->finished().status());
 }
 
 #endif
