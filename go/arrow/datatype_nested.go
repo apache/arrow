@@ -340,7 +340,7 @@ type (
 
 const (
 	MaxUnionTypeCode    UnionTypeCode = 127
-	InvalidUnionChildID               = -1
+	InvalidUnionChildID int           = -1
 
 	SparseMode UnionMode = iota
 	DenseMode
