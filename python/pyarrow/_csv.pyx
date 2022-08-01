@@ -201,7 +201,6 @@ cdef class ReadOptions(_Weakrefable):
             self.column_names = column_names
         if autogenerate_column_names is not None:
             self.autogenerate_column_names= autogenerate_column_names
-        # Python-specific option
         self.encoding = encoding
         if skip_rows_after_names is not None:
             self.skip_rows_after_names = skip_rows_after_names
@@ -287,6 +286,17 @@ cdef class ReadOptions(_Weakrefable):
     @skip_rows_after_names.setter
     def skip_rows_after_names(self, value):
         deref(self.options).skip_rows_after_names = value
+    
+    @property
+    def encoding(self):
+        """
+        Character encoding used for this input. Default UTF-8".
+        """
+        return deref(self.options).encoding
+
+    @encoding.setter
+    def encoding(self, value):
+        deref(self.options).encoding = tobytes(value)
 
     def validate(self):
         check_status(deref(self.options).Validate())
@@ -307,7 +317,6 @@ cdef class ReadOptions(_Weakrefable):
     cdef ReadOptions wrap(CCSVReadOptions options):
         out = ReadOptions()
         out.options.reset(new CCSVReadOptions(move(options)))
-        out.encoding = 'utf8'  # No way to know this
         return out
 
     def __getstate__(self):

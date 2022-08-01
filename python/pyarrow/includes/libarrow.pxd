@@ -1377,6 +1377,11 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CTransformInputStreamVTable vtable,
         object method_arg)
 
+    shared_ptr[function[StreamWrapFunc]] MakeStreamTransformLibFunc \
+        "arrow::py::MakeStreamTransformLibFunc"(
+        c_string encoding,
+        c_string lib_name)
+
     # ----------------------------------------------------------------------
     # HDFS
 
@@ -1731,6 +1736,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         int32_t skip_rows_after_names
         vector[c_string] column_names
         c_bool autogenerate_column_names
+        c_string encoding
 
         CCSVReadOptions()
         CCSVReadOptions(CCSVReadOptions&&)

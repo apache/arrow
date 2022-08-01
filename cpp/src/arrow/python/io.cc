@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <dlfcn.h>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -378,6 +379,52 @@ std::shared_ptr<StreamWrapFunc> MakeStreamTransformFunc(TransformInputStreamVTab
     return std::make_shared<TransformInputStream>(wrapped, transform);
   };
   return std::make_shared<StreamWrapFunc>(func);
+}
+
+#if defined(__MACH__)
+#define ICONV_LIB ".dylib"
+#else
+#define ICONV_LIB ".so"
+#endif
+typedef void *iconv_t;
+iconv_t (*iconv_open) (const char*, const char*);
+size_t (*iconv) (iconv_t, const char* *, size_t *, char* *, size_t *);
+
+std::shared_ptr<StreamWrapFunc> MakeStreamTransformLibFunc(std::string encoding, std::string lib_name) {
+  auto empty = std::make_shared<StreamWrapFunc>();
+
+  if (lib_name == "libiconv") {
+    printf("Adding Transcoder using libiconv\n");
+    auto handle = dlopen(ICONV_LIB, RTLD_NOW);
+    if (handle == nullptr) {
+      return empty;
+    }
+    *reinterpret_cast<void **>((&iconv_open)) =  dlsym(handle, "iconv_open");
+    *reinterpret_cast<void **>((&iconv)) = dlsym(handle, "iconv");
+
+    // This lambda will be called to wrap each input stream when it is created
+    StreamWrapFunc func = [=](std::shared_ptr<::arrow::io::InputStream> wrapped) {
+        // Open a transcoder
+        auto conv_state = iconv_open("UTF-8", encoding.c_str());
+
+        // This lambda will be called each time data is read from a stream
+        TransformInputStream::TransformFunc transform = [=](const std::shared_ptr<Buffer>& in_buf) -> Result<std::shared_ptr<Buffer>>{
+            const char *in_data_ptr = reinterpret_cast<const char*>(in_buf->data());
+            size_t in_size = in_buf->size();
+            ARROW_ASSIGN_OR_RAISE(auto out_buf, AllocateResizableBuffer(in_buf->capacity()));
+            char *out_data_ptr = reinterpret_cast<char*>(out_buf->mutable_data());
+            size_t out_size = out_buf->capacity();
+            iconv(conv_state, &in_data_ptr, &in_size, &out_data_ptr, &out_size);
+            return std::shared_ptr<Buffer>(std::move(out_buf));
+        };
+
+        return std::make_shared<TransformInputStream>(wrapped, transform);
+    };
+    return std::make_shared<StreamWrapFunc>(func);
+
+  } else {
+    return empty;
+  }
 }
 
 }  // namespace py

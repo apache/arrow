@@ -41,7 +41,6 @@ cdef class ParseOptions(_Weakrefable):
 cdef class ReadOptions(_Weakrefable):
     cdef:
         unique_ptr[CCSVReadOptions] options
-        public object encoding
 
     @staticmethod
     cdef ReadOptions wrap(CCSVReadOptions options)

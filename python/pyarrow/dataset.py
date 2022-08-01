@@ -436,7 +436,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     if isinstance(format, CsvFileFormat):
         format.default_fragment_scan_options.add_transcoder(
             format.default_fragment_scan_options.read_options.encoding,
-            "utf8")
+            "libiconv")
 
     partitioning = _ensure_partitioning(partitioning)
 

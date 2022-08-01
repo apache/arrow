@@ -163,6 +163,9 @@ struct ARROW_EXPORT ReadOptions {
   /// If false, column names will be read from the first CSV row after `skip_rows`.
   bool autogenerate_column_names = false;
 
+  /// Character encoding used
+  std::string encoding = "UTF-8";
+
   /// Create read options with default values
   static ReadOptions Defaults();
 
