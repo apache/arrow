@@ -28,7 +28,7 @@
 namespace arrow {
 namespace rle_util {
 
-int64_t FindPhysicalOffset(const int32_t* accumulated_run_lengths,
+int64_t FindPhysicalOffset(const int32_t* run_ends,
                            int64_t buffer_size, int64_t logical_offset);
 
 static const int32_t* RunEnds(const ArraySpan& span) {
