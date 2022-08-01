@@ -193,6 +193,9 @@ ExecPlan <- R6Class("ExecPlan",
       node
     },
     Run = function(node, as_table = FALSE) {
+      table_at_end <- as_table
+      as_table <- FALSE
+
       # a section of this code is used by `BuildAndShow()` too - the 2 need to be in sync
       # Start of chunk used in `BuildAndShow()`
       assert_is(node, "ExecNode")
@@ -266,7 +269,11 @@ ExecPlan <- R6Class("ExecPlan",
         }
       }
 
-      out
+      if (table_at_end && !inherits(out, "Table")) {
+        out$read_table()
+      } else {
+        out
+      }
     },
     Write = function(node, ...) {
       # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
