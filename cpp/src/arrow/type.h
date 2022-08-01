@@ -1224,8 +1224,7 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
 
   DataTypeLayout layout() const override {
     // Fixed width layout means fixed size per logical item, which our buffers don't have
-    return DataTypeLayout(
-        {DataTypeLayout::VariableWidth(), DataTypeLayout::VariableWidth()});
+    return DataTypeLayout({DataTypeLayout::VariableWidth()});
   }
 
   std::string ToString() const override;
