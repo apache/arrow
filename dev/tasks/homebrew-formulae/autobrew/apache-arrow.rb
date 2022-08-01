@@ -35,18 +35,9 @@ class ApacheArrow < Formula
   depends_on "boost" => :build
   depends_on "brotli"
   depends_on "cmake" => :build
-  depends_on "glog"
-  depends_on "grpc"
-  depends_on "llvm" => :build
   depends_on "lz4"
-  depends_on "numpy"
-  depends_on "openssl@1.1"
-  depends_on "protobuf"
-  depends_on "rapidjson"
-  depends_on "re2"
   depends_on "snappy"
   depends_on "thrift"
-  depends_on "utf8proc"
   depends_on "zstd"
 
   def install
@@ -96,7 +87,8 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-larrow_bundled_dependencies", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", \
+      "-larrow", "-larrow_bundled_dependencies", "-o", "test"
     system "./test"
   end
 end
