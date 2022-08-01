@@ -1011,6 +1011,7 @@ class Job(Serializable):
         params = {
             **self.params,
             "arrow": self.target,
+            "job": self,
             **(params or {})
         }
         for task_name, task in self.tasks.items():

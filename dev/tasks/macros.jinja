@@ -71,7 +71,7 @@ on:
       python-version: 3.8
   - name: Setup Crossbow
     shell: bash
-    run: pip install -e arrow/dev/archery[crossbow-upload]
+    run: pip install -e arrow/dev/archery[crossbow]
   - name: Upload artifacts
     shell: bash
     run: |
@@ -98,7 +98,7 @@ on:
         --queue-remote {{ queue_remote_url }} \
         download-artifacts \
         --no-fetch \
-        {{ task.tag }}
+        {{ job.branch }}
     env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
@@ -181,7 +181,7 @@ on:
 
 {%- macro travis_upload_releases(pattern) -%}
   - sudo -H pip3 install pygit2==1.0 cryptography==36
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow-upload]
+  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
   - |
     archery crossbow \
       --queue-path $(pwd) \
@@ -202,7 +202,7 @@ on:
       --queue-remote {{ queue_remote_url }} \
       download-artifacts \
       --no-fetch \
-      {{ task.tag }}
+      {{ job.branch }}
 {% endmacro %}
 
 {%- macro travis_upload_gemfury(pattern) -%}
