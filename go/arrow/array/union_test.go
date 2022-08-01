@@ -563,12 +563,14 @@ func (s *UnionBuilderSuite) SetupTest() {
 func (s *UnionBuilderSuite) TearDownTest() {
 	if s.expectedTypesArr != nil {
 		s.expectedTypesArr.Release()
+		s.expectedTypesArr = nil
 	}
 	s.i8Bldr.Release()
 	s.strBldr.Release()
 	s.dblBldr.Release()
 	if s.actual != nil {
 		s.actual.Release()
+		s.actual = nil
 	}
 
 	s.mem.AssertSize(s.T(), 0)
