@@ -3924,8 +3924,9 @@ if(ARROW_WITH_GRPC)
     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
     # depending on the gRPC version.
     get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
-    if(GRPC_INCLUDE_DIR MATCHES "^\\$<" OR # generator expression
-        EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
+    if(GRPC_INCLUDE_DIR MATCHES "^\\$<"
+       OR # generator expression
+          EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
       set(GRPCPP_PP_INCLUDE TRUE)
     elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")
       set(GRPCPP_PP_INCLUDE FALSE)
