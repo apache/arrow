@@ -229,7 +229,7 @@ on:
 {%- macro pin_brew_formulae(is_fork = false) -%}
 {#- This macro expects the cwd to be arrow/r -#}
       # Copy all *brew formulae
-      cp ../dev/tasks/homebrew-formulae/autobrew/apache*.arrow.rb tools/
+      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow*.rb tools/
 
       # Pin the git commit in the formula to match
       cd tools
