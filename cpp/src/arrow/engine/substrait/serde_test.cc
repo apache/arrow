@@ -41,6 +41,9 @@
 
 #include "parquet/arrow/writer.h"
 
+#include "arrow/util/hash_util.h"
+#include "arrow/util/hashing.h"
+
 using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
@@ -49,7 +52,7 @@ using testing::UnorderedElementsAre;
 namespace arrow {
 
 using internal::checked_cast;
-
+using internal::hash_combine;
 namespace engine {
 
 bool WriteParquetData(const std::string& path,
@@ -1864,82 +1867,46 @@ TEST(Substrait, SerializePlan) {
 #else
   compute::ExecContext exec_context;
   ExtensionSet ext_set;
-  auto dummy_schema = schema({field("lkey", int32()), field("rkey", int32()),
-                              field("shared", int32()), field("ldistinct", int32())});
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
   // creating a dummy dataset using a dummy table
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
 
-  std::vector<fs::FileInfo> files1, files2;
+  std::vector<fs::FileInfo> files;
   const std::vector<std::string> f_paths = {"/tmp/data1.parquet", "/tmp/data2.parquet"};
 
   for (const auto& f_path : f_paths) {
     ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
-    files1.push_back(std::move(f_file));
+    files.push_back(std::move(f_file));
   }
-  files2 = files1;
 
-  ASSERT_OK_AND_ASSIGN(auto ds_factory1, dataset::FileSystemDatasetFactory::Make(
-                                             filesystem, std::move(files1), format, {}));
-  ASSERT_OK_AND_ASSIGN(auto dataset1, ds_factory1->Finish(dummy_schema));
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
 
-  ASSERT_OK_AND_ASSIGN(auto ds_factory2, dataset::FileSystemDatasetFactory::Make(
-                                             filesystem, std::move(files2), format, {}));
-  ASSERT_OK_AND_ASSIGN(auto dataset2, ds_factory2->Finish(dummy_schema));
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->projection = compute::project({}, {});
 
-  auto scan_options1 = std::make_shared<dataset::ScanOptions>();
-  scan_options1->projection = compute::project({}, {});
-
-  auto scan_options2 = std::make_shared<dataset::ScanOptions>();
-  scan_options2->projection = compute::project({}, {});
-
-  auto filter1 = compute::greater(compute::field_ref("lkey"), compute::literal(3));
-  auto filter2 = compute::greater(compute::field_ref("lkey"), compute::literal(2));
-  auto filter3 = compute::greater(compute::field_ref("lkey_l1"), compute::literal(1));
+  auto filter = compute::equal(compute::field_ref("key"), compute::literal(3));
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch> > sink_gen;
 
-  auto scan_node_options1 = dataset::ScanNodeOptions{dataset1, scan_options1};
-  auto scan_node_options2 = dataset::ScanNodeOptions{dataset2, scan_options2};
-  auto filter_node_options1 = compute::FilterNodeOptions{filter1};
-  auto filter_node_options2 = compute::FilterNodeOptions{filter2};
-  auto filter_node_options3 = compute::FilterNodeOptions{filter3};
+  auto scan_node_options = dataset::ScanNodeOptions{dataset, scan_options};
+  auto filter_node_options = compute::FilterNodeOptions{filter};
   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
 
-  auto scan_declaration1 = compute::Declaration({"scan", scan_node_options1});
-  auto scan_declaration2 = compute::Declaration({"scan", scan_node_options2});
-  auto filter_declaration1 = compute::Declaration({"filter", filter_node_options1});
-  auto filter_declaration2 = compute::Declaration({"filter", filter_node_options2});
-  auto filter_declaration3 = compute::Declaration({"filter", filter_node_options3});
-  auto sink_declaration = compute::Declaration({"sink", sink_node_options});
-
-  auto scan_declarations1 =
-      compute::Declaration::Sequence({scan_declaration1, filter_declaration1});
-  auto scan_declarations2 =
-      compute::Declaration::Sequence({scan_declaration2, filter_declaration2});
-  compute::HashJoinNodeOptions join_node_options{arrow::compute::JoinType::INNER,
-                                                 /*in_left_keys=*/{"lkey"},
-                                                 /*in_right_keys=*/{"rkey"},
-                                                 /*filter*/ arrow::compute::literal(true),
-                                                 /*output_suffix_for_left*/ "_l1",
-                                                 /*output_suffix_for_right*/ "_r1"};
-
-  auto join_declaration = compute::Declaration({"hashjoin", join_node_options});
-  join_declaration.inputs.emplace_back(scan_declarations1);
-  join_declaration.inputs.emplace_back(scan_declarations2);
+  auto scan_declaration = compute::Declaration({"scan", scan_node_options, "s"});
+  auto filter_declaration = compute::Declaration({"filter", filter_node_options, "f"});
+  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
 
   auto declarations = compute::Declaration::Sequence(
-      {join_declaration, filter_declaration3, sink_declaration});
+      {scan_declaration, filter_declaration, sink_declaration});
 
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
-  ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
 
-  ASSERT_OK(decl->Validate());
-
-  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(*plan, &ext_set));
-  // ASSERT_OK_AND_ASSIGN(auto deserialized_plan,
-  //                      DeserializeRelation(*serialized_plan, ext_set));
-
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan,
+                       SerializePlan(plan.get(), declarations, &ext_set));
 #endif
 }
 

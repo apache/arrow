@@ -51,5 +51,8 @@ Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration&,
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
     const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet* ext_set);
 
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
+    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet* ext_set);
+
 }  // namespace engine
 }  // namespace arrow

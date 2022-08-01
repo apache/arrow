@@ -58,6 +58,7 @@ class SubstraitConversionRegistryImpl : public SubstraitConversionRegistry {
 struct DefaultSubstraitConversionRegistry : SubstraitConversionRegistryImpl {
   DefaultSubstraitConversionRegistry() {
     DCHECK_OK(RegisterConverter("scan", ScanRelationConverter));
+    DCHECK_OK(RegisterConverter("filter", FilterRelationConverter));
   }
 };
 

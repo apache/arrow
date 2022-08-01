@@ -503,6 +503,16 @@ Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& decl
   return MakeRelation(declaration, ext_set);
 }
 
+Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
+    const compute::Declaration& declaration, ExtensionSet* ext_set) {
+  auto declr_input = declaration.inputs[0];
+  // TODO: figure out a better way
+  if (util::get_if<compute::ExecNode*>(&declr_input)) {
+    return Status::NotImplemented("Only support Plans written in Declaration format.");
+  }
+  return ToProto(util::get<compute::Declaration>(declr_input), ext_set);
+}
+
 Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
     ExtensionSet* ext_set) {
@@ -550,6 +560,34 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
   *read_rel->mutable_local_files() = *read_rel_lfs.get();
   rel->set_allocated_read(read_rel.release());
   return std::move(rel);
+}
+
+Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
+    const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
+    ExtensionSet* ext_set) {
+  auto rel = make_unique<substrait::Rel>();
+  auto filter_rel = make_unique<substrait::FilterRel>();
+  const auto& filter_node_options =
+      checked_cast<const compute::FilterNodeOptions&>(*(declaration.options));
+
+  auto filter_expr = filter_node_options.filter_expression;
+  compute::Expression bound_expression;
+  if (!filter_expr.IsBound()) {
+    ARROW_ASSIGN_OR_RAISE(bound_expression, filter_expr.Bind(*schema));
+  }
+
+  if (declaration.inputs.size() == 0) {
+    return Status::Invalid("Filter node doesn't have an input.");
+  }
+
+  auto input_rel = GetRelationFromDeclaration(declaration, ext_set);
+
+  filter_rel->set_allocated_input(input_rel->release());
+
+  ARROW_ASSIGN_OR_RAISE(auto subs_expr, ToProto(bound_expression, ext_set));
+  *filter_rel->mutable_condition() = *subs_expr.get();
+  rel->set_allocated_filter(filter_rel.release());
+  return rel;
 }
 
 }  // namespace engine

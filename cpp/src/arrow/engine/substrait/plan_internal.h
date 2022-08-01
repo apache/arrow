@@ -54,7 +54,10 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::PlanRel>> ToProto(
-    const compute::ExecPlan& plan, ExtensionSet* ext_set);
+    compute::ExecPlan* plan, const compute::Declaration& declr, ExtensionSet* ext_set);
+
+// ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
+//     const compute::Declaration& declaration, ExtensionSet* ext_set);
 
 }  // namespace engine
 }  // namespace arrow

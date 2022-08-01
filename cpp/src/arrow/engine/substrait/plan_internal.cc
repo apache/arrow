@@ -19,13 +19,13 @@
 
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/engine/substrait/registry.h"
 #include "arrow/result.h"
+#include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/unreachable.h"
-
-#include "arrow/engine/substrait/registry.h"
 
 #include <unordered_map>
 
@@ -36,6 +36,7 @@ using internal::checked_cast;
 namespace engine {
 
 namespace internal {
+using ::arrow::internal::hash_combine;
 using ::arrow::internal::make_unique;
 }  // namespace internal
 
@@ -137,74 +138,62 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                             registry);
 }
 
-Status TraversePlan(compute::ExecNode* node,
-                    std::vector<compute::ExecNode*>* node_vector) {
-  if (node->num_inputs() > 0) {
-    const auto& sources = node->inputs();
-    for (const auto& source : sources) {
-      ARROW_RETURN_NOT_OK(TraversePlan(source, node_vector));
-    }
-  }
-  node_vector->push_back(node);
-  return Status::OK();
-}
-
-Result<compute::Declaration> MakeDeclaration(compute::ExecNode* node) {
-  const auto* kind_name = node->kind_name();
-  if (kind_name == std::string("scan")) {
-    std::vector<util::Variant<compute::ExecNode*, compute::Declaration>> inputs(
-        node->num_inputs());
-    int64_t idx = 0;
-    for (auto* input : node->inputs()) {
-      inputs[idx++] = input;
-    }
-    return compute::Declaration(kind_name, std::move(inputs), node->options());
-  } else {
-    return Status::NotImplemented(kind_name, " relation not implemented.");
-  }
-}
-
 Status SetRelation(const std::unique_ptr<substrait::Rel>& plan,
                    const std::unique_ptr<substrait::Rel>& partial_plan,
                    const std::string& factory_name) {
   if (factory_name == "scan" && partial_plan->has_read()) {
     plan->set_allocated_read(partial_plan->release_read());
+  } else if (factory_name == "filter" && partial_plan->has_filter()) {
+    plan->set_allocated_filter(partial_plan->release_filter());
   } else {
-    return Status::NotImplemented("Substrait converter ", factory_name, "not supported.");
+    return Status::NotImplemented("Substrait converter ", factory_name,
+                                  " not supported.");
   }
   return Status::OK();
 }
 
-Result<std::unique_ptr<substrait::PlanRel>> ToProto(const compute::ExecPlan& plan,
+Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& declr) {
+  std::shared_ptr<Schema> bind_schema;
+  if (declr.factory_name == "scan") {
+    const auto& opts = checked_cast<const dataset::ScanNodeOptions&>(*(declr.options));
+    bind_schema = opts.dataset->schema();
+  } else if (declr.factory_name == "filter") {
+    auto input_declr = util::get<compute::Declaration>(declr.inputs[0]);
+    ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
+  } else if (declr.factory_name == "hashjoin") {
+  } else if (declr.factory_name == "sink") {
+    return bind_schema;
+  } else {
+    return Status::Invalid("Schema extraction failed, unsupported factory ",
+                           declr.factory_name);
+  }
+  return bind_schema;
+}
+
+Status TraverseDeclarations(const compute::Declaration& declaration,
+                            ExtensionSet* ext_set, std::unique_ptr<substrait::Rel>& rel) {
+  std::vector<compute::Declaration::Input> inputs = declaration.inputs;
+  for (auto& input : inputs) {
+    auto input_decl = util::get<compute::Declaration>(input);
+    RETURN_NOT_OK(TraverseDeclarations(input_decl, ext_set, rel));
+  }
+  const auto& factory_name = declaration.factory_name;
+  std::cout << factory_name << std::endl;
+  ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
+  SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
+  if (factory_name != "sink") {
+    ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(factory_name));
+    ARROW_ASSIGN_OR_RAISE(auto factory_rel, factory(schema, declaration, ext_set));
+  }
+  return Status::OK();
+}
+
+Result<std::unique_ptr<substrait::PlanRel>> ToProto(compute::ExecPlan* plan,
+                                                    const compute::Declaration& declr,
                                                     ExtensionSet* ext_set) {
   auto plan_rel = internal::make_unique<substrait::PlanRel>();
   auto rel = internal::make_unique<substrait::Rel>();
-  std::cout << "Plan Show" << std::endl;
-
-  std::cout << plan.ToString() << std::endl;
-  std::cout << "----------" << std::endl;
-  const auto& sinks = plan.sinks();
-  std::vector<compute::ExecNode*> node_vec;
-  ARROW_RETURN_NOT_OK(TraversePlan(sinks[0], &node_vec));
-
-  SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
-
-  std::cout << "Printing Node Vector" << std::endl;
-  for (const auto& node : node_vec) {
-    const auto* kind_name = node->kind_name();
-    std::cout << kind_name << std::endl;
-    const auto& output_schema = node->output_schema();
-    ARROW_ASSIGN_OR_RAISE(auto declaration, MakeDeclaration(node));
-    ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(kind_name));
-    if (output_schema) {
-      std::cout << "Schema >>> " << std::endl;
-      std::cout << output_schema->ToString(false) << std::endl;
-      ARROW_ASSIGN_OR_RAISE(auto factory_rel,
-                            factory(output_schema, declaration, ext_set));
-      RETURN_NOT_OK(SetRelation(rel, factory_rel, kind_name));
-    }
-  }
-
+  RETURN_NOT_OK(TraverseDeclarations(declr, ext_set, rel));
   return plan_rel;
 }
 

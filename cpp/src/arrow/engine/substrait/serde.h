@@ -37,7 +37,8 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializePlan(const compute::ExecPlan& plan,
+Result<std::shared_ptr<Buffer>> SerializePlan(compute::ExecPlan* plan,
+                                              const compute::Declaration& declr,
                                               ExtensionSet* ext_set);
 
 /// Factory function type for generating the node that consumes the batches produced by
