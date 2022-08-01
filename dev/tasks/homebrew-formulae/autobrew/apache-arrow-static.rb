@@ -19,56 +19,84 @@
 class ApacheArrowStatic < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://downloads.apache.org/arrow/arrow-6.0.1/apache-arrow-6.0.1.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-8.0.0.9000/apache-arrow-8.0.0.9000.tar.gz"
   # Uncomment and update to test on a release candidate
-  mirror "https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-6.0.1-rc1/apache-arrow-6.0.1.tar.gz"
-  sha256 "3786b3d2df954d078b3e68f98d2e5aecbaa3fa2accf075d7a3a13c187b9c5294"
+  # mirror "https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-8.0.0-rc1/apache-arrow-8.0.0.tar.gz"
+  sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
+  # Linux bottle removed for GCC 12 migration
   bottle do
-    root_url "https://github.com/autobrew/homebrew-cran/releases/download/apache-arrow-static-6.0.1"
-    sha256 cellar: :any, arm64_big_sur: "c6a7a85eb0747ddfe1eb389e9234a9658ae8dbed948f3d2a08ae0dd3061d4a5c"
-    sha256 cellar: :any, big_sur:       "767142d88b6be9a36de8d1c5f6f3b64f22284c4bc3c22c9916a65a0b016fd286"
-    sha256 cellar: :any, catalina:      "2579168ae3c3266091b8801477fa30355e9095724c9600b72d321fe7b831701f"
+    sha256 cellar: :any,                 arm64_monterey: "236f3e3d792c5450549703d4baaffb4c272c10495ab5e28e00745e33dd5c8b9f"
+    sha256 cellar: :any,                 arm64_big_sur:  "4f410eb8437deb23972cc7c1afee02f589debed45c0e2cd70b5f30735a45a94a"
+    sha256 cellar: :any,                 monterey:       "b523d867a39dcd7bb1e6184bf542a7dbe2dcecdf4ce987413e0a4beaa86dcd67"
+    sha256 cellar: :any,                 big_sur:        "6c94f65c8985387ff46b26b2d0e6a2a3cf6ce2c34d264d2353580ba73c0fdc7e"
+    sha256 cellar: :any,                 catalina:       "1bb210d9cb9bbd851c1d0d51ad88ffc2516f35d87f4b3771b4d4313e65576a68"
   end
 
+  depends_on "aws-sdk-cpp"
   depends_on "boost" => :build
+  depends_on "brotli"
   depends_on "cmake" => :build
-  depends_on "aws-sdk-cpp-static"
+  depends_on "glog"
+  depends_on "grpc"
+  depends_on "llvm" => :build
   depends_on "lz4"
+  depends_on "numpy"
+  depends_on "openssl@1.1"
+  depends_on "protobuf"
+  depends_on "python@3.10"
+  depends_on "rapidjson"
+  depends_on "re2"
   depends_on "snappy"
   depends_on "thrift"
+  depends_on "utf8proc"
   depends_on "zstd"
-
-  conflicts_with "apache-arrow", because: "both install Arrow"
+  
+  fails_with gcc: "5"
 
   def install
-    ENV.cxx11
+    # https://github.com/Homebrew/homebrew-core/issues/76537
+    ENV.runtime_cpu_detection if Hardware::CPU.intel?
+
+    # https://github.com/Homebrew/homebrew-core/issues/94724
+    # https://issues.apache.org/jira/browse/ARROW-15664
+    ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
+
+    # link against system libc++ instead of llvm provided libc++
+    ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
       -DARROW_DATASET=ON
       -DARROW_FILESYSTEM=ON
-      -DARROW_HDFS=OFF
-      -DARROW_JSON=ON
-      -DARROW_PARQUET=ON
-      -DARROW_BUILD_SHARED=OFF
+      -DARROW_FLIGHT=ON
+      -DARROW_GANDIVA=ON
+      -DARROW_GCS=ON
+      -DARROW_INSTALL_NAME_RPATH=OFF
       -DARROW_JEMALLOC=ON
-      -DARROW_USE_GLOG=OFF
-      -DARROW_PYTHON=OFF
+      -DARROW_JSON=ON
+      -DARROW_MIMALLOC=ON
+      -DARROW_ORC=ON
+      -DARROW_PARQUET=ON
+      -DARROW_PLASMA=ON
+      -DARROW_PROTOBUF_USE_SHARED=ON
+      -DARROW_PYTHON=ON
       -DARROW_S3=ON
+      -DARROW_USE_GLOG=OFF
+      -DARROW_WITH_BROTLI=ON
+      -DARROW_WITH_BZ2=ON
       -DARROW_WITH_LZ4=ON
       -DARROW_WITH_SNAPPY=ON
+      -DARROW_WITH_UTF8PROC=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
-      -DARROW_BUILD_UTILITIES=ON
-      -DCMAKE_UNITY_BUILD=OFF
-      -DPARQUET_BUILD_EXECUTABLES=ON
+      -DCMAKE_CXX_STANDARD=11 
+      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
       -DLZ4_HOME=#{Formula["lz4"].prefix}
+      -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
     ]
-
-    args << "-DARROW_MIMALLOC=ON" unless Hardware::CPU.arm?
 
     mkdir "build"
     cd "build" do
@@ -86,8 +114,7 @@ class ApacheArrowStatic < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", \
-      "-larrow", "-larrow_bundled_dependencies", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
     system "./test"
   end
 end
