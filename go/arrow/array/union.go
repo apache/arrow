@@ -69,7 +69,6 @@ func (a *union) Release() {
 	for _, c := range a.children {
 		c.Release()
 	}
-	a.children = nil
 }
 
 func (a *union) NumFields() int { return len(a.unionType.Fields()) }
@@ -83,7 +82,10 @@ func (a *union) TypeCodes() *memory.Buffer {
 }
 
 func (a *union) RawTypeCodes() []arrow.UnionTypeCode {
-	return a.typecodes[a.data.offset:]
+	if a.data.length > 0 {
+		return a.typecodes[a.data.offset:]
+	}
+	return []arrow.UnionTypeCode{}
 }
 
 func (a *union) TypeCode(i int) arrow.UnionTypeCode {
@@ -98,7 +100,11 @@ func (a *union) setData(data *Data) {
 	a.unionType = data.dtype.(arrow.UnionType)
 	debug.Assert(len(data.buffers) >= 2, "arrow/array: invalid number of union array buffers")
 
-	a.typecodes = arrow.Int8Traits.CastFromBytes(data.buffers[1].Bytes())
+	if data.length > 0 {
+		a.typecodes = arrow.Int8Traits.CastFromBytes(data.buffers[1].Bytes())
+	} else {
+		a.typecodes = []int8{}
+	}
 	a.children = make([]arrow.Array, len(data.childData))
 	for i, child := range data.childData {
 		if a.unionType.Mode() == arrow.SparseMode && (data.offset != 0 || child.Len() != data.length) {
@@ -454,7 +460,11 @@ func (a *DenseUnion) setData(data *Data) {
 	debug.Assert(len(a.data.buffers) == 3, "arrow/array: sparse unions should have exactly 3 buffers")
 	debug.Assert(a.data.buffers[0] == nil, "arrow/array: validity bitmap for dense unions should be nil")
 
-	a.offsets = arrow.Int32Traits.CastFromBytes(a.data.buffers[2].Bytes())
+	if data.length > 0 {
+		a.offsets = arrow.Int32Traits.CastFromBytes(a.data.buffers[2].Bytes())
+	} else {
+		a.offsets = []int32{}
+	}
 }
 
 func (a *DenseUnion) getOneForMarshal(i int) interface{} {
