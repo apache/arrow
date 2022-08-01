@@ -110,7 +110,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
     // use it to run the task on the main R thread. We can't throw
     // a cpp11::unwind_exception here, so we need to propagate it back
     // to RunWithCapturedR through the MainRThread singleton.
-    return DeferNotOk(main_r_thread.Executor()->Submit([fun, reason]() {
+    return DeferNotOk(main_r_thread.Executor()->Submit([&fun, reason]() {
       // This occurs when some other R code that was previously scheduled to run
       // has errored, in which case we skip execution and let the original
       // error surface.
@@ -174,7 +174,7 @@ arrow::Result<T> RunWithCapturedR(std::function<arrow::Future<T>()> make_arrow_c
   GetMainRThread().ResetError();
 
   arrow::Result<T> result = arrow::internal::SerialExecutor::RunInSerialExecutor<T>(
-      [make_arrow_call](arrow::internal::Executor* executor) {
+      [&make_arrow_call](arrow::internal::Executor* executor) {
         GetMainRThread().Executor() = executor;
         return make_arrow_call();
       });
@@ -198,7 +198,7 @@ arrow::Result<T> RunWithCapturedRIfPossible(
     // Note that the use of the io_context here is arbitrary (i.e. we could use
     // any construct that launches a background thread).
     const auto& io_context = arrow::io::default_io_context();
-    return RunWithCapturedR<T>([&]() {
+    return RunWithCapturedR<T>([&make_arrow_call]() {
       return DeferNotOk(io_context.executor()->Submit(std::move(make_arrow_call)));
     });
   } else {
@@ -210,10 +210,11 @@ arrow::Result<T> RunWithCapturedRIfPossible(
 // a Result.
 static inline arrow::Status RunWithCapturedRIfPossibleVoid(
     std::function<arrow::Status()> make_arrow_call) {
-  auto result = RunWithCapturedRIfPossible<bool>([&]() -> arrow::Result<bool> {
-    ARROW_RETURN_NOT_OK(make_arrow_call());
-    return true;
-  });
+  auto result =
+      RunWithCapturedRIfPossible<bool>([&make_arrow_call]() -> arrow::Result<bool> {
+        ARROW_RETURN_NOT_OK(make_arrow_call());
+        return true;
+      });
   ARROW_RETURN_NOT_OK(result);
   return arrow::Status::OK();
 }
