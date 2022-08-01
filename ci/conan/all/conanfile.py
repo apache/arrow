@@ -549,7 +549,7 @@ class ArrowConan(ConanFile):
         if self._with_protobuf():
             self.cpp_info.components["libarrow"].requires.append("protobuf::protobuf")
         if self._with_utf8proc():
-            self.cpp_info.components["libarrow"].requires.append("uff8proc::uff8proc")
+            self.cpp_info.components["libarrow"].requires.append("utf8proc::utf8proc")
         if self._with_thrift():
             self.cpp_info.components["libarrow"].requires.append("thrift::thrift")
         if self.options.with_backtrace:
