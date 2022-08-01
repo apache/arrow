@@ -16,6 +16,7 @@
 # under the License.
 
 # https://github.com/autobrew/homebrew-core/blob/master/Formula/apache-arrow.rb
+
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
@@ -41,7 +42,6 @@ class ApacheArrow < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python@3.10"
   depends_on "rapidjson"
   depends_on "re2"
   depends_on "snappy"

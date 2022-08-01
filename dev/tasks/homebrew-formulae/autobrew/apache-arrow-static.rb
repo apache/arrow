@@ -16,6 +16,7 @@
 # under the License.
 
 # https://github.com/autobrew/homebrew-cran/blob/master/Formula/apache-arrow.rb
+
 class ApacheArrowStatic < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
@@ -45,7 +46,6 @@ class ApacheArrowStatic < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python@3.10"
   depends_on "rapidjson"
   depends_on "re2"
   depends_on "snappy"
@@ -66,35 +66,31 @@ class ApacheArrowStatic < Formula
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
+      -DARROW_BUILD_SHARED=OFF
+      -DARROW_BUILD_UTILITIES=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
       -DARROW_DATASET=ON
       -DARROW_FILESYSTEM=ON
-      -DARROW_FLIGHT=ON
-      -DARROW_GANDIVA=ON
       -DARROW_GCS=ON
-      -DARROW_INSTALL_NAME_RPATH=OFF
+      -DARROW_HDFS=OFF
       -DARROW_JEMALLOC=ON
       -DARROW_JSON=ON
       -DARROW_MIMALLOC=ON
-      -DARROW_ORC=ON
       -DARROW_PARQUET=ON
-      -DARROW_PLASMA=ON
-      -DARROW_PROTOBUF_USE_SHARED=ON
-      -DARROW_PYTHON=ON
+      -DARROW_PYTHON=OFF
       -DARROW_S3=ON
       -DARROW_USE_GLOG=OFF
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
       -DARROW_WITH_BROTLI=ON
       -DARROW_WITH_BZ2=ON
       -DARROW_WITH_LZ4=ON
       -DARROW_WITH_SNAPPY=ON
-      -DARROW_WITH_UTF8PROC=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
-      -DCMAKE_CXX_STANDARD=11 
-      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
+      -DCMAKE_UNITY_BUILD=OFF
       -DLZ4_HOME=#{Formula["lz4"].prefix}
-      -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
+      -DPARQUET_BUILD_EXECUTABLES=ON
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
     ]
 
