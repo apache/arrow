@@ -1321,8 +1321,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
         return (
             other and
             self.convert_options.equals(other.convert_options) and
-            self.read_options.equals(other.read_options) and
-            self.encoding == other.encoding)
+            self.read_options.equals(other.read_options))
 
     def __reduce__(self):
         return CsvFragmentScanOptions, (self.convert_options,
