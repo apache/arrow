@@ -55,7 +55,7 @@ arrow-vector, and arrow-memory-netty.
         <artifactId>demo</artifactId>
         <version>1.0-SNAPSHOT</version>
         <properties>
-            <arrow.version>8.0.0</arrow.version>
+            <arrow.version>9.0.0</arrow.version>
         </properties>
         <dependencies>
             <dependency>
@@ -87,7 +87,7 @@ transitive dependencies of Flight.
         <artifactId>demo</artifactId>
         <version>1.0-SNAPSHOT</version>
         <properties>
-            <arrow.version>8.0.0</arrow.version>
+            <arrow.version>9.0.0</arrow.version>
         </properties>
         <dependencies>
             <dependency>
@@ -148,13 +148,13 @@ Installing from Apache Nightlies
 ********************************
 1. Look up the nightly version number for the Arrow libraries used.
 
-   For example, for ``arrow-memory``, visit  https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what versions are available (e.g. 9.0.0.dev191).
+   For example, for ``arrow-memory``, visit  https://nightlies.apache.org/arrow/java/org/apache/arrow/arrow-memory/ and see what versions are available (e.g. 9.0.0.dev501).
 2. Add Apache Nightlies Repository to the Maven/Gradle project.
 
 .. code-block:: xml
 
     <properties>
-        <arrow.version>9.0.0.dev191</arrow.version>
+        <arrow.version>9.0.0.dev501</arrow.version>
     </properties>
     ...
     <repositories>
@@ -176,7 +176,7 @@ Installing from Apache Nightlies
 Installing Manually
 *******************
 
-1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-19-0-github-java-jars
+1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
 2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memeory-core and arrow-memory-netty).
 
 .. code-block:: xml
@@ -184,7 +184,7 @@ Installing Manually
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
-        <arrow.version>8.0.0.dev254</arrow.version>
+        <arrow.version>9.0.0.dev501</arrow.version>
     </properties>
 
     <dependencies>
@@ -199,54 +199,54 @@ Installing Manually
 
 .. code-block:: shell
 
-    $ mkdir nightly-2022-03-19-0-github-java-jars
-    $ cd nightly-2022-03-19-0-github-java-jars
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-java-root-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-format-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-format-8.0.0.dev254.jar
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-vector-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-vector-8.0.0.dev254.jar
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-memory-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-memory-core-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-memory-netty-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-memory-core-8.0.0.dev254.jar
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-memory-netty-8.0.0.dev254.jar
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/arrow-flight-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/flight-core-8.0.0.dev254.pom
-    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-19-0-github-java-jars/flight-core-8.0.0.dev254.jar
+    $ mkdir nightly-packaging-2022-07-30-0-github-java-jars
+    $ cd nightly-packaging-2022-07-30-0-github-java-jars
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-java-root-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-format-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-format-9.0.0.dev501.jar
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-vector-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-vector-9.0.0.dev501.jar
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-memory-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-memory-core-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-memory-netty-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-memory-core-9.0.0.dev501.jar
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-memory-netty-9.0.0.dev501.jar
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/arrow-flight-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/flight-core-9.0.0.dev501.pom
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-packaging-2022-07-30-0-github-java-jars/flight-core-9.0.0.dev501.jar
     $ tree
     .
-    ├── arrow-flight-8.0.0.dev254.pom
-    ├── arrow-format-8.0.0.dev254.jar
-    ├── arrow-format-8.0.0.dev254.pom
-    ├── arrow-java-root-8.0.0.dev254.pom
-    ├── arrow-memory-8.0.0.dev254.pom
-    ├── arrow-memory-core-8.0.0.dev254.jar
-    ├── arrow-memory-core-8.0.0.dev254.pom
-    ├── arrow-memory-netty-8.0.0.dev254.jar
-    ├── arrow-memory-netty-8.0.0.dev254.pom
-    ├── arrow-vector-8.0.0.dev254.jar
-    ├── arrow-vector-8.0.0.dev254.pom
-    ├── flight-core-8.0.0.dev254.jar
-    └── flight-core-8.0.0.dev254.pom
+    ├── arrow-flight-9.0.0.dev501.pom
+    ├── arrow-format-9.0.0.dev501.jar
+    ├── arrow-format-9.0.0.dev501.pom
+    ├── arrow-java-root-9.0.0.dev501.pom
+    ├── arrow-memory-9.0.0.dev501.pom
+    ├── arrow-memory-core-9.0.0.dev501.jar
+    ├── arrow-memory-core-9.0.0.dev501.pom
+    ├── arrow-memory-netty-9.0.0.dev501.jar
+    ├── arrow-memory-netty-9.0.0.dev501.pom
+    ├── arrow-vector-9.0.0.dev501.jar
+    ├── arrow-vector-9.0.0.dev501.pom
+    ├── flight-core-9.0.0.dev501.jar
+    └── flight-core-9.0.0.dev501.pom
 
 4. Install the artifacts to the local Maven repository with ``mvn install:install-file``:
 
 .. code-block:: shell
 
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-java-root-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-java-root -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-format-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-format -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-format-8.0.0.dev254.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-format -Dversion=8.0.0.dev254 -Dpackaging=jar
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-vector-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-vector -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-vector-8.0.0.dev254.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-vector -Dversion=8.0.0.dev254 -Dpackaging=jar
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-memory -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-core-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-core -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-netty-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-netty -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-core-8.0.0.dev254.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-core -Dversion=8.0.0.dev254 -Dpackaging=jar
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-netty-8.0.0.dev254.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-netty -Dversion=8.0.0.dev254 -Dpackaging=jar
-    $ mvn install:install-file -Dfile="$(pwd)/arrow-flight-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-flight -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/flight-core-8.0.0.dev254.pom" -DgroupId=org.apache.arrow -DartifactId=flight-core -Dversion=8.0.0.dev254 -Dpackaging=pom
-    $ mvn install:install-file -Dfile="$(pwd)/flight-core-8.0.0.dev254.jar" -DgroupId=org.apache.arrow -DartifactId=flight-core -Dversion=8.0.0.dev254 -Dpackaging=jar
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-java-root-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-java-root -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-format-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-format -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-format-9.0.0.dev501.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-format -Dversion=9.0.0.dev501 -Dpackaging=jar
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-vector-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-vector -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-vector-9.0.0.dev501.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-vector -Dversion=9.0.0.dev501 -Dpackaging=jar
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-memory -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-core-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-core -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-netty-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-netty -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-core-9.0.0.dev501.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-core -Dversion=9.0.0.dev501 -Dpackaging=jar
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-memory-netty-9.0.0.dev501.jar" -DgroupId=org.apache.arrow -DartifactId=arrow-memory-netty -Dversion=9.0.0.dev501 -Dpackaging=jar
+    $ mvn install:install-file -Dfile="$(pwd)/arrow-flight-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=arrow-flight -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/flight-core-9.0.0.dev501.pom" -DgroupId=org.apache.arrow -DartifactId=flight-core -Dversion=9.0.0.dev501 -Dpackaging=pom
+    $ mvn install:install-file -Dfile="$(pwd)/flight-core-9.0.0.dev501.jar" -DgroupId=org.apache.arrow -DartifactId=flight-core -Dversion=9.0.0.dev501 -Dpackaging=jar
 
 5. Validate that the packages were installed:
 
@@ -255,37 +255,37 @@ Installing Manually
     $ tree ~/.m2/repository/org/apache/arrow
     .
     ├── arrow-flight
-    │   ├── 8.0.0.dev254
-    │   │   └── arrow-flight-8.0.0.dev254.pom
+    │   ├── 9.0.0.dev501
+    │   │   └── arrow-flight-9.0.0.dev501.pom
     ├── arrow-format
-    │   ├── 8.0.0.dev254
-    │   │   ├── arrow-format-8.0.0.dev254.jar
-    │   │   └── arrow-format-8.0.0.dev254.pom
+    │   ├── 9.0.0.dev501
+    │   │   ├── arrow-format-9.0.0.dev501.jar
+    │   │   └── arrow-format-9.0.0.dev501.pom
     ├── arrow-java-root
-    │   ├── 8.0.0.dev254
-    │   │   └── arrow-java-root-8.0.0.dev254.pom
+    │   ├── 9.0.0.dev501
+    │   │   └── arrow-java-root-9.0.0.dev501.pom
     ├── arrow-memory
-    │   ├── 8.0.0.dev254
-    │   │   └── arrow-memory-8.0.0.dev254.pom
+    │   ├── 9.0.0.dev501
+    │   │   └── arrow-memory-9.0.0.dev501.pom
     ├── arrow-memory-core
-    │   ├── 8.0.0.dev254
-    │   │   ├── arrow-memory-core-8.0.0.dev254.jar
-    │   │   └── arrow-memory-core-8.0.0.dev254.pom
+    │   ├── 9.0.0.dev501
+    │   │   ├── arrow-memory-core-9.0.0.dev501.jar
+    │   │   └── arrow-memory-core-9.0.0.dev501.pom
     ├── arrow-memory-netty
-    │   ├── 8.0.0.dev254
-    │   │   ├── arrow-memory-netty-8.0.0.dev254.jar
-    │   │   └── arrow-memory-netty-8.0.0.dev254.pom
+    │   ├── 9.0.0.dev501
+    │   │   ├── arrow-memory-netty-9.0.0.dev501.jar
+    │   │   └── arrow-memory-netty-9.0.0.dev501.pom
     ├── arrow-vector
-    │   ├── 8.0.0.dev254
+    │   ├── 9.0.0.dev501
     │   │   ├── _remote.repositories
-    │   │   ├── arrow-vector-8.0.0.dev254.jar
-    │   │   └── arrow-vector-8.0.0.dev254.pom
+    │   │   ├── arrow-vector-9.0.0.dev501.jar
+    │   │   └── arrow-vector-9.0.0.dev501.pom
     └── flight-core
-        ├── 8.0.0.dev254
-        │   ├── flight-core-8.0.0.dev254.jar
-        │   └── flight-core-8.0.0.dev254.pom
+        ├── 9.0.0.dev501
+        │   ├── flight-core-9.0.0.dev501.jar
+        │   └── flight-core-9.0.0.dev501.pom
 
 6. Compile your project like usual with ``mvn clean install``.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
-.. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-19-0-github-java-jars
+.. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
