@@ -103,6 +103,8 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     Scalar$create(32L, float64())
   )
 
+  skip("while testing valgrind errors")
+
   expect_identical(
     record_batch(a = 1L) %>%
       dplyr::mutate(b = times_32(a)) %>%
@@ -206,6 +208,7 @@ test_that("register_user_defined_function() errors for unsupported specification
 })
 
 test_that("user-defined functions work during multi-threaded execution", {
+  skip("while testing valgrind errors")
   skip_if_not(CanRunWithCapturedR())
   skip_if_not_available("dataset")
   # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
@@ -258,6 +261,7 @@ test_that("user-defined functions work during multi-threaded execution", {
 })
 
 test_that("user-defined error when called from an unsupported context", {
+  skip("while testing valgrind errors")
   skip_if_not_available("dataset")
   skip_if_not(CanRunWithCapturedR())
 

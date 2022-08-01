@@ -110,7 +110,7 @@ arrow::Future<T> SafeCallIntoRAsync(std::function<arrow::Result<T>(void)> fun,
     // use it to run the task on the main R thread. We can't throw
     // a cpp11::unwind_exception here, so we need to propagate it back
     // to RunWithCapturedR through the MainRThread singleton.
-    return DeferNotOk(main_r_thread.Executor()->Submit([&fun, reason]() {
+    return DeferNotOk(main_r_thread.Executor()->Submit([fun, reason]() {
       // This occurs when some other R code that was previously scheduled to run
       // has errored, in which case we skip execution and let the original
       // error surface.
@@ -198,7 +198,7 @@ arrow::Result<T> RunWithCapturedRIfPossible(
     // Note that the use of the io_context here is arbitrary (i.e. we could use
     // any construct that launches a background thread).
     const auto& io_context = arrow::io::default_io_context();
-    return RunWithCapturedR<T>([&make_arrow_call]() {
+    return RunWithCapturedR<T>([&make_arrow_call, io_context]() {
       return DeferNotOk(io_context.executor()->Submit(std::move(make_arrow_call)));
     });
   } else {
