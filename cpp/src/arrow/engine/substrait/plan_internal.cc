@@ -170,31 +170,35 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
   return bind_schema;
 }
 
-Status TraverseDeclarations(const compute::Declaration& declaration,
-                            ExtensionSet* ext_set, std::unique_ptr<substrait::Rel>& rel) {
+Status SerializeRelations(const compute::Declaration& declaration, ExtensionSet* ext_set,
+                          std::unique_ptr<substrait::Rel>& rel) {
   std::vector<compute::Declaration::Input> inputs = declaration.inputs;
   for (auto& input : inputs) {
     auto input_decl = util::get<compute::Declaration>(input);
-    RETURN_NOT_OK(TraverseDeclarations(input_decl, ext_set, rel));
+    RETURN_NOT_OK(SerializeRelations(input_decl, ext_set, rel));
   }
   const auto& factory_name = declaration.factory_name;
-  std::cout << factory_name << std::endl;
   ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
   SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
   if (factory_name != "sink") {
     ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(factory_name));
     ARROW_ASSIGN_OR_RAISE(auto factory_rel, factory(schema, declaration, ext_set));
+    RETURN_NOT_OK(SetRelation(rel, factory_rel, factory_name));
   }
   return Status::OK();
 }
 
-Result<std::unique_ptr<substrait::PlanRel>> ToProto(compute::ExecPlan* plan,
-                                                    const compute::Declaration& declr,
-                                                    ExtensionSet* ext_set) {
+Result<std::unique_ptr<substrait::Plan>> ToProto(compute::ExecPlan* plan,
+                                                 const compute::Declaration& declr,
+                                                 ExtensionSet* ext_set) {
+  auto subs_plan = internal::make_unique<substrait::Plan>();
   auto plan_rel = internal::make_unique<substrait::PlanRel>();
   auto rel = internal::make_unique<substrait::Rel>();
-  RETURN_NOT_OK(TraverseDeclarations(declr, ext_set, rel));
-  return plan_rel;
+  RETURN_NOT_OK(SerializeRelations(declr, ext_set, rel));
+  plan_rel->set_allocated_rel(rel.release());
+  subs_plan->mutable_relations()->AddAllocated(plan_rel.release());
+  RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, subs_plan.get()));
+  return std::move(subs_plan);
 }
 
 }  // namespace engine

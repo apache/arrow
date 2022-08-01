@@ -1887,8 +1887,8 @@ TEST(Substrait, SerializePlan) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
-
-  auto filter = compute::equal(compute::field_ref("key"), compute::literal(3));
+  const std::string filter_col = "shared";
+  auto filter = compute::equal(compute::field_ref(filter_col), compute::literal(3));
 
   arrow::AsyncGenerator<util::optional<compute::ExecBatch> > sink_gen;
 
@@ -1907,6 +1907,34 @@ TEST(Substrait, SerializePlan) {
 
   ASSERT_OK_AND_ASSIGN(auto serialized_plan,
                        SerializePlan(plan.get(), declarations, &ext_set));
+
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_OK_AND_ASSIGN(
+        auto sink_decls,
+        DeserializePlans(
+            *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+    // filter declaration
+    auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+    const auto& filter_opts =
+        checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+    auto roundtripped_expr = filter_opts.filter_expression;
+
+    if (auto* call = roundtripped_expr.call()) {
+      EXPECT_EQ(call->function_name, "equal");
+      auto args = call->arguments;
+      auto index = args[0].field_ref()->field_path()->indices()[0];
+      EXPECT_EQ(dummy_schema->field_names()[index], filter_col);
+      EXPECT_EQ(args[1], compute::literal(3));
+    }
+    // scan declaration
+    auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+    const auto& dataset_opts =
+        checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+    EXPECT_TRUE(dataset_opts.dataset->schema()->Equals(*dummy_schema));
+  }
 #endif
 }
 

@@ -53,7 +53,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
-ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::PlanRel>> ToProto(
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> ToProto(
     compute::ExecPlan* plan, const compute::Declaration& declr, ExtensionSet* ext_set);
 
 // ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
