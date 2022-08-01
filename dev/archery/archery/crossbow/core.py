@@ -675,6 +675,7 @@ class Queue(Repo):
             params = {
                 **job.params,
                 "arrow": job.target,
+                "job": job,
                 "queue_remote_url": self.remote_url
             }
             files = task.render_files(job.template_searchpath, params=params)
@@ -1237,6 +1238,10 @@ class Config(dict):
             version='1.0.0dev123',
             email='dummy@example.ltd'
         )
+        job = Job(
+            target=target,
+            tasks=self['tasks'],
+        )
 
         for task_name, task in self['tasks'].items():
             task = Task(**task)
@@ -1244,6 +1249,7 @@ class Config(dict):
                 self.template_searchpath,
                 params=dict(
                     arrow=target,
+                    job=job,
                     queue_remote_url='https://github.com/org/crossbow'
                 )
             )
