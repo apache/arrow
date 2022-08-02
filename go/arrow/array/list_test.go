@@ -218,9 +218,9 @@ func TestLargeListArray(t *testing.T) {
 
 	var (
 		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
-		lengths = []int{3, 0, 4}
-		isValid = []bool{true, false, true}
-		offsets = []int64{0, 3, 3, 7}
+		lengths = []int{3, 0, 0, 4}
+		isValid = []bool{true, false, true, true}
+		offsets = []int64{0, 3, 3, 3, 7}
 	)
 
 	lb := array.NewLargeListBuilder(pool, arrow.PrimitiveTypes.Int32)

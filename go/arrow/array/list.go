@@ -427,7 +427,7 @@ func (b *ListBuilder) NewListArray() (a *List) {
 	return
 }
 
-// NewListArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
+// NewLargeListArray creates a List array from the memory buffers used by the builder and resets the LargeListBuilder
 // so it can be used to build a new array.
 func (b *LargeListBuilder) NewLargeListArray() (a *LargeList) {
 	if b.offsets.Len() != b.length+1 {
