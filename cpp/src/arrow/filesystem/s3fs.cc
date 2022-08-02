@@ -222,7 +222,7 @@ class AwsRetryStrategy : public S3RetryStrategy {
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& detail,
                                         int64_t attempted_retries) {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
-    return retry_strategy_->CalculateDelayBeforeNextRetry(error, (long)attempted_retries);
+    return retry_strategy_->CalculateDelayBeforeNextRetry(error, static_cast<long>(attempted_retries));
   }
 
  private:
