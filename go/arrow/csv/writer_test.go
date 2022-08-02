@@ -139,6 +139,18 @@ func TestCSVWriter(t *testing.T) {
 	}
 }
 
+func genTimestamps(unit arrow.TimeUnit) []arrow.Timestamp {
+	out := []arrow.Timestamp{}
+	for _, input := range []string{"2014-07-28 15:04:05", "2016-09-08 15:04:05", "2021-09-18 15:04:05"} {
+		ts, err := arrow.TimestampFromString(input, unit)
+		if err != nil {
+			panic(fmt.Errorf("could not convert %s to arrow.Timestamp err=%s", input, err))
+		}
+		out = append(out, ts)
+	}
+	return out
+}
+
 func testCSVWriter(t *testing.T, writeHeader bool) {
 	f := new(bytes.Buffer)
 
@@ -158,6 +170,9 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "ts_s", Type: arrow.FixedWidthTypes.Timestamp_s},
+			{Name: "d32", Type: arrow.FixedWidthTypes.Date32},
+			{Name: "d64", Type: arrow.FixedWidthTypes.Date64},
 		},
 		nil,
 	)
@@ -177,6 +192,9 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 	b.Field(9).(*array.Float32Builder).AppendValues([]float32{0.0, 0.1, 0.2}, nil)
 	b.Field(10).(*array.Float64Builder).AppendValues([]float64{0.0, 0.1, 0.2}, nil)
 	b.Field(11).(*array.StringBuilder).AppendValues([]string{"str-0", "str-1", "str-2"}, nil)
+	b.Field(12).(*array.TimestampBuilder).AppendValues(genTimestamps(arrow.Second), nil)
+	b.Field(13).(*array.Date32Builder).AppendValues([]arrow.Date32{17304, 19304, 20304}, nil)
+	b.Field(14).(*array.Date64Builder).AppendValues([]arrow.Date64{1840400000000, 1940400000000, 2040400000000}, nil)
 
 	for _, field := range b.Fields() {
 		field.AppendNull()
@@ -206,14 +224,14 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 		t.Fatal(err)
 	}
 
-	want := `true;-1;-1;-1;-1;0;0;0;0;0;0;str-0
-false;0;0;0;0;1;1;1;1;0.1;0.1;str-1
-true;1;1;1;1;2;2;2;2;0.2;0.2;str-2
-null;null;null;null;null;null;null;null;null;null;null;null
+	want := `true;-1;-1;-1;-1;0;0;0;0;0;0;str-0;2014-07-28 15:04:05;2017-05-18;2028-04-26
+false;0;0;0;0;1;1;1;1;0.1;0.1;str-1;2016-09-08 15:04:05;2022-11-08;2031-06-28
+true;1;1;1;1;2;2;2;2;0.2;0.2;str-2;2021-09-18 15:04:05;2025-08-04;2034-08-28
+null;null;null;null;null;null;null;null;null;null;null;null;null;null;null
 `
 
 	if writeHeader {
-		want = "bool;i8;i16;i32;i64;u8;u16;u32;u64;f32;f64;str\n" + want
+		want = "bool;i8;i16;i32;i64;u8;u16;u32;u64;f32;f64;str;ts_s;d32;d64\n" + want
 	}
 
 	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
