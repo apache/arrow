@@ -589,3 +589,15 @@ test_that("mutate() and transmute() with namespaced functions", {
     tbl
   )
 })
+
+test_that("Can use across() within mutate()", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        a = base::round(dbl) + base::log(int)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+})
