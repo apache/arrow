@@ -591,13 +591,18 @@ test_that("mutate() and transmute() with namespaced functions", {
 })
 
 test_that("Can use across() within mutate()", {
-  compare_dplyr_binding(
-    .input %>%
+
+  # gives the right error with window functions
+  expect_warning(
+    arrow_table(tbl) %>%
       mutate(
-        a = base::round(dbl) + base::log(int)
+        x = int + 2,
+        across(c("int", "dbl"), list(mean = mean, sd = sd, round)),
+        exp(dbl2)
       ) %>%
       collect(),
-    tbl
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
   )
 
 })
