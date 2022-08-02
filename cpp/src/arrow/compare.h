@@ -273,9 +273,8 @@ struct IsAtLeastOp {
 /// \param[in] right a NumericScalar
 /// \param[in] options comparison options
 template <typename T>
-bool ARROW_EXPORT ScalarLessThan(const NumericScalar<T>& left,
-                                 const NumericScalar<T>& right,
-                                 const OrderOptions& options = OrderOptions::Defaults()) {
+bool ScalarLessThan(const NumericScalar<T>& left, const NumericScalar<T>& right,
+                    const OrderOptions& options = OrderOptions::Defaults()) {
   return internal::NumericScalarCompare<NumericScalar<T>, internal::LessThanOp>(
       left, right, options);
 }
@@ -285,9 +284,8 @@ bool ARROW_EXPORT ScalarLessThan(const NumericScalar<T>& left,
 /// \param[in] right a NumericScalar
 /// \param[in] options comparison options
 template <typename T>
-bool ARROW_EXPORT ScalarIsAtMost(const NumericScalar<T>& left,
-                                 const NumericScalar<T>& right,
-                                 const OrderOptions& options = OrderOptions::Defaults()) {
+bool ScalarIsAtMost(const NumericScalar<T>& left, const NumericScalar<T>& right,
+                    const OrderOptions& options = OrderOptions::Defaults()) {
   return internal::NumericScalarCompare<NumericScalar<T>, internal::IsAtMostOp>(
       left, right, options);
 }
@@ -297,9 +295,8 @@ bool ARROW_EXPORT ScalarIsAtMost(const NumericScalar<T>& left,
 /// \param[in] right a NumericScalar
 /// \param[in] options comparison options
 template <typename T>
-bool ARROW_EXPORT ScalarMoreThan(const NumericScalar<T>& left,
-                                 const NumericScalar<T>& right,
-                                 const OrderOptions& options = OrderOptions::Defaults()) {
+bool ScalarMoreThan(const NumericScalar<T>& left, const NumericScalar<T>& right,
+                    const OrderOptions& options = OrderOptions::Defaults()) {
   return internal::NumericScalarCompare<NumericScalar<T>, internal::MoreThanOp>(
       left, right, options);
 }
@@ -309,9 +306,8 @@ bool ARROW_EXPORT ScalarMoreThan(const NumericScalar<T>& left,
 /// \param[in] right a NumericScalar
 /// \param[in] options comparison options
 template <typename T>
-bool ARROW_EXPORT
-ScalarIsAtLeast(const NumericScalar<T>& left, const NumericScalar<T>& right,
-                const OrderOptions& options = OrderOptions::Defaults()) {
+bool ScalarIsAtLeast(const NumericScalar<T>& left, const NumericScalar<T>& right,
+                     const OrderOptions& options = OrderOptions::Defaults()) {
   return internal::NumericScalarCompare<NumericScalar<T>, internal::IsAtLeastOp>(
       left, right, options);
 }
