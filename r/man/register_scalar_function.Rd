@@ -62,14 +62,9 @@ register_scalar_function(
   auto_convert = TRUE
 )
 
-# User-defined functions require some special handling
-# in the query engine which currently require an opt-in using
-# the R_ARROW_COLLECT_WITH_UDF environment variable.
-Sys.setenv(R_ARROW_COLLECT_WITH_UDF = "true")
 as_arrow_table(mtcars) \%>\%
   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) \%>\%
   collect() \%>\%
   head()
-Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 \dontshow{\}) # examplesIf}
 }

@@ -358,15 +358,10 @@ cast_options <- function(safe = TRUE, ...) {
 #'   auto_convert = TRUE
 #' )
 #'
-#' # User-defined functions require some special handling
-#' # in the query engine which currently require an opt-in using
-#' # the R_ARROW_COLLECT_WITH_UDF environment variable.
-#' Sys.setenv(R_ARROW_COLLECT_WITH_UDF = "true")
 #' as_arrow_table(mtcars) %>%
 #'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) %>%
 #'   collect() %>%
 #'   head()
-#' Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 #'
 register_scalar_function <- function(name, fun, in_type, out_type,
                                      auto_convert = FALSE) {
@@ -389,6 +384,13 @@ register_scalar_function <- function(name, fun, in_type, out_type,
     function(...) build_expr(name, ...),
     update_cache = TRUE
   )
+
+  # User-defined functions require some special handling
+  # in the query engine which currently require an opt-in using
+  # the R_ARROW_COLLECT_WITH_UDF environment variable while this
+  # behaviour is stabilized.
+  # TODO(ARROW-17178) remove the need for this!
+  Sys.setenv(R_ARROW_COLLECT_WITH_UDF = "true")
 
   invisible(NULL)
 }
