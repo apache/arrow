@@ -1204,7 +1204,8 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 /// \brief Type class for run-length encoded data
 class ARROW_EXPORT EncodingType {
  public:
-  EncodingType(std::shared_ptr<DataType> encoded_type) : encoded_type_{encoded_type} {}
+  explicit EncodingType(std::shared_ptr<DataType> encoded_type)
+      : encoded_type_{encoded_type} {}
 
   const std::shared_ptr<DataType>& encoded_type() const { return encoded_type_; }
 
@@ -1219,7 +1220,7 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
 
   static constexpr const char* type_name() { return "run_length_encoded"; }
 
-  RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
+  explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
       : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {}
 
   DataTypeLayout layout() const override {
