@@ -502,7 +502,7 @@ test_that("Dataset writing: unsupported features/input validation", {
     write_dataset(ds, tempfile(), basename_template = "something_without_i")
   )
   expect_error(
-    write_dataset(ds, tempfile(), basename_template = "NULL")
+    write_dataset(ds, tempfile(), basename_template = NULL)
   )
 })
 
