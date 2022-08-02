@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -180,7 +181,8 @@ struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar<BooleanType
 };
 
 template <typename T>
-struct NumericScalar : public internal::PrimitiveScalar<T> {
+struct NumericScalar : public internal::PrimitiveScalar<T>,
+                       public util::OrderComparable<NumericScalar<T>> {
   using Base = typename internal::PrimitiveScalar<T>;
   using Base::Base;
   using TypeClass = typename Base::TypeClass;
@@ -190,6 +192,31 @@ struct NumericScalar : public internal::PrimitiveScalar<T> {
       : Base(value, TypeTraits<T>::type_singleton()) {}
 
   NumericScalar() : Base(TypeTraits<T>::type_singleton()) {}
+
+  bool LessThan(const NumericScalar<T>& other,
+                const OrderOptions& options = OrderOptions::Defaults()) const {
+    return ScalarLessThan(*this, other, options);
+  }
+  bool IsAtMost(const NumericScalar<T>& other,
+                const OrderOptions& options = OrderOptions::Defaults()) const {
+    return ScalarIsAtMost(*this, other, options);
+  }
+  bool MoreThan(const NumericScalar<T>& other,
+                const OrderOptions& options = OrderOptions::Defaults()) const {
+    return ScalarMoreThan(*this, other, options);
+  }
+  bool IsAtLeast(const NumericScalar<T>& other,
+                 const OrderOptions& options = OrderOptions::Defaults()) const {
+    return ScalarIsAtLeast(*this, other, options);
+  }
+  using util::OrderComparable<NumericScalar<T>>::LessThan;
+  using util::OrderComparable<NumericScalar<T>>::IsAtMost;
+  using util::OrderComparable<NumericScalar<T>>::MoreThan;
+  using util::OrderComparable<NumericScalar<T>>::IsAtLeast;
+  using util::OrderComparable<NumericScalar<T>>::operator<;
+  using util::OrderComparable<NumericScalar<T>>::operator<=;
+  using util::OrderComparable<NumericScalar<T>>::operator>;
+  using util::OrderComparable<NumericScalar<T>>::operator>=;
 };
 
 struct ARROW_EXPORT Int8Scalar : public NumericScalar<Int8Type> {

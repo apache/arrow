@@ -17,9 +17,9 @@
 
 #include <condition_variable>
 #include <mutex>
-#include <set>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -39,6 +39,8 @@ namespace compute {
 
 // Remove this when multiple keys and/or types is supported
 typedef int32_t KeyType;
+// Remove this when multiple time types are supported
+typedef int64_t TimeType;
 
 // Maximum number of tables that can be joined
 #define MAX_JOIN_TABLES 64
@@ -99,7 +101,7 @@ struct MemoStore {
 
   struct Entry {
     // Timestamp associated with the entry
-    int64_t time;
+    TimeType time;
 
     // Batch associated with the entry (perf is probably OK for this; batches change
     // rarely)
@@ -111,7 +113,7 @@ struct MemoStore {
 
   std::unordered_map<KeyType, Entry> entries_;
 
-  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, int64_t time,
+  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, TimeType time,
              KeyType key) {
     auto& e = entries_[key];
     // that we can do this assignment optionally, is why we
@@ -128,7 +130,7 @@ struct MemoStore {
     return util::optional<const Entry*>(&e->second);
   }
 
-  void RemoveEntriesWithLesserTime(int64_t ts) {
+  void RemoveEntriesWithLesserTime(TimeType ts) {
     for (auto e = entries_.begin(); e != entries_.end();)
       if (e->second.time < ts)
         e = entries_.erase(e);
@@ -190,10 +192,10 @@ class InputState {
         ->GetValues<KeyType>(1)[latest_ref_row_];
   }
 
-  int64_t GetLatestTime() const {
+  TimeType GetLatestTime() const {
     return queue_.UnsyncFront()
         ->column_data(time_col_index_)
-        ->GetValues<int64_t>(1)[latest_ref_row_];
+        ->GetValues<TimeType>(1)[latest_ref_row_];
   }
 
   bool Finished() const { return batches_processed_ == total_batches_; }
@@ -222,28 +224,25 @@ class InputState {
   // latest_time and latest_ref_row to the value that immediately pass the
   // specified timestamp.
   // Returns true if updates were made, false if not.
-  bool AdvanceAndMemoize(int64_t ts) {
+  bool AdvanceAndMemoize(TimeType ts) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
 
     // Check if already updated for TS (or if there is no latest)
     if (Empty()) return false;  // can't advance if empty
-    auto latest_time = GetLatestTime();
-    if (latest_time > ts) return false;  // already advanced
 
     // Not updated.  Try to update and possibly advance.
     bool updated = false;
     do {
-      latest_time = GetLatestTime();
+      auto latest_time = GetLatestTime();
       // if Advance() returns true, then the latest_ts must also be valid
       // Keep advancing right table until we hit the latest row that has
       // timestamp <= ts. This is because we only need the latest row for the
       // match given a left ts.
-      if (latest_time <= ts) {
-        memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
-      } else {
+      if (latest_time > ts) {
         break;  // hit a future timestamp -- done updating for now
       }
+      memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
       updated = true;
     } while (Advance());
     return updated;
@@ -261,7 +260,7 @@ class InputState {
     return memo_.GetEntryForKey(key);
   }
 
-  util::optional<int64_t> GetMemoTimeForKey(KeyType key) {
+  util::optional<TimeType> GetMemoTimeForKey(KeyType key) {
     auto r = GetMemoEntryForKey(key);
     if (r.has_value()) {
       return (*r)->time;
@@ -270,7 +269,7 @@ class InputState {
     }
   }
 
-  void RemoveMemoEntriesWithLesserTime(int64_t ts) {
+  void RemoveMemoEntriesWithLesserTime(TimeType ts) {
     memo_.RemoveEntriesWithLesserTime(ts);
   }
 
@@ -336,7 +335,7 @@ class CompositeReferenceTable {
   // Adds the latest row from the input state as a new composite reference row
   // - LHS must have a valid key,timestep,and latest rows
   // - RHS must have valid data memo'ed for the key
-  void Emplace(std::vector<std::unique_ptr<InputState>>& in, int64_t tolerance) {
+  void Emplace(std::vector<std::unique_ptr<InputState>>& in, TimeType tolerance) {
     DCHECK_EQ(in.size(), n_tables_);
 
     // Get the LHS key
@@ -347,7 +346,7 @@ class CompositeReferenceTable {
     DCHECK(!in[0]->Empty());
     const std::shared_ptr<arrow::RecordBatch>& lhs_latest_batch = in[0]->GetLatestBatch();
     row_index_t lhs_latest_row = in[0]->GetLatestRow();
-    int64_t lhs_latest_time = in[0]->GetLatestTime();
+    TimeType lhs_latest_time = in[0]->GetLatestTime();
     if (0 == lhs_latest_row) {
       // On the first row of the batch, we resize the destination.
       // The destination size is dictated by the size of the LHS batch.
@@ -495,7 +494,7 @@ class AsofJoinNode : public ExecNode {
   bool IsUpToDateWithLhsRow() const {
     auto& lhs = *state_[0];
     if (lhs.Empty()) return false;  // can't proceed if nothing on the LHS
-    int64_t lhs_ts = lhs.GetLatestTime();
+    TimeType lhs_ts = lhs.GetLatestTime();
     for (size_t i = 1; i < state_.size(); ++i) {
       auto& rhs = *state_[i];
       if (!rhs.Finished()) {
@@ -718,9 +717,9 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  static const std::set<std::shared_ptr<DataType>> kSupportedOnTypes_;
-  static const std::set<std::shared_ptr<DataType>> kSupportedByTypes_;
-  static const std::set<std::shared_ptr<DataType>> kSupportedDataTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedOnTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedByTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedDataTypes_;
 
   arrow::Future<> finished_;
   // InputStates
@@ -760,9 +759,11 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
 }
 
 // Currently supported types
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {int64()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {int32()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {
+    int64()};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {
+    int32()};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
     int32(), int64(), float32(), float64()};
 
 namespace internal {

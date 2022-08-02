@@ -1336,4 +1336,52 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
   }
 }
 
+#define ARROW_CMP_TYPE_CASE(id, T, Op)                           \
+  case Type::id:                                                 \
+    return internal::NumericScalarCompare<NumericScalar<T>, Op>( \
+        static_cast<const NumericScalar<T>&>(left),              \
+        static_cast<const NumericScalar<T>&>(right), options);
+
+#define ARROW_CMP_FUNCTION_BODY(Op)                                    \
+  if (left.type != right.type) {                                       \
+    return Status::Invalid("comparing unequal types is unsupported");  \
+  }                                                                    \
+  switch (left.type->id()) {                                           \
+    ARROW_CMP_TYPE_CASE(INT8, Int8Type, Op)                            \
+    ARROW_CMP_TYPE_CASE(INT16, Int16Type, Op)                          \
+    ARROW_CMP_TYPE_CASE(INT32, Int32Type, Op)                          \
+    ARROW_CMP_TYPE_CASE(INT64, Int64Type, Op)                          \
+    ARROW_CMP_TYPE_CASE(UINT8, UInt8Type, Op)                          \
+    ARROW_CMP_TYPE_CASE(UINT16, UInt16Type, Op)                        \
+    ARROW_CMP_TYPE_CASE(UINT32, UInt32Type, Op)                        \
+    ARROW_CMP_TYPE_CASE(UINT64, UInt64Type, Op)                        \
+    ARROW_CMP_TYPE_CASE(FLOAT, FloatType, Op)                          \
+    ARROW_CMP_TYPE_CASE(DOUBLE, DoubleType, Op)                        \
+    default:                                                           \
+      return Status::Invalid(left.type, " comparison is unsupported"); \
+  }
+
+Result<bool> ScalarLessThan(const Scalar& left, const Scalar& right,
+                            const OrderOptions& options) {
+  ARROW_CMP_FUNCTION_BODY(internal::LessThanOp);
+}
+
+Result<bool> ScalarIsAtMost(const Scalar& left, const Scalar& right,
+                            const OrderOptions& options) {
+  ARROW_CMP_FUNCTION_BODY(internal::IsAtMostOp);
+}
+
+Result<bool> ScalarMoreThan(const Scalar& left, const Scalar& right,
+                            const OrderOptions& options) {
+  ARROW_CMP_FUNCTION_BODY(internal::MoreThanOp);
+}
+
+Result<bool> ScalarIsAtLeast(const Scalar& left, const Scalar& right,
+                             const OrderOptions& options) {
+  ARROW_CMP_FUNCTION_BODY(internal::IsAtLeastOp);
+}
+
+#undef ARROW_CMP_TYPE_CASE
+#undef ARROW_CMP_FUNCTION_BODY
+
 }  // namespace arrow

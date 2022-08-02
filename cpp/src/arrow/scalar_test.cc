@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include <math.h>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -36,6 +38,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/compare.h"
 
 namespace arrow {
 
@@ -155,6 +158,90 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_TRUE(two->ApproxEquals(ScalarType(2)));
   ASSERT_FALSE(two->ApproxEquals(ScalarType(3)));
 }
+
+template <typename T>
+void TestNumericScalarOrder(typename NumericScalar<T>::ValueType v1,
+                            typename NumericScalar<T>::ValueType v2,
+                            const OrderOptions& options, bool expectedLessThan,
+                            bool expectedIsAtMost, bool expectedMoreThan,
+                            bool expectedIsAtLeast) {
+  NumericScalar<T> s1{v1}, s2{v2};
+
+#define ARROW_NUMERIC_ORDER_TEST(Op)                                                    \
+  ASSERT_EQ(expected##Op, Scalar##Op(s1, s2, options));                                 \
+  ASSERT_EQ(expected##Op, s1.Op(s2, options));                                          \
+  ASSERT_OK_AND_ASSIGN(auto actual##Op, Scalar##Op(static_cast<Scalar&>(s1),            \
+                                                   static_cast<Scalar&>(s2), options)); \
+  ASSERT_EQ(expected##Op, actual##Op);
+
+  ARROW_NUMERIC_ORDER_TEST(LessThan);
+  ARROW_NUMERIC_ORDER_TEST(IsAtMost);
+  ARROW_NUMERIC_ORDER_TEST(MoreThan);
+  ARROW_NUMERIC_ORDER_TEST(IsAtLeast);
+
+#undef ARROW_NUMERIC_ORDER_TEST
+}
+
+template <typename T>
+void TestNumericScalarOrder(typename NumericScalar<T>::ValueType v1,
+                            typename NumericScalar<T>::ValueType v2,
+                            bool expectedLessThan, bool expectedIsAtMost,
+                            bool expectedMoreThan, bool expectedIsAtLeast) {
+  auto p1 = std::make_shared<NumericScalar<T>>(v1);
+  auto p2 = std::make_shared<NumericScalar<T>>(v2);
+  auto& s1 = *p1;
+  auto& s2 = *p2;
+  using Order = util::OrderComparable<NumericScalar<T>>;
+  ASSERT_EQ(expectedLessThan, typename Order::PtrsLessThan()(p1, p2));
+  ASSERT_EQ(expectedIsAtMost, typename Order::PtrsIsAtMost()(p1, p2));
+  ASSERT_EQ(expectedMoreThan, typename Order::PtrsMoreThan()(p1, p2));
+  ASSERT_EQ(expectedIsAtLeast, typename Order::PtrsIsAtLeast()(p1, p2));
+  ASSERT_EQ(expectedLessThan, s1 < s2);
+  ASSERT_EQ(expectedIsAtMost, s1 <= s2);
+  ASSERT_EQ(expectedMoreThan, s1 > s2);
+  ASSERT_EQ(expectedIsAtLeast, s1 >= s2);
+  TestNumericScalarOrder<T>(v1, v2, OrderOptions::Defaults(), expectedLessThan,
+                            expectedIsAtMost, expectedMoreThan, expectedIsAtLeast);
+}
+
+#define TEST_FLOATING_POINT_SCALAR_ORDER(...)        \
+  {                                                  \
+    TestNumericScalarOrder<FloatType>(__VA_ARGS__);  \
+    TestNumericScalarOrder<DoubleType>(__VA_ARGS__); \
+  }
+
+#define TEST_NUMERIC_SCALAR_ORDER(...)               \
+  {                                                  \
+    TestNumericScalarOrder<UInt8Type>(__VA_ARGS__);  \
+    TestNumericScalarOrder<UInt16Type>(__VA_ARGS__); \
+    TestNumericScalarOrder<UInt32Type>(__VA_ARGS__); \
+    TestNumericScalarOrder<UInt64Type>(__VA_ARGS__); \
+    TestNumericScalarOrder<Int8Type>(__VA_ARGS__);   \
+    TestNumericScalarOrder<Int16Type>(__VA_ARGS__);  \
+    TestNumericScalarOrder<Int32Type>(__VA_ARGS__);  \
+    TestNumericScalarOrder<Int64Type>(__VA_ARGS__);  \
+    TestNumericScalarOrder<FloatType>(__VA_ARGS__);  \
+    TestNumericScalarOrder<DoubleType>(__VA_ARGS__); \
+  }
+
+TYPED_TEST(TestNumericScalar, Order) {
+  constexpr auto nan = std::numeric_limits<double>::quiet_NaN();
+  OrderOptions opts, opts_tol_1 = opts.atolf(1).atold(1),
+                     opts_nans_least = opts.nans_least(true);
+  TEST_NUMERIC_SCALAR_ORDER(1, 2, true, true, false, false);
+  TEST_NUMERIC_SCALAR_ORDER(2, 1, false, false, true, true);
+  TEST_NUMERIC_SCALAR_ORDER(1, 1, false, true, false, true);
+  TEST_NUMERIC_SCALAR_ORDER(1, 2, opts_tol_1, true, true, false, true);
+  TEST_NUMERIC_SCALAR_ORDER(2, 1, opts_tol_1, false, true, true, true);
+  TEST_NUMERIC_SCALAR_ORDER(1, 1, false, true, false, true);
+  TEST_FLOATING_POINT_SCALAR_ORDER(1, nan, true, true, false, false);
+  TEST_FLOATING_POINT_SCALAR_ORDER(nan, 1, false, false, true, true);
+  TEST_FLOATING_POINT_SCALAR_ORDER(1, nan, opts_nans_least, false, false, true, true);
+  TEST_FLOATING_POINT_SCALAR_ORDER(nan, 1, opts_nans_least, true, true, false, false);
+}
+
+#undef TEST_NUMERIC_SCALAR_ORDER
+#undef TEST_FLOATING_POINT_SCALAR_ORDER
 
 TYPED_TEST(TestNumericScalar, Hashing) {
   using T = typename TypeParam::c_type;
