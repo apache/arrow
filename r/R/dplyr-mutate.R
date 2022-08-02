@@ -156,16 +156,14 @@ ensure_named_exprs <- function(exprs) {
 
 # Take the input quos and unfold any instances of across()
 # into individual quosures
-unfold_across <- function(.data, quos_in){
-
+unfold_across <- function(.data, quos_in) {
   quos_out <- list()
   # Check for any expressions starting with across
   for (quo_i in seq_along(quos_in)) {
-
     quo_in <- quos_in[quo_i]
     quo_expr <- quo_get_expr(quo_in[[1]])
 
-    if (rlang::is_call(quo_expr, "across")) {
+    if (is_call(quo_expr, "across")) {
       new_quos <- list()
 
       cols <- names(select(.data, !!quo_expr[[2]]))
@@ -189,7 +187,7 @@ unfold_across <- function(.data, quos_in){
           }
 
           # if we've supplied multiple functions using list() ignore this element
-          if (!rlang::is_symbol(func, "list")) {
+          if (!is_symbol(func, "list")) {
             # get the expression
             new_quo <- list(quo(!!call2(func, sym(col))))
             # give the expression a name
