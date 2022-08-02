@@ -1037,23 +1037,23 @@ test_macos_wheels() {
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
-  for python in ${python_versions}; do
-    local pyver=${python/m}
-    for platform in ${platform_tags}; do
-      show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      if [[ "$platform" == *"10_9"* ]]; then
-        check_gcs=OFF
-        check_s3=OFF
-      fi
+  # for python in ${python_versions}; do
+  #   local pyver=${python/m}
+  #   for platform in ${platform_tags}; do
+  #     show_header "Testing Python ${pyver} wheel for platform ${platform}"
+  #     if [[ "$platform" == *"10_9"* ]]; then
+  #       check_gcs=OFF
+  #       check_s3=OFF
+  #     fi
 
-      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+  #     CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+  #     VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
-      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
-      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
-        ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
-    done
-  done
+  #     pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
+  #     INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
+  #       ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+  #   done
+  # done
 
   # verify arm64 and universal2 wheels using an universal2 python binary
   # the interpreter should be installed from python.org:
@@ -1074,6 +1074,8 @@ test_macos_wheels() {
           --only-binary=:all: \
           --target $pip_site_packages \
           --platform $pip_target_platform \
+          numpy \
+          pandas \
           pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-${pip_target_platform}.whl
         # check the imports and execute the unittests
         INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} PYTHON=${python} \
