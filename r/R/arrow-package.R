@@ -81,6 +81,10 @@
   invisible()
 }
 
+.onUnload <- function(...) {
+  WaitForIdleThreadPool()
+}
+
 configure_tzdb <- function() {
   # This is needed on Windows to support timezone-aware calculations
   if (requireNamespace("tzdb", quietly = TRUE)) {
