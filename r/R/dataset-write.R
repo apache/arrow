@@ -134,7 +134,9 @@ write_dataset <- function(dataset,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
   format <- match.arg(format)
-  format <- ifelse(as.character(format) %in% c("feather", "ipc"), "arrow", as.character(format))
+  if (format %in% c("feather", "ipc")) {
+    format <- "arrow"
+  }
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)
