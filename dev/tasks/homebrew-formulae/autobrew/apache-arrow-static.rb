@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# https://github.com/autobrew/homebrew-cran/blob/master/Formula/apache-arrow.rb
+# Cloned from https://github.com/autobrew/homebrew-core/blob/high-sierra/Formula/apache-arrow.rb
+# Upstream any relevant changes (dependencies, build args ...)
 
 class ApacheArrowStatic < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
