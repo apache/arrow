@@ -29,6 +29,12 @@ import (
 	"github.com/goccy/go-json"
 )
 
+type ListLike interface {
+	arrow.Array
+	ListValues() arrow.Array
+	ValueOffsets(i int) (start, end int64)
+}
+
 // List represents an immutable sequence of array values.
 type List struct {
 	array
@@ -146,6 +152,12 @@ func (a *List) Release() {
 	a.values.Release()
 }
 
+func (a *List) ValueOffsets(i int) (start, end int64) {
+	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
+	start, end = int64(a.offsets[i]), int64(a.offsets[i+1])
+	return
+}
+
 // LargeList represents an immutable sequence of array values.
 type LargeList struct {
 	array
@@ -253,6 +265,12 @@ func (a *LargeList) Len() int { return a.array.Len() }
 
 func (a *LargeList) Offsets() []int64 { return a.offsets }
 
+func (a *LargeList) ValueOffsets(i int) (start, end int64) {
+	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
+	start, end = a.offsets[i], a.offsets[i+1]
+	return
+}
+
 func (a *LargeList) Retain() {
 	a.array.Retain()
 	a.values.Retain()
@@ -263,23 +281,30 @@ func (a *LargeList) Release() {
 	a.values.Release()
 }
 
-type listBuilder struct {
+type baseListBuilder struct {
 	builder
 
 	etype   arrow.DataType // data type of the list's elements.
 	values  Builder        // value builder for the list's elements.
 	offsets Builder
 
+	// actual list type
 	dt              arrow.DataType
 	appendOffsetVal func(int)
 }
 
+type ListLikeBuilder interface {
+	Builder
+	ValueBuilder() Builder
+	Append(bool)
+}
+
 type ListBuilder struct {
-	listBuilder
+	baseListBuilder
 }
 
 type LargeListBuilder struct {
-	listBuilder
+	baseListBuilder
 }
 
 // NewListBuilder returns a builder, using the provided memory allocator.
@@ -287,7 +312,7 @@ type LargeListBuilder struct {
 func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 	offsetBldr := NewInt32Builder(mem)
 	return &ListBuilder{
-		listBuilder{
+		baseListBuilder{
 			builder:         builder{refCount: 1, mem: mem},
 			etype:           etype,
 			values:          NewBuilder(mem, etype),
@@ -303,7 +328,7 @@ func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListBuilder {
 	offsetBldr := NewInt64Builder(mem)
 	return &LargeListBuilder{
-		listBuilder{
+		baseListBuilder{
 			builder:         builder{refCount: 1, mem: mem},
 			etype:           etype,
 			values:          NewBuilder(mem, etype),
@@ -316,7 +341,7 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
-func (b *listBuilder) Release() {
+func (b *baseListBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
@@ -330,18 +355,18 @@ func (b *listBuilder) Release() {
 	b.offsets.Release()
 }
 
-func (b *listBuilder) appendNextOffset() {
+func (b *baseListBuilder) appendNextOffset() {
 	b.appendOffsetVal(b.values.Len())
 	// b.offsets.Append(int32(b.values.Len()))
 }
 
-func (b *listBuilder) Append(v bool) {
+func (b *baseListBuilder) Append(v bool) {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(v)
 	b.appendNextOffset()
 }
 
-func (b *listBuilder) AppendNull() {
+func (b *baseListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
 	b.appendNextOffset()
@@ -359,7 +384,7 @@ func (b *LargeListBuilder) AppendValues(offsets []int64, valid []bool) {
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
-func (b *listBuilder) unsafeAppendBoolToBitmap(isValid bool) {
+func (b *baseListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
@@ -368,26 +393,26 @@ func (b *listBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	b.length++
 }
 
-func (b *listBuilder) init(capacity int) {
+func (b *baseListBuilder) init(capacity int) {
 	b.builder.init(capacity)
 	b.offsets.init(capacity + 1)
 }
 
 // Reserve ensures there is enough space for appending n elements
 // by checking the capacity and calling Resize if necessary.
-func (b *listBuilder) Reserve(n int) {
+func (b *baseListBuilder) Reserve(n int) {
 	b.builder.reserve(n, b.resizeHelper)
 	b.offsets.Reserve(n)
 }
 
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
-func (b *listBuilder) Resize(n int) {
+func (b *baseListBuilder) Resize(n int) {
 	b.resizeHelper(n)
 	b.offsets.Resize(n)
 }
 
-func (b *listBuilder) resizeHelper(n int) {
+func (b *baseListBuilder) resizeHelper(n int) {
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -399,7 +424,7 @@ func (b *listBuilder) resizeHelper(n int) {
 	}
 }
 
-func (b *listBuilder) ValueBuilder() Builder {
+func (b *baseListBuilder) ValueBuilder() Builder {
 	return b.values
 }
 
@@ -439,7 +464,7 @@ func (b *LargeListBuilder) NewLargeListArray() (a *LargeList) {
 	return
 }
 
-func (b *listBuilder) newData() (data *Data) {
+func (b *baseListBuilder) newData() (data *Data) {
 	values := b.values.NewArray()
 	defer values.Release()
 
@@ -465,7 +490,7 @@ func (b *listBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *listBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -492,7 +517,7 @@ func (b *listBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *listBuilder) unmarshal(dec *json.Decoder) error {
+func (b *baseListBuilder) unmarshal(dec *json.Decoder) error {
 	for dec.More() {
 		if err := b.unmarshalOne(dec); err != nil {
 			return err
@@ -501,7 +526,7 @@ func (b *listBuilder) unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *listBuilder) UnmarshalJSON(data []byte) error {
+func (b *baseListBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
 	if err != nil {

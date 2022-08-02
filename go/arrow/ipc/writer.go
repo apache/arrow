@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -532,8 +533,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		p.body = append(p.body, values)
 
-	case *arrow.BinaryType:
-		arr := arr.(*array.Binary)
+	case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.StringType, *arrow.LargeStringType:
+		arr := arr.(array.BinaryLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
 			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
@@ -550,97 +551,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
 			// slice data buffer to include the range we need now.
 			var (
-				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
-			)
-			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
-		default:
-			if values != nil {
-				values.Retain()
-			}
-		}
-		p.body = append(p.body, voffsets)
-		p.body = append(p.body, values)
-
-	case *arrow.LargeBinaryType:
-		arr := arr.(*array.LargeBinary)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
-		}
-		data := arr.Data()
-		values := data.Buffers()[2]
-
-		var totalDataBytes int64
-		if voffsets != nil {
-			totalDataBytes = int64(len(arr.ValueBytes()))
-		}
-
-		switch {
-		case needTruncate(int64(data.Offset()), values, totalDataBytes):
-			// slice data buffer to include the range we need now.
-			var (
-				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
-			)
-			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
-		default:
-			if values != nil {
-				values.Retain()
-			}
-		}
-		p.body = append(p.body, voffsets)
-		p.body = append(p.body, values)
-
-	case *arrow.StringType:
-		arr := arr.(*array.String)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
-		}
-		data := arr.Data()
-		values := data.Buffers()[2]
-
-		var totalDataBytes int64
-		if voffsets != nil {
-			totalDataBytes = int64(len(arr.ValueBytes()))
-		}
-
-		switch {
-		case needTruncate(int64(data.Offset()), values, totalDataBytes):
-			// slice data buffer to include the range we need now.
-			var (
-				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
-			)
-			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
-		default:
-			if values != nil {
-				values.Retain()
-			}
-		}
-		p.body = append(p.body, voffsets)
-		p.body = append(p.body, values)
-
-	case *arrow.LargeStringType:
-		arr := arr.(*array.LargeString)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
-		}
-		data := arr.Data()
-		values := data.Buffers()[2]
-
-		var totalDataBytes int64
-		if voffsets != nil {
-			totalDataBytes = int64(len(arr.ValueBytes()))
-		}
-
-		switch {
-		case needTruncate(int64(data.Offset()), values, totalDataBytes):
-			// slice data buffer to include the range we need now.
-			var (
-				beg = int64(arr.ValueOffset(0))
+				beg = arr.ValueOffset64(0)
 				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
 			)
 			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
@@ -700,8 +611,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
-	case *arrow.ListType:
-		arr := arr.(*array.List)
+	case *arrow.ListType, *arrow.LargeListType:
+		arr := arr.(array.ListLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
 			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
@@ -721,49 +632,13 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			}
 		}()
 
-		if voffsets != nil {
-			values_offset = int64(arr.Offsets()[0])
-			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
+		if arr.Len() > 0 && voffsets != nil {
+			values_offset, _ = arr.ValueOffsets(0)
+			_, values_length = arr.ValueOffsets(arr.Len() - 1)
+			values_length -= values_offset
 		}
 
-		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
-			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_length)
-			mustRelease = true
-		}
-		err = w.visit(p, values)
-
-		if err != nil {
-			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
-		}
-		w.depth++
-	case *arrow.LargeListType:
-		arr := arr.(*array.LargeList)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
-		}
-		p.body = append(p.body, voffsets)
-
-		w.depth--
-		var (
-			values        = arr.ListValues()
-			mustRelease   = false
-			values_offset int64
-			values_length int64
-		)
-		defer func() {
-			if mustRelease {
-				values.Release()
-			}
-		}()
-
-		if voffsets != nil {
-			values_offset = arr.Offsets()[0]
-			values_length = arr.Offsets()[arr.Len()] - values_offset
-		}
-
-		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
+		if arr.Len() != 0 || values_length < int64(values.Len()) {
 			// must also slice the values
 			values = array.NewSlice(values, values_offset, values_length)
 			mustRelease = true
@@ -828,6 +703,7 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 			}
 
 		default:
+			debug.Assert(arr.DataType().Layout().Buffers[1].ByteWidth == 4, "invalid offset bytewidth")
 			dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
 			offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
 

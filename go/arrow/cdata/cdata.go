@@ -363,13 +363,13 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	case arrow.FixedWidthDataType:
 		return imp.importFixedSizePrimitive()
 	case *arrow.StringType:
-		return imp.importStringLike()
+		return imp.importStringLike(int64(arrow.Int32SizeBytes))
 	case *arrow.BinaryType:
-		return imp.importStringLike()
+		return imp.importStringLike(int64(arrow.Int32SizeBytes))
 	case *arrow.LargeStringType:
-		return imp.importLargeStringLike()
+		return imp.importStringLike(int64(arrow.Int64SizeBytes))
 	case *arrow.LargeBinaryType:
-		return imp.importLargeStringLike()
+		return imp.importStringLike(int64(arrow.Int64SizeBytes))
 	case *arrow.ListType:
 		return imp.importListLike()
 	case *arrow.LargeListType:
@@ -414,7 +414,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	return nil
 }
 
-func (imp *cimporter) importLargeStringLike() error {
+func (imp *cimporter) importStringLike(offsetByteWidth int64) error {
 	if err := imp.checkNoChildren(); err != nil {
 		return err
 	}
@@ -428,30 +428,17 @@ func (imp *cimporter) importLargeStringLike() error {
 		return err
 	}
 
-	offsets := imp.importOffsetsBuffer(1, int64(arrow.Int64SizeBytes))
-	typedOffsets := arrow.Int64Traits.CastFromBytes(offsets.Bytes())
-	values := imp.importVariableValuesBuffer(2, 1, int(typedOffsets[imp.arr.offset+imp.arr.length]))
-	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
-	return nil
-}
-
-func (imp *cimporter) importStringLike() error {
-	if err := imp.checkNoChildren(); err != nil {
-		return err
+	offsets := imp.importOffsetsBuffer(1, offsetByteWidth)
+	var nvals int64
+	switch offsetByteWidth {
+	case 4:
+		typedOffsets := arrow.Int32Traits.CastFromBytes(offsets.Bytes())
+		nvals = int64(typedOffsets[imp.arr.offset+imp.arr.length])
+	case 8:
+		typedOffsets := arrow.Int64Traits.CastFromBytes(offsets.Bytes())
+		nvals = typedOffsets[imp.arr.offset+imp.arr.length]
 	}
-
-	if err := imp.checkNumBuffers(3); err != nil {
-		return err
-	}
-
-	nulls, err := imp.importNullBitmap(0)
-	if err != nil {
-		return err
-	}
-
-	offsets := imp.importOffsetsBuffer(1, int64(arrow.Int32SizeBytes))
-	typedOffsets := arrow.Int32Traits.CastFromBytes(offsets.Bytes())
-	values := imp.importVariableValuesBuffer(2, 1, int(typedOffsets[imp.arr.offset+imp.arr.length]))
+	values := imp.importVariableValuesBuffer(2, 1, nvals)
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
 	return nil
 }
@@ -556,8 +543,8 @@ func (imp *cimporter) importOffsetsBuffer(bufferID int, offsetsize int64) *memor
 	return imp.importBuffer(bufferID, bufsize)
 }
 
-func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth int, bytelen int) *memory.Buffer {
-	bufsize := byteWidth * bytelen
+func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth, nvals int64) *memory.Buffer {
+	bufsize := byteWidth * nvals
 	return imp.importBuffer(bufferID, int64(bufsize))
 }
 
