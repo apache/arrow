@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Array accessor classes for List, LargeList, FixedSizeList, Map, Struct, and
-// Union
+// Array accessor classes run-length encoded arrays
 
 #pragma once
 
