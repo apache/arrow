@@ -2138,6 +2138,7 @@ static inline bool HasValidityBitmap(Type::type id) {
     case Type::NA:
     case Type::DENSE_UNION:
     case Type::SPARSE_UNION:
+    case Type::RUN_LENGTH_ENCODED:
       return false;
     default:
       return true;
