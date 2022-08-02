@@ -55,14 +55,25 @@ using internal::checked_cast;
 using internal::hash_combine;
 namespace engine {
 
-bool WriteParquetData(const std::string& path,
-                      const std::shared_ptr<fs::FileSystem> file_system,
-                      const std::shared_ptr<Table> input, const int64_t chunk_size = 3) {
+Status WriteParquetData(const std::string& path,
+                        const std::shared_ptr<fs::FileSystem> file_system,
+                        const std::shared_ptr<Table> input,
+                        const int64_t chunk_size = 3) {
   EXPECT_OK_AND_ASSIGN(auto buffer_writer, file_system->OpenOutputStream(path));
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*input, arrow::default_memory_pool(),
                                                   buffer_writer, chunk_size));
-  return buffer_writer->Close().ok();
+  return buffer_writer->Close();
 }
+
+// Result<std::string> WriteTemporaryData(const std::string& file_name, const
+// std::shared_ptr<Table>& table, const std::shared_ptr<fs::LocalFileSystem>& filesystem)
+// {
+//   ARROW_ASSIGN_OR_RAISE(auto tempdir,
+//   arrow::internal::TemporaryDir::Make("substrait_tempdir")); ARROW_ASSIGN_OR_RAISE(auto
+//   file_path, tempdir->path().Join(file_name)); std::string file_path_str =
+//   file_path.ToString(); EXPECT_EQ(WriteParquetData(file_path_str, filesystem, table),
+//   true); return file_path_str;
+// }
 
 bool CompareDataset(std::shared_ptr<dataset::Dataset> ds_lhs,
                     std::shared_ptr<dataset::Dataset> ds_rhs) {
@@ -1870,11 +1881,44 @@ TEST(Substrait, SerializePlan) {
   auto dummy_schema = schema(
       {field("key", int32()), field("shared", int32()), field("distinct", int32())});
   // creating a dummy dataset using a dummy table
+
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 3],
+      [3, 1, 3],
+      [1, 2, 5]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 12]
+    ])"});
+
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.parquet";
+
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait_tempdir"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
+
+  // Note: there is an additional forward slash introduced by the tempdir
+  // it must be replaced to properly load into reading files
+  // TODO: (Review: Jira needs to be reported to handle this properly)
+  std::string toReplace("/T//");
+  size_t pos = file_path_str.find(toReplace);
+  file_path_str.replace(pos, toReplace.length(), "/T/");
+
+  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
 
   std::vector<fs::FileInfo> files;
-  const std::vector<std::string> f_paths = {"/tmp/data1.parquet", "/tmp/data2.parquet"};
+  const std::vector<std::string> f_paths = {file_path_str};
 
   for (const auto& f_path : f_paths) {
     ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
@@ -1933,7 +1977,21 @@ TEST(Substrait, SerializePlan) {
     auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
     const auto& dataset_opts =
         checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
-    EXPECT_TRUE(dataset_opts.dataset->schema()->Equals(*dummy_schema));
+    const auto& roundripped_ds = dataset_opts.dataset;
+    EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+    ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+    ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
+
+    auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+    auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+    EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+    int64_t idx = 0;
+    for (auto fragment : expected_frg_vec) {
+      const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+      const auto* r_frag =
+          checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+      EXPECT_TRUE(l_frag->Equals(*r_frag));
+    }
   }
 #endif
 }
