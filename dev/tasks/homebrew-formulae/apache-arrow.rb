@@ -34,13 +34,13 @@ class ApacheArrow < Formula
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git"
 
-  depends_on "aws-sdk-cpp"
   depends_on "boost" => :build
-  depends_on "brotli"
   depends_on "cmake" => :build
+  depends_on "llvm" => :build
+  depends_on "aws-sdk-cpp"
+  depends_on "brotli"
   depends_on "glog"
   depends_on "grpc"
-  depends_on "llvm" => :build
   depends_on "lz4"
   depends_on "numpy"
   depends_on "openssl@1.1"
