@@ -1059,17 +1059,24 @@ test_macos_wheels() {
   # the interpreter should be installed from python.org:
   #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.9 3.10"
-    for pyver in ${python_versions}; do
+    for pyver in "3.9" "3.10"; do
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
 
       # create and activate a virtualenv for testing as arm64
-      for arch in "arm64" "x86_64"; do
-        VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
-        # install pyarrow's universal2 wheel
-        pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_10_13_universal2.whl
+      for arch in "x86_64" "arm64"; do
+        VENV_ENV=wheel-${pyver}-universal2-${arch}-e PYTHON=${python} maybe_setup_virtualenv || continue
+        # install pyarrow's universal2 wheel, need to supply additional flags
+        # for pip to force installing numpy universal2 wheels
+        pip_site_packages=$($python -c 'import site; print(site.getsitepackages()[0])')
+        pip_target_platform="macosx_10_13_universal2"
+        pip install \
+          --upgrade \
+          --only-binary=:all: \
+          --target $pip_site_packages \
+          --platform $pip_target_platform \
+          pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-${pip_target_platform}.whl
         # check the imports and execute the unittests
-        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
+        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} PYTHON=${python} \
           arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
       done
     done
