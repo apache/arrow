@@ -599,6 +599,30 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(c(1, 2), round)) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(1:dbl2, round)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(across(where(is.double))) %>%
+        collect(),
+      tbl
+    ),
+    "Unsupported selection helper"
+  )
+
   # gives the right error with window functions
   expect_warning(
     arrow_table(tbl) %>%
