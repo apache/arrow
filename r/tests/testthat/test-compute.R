@@ -81,7 +81,8 @@ test_that("arrow_scalar_function() works with auto_convert = TRUE", {
 
 test_that("register_scalar_function() adds a compute function to the registry", {
   skip_if_not(CanRunWithCapturedR())
-  # TODO(ARROW-17178): remove when user-defined function execution is stabilized
+  # TODO(ARROW-17178): User-defined function-friendly ExecPlan execution has
+  # occasional valgrind errors
   skip_on_linux_devel()
 
   register_scalar_function(
@@ -212,8 +213,10 @@ test_that("register_user_defined_function() errors for unsupported specification
 test_that("user-defined functions work during multi-threaded execution", {
   skip_if_not(CanRunWithCapturedR())
   skip_if_not_available("dataset")
-  # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
-  # TODO(ARROW-17178): remove when user-defined function execution is stabilized
+  # Skip on linux devel because:
+  # TODO(ARROW-17283): Snappy has a UBSan issue that is fixed in the dev version
+  # TODO(ARROW-17178): User-defined function-friendly ExecPlan execution has
+  # occasional valgrind errors
   skip_on_linux_devel()
 
   n_rows <- 10000
