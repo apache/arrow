@@ -287,8 +287,6 @@ test_that("dplyr::mutate's examples", {
     starwars,
   )
 
-
-
   # group_by then mutate
   compare_dplyr_binding(
     .input %>%
