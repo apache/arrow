@@ -231,10 +231,10 @@ class AwsRetryStrategy : public S3RetryStrategy {
       const S3RetryStrategy::AWSErrorDetail& detail) {
     auto exception_name = ToAwsString(detail.exception_name);
     auto message = ToAwsString(detail.message);
-    auto errors = new Aws::Client::AWSError<Aws::Client::CoreErrors>(
-        static_cast<Aws::Client::CoreErrors>(detail.error_type), *exception_name,
-        *message, detail.should_retry);
-    return *errors;
+    auto errors = Aws::Client::AWSError<Aws::Client::CoreErrors>(
+        static_cast<Aws::Client::CoreErrors>(detail.error_type), exception_name,
+        message, detail.should_retry);
+    return errors;
   }
 };
 
