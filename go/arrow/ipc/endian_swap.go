@@ -60,15 +60,16 @@ func swapChildren(children []arrow.ArrayData) (err error) {
 func swapType(dt arrow.DataType, data *array.Data) (err error) {
 	switch dt.ID() {
 	case arrow.BINARY, arrow.STRING:
-		swapOffsets(1, data)
+		swapOffsets(1, 32, data)
+		return
+	case arrow.LARGE_BINARY, arrow.LARGE_STRING:
+		swapOffsets(1, 64, data)
 		return
 	case arrow.NULL, arrow.BOOL, arrow.INT8, arrow.UINT8,
 		arrow.FIXED_SIZE_BINARY, arrow.FIXED_SIZE_LIST, arrow.STRUCT:
 		return
 	case arrow.DENSE_UNION, arrow.SPARSE_UNION:
 		panic("arrow endian swap not yet implemented for union types")
-	case arrow.LARGE_BINARY, arrow.LARGE_LIST, arrow.LARGE_STRING:
-		panic("arrow endian swap not yet implemented for large types")
 	}
 
 	switch dt := dt.(type) {
@@ -82,9 +83,11 @@ func swapType(dt arrow.DataType, data *array.Data) (err error) {
 			rawdata[idx+1] = tmp
 		}
 	case *arrow.ListType:
-		swapOffsets(1, data)
+		swapOffsets(1, 32, data)
+	case *arrow.LargeListType:
+		swapOffsets(1, 64, data)
 	case *arrow.MapType:
-		swapOffsets(1, data)
+		swapOffsets(1, 32, data)
 	case *arrow.DayTimeIntervalType:
 		byteSwapBuffer(32, data.Buffers()[1])
 	case *arrow.MonthDayNanoIntervalType:
@@ -133,12 +136,12 @@ func byteSwapBuffer(bw int, buf *memory.Buffer) {
 	}
 }
 
-func swapOffsets(index int, data *array.Data) {
+func swapOffsets(index int, bitWidth int, data *array.Data) {
 	if data.Buffers()[index] == nil || data.Buffers()[index].Len() == 0 {
 		return
 	}
 
 	// other than unions, offset has one more element than the data.length
 	// don't yet implement large types, so hardcode 32bit offsets for now
-	byteSwapBuffer(32, data.Buffers()[index])
+	byteSwapBuffer(bitWidth, data.Buffers()[index])
 }
