@@ -24,7 +24,9 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
-  exprs <- ensure_named_exprs(quos(...))
+
+  expression_list <- unfold_across(.data, quos(...))
+  exprs <- ensure_named_exprs(expression_list)
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)
@@ -150,4 +152,54 @@ ensure_named_exprs <- function(exprs) {
   # Deparse and take the first element in case they're long expressions
   names(exprs)[unnamed] <- map_chr(exprs[unnamed], format_expr)
   exprs
+}
+
+# Take the input quos and unfold any instances of across()
+# into individual quosures
+unfold_across <- function(.data, quos_in){
+
+  quos_out <- list()
+  # Check for any expressions starting with across
+  for (quo_i in seq_along(quos_in)) {
+
+    quo_in <- quos_in[quo_i]
+    quo_expr <- quo_get_expr(quo_in[[1]])
+
+    if (rlang::is_call(quo_expr, "across")) {
+      new_quos <- list()
+
+      cols <- names(select(.data, !!quo_expr[[2]]))
+      funcs <- quo_expr[[3]]
+
+      for (col in cols) {
+        for (i in seq_along(funcs)) {
+          func <- funcs[[i]]
+          # column name is either the name of the item or index
+          col_suffix <- names(funcs)[[i]]
+          if (col_suffix == "") {
+            col_suffix <- i
+          }
+
+          # if we've supplied multiple functions using list() ignore tihs element
+          if (!rlang::is_symbol(func, "list")) {
+            # get the expression
+            new_quo <- list(quo(!!call2(func, sym(col))))
+            # give the expression a name
+            names(new_quo) <- paste0(col, "_", col_suffix)
+            # append to temporary list of new quosures
+            new_quos <- append(new_quos, new_quo)
+          }
+
+        }
+      }
+
+      # append the new expressions generated
+      quos_out <- append(quos_out, new_quos)
+    } else {
+      quos_out <- append(quos_out, quo_in)
+    }
+  }
+
+  quos_out
+
 }
