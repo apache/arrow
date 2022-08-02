@@ -45,8 +45,8 @@ func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
 	ww := &Writer{
-		boolFormatter: strconv.FormatBool,
-		nullValue:     "NULL", // override by passing WithNullWriter() as an option
+		boolFormatter: strconv.FormatBool, // override by passing WithBoolWriter() as an option
+		nullValue:     "NULL",             // override by passing WithNullWriter() as an option
 		schema:        schema,
 		w:             csv.NewWriter(w),
 	}
