@@ -47,7 +47,8 @@ class ARROW_EXPORT SubstraitConversionRegistry {
  public:
   virtual ~SubstraitConversionRegistry() = default;
   using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
-      const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*, const ConversionOptions&)>;
+      const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*,
+      const ConversionOptions&)>;
 
   virtual Result<SubstraitConverter> GetConverter(const std::string& factory_name) = 0;
 

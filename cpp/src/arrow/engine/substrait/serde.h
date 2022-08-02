@@ -37,9 +37,9 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializePlan(const compute::Declaration& declr,
-                                              ExtensionSet* ext_set,
-                                              const ConversionOptions& conversion_options = {});
+Result<std::shared_ptr<Buffer>> SerializePlan(
+    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// Factory function type for generating the node that consumes the batches produced by
 /// each toplevel Substrait relation when deserializing a Substrait Plan.

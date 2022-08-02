@@ -21,7 +21,6 @@
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/result.h"
-#include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -36,7 +35,6 @@ using internal::checked_cast;
 namespace engine {
 
 namespace internal {
-using ::arrow::internal::hash_combine;
 using ::arrow::internal::make_unique;
 }  // namespace internal
 
@@ -138,63 +136,13 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                             registry);
 }
 
-// Status SetRelation(const std::unique_ptr<substrait::Rel>& plan,
-//                    const std::unique_ptr<substrait::Rel>& partial_plan,
-//                    const std::string& factory_name) {
-//   if (factory_name == "scan" && partial_plan->has_read()) {
-//     plan->set_allocated_read(partial_plan->release_read());
-//   } else if (factory_name == "filter" && partial_plan->has_filter()) {
-//     plan->set_allocated_filter(partial_plan->release_filter());
-//   } else {
-//     return Status::NotImplemented("Substrait converter ", factory_name,
-//                                   " not supported.");
-//   }
-//   return Status::OK();
-// }
-
-// Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& declr) {
-//   std::shared_ptr<Schema> bind_schema;
-//   if (declr.factory_name == "scan") {
-//     const auto& opts = checked_cast<const dataset::ScanNodeOptions&>(*(declr.options));
-//     bind_schema = opts.dataset->schema();
-//   } else if (declr.factory_name == "filter") {
-//     auto input_declr = util::get<compute::Declaration>(declr.inputs[0]);
-//     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
-//   } else if (declr.factory_name == "hashjoin") {
-//   } else if (declr.factory_name == "sink") {
-//     return bind_schema;
-//   } else {
-//     return Status::Invalid("Schema extraction failed, unsupported factory ",
-//                            declr.factory_name);
-//   }
-//   return bind_schema;
-// }
-
-// Status SerializeRelations(const compute::Declaration& declaration, ExtensionSet* ext_set,
-//                           std::unique_ptr<substrait::Rel>& rel, const ConversionOptions& conversion_options) {
-//   std::vector<compute::Declaration::Input> inputs = declaration.inputs;
-//   for (auto& input : inputs) {
-//     auto input_decl = util::get<compute::Declaration>(input);
-//     RETURN_NOT_OK(SerializeRelations(input_decl, ext_set, rel, conversion_options));
-//   }
-//   const auto& factory_name = declaration.factory_name;
-//   ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
-//   SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
-//   if (factory_name != "sink") {
-//     ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(factory_name));
-//     ARROW_ASSIGN_OR_RAISE(auto factory_rel, factory(schema, declaration, ext_set, conversion_options));
-//     RETURN_NOT_OK(SetRelation(rel, factory_rel, factory_name));
-//   }
-//   return Status::OK();
-// }
-
-Result<std::unique_ptr<substrait::Plan>> PlanToProto(const compute::Declaration& declr,
-                                                 ExtensionSet* ext_set,
-                                                 const ConversionOptions& conversion_options) {
+Result<std::unique_ptr<substrait::Plan>> PlanToProto(
+    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
   auto subs_plan = internal::make_unique<substrait::Plan>();
   auto plan_rel = internal::make_unique<substrait::PlanRel>();
   auto rel = internal::make_unique<substrait::Rel>();
-  RETURN_NOT_OK(CombineRelations(declr, ext_set, rel, conversion_options));
+  RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, rel, conversion_options));
   plan_rel->set_allocated_rel(rel.release());
   subs_plan->mutable_relations()->AddAllocated(plan_rel.release());
   RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, subs_plan.get()));

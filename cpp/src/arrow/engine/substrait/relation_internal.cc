@@ -428,11 +428,11 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       rel.DebugString());
 }
 
-Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declr,
-                                                 ExtensionSet* ext_set,
-                                                 const ConversionOptions& conversion_options) {
+Result<std::unique_ptr<substrait::Rel>> ToProto(
+    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
   auto rel = make_unique<substrait::Rel>();
-  RETURN_NOT_OK(CombineRelations(declr, ext_set, rel, conversion_options));
+  RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, rel, conversion_options));
   return std::move(rel);
 }
 
@@ -468,26 +468,31 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
   return bind_schema;
 }
 
-Status CombineRelations(const compute::Declaration& declaration, ExtensionSet* ext_set,
-                          std::unique_ptr<substrait::Rel>& rel, const ConversionOptions& conversion_options) {
+Status SerializeAndCombineRelations(const compute::Declaration& declaration,
+                                    ExtensionSet* ext_set,
+                                    std::unique_ptr<substrait::Rel>& rel,
+                                    const ConversionOptions& conversion_options) {
   std::vector<compute::Declaration::Input> inputs = declaration.inputs;
   for (auto& input : inputs) {
     auto input_decl = util::get<compute::Declaration>(input);
-    RETURN_NOT_OK(CombineRelations(input_decl, ext_set, rel, conversion_options));
+    RETURN_NOT_OK(
+        SerializeAndCombineRelations(input_decl, ext_set, rel, conversion_options));
   }
   const auto& factory_name = declaration.factory_name;
   ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
   SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
   if (factory_name != "sink") {
     ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(factory_name));
-    ARROW_ASSIGN_OR_RAISE(auto factory_rel, factory(schema, declaration, ext_set, conversion_options));
+    ARROW_ASSIGN_OR_RAISE(auto factory_rel,
+                          factory(schema, declaration, ext_set, conversion_options));
     RETURN_NOT_OK(SetRelation(rel, factory_rel, factory_name));
   }
   return Status::OK();
 }
 
 Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
-    const compute::Declaration& declaration, ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
+    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
   auto declr_input = declaration.inputs[0];
   // TODO: figure out a better way
   if (util::get_if<compute::ExecNode*>(&declr_input)) {
@@ -510,7 +515,8 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
     return Status::Invalid("Can only convert file system datasets to a Substrait plan.");
   }
   // set schema
-  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(auto named_struct,
+                        ToProto(*dataset->schema(), ext_set, conversion_options));
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
@@ -568,7 +574,8 @@ Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
 
   filter_rel->set_allocated_input(input_rel->release());
 
-  ARROW_ASSIGN_OR_RAISE(auto subs_expr, ToProto(bound_expression, ext_set, conversion_options));
+  ARROW_ASSIGN_OR_RAISE(auto subs_expr,
+                        ToProto(bound_expression, ext_set, conversion_options));
   *filter_rel->mutable_condition() = *subs_expr.get();
   rel->set_allocated_filter(filter_rel.release());
   return rel;

@@ -1968,8 +1968,7 @@ TEST(Substrait, BasicPlanRoundTripping) {
 
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
 
-  ASSERT_OK_AND_ASSIGN(auto serialized_plan,
-                       SerializePlan(declarations, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
 
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
@@ -2092,8 +2091,7 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
 
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
 
-  ASSERT_OK_AND_ASSIGN(auto serialized_plan,
-                       SerializePlan(declarations, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
 
   ASSERT_OK_AND_ASSIGN(auto expected_tb, GetTableFromPlan(plan, declarations, sink_gen,
                                                           exec_context, dummy_schema));

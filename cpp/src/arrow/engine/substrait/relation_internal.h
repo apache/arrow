@@ -44,18 +44,21 @@ ARROW_ENGINE_EXPORT
 Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
                                   const ConversionOptions&);
 
-ARROW_ENGINE_EXPORT Status CombineRelations(const compute::Declaration&, ExtensionSet*,
-                          std::unique_ptr<substrait::Rel>&, const ConversionOptions&);
+ARROW_ENGINE_EXPORT Status SerializeAndCombineRelations(const compute::Declaration&,
+                                                        ExtensionSet*,
+                                                        std::unique_ptr<substrait::Rel>&,
+                                                        const ConversionOptions&);
 
-ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration&,
-                                                 ExtensionSet*,
-                                                 const ConversionOptions&);
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
+    const compute::Declaration&, ExtensionSet*, const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
-    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet* ext_set, const ConversionOptions& conversion_options);
+    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options);
 
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
-    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet* ext_set, const ConversionOptions& conversion_options);
+    const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options);
 
 }  // namespace engine
 }  // namespace arrow
