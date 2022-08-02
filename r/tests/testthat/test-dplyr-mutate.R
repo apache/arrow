@@ -279,15 +279,15 @@ test_that("dplyr::mutate's examples", {
   # Examples we don't support should succeed
   # but warn that they're pulling data into R to do so
 
-  # across and autosplicing: ARROW-11699
   compare_dplyr_binding(
     .input %>%
       select(name, homeworld, species) %>%
       mutate(across(!name, as.factor)) %>%
       collect(),
     starwars,
-    warning = "Expression across.*not supported in Arrow"
   )
+
+
 
   # group_by then mutate
   compare_dplyr_binding(
