@@ -28,11 +28,12 @@ import (
 
 // Writer wraps encoding/csv.Writer and writes arrow.Record based on a schema.
 type Writer struct {
-	w         *csv.Writer
-	schema    *arrow.Schema
-	header    bool
-	once      sync.Once
-	nullValue string
+	boolFormatter func(bool) string
+	header        bool
+	nullValue     string
+	once          sync.Once
+	schema        *arrow.Schema
+	w             *csv.Writer
 }
 
 // NewWriter returns a writer that writes arrow.Records to the CSV file
@@ -44,9 +45,10 @@ func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
 	ww := &Writer{
-		w:         csv.NewWriter(w),
-		schema:    schema,
-		nullValue: "NULL", // override by passing WithNullWriter() as an option
+		boolFormatter: strconv.FormatBool, // override by passing WithBoolWriter() as an option
+		nullValue:     "NULL",             // override by passing WithNullWriter() as an option
+		schema:        schema,
+		w:             csv.NewWriter(w),
 	}
 	for _, opt := range opts {
 		opt(ww)
@@ -84,7 +86,7 @@ func (w *Writer) Write(record arrow.Record) error {
 			arr := col.(*array.Boolean)
 			for i := 0; i < arr.Len(); i++ {
 				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatBool(arr.Value(i))
+					recs[i][j] = w.boolFormatter(arr.Value(i))
 				} else {
 					recs[i][j] = w.nullValue
 				}

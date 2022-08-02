@@ -17,17 +17,23 @@
 package csv_test
 
 import (
+	"bufio"
 	"bytes"
+	ecsv "encoding/csv"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v9/arrow"
 	"github.com/apache/arrow/go/v9/arrow/array"
 	"github.com/apache/arrow/go/v9/arrow/csv"
 	"github.com/apache/arrow/go/v9/arrow/memory"
+)
+
+const (
+	separator = ';'
+	nullVal   = "null"
 )
 
 func Example_writer() {
@@ -121,20 +127,54 @@ func Example_writer() {
 	// rec[9]["str"]: ["str-9"]
 }
 
+var (
+	fullData = [][]string{
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64"},
+		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26"},
+		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28"},
+		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+	}
+	bananaData = [][]string{
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64"},
+		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26"},
+		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28"},
+		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+	}
+)
+
 func TestCSVWriter(t *testing.T) {
 	tests := []struct {
-		name   string
-		header bool
-	}{{
-		name:   "Noheader",
-		header: false,
-	}, {
-		name:   "Header",
-		header: true,
-	}}
+		name       string
+		header     bool
+		boolFormat func(bool) string
+		data       [][]string
+	}{
+		{
+			name:   "Noheader",
+			header: false,
+			data:   fullData[1:],
+		},
+		{
+			name:   "header",
+			header: true,
+			data:   fullData,
+		},
+		{
+			name:   "Header with bool fmt",
+			header: true,
+			boolFormat: func(b bool) string {
+				if b {
+					return "BANANA"
+				}
+				return "MANGO"
+			},
+			data: bananaData,
+		}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testCSVWriter(t, test.header)
+			testCSVWriter(t, test.data, test.header, test.boolFormat)
 		})
 	}
 }
@@ -151,7 +191,7 @@ func genTimestamps(unit arrow.TimeUnit) []arrow.Timestamp {
 	return out
 }
 
-func testCSVWriter(t *testing.T, writeHeader bool) {
+func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bool) string) {
 	f := new(bytes.Buffer)
 
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -204,10 +244,11 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 	defer rec.Release()
 
 	w := csv.NewWriter(f, schema,
-		csv.WithComma(';'),
+		csv.WithComma(separator),
 		csv.WithCRLF(false),
 		csv.WithHeader(writeHeader),
-		csv.WithNullWriter("null"),
+		csv.WithNullWriter(nullVal),
+		csv.WithBoolWriter(fmtr),
 	)
 	err := w.Write(rec)
 	if err != nil {
@@ -224,19 +265,48 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 		t.Fatal(err)
 	}
 
-	want := `true;-1;-1;-1;-1;0;0;0;0;0;0;str-0;2014-07-28 15:04:05;2017-05-18;2028-04-26
-false;0;0;0;0;1;1;1;1;0.1;0.1;str-1;2016-09-08 15:04:05;2022-11-08;2031-06-28
-true;1;1;1;1;2;2;2;2;0.2;0.2;str-2;2021-09-18 15:04:05;2025-08-04;2034-08-28
-null;null;null;null;null;null;null;null;null;null;null;null;null;null;null
-`
-
-	if writeHeader {
-		want = "bool;i8;i16;i32;i64;u8;u16;u32;u64;f32;f64;str;ts_s;d32;d64\n" + want
+	bdata, err := expectedOutout(data)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if got, want := f.String(), want; strings.Compare(got, want) != 0 {
-		t.Fatalf("invalid output:\ngot=%s\nwant=%s\n", got, want)
+	if err = matchCSV(bdata.Bytes(), f.Bytes()); err != nil {
+		t.Fatal(err)
 	}
+}
+
+func expectedOutout(data [][]string) (*bytes.Buffer, error) {
+	b := bytes.NewBuffer(nil)
+	w := ecsv.NewWriter(b)
+	w.Comma = separator
+	w.UseCRLF = false
+	return b, w.WriteAll(data)
+}
+
+func matchCSV(expected, test []byte) error {
+	expectedScanner := bufio.NewScanner(bytes.NewReader(expected))
+	testScanner := bufio.NewScanner(bytes.NewReader(test))
+	line := 0
+	for expectedScanner.Scan() && testScanner.Scan() {
+		if expectedScanner.Text() != testScanner.Text() {
+			return fmt.Errorf("expected=%s != test=%s line=%d", expectedScanner.Text(), testScanner.Text(), line)
+		}
+		line++
+	}
+
+	if expectedScanner.Scan() {
+		return fmt.Errorf("expected unprocessed:%s", expectedScanner.Text())
+	}
+
+	if testScanner.Scan() {
+		return fmt.Errorf("test unprocessed:%s", testScanner.Text())
+	}
+
+	if err := expectedScanner.Err(); err != nil {
+		return err
+	}
+
+	return testScanner.Err()
 }
 
 func BenchmarkWrite(b *testing.B) {
