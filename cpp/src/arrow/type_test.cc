@@ -1821,4 +1821,26 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t10);
 }
 
+static void test_membership(
+    const std::vector<std::shared_ptr<DataType>>& types,
+    std::function<bool(std::shared_ptr<DataType>)> membership_check) {
+  for (auto type : types) {
+    ASSERT_TRUE(membership_check(type));
+  }
+}
+
+TEST(TypesTest, TestMembership) {
+  test_membership(BaseBinaryTypes(), IsBaseBinaryType);
+  test_membership(BinaryTypes(), IsBinaryType);
+  test_membership(StringTypes(), IsStringType);
+  test_membership(SignedIntTypes(), IsSignedIntType);
+  test_membership(UnsignedIntTypes(), IsUnsignedIntType);
+  test_membership(IntTypes(), IsIntType);
+  test_membership(FloatingPointTypes(), IsFloatingPointType);
+  test_membership(NumericTypes(), IsNumericType);
+  test_membership(TemporalTypes(), IsTemporalType);
+  test_membership(IntervalTypes(), IsIntervalType);
+  test_membership(PrimitiveTypes(), IsPrimitiveType);
+}
+
 }  // namespace arrow

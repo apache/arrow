@@ -2382,11 +2382,25 @@ std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
+std::unordered_set<std::shared_ptr<DataType>> g_signed_int_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_unsigned_int_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_int_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_floating_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_numeric_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_base_binary_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_temporal_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_interval_types_set;
+std::unordered_set<std::shared_ptr<DataType>> g_primitive_types_set;
 std::once_flag static_data_initialized;
 
 template <typename T>
 void Extend(const std::vector<T>& values, std::vector<T>* out) {
   out->insert(out->end(), values.begin(), values.end());
+}
+
+template <typename T>
+void Place(std::unordered_set<T>& set, const std::vector<T>& values) {
+  set.insert(values.begin(), values.end());
 }
 
 void InitStaticData() {
@@ -2435,6 +2449,17 @@ void InitStaticData() {
   g_primitive_types = {null(), boolean(), date32(), date64()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
+
+  // All sets
+  Place(g_signed_int_types_set, g_signed_int_types);
+  Place(g_unsigned_int_types_set, g_unsigned_int_types);
+  Place(g_int_types_set, g_int_types);
+  Place(g_floating_types_set, g_floating_types);
+  Place(g_numeric_types_set, g_numeric_types);
+  Place(g_base_binary_types_set, g_base_binary_types);
+  Place(g_temporal_types_set, g_temporal_types);
+  Place(g_interval_types_set, g_interval_types);
+  Place(g_primitive_types_set, g_primitive_types);
 }
 
 }  // namespace
@@ -2492,6 +2517,61 @@ const std::vector<std::shared_ptr<DataType>>& IntervalTypes() {
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes() {
   std::call_once(static_data_initialized, InitStaticData);
   return g_primitive_types;
+}
+
+bool IsBaseBinaryType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_base_binary_types_set.find(type) != g_base_binary_types_set.end();
+}
+
+bool IsBinaryType(std::shared_ptr<DataType> type) {
+  static DataTypeVector types = {binary(), large_binary()};
+  return std::find(types.begin(), types.end(), type) != types.end();
+}
+
+bool IsStringType(std::shared_ptr<DataType> type) {
+  static DataTypeVector types = {utf8(), large_utf8()};
+  return std::find(types.begin(), types.end(), type) != types.end();
+}
+
+bool IsSignedIntType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_signed_int_types_set.find(type) != g_signed_int_types_set.end();
+}
+
+bool IsUnsignedIntType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_unsigned_int_types_set.find(type) != g_unsigned_int_types_set.end();
+}
+
+bool IsIntType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_int_types_set.find(type) != g_int_types_set.end();
+}
+
+bool IsFloatingPointType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_floating_types_set.find(type) != g_floating_types_set.end();
+}
+
+bool IsNumericType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_numeric_types_set.find(type) != g_numeric_types_set.end();
+}
+
+bool IsTemporalType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_temporal_types_set.find(type) != g_temporal_types_set.end();
+}
+
+bool IsIntervalType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_interval_types_set.find(type) != g_interval_types_set.end();
+}
+
+bool IsPrimitiveType(std::shared_ptr<DataType> type) {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_primitive_types_set.find(type) != g_primitive_types_set.end();
 }
 
 const std::vector<TimeUnit::type>& TimeUnit::values() {
