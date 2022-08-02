@@ -31,10 +31,10 @@ class ApacheArrow < Formula
   end
 
   # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
-  depends_on "aws-sdk-cpp"
   depends_on "boost" => :build
-  depends_on "brotli"
   depends_on "cmake" => :build
+  depends_on "aws-sdk-cpp"
+  depends_on "brotli" 
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"

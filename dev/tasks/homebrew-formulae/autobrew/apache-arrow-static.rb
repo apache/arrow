@@ -32,10 +32,10 @@ class ApacheArrowStatic < Formula
     sha256 cellar: :any, catalina:      "bf71b17766688077fb9b4e679f309742c16524015287dd3633758c679752c977"
   end
 
-  depends_on "aws-sdk-cpp-static"
   depends_on "boost" => :build
-  depends_on "brotli"
   depends_on "cmake" => :build
+  depends_on "aws-sdk-cpp-static"
+  depends_on "brotli"
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"
