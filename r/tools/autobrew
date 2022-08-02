@@ -44,10 +44,10 @@ export HOMEBREW_CACHE="$AUTOBREW"
 LOCAL_FORMULA="tools/${PKG_BREW_NAME}.rb"
 if [ -f "$LOCAL_FORMULA" ]; then
   if [[ ${OSTYPE:6} -ge 20 ]]; then
-  $BREW tap
+    $BREW tap
 
-  # Tap https://github.com/autobrew/homebrew-cran so that we can get dependencies from there
-  $BREW tap autobrew/cran
+    # Tap https://github.com/autobrew/homebrew-cran so that we can get dependencies from there
+    $BREW tap autobrew/cran
   fi
 
   # Use the local brew formula and install --HEAD
