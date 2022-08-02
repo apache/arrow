@@ -205,7 +205,7 @@ T TypeAdjustedTolerance(uint64_t tolerance) {
   return tolerance >= max ? max : static_cast<T>(tolerance);
 }
 
-template <typename T, template <typename> typename Op,
+template <typename T, template <typename> class Op,
           typename = std::enable_if<std::is_base_of<Scalar, T>::value>>
 bool NumericScalarCompare(const T& left, const T& right, const OrderOptions& options) {
   if (left.type != right.type) {
