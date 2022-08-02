@@ -409,7 +409,7 @@ func (b *ListBuilder) NewArray() arrow.Array {
 	return b.NewListArray()
 }
 
-// NewArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
+// NewArray creates a LargeList array from the memory buffers used by the builder and resets the LargeListBuilder
 // so it can be used to build a new array.
 func (b *LargeListBuilder) NewArray() arrow.Array {
 	return b.NewLargeListArray()
