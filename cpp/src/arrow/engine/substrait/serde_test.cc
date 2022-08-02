@@ -65,6 +65,22 @@ Status WriteParquetData(const std::string& path,
   return buffer_writer->Close();
 }
 
+Result<std::shared_ptr<Table>> GetTableFromPlan(
+    std::shared_ptr<compute::ExecPlan>& plan, compute::Declaration& declarations,
+    arrow::AsyncGenerator<util::optional<compute::ExecBatch>>& sink_gen,
+    compute::ExecContext& exec_context, std::shared_ptr<Schema>& output_schema) {
+  ARROW_ASSIGN_OR_RAISE(auto decl, declarations.AddToPlan(plan.get()));
+
+  RETURN_NOT_OK(decl->Validate());
+
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+      output_schema, std::move(sink_gen), exec_context.memory_pool());
+
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+  return arrow::Table::FromRecordBatchReader(sink_reader.get());
+}
+
 // Result<std::string> WriteTemporaryData(const std::string& file_name, const
 // std::shared_ptr<Table>& table, const std::shared_ptr<fs::LocalFileSystem>& filesystem)
 // {
@@ -1872,7 +1888,7 @@ TEST(Substrait, AggregateBadPhase) {
   ASSERT_RAISES(NotImplemented, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
-TEST(Substrait, SerializePlan) {
+TEST(Substrait, BasicPlanRoundTripping) {
 #ifdef _WIN32
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
@@ -1880,8 +1896,8 @@ TEST(Substrait, SerializePlan) {
   ExtensionSet ext_set;
   auto dummy_schema = schema(
       {field("key", int32()), field("shared", int32()), field("distinct", int32())});
-  // creating a dummy dataset using a dummy table
 
+  // creating a dummy dataset using a dummy table
   auto table = TableFromJSON(dummy_schema, {R"([
       [1, 1, 10],
       [3, 4, 20]
@@ -1934,7 +1950,7 @@ TEST(Substrait, SerializePlan) {
   const std::string filter_col = "shared";
   auto filter = compute::equal(compute::field_ref(filter_col), compute::literal(3));
 
-  arrow::AsyncGenerator<util::optional<compute::ExecBatch> > sink_gen;
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
   auto scan_node_options = dataset::ScanNodeOptions{dataset, scan_options};
   auto filter_node_options = compute::FilterNodeOptions{filter};
@@ -1996,188 +2012,143 @@ TEST(Substrait, SerializePlan) {
 #endif
 }
 
-// TEST(Substrait, SerializeRelation) {
-// #ifdef _WIN32
-//   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-// #else
-//   ExtensionSet ext_set;
-//   auto dummy_schema = schema({field("a", int32()), field("b", int32())});
-//   auto table = TableFromJSON(dummy_schema, {R"([
-//     [1, 1],
-//     [3, 4]
-//                         ])",
-//                                             R"([
-//     [0, 2],
-//     [1, 3],
-//     [4, 1],
-//     [3, 1],
-//     [1, 2]
-//                         ])",
-//                                             R"([
-//     [2, 2],
-//     [5, 3],
-//     [1, 3]
-//                         ])"});
-//   const std::string path = "/testing.parquet";
+TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
+#ifdef _WIN32
+  GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
+#else
+  compute::ExecContext exec_context;
+  ExtensionSet ext_set;
+  auto dummy_schema = schema(
+      {field("key", int32()), field("shared", int32()), field("distinct", int32())});
 
-//   EXPECT_OK_AND_ASSIGN(auto filesystem,
-//                        fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+  // creating a dummy dataset using a dummy table
+  auto table = TableFromJSON(dummy_schema, {R"([
+      [1, 1, 10],
+      [3, 4, 20]
+    ])",
+                                            R"([
+      [0, 2, 1],
+      [1, 3, 2],
+      [4, 1, 3],
+      [3, 1, 3],
+      [1, 2, 5]
+    ])",
+                                            R"([
+      [2, 2, 12],
+      [5, 3, 12],
+      [1, 3, 12]
+    ])"});
 
-//   EXPECT_EQ(WriteParquetData(path, filesystem, table), true);
-//   // creating a dummy dataset using a dummy table
-//   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  const std::string file_name = "serde_test.parquet";
 
-//   std::vector<fs::FileInfo> files;
-//   const std::vector<std::string> f_paths = {path};
+  ASSERT_OK_AND_ASSIGN(auto tempdir,
+                       arrow::internal::TemporaryDir::Make("substrait_tempdir"));
+  ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
+  std::string file_path_str = file_path.ToString();
 
-//   for (const auto& f_path : f_paths) {
-//     ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
-//     files.push_back(std::move(f_file));
-//   }
+  // Note: there is an additional forward slash introduced by the tempdir
+  // it must be replaced to properly load into reading files
+  // TODO: (Review: Jira needs to be reported to handle this properly)
+  std::string toReplace("/T//");
+  size_t pos = file_path_str.find(toReplace);
+  file_path_str.replace(pos, toReplace.length(), "/T/");
 
-//   ASSERT_OK_AND_ASSIGN(auto ds_factory,
-//                        dataset::FileSystemDatasetFactory::Make(
-//                            filesystem, std::move(files), std::move(format), {}));
-//   ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
+  ARROW_EXPECT_OK(WriteParquetData(file_path_str, filesystem, table));
 
-//   auto options = std::make_shared<dataset::ScanOptions>();
-//   options->projection = compute::project({}, {});
-//   auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
+  std::vector<fs::FileInfo> files;
+  const std::vector<std::string> f_paths = {file_path_str};
 
-//   auto scan_declaration = compute::Declaration({"scan", scan_node_options});
+  for (const auto& f_path : f_paths) {
+    ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(f_path));
+    files.push_back(std::move(f_file));
+  }
 
-//   ASSERT_OK_AND_ASSIGN(auto serialized_rel,
-//                        SerializeRelation(scan_declaration, &ext_set));
-//   ASSERT_OK_AND_ASSIGN(auto deserialized_decl,
-//                        DeserializeRelation(*serialized_rel, ext_set));
+  ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
+                                            filesystem, std::move(files), format, {}));
+  ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
 
-//   auto& mfs = checked_cast<fs::internal::MockFileSystem&>(*filesystem);
-//   mfs.AllFiles();
+  auto scan_options = std::make_shared<dataset::ScanOptions>();
+  scan_options->projection = compute::project({}, {});
+  const std::string filter_col = "shared";
+  auto filter = compute::equal(compute::field_ref(filter_col), compute::literal(3));
 
-//   EXPECT_EQ(deserialized_decl.factory_name, scan_declaration.factory_name);
-//   const auto& lhs =
-//       checked_cast<const dataset::ScanNodeOptions&>(*deserialized_decl.options);
-//   const auto& rhs =
-//       checked_cast<const dataset::ScanNodeOptions&>(*scan_declaration.options);
-//   ASSERT_TRUE(CompareScanOptions(lhs, rhs));
-// #endif
-// }
+  arrow::AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
-// TEST(Substrait, SerializeRelationEndToEnd) {
-// #ifdef _WIN32
-//   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
-// #else
-//   ExtensionSet ext_set;
-//   compute::ExecContext exec_context;
+  auto scan_node_options = dataset::ScanNodeOptions{dataset, scan_options};
+  auto filter_node_options = compute::FilterNodeOptions{filter};
+  auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
 
-//   auto dummy_schema = schema({field("a", int32()), field("b", int32())});
-//   auto table = TableFromJSON(dummy_schema, {R"([
-//     [1, 1],
-//     [3, 4]
-//                         ])",
-//                                             R"([
-//     [0, 2],
-//     [1, 3],
-//     [4, 1],
-//     [3, 1],
-//     [1, 2]
-//                         ])",
-//                                             R"([
-//     [2, 2],
-//     [5, 3],
-//     [1, 3]
-//                         ])"});
-//   const std::string path = "/testing.parquet";
+  auto scan_declaration = compute::Declaration({"scan", scan_node_options, "s"});
+  auto filter_declaration = compute::Declaration({"filter", filter_node_options, "f"});
+  auto sink_declaration = compute::Declaration({"sink", sink_node_options, "e"});
 
-//   EXPECT_OK_AND_ASSIGN(auto filesystem,
-//                        fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+  auto declarations = compute::Declaration::Sequence(
+      {scan_declaration, filter_declaration, sink_declaration});
 
-//   EXPECT_EQ(WriteParquetData(path, filesystem, table), true);
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
 
-//   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  ASSERT_OK_AND_ASSIGN(auto serialized_plan,
+                       SerializePlan(plan.get(), declarations, &ext_set));
 
-//   std::vector<fs::FileInfo> files;
-//   ASSERT_OK_AND_ASSIGN(auto f_file, filesystem->GetFileInfo(path));
-//   files.push_back(std::move(f_file));
+  ASSERT_OK_AND_ASSIGN(auto expected_tb, GetTableFromPlan(plan, declarations, sink_gen,
+                                                          exec_context, dummy_schema));
 
-//   ASSERT_OK_AND_ASSIGN(auto ds_factory, dataset::FileSystemDatasetFactory::Make(
-//                                             filesystem, files, format, {}));
-//   ASSERT_OK_AND_ASSIGN(auto other_ds_factory, dataset::FileSystemDatasetFactory::Make(
-//                                                   std::move(filesystem),
-//                                                   std::move(files), std::move(format),
-//                                                   {}));
+  for (auto sp_ext_id_reg :
+       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+    ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+    ExtensionSet ext_set(ext_id_reg);
+    ASSERT_OK_AND_ASSIGN(
+        auto sink_decls,
+        DeserializePlans(
+            *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+    // filter declaration
+    auto roundtripped_filter = sink_decls[0].inputs[0].get<compute::Declaration>();
+    const auto& filter_opts =
+        checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter->options));
+    auto roundtripped_expr = filter_opts.filter_expression;
 
-//   ASSERT_OK_AND_ASSIGN(auto dataset, ds_factory->Finish(dummy_schema));
-//   ASSERT_OK_AND_ASSIGN(auto other_dataset, other_ds_factory->Finish(dummy_schema));
+    if (auto* call = roundtripped_expr.call()) {
+      EXPECT_EQ(call->function_name, "equal");
+      auto args = call->arguments;
+      auto index = args[0].field_ref()->field_path()->indices()[0];
+      EXPECT_EQ(dummy_schema->field_names()[index], filter_col);
+      EXPECT_EQ(args[1], compute::literal(3));
+    }
+    // scan declaration
+    auto roundtripped_scan = roundtripped_filter->inputs[0].get<compute::Declaration>();
+    const auto& dataset_opts =
+        checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan->options));
+    const auto& roundripped_ds = dataset_opts.dataset;
+    EXPECT_TRUE(roundripped_ds->schema()->Equals(*dummy_schema));
+    ASSERT_OK_AND_ASSIGN(auto roundtripped_frgs, roundripped_ds->GetFragments());
+    ASSERT_OK_AND_ASSIGN(auto expected_frgs, dataset->GetFragments());
 
-//   auto options = std::make_shared<dataset::ScanOptions>();
-//   options->projection = compute::project({}, {});
-
-//   auto scan_node_options = dataset::ScanNodeOptions{dataset, options};
-
-//   arrow::AsyncGenerator<util::optional<compute::ExecBatch> > sink_gen;
-
-//   auto sink_node_options = compute::SinkNodeOptions{&sink_gen};
-
-//   auto scan_declaration = compute::Declaration({"scan", scan_node_options});
-//   auto sink_declaration = compute::Declaration({"sink", sink_node_options});
-
-//   auto declarations =
-//       compute::Declaration::Sequence({scan_declaration, sink_declaration});
-
-//   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
-//   ASSERT_OK_AND_ASSIGN(auto decl, declarations.AddToPlan(plan.get()));
-
-//   ASSERT_OK(decl->Validate());
-
-//   std::shared_ptr<arrow::RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-//       dummy_schema, std::move(sink_gen), exec_context.memory_pool());
-
-//   ASSERT_OK(plan->Validate());
-//   ASSERT_OK(plan->StartProducing());
-
-//   std::shared_ptr<arrow::Table> response_table;
-
-//   ASSERT_OK_AND_ASSIGN(response_table,
-//                        arrow::Table::FromRecordBatchReader(sink_reader.get()));
-
-//   auto other_scan_node_options = dataset::ScanNodeOptions{other_dataset, options};
-//   auto other_scan_declaration = compute::Declaration({"scan",
-//   other_scan_node_options});
-
-//   ASSERT_OK_AND_ASSIGN(auto serialized_rel,
-//                        SerializeRelation(other_scan_declaration, &ext_set));
-//   ASSERT_OK_AND_ASSIGN(auto deserialized_decl,
-//                        DeserializeRelation(*serialized_rel, ext_set));
-
-//   // arrow::AsyncGenerator<util::optional<compute::ExecBatch> > des_sink_gen;
-//   // auto des_sink_node_options = compute::SinkNodeOptions{&des_sink_gen};
-
-//   // auto des_sink_declaration = compute::Declaration({"sink", des_sink_node_options});
-
-//   // auto t_decls =
-//   //     compute::Declaration::Sequence({deserialized_decl, des_sink_declaration});
-
-//   // ASSERT_OK_AND_ASSIGN(auto t_plan, compute::ExecPlan::Make());
-//   // ASSERT_OK_AND_ASSIGN(auto t_decl, t_decls.AddToPlan(t_plan.get()));
-
-//   // ASSERT_OK(t_decl->Validate());
-
-//   // std::shared_ptr<arrow::RecordBatchReader> des_sink_reader =
-//   //     compute::MakeGeneratorReader(dummy_schema, std::move(des_sink_gen),
-//   //                                  exec_context.memory_pool());
-
-//   // ASSERT_OK(t_plan->Validate());
-//   // ASSERT_OK(t_plan->StartProducing());
-
-//   // std::shared_ptr<arrow::Table> des_response_table;
-
-//   // ASSERT_OK_AND_ASSIGN(des_response_table,
-//   //                      arrow::Table::FromRecordBatchReader(des_sink_reader.get()));
-
-//   // ASSERT_TRUE(response_table->Equals(*des_response_table, true));
-// #endif
-// }
+    auto roundtrip_frg_vec = IteratorToVector(std::move(roundtripped_frgs));
+    auto expected_frg_vec = IteratorToVector(std::move(expected_frgs));
+    EXPECT_EQ(expected_frg_vec.size(), roundtrip_frg_vec.size());
+    int64_t idx = 0;
+    for (auto fragment : expected_frg_vec) {
+      const auto* l_frag = checked_cast<const dataset::FileFragment*>(fragment.get());
+      const auto* r_frag =
+          checked_cast<const dataset::FileFragment*>(roundtrip_frg_vec[idx++].get());
+      EXPECT_TRUE(l_frag->Equals(*r_frag));
+    }
+    arrow::AsyncGenerator<util::optional<compute::ExecBatch>> rnd_trp_sink_gen;
+    auto rnd_trp_sink_node_options = compute::SinkNodeOptions{&rnd_trp_sink_gen};
+    auto rnd_trp_sink_declaration =
+        compute::Declaration({"sink", rnd_trp_sink_node_options, "e"});
+    auto rnd_trp_declarations =
+        compute::Declaration::Sequence({*roundtripped_filter, rnd_trp_sink_declaration});
+    ASSERT_OK_AND_ASSIGN(auto rnd_trp_plan, compute::ExecPlan::Make(&exec_context));
+    ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
+                         GetTableFromPlan(rnd_trp_plan, rnd_trp_declarations,
+                                          rnd_trp_sink_gen, exec_context, dummy_schema));
+    EXPECT_TRUE(expected_tb->Equals(*rnd_trp_table));
+  }
+#endif
+}
 
 }  // namespace engine
 }  // namespace arrow
