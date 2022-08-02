@@ -332,7 +332,8 @@ void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool u
   int64_t num_probe = 4 * num_build;
   const int64_t block = 1024;
   std::vector<uint64_t> first_in_block;
-  first_in_block.resize(static_cast<size_t>(bit_util::CeilDiv(num_build + num_probe, block)));
+  first_in_block.resize(
+      static_cast<size_t>(bit_util::CeilDiv(num_build + num_probe, block)));
   uint64_t current = prime;
   for (int64_t i = 0; i < num_build + num_probe; ++i) {
     if (i % block == 0) {

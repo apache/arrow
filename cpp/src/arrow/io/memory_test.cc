@@ -367,7 +367,8 @@ TEST(TestMemcopy, ParallelMemcopy) {
     writer.set_memcopy_threshold(THRESHOLD);
     ASSERT_OK(writer.Write(buffer2->data(), buffer2->size()));
 
-    ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(), static_cast<size_t>(buffer1->size())));
+    ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(),
+                        static_cast<size_t>(buffer1->size())));
   }
 }
 

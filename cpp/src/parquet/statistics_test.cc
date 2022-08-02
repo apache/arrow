@@ -321,8 +321,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
                                  this->values_.size(), 0, 0, true, true, true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
-    std::vector<uint8_t> valid_bits(
-        static_cast<size_t>(bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size()) + 1)), 255);
+    std::vector<uint8_t> valid_bits(static_cast<size_t>(bit_util::BytesForBits(
+                                        static_cast<uint32_t>(this->values_.size()) + 1)),
+                                    255);
     statistics3->UpdateSpaced(this->values_ptr_, valid_bits.data(), 0,
                               this->values_.size(), this->values_.size(), 0);
     std::string encoded_min_spaced = statistics3->EncodeMin();
@@ -419,7 +420,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
       DCHECK(null_count <= num_values);  // avoid too much headache
       std::vector<int16_t> definition_levels(static_cast<size_t>(batch_null_count), 0);
       definition_levels.insert(definition_levels.end(),
-                               static_cast<size_t>(batch_num_values - batch_null_count), 1);
+                               static_cast<size_t>(batch_num_values - batch_null_count),
+                               1);
       auto beg = this->values_.begin() + static_cast<size_t>(i * num_values / 2);
       auto end = beg + static_cast<size_t>(batch_num_values);
       std::vector<c_type> batch = GetDeepCopy(std::vector<c_type>(beg, end));

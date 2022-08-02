@@ -800,8 +800,9 @@ class TestParquetIO : public ParquetIOTestBase {
   void PrepareListTable(int64_t size, bool nullable_lists, bool nullable_elements,
                         int64_t null_count, std::shared_ptr<Table>* out) {
     std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(static_cast<size_t>(size * size), nullable_elements ? static_cast<size_t>(null_count) : 0,
-                                      kDefaultSeed, &values));
+    ASSERT_OK(NullableArray<TestType>(
+        static_cast<size_t>(size * size),
+        nullable_elements ? static_cast<size_t>(null_count) : 0, kDefaultSeed, &values));
     // Also test that slice offsets are respected
     values = values->Slice(5, values->length() - 5);
     std::shared_ptr<ListArray> lists;
@@ -814,8 +815,9 @@ class TestParquetIO : public ParquetIOTestBase {
                               bool nullable_lists, bool nullable_elements,
                               int64_t null_count, std::shared_ptr<Table>* out) {
     std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(static_cast<size_t>(size * 6), nullable_elements ? static_cast<size_t>(null_count) : 0,
-                                      kDefaultSeed, &values));
+    ASSERT_OK(NullableArray<TestType>(
+        static_cast<size_t>(size * 6),
+        nullable_elements ? static_cast<size_t>(null_count) : 0, kDefaultSeed, &values));
     std::shared_ptr<ListArray> lists;
     ASSERT_OK(MakeListArray(values, size * 3, nullable_lists ? null_count : 0, "item",
                             nullable_elements, &lists));

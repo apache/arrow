@@ -219,7 +219,8 @@ TEST(Forest, HourlyETL) {
 
           std::vector<PT> files;
           for (int64_t file = 0; file < kFilesPerHour; file++) {
-            auto file_str = join({hour_str, numbers[static_cast<size_t>(file)] + ".parquet"});
+            auto file_str =
+                join({hour_str, numbers[static_cast<size_t>(file)] + ".parquet"});
             auto file_fd = FileInfo::File(file_str);
             infos.push_back(file_fd);
             files.emplace_back(file_str);

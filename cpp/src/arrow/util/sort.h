@@ -65,7 +65,8 @@ size_t Permute(const std::vector<int64_t>& indices, std::vector<T>* values) {
     const auto end = sort_into;
     for (int64_t take_from = indices[static_cast<size_t>(sort_into)]; take_from != end;
          take_from = indices[static_cast<size_t>(sort_into)]) {
-      std::swap(values->at(static_cast<size_t>(sort_into)), values->at(static_cast<size_t>(take_from)));
+      std::swap(values->at(static_cast<size_t>(sort_into)),
+                values->at(static_cast<size_t>(take_from)));
       sorted[static_cast<size_t>(sort_into)] = true;
       sort_into = take_from;
     }

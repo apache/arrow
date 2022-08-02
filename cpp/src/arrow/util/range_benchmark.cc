@@ -44,7 +44,8 @@ void for_loop(benchmark::State& state) {
   std::vector<int> target(kSize);
 
   for (auto _ : state) {
-    for (int64_t index = 0; index < kSize; ++index) target[static_cast<size_t>(index)] = source[static_cast<size_t>(index)] + 1;
+    for (int64_t index = 0; index < kSize; ++index)
+      target[static_cast<size_t>(index)] = source[static_cast<size_t>(index)] + 1;
   }
 }
 
@@ -80,7 +81,8 @@ void lazy_copy(benchmark::State& state) {
   auto source = generate_junk(kSize);
   std::vector<int> target(kSize);
   auto lazy_range = internal::MakeLazyRange(
-      [&source](int64_t index) { return source[static_cast<size_t>(index)]; }, source.size());
+      [&source](int64_t index) { return source[static_cast<size_t>(index)]; },
+      source.size());
 
   for (auto _ : state) {
     std::copy(lazy_range.begin(), lazy_range.end(), target.begin());
@@ -95,7 +97,9 @@ void lazy_copy_converting(benchmark::State& state) {
   auto source = generate_junk<int64_t>(kSize);
   std::vector<int32_t> target(kSize);
   auto lazy_range = internal::MakeLazyRange(
-      [&source](int64_t index) { return static_cast<int32_t>(source[static_cast<size_t>(index)]); },
+      [&source](int64_t index) {
+        return static_cast<int32_t>(source[static_cast<size_t>(index)]);
+      },
       source.size());
 
   for (auto _ : state) {
@@ -110,7 +114,8 @@ void lazy_postinc(benchmark::State& state) {
   auto source = generate_junk(kSize);
   std::vector<int> target(kSize);
   auto lazy_range = internal::MakeLazyRange(
-      [&source](int64_t index) { return source[static_cast<size_t>(index)]; }, source.size());
+      [&source](int64_t index) { return source[static_cast<size_t>(index)]; },
+      source.size());
 
   for (auto _ : state) {
     auto lazy_iter = lazy_range.begin();

@@ -539,8 +539,8 @@ void CheckRoundTripSpaced(const Array& data, int bit_width) {
   for (int64_t i = 0; i < num_values; ++i) {
     if (data.IsValid(i)) {
       if (values_read[static_cast<size_t>(i)] != values[static_cast<size_t>(i)]) {
-        FAIL() << "Index " << i << " read " << values_read[static_cast<size_t>(i)] << " but should be "
-               << values[static_cast<size_t>(i)];
+        FAIL() << "Index " << i << " read " << values_read[static_cast<size_t>(i)]
+               << " but should be " << values[static_cast<size_t>(i)];
       }
     }
   }

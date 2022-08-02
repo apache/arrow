@@ -110,8 +110,9 @@ Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
 
   std::vector<bool> bitmap(static_cast<size_t>(array->length()));
   for (int64_t i = 0; i < array->length(); i++) {
-    bitmap[static_cast<size_t>(i)] = swap ? SlowCompare(options.op, array->Value(i), value)
-                     : SlowCompare(options.op, value, array->Value(i));
+    bitmap[static_cast<size_t>(i)] =
+        swap ? SlowCompare(options.op, array->Value(i), value)
+             : SlowCompare(options.op, value, array->Value(i));
   }
 
   std::shared_ptr<Array> result;
@@ -141,8 +142,9 @@ Datum SimpleScalarArrayCompare<StringType>(CompareOptions options, const Datum& 
 
   std::vector<bool> bitmap(static_cast<size_t>(array->length()));
   for (int64_t i = 0; i < array->length(); i++) {
-    bitmap[static_cast<size_t>(i)] = swap ? SlowCompare(options.op, array->GetView(i), value)
-                     : SlowCompare(options.op, value, array->GetView(i));
+    bitmap[static_cast<size_t>(i)] =
+        swap ? SlowCompare(options.op, array->GetView(i), value)
+             : SlowCompare(options.op, value, array->GetView(i));
   }
 
   std::shared_ptr<Array> result;
@@ -193,7 +195,8 @@ Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
 
   std::vector<bool> bitmap(static_cast<size_t>(length));
   for (int64_t i = 0; i < length; i++) {
-    bitmap[static_cast<size_t>(i)] = SlowCompare(options.op, l_array->Value(i), r_array->Value(i));
+    bitmap[static_cast<size_t>(i)] =
+        SlowCompare(options.op, l_array->Value(i), r_array->Value(i));
   }
 
   std::shared_ptr<Array> result;
@@ -217,7 +220,8 @@ Datum SimpleArrayArrayCompare<StringType>(CompareOptions options, const Datum& l
 
   std::vector<bool> bitmap(static_cast<size_t>(length));
   for (int64_t i = 0; i < length; i++) {
-    bitmap[static_cast<size_t>(i)] = SlowCompare(options.op, l_array->GetView(i), r_array->GetView(i));
+    bitmap[static_cast<size_t>(i)] =
+        SlowCompare(options.op, l_array->GetView(i), r_array->GetView(i));
   }
 
   std::shared_ptr<Array> result;

@@ -448,7 +448,8 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
         ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> null_buf,
                              AllocateBitmap(indices.size(), ctx->memory_pool()));
         uint8_t* non_nulls = null_buf->mutable_data();
-        memset(non_nulls, 0xFF, static_cast<size_t>(bit_util::BytesForBits(indices.size())));
+        memset(non_nulls, 0xFF,
+               static_cast<size_t>(bit_util::BytesForBits(indices.size())));
         if ((*result)[i]->data()->buffers.size() == 2) {
           (*result)[i] = MakeArray(
               ArrayData::Make((*result)[i]->type(), indices.size(),

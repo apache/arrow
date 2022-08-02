@@ -339,7 +339,8 @@ static void BuildStringDictionaryArray(
   auto fodder_nbytes =
       std::accumulate(fodder.begin(), fodder.end(), static_cast<size_t>(0ULL),
                       [&](size_t acc, const std::string& s) { return acc + s.size(); });
-  BenchmarkDictionaryArray<BinaryDictionaryBuilder>(state, fodder, static_cast<size_t>(fodder_nbytes));
+  BenchmarkDictionaryArray<BinaryDictionaryBuilder>(state, fodder,
+                                                    static_cast<size_t>(fodder_nbytes));
 }
 
 static void ArrayDataConstructDestruct(

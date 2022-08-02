@@ -140,7 +140,8 @@ static void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t
     decimals = gen.Decimal256(::arrow::decimal256(precision, 0), n);
     byte_width = ::arrow::Decimal256Type::kByteWidth;
   }
-  std::memcpy(out, decimals->data()->GetValues<uint8_t>(1, 0), static_cast<size_t>(byte_width * n));
+  std::memcpy(out, decimals->data()->GetValues<uint8_t>(1, 0),
+              static_cast<size_t>(byte_width * n));
 }
 
 template <typename ArrowType, int32_t precision = ArrowType::precision>

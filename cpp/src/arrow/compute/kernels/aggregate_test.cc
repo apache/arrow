@@ -3743,7 +3743,8 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
       const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
     // copy and sort input chunked array
     int64_t index = 0;
-    std::vector<CType> input(static_cast<size_t>(chunked.length() - chunked.null_count()));
+    std::vector<CType> input(
+        static_cast<size_t>(chunked.length() - chunked.null_count()));
     for (const auto& array : chunked.chunks()) {
       const CType* values = array->data()->GetValues<CType>(1);
       const auto bitmap = array->null_bitmap_data();
@@ -3798,7 +3799,8 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
         if (fraction == 0) {
           return Datum(input[static_cast<size_t>(lower_index)] * 1.0);
         } else {
-          return Datum(input[static_cast<size_t>(lower_index)] / 2.0 + input[static_cast<size_t>(lower_index + 1)] / 2.0);
+          return Datum(input[static_cast<size_t>(lower_index)] / 2.0 +
+                       input[static_cast<size_t>(lower_index + 1)] / 2.0);
         }
       default:
         return Datum(NAN);

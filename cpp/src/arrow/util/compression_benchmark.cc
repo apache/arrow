@@ -85,7 +85,8 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
     input_len -= result.bytes_read;
     compressed_size += result.bytes_written;
     if (compressed_data != nullptr && result.bytes_written > 0) {
-      compressed_data->resize(static_cast<size_t>(compressed_data->size() + result.bytes_written));
+      compressed_data->resize(
+          static_cast<size_t>(compressed_data->size() + result.bytes_written));
       memcpy(compressed_data->data() + compressed_data->size() - result.bytes_written,
              output_buffer.data(), static_cast<size_t>(result.bytes_written));
     }
@@ -98,7 +99,8 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
     auto result = *compressor->End(output_buffer.size(), output_buffer.data());
     compressed_size += result.bytes_written;
     if (compressed_data != nullptr && result.bytes_written > 0) {
-      compressed_data->resize(static_cast<size_t>(compressed_data->size() + result.bytes_written));
+      compressed_data->resize(
+          static_cast<size_t>(compressed_data->size() + result.bytes_written));
       memcpy(compressed_data->data() + compressed_data->size() - result.bytes_written,
              output_buffer.data(), static_cast<size_t>(result.bytes_written));
     }

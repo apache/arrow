@@ -682,7 +682,8 @@ class TestArrayExport : public ::testing::Test {
     {
       ArrayExportGuard parent_guard(&c_export_parent);
       ASSERT_LT(child_id, c_export_parent.n_children);
-      ArrowArrayMove(c_export_parent.children[static_cast<size_t>(child_id)], &c_export_child);
+      ArrowArrayMove(c_export_parent.children[static_cast<size_t>(child_id)],
+                     &c_export_child);
     }
     ArrayExportGuard child_guard(&c_export_child);
 
@@ -692,7 +693,8 @@ class TestArrayExport : public ::testing::Test {
     ASSERT_LT(bytes_with_child, bytes_with_parent);
     ASSERT_GT(bytes_with_child, orig_bytes);
 
-    const ArrayData& data = *arr->data()->child_data[static_cast<size_t>(child_id)];  // non-owning reference
+    const ArrayData& data =
+        *arr->data()->child_data[static_cast<size_t>(child_id)];  // non-owning reference
     check_func(&c_export_child, data);
 
     // Release the shared_ptr<Array>, some underlying data should be held alive
@@ -741,10 +743,12 @@ class TestArrayExport : public ::testing::Test {
       for (size_t i = 0; i < children_ids.size(); ++i) {
         const auto child_id = children_ids[i];
         ASSERT_LT(child_id, c_export_parent.n_children);
-        ArrowArrayMove(c_export_parent.children[static_cast<size_t>(child_id)], &c_export_children[i]);
+        ArrowArrayMove(c_export_parent.children[static_cast<size_t>(child_id)],
+                       &c_export_children[i]);
         child_guards.emplace_back(&c_export_children[i]);
         // Keep non-owning pointer to the child ArrayData
-        child_data.push_back(arr->data()->child_data[static_cast<size_t>(child_id)].get());
+        child_data.push_back(
+            arr->data()->child_data[static_cast<size_t>(child_id)].get());
       }
     }
 
@@ -1122,7 +1126,8 @@ class SchemaStructBuilder {
       nested_offset = static_cast<int64_t>(nested_structs_.size()) - n_children;
     }
     for (int64_t i = 0; i < n_children; ++i) {
-      children[static_cast<size_t>(i)] = &nested_structs_[static_cast<size_t>(nested_offset + i)];
+      children[static_cast<size_t>(i)] =
+          &nested_structs_[static_cast<size_t>(nested_offset + i)];
     }
     return children;
   }
@@ -1775,7 +1780,8 @@ class TestArrayImport : public ::testing::Test {
       nested_offset = static_cast<int64_t>(nested_structs_.size()) - n_children;
     }
     for (int64_t i = 0; i < n_children; ++i) {
-      children[static_cast<size_t>(i)] = &nested_structs_[static_cast<size_t>(nested_offset + i)];
+      children[static_cast<size_t>(i)] =
+          &nested_structs_[static_cast<size_t>(nested_offset + i)];
     }
     return children;
   }

@@ -478,7 +478,8 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPagesWithExposeEncoding) {
   int64_t total_indices = 0;
   int64_t indices_read = 0;
   int64_t value_size = values.size();
-  auto indices = ::arrow::internal::make_unique<int32_t[]>(static_cast<size_t>(value_size));
+  auto indices =
+      ::arrow::internal::make_unique<int32_t[]>(static_cast<size_t>(value_size));
   while (total_indices < value_size && reader->HasNext()) {
     const ByteArray* tmp_dict = nullptr;
     int32_t tmp_dict_len = 0;
@@ -531,7 +532,8 @@ TEST_F(TestPrimitiveReader, TestNonDictionaryEncodedPagesWithExposeEncoding) {
   const ByteArray* dict = nullptr;
   int32_t dict_len = 0;
   int64_t indices_read = 0;
-  auto indices = ::arrow::internal::make_unique<int32_t[]>(static_cast<size_t>(value_size));
+  auto indices =
+      ::arrow::internal::make_unique<int32_t[]>(static_cast<size_t>(value_size));
   // Dictionary cannot be exposed when it's not fully dictionary encoded
   EXPECT_THROW(reader->ReadBatchWithDictionary(value_size, /*def_levels=*/nullptr,
                                                /*rep_levels=*/nullptr, indices.get(),

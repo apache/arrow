@@ -339,8 +339,8 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() {
-    std::vector<uint8_t> valid_bits(static_cast<size_t>(::arrow::bit_util::BytesForBits(num_values_) + 1),
-                                    255);
+    std::vector<uint8_t> valid_bits(
+        static_cast<size_t>(::arrow::bit_util::BytesForBits(num_values_) + 1), 255);
 
     auto base_encoder = MakeEncoder(Type::type_num, Encoding::PLAIN, true, descr_.get());
     auto encoder =
@@ -442,8 +442,9 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
     for (int64_t i = 0; i < binary_array.length(); ++i) {
       auto view = binary_array.GetView(i);
-      input_data_[static_cast<size_t>(i)] = {static_cast<uint32_t>(view.length()),
-                        reinterpret_cast<const uint8_t*>(view.data())};
+      input_data_[static_cast<size_t>(i)] = {
+          static_cast<uint32_t>(view.length()),
+          reinterpret_cast<const uint8_t*>(view.data())};
     }
   }
 
@@ -1060,7 +1061,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     }
 
     {
-      std::vector<uint8_t> valid_bits(static_cast<size_t>(::arrow::bit_util::BytesForBits(num_values_)), 0);
+      std::vector<uint8_t> valid_bits(
+          static_cast<size_t>(::arrow::bit_util::BytesForBits(num_values_)), 0);
       std::vector<c_type> expected_filtered_output;
       const int every_nth = 5;
       expected_filtered_output.reserve((num_values_ + every_nth - 1) / every_nth);

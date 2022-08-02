@@ -1237,20 +1237,25 @@ TYPED_TEST(TestVisitBits, NormalOperation) {
 
         // Verify that the correct values have been written in the [start_offset,
         // start_offset+length) range.
-        EXPECT_TRUE(std::equal(unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset),
-                               unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset + length),
-                               this->expected_unpacked_bitmap_.begin() + static_cast<ptrdiff_t>(start_offset)))
+        EXPECT_TRUE(std::equal(
+            unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset),
+            unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset + length),
+            this->expected_unpacked_bitmap_.begin() +
+                static_cast<ptrdiff_t>(start_offset)))
             << "Invalid bytes unpacked when using " << failure_info;
 
         // Verify that the unpacked_bitmap array has not changed before or after
         // the [start_offset, start_offset+length) range.
-        EXPECT_TRUE(std::all_of(unpacked_bitmap.begin(),
-                                unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset), is_unmodified))
+        EXPECT_TRUE(
+            std::all_of(unpacked_bitmap.begin(),
+                        unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset),
+                        is_unmodified))
             << "Unexpected modification to unpacked_bitmap array before written range "
                "when using "
             << failure_info;
-        EXPECT_TRUE(std::all_of(unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset + length),
-                                unpacked_bitmap.end(), is_unmodified))
+        EXPECT_TRUE(std::all_of(
+            unpacked_bitmap.begin() + static_cast<ptrdiff_t>(start_offset + length),
+            unpacked_bitmap.end(), is_unmodified))
             << "Unexpected modification to unpacked_bitmap array after written range "
                "when using "
             << failure_info;
@@ -1626,7 +1631,8 @@ TEST(BitUtilTests, TestCopyBitmapPreAllocated) {
         const int64_t copy_length = num_bits - offset;
 
         ASSERT_OK_AND_ASSIGN(auto copy, AllocateBuffer(other_buffer->size()));
-        memcpy(copy->mutable_data(), other_buffer->data(), static_cast<size_t>(other_buffer->size()));
+        memcpy(copy->mutable_data(), other_buffer->data(),
+               static_cast<size_t>(other_buffer->size()));
         CopyBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
         for (int64_t i = 0; i < dest_offset; ++i) {
@@ -1666,7 +1672,8 @@ TEST(BitUtilTests, TestCopyAndInvertBitmapPreAllocated) {
         const int64_t copy_length = num_bits - offset;
 
         ASSERT_OK_AND_ASSIGN(auto copy, AllocateBuffer(other_buffer->size()));
-        memcpy(copy->mutable_data(), other_buffer->data(), static_cast<size_t>(other_buffer->size()));
+        memcpy(copy->mutable_data(), other_buffer->data(),
+               static_cast<size_t>(other_buffer->size()));
         InvertBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
         for (int64_t i = 0; i < dest_offset; ++i) {
@@ -1706,7 +1713,8 @@ TEST(BitUtilTests, TestCopyAndReverseBitmapPreAllocated) {
         const int64_t copy_length = num_bits - offset;
 
         ASSERT_OK_AND_ASSIGN(auto copy, AllocateBuffer(other_buffer->size()));
-        memcpy(copy->mutable_data(), other_buffer->data(), static_cast<size_t>(other_buffer->size()));
+        memcpy(copy->mutable_data(), other_buffer->data(),
+               static_cast<size_t>(other_buffer->size()));
         ReverseBitmap(src, offset, copy_length, copy->mutable_data(), dest_offset);
 
         for (int64_t i = 0; i < dest_offset; ++i) {
