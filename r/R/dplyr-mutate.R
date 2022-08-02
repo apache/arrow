@@ -169,22 +169,30 @@ unfold_across <- function(.data, quos_in){
       new_quos <- list()
 
       cols <- names(select(.data, !!quo_expr[[2]]))
-      funcs <- quo_expr[[3]]
+      funcs <- as.list(quo_expr[[3]])
 
       for (col in cols) {
         for (i in seq_along(funcs)) {
           func <- funcs[[i]]
-          # if we've supplied multiple functions using list() ignore this element
-          if (!rlang::is_symbol(func, "list")) {
+
+          # work out the name of the new column
+          if (length(funcs) == 1) {
+            new_colname <- col
+          } else {
             # column name is either the name of the item or index
             col_suffix <- names(funcs)[[i]]
             if (col_suffix == "") {
               col_suffix <- i - 1
             }
+            new_colname <- paste0(col, "_", col_suffix)
+          }
+
+          # if we've supplied multiple functions using list() ignore this element
+          if (!rlang::is_symbol(func, "list")) {
             # get the expression
             new_quo <- list(quo(!!call2(func, sym(col))))
             # give the expression a name
-            names(new_quo) <- paste0(col, "_", col_suffix)
+            names(new_quo) <- new_colname
             # append to temporary list of new quosures
             new_quos <- append(new_quos, new_quo)
           }

@@ -592,6 +592,13 @@ test_that("mutate() and transmute() with namespaced functions", {
 
 test_that("Can use across() within mutate()", {
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(c(dbl, dbl2), round)) %>%
+      collect(),
+    tbl
+  )
+
   # gives the right error with window functions
   expect_warning(
     arrow_table(tbl) %>%
