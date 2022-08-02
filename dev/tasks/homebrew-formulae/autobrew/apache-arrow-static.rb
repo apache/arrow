@@ -26,37 +26,25 @@ class ApacheArrowStatic < Formula
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
-  # Linux bottle removed for GCC 12 migration
   bottle do
-    sha256 cellar: :any,                 arm64_monterey: "236f3e3d792c5450549703d4baaffb4c272c10495ab5e28e00745e33dd5c8b9f"
-    sha256 cellar: :any,                 arm64_big_sur:  "4f410eb8437deb23972cc7c1afee02f589debed45c0e2cd70b5f30735a45a94a"
-    sha256 cellar: :any,                 monterey:       "b523d867a39dcd7bb1e6184bf542a7dbe2dcecdf4ce987413e0a4beaa86dcd67"
-    sha256 cellar: :any,                 big_sur:        "6c94f65c8985387ff46b26b2d0e6a2a3cf6ce2c34d264d2353580ba73c0fdc7e"
-    sha256 cellar: :any,                 catalina:       "1bb210d9cb9bbd851c1d0d51ad88ffc2516f35d87f4b3771b4d4313e65576a68"
+    sha256 cellar: :any, arm64_big_sur: "ef89d21a110b89840cc6148add685d407e75bd633bc8f79625eb33d00e3694b4"
+    sha256 cellar: :any, big_sur:       "6fcb9f55d44eb61d295a8020e039a0622bdc044b220cfffef855f3e3ab8057a1"
+    sha256 cellar: :any, catalina:      "bf71b17766688077fb9b4e679f309742c16524015287dd3633758c679752c977"
   end
 
-  depends_on "aws-sdk-cpp"
+  depends_on "aws-sdk-cpp-static"
   depends_on "boost" => :build
   depends_on "brotli"
   depends_on "cmake" => :build
-  depends_on "glog"
-  depends_on "grpc"
-  depends_on "llvm" => :build
   depends_on "lz4"
-  depends_on "numpy"
-  depends_on "openssl@1.1"
-  depends_on "protobuf"
-  depends_on "rapidjson"
-  depends_on "re2"
   depends_on "snappy"
   depends_on "thrift"
-  depends_on "utf8proc"
   depends_on "zstd"
-  
-  fails_with gcc: "5"
+
+  conflicts_with "apache-arrow", because: "both install Arrow"
 
   def install
-
+    ENV.cxx11
     # https://github.com/Homebrew/homebrew-core/issues/94724
     # https://issues.apache.org/jira/browse/ARROW-15664
     ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
@@ -106,7 +94,8 @@ class ApacheArrowStatic < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", \
+      "-larrow", "-larrow_bundled_dependencies", "-o", "test"
     system "./test"
   end
 end
