@@ -25,6 +25,7 @@
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/registry.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -427,95 +428,78 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       rel.DebugString());
 }
 
-namespace {
-
-Result<std::unique_ptr<substrait::ReadRel>> MakeReadRelation(
-    const compute::Declaration& declaration, ExtensionSet* ext_set) {
-  auto read_rel = make_unique<substrait::ReadRel>();
-  const auto& scan_node_options =
-      checked_cast<const dataset::ScanNodeOptions&>(*declaration.options);
-
-  auto dataset =
-      dynamic_cast<dataset::FileSystemDataset*>(scan_node_options.dataset.get());
-  if (dataset == nullptr) {
-    return Status::Invalid("Can only convert file system datasets to a Substrait plan.");
-  }
-  // set schema
-  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set));
-  read_rel->set_allocated_base_schema(named_struct.release());
-
-  // set local files
-  auto read_rel_lfs = make_unique<substrait::ReadRel_LocalFiles>();
-  for (const auto& file : dataset->files()) {
-    auto read_rel_lfs_ffs = make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
-    read_rel_lfs_ffs->set_uri_path("file://" + file);
-
-    // set file format
-    // arrow and feather are temporarily handled via the Parquet format until
-    // upgraded to the latest Substrait version.
-    auto format_type_name = dataset->format()->type_name();
-    if (format_type_name == "parquet") {
-      auto parquet_fmt =
-          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ParquetReadOptions>();
-      read_rel_lfs_ffs->set_allocated_parquet(parquet_fmt.release());
-    } else if (format_type_name == "arrow") {
-      auto arrow_fmt =
-          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_ArrowReadOptions>();
-      read_rel_lfs_ffs->set_allocated_arrow(arrow_fmt.release());
-    } else if (format_type_name == "orc") {
-      auto orc_fmt =
-          make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_OrcReadOptions>();
-      read_rel_lfs_ffs->set_allocated_orc(orc_fmt.release());
-    } else {
-      return Status::Invalid("Unsupported file type : ", format_type_name);
-    }
-    read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
-  }
-  *read_rel->mutable_local_files() = *read_rel_lfs.get();
-
-  return read_rel;
-}
-
-Result<std::unique_ptr<substrait::Rel>> MakeRelation(
-    const compute::Declaration& declaration, ExtensionSet* ext_set) {
-  const std::string& rel_name = declaration.factory_name;
+Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declr,
+                                                 ExtensionSet* ext_set,
+                                                 const ConversionOptions& conversion_options) {
   auto rel = make_unique<substrait::Rel>();
-  if (rel_name == "scan") {
-    rel->set_allocated_read(MakeReadRelation(declaration, ext_set)->release());
-  } else if (rel_name == "filter") {
-    return Status::NotImplemented("Filter operator not supported.");
-  } else if (rel_name == "project") {
-    return Status::NotImplemented("Project operator not supported.");
-  } else if (rel_name == "hashjoin") {
-    return Status::NotImplemented("Join operator not supported.");
-  } else if (rel_name == "aggregate") {
-    return Status::NotImplemented("Aggregate operator not supported.");
-  } else {
-    return Status::Invalid("Unsupported exec node factory name :", rel_name);
-  }
-  return rel;
+  RETURN_NOT_OK(CombineRelations(declr, ext_set, rel, conversion_options));
+  return std::move(rel);
 }
 
-}  // namespace
+Status SetRelation(const std::unique_ptr<substrait::Rel>& plan,
+                   const std::unique_ptr<substrait::Rel>& partial_plan,
+                   const std::string& factory_name) {
+  if (factory_name == "scan" && partial_plan->has_read()) {
+    plan->set_allocated_read(partial_plan->release_read());
+  } else if (factory_name == "filter" && partial_plan->has_filter()) {
+    plan->set_allocated_filter(partial_plan->release_filter());
+  } else {
+    return Status::NotImplemented("Substrait converter ", factory_name,
+                                  " not supported.");
+  }
+  return Status::OK();
+}
 
-Result<std::unique_ptr<substrait::Rel>> ToProto(const compute::Declaration& declaration,
-                                                ExtensionSet* ext_set) {
-  return MakeRelation(declaration, ext_set);
+Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& declr) {
+  std::shared_ptr<Schema> bind_schema;
+  if (declr.factory_name == "scan") {
+    const auto& opts = checked_cast<const dataset::ScanNodeOptions&>(*(declr.options));
+    bind_schema = opts.dataset->schema();
+  } else if (declr.factory_name == "filter") {
+    auto input_declr = util::get<compute::Declaration>(declr.inputs[0]);
+    ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
+  } else if (declr.factory_name == "hashjoin") {
+  } else if (declr.factory_name == "sink") {
+    return bind_schema;
+  } else {
+    return Status::Invalid("Schema extraction failed, unsupported factory ",
+                           declr.factory_name);
+  }
+  return bind_schema;
+}
+
+Status CombineRelations(const compute::Declaration& declaration, ExtensionSet* ext_set,
+                          std::unique_ptr<substrait::Rel>& rel, const ConversionOptions& conversion_options) {
+  std::vector<compute::Declaration::Input> inputs = declaration.inputs;
+  for (auto& input : inputs) {
+    auto input_decl = util::get<compute::Declaration>(input);
+    RETURN_NOT_OK(CombineRelations(input_decl, ext_set, rel, conversion_options));
+  }
+  const auto& factory_name = declaration.factory_name;
+  ARROW_ASSIGN_OR_RAISE(auto schema, ExtractSchemaToBind(declaration));
+  SubstraitConversionRegistry* registry = default_substrait_conversion_registry();
+  if (factory_name != "sink") {
+    ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetConverter(factory_name));
+    ARROW_ASSIGN_OR_RAISE(auto factory_rel, factory(schema, declaration, ext_set, conversion_options));
+    RETURN_NOT_OK(SetRelation(rel, factory_rel, factory_name));
+  }
+  return Status::OK();
 }
 
 Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
-    const compute::Declaration& declaration, ExtensionSet* ext_set) {
+    const compute::Declaration& declaration, ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
   auto declr_input = declaration.inputs[0];
   // TODO: figure out a better way
   if (util::get_if<compute::ExecNode*>(&declr_input)) {
     return Status::NotImplemented("Only support Plans written in Declaration format.");
   }
-  return ToProto(util::get<compute::Declaration>(declr_input), ext_set);
+  auto declr = util::get<compute::Declaration>(declr_input);
+  return ToProto(declr, ext_set, conversion_options);
 }
 
 Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
-    ExtensionSet* ext_set) {
+    ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
   auto rel = make_unique<substrait::Rel>();
   auto read_rel = make_unique<substrait::ReadRel>();
   const auto& scan_node_options =
@@ -526,7 +510,7 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
     return Status::Invalid("Can only convert file system datasets to a Substrait plan.");
   }
   // set schema
-  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set));
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(*dataset->schema(), ext_set, conversion_options));
   read_rel->set_allocated_base_schema(named_struct.release());
 
   // set local files
@@ -564,7 +548,7 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
 
 Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
     const std::shared_ptr<Schema>& schema, const compute::Declaration& declaration,
-    ExtensionSet* ext_set) {
+    ExtensionSet* ext_set, const ConversionOptions& conversion_options) {
   auto rel = make_unique<substrait::Rel>();
   auto filter_rel = make_unique<substrait::FilterRel>();
   const auto& filter_node_options =
@@ -580,11 +564,11 @@ Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
     return Status::Invalid("Filter node doesn't have an input.");
   }
 
-  auto input_rel = GetRelationFromDeclaration(declaration, ext_set);
+  auto input_rel = GetRelationFromDeclaration(declaration, ext_set, conversion_options);
 
   filter_rel->set_allocated_input(input_rel->release());
 
-  ARROW_ASSIGN_OR_RAISE(auto subs_expr, ToProto(bound_expression, ext_set));
+  ARROW_ASSIGN_OR_RAISE(auto subs_expr, ToProto(bound_expression, ext_set, conversion_options));
   *filter_rel->mutable_condition() = *subs_expr.get();
   rel->set_allocated_filter(filter_rel.release());
   return rel;

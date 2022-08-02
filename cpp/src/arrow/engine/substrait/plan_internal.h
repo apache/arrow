@@ -22,6 +22,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 
 #include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
@@ -53,11 +54,8 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
-ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> ToProto(
-    compute::ExecPlan* plan, const compute::Declaration& declr, ExtensionSet* ext_set);
-
-// ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
-//     const compute::Declaration& declaration, ExtensionSet* ext_set);
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> PlanToProto(const compute::Declaration& declr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 }  // namespace engine
 }  // namespace arrow

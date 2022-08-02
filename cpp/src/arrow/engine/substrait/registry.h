@@ -31,6 +31,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/visibility.h"
@@ -46,7 +47,7 @@ class ARROW_EXPORT SubstraitConversionRegistry {
  public:
   virtual ~SubstraitConversionRegistry() = default;
   using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
-      const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*)>;
+      const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*, const ConversionOptions&)>;
 
   virtual Result<SubstraitConverter> GetConverter(const std::string& factory_name) = 0;
 

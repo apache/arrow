@@ -37,9 +37,9 @@ namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializePlan(compute::ExecPlan* plan,
-                                              const compute::Declaration& declr,
-                                              ExtensionSet* ext_set);
+Result<std::shared_ptr<Buffer>> SerializePlan(const compute::Declaration& declr,
+                                              ExtensionSet* ext_set,
+                                              const ConversionOptions& conversion_options = {});
 
 /// Factory function type for generating the node that consumes the batches produced by
 /// each toplevel Substrait relation when deserializing a Substrait Plan.
@@ -129,10 +129,6 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
-ARROW_ENGINE_EXPORT Result<compute::ExecPlan> DeserializePlan(
-    const Buffer& buf, const ConsumerFactory& consumer_factory,
-    ExtensionSet* ext_set_out = NULLPTR);
-
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait Type
@@ -219,7 +215,8 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(
 /// \return a buffer containing the protobuf serialization of the corresponding Substrait
 /// Relation message
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
-    const compute::Declaration& declaration, ExtensionSet* ext_set);
+    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
 ///

@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/substrait/serde.h"
-
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/type_resolver_util.h>
@@ -24,11 +22,16 @@
 
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
+
 #include "arrow/dataset/plan.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/serde.h"
+
 #include "arrow/engine/substrait/util.h"
+
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
@@ -1966,7 +1969,7 @@ TEST(Substrait, BasicPlanRoundTripping) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
 
   ASSERT_OK_AND_ASSIGN(auto serialized_plan,
-                       SerializePlan(plan.get(), declarations, &ext_set));
+                       SerializePlan(declarations, &ext_set));
 
   for (auto sp_ext_id_reg :
        {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
@@ -2090,7 +2093,7 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make(&exec_context));
 
   ASSERT_OK_AND_ASSIGN(auto serialized_plan,
-                       SerializePlan(plan.get(), declarations, &ext_set));
+                       SerializePlan(declarations, &ext_set));
 
   ASSERT_OK_AND_ASSIGN(auto expected_tb, GetTableFromPlan(plan, declarations, sink_gen,
                                                           exec_context, dummy_schema));
