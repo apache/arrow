@@ -344,7 +344,7 @@ cast_options <- function(safe = TRUE, ...) {
 #' @return `NULL`, invisibly
 #' @export
 #'
-#' @examplesIf arrow_with_dataset()
+#' @examplesIf arrow_with_dataset() && identical(Sys.getenv("R_ARROW_COLLECT_WITH_UDF"), "true")
 #' library(dplyr, warn.conflicts = FALSE)
 #'
 #' some_model <- lm(mpg ~ disp + cyl, data = mtcars)
@@ -358,10 +358,15 @@ cast_options <- function(safe = TRUE, ...) {
 #'   auto_convert = TRUE
 #' )
 #'
+#' # User-defined functions require some special handling
+#' # in the query engine which currently require an opt-in using
+#' # the R_ARROW_COLLECT_WITH_UDF environment variable.
+#' Sys.setenv(R_ARROW_COLLECT_WITH_UDF = "true")
 #' as_arrow_table(mtcars) %>%
 #'   transmute(mpg, mpg_predicted = mtcars_predict_mpg(disp, cyl)) %>%
 #'   collect() %>%
 #'   head()
+#' Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 #'
 register_scalar_function <- function(name, fun, in_type, out_type,
                                      auto_convert = FALSE) {

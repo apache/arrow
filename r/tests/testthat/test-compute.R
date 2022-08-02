@@ -81,6 +81,8 @@ test_that("arrow_scalar_function() works with auto_convert = TRUE", {
 
 test_that("register_scalar_function() adds a compute function to the registry", {
   skip_if_not(CanRunWithCapturedR())
+  # until R_ARROW_COLLECT_WITH_UDF is no longer needed to slience valgrind
+  skip_on_linux_devel()
 
   register_scalar_function(
     "times_32",
