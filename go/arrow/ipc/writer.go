@@ -25,6 +25,7 @@ import (
 	"io"
 	"math"
 	"sync"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -574,6 +575,100 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		w.depth++
 
+	case *arrow.SparseUnionType:
+		offset, length := arr.Data().Offset(), arr.Len()
+		arr := arr.(*array.SparseUnion)
+		typeCodes := getTruncatedBuffer(int64(offset), int64(length), int32(unsafe.Sizeof(arrow.UnionTypeCode(0))), arr.TypeCodes())
+		p.body = append(p.body, typeCodes)
+
+		w.depth--
+		for i := 0; i < arr.NumFields(); i++ {
+			err := w.visit(p, arr.Field(i))
+			if err != nil {
+				return fmt.Errorf("could not visit field %d of sparse union array: %w", i, err)
+			}
+		}
+		w.depth++
+	case *arrow.DenseUnionType:
+		offset, length := arr.Data().Offset(), arr.Len()
+		arr := arr.(*array.DenseUnion)
+		typeCodes := getTruncatedBuffer(int64(offset), int64(length), int32(unsafe.Sizeof(arrow.UnionTypeCode(0))), arr.TypeCodes())
+		p.body = append(p.body, typeCodes)
+
+		w.depth--
+		dt := arr.UnionType()
+
+		// union type codes are not necessarily 0-indexed
+		maxCode := dt.MaxTypeCode()
+
+		// allocate an array of child offsets. Set all to -1 to indicate we
+		// haven't observed a first occurrence of a particular child yet
+		offsets := make([]int32, maxCode+1)
+		lengths := make([]int32, maxCode+1)
+		offsets[0], lengths[0] = -1, 0
+		for i := 1; i < len(offsets); i *= 2 {
+			copy(offsets[i:], offsets[:i])
+			copy(lengths[i:], lengths[:i])
+		}
+
+		var valueOffsets *memory.Buffer
+		if offset != 0 {
+			// this case sucks. Because the offsets are different for each
+			// child array, when we have a sliced array, we need to re-base
+			// the value offsets for each array! ew.
+
+			unshiftedOffsets := arr.RawValueOffsets()
+			codes := arr.RawTypeCodes()
+
+			shiftedOffsetsBuf := memory.NewResizableBuffer(w.mem)
+			shiftedOffsetsBuf.Resize(arrow.Int32Traits.BytesRequired(length))
+			shiftedOffsets := arrow.Int32Traits.CastFromBytes(shiftedOffsetsBuf.Bytes())
+
+			// offsets may not be ascending, so we need to find out the start offset for each child
+			for i, c := range codes {
+				if offsets[c] == -1 {
+					offsets[c] = unshiftedOffsets[i]
+				} else {
+					offsets[c] = minI32(offsets[c], unshiftedOffsets[i])
+				}
+			}
+
+			// now compute shifted offsets by subtracting child offset
+			for i, c := range codes {
+				shiftedOffsets[i] = unshiftedOffsets[i] - offsets[c]
+				lengths[c] = maxI32(lengths[c], shiftedOffsets[i]+1)
+			}
+			valueOffsets = shiftedOffsetsBuf
+		} else {
+			valueOffsets = getTruncatedBuffer(int64(offset), int64(length), int32(arrow.Int32SizeBytes), arr.ValueOffsets())
+		}
+		p.body = append(p.body, valueOffsets)
+
+		// visit children and slice accordingly
+		for i := range dt.Fields() {
+			child := arr.Field(i)
+			// for sliced unions it's tricky to know how much to truncate
+			// the children. For now we'll truncate the children to be
+			// no longer than the parent union.
+
+			if offset != 0 {
+				code := dt.TypeCodes()[i]
+				childOffset := offsets[code]
+				childLen := lengths[code]
+
+				if childOffset > 0 {
+					child = array.NewSlice(child, int64(childOffset), int64(childOffset+childLen))
+					defer child.Release()
+				} else if childLen < int32(child.Len()) {
+					child = array.NewSlice(child, 0, int64(childLen))
+					defer child.Release()
+				}
+			}
+			if err := w.visit(p, child); err != nil {
+				return fmt.Errorf("could not visit field %d of dense union array: %w", i, err)
+			}
+		}
+		w.depth++
 	case *arrow.MapType:
 		arr := arr.(*array.Map)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
@@ -755,6 +850,19 @@ func newTruncatedBitmap(mem memory.Allocator, offset, length int64, input *memor
 	}
 }
 
+func getTruncatedBuffer(offset, length int64, byteWidth int32, buf *memory.Buffer) *memory.Buffer {
+	if buf == nil {
+		return buf
+	}
+
+	paddedLen := paddedLength(length*int64(byteWidth), kArrowAlignment)
+	if offset != 0 || paddedLen < int64(buf.Len()) {
+		return memory.SliceBuffer(buf, int(offset*int64(byteWidth)), int(minI64(paddedLen, int64(buf.Len()))))
+	}
+	buf.Retain()
+	return buf
+}
+
 func needTruncate(offset int64, buf *memory.Buffer, minLength int64) bool {
 	if buf == nil {
 		return false
@@ -764,6 +872,20 @@ func needTruncate(offset int64, buf *memory.Buffer, minLength int64) bool {
 
 func minI64(a, b int64) int64 {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func minI32(a, b int32) int32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxI32(a, b int32) int32 {
+	if a > b {
 		return a
 	}
 	return b

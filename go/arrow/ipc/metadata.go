@@ -18,6 +18,7 @@ package ipc
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -434,6 +435,30 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		field.Type = dt.ValueType
 		fv.visit(field)
 
+	case arrow.UnionType:
+		fv.dtype = flatbuf.TypeUnion
+		offsets := make([]flatbuffers.UOffsetT, len(dt.Fields()))
+		for i, field := range dt.Fields() {
+			offsets[i] = fieldToFB(fv.b, fv.pos.Child(int32(i)), field, fv.memo)
+		}
+		typeIDs := make([]int32, len(dt.TypeCodes()))
+		for i, c := range dt.TypeCodes() {
+			typeIDs[i] = int32(c)
+		}
+		fbTypeIDs := fv.b.CreateByteVector(arrow.Int32Traits.CastToBytes(typeIDs))
+		flatbuf.UnionStart(fv.b)
+		switch dt.Mode() {
+		case arrow.SparseMode:
+			flatbuf.UnionAddMode(fv.b, flatbuf.UnionModeSparse)
+		case arrow.DenseMode:
+			flatbuf.UnionAddMode(fv.b, flatbuf.UnionModeDense)
+		default:
+			panic("invalid union mode")
+		}
+		flatbuf.UnionAddTypeIds(fv.b, fbTypeIDs)
+		fv.offset = flatbuf.UnionEnd(fv.b)
+		fv.kids = append(fv.kids, offsets...)
+
 	default:
 		err := fmt.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
@@ -688,6 +713,40 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil
+
+	case flatbuf.TypeUnion:
+		var dt flatbuf.Union
+		dt.Init(data.Bytes, data.Pos)
+		var (
+			mode    arrow.UnionMode
+			typeIDs []arrow.UnionTypeCode
+		)
+
+		switch dt.Mode() {
+		case flatbuf.UnionModeSparse:
+			mode = arrow.SparseMode
+		case flatbuf.UnionModeDense:
+			mode = arrow.DenseMode
+		}
+
+		typeIDLen := dt.TypeIdsLength() / arrow.Int32SizeBytes
+
+		if typeIDLen == 0 {
+			for i := range children {
+				typeIDs = append(typeIDs, int8(i))
+			}
+		} else {
+			for i := 0; i < typeIDLen; i++ {
+				id := dt.TypeIds(i)
+				code := arrow.UnionTypeCode(id)
+				if int32(code) != id {
+					return nil, errors.New("union type id out of bounds")
+				}
+				typeIDs = append(typeIDs, code)
+			}
+		}
+
+		return arrow.UnionOf(mode, children, typeIDs), nil
 
 	case flatbuf.TypeTime:
 		var dt flatbuf.Time

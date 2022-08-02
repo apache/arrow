@@ -495,6 +495,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		defer storage.Release()
 		return array.NewData(dt, storage.Len(), storage.Buffers(), storage.Children(), storage.NullN(), storage.Offset())
 
+	case arrow.UnionType:
+		return ctx.loadUnion(dt)
+
 	default:
 		panic(fmt.Errorf("array type %T not handled yet", dt))
 	}
@@ -615,6 +618,45 @@ func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData 
 	}()
 
 	return array.NewData(dt, int(field.Length()), buffers, subs, int(field.NullCount()), 0)
+}
+
+func (ctx *arrayLoaderContext) loadUnion(dt arrow.UnionType) arrow.ArrayData {
+	nBuffers := 2
+	if dt.Mode() == arrow.DenseMode {
+		nBuffers = 3
+	}
+
+	field, buffers := ctx.loadCommon(nBuffers)
+	if field.NullCount() != 0 && buffers[0] != nil {
+		panic("cannot read pre-1.0.0 union array with top-level validity bitmap")
+	}
+
+	switch field.Length() {
+	case 0:
+		buffers = append(buffers, memory.NewBufferBytes([]byte{}))
+		ctx.ibuffer++
+		if dt.Mode() == arrow.DenseMode {
+			buffers = append(buffers, nil)
+			ctx.ibuffer++
+		}
+	default:
+		buffers = append(buffers, ctx.buffer())
+		if dt.Mode() == arrow.DenseMode {
+			buffers = append(buffers, ctx.buffer())
+		}
+	}
+
+	defer releaseBuffers(buffers)
+	subs := make([]arrow.ArrayData, len(dt.Fields()))
+	for i, f := range dt.Fields() {
+		subs[i] = ctx.loadChild(f.Type)
+	}
+	defer func() {
+		for i := range subs {
+			subs[i].Release()
+		}
+	}()
+	return array.NewData(dt, int(field.Length()), buffers, subs, 0, 0)
 }
 
 func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker, swapEndianness bool, mem memory.Allocator) (dictutils.Kind, error) {

@@ -917,8 +917,8 @@ func makeUnionRecords() []arrow.Record {
 		{Name: "dense", Type: denseType, Nullable: true},
 	}, nil)
 
-	sparseChildren := make([]arrow.Array, 2)
-	denseChildren := make([]arrow.Array, 2)
+	sparseChildren := make([]arrow.Array, 4)
+	denseChildren := make([]arrow.Array, 4)
 
 	const length = 7
 
@@ -927,22 +927,35 @@ func makeUnionRecords() []arrow.Record {
 	defer sparseChildren[0].Release()
 	sparseChildren[1] = arrayOf(mem, []uint8{10, 11, 12, 13, 14, 15, 16}, nil)
 	defer sparseChildren[1].Release()
+	sparseChildren[2] = arrayOf(mem, []int32{0, -1, -2, -3, -4, -5, -6}, nil)
+	defer sparseChildren[2].Release()
+	sparseChildren[3] = arrayOf(mem, []uint8{100, 101, 102, 103, 104, 105, 106}, nil)
+	defer sparseChildren[3].Release()
 
 	denseChildren[0] = arrayOf(mem, []int32{0, 2, 3, 7}, nil)
 	defer denseChildren[0].Release()
 	denseChildren[1] = arrayOf(mem, []uint8{11, 14, 15}, nil)
 	defer denseChildren[1].Release()
+	denseChildren[2] = arrayOf(mem, []int32{0, -2, -3, -7}, nil)
+	defer denseChildren[2].Release()
+	denseChildren[3] = arrayOf(mem, []uint8{101, 104, 105}, nil)
+	defer denseChildren[3].Release()
 
 	offsetsBuffer := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes([]int32{0, 0, 1, 2, 1, 2, 3}))
-	sparse := array.NewSparseUnion(sparseType, length, sparseChildren, typeIDsBuffer, 0)
-	dense := array.NewDenseUnion(denseType, length, denseChildren, typeIDsBuffer, offsetsBuffer, 0)
+	sparse1 := array.NewSparseUnion(sparseType, length, sparseChildren[:2], typeIDsBuffer, 0)
+	dense1 := array.NewDenseUnion(denseType, length, denseChildren[:2], typeIDsBuffer, offsetsBuffer, 0)
 
-	defer sparse.Release()
-	defer dense.Release()
+	sparse2 := array.NewSparseUnion(sparseType, length, sparseChildren[2:], typeIDsBuffer, 0)
+	dense2 := array.NewDenseUnion(denseType, length, denseChildren[2:], typeIDsBuffer, offsetsBuffer, 0)
 
-	rec := array.NewRecord(schema, []arrow.Array{sparse, dense}, -1)
-	rec.Retain()
-	return []arrow.Record{rec, rec}
+	defer sparse1.Release()
+	defer dense1.Release()
+	defer sparse2.Release()
+	defer dense2.Release()
+
+	return []arrow.Record{
+		array.NewRecord(schema, []arrow.Array{sparse1, dense1}, -1),
+		array.NewRecord(schema, []arrow.Array{sparse2, dense2}, -1)}
 }
 
 func extArray(mem memory.Allocator, dt arrow.ExtensionType, a interface{}, valids []bool) arrow.Array {
