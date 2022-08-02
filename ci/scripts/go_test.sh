@@ -21,16 +21,16 @@ set -ex
 
 source_dir=${1}/go
 
-testargs="-race"
+testargs="-race -asan"
 case "$(uname)" in
     MINGW*)
-        # -race doesn't work on windows currently
+        # -asan and -race don't work on windows currently
         testargs=""
         ;;
 esac
 
 if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
-    testargs="" # -race not supported on s390x
+    testargs="" # -race and -asan not supported on s390x
 fi
 
 # Go static check (skipped in MinGW)
