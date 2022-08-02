@@ -216,7 +216,7 @@ class AwsRetryStrategy : public S3RetryStrategy {
 
   bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
-    return retry_strategy_->ShouldRetry(error, (long)attempted_retries);
+    return retry_strategy_->ShouldRetry(error, static_cast<long>(attempted_retries));
   }
 
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& detail,
