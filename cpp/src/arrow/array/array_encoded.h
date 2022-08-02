@@ -54,8 +54,30 @@ class ARROW_EXPORT RunLengthEncodedArray : public Array {
 
   RunLengthEncodedArray(const std::shared_ptr<DataType>& type, int64_t length,
                         std::shared_ptr<Array>& values_array,
-                        std::shared_ptr<Buffer> run_ends_buffer,
-                        int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                        std::shared_ptr<Buffer> run_ends_buffer, int64_t offset = 0);
+
+  /// \brief Construct a RunLengthEncodedArray from values and run ends arrays
+  ///
+  /// The data type is automatically inferred from the arguments.
+  /// The run_ends_array and values_array must be the same length.
+  static Result<std::shared_ptr<RunLengthEncodedArray>> Make(
+      std::shared_ptr<Array>& values_array, std::shared_ptr<Array>& run_ends_array,
+      int64_t logical_length, int64_t offset = 0);
+
+  /// \brief Returns an array holding the values of each run. This function does apply
+  /// neiher the physical offset to the array
+  std::shared_ptr<Array> values_array() const;
+
+  /// \brief Returns the buffer holding the logical indexes of each run end. This function
+  /// does apply neiher the physical offset to the start of the buffer nor the logical
+  /// offset to the values.
+  std::shared_ptr<Buffer> run_ends_buffer() const;
+
+  /// \brief Returns a pointer to logical indexes of each run end. This function does
+  /// apply neiher the physical offset to the start of the buffer nor the logical offset
+  /// to the values. This function does only work if the run ends are stored in a CPU
+  /// buffer.
+  const int32_t* run_ends() const;
 };
 
 /// @}
