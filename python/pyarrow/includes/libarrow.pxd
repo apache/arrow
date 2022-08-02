@@ -1377,11 +1377,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CTransformInputStreamVTable vtable,
         object method_arg)
 
-    shared_ptr[function[StreamWrapFunc]] MakeStreamTransformLibFunc \
-        "arrow::py::MakeStreamTransformLibFunc"(
-        c_string encoding,
-        c_string lib_name)
-
     # ----------------------------------------------------------------------
     # HDFS
 

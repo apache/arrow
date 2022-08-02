@@ -290,9 +290,9 @@ cdef class ReadOptions(_Weakrefable):
     @property
     def encoding(self):
         """
-        Character encoding used for this input. Default UTF-8".
+        Character encoding used for this input. Default UTF-8.
         """
-        return deref(self.options).encoding
+        return frombytes(deref(self.options).encoding)
 
     @encoding.setter
     def encoding(self, value):

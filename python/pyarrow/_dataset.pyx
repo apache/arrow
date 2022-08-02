@@ -1282,19 +1282,16 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     @property
     def read_options(self):
-        read_options = ReadOptions.wrap(self.csv_options.read_options)
-        return read_options
+        return ReadOptions.wrap(self.csv_options.read_options)
 
     @read_options.setter
     def read_options(self, ReadOptions read_options not None):
         self.csv_options.read_options = deref(read_options.options)
 
-    def add_transcoder(self, src_encoding, transcoding_library):
+    def set_transcoder(self, src_encoding):
         if src_encoding != 'utf8':
             self.csv_options.stream_transform_func = deref(
-                #make_streamwrap_func(src_encoding, dest_encoding))
-                MakeStreamTransformLibFunc(tobytes(src_encoding), 
-                    tobytes(transcoding_library)))
+                make_streamwrap_func(src_encoding, 'utf8'))
 
     def equals(self, CsvFragmentScanOptions other):
         return (

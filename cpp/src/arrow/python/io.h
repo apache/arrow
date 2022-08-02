@@ -117,7 +117,5 @@ using StreamWrapFunc = std::function<Result<std::shared_ptr<io::InputStream>>(
 std::shared_ptr<StreamWrapFunc> MakeStreamTransformFunc(TransformInputStreamVTable vtable,
                                                         PyObject* handler);
 
-std::shared_ptr<StreamWrapFunc> MakeStreamTransformLibFunc(std::string encoding, std::string lib_name);
-
 }  // namespace py
 }  // namespace arrow

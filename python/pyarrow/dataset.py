@@ -434,9 +434,8 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     """
     format = _ensure_format(format or 'parquet')
     if isinstance(format, CsvFileFormat):
-        format.default_fragment_scan_options.add_transcoder(
-            format.default_fragment_scan_options.read_options.encoding,
-            "libiconv")
+        format.default_fragment_scan_options.set_transcoder(
+            format.default_fragment_scan_options.read_options.encoding)
 
     partitioning = _ensure_partitioning(partitioning)
 
