@@ -19,7 +19,7 @@
 
 This directory contains a vendored version of Flatbuffers
 (unknown changeset), with two patches: the first patch
-for ARROW-15388 and the second patch for ARROW-TODO XXX.
+for ARROW-15388 and the second patch for ARROW-17280.
 
 ```diff
 diff --git a/cpp/thirdparty/flatbuffers/include/flatbuffers/base.h b/cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
