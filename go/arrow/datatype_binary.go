@@ -16,7 +16,14 @@
 
 package arrow
 
+// OffsetTraits is a convenient interface over the various type traits
+// constants such as arrow.Int32Traits allowing types with offsets, like
+// BinaryType, StringType, LargeBinaryType and LargeStringType to have
+// a method to return information about their offset type and how many bytes
+// would be required to allocate an offset buffer for them.
 type OffsetTraits interface {
+	// BytesRequired returns the number of bytes required to be allocated
+	// in order to hold the passed in number of elements of this type.
 	BytesRequired(int) int
 }
 
