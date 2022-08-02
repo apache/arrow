@@ -147,6 +147,7 @@ std::shared_ptr<arrow::Table> ExecPlan_read_table(
         return prepared_plan.second->ToTable();
       });
 
+  prepared_plan.first->StopProducing();
   return ValueOrStop(result);
 }
 
