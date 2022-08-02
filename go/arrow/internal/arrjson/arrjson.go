@@ -767,7 +767,7 @@ type Array struct {
 	Valids   []int                 `json:"VALIDITY,omitempty"`
 	Data     []interface{}         `json:"DATA,omitempty"`
 	TypeID   []arrow.UnionTypeCode `json:"TYPE_ID,omitempty"`
-	Offset   []int32               `json:"OFFSET,omitempty"`
+	Offset   interface{}           `json:"OFFSET,omitempty"`
 	Children []Array               `json:"children,omitempty"`
 }
 
@@ -1185,7 +1185,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer typeIdBuf.Release()
 		buffers := []*memory.Buffer{nil, typeIdBuf}
 		if dt.Mode() == arrow.DenseMode {
-			offsetBuf := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))
+			offsetBuf := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))
 			defer offsetBuf.Release()
 			buffers = append(buffers, offsetBuf)
 		}
