@@ -21,7 +21,8 @@ set -ex
 
 source_dir=${1}/go
 
-testargs="-race -asan"
+# when we upgrade to at least go1.18, we can add the new -asan option here
+testargs="-race"
 case "$(uname)" in
     MINGW*)
         # -asan and -race don't work on windows currently
