@@ -180,6 +180,7 @@ unfold_across <- function(.data, quos_in){
             new_colname <- col
           } else {
             # column name is either the name of the item or index
+            # i - 1 because we exclude list
             col_suffix <- names(funcs)[[i]]
             if (col_suffix == "") {
               col_suffix <- i - 1
@@ -206,5 +207,4 @@ unfold_across <- function(.data, quos_in){
   }
 
   quos_out
-
 }
