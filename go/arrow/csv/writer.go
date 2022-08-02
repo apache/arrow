@@ -188,6 +188,35 @@ func (w *Writer) Write(record arrow.Record) error {
 					recs[i][j] = w.nullValue
 				}
 			}
+		case *arrow.Date32Type:
+			arr := col.(*array.Date32)
+			for i := 0; i < arr.Len(); i++ {
+				if arr.IsValid(i) {
+					recs[i][j] = arr.Value(i).FormattedString()
+				} else {
+					recs[i][j] = w.nullValue
+				}
+			}
+		case *arrow.Date64Type:
+			arr := col.(*array.Date64)
+			for i := 0; i < arr.Len(); i++ {
+				if arr.IsValid(i) {
+					recs[i][j] = arr.Value(i).FormattedString()
+				} else {
+					recs[i][j] = w.nullValue
+				}
+			}
+
+		case *arrow.TimestampType:
+			arr := col.(*array.Timestamp)
+			t := w.schema.Field(j).Type.(*arrow.TimestampType)
+			for i := 0; i < arr.Len(); i++ {
+				if arr.IsValid(i) {
+					recs[i][j] = arr.Value(i).ToTime(t.Unit).Format("2006-01-02 15:04:05.999999999")
+				} else {
+					recs[i][j] = w.nullValue
+				}
+			}
 		}
 	}
 
