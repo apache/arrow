@@ -64,11 +64,11 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
   ASSERT_EQ(rle_array->run_ends(), int32_values->data()->GetValues<int32_t>(1));
   ASSERT_EQ(rle_array->offset(), 0);
   // explicitly access null count variable so it is not calculated automatically
-  ASSERT_EQ(rle_array->data()->null_count, kUnknownNullCount);
+  ASSERT_EQ(rle_array->data()->null_count, 0);
 
-  // explicitly passing offset and null_count
+  // explicitly passing offset
   ASSERT_OK_AND_ASSIGN(rle_array,
-                       RunLengthEncodedArray::Make(string_values, int32_values, 2, 0, 1));
+                       RunLengthEncodedArray::Make(string_values, int32_values, 2, 1));
   ASSERT_EQ(rle_array->length(), 2);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *string_values);
   ASSERT_EQ(rle_array->run_ends(), int32_values->data()->GetValues<int32_t>(1));
