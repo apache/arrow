@@ -76,10 +76,10 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
   // explicitly access null count variable so it is not calculated automatically
   ASSERT_EQ(rle_array->data()->null_count, 0);
 
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Run ends array must be int32 type",
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Run ends array must be int32 type",
                              RunLengthEncodedArray::Make(int32_values, string_values, 3));
   ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Run ends array must be int32 type",
+      Invalid, "Invalid: Run ends array cannot contain null values",
       RunLengthEncodedArray::Make(int32_values, int32_only_null, 3));
 }
 
