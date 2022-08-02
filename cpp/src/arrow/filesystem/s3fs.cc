@@ -212,9 +212,7 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 // A wrapper to allow us to supply an Aws::Client::RetryStrategy as an S3RetryStrategy
 class AwsRetryStrategy : public S3RetryStrategy {
  public:
-  AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy) {
-    retry_strategy_ = retry_strategy;
-  }
+  AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy) : retry_strategy_(retry_strategy) {}
 
   bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
