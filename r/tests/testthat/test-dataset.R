@@ -1410,12 +1410,31 @@ test_that("can add in augmented fields", {
   )
 
   # this hits the implicit_schema path by joining afterwards
-  expect_error(
-    ds %>%
+  join_after <- ds %>%
       mutate(file = add_filename()) %>%
       left_join(open_dataset("another_dataset"), by = "int") %>%
-      collect(),
-    regexp = error_regex
+      collect()
+
+  expect_named(
+    join_after,
+    c("int", "dbl", "lgl", "chr", "fct", "ts", "group", "other", "file", "dbl2")
+  )
+
+  expect_equal(
+    sort(unique(join_after$file)),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+
+  # another test on the explicit_schema path
+  summarise_after <- ds %>%
+      mutate(file = add_filename()) %>%
+      group_by(file) %>%
+      summarise(max_int = max(int)) %>%
+      collect()
+
+  expect_equal(
+    sort(summarise_after$file),
+    list.files(hive_dir, full.names = TRUE, recursive = TRUE)
   )
 
 })

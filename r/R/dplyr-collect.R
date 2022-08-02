@@ -106,18 +106,18 @@ add_suffix <- function(fields, common_cols, suffix) {
 }
 
 implicit_schema <- function(.data) {
+  # Get the source data schema so that we can evaluate expressions to determine
+  # the output schema. Note that we don't use source_data() because we only
+  # want to go one level up (where we may have called implicit_schema() before)
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
-
-  missing_fields <- .data$selected_columns[
-    setdiff(
-      names(.data$selected_columns),
-      names(old_schm)
-    )]
-
-  purrr::iwalk(missing_fields, ~if(.x$field_name == "__filename") old_schm <<- old_schm$AddField(0, field(.y, string())))
+  # Add in any augmented fields that may exist in the query but not in the
+  # real data, in case we have FieldRefs to them
+  old_schm[["__filename"]] <- string()
 
   if (is.null(.data$aggregations)) {
+    # .data$selected_columns is a named list of Expressions (FieldRefs or
+    # something more complex). Bind them in order to determine their output type
     new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
     if (!is.null(.data$join) && !(.data$join$type %in% JoinType[1:4])) {
       # Add cols from right side, except for semi/anti joins
@@ -138,6 +138,7 @@ implicit_schema <- function(.data) {
       new_fields <- c(left_fields, right_fields)
     }
   } else {
+    # The output schema is based on the aggregations and any group_by vars
     new_fields <- map(summarize_projection(.data), ~ .$type(old_schm))
     # * Put group_by_vars first (this can't be done by summarize,
     #   they have to be last per the aggregate node signature,
