@@ -185,7 +185,10 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 		rowsRead := int64(0)
 
 		// get col reader for boolean column
-		colReader := rowGroupReader.Column(0)
+		colReader, err := rowGroupReader.Column(0)
+		if err != nil {
+			panic(err)
+		}
 		boolReader := colReader.(*file.BooleanColumnChunkReader)
 
 		// get column chunk metadata for boolean column
@@ -210,7 +213,10 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 		d.EqualValues(i, boolMd.NumValues())
 
 		// Get column reader for int32 column
-		colReader = rowGroupReader.Column(1)
+		colReader, err = rowGroupReader.Column(1)
+		if err != nil {
+			panic(err)
+		}
 		int32reader := colReader.(*file.Int32ColumnChunkReader)
 
 		int32md, _ := rgMeta.ColumnChunk(1)
@@ -232,7 +238,10 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 		d.EqualValues(i, int32md.NumValues())
 
 		// Get column reader for int64 column
-		colReader = rowGroupReader.Column(2)
+		colReader, err = rowGroupReader.Column(2)
+		if err != nil {
+			panic(err)
+		}
 		int64reader := colReader.(*file.Int64ColumnChunkReader)
 
 		int64md, _ := rgMeta.ColumnChunk(2)
@@ -265,7 +274,10 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 		d.EqualValues(i, int64md.NumValues())
 
 		// Get column reader for int96 column
-		colReader = rowGroupReader.Column(3)
+		colReader, err = rowGroupReader.Column(3)
+		if err != nil {
+			panic(err)
+		}
 		int96reader := colReader.(*file.Int96ColumnChunkReader)
 
 		int96md, _ := rgMeta.ColumnChunk(3)
@@ -297,7 +309,10 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 		// try to read them during the plaintext test.
 		if props.FileDecryptProps != nil {
 			// Get column reader for the float column
-			colReader = rowGroupReader.Column(4)
+			colReader, err = rowGroupReader.Column(4)
+			if err != nil {
+				panic(err)
+			}
 			floatReader := colReader.(*file.Float32ColumnChunkReader)
 
 			floatmd, _ := rgMeta.ColumnChunk(4)
@@ -320,7 +335,10 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 			d.EqualValues(i, floatmd.NumValues())
 
 			// Get column reader for the double column
-			colReader = rowGroupReader.Column(5)
+			colReader, err = rowGroupReader.Column(5)
+			if err != nil {
+				panic(err)
+			}
 			dblReader := colReader.(*file.Float64ColumnChunkReader)
 
 			dblmd, _ := rgMeta.ColumnChunk(5)
@@ -343,7 +361,10 @@ func (d *TestDecryptionSuite) decryptFile(filename string, decryptConfigNum int)
 			d.EqualValues(i, dblmd.NumValues())
 		}
 
-		colReader = rowGroupReader.Column(6)
+		colReader, err = rowGroupReader.Column(6)
+		if err != nil {
+			panic(err)
+		}
 		bareader := colReader.(*file.ByteArrayColumnChunkReader)
 
 		bamd, _ := rgMeta.ColumnChunk(6)

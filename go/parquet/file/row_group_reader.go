@@ -55,17 +55,17 @@ func (r *RowGroupReader) ByteSize() int64 { return r.rgMetadata.TotalByteSize() 
 // Column returns a column reader for the requested (0-indexed) column
 //
 // panics if passed a column not in the range [0, NumColumns)
-func (r *RowGroupReader) Column(i int) ColumnChunkReader {
+func (r *RowGroupReader) Column(i int) (ColumnChunkReader, error) {
 	if i >= r.NumColumns() || i < 0 {
-		panic(fmt.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns()))
+		return nil, fmt.Errorf("parquet: trying to read column index %d but row group metadata only has %d columns", i, r.rgMetadata.NumColumns())
 	}
 
 	descr := r.fileMetadata.Schema.Column(i)
 	pageRdr, err := r.GetColumnPageReader(i)
 	if err != nil {
-		panic(fmt.Errorf("parquet: unable to initialize page reader: %w", err))
+		return nil, fmt.Errorf("parquet: unable to initialize page reader: %w", err)
 	}
-	return NewColumnReader(descr, pageRdr, r.props.Allocator())
+	return NewColumnReader(descr, pageRdr, r.props.Allocator()), nil
 }
 
 func (r *RowGroupReader) GetColumnPageReader(i int) (PageReader, error) {

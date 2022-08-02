@@ -230,8 +230,12 @@ func main() {
 			scanners := make([]*Dumper, len(selectedColumns))
 			fields := make([]string, len(selectedColumns))
 			for idx, c := range selectedColumns {
-				scanners[idx] = createDumper(rgr.Column(c))
-				fields[idx] = rgr.Column(c).Descriptor().Path()
+				col, err := rgr.Column(c)
+				if err != nil {
+					log.Fatalf("unable to fetch column=%d err=%s", c, err)
+				}
+				scanners[idx] = createDumper(col)
+				fields[idx] = col.Descriptor().Path()
 			}
 
 			var line string
@@ -283,8 +287,12 @@ func main() {
 				if idx > 0 {
 					fmt.Fprint(dataOut, ",")
 				}
-				scanners[idx] = createDumper(rgr.Column(c))
-				fmt.Fprintf(dataOut, "%q", rgr.Column(c).Descriptor().Path())
+				col, err := rgr.Column(c)
+				if err != nil {
+					log.Fatalf("unable to fetch col=%d err=%s", c, err)
+				}
+				scanners[idx] = createDumper(col)
+				fmt.Fprintf(dataOut, "%q", col.Descriptor().Path())
 			}
 			fmt.Fprintln(dataOut)
 
@@ -334,8 +342,12 @@ func main() {
 
 			scanners := make([]*Dumper, len(selectedColumns))
 			for idx, c := range selectedColumns {
-				scanners[idx] = createDumper(rgr.Column(c))
-				fmt.Fprintf(dataOut, fmt.Sprintf("%%-%ds|", colwidth), rgr.Column(c).Descriptor().Name())
+				col, err := rgr.Column(c)
+				if err != nil {
+					log.Fatalf("unable to fetch column=%d err=%s", c, err)
+				}
+				scanners[idx] = createDumper(col)
+				fmt.Fprintf(dataOut, fmt.Sprintf("%%-%ds|", colwidth), col.Descriptor().Name())
 			}
 			fmt.Fprintln(dataOut)
 
