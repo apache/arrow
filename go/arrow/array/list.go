@@ -167,7 +167,7 @@ type LargeList struct {
 
 // NewLargeListData returns a new LargeList array value, from data.
 func NewLargeListData(data arrow.ArrayData) *LargeList {
-	a := &LargeList{}
+	a := new(LargeList)
 	a.refCount = 1
 	a.setData(data.(*Data))
 	return a
