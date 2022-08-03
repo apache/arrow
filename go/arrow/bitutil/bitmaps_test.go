@@ -522,8 +522,6 @@ func TestBitmapOps(t *testing.T) {
 	suite.Run(t, new(BitmapOpSuite))
 }
 
-const bufSize = 1024 * 8
-
 func createRandomBuffer(mem memory.Allocator, src *rand.Rand, nbytes int) []byte {
 	buf := mem.Allocate(nbytes)
 	src.Read(buf)
@@ -556,7 +554,7 @@ func BenchmarkBitmapAnd(b *testing.B) {
 	offsets := []int{0, 2}
 
 	for _, s := range sizes {
-		b.Run(fmt.Sprintf("nbytes=%d", sizes), func(b *testing.B) {
+		b.Run(fmt.Sprintf("nbytes=%d", s), func(b *testing.B) {
 			for _, o := range offsets {
 				name := "aligned"
 				if o != 0 {

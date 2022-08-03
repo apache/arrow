@@ -458,11 +458,30 @@ func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out [
 	default:
 		firstByteMask := PrecedingBitmask[lOffset%8]
 		out[0] = (out[0] & firstByteMask) | (op.opByte(left[0], right[0]) &^ firstByteMask)
-		for i := int64(1); i < nbytes-1; i++ {
-			out[i] = op.opByte(left[i], right[i])
+
+		var i int64 = 1
+		switch {
+		case nbytes-2 > int64(uint64SizeBytes):
+			// case where we have enough bytes to operate on words
+			leftWords := bytesToUint64(left[i:])
+			rightWords := bytesToUint64(right[i:])
+			outWords := bytesToUint64(out[i:])
+
+			for w := range outWords {
+				outWords[w] = op.opWord(leftWords[w], rightWords[w])
+			}
+
+			i += int64(len(outWords) * uint64SizeBytes)
+			fallthrough
+		case nbytes-2 < 8:
+			// grab any remaining bytes that were fewer than a word
+			for ; i < nbytes-1; i++ {
+				out[i] = op.opByte(left[i], right[i])
+			}
 		}
+
 		lastByteMask := TrailingBitmask[(lOffset+length)%8]
-		out[nbytes-1] = (out[nbytes-1] & lastByteMask) | (op.opByte(left[nbytes-1], right[nbytes-1]) &^ lastByteMask)
+		out[i] = (out[i] & lastByteMask) | (op.opByte(left[i], right[i]) &^ lastByteMask)
 	}
 }
 

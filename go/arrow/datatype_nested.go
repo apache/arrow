@@ -334,6 +334,8 @@ func (t *MapType) Layout() DataTypeLayout {
 }
 
 type (
+	// UnionTypeCode is an alias to int8 which is the type of the ids
+	// used for union arrays.
 	UnionTypeCode = int8
 	UnionMode     int8
 )
@@ -346,14 +348,37 @@ const (
 	DenseMode
 )
 
+// UnionType is an interface to encompass both Dense and Sparse Union types.
+//
+// A UnionType is a nested type where each logical value is taken
+// from a single child. A buffer of 8-bit type ids (typed as UnionTypeCode)
+// indicates which child a given logical value is to be taken from. This is
+// represented as the "child id" or "child index", which is the index into the
+// list of child fields for a given child.
 type UnionType interface {
 	NestedType
+	// Mode returns either SparseMode or DenseMode depending on the current
+	// concrete data type.
 	Mode() UnionMode
+	// ChildIDs returns a slice of ints to map UnionTypeCode values to
+	// the index in the Fields that represents the given Type. It is
+	// initialized with all values being InvalidUnionChildID (-1)
+	// before being populated based on the TypeCodes and fields of the type.
+	// The field for a given type can be retrieved by Fields()[ChildIDs()[typeCode]]
 	ChildIDs() []int
+	// TypeCodes returns the list of available type codes for this union type
+	// which will correspond to indexes into the ChildIDs slice to locate the
+	// appropriate child. A union Array contains a buffer of these type codes
+	// which indicate for a given index, which child has the value for that index.
 	TypeCodes() []UnionTypeCode
+	// MaxTypeCode returns the value of the largest TypeCode in the list of typecodes
+	// that are defined by this Union type
 	MaxTypeCode() UnionTypeCode
 }
 
+// UnionOf returns an appropriate union type for the given Mode (Sparse or Dense),
+// child fields, and type codes. len(fields) == len(typeCodes) must be true, or else
+// this will panic. len(fields) can be 0.
 func UnionOf(mode UnionMode, fields []Field, typeCodes []UnionTypeCode) UnionType {
 	switch mode {
 	case SparseMode:
@@ -463,10 +488,28 @@ func fieldsFromArrays(arrays []Array, names ...string) (ret []Field) {
 	return
 }
 
+// SparseUnionType is the concrete type for Sparse union data.
+//
+// A sparse union is a nested type where each logical value is taken
+// from a single child. A buffer of 8-bit type ids indicates which child
+// a given logical value is to be taken from.
+//
+// In a sparse union, each child array will have the same length as the
+// union array itself, regardless of the actual number of union values which
+// refer to it.
+//
+// Unlike most other types, unions do not have a top-level validity bitmap.
 type SparseUnionType struct {
 	unionType
 }
 
+// SparseUnionFromArrays enables creating a union type from a list of Arrays,
+// field names, and type codes. len(fields) should be either 0 or equal to len(children).
+// len(codes) should also be either 0, or equal to len(children).
+//
+// If len(fields) == 0, then the fields will be named numerically as "0", "1", "2"...
+// and so on. If len(codes) == 0, then the type codes will be constructed as
+// [0, 1, 2, ..., n].
 func SparseUnionFromArrays(children []Array, fields []string, codes []UnionTypeCode) *SparseUnionType {
 	if len(codes) == 0 {
 		codes = make([]UnionTypeCode, len(children))
@@ -477,6 +520,11 @@ func SparseUnionFromArrays(children []Array, fields []string, codes []UnionTypeC
 	return SparseUnionOf(fieldsFromArrays(children, fields...), codes)
 }
 
+// SparseUnionOf is equivalent to UnionOf(arrow.SparseMode, fields, typeCodes),
+// constructing a SparseUnionType from a list of fields and type codes.
+//
+// If len(fields) != len(typeCodes) this will panic. They are allowed to be
+// of length 0.
 func SparseUnionOf(fields []Field, typeCodes []UnionTypeCode) *SparseUnionType {
 	ret := &SparseUnionType{}
 	if err := ret.validate(fields, typeCodes, ret.Mode()); err != nil {
@@ -499,10 +547,31 @@ func (t *SparseUnionType) String() string {
 	return t.Name() + t.unionType.String()
 }
 
+// DenseUnionType is the concrete type for dense union data.
+//
+// A dense union is a nested type where each logical value is taken from a
+// single child, at a specific offset. A buffer of 8-bit type ids (typed
+// as UnionTypeCode) indicates which child a given logical value is to be
+// taken from and a buffer of 32-bit offsets indicating which physical position
+// in the given child array has the logical value for that index.
+//
+// Unlike a sparse union, a dense union allows encoding only the child values
+// which are actually referred to by the union array. This is counterbalanced
+// by the additional footprint of the offsets buffer, and the additional
+// indirection cost when looking up values.
+//
+// Unlike most other types, unions don't have a top-level validity bitmap
 type DenseUnionType struct {
 	unionType
 }
 
+// DenseUnionFromArrays enables creating a union type from a list of Arrays,
+// field names, and type codes. len(fields) should be either 0 or equal to len(children).
+// len(codes) should also be either 0, or equal to len(children).
+//
+// If len(fields) == 0, then the fields will be named numerically as "0", "1", "2"...
+// and so on. If len(codes) == 0, then the type codes will be constructed as
+// [0, 1, 2, ..., n].
 func DenseUnionFromArrays(children []Array, fields []string, codes []UnionTypeCode) *DenseUnionType {
 	if len(codes) == 0 {
 		codes = make([]UnionTypeCode, len(children))
@@ -513,6 +582,11 @@ func DenseUnionFromArrays(children []Array, fields []string, codes []UnionTypeCo
 	return DenseUnionOf(fieldsFromArrays(children, fields...), codes)
 }
 
+// DenseUnionOf is equivalent to UnionOf(arrow.DenseMode, fields, typeCodes),
+// constructing a SparseUnionType from a list of fields and type codes.
+//
+// If len(fields) != len(typeCodes) this will panic. They are allowed to be
+// of length 0.
 func DenseUnionOf(fields []Field, typeCodes []UnionTypeCode) *DenseUnionType {
 	ret := &DenseUnionType{}
 	if err := ret.validate(fields, typeCodes, ret.Mode()); err != nil {

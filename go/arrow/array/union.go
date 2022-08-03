@@ -33,16 +33,45 @@ import (
 	"github.com/goccy/go-json"
 )
 
+// Union is a convenience interface to encompass both Sparse and Dense
+// union array types.
 type Union interface {
 	arrow.Array
+	// NumFields returns the number of child fields in this union.
+	// Equivalent to len(UnionType().Fields())
+	NumFields() int
+	// Validate returns an error if there are any issues with the lengths
+	// or types of the children arrays mismatching with the Type of the
+	// Union Array. nil is returned if there are no problems.
 	Validate() error
+	// ValidateFull runs the same checks that Validate() does, but additionall
+	// checks that all childIDs are valid (>= 0 || ==InvalidID) and for
+	// dense unions validates that all offsets are within the bounds of their
+	// respective child.
 	ValidateFull() error
+	// TypeCodes returns the type id buffer for the union Array, equivalent to
+	// Data().Buffers()[1]. Note: This will not account for any slice offset.
 	TypeCodes() *memory.Buffer
+	// RawTypeCodes returns a slice of UnionTypeCodes properly accounting for
+	// any slice offset.
 	RawTypeCodes() []arrow.UnionTypeCode
+	// TypeCode returns the logical type code of the value at the requested index
 	TypeCode(i int) arrow.UnionTypeCode
+	// ChildID returns the index of the physical child containing the value
+	// at the requested index. Equivalent to:
+	//
+	// 	arr.UnionType().ChildIDs()[arr.RawTypeCodes()[i+arr.Data().Offset()]]
 	ChildID(i int) int
+	// UnionType is a convenience function to retrieve the properly typed UnionType
+	// instead of having to call DataType() and manually assert the type.
 	UnionType() arrow.UnionType
+	// Mode returns the union mode of the underlying Array, either arrow.SparseMode
+	// or arrow.DenseMode.
 	Mode() arrow.UnionMode
+	// Field returns the requested child array for this union. Returns nil if a
+	// non-existent position is passed in.
+	//
+	// The appropriate child for an index can be retrieved with Field(ChildID(index))
 	Field(pos int) arrow.Array
 }
 
@@ -188,10 +217,22 @@ func (a *union) ValidateFull() error {
 	return nil
 }
 
+// SparseUnion represents an array where each logical value is taken from
+// a single child. A buffer of 8-bit type ids indicates which child a given
+// logical value is to be taken from. This is represented as the ChildID,
+// which is the index into the list of children.
+//
+// In a sparse union, each child array will have the same length as the
+// union array itself, regardless of how many values in the union actually
+// refer to it.
+//
+// Unlike most other arrays, unions do not have a top-level validity bitmap.
 type SparseUnion struct {
 	union
 }
 
+// NewSparseUnion constructs a union array using the given type, length, list of
+// children and buffer of typeIDs with the given offset.
 func NewSparseUnion(dt *arrow.SparseUnionType, length int, children []arrow.Array, typeIDs *memory.Buffer, offset int) *SparseUnion {
 	childData := make([]arrow.ArrayData, len(children))
 	for i, c := range children {
@@ -202,6 +243,7 @@ func NewSparseUnion(dt *arrow.SparseUnionType, length int, children []arrow.Arra
 	return NewSparseUnionData(data)
 }
 
+// NewSparseUnionData constructs a SparseUnion array from the given ArrayData object.
 func NewSparseUnionData(data arrow.ArrayData) *SparseUnion {
 	a := &SparseUnion{}
 	a.refCount = 1
@@ -209,14 +251,33 @@ func NewSparseUnionData(data arrow.ArrayData) *SparseUnion {
 	return a
 }
 
+// NewSparseUnionFromArrays constructs a new SparseUnion array with the provided
+// values.
+//
+// typeIDs *must* be an INT8 array with no nulls
+// len(codes) *must* be either 0 or equal to len(children). If len(codes) is 0,
+// the type codes used will be sequentially numeric starting at 0.
 func NewSparseUnionFromArrays(typeIDs arrow.Array, children []arrow.Array, codes ...arrow.UnionTypeCode) (*SparseUnion, error) {
 	return NewSparseUnionFromArraysWithFieldCodes(typeIDs, children, []string{}, codes)
 }
 
+// NewSparseUnionFromArrayWithFields constructs a new SparseUnion array like
+// NewSparseUnionFromArrays, but allows specifying the field names. Type codes
+// will be auto-generated sequentially starting at 0.
+//
+// typeIDs *must* be an INT8 array with no nulls.
+// len(fields) *must* either be 0 or equal to len(children). If len(fields) is 0,
+// then the fields will be named sequentially starting at "0".
 func NewSparseUnionFromArraysWithFields(typeIDs arrow.Array, children []arrow.Array, fields []string) (*SparseUnion, error) {
 	return NewSparseUnionFromArraysWithFieldCodes(typeIDs, children, fields, []arrow.UnionTypeCode{})
 }
 
+// NewSparseUnionFromArraysWithFieldCodes combines the other constructors
+// for constructing a new SparseUnion array with the provided field names
+// and type codes, along with children and type ids.
+//
+// All the requirements mentioned in NewSparseUnionFromArrays and
+// NewSparseUnionFromArraysWithFields apply.
 func NewSparseUnionFromArraysWithFieldCodes(typeIDs arrow.Array, children []arrow.Array, fields []string, codes []arrow.UnionTypeCode) (*SparseUnion, error) {
 	switch {
 	case typeIDs.DataType().ID() != arrow.INT8:
@@ -299,6 +360,11 @@ func (a *SparseUnion) String() string {
 	return b.String()
 }
 
+// GetFlattenedField returns a child array, adjusting its validity bitmap
+// where the union array type codes don't match.
+//
+// ie: the returned array will have a null in every index that it is
+// not referenced by union.
 func (a *SparseUnion) GetFlattenedField(mem memory.Allocator, index int) (arrow.Array, error) {
 	if index < 0 || index >= a.NumFields() {
 		return nil, fmt.Errorf("arrow/array: index out of range: %d", index)
@@ -388,11 +454,25 @@ func arraySparseUnionApproxEqual(l, r *SparseUnion, opt equalOption) bool {
 	return true
 }
 
+// DenseUnion represents an array where each logical value is taken from
+// a single child, at a specific offset. A buffer of 8-bit type ids
+// indicates which child a given logical value is to be taken from and
+// a buffer of 32-bit offsets indicating which physical position in the
+// given child array has the logical value for that index.
+//
+// Unlike a sparse union, a dense union allows encoding only the child values
+// which are actually referred to by the union array. This is counterbalanced
+// by the additional footprint of the offsets buffer, and the additional
+// indirection cost when looking up values.
+//
+// Unlike most other arrays, unions do not have a top-level validity bitmap.
 type DenseUnion struct {
 	union
 	offsets []int32
 }
 
+// NewDenseUnion constructs a union array using the given type, length, list of
+// children and buffers of typeIDs and offsets, with the given array offset.
 func NewDenseUnion(dt *arrow.DenseUnionType, length int, children []arrow.Array, typeIDs, valueOffsets *memory.Buffer, offset int) *DenseUnion {
 	childData := make([]arrow.ArrayData, len(children))
 	for i, c := range children {
@@ -404,6 +484,7 @@ func NewDenseUnion(dt *arrow.DenseUnionType, length int, children []arrow.Array,
 	return NewDenseUnionData(data)
 }
 
+// NewDenseUnionData constructs a DenseUnion array from the given ArrayData object.
 func NewDenseUnionData(data arrow.ArrayData) *DenseUnion {
 	a := &DenseUnion{}
 	a.refCount = 1
@@ -411,14 +492,35 @@ func NewDenseUnionData(data arrow.ArrayData) *DenseUnion {
 	return a
 }
 
+// NewDenseUnionFromArrays constructs a new DenseUnion array with the provided
+// values.
+//
+// typeIDs *must* be an INT8 array with no nulls
+// offsets *must* be an INT32 array with no nulls
+// len(codes) *must* be either 0 or equal to len(children). If len(codes) is 0,
+// the type codes used will be sequentially numeric starting at 0.
 func NewDenseUnionFromArrays(typeIDs, offsets arrow.Array, children []arrow.Array, codes ...arrow.UnionTypeCode) (*DenseUnion, error) {
 	return NewDenseUnionFromArraysWithFieldCodes(typeIDs, offsets, children, []string{}, codes)
 }
 
+// NewDenseUnionFromArrayWithFields constructs a new DenseUnion array like
+// NewDenseUnionFromArrays, but allows specifying the field names. Type codes
+// will be auto-generated sequentially starting at 0.
+//
+// typeIDs *must* be an INT8 array with no nulls.
+// offsets *must* be an INT32 array with no nulls.
+// len(fields) *must* either be 0 or equal to len(children). If len(fields) is 0,
+// then the fields will be named sequentially starting at "0".
 func NewDenseUnionFromArraysWithFields(typeIDs, offsets arrow.Array, children []arrow.Array, fields []string) (*DenseUnion, error) {
 	return NewDenseUnionFromArraysWithFieldCodes(typeIDs, offsets, children, fields, []arrow.UnionTypeCode{})
 }
 
+// NewDenseUnionFromArraysWithFieldCodes combines the other constructors
+// for constructing a new DenseUnion array with the provided field names
+// and type codes, along with children and type ids.
+//
+// All the requirements mentioned in NewDenseUnionFromArrays and
+// NewDenseUnionFromArraysWithFields apply.
 func NewDenseUnionFromArraysWithFieldCodes(typeIDs, offsets arrow.Array, children []arrow.Array, fields []string, codes []arrow.UnionTypeCode) (*DenseUnion, error) {
 	switch {
 	case offsets.DataType().ID() != arrow.INT32:
@@ -472,11 +574,11 @@ func (a *DenseUnion) getOneForMarshal(i int) interface{} {
 	field := a.unionType.Fields()[childID]
 	data := a.Field(childID)
 
-	if data.IsNull(i) {
+	offsets := a.RawValueOffsets()
+	if data.IsNull(int(offsets[i])) {
 		return nil
 	}
 
-	offsets := a.RawValueOffsets()
 	return map[string]interface{}{field.Name: data.(arraymarshal).getOneForMarshal(int(offsets[i]))}
 }
 
@@ -559,12 +661,25 @@ func arrayDenseUnionApproxEqual(l, r *DenseUnion, opt equalOption) bool {
 	return true
 }
 
+// UnionBuilder is a convenience interface for building Union arrays of
+// either Dense or Sparse mode.
 type UnionBuilder interface {
 	Builder
-	AppendNulls(int)
-	AppendEmptyValues(int)
+	// AppendNulls appends n nulls to the array
+	AppendNulls(n int)
+	// AppendEmptyValues appends n empty zero values to the array
+	AppendEmptyValues(n int)
+	// AppendChild allows constructing the union type on the fly by making new
+	// new array builder available to the union builder. The type code (index)
+	// of the new child is returned, which should be passed to the Append method
+	// when adding a new element to the union array.
 	AppendChild(newChild Builder, fieldName string) (newCode arrow.UnionTypeCode)
+	// Append adds an element to the UnionArray indicating which typecode the
+	// new element should use. This *must* be followed up by an append to the
+	// appropriate child builder.
 	Append(arrow.UnionTypeCode)
+	// Mode returns what kind of Union is being built, either arrow.SparseMode
+	// or arrow.DenseMode
 	Mode() arrow.UnionMode
 }
 
@@ -703,24 +818,42 @@ func (b *unionBuilder) newData() *Data {
 	return NewData(b.Type(), length, []*memory.Buffer{nil, typesBuffer}, childData, 0, 0)
 }
 
+// SparseUnionBuilder is used to build a Sparse Union array using the Append
+// methods. You can also add new types to the union on the fly by using
+// AppendChild.
+//
+// Keep in mind: All children of a SparseUnion should be the same length
+// as the union itself. If you add new children with AppendChild, ensure
+// that they have the correct number of preceding elements that have been
+// added to the builder beforehand.
 type SparseUnionBuilder struct {
 	unionBuilder
 }
 
+// NewEmptySparseUnionBuilder is a helper to construct a SparseUnionBuilder
+// without having to predefine the union types. It creates a builder with no
+// children and AppendChild will have to be called before appending any
+// elements to this builder.
 func NewEmptySparseUnionBuilder(mem memory.Allocator) *SparseUnionBuilder {
 	return &SparseUnionBuilder{
 		unionBuilder: newUnionBuilder(mem, nil, arrow.SparseUnionOf([]arrow.Field{}, []arrow.UnionTypeCode{})),
 	}
 }
 
+// NewSparseUnionBuilder constructs a new SparseUnionBuilder with the provided
+// children and type codes. Builders will be constructed for each child
+// using the fields in typ
 func NewSparseUnionBuilder(mem memory.Allocator, typ *arrow.SparseUnionType) *SparseUnionBuilder {
 	children := make([]Builder, len(typ.Fields()))
 	for i, f := range typ.Fields() {
 		children[i] = NewBuilder(mem, f.Type)
+		defer children[i].Release()
 	}
 	return NewSparseUnionBuilderWithBuilders(mem, typ, children)
 }
 
+// NewSparseUnionWithBuilders returns a new SparseUnionBuilder using the
+// provided type and builders.
 func NewSparseUnionBuilderWithBuilders(mem memory.Allocator, typ *arrow.SparseUnionType, children []Builder) *SparseUnionBuilder {
 	return &SparseUnionBuilder{
 		unionBuilder: newUnionBuilder(mem, children, typ),
@@ -735,6 +868,8 @@ func (b *SparseUnionBuilder) Resize(n int) {
 	b.typesBuilder.resize(n)
 }
 
+// AppendNull will append a null to the first child and an empty value
+// (implementation-defined) to the rest of the children.
 func (b *SparseUnionBuilder) AppendNull() {
 	firstChildCode := b.codes[0]
 	b.typesBuilder.AppendValue(firstChildCode)
@@ -744,6 +879,8 @@ func (b *SparseUnionBuilder) AppendNull() {
 	}
 }
 
+// AppendNulls is identical to calling AppendNull() n times, except
+// it will pre-allocate with reserve for all the nulls beforehand.
 func (b *SparseUnionBuilder) AppendNulls(n int) {
 	firstChildCode := b.codes[0]
 	b.Reserve(n)
@@ -759,6 +896,9 @@ func (b *SparseUnionBuilder) AppendNulls(n int) {
 	}
 }
 
+// AppendEmptyValue appends an empty value (implementation defined)
+// to each child, and appends the type of the first typecode to the typeid
+// buffer.
 func (b *SparseUnionBuilder) AppendEmptyValue() {
 	b.typesBuilder.AppendValue(b.codes[0])
 	for _, c := range b.codes {
@@ -766,6 +906,8 @@ func (b *SparseUnionBuilder) AppendEmptyValue() {
 	}
 }
 
+// AppendEmptyValues is identical to calling AppendEmptyValue() n times,
+// except it pre-allocates first so it is more efficient.
 func (b *SparseUnionBuilder) AppendEmptyValues(n int) {
 	b.Reserve(n)
 	firstChildCode := b.codes[0]
@@ -780,6 +922,14 @@ func (b *SparseUnionBuilder) AppendEmptyValues(n int) {
 	}
 }
 
+// Append appends an element to the UnionArray and must be followed up
+// by an append to the appropriate child builder. The parameter should
+// be the type id of the child to which the next value will be appended.
+//
+// After appending to the corresponding child builder, all other child
+// builders should have a null or empty value appended to them (although
+// this is not enfoced and any value is theoretically allowed and will be
+// ignored).
 func (b *SparseUnionBuilder) Append(nextType arrow.UnionTypeCode) {
 	b.typesBuilder.AppendValue(nextType)
 }
@@ -894,12 +1044,19 @@ func (b *SparseUnionBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
+// DenseUnionBuilder is used to build a Dense Union array using the Append
+// methods. You can also add new types to the union on the fly by using
+// AppendChild.
 type DenseUnionBuilder struct {
 	unionBuilder
 
 	offsetsBuilder *int32BufferBuilder
 }
 
+// NewEmptyDenseUnionBuilder is a helper to construct a DenseUnionBuilder
+// without having to predefine the union types. It creates a builder with no
+// children and AppendChild will have to be called before appending any
+// elements to this builder.
 func NewEmptyDenseUnionBuilder(mem memory.Allocator) *DenseUnionBuilder {
 	return &DenseUnionBuilder{
 		unionBuilder:   newUnionBuilder(mem, nil, arrow.DenseUnionOf([]arrow.Field{}, []arrow.UnionTypeCode{})),
@@ -907,14 +1064,20 @@ func NewEmptyDenseUnionBuilder(mem memory.Allocator) *DenseUnionBuilder {
 	}
 }
 
+// NewDenseUnionBuilder constructs a new DenseUnionBuilder with the provided
+// children and type codes. Builders will be constructed for each child
+// using the fields in typ
 func NewDenseUnionBuilder(mem memory.Allocator, typ *arrow.DenseUnionType) *DenseUnionBuilder {
 	children := make([]Builder, len(typ.Fields()))
 	for i, f := range typ.Fields() {
 		children[i] = NewBuilder(mem, f.Type)
+		defer children[i].Release()
 	}
 	return NewDenseUnionBuilderWithBuilders(mem, typ, children)
 }
 
+// NewDenseUnionWithBuilders returns a new DenseUnionBuilder using the
+// provided type and builders.
 func NewDenseUnionBuilderWithBuilders(mem memory.Allocator, typ *arrow.DenseUnionType, children []Builder) *DenseUnionBuilder {
 	return &DenseUnionBuilder{
 		unionBuilder:   newUnionBuilder(mem, children, typ),
@@ -931,6 +1094,8 @@ func (b *DenseUnionBuilder) Resize(n int) {
 	b.offsetsBuilder.resize(n * arrow.Int32SizeBytes)
 }
 
+// AppendNull will only append a null value arbitrarily to the first child
+// and use that offset for this element of the array.
 func (b *DenseUnionBuilder) AppendNull() {
 	firstChildCode := b.codes[0]
 	childBuilder := b.typeIDtoBuilder[firstChildCode]
@@ -939,6 +1104,10 @@ func (b *DenseUnionBuilder) AppendNull() {
 	childBuilder.AppendNull()
 }
 
+// AppendNulls will only append a single null arbitrarily to the first child
+// and use the same offset multiple times to point to it. The result is that
+// for a DenseUnion this is more efficient than calling AppendNull multiple
+// times in a loop
 func (b *DenseUnionBuilder) AppendNulls(n int) {
 	// only append 1 null to the child builder, use the same offset twice
 	firstChildCode := b.codes[0]
@@ -952,6 +1121,8 @@ func (b *DenseUnionBuilder) AppendNulls(n int) {
 	childBuilder.AppendNull()
 }
 
+// AppendEmptyValue only appends an empty value arbitrarily to the first child,
+// and then uses that offset to identify the value.
 func (b *DenseUnionBuilder) AppendEmptyValue() {
 	firstChildCode := b.codes[0]
 	childBuilder := b.typeIDtoBuilder[firstChildCode]
@@ -960,6 +1131,10 @@ func (b *DenseUnionBuilder) AppendEmptyValue() {
 	childBuilder.AppendEmptyValue()
 }
 
+// AppendEmptyValues, like AppendNulls, will only append a single empty value
+// (implementation defined) to the first child arbitrarily, and then point
+// at that value using the offsets n times. That makes this more efficient
+// than calling AppendEmptyValue multiple times.
 func (b *DenseUnionBuilder) AppendEmptyValues(n int) {
 	// only append 1 null to the child builder, use the same offset twice
 	firstChildCode := b.codes[0]
@@ -969,7 +1144,8 @@ func (b *DenseUnionBuilder) AppendEmptyValues(n int) {
 		b.typesBuilder.AppendValue(firstChildCode)
 		b.offsetsBuilder.AppendValue(int32(childBuilder.Len()))
 	}
-	// only append a single null to the child builder, the offsets all refer to the same value
+	// only append a single empty value to the child builder, the offsets all
+	// refer to the same value
 	childBuilder.AppendEmptyValue()
 }
 
@@ -1115,4 +1291,5 @@ var (
 	_ Builder      = (*SparseUnionBuilder)(nil)
 	_ Builder      = (*DenseUnionBuilder)(nil)
 	_ UnionBuilder = (*SparseUnionBuilder)(nil)
+	_ UnionBuilder = (*DenseUnionBuilder)(nil)
 )
