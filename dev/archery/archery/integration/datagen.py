@@ -1587,7 +1587,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_primitive_large_offsets_case([17, 20])
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('JS'),
 
         generate_null_case([10, 0])
@@ -1634,7 +1633,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_nested_large_offsets_case()
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('JS'),
 
         generate_unions_case()

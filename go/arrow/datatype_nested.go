@@ -98,6 +98,59 @@ func (ListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes)}}
 }
 
+func (ListType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+
+type LargeListType struct {
+	ListType
+}
+
+func (LargeListType) ID() Type     { return LARGE_LIST }
+func (LargeListType) Name() string { return "large_list" }
+func (t *LargeListType) String() string {
+	return "large_" + t.ListType.String()
+}
+
+func (t *LargeListType) Fingerprint() string {
+	child := t.elem.Type.Fingerprint()
+	if len(child) > 0 {
+		return typeFingerprint(t) + "{" + child + "}"
+	}
+	return ""
+}
+
+func (LargeListType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int64SizeBytes)}}
+}
+
+func (LargeListType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
+
+func LargeListOfField(f Field) *LargeListType {
+	if f.Type == nil {
+		panic("arrow: nil type for list field")
+	}
+	return &LargeListType{ListType{elem: f}}
+}
+
+// ListOf returns the list type with element type t.
+// For example, if t represents int32, ListOf(t) represents []int32.
+//
+// ListOf panics if t is nil or invalid. NullableElem defaults to true
+func LargeListOf(t DataType) *LargeListType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &LargeListType{ListType{elem: Field{Name: "item", Type: t, Nullable: true}}}
+}
+
+// ListOfNonNullable is like ListOf but NullableElem defaults to false, indicating
+// that the child type should be marked as non-nullable.
+func LargeListOfNonNullable(t DataType) *LargeListType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &LargeListType{ListType{elem: Field{Name: "item", Type: t, Nullable: false}}}
+}
+
 // FixedSizeListType describes a nested type in which each array slot contains
 // a fixed-size sequence of values, all having the same relative type.
 type FixedSizeListType struct {
@@ -327,11 +380,13 @@ func (t *MapType) Fingerprint() string {
 	return fingerprint + "{" + keyFingerprint + itemFingerprint + "}"
 }
 
-func (t *MapType) Fields() []Field { return t.ValueType().Fields() }
+func (t *MapType) Fields() []Field { return []Field{t.ValueField()} }
 
 func (t *MapType) Layout() DataTypeLayout {
 	return t.value.Layout()
 }
+
+func (MapType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
 
 type (
 	// UnionTypeCode is an alias to int8 which is the type of the ids
@@ -602,9 +657,13 @@ func (DenseUnionType) Mode() UnionMode { return DenseMode }
 func (t *DenseUnionType) Fingerprint() string {
 	return typeFingerprint(t) + "[s" + t.fingerprint()
 }
+
 func (DenseUnionType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull(), SpecFixedWidth(Uint8SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
 }
+
+func (DenseUnionType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+
 func (t *DenseUnionType) String() string {
 	return t.Name() + t.unionType.String()
 }

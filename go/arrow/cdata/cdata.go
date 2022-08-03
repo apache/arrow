@@ -75,7 +75,9 @@ var formatToSimpleType = map[string]arrow.DataType{
 	"f":   arrow.PrimitiveTypes.Float32,
 	"g":   arrow.PrimitiveTypes.Float64,
 	"z":   arrow.BinaryTypes.Binary,
+	"Z":   arrow.BinaryTypes.LargeBinary,
 	"u":   arrow.BinaryTypes.String,
+	"U":   arrow.BinaryTypes.LargeString,
 	"tdD": arrow.FixedWidthTypes.Date32,
 	"tdm": arrow.FixedWidthTypes.Date64,
 	"tts": arrow.FixedWidthTypes.Time32s,
@@ -226,6 +228,8 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 		switch f[1] {
 		case 'l': // list
 			dt = arrow.ListOfField(childFields[0])
+		case 'L': // large list
+			dt = arrow.LargeListOfField(childFields[0])
 		case 'w': // fixed size list is w:# where # is the list size.
 			listSize, err := strconv.Atoi(strings.Split(f, ":")[1])
 			if err != nil {
@@ -283,6 +287,11 @@ func (imp *cimporter) doImportChildren() error {
 	switch imp.dt.ID() {
 	case arrow.LIST: // only one child to import
 		imp.children[0].dt = imp.dt.(*arrow.ListType).Elem()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
+	case arrow.LARGE_LIST: // only one child to import
+		imp.children[0].dt = imp.dt.(*arrow.LargeListType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}
@@ -354,10 +363,16 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	case arrow.FixedWidthDataType:
 		return imp.importFixedSizePrimitive()
 	case *arrow.StringType:
-		return imp.importStringLike()
+		return imp.importStringLike(int64(arrow.Int32SizeBytes))
 	case *arrow.BinaryType:
-		return imp.importStringLike()
+		return imp.importStringLike(int64(arrow.Int32SizeBytes))
+	case *arrow.LargeStringType:
+		return imp.importStringLike(int64(arrow.Int64SizeBytes))
+	case *arrow.LargeBinaryType:
+		return imp.importStringLike(int64(arrow.Int64SizeBytes))
 	case *arrow.ListType:
+		return imp.importListLike()
+	case *arrow.LargeListType:
 		return imp.importListLike()
 	case *arrow.MapType:
 		return imp.importListLike()
@@ -399,7 +414,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	return nil
 }
 
-func (imp *cimporter) importStringLike() error {
+func (imp *cimporter) importStringLike(offsetByteWidth int64) error {
 	if err := imp.checkNoChildren(); err != nil {
 		return err
 	}
@@ -413,8 +428,17 @@ func (imp *cimporter) importStringLike() error {
 		return err
 	}
 
-	offsets := imp.importOffsetsBuffer(1)
-	values := imp.importVariableValuesBuffer(2, 1, arrow.Int32Traits.CastFromBytes(offsets.Bytes()))
+	offsets := imp.importOffsetsBuffer(1, offsetByteWidth)
+	var nvals int64
+	switch offsetByteWidth {
+	case 4:
+		typedOffsets := arrow.Int32Traits.CastFromBytes(offsets.Bytes())
+		nvals = int64(typedOffsets[imp.arr.offset+imp.arr.length])
+	case 8:
+		typedOffsets := arrow.Int64Traits.CastFromBytes(offsets.Bytes())
+		nvals = typedOffsets[imp.arr.offset+imp.arr.length]
+	}
+	values := imp.importVariableValuesBuffer(2, 1, nvals)
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
 	return nil
 }
@@ -433,7 +457,8 @@ func (imp *cimporter) importListLike() error {
 		return err
 	}
 
-	offsets := imp.importOffsetsBuffer(1)
+	offsetSize := imp.dt.Layout().Buffers[1].ByteWidth
+	offsets := imp.importOffsetsBuffer(1, int64(offsetSize))
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	return nil
 }
@@ -513,14 +538,13 @@ func (imp *cimporter) importFixedSizeBuffer(bufferID int, byteWidth int64) *memo
 	return imp.importBuffer(bufferID, bufsize)
 }
 
-func (imp *cimporter) importOffsetsBuffer(bufferID int) *memory.Buffer {
-	const offsetsize = int64(arrow.Int32SizeBytes) // go doesn't implement int64 offsets yet
+func (imp *cimporter) importOffsetsBuffer(bufferID int, offsetsize int64) *memory.Buffer {
 	bufsize := offsetsize * int64((imp.arr.length + imp.arr.offset + 1))
 	return imp.importBuffer(bufferID, bufsize)
 }
 
-func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth int, offsets []int32) *memory.Buffer {
-	bufsize := byteWidth * int(offsets[imp.arr.length])
+func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth, nvals int64) *memory.Buffer {
+	bufsize := byteWidth * nvals
 	return imp.importBuffer(bufferID, int64(bufsize))
 }
 

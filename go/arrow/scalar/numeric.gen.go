@@ -81,6 +81,8 @@ func (s *Int8) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int8 to type %s", dt)
@@ -145,6 +147,8 @@ func (s *Int16) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int16 to type %s", dt)
@@ -209,6 +213,8 @@ func (s *Int32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int32 to type %s", dt)
@@ -273,6 +279,8 @@ func (s *Int64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int64 to type %s", dt)
@@ -337,6 +345,8 @@ func (s *Uint8) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint8 to type %s", dt)
@@ -401,6 +411,8 @@ func (s *Uint16) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint16 to type %s", dt)
@@ -465,6 +477,8 @@ func (s *Uint32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint32 to type %s", dt)
@@ -529,6 +543,8 @@ func (s *Uint64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint64 to type %s", dt)
@@ -593,6 +609,8 @@ func (s *Float32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type float32 to type %s", dt)
@@ -657,6 +675,8 @@ func (s *Float64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type float64 to type %s", dt)

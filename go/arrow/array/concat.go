@@ -453,6 +453,23 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 		if err != nil {
 			return nil, err
 		}
+	case *arrow.LargeListType:
+		offsetWidth := dt.Layout().Buffers[1].ByteWidth
+		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
+		if err != nil {
+			return nil, err
+		}
+		childData := gatherChildrenRanges(data, 0, valueRanges)
+		for _, c := range childData {
+			defer c.Release()
+		}
+
+		out.buffers[1] = offsetBuffer
+		out.childData = make([]arrow.ArrayData, 1)
+		out.childData[0], err = concat(childData, mem)
+		if err != nil {
+			return nil, err
+		}
 	case *arrow.FixedSizeListType:
 		childData := gatherChildrenMultiplier(data, 0, int(dt.Len()))
 		for _, c := range childData {

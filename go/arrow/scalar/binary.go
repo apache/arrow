@@ -61,9 +61,13 @@ func (b *Binary) CastTo(to arrow.DataType) (Scalar, error) {
 
 	switch to.ID() {
 	case arrow.BINARY:
-		return b, nil
+		return NewBinaryScalar(b.Value, b.Type), nil
+	case arrow.LARGE_BINARY:
+		return NewLargeBinaryScalar(b.Value), nil
 	case arrow.STRING:
 		return NewStringScalarFromBuffer(b.Value), nil
+	case arrow.LARGE_STRING:
+		return NewLargeStringScalarFromBuffer(b.Value), nil
 	case arrow.FIXED_SIZE_BINARY:
 		if b.Value.Len() == to.(*arrow.FixedSizeBinaryType).ByteWidth {
 			return NewFixedSizeBinaryScalar(b.Value, to), nil
@@ -86,7 +90,16 @@ func (b *Binary) ValidateFull() error {
 }
 
 func NewBinaryScalar(val *memory.Buffer, typ arrow.DataType) *Binary {
+	val.Retain()
 	return &Binary{scalar{typ, true}, val}
+}
+
+type LargeBinary struct {
+	*Binary
+}
+
+func NewLargeBinaryScalar(val *memory.Buffer) *LargeBinary {
+	return &LargeBinary{NewBinaryScalar(val, arrow.BinaryTypes.LargeBinary)}
 }
 
 type String struct {
@@ -129,8 +142,27 @@ func NewStringScalar(val string) *String {
 }
 
 func NewStringScalarFromBuffer(val *memory.Buffer) *String {
-	val.Retain()
+	// NewBinaryScalar will call Retain on val, so we don't have to
 	return &String{NewBinaryScalar(val, arrow.BinaryTypes.String)}
+}
+
+// alias the String struct we are embedding so it doesn't hide the
+// String() function that we want to expose
+type stringScalar = String
+
+type LargeString struct {
+	*stringScalar
+}
+
+func NewLargeStringScalar(val string) *LargeString {
+	buf := memory.NewBufferBytes([]byte(val))
+	defer buf.Release()
+	return NewLargeStringScalarFromBuffer(buf)
+}
+
+func NewLargeStringScalarFromBuffer(val *memory.Buffer) *LargeString {
+	// NewBinaryScalar will call retain on val, so we don't have to
+	return &LargeString{stringScalar: &String{NewBinaryScalar(val, arrow.BinaryTypes.LargeString)}}
 }
 
 type FixedSizeBinary struct {
@@ -154,6 +186,6 @@ func (b *FixedSizeBinary) Validate() (err error) {
 func (b *FixedSizeBinary) ValidateFull() error { return b.Validate() }
 
 func NewFixedSizeBinaryScalar(val *memory.Buffer, typ arrow.DataType) *FixedSizeBinary {
-	val.Retain()
+	// NewBinaryScalar will call Retain on val, so we don't have to
 	return &FixedSizeBinary{NewBinaryScalar(val, typ)}
 }

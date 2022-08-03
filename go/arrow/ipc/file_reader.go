@@ -469,13 +469,16 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		*arrow.DurationType:
 		return ctx.loadPrimitive(dt)
 
-	case *arrow.BinaryType, *arrow.StringType:
+	case *arrow.BinaryType, *arrow.StringType, *arrow.LargeStringType, *arrow.LargeBinaryType:
 		return ctx.loadBinary(dt)
 
 	case *arrow.FixedSizeBinaryType:
 		return ctx.loadFixedSizeBinary(dt)
 
 	case *arrow.ListType:
+		return ctx.loadList(dt)
+
+	case *arrow.LargeListType:
 		return ctx.loadList(dt)
 
 	case *arrow.FixedSizeListType:
@@ -571,7 +574,12 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 	return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub}, int(field.NullCount()), 0)
 }
 
-func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) arrow.ArrayData {
+type listLike interface {
+	arrow.DataType
+	Elem() arrow.DataType
+}
+
+func (ctx *arrayLoaderContext) loadList(dt listLike) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)

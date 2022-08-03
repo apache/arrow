@@ -298,10 +298,20 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.BinaryStart(fv.b)
 		fv.offset = flatbuf.BinaryEnd(fv.b)
 
+	case *arrow.LargeBinaryType:
+		fv.dtype = flatbuf.TypeLargeBinary
+		flatbuf.LargeBinaryStart(fv.b)
+		fv.offset = flatbuf.LargeBinaryEnd(fv.b)
+
 	case *arrow.StringType:
 		fv.dtype = flatbuf.TypeUtf8
 		flatbuf.Utf8Start(fv.b)
 		fv.offset = flatbuf.Utf8End(fv.b)
+
+	case *arrow.LargeStringType:
+		fv.dtype = flatbuf.TypeLargeUtf8
+		flatbuf.LargeUtf8Start(fv.b)
+		fv.offset = flatbuf.LargeUtf8End(fv.b)
 
 	case *arrow.Date32Type:
 		fv.dtype = flatbuf.TypeDate
@@ -359,6 +369,12 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
+
+	case *arrow.LargeListType:
+		fv.dtype = flatbuf.TypeLargeList
+		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
+		flatbuf.LargeListStart(fv.b)
+		fv.offset = flatbuf.LargeListEnd(fv.b)
 
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
@@ -629,6 +645,12 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 	case flatbuf.TypeUtf8:
 		return arrow.BinaryTypes.String, nil
 
+	case flatbuf.TypeLargeBinary:
+		return arrow.BinaryTypes.LargeBinary, nil
+
+	case flatbuf.TypeLargeUtf8:
+		return arrow.BinaryTypes.LargeString, nil
+
 	case flatbuf.TypeBool:
 		return arrow.FixedWidthTypes.Boolean, nil
 
@@ -637,6 +659,13 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 			return nil, fmt.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
 		dt := arrow.ListOfField(children[0])
+		return dt, nil
+
+	case flatbuf.TypeLargeList:
+		if len(children) != 1 {
+			return nil, fmt.Errorf("arrow/ipc: LargeList must have exactly 1 child field (got=%d)", len(children))
+		}
+		dt := arrow.LargeListOfField(children[0])
 		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:

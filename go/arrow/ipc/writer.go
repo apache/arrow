@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -532,8 +533,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		p.body = append(p.body, values)
 
-	case *arrow.BinaryType:
-		arr := arr.(*array.Binary)
+	case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.StringType, *arrow.LargeStringType:
+		arr := arr.(array.BinaryLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
 			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
@@ -550,37 +551,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
 			// slice data buffer to include the range we need now.
 			var (
-				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
-			)
-			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
-		default:
-			if values != nil {
-				values.Retain()
-			}
-		}
-		p.body = append(p.body, voffsets)
-		p.body = append(p.body, values)
-
-	case *arrow.StringType:
-		arr := arr.(*array.String)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
-		}
-		data := arr.Data()
-		values := data.Buffers()[2]
-
-		var totalDataBytes int64
-		if voffsets != nil {
-			totalDataBytes = int64(len(arr.ValueBytes()))
-		}
-
-		switch {
-		case needTruncate(int64(data.Offset()), values, totalDataBytes):
-			// slice data buffer to include the range we need now.
-			var (
-				beg = int64(arr.ValueOffset(0))
+				beg = arr.ValueOffset64(0)
 				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
 			)
 			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
@@ -640,8 +611,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
 		}
 		w.depth++
-	case *arrow.ListType:
-		arr := arr.(*array.List)
+	case *arrow.ListType, *arrow.LargeListType:
+		arr := arr.(array.ListLike)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
 			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
@@ -661,12 +632,13 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			}
 		}()
 
-		if voffsets != nil {
-			values_offset = int64(arr.Offsets()[0])
-			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
+		if arr.Len() > 0 && voffsets != nil {
+			values_offset, _ = arr.ValueOffsets(0)
+			_, values_length = arr.ValueOffsets(arr.Len() - 1)
+			values_length -= values_offset
 		}
 
-		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
+		if arr.Len() != 0 || values_length < int64(values.Len()) {
 			// must also slice the values
 			values = array.NewSlice(values, values_offset, values_length)
 			mustRelease = true
@@ -707,7 +679,8 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffer, error) {
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
-	offsetBytesNeeded := arrow.Int32Traits.BytesRequired(data.Len() + 1)
+	offsetTraits := arr.DataType().(arrow.OffsetsDataType).OffsetTypeTraits()
+	offsetBytesNeeded := offsetTraits.BytesRequired(data.Len() + 1)
 
 	if data.Offset() != 0 || offsetBytesNeeded < voffsets.Len() {
 		// if we have a non-zero offset, then the value offsets do not start at
@@ -719,13 +692,27 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
-		dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
-		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
+		switch arr.DataType().Layout().Buffers[1].ByteWidth {
+		case 8:
+			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
+			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
 
-		startOffset := offsets[0]
-		for i, o := range offsets {
-			dest[i] = o - startOffset
+			startOffset := offsets[0]
+			for i, o := range offsets {
+				dest[i] = o - startOffset
+			}
+
+		default:
+			debug.Assert(arr.DataType().Layout().Buffers[1].ByteWidth == 4, "invalid offset bytewidth")
+			dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
+			offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
+
+			startOffset := offsets[0]
+			for i, o := range offsets {
+				dest[i] = o - startOffset
+			}
 		}
+
 		voffsets = shiftedOffsets
 	} else {
 		voffsets.Retain()

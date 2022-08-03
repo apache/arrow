@@ -62,6 +62,10 @@ func (a *String) ValueOffset(i int) int {
 	return int(a.offsets[i+a.array.data.offset])
 }
 
+func (a *String) ValueOffset64(i int) int64 {
+	return int64(a.ValueOffset(i))
+}
+
 func (a *String) ValueOffsets() []int32 {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length + 1
@@ -191,6 +195,10 @@ func (a *LargeString) ValueOffset(i int) int64 {
 		panic("arrow/array: index out of range")
 	}
 	return a.offsets[i+a.array.data.offset]
+}
+
+func (a *LargeString) ValueOffset64(i int) int64 {
+	return a.ValueOffset(i)
 }
 
 func (a *LargeString) ValueOffsets() []int64 {
