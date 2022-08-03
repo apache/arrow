@@ -7,8 +7,7 @@ namespace rle_util {
 
 int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t buffer_size,
                            int64_t logical_offset) {
-  auto it = std::upper_bound(run_ends,
-                             run_ends + buffer_size / sizeof(int32_t),
+  auto it = std::upper_bound(run_ends, run_ends + buffer_size / sizeof(int32_t),
                              logical_offset);
   return std::distance(run_ends, it);
 }
