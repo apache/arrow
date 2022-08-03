@@ -901,6 +901,26 @@ static inline bool is_floating(Type::type type_id) {
   return false;
 }
 
+static inline bool is_numeric(Type::type type_id) {
+  switch (type_id) {
+    case Type::UINT8:
+    case Type::INT8:
+    case Type::UINT16:
+    case Type::INT16:
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::HALF_FLOAT:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_decimal(Type::type type_id) {
   switch (type_id) {
     case Type::DECIMAL128:
@@ -942,6 +962,34 @@ static inline bool is_primitive(Type::type type_id) {
   return false;
 }
 
+static inline bool is_primitive_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::NA:
+    case Type::BOOL:
+    case Type::UINT8:
+    case Type::INT8:
+    case Type::UINT16:
+    case Type::INT16:
+    case Type::UINT32:
+    case Type::INT32:
+    case Type::UINT64:
+    case Type::INT64:
+    case Type::HALF_FLOAT:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+    case Type::DATE32:
+    case Type::DATE64:
+    case Type::BINARY:
+    case Type::STRING:
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_base_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
@@ -970,6 +1018,54 @@ static inline bool is_large_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_binary(Type::type type_id) {
+  switch (type_id) {
+    case Type::BINARY:
+    case Type::LARGE_BINARY:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_string(Type::type type_id) {
+  switch (type_id) {
+    case Type::STRING:
+    case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_temporal(Type::type type_id) {
+  switch (type_id) {
+    case Type::DATE32:
+    case Type::DATE64:
+    case Type::TIME32:
+    case Type::TIME64:
+    case Type::TIMESTAMP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_interval(Type::type type_id) {
+  switch (type_id) {
+    case Type::INTERVAL_MONTHS:
+    case Type::INTERVAL_DAY_TIME:
+    case Type::INTERVAL_MONTH_DAY_NANO:
       return true;
     default:
       break;
@@ -1104,5 +1200,42 @@ static inline int offset_bit_width(Type::type type_id) {
 }
 
 /// @}
+
+static inline bool IsSignedIntType(const DataType& type) {
+  return is_signed_integer(type.id());
+}
+
+static inline bool IsUnsignedIntType(const DataType& type) {
+  return is_unsigned_integer(type.id());
+}
+
+static inline bool IsIntType(const DataType& type) { return is_integer(type.id()); }
+
+static inline bool IsFloatingPointType(const DataType& type) {
+  return is_floating(type.id());
+}
+
+// Number types without boolean
+static inline bool IsNumericType(const DataType& type) { return is_numeric(type.id()); }
+
+// Binary and string-like types (except fixed-size binary)
+static inline bool IsBaseBinaryType(const DataType& type) {
+  return is_base_binary_like(type.id());
+}
+
+static inline bool IsBinaryType(const DataType& type) { return is_binary(type.id()); }
+
+static inline bool IsStringType(const DataType& type) { return is_string(type.id()); }
+
+// Temporal types including time and timestamps for each unit
+static inline bool IsTemporalType(const DataType& type) { return is_temporal(type.id()); }
+
+// Interval types
+static inline bool IsIntervalType(const DataType& type) { return is_interval(type.id()); }
+
+// Integer, floating point, base binary, and temporal
+static inline bool IsPrimitiveType(const DataType& type) {
+  return is_primitive_like(type.id());
+}
 
 }  // namespace arrow

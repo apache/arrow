@@ -2151,32 +2151,4 @@ const std::vector<std::shared_ptr<DataType>>& IntervalTypes();
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 
-ARROW_EXPORT
-bool IsSignedIntType(std::shared_ptr<DataType>);
-ARROW_EXPORT
-bool IsUnsignedIntType(std::shared_ptr<DataType>);
-ARROW_EXPORT
-bool IsIntType(std::shared_ptr<DataType>);
-ARROW_EXPORT
-bool IsFloatingPointType(std::shared_ptr<DataType>);
-// Number types without boolean
-ARROW_EXPORT
-bool IsNumericType(std::shared_ptr<DataType>);
-// Binary and string-like types (except fixed-size binary)
-ARROW_EXPORT
-bool IsBaseBinaryType(std::shared_ptr<DataType>);
-ARROW_EXPORT
-bool IsBinaryType(std::shared_ptr<DataType>);
-ARROW_EXPORT
-bool IsStringType(std::shared_ptr<DataType>);
-// Temporal types including time and timestamps for each unit
-ARROW_EXPORT
-bool IsTemporalType(std::shared_ptr<DataType>);
-// Interval types
-ARROW_EXPORT
-bool IsIntervalType(std::shared_ptr<DataType>);
-// Integer, floating point, base binary, and temporal
-ARROW_EXPORT
-bool IsPrimitiveType(std::shared_ptr<DataType>);
-
 }  // namespace arrow

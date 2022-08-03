@@ -1821,26 +1821,41 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t10);
 }
 
-static void test_membership(
-    const std::vector<std::shared_ptr<DataType>>& types,
-    std::function<bool(std::shared_ptr<DataType>)> membership_check) {
-  for (auto type : types) {
-    ASSERT_TRUE(membership_check(type));
+static void test_membership(const std::vector<std::shared_ptr<DataType>>& all_types,
+                            const std::vector<std::shared_ptr<DataType>>& member_types,
+                            std::function<bool(const DataType&)> membership_check) {
+  for (auto type : all_types) {
+    bool expect =
+        std::find(member_types.begin(), member_types.end(), type) != member_types.end();
+    ASSERT_EQ(expect, membership_check(*type));
   }
 }
 
 TEST(TypesTest, TestMembership) {
-  test_membership(BaseBinaryTypes(), IsBaseBinaryType);
-  test_membership(BinaryTypes(), IsBinaryType);
-  test_membership(StringTypes(), IsStringType);
-  test_membership(SignedIntTypes(), IsSignedIntType);
-  test_membership(UnsignedIntTypes(), IsUnsignedIntType);
-  test_membership(IntTypes(), IsIntType);
-  test_membership(FloatingPointTypes(), IsFloatingPointType);
-  test_membership(NumericTypes(), IsNumericType);
-  test_membership(TemporalTypes(), IsTemporalType);
-  test_membership(IntervalTypes(), IsIntervalType);
-  test_membership(PrimitiveTypes(), IsPrimitiveType);
+  std::vector<std::shared_ptr<DataType>> all_types;
+  for (auto type : NumericTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : TemporalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : IntervalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : PrimitiveTypes()) {
+    all_types.push_back(type);
+  }
+  test_membership(all_types, BaseBinaryTypes(), IsBaseBinaryType);
+  test_membership(all_types, BinaryTypes(), IsBinaryType);
+  test_membership(all_types, StringTypes(), IsStringType);
+  test_membership(all_types, SignedIntTypes(), IsSignedIntType);
+  test_membership(all_types, UnsignedIntTypes(), IsUnsignedIntType);
+  test_membership(all_types, IntTypes(), IsIntType);
+  test_membership(all_types, FloatingPointTypes(), IsFloatingPointType);
+  test_membership(all_types, NumericTypes(), IsNumericType);
+  test_membership(all_types, TemporalTypes(), IsTemporalType);
+  test_membership(all_types, IntervalTypes(), IsIntervalType);
+  test_membership(all_types, PrimitiveTypes(), IsPrimitiveType);
 }
 
 }  // namespace arrow
