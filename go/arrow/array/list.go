@@ -321,7 +321,15 @@ func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 	}
 }
 
-func (b *ListBuilder) Type() arrow.DataType { return arrow.ListOf(b.values.Type()) }
+func (b *baseListBuilder) Type() arrow.DataType {
+	switch b.dt.ID() {
+	case arrow.LIST:
+		return arrow.ListOf(b.values.Type())
+	case arrow.LARGE_LIST:
+		return arrow.LargeListOf(b.values.Type())
+	}
+	return nil
+}
 
 // NewLargeListBuilder returns a builder, using the provided memory allocator.
 // The created list builder will create a list whose elements will be of type etype.
@@ -337,8 +345,6 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 		},
 	}
 }
-
-func (b *LargeListBuilder) Type() arrow.DataType { return arrow.LargeListOf(b.values.Type()) }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -481,7 +487,7 @@ func (b *baseListBuilder) newData() (data *Data) {
 	}
 
 	data = NewData(
-		b.dt, b.length,
+		b.Type(), b.length,
 		[]*memory.Buffer{
 			b.nullBitmap,
 			offsets,
