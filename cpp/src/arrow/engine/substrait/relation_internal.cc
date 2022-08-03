@@ -577,7 +577,7 @@ Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
                         ToProto(bound_expression, ext_set, conversion_options));
   filter_rel->set_allocated_condition(subs_expr.release());
   rel->set_allocated_filter(filter_rel.release());
-  return rel;
+  return std::move(rel);
 }
 
 }  // namespace engine
