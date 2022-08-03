@@ -137,15 +137,13 @@ cdef class S3FileSystem(FileSystem):
         assumed role session will be refreshed.
     region : str, default 'us-east-1'
         AWS region to connect to.
-    request_timeout : double. unit in seconds. default 3. 
-        Socket read timeouts for HTTP clients on Windows and Mac. This should be more
-        than adequate for most services. However, if you are transfering large
-        amounts of data or are worried about higher latencies, you should set
-        to something that makes more sense for your use case. 
-        This option seems to have no effect on Linux.
-    connect_timeout : double. unit in seconds. default 1.
-        Socket connect timeout. Unless you are very far away from your 
-        the data center you are talking to. 1000ms is more than sufficient.
+    request_timeout : double, default None
+        Socket read timeouts on Windows and macOS, in seconds.
+        If omitted, the AWS SDK default value is used (typically 3 seconds).
+        This option is ignored on non-Windows, non-macOS systems.
+    connect_timeout : double, default None
+        Socket connection timeout, in seconds.
+        If omitted, the AWS SDK default value is used (typically 1 second).
     scheme : str, default 'https'
         S3 connection transport scheme.
     endpoint_override : str, default None
@@ -192,10 +190,11 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, region=None, request_timeout=None, connect_timeout=None, scheme=None,
-                 endpoint_override=None, bint background_writes=True,
-                 default_metadata=None, role_arn=None, session_name=None,
-                 external_id=None, load_frequency=900, proxy_options=None,
+                 bint anonymous=False, region=None, request_timeout=None,
+                 connect_timeout=None, scheme=None, endpoint_override=None,
+                 bint background_writes=True, default_metadata=None,
+                 role_arn=None, session_name=None, external_id=None,
+                 load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False):
         cdef:
             CS3Options options

@@ -103,13 +103,16 @@ struct ARROW_EXPORT S3Options {
   /// server).
   std::string region;
 
-  /// if unset (or any value less than 0), the AWS SDK default values will be used.
-  /// request_timeout default 3 seconds
-  /// If less/equal zero then this property is ignored and the default is used
-  /// connect_timeout default 1 second
-  /// If less/equal zero then this property is ignored and the default is used
-  double request_timeout = -1;
+  /// \brief Socket connection timeout, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 1 second).
   double connect_timeout = -1;
+
+  /// \brief Socket read timeout on Windows and macOS, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 3 seconds).
+  /// This option is ignored on non-Windows, non-macOS systems.
+  double request_timeout = -1;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
