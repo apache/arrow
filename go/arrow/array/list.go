@@ -346,7 +346,7 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 	}
 }
 
-func (b *ListBuilder) Type() arrow.DataType { return arrow.ListOf(b.values.Type()) }
+func (b *LargeListBuilder) Type() arrow.DataType { return arrow.LargeListOf(b.values.Type()) }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -523,7 +523,7 @@ func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
-			Struct: arrow.ListOf(b.Type()).String(),
+			Struct: b.dt.String(),
 		}
 	}
 
