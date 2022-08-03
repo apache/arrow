@@ -80,35 +80,37 @@ arrow_mask <- function(.data, expr = NULL, aggregation = FALSE) {
 
   f_env <- new_environment(.cache$functions)
 
-  # figure out if the expression is unknown
-  # TODO update this to check recursively (for nested functions)
-  unknown <- setdiff(call_name(expr), names(f_env))
+  if (!is.null(expr)) {
+    # figure out if the expression is unknown
+    # TODO update this to check recursively (for nested functions)
+    unknown <- setdiff(rlang::call_name(expr), names(f_env))
 
-  if (length(unknown) != 0) {
-    # TODO find a different approach as `call_standardise` is now deprecated
-    expr <- call_standardise(expr)
-    # get the function in the expression
-    fn <- call_fn(expr)
+    if (length(unknown) != 0) {
+      # TODO find a different approach as `call_standardise` is now deprecated
+      expr <- call_standardise(expr)
+      # get the function in the expression
+      fn <- call_fn(expr)
 
-    # get the body of the function
-    expr_body <- fn_body(fn)
+      # get the body of the function
+      expr_body <- fn_body(fn)
 
-    # we can use `all_funs()` here (if we can't we might need to write our own
-    # version of `all_calls()`
-    calls <- all_funs(expr_body[[2]])
+      # we can use `all_funs()` here (if we can't we might need to write our own
+      # version of `all_calls()`
+      calls <- all_funs(expr_body[[2]])
 
-    args <- call_args(expr)
+      args <- call_args(expr)
 
-    # we can translate if all calls have bindings
-    if (all(calls %in% names(f_env))) {
-      # we can translate
-      # this is a rough placeholder until I have a translation function
-      expr_body <- expr(1 + call_binding("nchar", x))
-      # replace the unknown expression with the translation
-      f_env[[unknown]] <- new_function(
-        args = args,
-        body = expr_body
-      )
+      # we can translate if all calls have bindings
+      if (all(calls %in% names(f_env))) {
+        # we can translate
+        # this is a rough placeholder until I have a translation function
+        expr_body <- expr(1 + call_binding("nchar", x))
+        # replace the unknown expression with the translation
+        f_env[[unknown]] <- new_function(
+          args = args,
+          body = expr_body
+        )
+      }
     }
   }
 
