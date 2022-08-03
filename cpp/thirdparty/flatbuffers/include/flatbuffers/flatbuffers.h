@@ -25,10 +25,14 @@
 
 // Move this vendored copy of flatbuffers to a private namespace,
 // but continue to access it through the "flatbuffers" alias.
-namespace arrow_thirdparty_flatbuffers {}
-namespace flatbuffers = arrow_thirdparty_flatbuffers;
+namespace arrow_vendored_private {
+namespace flatbuffers {
+}
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
 
-namespace arrow_thirdparty_flatbuffers {
+namespace arrow_vendored_private {
+namespace flatbuffers {
 // Generic 'operator==' with conditional specialisations.
 // T e - new value of a scalar field.
 // T def - default of scalar (is known at compile-time).
@@ -2781,7 +2785,8 @@ volatile __attribute__((weak)) const char *flatbuffer_version_string =
         return !bool(T(rhs)); \
     }
 /// @endcond
-}  // namespace arrow_thirdparty_flatbuffers
+}  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 // clang-format on
 
