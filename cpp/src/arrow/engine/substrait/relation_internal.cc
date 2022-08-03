@@ -458,8 +458,8 @@ Result<std::shared_ptr<Schema>> ExtractSchemaToBind(const compute::Declaration& 
   } else if (declr.factory_name == "filter") {
     auto input_declr = util::get<compute::Declaration>(declr.inputs[0]);
     ARROW_ASSIGN_OR_RAISE(bind_schema, ExtractSchemaToBind(input_declr));
-  } else if (declr.factory_name == "hashjoin") {
   } else if (declr.factory_name == "sink") {
+    // Note that the sink has no output_schema
     return bind_schema;
   } else {
     return Status::Invalid("Schema extraction failed, unsupported factory ",
@@ -494,12 +494,13 @@ Result<std::unique_ptr<substrait::Rel>> GetRelationFromDeclaration(
     const compute::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   auto declr_input = declaration.inputs[0];
-  // TODO: figure out a better way
+  // Note that the input is expected in declaration.
+  // ExecNode inputs are not accepted
   if (util::get_if<compute::ExecNode*>(&declr_input)) {
     return Status::NotImplemented("Only support Plans written in Declaration format.");
   }
-  auto declr = util::get<compute::Declaration>(declr_input);
-  return ToProto(declr, ext_set, conversion_options);
+  return ToProto(util::get<compute::Declaration>(declr_input), ext_set,
+                 conversion_options);
 }
 
 Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
@@ -524,7 +525,6 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
   for (const auto& file : dataset->files()) {
     auto read_rel_lfs_ffs = make_unique<substrait::ReadRel_LocalFiles_FileOrFiles>();
     read_rel_lfs_ffs->set_uri_path("file://" + file);
-
     // set file format
     // arrow and feather are temporarily handled via the Parquet format until
     // upgraded to the latest Substrait version.
@@ -546,8 +546,7 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
     }
     read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
   }
-  // TODO(Before PR Merge) : evaluate better hand-off of pointers
-  *read_rel->mutable_local_files() = *read_rel_lfs.get();
+  read_rel->set_allocated_local_files(read_rel_lfs.release());
   rel->set_allocated_read(read_rel.release());
   return std::move(rel);
 }
@@ -576,7 +575,7 @@ Result<std::unique_ptr<substrait::Rel>> FilterRelationConverter(
 
   ARROW_ASSIGN_OR_RAISE(auto subs_expr,
                         ToProto(bound_expression, ext_set, conversion_options));
-  *filter_rel->mutable_condition() = *subs_expr.get();
+  filter_rel->set_allocated_condition(subs_expr.release());
   rel->set_allocated_filter(filter_rel.release());
   return rel;
 }

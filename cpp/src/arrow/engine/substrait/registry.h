@@ -43,19 +43,43 @@ namespace arrow {
 
 namespace engine {
 
+/// \brief Acero-Substrait integration contains converters which enables
+/// converting Acero ExecPlan related entities to the corresponding Substrait
+/// entities.
+///
+/// Note that the current registry definition only holds converters to convert
+/// an Acero plan to Substrait plan.
 class ARROW_ENGINE_EXPORT SubstraitConversionRegistry {
  public:
   virtual ~SubstraitConversionRegistry() = default;
+
+  /// \brief Alias for Acero-to-Substrait converter
   using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
       const std::shared_ptr<Schema>&, const compute::Declaration&, ExtensionSet*,
       const ConversionOptions&)>;
 
+  /// \brief Retrieve a SubstraitConverter from the registry by factory name
+  ///
+  /// \param[in] factory_name name of the converter (aligned with Acero ExecNode kind
+  /// name) \return the matching SubstraitConverter
   virtual Result<SubstraitConverter> GetConverter(const std::string& factory_name) = 0;
 
+  /// \brief Register a converter by factory
+  ///
+  /// \param[in] factory_name name of the converter
+  /// \param[in] converter the std::function encapsulating the converter logic
+  /// \return Status of the registration
   virtual Status RegisterConverter(std::string factory_name,
                                    SubstraitConverter converter) = 0;
 };
 
+/// \brief Retrive the default Acero-to-Substrait conversion registry
+/// The default registry contains the converters corresponding to mapping
+/// the core ExecNodes in Acero.
+///
+/// The default registry can be represented as a parent registry if a non-Acero
+/// converters are required to be used with it. It must be separately implemented
+/// by using the default input as the parent.
 ARROW_ENGINE_EXPORT SubstraitConversionRegistry* default_substrait_conversion_registry();
 
 }  // namespace engine

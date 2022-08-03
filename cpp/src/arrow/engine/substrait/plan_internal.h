@@ -20,7 +20,6 @@
 #pragma once
 
 #include "arrow/compute/exec/exec_plan.h"
-
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
@@ -54,6 +53,14 @@ Result<ExtensionSet> GetExtensionSetFromPlan(
     const substrait::Plan& plan,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
 
+/// \brief Serializes Declaration and produces a substrait::Plan.
+///
+/// Note that, this is a part of roundtripping test API and not
+/// designed to use in production
+/// \param[in] declr the sequence of declarations
+/// \param[in, out] ext_set the extension set to be updated
+/// \param[in] conversion_options the conversion options useful for the serialization
+/// \return serialized Acero plan
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> PlanToProto(
     const compute::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
