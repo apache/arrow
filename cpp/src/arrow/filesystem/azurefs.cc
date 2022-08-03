@@ -75,17 +75,17 @@ Result<std::string> AzureOptions::GetAccountNameFromConnectionString(
   std::string text = "AccountName=";
   auto pos_text = connection_string.find(text);
   if (pos_text == std::string::npos) {
-    return Status::IOError(
+    return Status::Invalid(
         "Cannot find account name in Azure Blob Storage connection string: '",
         connection_string, "'");
   }
-  auto pos_colon = connection_string.find(';');
-  pos_colon = connection_string.find(';', pos_colon + 1);
-  if (pos_colon == std::string::npos) {
-    return Status::IOError("Invalid Azure Blob Storage connection string: '",
+  auto pos_semicolon = connection_string.find(';');
+  pos_semicolon = connection_string.find(';', pos_semicolon + 1);
+  if (pos_semicolon == std::string::npos) {
+    return Status::Invalid("Invalid Azure Blob Storage connection string: '",
                            connection_string, "' passed");
   }
-  std::string account_name = connection_string.substr(pos_text + text.size(), pos_colon);
+  std::string account_name = connection_string.substr(pos_text + text.size(), pos_semicolon);
   return account_name;
 }
 
@@ -140,7 +140,7 @@ Status AzureOptions::ConfigureSasCredentials(const std::string& uri) {
   RETURN_NOT_OK(url.Parse(uri));
   sas_token = "?" + url.query_string();
   account_blob_url = url.scheme() + "://" + url.host() + kSep;
-  account_dfs_url = std::regex_replace(account_blob_url, std::regex(".blob"), ".dfs");
+  account_dfs_url = std::regex_replace(account_blob_url, std::regex("[.]blob"), ".dfs");
   credentials_kind = AzureCredentialsKind::Sas;
   return Status::OK();
 }
@@ -256,18 +256,20 @@ struct AzurePath {
     // path_to_file = testdir/testfile.txt
     // path_to_file_parts = [testdir, testfile.txt]
 
-    // Expected input here => s = synapsemlfs/testdir/testfile.txt
+    // Expected input here => s = synapsemlfs/testdir/testfile.txt, http://127.0.0.1/accountName/pathToBlob
     auto src = internal::RemoveTrailingSlash(s);
-    if ((src.find("127.0.0.1") != std::string::npos)) {
+    if (src.starts_with("https://127.0.0.1") || src.starts_with("http://127.0.0.1")) {
       RETURN_NOT_OK(FromLocalHostString(&src));
     }
-    if (internal::IsLikelyUri(src)) {
-      RETURN_NOT_OK(ExtractBlobPath(&src));
+    auto input_path = std::string(src.data());
+    if (internal::IsLikelyUri(input_path)) {
+      RETURN_NOT_OK(ExtractBlobPath(&input_path));
+      src = util::string_view(input_path);
     }
     src = internal::RemoveLeadingSlash(src);
     auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
-      return Status::IOError("Path cannot start with a separator ('", s, "')");
+      return Status::IOError("Path cannot start with a separator ('", input_path, "')");
     }
     if (first_sep == std::string::npos) {
       return AzurePath{std::string(src), std::string(src), "", {}};
@@ -283,51 +285,40 @@ struct AzurePath {
 
   static Status FromLocalHostString(util::string_view* src) {
     // src = http://127.0.0.1:10000/accountName/pathToBlob
-    auto port = src->find("127.0.0.1");
-    // src = 127.0.0.1:10000/accountName/pathToBlob
-    *src = src->substr(port);
-    auto first_sep = src->find_first_of(kSep);
-    if (first_sep == std::string::npos) {
+    Uri uri;
+    RETURN_NOT_OK(uri.Parse(src->data()));
+    *src = internal::RemoveLeadingSlash(uri.path());
+    if (src->empty()) {
       return Status::IOError("Missing account name in Azure Blob Storage URI");
     }
-    // src = accountName/pathToBlob
-    *src = src->substr(first_sep + 1);
-    auto sec_sep = src->find_first_of(kSep);
-    if (sec_sep == std::string::npos) {
-      return Status::IOError("Missing container name in Azure Blob Storage URI");
+    auto first_sep = src->find_first_of(kSep);
+    if (first_sep != std::string::npos) {
+      *src = src->substr(first_sep + 1);
+    } else {
+      *src = "";
     }
-    // src = pathToBlob
-    *src = src->substr(sec_sep + 1);
     return Status::OK();
   }
 
   // Removes scheme, host and port from the uri
-  static Status ExtractBlobPath(util::string_view* src) {
-    std::string text = ".core.windows.net";
-    auto pos = src->find(text);
-    if (pos == std::string::npos) {
-      return Status::IOError("Invalid Azure blob storage URI provided: ", src);
-    }
-    pos = src->find("/", pos);
-    if (pos == std::string::npos) {
-      *src = "";
-    } else {
-      *src = src->substr(pos + 1);
-    }
+  static Status ExtractBlobPath(std::string* src) {
+    Uri uri;
+    RETURN_NOT_OK(uri.Parse(*src));
+    *src = uri.path();
     return Status::OK();
   }
 
   static Status Validate(const AzurePath* path) {
-    auto result = internal::ValidateAbstractPathParts(path->path_to_file_parts);
-    if (!result.ok()) {
-      return Status::Invalid(result.message(), " in path ", path->full_path);
+    auto status = internal::ValidateAbstractPathParts(path->path_to_file_parts);
+    if (!status.ok()) {
+      return Status::Invalid(status.message(), " in path ", path->full_path);
     } else {
-      return result;
+      return status;
     }
   }
 
   AzurePath parent() const {
-    DCHECK(!path_to_file_parts.empty());
+    DCHECK(has_parent());
     auto parent = AzurePath{"", container, "", path_to_file_parts};
     parent.path_to_file_parts.pop_back();
     parent.path_to_file = internal::JoinAbstractPath(parent.path_to_file_parts);
@@ -351,13 +342,8 @@ struct AzurePath {
 template <typename ObjectResult>
 std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
   auto md = std::make_shared<KeyValueMetadata>();
-  auto push = [&](std::string k, const std::string v) {
-    if (!v.empty()) {
-      md->Append(std::move(k), v);
-    }
-  };
   for (auto prop : result) {
-    push(prop.first, prop.second);
+    md->Append(prop.first, prop.second);
   }
   return md;
 }

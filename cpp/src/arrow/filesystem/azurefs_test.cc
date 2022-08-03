@@ -116,7 +116,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void SetUp() override {
     ASSERT_THAT(GetAzuriteEnv(), NotNull());
-    ASSERT_THAT(GetAzuriteEnv()->status(), Status::OK());
+    ASSERT_OK(GetAzuriteEnv()->status());
 
     MakeFileSystem();
     auto file_system_client = gen2_client_->GetFileSystemClient("container");
@@ -185,11 +185,11 @@ TEST_F(TestAzureFileSystem, FromUri) {
 
   // Sas Token
   ASSERT_OK(uri.Parse(
-      "https://testcontainer.blob.core.windows.net/?dummy_sas_key=dummy_value"));
+      "https://testblobcontainer.blob.core.windows.net/?dummy_sas_key=dummy_value"));
   ASSERT_OK_AND_ASSIGN(options, AzureOptions::FromUri(uri));
   ASSERT_EQ(options.credentials_kind, arrow::fs::AzureCredentialsKind::Sas);
-  ASSERT_EQ(options.account_dfs_url, "https://testcontainer.dfs.core.windows.net/");
-  ASSERT_EQ(options.account_blob_url, "https://testcontainer.blob.core.windows.net/");
+  ASSERT_EQ(options.account_dfs_url, "https://testblobcontainer.dfs.core.windows.net/");
+  ASSERT_EQ(options.account_blob_url, "https://testblobcontainer.blob.core.windows.net/");
   ASSERT_EQ(options.sas_token, "?dummy_sas_key=dummy_value");
 }
 
