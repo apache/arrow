@@ -432,7 +432,7 @@ cdef class NativeFile(_Weakrefable):
         stream = NativeFile()
         stream.set_input_stream(data)
         stream.is_readable = True
-
+        
         return stream
 
     def read_at(self, nbytes, offset):

@@ -126,38 +126,42 @@ def test_python_file_read():
         pa.PythonFile(StringIO(), mode='r')
 
 
-def test_python_file_get_stream():
+@pytest.mark.parametrize("nbytes", (0, 1, 5, 100))
+@pytest.mark.parametrize("file_offset", (0, 5, 100))
+def test_python_file_get_stream(nbytes, file_offset):
+
     data = b'data1data2data3data4data5'
 
-    buf = BytesIO(data)
-    f = pa.PythonFile(buf, mode='r')
+    f = pa.PythonFile(BytesIO(data), mode='r')
+    stream = f.get_stream(file_offset=file_offset, nbytes=nbytes)
 
-    stream1 = f.get_stream(file_offset=0, nbytes=10)
-    stream2 = f.get_stream(file_offset=9, nbytes=16)
+    # Subsequent calls to 'read' should match behavior if same
+    # data passed to BytesIO where get_stream should handle if
+    # nbytes/file_offset results in no bytes b/c out of bounds.
+    start = min(file_offset, len(data))
+    end = min(file_offset + nbytes, len(data))
+    buf = BytesIO(data[start:end])
 
-    buf_stream2_4 = stream2.read(nbytes=4)
-    assert len(buf_stream2_4) == 4
-    assert buf_stream2_4 == b'2dat'
-    assert stream2.tell() == 4
-
-    buf_stream1_6 = stream1.read(nbytes=6)
-    assert len(buf_stream1_6) == 6
-    assert buf_stream1_6 == b'data1d'
-    assert stream1.tell() == 6
+    # read some chunks
+    assert stream.read(nbytes=4) == buf.read(4)
+    assert stream.read(nbytes=6) == buf.read(6)
 
     # Read to end of each stream
-    buf_stream1_4 = stream1.read(nbytes=4)
-    assert len(buf_stream1_4) == 4
-    assert buf_stream1_4 == b'ata2'
-    assert stream1.tell() == 10
+    assert stream.read() == buf.read()
 
-    buf_stream1_1 = stream1.read(nbytes=1)
-    assert len(buf_stream1_1) == 0
-    assert stream1.tell() == 10
+    # Try reading passed the stream
+    n = len(data) * 2
+    assert stream.read(n) == buf.read(n)
 
-    # Idempotent
-    stream1.close()
-    assert stream1.closed() == True
+    # NativeFile[CInputStream] is not seekable
+    with pytest.raises(OSError) as e:
+        stream.seek(0)
+
+    # some error about not being seekable
+    assert e.match("seekable")
+
+    stream.close()
+    assert stream.closed
 
 
 def test_python_file_read_at():
