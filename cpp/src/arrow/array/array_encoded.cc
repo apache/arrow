@@ -51,8 +51,8 @@ Result<std::shared_ptr<RunLengthEncodedArray>> RunLengthEncodedArray::Make(
   }
 
   return std::make_shared<RunLengthEncodedArray>(run_length_encoded(values_array->type()),
-                                                 logical_length, values_array,
-                                                 run_ends_array, offset);
+                                                 logical_length, run_ends_array, values_array,
+                                                 offset);
 }
 
 std::shared_ptr<Array> RunLengthEncodedArray::values_array() const {

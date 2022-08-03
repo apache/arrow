@@ -79,7 +79,7 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
                              RunLengthEncodedArray::Make(string_values, int32_values, 3));
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
-      RunLengthEncodedArray::Make(int32_values, int32_only_null, 3));
+      RunLengthEncodedArray::Make(int32_only_null, int32_values, 3));
 }
 
 }  // anonymous namespace
