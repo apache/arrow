@@ -39,6 +39,8 @@ namespace csv {
 // Silly workaround for https://github.com/michaeljones/breathe/issues/453
 constexpr char kDefaultEscapeChar = '\\';
 
+constexpr char kCsvDefaultEncoding[] = "UTF-8";
+
 struct ARROW_EXPORT ParseOptions {
   // Parsing options
 
@@ -163,8 +165,8 @@ struct ARROW_EXPORT ReadOptions {
   /// If false, column names will be read from the first CSV row after `skip_rows`.
   bool autogenerate_column_names = false;
 
-  /// Character encoding used
-  std::string encoding = "UTF-8";
+  /// Character encoding used. Only "UTF-8" is supported.
+  std::string encoding = kCsvDefaultEncoding;
 
   /// Create read options with default values
   static ReadOptions Defaults();

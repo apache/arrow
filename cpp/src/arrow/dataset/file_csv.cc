@@ -189,11 +189,11 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
           kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
-  if (reader_options.encoding != "UTF-8") {
+  if (reader_options.encoding != csv::kCsvDefaultEncoding) {
     if (fragment_scan_options->stream_transform_func) {
       ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
     } else {
-      return Status::Invalid("File encoding is not UTF-8, but no stream_transform_func has been provided.");
+      return Status::Invalid("File encoding is not UTF-8, but no stream_transform_func has been provided");
     }
   }
   const auto& path = source.path();
@@ -305,11 +305,11 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
           kCsvTypeName, options.get(), self->default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
   ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
-  if (read_options.encoding != "UTF-8") {
+  if (read_options.encoding != csv::kCsvDefaultEncoding) {
     if (fragment_scan_options->stream_transform_func) {
       ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
     } else {
-      return Status::Invalid("File encoding is not UTF-8, but no stream_transform_func has been provided.");
+      return Status::Invalid("File encoding is not UTF-8, but no stream_transform_func has been provided");
     }
   }
   return csv::CountRowsAsync(options->io_context, std::move(input),
