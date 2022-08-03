@@ -24,9 +24,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 func TestReadWrite(t *testing.T) {

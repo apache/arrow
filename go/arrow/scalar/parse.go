@@ -24,10 +24,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 type TypeToScalar interface {
