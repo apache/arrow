@@ -40,8 +40,9 @@ RunLengthEncodedArray::RunLengthEncodedArray(const std::shared_ptr<DataType>& ty
 }
 
 Result<std::shared_ptr<RunLengthEncodedArray>> RunLengthEncodedArray::Make(
-    std::shared_ptr<Array>& values_array, std::shared_ptr<Array>& run_ends_array,
-    int64_t logical_length, int64_t offset) {
+    const std::shared_ptr<Array>& values_array,
+    const std::shared_ptr<Array>& run_ends_array, int64_t logical_length,
+    int64_t offset) {
   if (run_ends_array->type_id() != Type::INT32) {
     return Status::Invalid("Run ends array must be int32 type");
   }

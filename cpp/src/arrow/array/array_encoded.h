@@ -52,16 +52,18 @@ class ARROW_EXPORT RunLengthEncodedArray : public Array {
   explicit RunLengthEncodedArray(const std::shared_ptr<ArrayData>& data);
 
   RunLengthEncodedArray(const std::shared_ptr<DataType>& type, int64_t length,
-                        std::shared_ptr<Array>& values_array,
-                        std::shared_ptr<Buffer> run_ends_buffer, int64_t offset = 0);
+                        const std::shared_ptr<Array>& values_array,
+                        const std::shared_ptr<Buffer> run_ends_buffer,
+                        int64_t offset = 0);
 
   /// \brief Construct a RunLengthEncodedArray from values and run ends arrays
   ///
   /// The data type is automatically inferred from the arguments.
   /// The run_ends_array and values_array must be the same length.
   static Result<std::shared_ptr<RunLengthEncodedArray>> Make(
-      std::shared_ptr<Array>& values_array, std::shared_ptr<Array>& run_ends_array,
-      int64_t logical_length, int64_t offset = 0);
+      const std::shared_ptr<Array>& values_array,
+      const std::shared_ptr<Array>& run_ends_array, int64_t logical_length,
+      int64_t offset = 0);
 
   /// \brief Returns an array holding the values of each run. This function does apply
   /// neiher the physical offset to the array
