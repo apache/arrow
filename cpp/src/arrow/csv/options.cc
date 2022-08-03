@@ -69,7 +69,7 @@ Status ReadOptions::Validate() const {
   }
   if (ARROW_PREDICT_FALSE(encoding != kCsvDefaultEncoding)) {
     return Status::Invalid(
-        "ReadOptions: only UTF-8 is supported: ", encoding);
+        "ReadOptions: only 'utf8' encoding is supported: ", encoding);
   }
   return Status::OK();
 }

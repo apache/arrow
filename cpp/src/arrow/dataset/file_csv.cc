@@ -193,7 +193,7 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     if (fragment_scan_options->stream_transform_func) {
       ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
     } else {
-      return Status::Invalid("File encoding is not UTF-8, but no stream_transform_func has been provided");
+      return Status::Invalid("File encoding is not utf8, but no stream_transform_func has been provided");
     }
   }
   const auto& path = source.path();
@@ -309,7 +309,7 @@ Future<util::optional<int64_t>> CsvFileFormat::CountRows(
     if (fragment_scan_options->stream_transform_func) {
       ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
     } else {
-      return Status::Invalid("File encoding is not UTF-8, but no stream_transform_func has been provided");
+      return Status::Invalid("File encoding is not utf8, but no stream_transform_func has been provided");
     }
   }
   return csv::CountRowsAsync(options->io_context, std::move(input),
