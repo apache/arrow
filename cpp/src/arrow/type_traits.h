@@ -386,9 +386,6 @@ struct TypeTraits<RunLengthEncodedType> {
   using ArrayType = RunLengthEncodedArray;
   // TODO: using BuilderType = RunLengthEncodedBuilder;
 
-  static constexpr int64_t bytes_required(int64_t elements) {
-    return elements * static_cast<int64_t>(sizeof(int64_t));
-  }
   constexpr static bool is_parameter_free = false;
 };
 
