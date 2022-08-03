@@ -290,8 +290,6 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
 
-        switch (options.retry_strategy):
-
         if retry_strategy is None or retry_strategy == "aws_standard":
             options.retry_strategy = S3RetryStrategy::GetAwsStandardRetryStrategy(retry_max_attempts)
         elif retry_strategy == "aws_default":
