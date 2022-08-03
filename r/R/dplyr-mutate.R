@@ -177,6 +177,7 @@ unfold_across <- function(.data, quos_in) {
       for (col in cols) {
         for (i in seq_along(funcs)) {
 
+          # TODO: this has a weird smell, refactor
           # work out the name of the new column
           if (length(funcs) == 1) {
             func <- funcs
