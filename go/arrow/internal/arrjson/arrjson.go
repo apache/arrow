@@ -217,7 +217,9 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 	case *arrow.FixedSizeBinaryType:
 		typ = byteWidthJSON{"fixedsizebinary", dt.ByteWidth}
 	case *arrow.Decimal128Type:
-		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision)}
+		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 128}
+	case *arrow.Decimal256Type:
+		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 256}
 	default:
 		return nil, fmt.Errorf("unknown arrow.DataType %v", arrowType)
 	}
@@ -454,7 +456,12 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		if err = json.Unmarshal(typ, &t); err != nil {
 			return
 		}
-		arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		switch t.BitWidth {
+		case 128:
+			arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		case 256:
+			arrowType = &arrow.Decimal256Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		}
 	}
 
 	if arrowType == nil {
@@ -578,6 +585,7 @@ type decimalJSON struct {
 	Name      string `json:"name"`
 	Scale     int    `json:"scale,omitempty"`
 	Precision int    `json:"precision,omitempty"`
+	BitWidth  int    `json:"bitWidth,omitempty"`
 }
 
 type byteWidthJSON struct {
@@ -1122,6 +1130,14 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		bldr := array.NewDecimal128Builder(mem, dt)
 		defer bldr.Release()
 		data := decimal128FromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return returnNewArrayData(bldr)
+
+	case *arrow.Decimal256Type:
+		bldr := array.NewDecimal256Builder(mem, dt)
+		defer bldr.Release()
+		data := decimal256FromJSON(arr.Data)
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
 		return returnNewArrayData(bldr)
