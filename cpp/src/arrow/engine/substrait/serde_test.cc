@@ -84,43 +84,6 @@ Result<std::shared_ptr<Table>> GetTableFromPlan(
   return arrow::Table::FromRecordBatchReader(sink_reader.get());
 }
 
-// Result<std::string> WriteTemporaryData(const std::string& file_name, const
-// std::shared_ptr<Table>& table, const std::shared_ptr<fs::LocalFileSystem>& filesystem)
-// {
-//   ARROW_ASSIGN_OR_RAISE(auto tempdir,
-//   arrow::internal::TemporaryDir::Make("substrait_tempdir")); ARROW_ASSIGN_OR_RAISE(auto
-//   file_path, tempdir->path().Join(file_name)); std::string file_path_str =
-//   file_path.ToString(); EXPECT_EQ(WriteParquetData(file_path_str, filesystem, table),
-//   true); return file_path_str;
-// }
-
-bool CompareDataset(std::shared_ptr<dataset::Dataset> ds_lhs,
-                    std::shared_ptr<dataset::Dataset> ds_rhs) {
-  const auto& fsd_lhs = checked_cast<const dataset::FileSystemDataset&>(*ds_lhs);
-  const auto& fsd_rhs = checked_cast<const dataset::FileSystemDataset&>(*ds_rhs);
-  const auto& files_lhs = fsd_lhs.files();
-  const auto& files_rhs = fsd_rhs.files();
-
-  if (files_lhs.size() != files_rhs.size()) {
-    return false;
-  }
-  uint64_t fidx = 0;
-  for (const auto& l_file : files_lhs) {
-    if (l_file != files_rhs[fidx++]) {
-      return false;
-    }
-  }
-  bool cmp_file_format = fsd_lhs.format()->Equals(*fsd_rhs.format());
-  bool cmp_file_system = fsd_lhs.filesystem()->Equals(fsd_rhs.filesystem());
-  return cmp_file_format && cmp_file_system;
-}
-
-bool CompareScanOptions(const dataset::ScanNodeOptions& lhs,
-                        const dataset::ScanNodeOptions& rhs) {
-  return lhs.require_sequenced_output == rhs.require_sequenced_output &&
-         CompareDataset(lhs.dataset, rhs.dataset);
-}
-
 class NullSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   Status Init(const std::shared_ptr<Schema>&, compute::BackpressureControl*) override {
