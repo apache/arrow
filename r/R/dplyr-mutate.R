@@ -169,34 +169,35 @@ unfold_across <- function(.data, quos_in) {
       # use select to get the column names so we can take advantage of
       # tidyselect
       cols <- names(select(.data, !!quo_expr[[2]]))
-
       funcs <- quo_expr[[3]]
+
+      # TODO: refactor to take in the .names argument to across()
+      col_names <- get_across_names(cols, funcs)
 
       for (col in cols) {
         for (i in seq_along(funcs)) {
+
           # work out the name of the new column
           if (length(funcs) == 1) {
             func <- funcs
-            new_colname <- col
+            name_ref <- i
+
           } else {
             func <- funcs[[i]]
-            # column name is either the name of the item or index
-            # i - 1 because we exclude list
-            col_suffix <- names(funcs)[[i]]
-            if (col_suffix == "") {
-              col_suffix <- i - 1
-            }
-            new_colname <- paste0(col, "_", col_suffix)
+            name_ref <- i - 1
           }
 
           # if we've supplied multiple functions using list() ignore this element
           if (!is_symbol(func, "list")) {
+
             # get the expression
             new_quo <- list(quo(!!call2(func, sym(col))))
             # give the expression a name
-            names(new_quo) <- new_colname
+            names(new_quo) <- col_names[[col]][[name_ref]]
+
             # append to temporary list of new quosures
             new_quos <- append(new_quos, new_quo)
+
           }
         }
       }
@@ -208,4 +209,34 @@ unfold_across <- function(.data, quos_in) {
   }
 
   quos_out
+}
+
+get_across_names <- function(cols, funcs){
+
+  names <- list()
+
+  if (length(funcs) == 1) {
+    names <- set_names(as.list(cols), cols)
+  } else {
+    for (i in seq_along(funcs)) {
+      func <- funcs[[i]]
+      col_suffix <- names(funcs)[[i]]
+      if (!is_symbol(func, "list")) {
+        if (col_suffix == "") {
+          col_suffix <- i - 1
+        }
+        new_colnames <- set_names(paste0(cols, "_", col_suffix), cols)
+
+        # TODO: refactor this - surely it can be vectorised?
+        for (col_i in seq_along(new_colnames)) {
+          which_item <- names(new_colnames)[[col_i]]
+          col_name <- new_colnames[[col_i]]
+
+          old_vals <- names[[which_item]]
+          names[[which_item]] <- c(old_vals, col_name)
+        }
+      }
+    }
+  }
+  names
 }
