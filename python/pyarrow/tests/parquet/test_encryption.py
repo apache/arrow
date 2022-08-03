@@ -520,6 +520,7 @@ def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):
     decryption_config = pe.DecryptionConfiguration(
         cache_lifetime=timedelta(minutes=5.0))
 
+
     for i in range(50):
         # Read with decryption properties
         file_decryption_properties = crypto_factory.file_decryption_properties(
