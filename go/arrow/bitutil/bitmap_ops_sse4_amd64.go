@@ -27,12 +27,12 @@ import (
 func _bitmap_aligned_and_sse4(left, right, out unsafe.Pointer, length int64)
 
 func bitmapAlignedAndSSE4(left, right, out []byte) {
-	_bitmap_aligned_and_avx2(unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), int64(len(out)))
+	_bitmap_aligned_and_sse4(unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), int64(len(out)))
 }
 
 //go:noescape
 func _bitmap_aligned_or_sse4(left, right, out unsafe.Pointer, length int64)
 
 func bitmapAlignedOrSSE4(left, right, out []byte) {
-	_bitmap_aligned_or_avx2(unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), int64(len(out)))
+	_bitmap_aligned_or_sse4(unsafe.Pointer(&left[0]), unsafe.Pointer(&right[0]), unsafe.Pointer(&out[0]), int64(len(out)))
 }
