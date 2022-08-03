@@ -67,6 +67,10 @@ Status ReadOptions::Validate() const {
         "ReadOptions: autogenerate_column_names cannot be true when column_names are "
         "provided");
   }
+  if (ARROW_PREDICT_FALSE(encoding != kCsvDefaultEncoding)) {
+    return Status::Invalid(
+        "ReadOptions: only UTF-8 is supported: ", encoding);
+  }
   return Status::OK();
 }
 
