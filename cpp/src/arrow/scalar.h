@@ -209,10 +209,6 @@ struct NumericScalar : public internal::PrimitiveScalar<T>,
                  const OrderOptions& options = OrderOptions::Defaults()) const {
     return ScalarIsAtLeast(*this, other, options);
   }
-  using util::OrderComparable<NumericScalar<T>>::LessThan;
-  using util::OrderComparable<NumericScalar<T>>::IsAtMost;
-  using util::OrderComparable<NumericScalar<T>>::MoreThan;
-  using util::OrderComparable<NumericScalar<T>>::IsAtLeast;
   using util::OrderComparable<NumericScalar<T>>::operator<;
   using util::OrderComparable<NumericScalar<T>>::operator<=;
   using util::OrderComparable<NumericScalar<T>>::operator>;

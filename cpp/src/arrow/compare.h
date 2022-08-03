@@ -174,7 +174,7 @@ class OrderOptions {
   }
 
   /// The absolute tolerance for approximate comparisons of integer values.
-  double atold() const { return atold_; }
+  uint64_t atold() const { return atold_; }
 
   /// Return a new EqualOptions object with the "atol" property changed.
   OrderOptions atold(double v) const {
@@ -202,7 +202,7 @@ T TypeAdjustedTolerance(double tolerance) {
 template <typename T>
 T TypeAdjustedTolerance(uint64_t tolerance) {
   T max = std::numeric_limits<T>::max();
-  return tolerance >= max ? max : static_cast<T>(tolerance);
+  return tolerance >= static_cast<uint64_t>(max) ? max : static_cast<T>(tolerance);
 }
 
 template <typename T, template <typename> class Op,
@@ -212,7 +212,7 @@ bool NumericScalarCompare(const T& left, const T& right, const OrderOptions& opt
     return false;  // arbitrary - unequal types are unordered
   }
   auto ty = left.type;
-  bool fp_type = ty == float16() || ty == float32() || ty == float64();
+  bool fp_type = is_floating(left.type->id());
   bool left_nan = !left.is_valid || (fp_type && std::isnan(left.value));
   bool right_nan = !right.is_valid || (fp_type && std::isnan(right.value));
   using V = decltype(left.value);

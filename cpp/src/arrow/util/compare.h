@@ -108,19 +108,19 @@ class OrderComparable {
   }
 
   struct PtrsLessThan {
-    bool operator()(const P& l, const P& r) const { return l->LessThan(r); }
+    bool operator()(const P& l, const P& r) const { return l->LessThan(*r); }
   };
 
   struct PtrsIsAtMost {
-    bool operator()(const P& l, const P& r) const { return l->IsAtMost(r); }
+    bool operator()(const P& l, const P& r) const { return l->IsAtMost(*r); }
   };
 
   struct PtrsMoreThan {
-    bool operator()(const P& l, const P& r) const { return l->MoreThan(r); }
+    bool operator()(const P& l, const P& r) const { return l->MoreThan(*r); }
   };
 
   struct PtrsIsAtLeast {
-    bool operator()(const P& l, const P& r) const { return l->IsAtLeast(r); }
+    bool operator()(const P& l, const P& r) const { return l->IsAtLeast(*r); }
   };
 
   bool MoreThan(const T& other) const { return !cast().IsAtMost(other); }
