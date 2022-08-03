@@ -174,11 +174,10 @@ func (n Num) tofloat32Positive(scale int32) float32 {
 	x := float32(n.hi) * twoTo64
 	x += float32(n.lo)
 	if scale >= -38 && scale <= 38 {
-		x *= float32PowersOfTen[-scale+38]
-	} else {
-		x *= float32(math.Pow10(-int(scale)))
+		return x * float32PowersOfTen[-scale+38]
 	}
-	return x
+
+	return x * float32(math.Pow10(-int(scale)))
 }
 
 // ToFloat32 returns a float32 value representative of this decimal128.Num,
@@ -195,11 +194,10 @@ func (n Num) tofloat64Positive(scale int32) float64 {
 	x := float64(n.hi) * twoTo64
 	x += float64(n.lo)
 	if scale >= -38 && scale <= 38 {
-		x *= float64PowersOfTen[-scale+38]
-	} else {
-		x *= math.Pow10(-int(scale))
+		return x * float64PowersOfTen[-scale+38]
 	}
-	return x
+
+	return x * math.Pow10(-int(scale))
 }
 
 // ToFloat64 returns a float64 value representative of this decimal128.Num,

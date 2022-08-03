@@ -166,7 +166,7 @@ func init() {
 		arrow.INTERVAL_MONTHS:         func(data arrow.ArrayData) arrow.Array { return NewMonthIntervalData(data) },
 		arrow.INTERVAL_DAY_TIME:       func(data arrow.ArrayData) arrow.Array { return NewDayTimeIntervalData(data) },
 		arrow.DECIMAL128:              func(data arrow.ArrayData) arrow.Array { return NewDecimal128Data(data) },
-		arrow.DECIMAL256:              unsupportedArrayType,
+		arrow.DECIMAL256:              func(data arrow.ArrayData) arrow.Array { return NewDecimal256Data(data) },
 		arrow.LIST:                    func(data arrow.ArrayData) arrow.Array { return NewListData(data) },
 		arrow.STRUCT:                  func(data arrow.ArrayData) arrow.Array { return NewStructData(data) },
 		arrow.SPARSE_UNION:            unsupportedArrayType,

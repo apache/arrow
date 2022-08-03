@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/float16"
 	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v10/arrow/ipc"
@@ -1447,6 +1448,14 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Valids: validsToJSON(arr),
 		}
 
+	case *array.Decimal256:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   decimal256ToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+
 	case array.ExtensionArray:
 		return arrayToJSON(field, arr.Storage())
 
@@ -1739,6 +1748,27 @@ func decimal128FromJSON(vs []interface{}) []decimal128.Num {
 		}
 
 		o[i] = decimal128.FromBigInt(&tmp)
+	}
+	return o
+}
+
+func decimal256ToJSON(arr *array.Decimal256) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.Value(i).BigInt().String()
+	}
+	return o
+}
+
+func decimal256FromJSON(vs []interface{}) []decimal256.Num {
+	var tmp big.Int
+	o := make([]decimal256.Num, len(vs))
+	for i, v := range vs {
+		if err := tmp.UnmarshalJSON([]byte(v.(string))); err != nil {
+			panic(fmt.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
+		}
+
+		o[i] = decimal256.FromBigInt(&tmp)
 	}
 	return o
 }
