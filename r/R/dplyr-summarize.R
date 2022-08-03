@@ -179,7 +179,8 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ...) {
+summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
+
   call <- match.call()
   .data <- as_adq(.data)
   exprs <- unfold_across(.data, quos(...))
@@ -199,7 +200,7 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
 
   # Try stuff, if successful return()
-  out <- try(do_arrow_summarize(.data, !!!exprs), silent = TRUE)
+  out <- try(do_arrow_summarize(.data, !!!exprs, .groups = .groups), silent = TRUE)
   if (inherits(out, "try-error")) {
     return(abandon_ship(call, .data, format(out)))
   } else {
