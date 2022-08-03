@@ -76,7 +76,7 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
   ASSERT_EQ(rle_array->data()->null_count, 0);
 
   ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Run ends array must be int32 type",
-                             RunLengthEncodedArray::Make(int32_values, string_values, 3));
+                             RunLengthEncodedArray::Make(string_values, int32_values, 3));
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
       RunLengthEncodedArray::Make(int32_values, int32_only_null, 3));
