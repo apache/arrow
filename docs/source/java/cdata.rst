@@ -33,11 +33,6 @@ Python communication using the C Data Interface.
 Java to C++
 -----------
 
-Share an Int64 array from C++ to Java
-=====================================
-
-**C++ Side**
-
 See :doc:`../developers/cpp/building` to build the Arrow C++ libraries:
 
 .. code-block:: shell
@@ -53,6 +48,11 @@ See :doc:`../developers/cpp/building` to build the Arrow C++ libraries:
     ├── libarrow.800.0.0.dylib
     ├── libarrow.800.dylib -> libarrow.800.0.0.dylib
     └── libarrow.dylib -> libarrow.800.dylib
+
+Share an Int64 array from C++ to Java
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**C++ Side**
 
 Implement a function in CDataCppBridge.h that exports an array via the C Data Interface:
 
@@ -222,7 +222,7 @@ Let's create a Java class to test our bridge:
     C++-allocated array: [1, 2, 3, null, 5, 6, 7, 8, 9, 10]
 
 Share an Int32 array from Java to C++
-=====================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Java Side**
 
@@ -307,9 +307,9 @@ For this example, we will build a JAR with all dependencies bundled.
     public class ToBeCalledByCpp {
         final static BufferAllocator allocator = new RootAllocator();
 
-        public static void fillfieldvectorfromjavatocpp(long schema_id, long array_id){
-            try (ArrowArray arrow_array = ArrowArray.wrap(array_id);
-                 ArrowSchema arrow_schema = ArrowSchema.wrap(schema_id) ) {
+        public static void fillVector(long schemaAddress, long arrayAddress){
+            try (ArrowArray arrow_array = ArrowArray.wrap(arrayAddress);
+                 ArrowSchema arrow_schema = ArrowSchema.wrap(schemaAddress) ) {
                 Data.exportVector(allocator, populateFieldVectorToExport(), null, arrow_array, arrow_schema);
             }
         }
@@ -325,9 +325,9 @@ For this example, we will build a JAR with all dependencies bundled.
             return intVector;
         }
 
-        public static void fillvectorschemarootfromjavatocpp(long schema_id, long array_id){
-            try (ArrowArray arrow_array = ArrowArray.wrap(array_id);
-                 ArrowSchema arrow_schema = ArrowSchema.wrap(schema_id) ) {
+        public static void fillVectorSchemaRoot(long schemaAddress, long arrayAddress){
+            try (ArrowArray arrow_array = ArrowArray.wrap(arrayAddress);
+                 ArrowSchema arrow_schema = ArrowSchema.wrap(schemaAddress) ) {
                 Data.exportVectorSchemaRoot(allocator, populateVectorSchemaRootToExport(), null, arrow_array, arrow_schema);
             }
         }
@@ -339,15 +339,11 @@ For this example, we will build a JAR with all dependencies bundled.
             intVector.setSafe(2, 30);
             VectorSchemaRoot root = new VectorSchemaRoot(Arrays.asList(intVector));
             root.setRowCount(3);
-            System.out.println("[Java - side] VectorSchemaRoot: \n" + root.contentToTSVString());
+            System.out.println("[Java] VectorSchemaRoot: \n" + root.contentToTSVString());
             return root;
         }
-
-        public static void main(String[] args) {
-            populateFieldVectorToExport();
-            populateVectorSchemaRootToExport();
-        }
     }
+
 
 Build the JAR and copy it to the C++ project.
 
@@ -367,7 +363,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
     #include <arrow/c/bridge.h>
     #include <jni.h>
 
-    JNIEnv* CreateVM(JavaVM** jvm) {
+    JNIEnv *CreateVM(JavaVM **jvm) {
         JNIEnv *env;
         JavaVMInitArgs vm_args;
         JavaVMOption options[2];
@@ -376,59 +372,58 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
         vm_args.version = JNI_VERSION_1_8;
         vm_args.nOptions = 2;
         vm_args.options = options;
-        int status = JNI_CreateJavaVM(jvm, (void**) &env, &vm_args);
-        if (status < 0) printf("\n<<<<< Unable to Launch JVM >>>>>\n");
+        int status = JNI_CreateJavaVM(jvm, (void **) &env, &vm_args);
+        if (status < 0) {
+            std::cout << "\n<<<<< Unable to Launch JVM >>>>>\n" << std::endl;
+            std::abort();
+        }
         return env;
     }
 
     int main() {
-        JNIEnv* env;
-        JavaVM* jvm;
-        env = create_vm(&jvm);
+        JNIEnv *env;
+        JavaVM *jvm;
+        env = CreateVM(&jvm);
         if (env == nullptr) return 1;
         jclass javaClassToBeCalledByCpp = NULL;
-        javaClassToBeCalledByCpp = env ->FindClass("ToBeCalledByCpp");
-        if ( javaClassToBeCalledByCpp != NULL ) {
-            jmethodID fillfieldvectorfromjavatocpp = NULL;
-            fillfieldvectorfromjavatocpp = env->GetStaticMethodID(javaClassToBeCalledByCpp, "fillfieldvectorfromjavatocpp", "(JJ)V");
-            if ( fillfieldvectorfromjavatocpp != NULL ){
+        javaClassToBeCalledByCpp = env->FindClass("ToBeCalledByCpp");
+        if (javaClassToBeCalledByCpp != NULL) {
+            jmethodID fillVector = NULL;
+            fillVector = env->GetStaticMethodID(javaClassToBeCalledByCpp, "fillVector", "(JJ)V");
+            if (fillVector != NULL) {
                 struct ArrowSchema arrowSchema;
                 struct ArrowArray arrowArray;
-                printf("\n<<<<< C++ to Java for Arrays >>>>>\n");
-                env->CallStaticVoidMethod(javaClassToBeCalledByCpp, fillfieldvectorfromjavatocpp, reinterpret_cast<uintptr_t>(&arrowSchema), reinterpret_cast<uintptr_t>(&arrowArray));
+                std::cout << "\n<<<<< C++ to Java for Arrays >>>>>\n" << std::endl;
+                env->CallStaticVoidMethod(javaClassToBeCalledByCpp, fillVector, reinterpret_cast<uintptr_t>(&arrowSchema),
+                                          reinterpret_cast<uintptr_t>(&arrowArray));
                 auto resultImportArray = arrow::ImportArray(&arrowArray, &arrowSchema);
                 std::shared_ptr<arrow::Array> array = resultImportArray.ValueOrDie();
-                auto int32_array = std::static_pointer_cast<arrow::Int32Array>(array);
-                const int32_t* data = int32_array->raw_values();
-                for (int j = 0; j < int32_array->length(); j++){
-                    printf("[C++ - side]: Data ImportArray - array[%d] = %d\n", j, data[j]);
-                }
+                std::cout << "[C++] Array: " << array->ToString() << std::endl;
             } else {
-                printf("Problem to read method fillfieldvectorfromjavatocpp\n");
+                std::cout << "Problem to read method fillVector\n" << std::endl;
+                return EXIT_FAILURE;
             }
-            jmethodID fillvectorschemarootfromjavatocpp = NULL;
-            fillvectorschemarootfromjavatocpp = env->GetStaticMethodID(javaClassToBeCalledByCpp, "fillvectorschemarootfromjavatocpp", "(JJ)V");
-            if ( fillvectorschemarootfromjavatocpp != NULL ){
+            jmethodID fillVectorSchemaRoot = NULL;
+            fillVectorSchemaRoot = env->GetStaticMethodID(javaClassToBeCalledByCpp, "fillVectorSchemaRoot", "(JJ)V");
+            if (fillVectorSchemaRoot != NULL) {
                 struct ArrowSchema arrowSchema;
                 struct ArrowArray arrowArray;
-                printf("\n<<<<< C++ to Java for RecordBatch >>>>>\n");
-                env->CallStaticVoidMethod(javaClassToBeCalledByCpp, fillvectorschemarootfromjavatocpp, static_cast<long>(reinterpret_cast<uintptr_t>(&arrowSchema)), static_cast<long>(reinterpret_cast<uintptr_t>(&arrowArray)));
+                std::cout << "\n<<<<< C++ to Java for RecordBatch >>>>>\n" << std::endl;
+                env->CallStaticVoidMethod(javaClassToBeCalledByCpp, fillVectorSchemaRoot,
+                                          static_cast<long>(reinterpret_cast<uintptr_t>(&arrowSchema)),
+                                          static_cast<long>(reinterpret_cast<uintptr_t>(&arrowArray)));
                 auto resultImportVectorSchemaRoot = arrow::ImportRecordBatch(&arrowArray, &arrowSchema);
                 std::shared_ptr<arrow::RecordBatch> recordBatch = resultImportVectorSchemaRoot.ValueOrDie();
-                for (std::shared_ptr<arrow::Array> array : recordBatch->columns()) {
-                    auto int32_array = std::static_pointer_cast<arrow::Int32Array>(array);
-                    const int32_t* data = int32_array->raw_values();
-                    for (int j = 0; j < int32_array->length(); j++){
-                        printf("[C++ - side]: Data ImportArray - array[%d] = %d\n", j, data[j]);
-                    }
-                }
+                std::cout << "[C++] RecordBatch: " << recordBatch->ToString() << std::endl;
             } else {
-                printf("Problem to read method fillvectorschemarootfromjavatocpp\n");
+                std::cout << "Problem to read method fillVectorSchemaRoot\n" << std::endl;
+                return EXIT_FAILURE;
             }
         } else {
-            printf("Problem to read class ToBeCalledByCpp\n");
+            std::cout << "Problem to read class ToBeCalledByCpp\n" << std::endl;
+            return EXIT_FAILURE;
         }
-        jvm ->DestroyJavaVM();
+        jvm->DestroyJavaVM();
         return 0;
     }
 
@@ -437,7 +432,7 @@ CMakeLists.txt definition file:
 .. code-block:: xml
 
     cmake_minimum_required(VERSION 3.19)
-    project(firstarrowcpp)
+    project(cdatacpptojava)
     find_package(JNI REQUIRED)
     find_package(Arrow REQUIRED)
     message(STATUS "Arrow version: ${ARROW_VERSION}")
@@ -445,29 +440,33 @@ CMakeLists.txt definition file:
     include_directories(${JNI_INCLUDE_DIRS})
     set(CMAKE_CXX_STANDARD 11)
     add_executable(${PROJECT_NAME} main.cpp)
-    target_link_libraries(firstarrowcpp PRIVATE arrow_shared)
-    target_link_libraries(firstarrowcpp PRIVATE ${JNI_LIBRARIES})
+    target_link_libraries(cdatacpptojava PRIVATE arrow_shared)
+    target_link_libraries(cdatacpptojava PRIVATE ${JNI_LIBRARIES})
 
 **Result**
 
 .. code-block:: shell
 
     <<<<< C++ to Java for Arrays >>>>>
-    [Java - side]: FieldVector:
+    [Java] FieldVector:
     [1, 2, 3]
-    [C++ - side]: Data ImportArray - array[0] = 1
-    [C++ - side]: Data ImportArray - array[1] = 2
-    [C++ - side]: Data ImportArray - array[2] = 3
+    [C++] Array: [
+      1,
+      2,
+      3
+    ]
 
     <<<<< C++ to Java for RecordBatch >>>>>
-    [Java - side] VectorSchemaRoot:
+    [Java] VectorSchemaRoot:
     age-to-export
     10
     20
     30
 
-    [C++ - side]: Data ImportArray - array[0] = 10
-    [C++ - side]: Data ImportArray - array[1] = 20
-    [C++ - side]: Data ImportArray - array[2] = 30
+    [C++] RecordBatch: age-to-export:   [
+      10,
+      20,
+      30
+    ]
 
 .. _`JavaCPP`: https://github.com/bytedeco/javacpp
