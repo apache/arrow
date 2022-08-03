@@ -152,11 +152,12 @@ class TestIsInKernelPrimitive : public ::testing::Test {};
 template <typename Type>
 class TestIsInKernelBinary : public ::testing::Test {};
 
-using PrimitiveTypes = ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type,
-                                        Int32Type, UInt32Type, Int64Type, UInt64Type,
-                                        FloatType, DoubleType, Date32Type, Date64Type>;
+using PrimitiveTypeCases =
+    ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type, UInt32Type,
+                     Int64Type, UInt64Type, FloatType, DoubleType, Date32Type,
+                     Date64Type>;
 
-TYPED_TEST_SUITE(TestIsInKernelPrimitive, PrimitiveTypes);
+TYPED_TEST_SUITE(TestIsInKernelPrimitive, PrimitiveTypeCases);
 
 TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
   auto type = TypeTraits<TypeParam>::type_singleton();
