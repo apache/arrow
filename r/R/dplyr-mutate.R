@@ -167,16 +167,17 @@ unfold_across <- function(.data, quos_in) {
       new_quos <- list()
 
       cols <- names(select(.data, !!quo_expr[[2]]))
-      funcs <- as.list(quo_expr[[3]])
+
+      funcs <- quo_expr[[3]]
 
       for (col in cols) {
         for (i in seq_along(funcs)) {
-          func <- funcs[[i]]
-
           # work out the name of the new column
           if (length(funcs) == 1) {
+            func <- funcs
             new_colname <- col
           } else {
+            func <- funcs[[i]]
             # column name is either the name of the item or index
             # i - 1 because we exclude list
             col_suffix <- names(funcs)[[i]]

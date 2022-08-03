@@ -182,7 +182,8 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 summarise.arrow_dplyr_query <- function(.data, ...) {
   call <- match.call()
   .data <- as_adq(.data)
-  exprs <- quos(...)
+  exprs <- unfold_across(.data, quos(...))
+
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
     unlist(lapply(exprs, all.vars)), # vars referenced in summarise
@@ -198,7 +199,7 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
 
   # Try stuff, if successful return()
-  out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
+  out <- try(do_arrow_summarize(.data, !!!exprs), silent = TRUE)
   if (inherits(out, "try-error")) {
     return(abandon_ship(call, .data, format(out)))
   } else {
