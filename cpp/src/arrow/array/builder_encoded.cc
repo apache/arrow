@@ -25,6 +25,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/rle
 
 namespace arrow {
 
@@ -87,10 +88,21 @@ Status RunLengthEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
 
 Status RunLengthEncodedBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
                                                  int64_t length) {
+  auto full_array = array.ToArray();
   if (array.type->Equals(type_)) {
-
+    // array is also run-length encoded
+    for (size_t index = 0; index < length; index++) {
+      // TODO: rle_util
+      const int32_t *array_run_ends = array.GetValues<int32_t>(0, 1);
+      ARROW_ASSIGN_OR_RAISE(auto scalar, full_array->GetScalar(offset + index));
+      RETURN_NOT_OK(AppendScalar(*scalar, 1));
+    }
   } else if (array.type->Equals(type_->encoded_type())) {
-
+    // array is not encoded
+    for (size_t index = 0; index < length; index++) {
+      ARROW_ASSIGN_OR_RAISE(auto scalar, full_array->GetScalar(offset + index));
+      RETURN_NOT_OK(AppendScalar(*scalar, 1));
+    }
   } else {
     return Status::Invalid("adding ", array.type," array slice to ", type_, " builder");
   }
