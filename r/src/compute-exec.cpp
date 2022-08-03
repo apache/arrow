@@ -148,6 +148,7 @@ std::shared_ptr<arrow::Table> ExecPlan_read_table(
       });
 
   prepared_plan.first->StopProducing();
+  StopIfNotOk(prepared_plan.first->finished().status());
   return ValueOrStop(result);
 }
 
