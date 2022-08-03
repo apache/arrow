@@ -43,7 +43,7 @@ namespace arrow {
 
 namespace engine {
 
-class ARROW_EXPORT SubstraitConversionRegistry {
+class ARROW_ENGINE_EXPORT SubstraitConversionRegistry {
  public:
   virtual ~SubstraitConversionRegistry() = default;
   using SubstraitConverter = std::function<Result<std::unique_ptr<substrait::Rel>>(
@@ -56,7 +56,7 @@ class ARROW_EXPORT SubstraitConversionRegistry {
                                    SubstraitConverter converter) = 0;
 };
 
-ARROW_EXPORT SubstraitConversionRegistry* default_substrait_conversion_registry();
+ARROW_ENGINE_EXPORT SubstraitConversionRegistry* default_substrait_conversion_registry();
 
 }  // namespace engine
 }  // namespace arrow
