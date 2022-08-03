@@ -542,7 +542,7 @@ Result<std::unique_ptr<substrait::Rel>> ScanRelationConverter(
           make_unique<substrait::ReadRel_LocalFiles_FileOrFiles_OrcReadOptions>();
       read_rel_lfs_ffs->set_allocated_orc(orc_fmt.release());
     } else {
-      return Status::Invalid("Unsupported file type : ", format_type_name);
+      return Status::NotImplemented("Unsupported file type: ", format_type_name);
     }
     read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
   }
