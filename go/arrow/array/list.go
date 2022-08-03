@@ -346,8 +346,6 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 	}
 }
 
-func (b *LargeListBuilder) Type() arrow.DataType { return arrow.LargeListOf(b.values.Type()) }
-
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *baseListBuilder) Release() {
