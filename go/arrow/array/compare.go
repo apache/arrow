@@ -294,6 +294,9 @@ func Equal(left, right arrow.Array) bool {
 	case *List:
 		r := right.(*List)
 		return arrayEqualList(l, r)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayEqualLargeList(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayEqualFixedSizeList(l, r)
@@ -535,6 +538,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *List:
 		r := right.(*List)
 		return arrayApproxEqualList(l, r, opt)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayApproxEqualLargeList(l, r, opt)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayApproxEqualFixedSizeList(l, r, opt)
@@ -632,6 +638,25 @@ func arrayApproxEqualFloat64(left, right *Float64, opt equalOption) bool {
 }
 
 func arrayApproxEqualList(left, right *List, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualLargeList(left, right *LargeList, opt equalOption) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue

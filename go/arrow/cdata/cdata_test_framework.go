@@ -208,6 +208,10 @@ func createCArr(arr arrow.Array) *CArrowArray {
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
+	case *array.LargeList:
+		clist := []*CArrowArray{createCArr(arr.ListValues())}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
+		nchildren += 1
 	case *array.FixedSizeList:
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))

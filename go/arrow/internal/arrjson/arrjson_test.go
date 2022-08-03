@@ -21,12 +21,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReadWrite(t *testing.T) {
@@ -87,9 +87,7 @@ func TestReadWrite(t *testing.T) {
 			}
 
 			fileBytes, _ := ioutil.ReadFile(f.Name())
-			if wantJSONs[name] != strings.TrimSpace(string(fileBytes)) {
-				t.Fatalf("not expected JSON pretty output for case: %v", name)
-			}
+			assert.JSONEq(t, wantJSONs[name], string(fileBytes))
 
 			_, err = f.Seek(0, io.SeekStart)
 			if err != nil {
@@ -1115,6 +1113,34 @@ func makeStructsWantJSONs() string {
                 "",
                 "4444",
                 "4555"
+              ],
+              "OFFSET": [
+                0,
+                3,
+                3,
+                3,
+                6,
+                9,
+                13,
+                13,
+                13,
+                17,
+                21,
+                25,
+                25,
+                25,
+                29,
+                33,
+                37,
+                37,
+                37,
+                41,
+                45,
+                49,
+                49,
+                49,
+                53,
+                57
               ]
             }
           ]
@@ -1269,6 +1295,34 @@ func makeStructsWantJSONs() string {
                 "",
                 "-4444",
                 "-4555"
+              ],
+              "OFFSET": [
+                0,
+                4,
+                4,
+                4,
+                8,
+                12,
+                17,
+                17,
+                17,
+                22,
+                27,
+                32,
+                32,
+                32,
+                37,
+                42,
+                47,
+                47,
+                47,
+                52,
+                57,
+                62,
+                62,
+                62,
+                67,
+                72
               ]
             }
           ]
@@ -1315,13 +1369,7 @@ func makeListsWantJSONs() string {
             1,
             1,
             1
-          ],
-          "OFFSET": [
-            0,
-            5,
-            10,
-            15
-          ],
+          ],          
           "children": [
             {
               "name": "item",
@@ -1361,6 +1409,12 @@ func makeListsWantJSONs() string {
                 25
               ]
             }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            10,
+            15
           ]
         }
       ]
@@ -1375,12 +1429,6 @@ func makeListsWantJSONs() string {
             1,
             1,
             1
-          ],
-          "OFFSET": [
-            0,
-            5,
-            10,
-            15
           ],
           "children": [
             {
@@ -1421,6 +1469,12 @@ func makeListsWantJSONs() string {
                 -25
               ]
             }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            10,
+            15
           ]
         }
       ]
@@ -1435,12 +1489,6 @@ func makeListsWantJSONs() string {
             1,
             0,
             1
-          ],
-          "OFFSET": [
-            0,
-            5,
-            10,
-            15
           ],
           "children": [
             {
@@ -1481,6 +1529,12 @@ func makeListsWantJSONs() string {
                 -25
               ]
             }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            10,
+            15
           ]
         }
       ]
@@ -1491,14 +1545,14 @@ func makeListsWantJSONs() string {
         {
           "name": "list_nullable",
           "count": 0,
-          "OFFSET": [
-            0
-          ],
           "children": [
             {
               "name": "item",
               "count": 0
             }
+          ],
+          "OFFSET": [
+            0
           ]
         }
       ]
@@ -1706,6 +1760,14 @@ func makeStringsWantJSONs() string {
             "3",
             "4",
             "5"
+          ],
+          "OFFSET": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            7
           ]
         },
         {
@@ -1755,6 +1817,14 @@ func makeStringsWantJSONs() string {
             "33",
             "44",
             "55"
+          ],
+          "OFFSET": [
+            0,
+            2,
+            4,
+            6,
+            8,
+            10
           ]
         },
         {
@@ -1804,6 +1874,14 @@ func makeStringsWantJSONs() string {
             "333",
             "444",
             "555"
+          ],
+          "OFFSET": [
+            0,
+            3,
+            6,
+            9,
+            12,
+            15
           ]
         },
         {
@@ -3408,12 +3486,7 @@ func makeMapsWantJSONs() string {
           "VALIDITY": [
             1,
             0
-          ],
-          "OFFSET": [
-            0,
-            25,
-            50
-          ],
+          ],          
           "children": [
             {
               "name": "entries",
@@ -3685,10 +3758,68 @@ func makeMapsWantJSONs() string {
                     "",
                     "-4444",
                     "-4555"
+                  ],
+                  "OFFSET": [
+                    0,
+                    3,
+                    3,
+                    3,
+                    6,
+                    9,
+                    13,
+                    13,
+                    13,
+                    17,
+                    21,
+                    25,
+                    25,
+                    25,
+                    29,
+                    33,
+                    37,
+                    37,
+                    37,
+                    41,
+                    45,
+                    49,
+                    49,
+                    49,
+                    53,
+                    57,
+                    61,
+                    61,
+                    61,
+                    65,
+                    69,
+                    74,
+                    74,
+                    74,
+                    79,
+                    84,
+                    89,
+                    89,
+                    89,
+                    94,
+                    99,
+                    104,
+                    104,
+                    104,
+                    109,
+                    114,
+                    119,
+                    119,
+                    119,
+                    124,
+                    129
                   ]
                 }
               ]
             }
+          ],
+          "OFFSET": [
+            0,
+            25,
+            50
           ]
         }
       ]
@@ -3702,11 +3833,6 @@ func makeMapsWantJSONs() string {
           "VALIDITY": [
             1,
             0
-          ],
-          "OFFSET": [
-            0,
-            25,
-            50
           ],
           "children": [
             {
@@ -3979,10 +4105,68 @@ func makeMapsWantJSONs() string {
                     "",
                     "4444",
                     "4555"
+                  ],
+                  "OFFSET": [
+                    0,
+                    4,
+                    4,
+                    4,
+                    8,
+                    12,
+                    17,
+                    17,
+                    17,
+                    22,
+                    27,
+                    32,
+                    32,
+                    32,
+                    37,
+                    42,
+                    47,
+                    47,
+                    47,
+                    52,
+                    57,
+                    62,
+                    62,
+                    62,
+                    67,
+                    72,
+                    75,
+                    75,
+                    75,
+                    78,
+                    81,
+                    85,
+                    85,
+                    85,
+                    89,
+                    93,
+                    97,
+                    97,
+                    97,
+                    101,
+                    105,
+                    109,
+                    109,
+                    109,
+                    113,
+                    117,
+                    121,
+                    121,
+                    121,
+                    125,
+                    129
                   ]
                 }
               ]
             }
+          ],
+          "OFFSET": [
+            0,
+            25,
+            50
           ]
         }
       ]
