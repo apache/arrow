@@ -66,5 +66,5 @@ arrow::internal::ThreadPool* GetIOThreadPool();
 // [[arrow::export]]
 void WaitForIdleThreadPool() {
   arrow::internal::GetCpuThreadPool()->WaitForIdle();
-  arrow::io::internal::GetIOThreadPool()->WaitForIdle();
+  // testing without arrow::io::internal::GetIOThreadPool()->WaitForIdle();
 }
