@@ -551,16 +551,12 @@ func benchBitOpImpl(b *testing.B, nBytes, offset int, op noAllocFn) {
 
 func BenchmarkBitmapAnd(b *testing.B) {
 	sizes := []int{bufferSize * 4, bufferSize * 16}
-	offsets := []int{0, 2}
+	offsets := []int{0, 1, 2}
 
 	for _, s := range sizes {
 		b.Run(fmt.Sprintf("nbytes=%d", s), func(b *testing.B) {
 			for _, o := range offsets {
-				name := "aligned"
-				if o != 0 {
-					name = "unaligned"
-				}
-				b.Run(name, func(b *testing.B) {
+				b.Run(fmt.Sprintf("%d", o), func(b *testing.B) {
 					benchBitOpImpl(b, s, o, bitutil.BitmapAnd)
 				})
 			}
