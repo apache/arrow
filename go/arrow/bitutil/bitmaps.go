@@ -456,6 +456,11 @@ func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out [
 		// (length+lOffset%8) <= 8
 		mask := PrecedingBitmask[lOffset%8] | TrailingBitmask[(lOffset+length)%8]
 		out[0] = (out[0] & mask) | (op.opByte(left[0], right[0]) &^ mask)
+	case 2: // don't send zero length to opAligned
+		firstByteMask := PrecedingBitmask[lOffset%8]
+		out[0] = (out[0] & firstByteMask) | (op.opByte(left[0], right[0]) &^ firstByteMask)
+		lastByteMask := TrailingBitmask[(lOffset+length)%8]
+		out[1] = (out[1] & lastByteMask) | (op.opByte(left[1], right[1]) &^ lastByteMask)
 	default:
 		firstByteMask := PrecedingBitmask[lOffset%8]
 		out[0] = (out[0] & firstByteMask) | (op.opByte(left[0], right[0]) &^ firstByteMask)
