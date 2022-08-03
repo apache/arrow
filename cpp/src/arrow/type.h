@@ -1220,12 +1220,11 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
 
   static constexpr const char* type_name() { return "run_length_encoded"; }
 
-  explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
-      : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {}
+  explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type);
 
   DataTypeLayout layout() const override {
     // Fixed width layout means fixed size per logical item, which our buffers don't have
-    return DataTypeLayout({DataTypeLayout::VariableWidth()});
+    return DataTypeLayout({});
   }
 
   std::string ToString() const override;
