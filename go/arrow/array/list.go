@@ -284,7 +284,7 @@ func (a *LargeList) Release() {
 type baseListBuilder struct {
 	builder
 
-	values  Builder        // value builder for the list's elements.
+	values  Builder // value builder for the list's elements.
 	offsets Builder
 
 	// actual list type
@@ -312,7 +312,7 @@ func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 	offsetBldr := NewInt32Builder(mem)
 	return &ListBuilder{
 		baseListBuilder{
-			builder:         builder{refCount: 1, mem: mem},			
+			builder:         builder{refCount: 1, mem: mem},
 			values:          NewBuilder(mem, etype),
 			offsets:         offsetBldr,
 			dt:              arrow.ListOf(etype),
@@ -320,6 +320,8 @@ func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 		},
 	}
 }
+
+func (b *ListBuilder) Type() arrow.DataType { return arrow.ListOf(b.values.Type()) }
 
 // NewLargeListBuilder returns a builder, using the provided memory allocator.
 // The created list builder will create a list whose elements will be of type etype.
@@ -336,7 +338,7 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 	}
 }
 
-func (b *ListBuilder) Type() arrow.DataType { return arrow.ListOf(b.values.Type()) }
+func (b *LargeListBuilder) Type() arrow.DataType { return arrow.LargeListOf(b.values.Type()) }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -371,7 +373,7 @@ func (b *baseListBuilder) AppendNull() {
 	b.appendNextOffset()
 }
 
-func (b *ListBuilder) AppendEmptyValue() {
+func (b *baseListBuilder) AppendEmptyValue() {
 	b.Append(true)
 }
 
@@ -513,7 +515,7 @@ func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
-			Struct: arrow.ListOf(b.Type()).String(),
+			Struct: b.dt.String(),
 		}
 	}
 
