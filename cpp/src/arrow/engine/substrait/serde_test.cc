@@ -60,11 +60,10 @@ namespace engine {
 
 Status WriteParquetData(const std::string& path,
                         const std::shared_ptr<fs::FileSystem> file_system,
-                        const std::shared_ptr<Table> input,
-                        const int64_t chunk_size = 3) {
+                        const std::shared_ptr<Table> input) {
   EXPECT_OK_AND_ASSIGN(auto buffer_writer, file_system->OpenOutputStream(path));
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*input, arrow::default_memory_pool(),
-                                                  buffer_writer, chunk_size));
+                                                  buffer_writer, /*chunk_size*/ 1));
   return buffer_writer->Close();
 }
 
