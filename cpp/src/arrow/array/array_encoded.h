@@ -53,8 +53,7 @@ class ARROW_EXPORT RunLengthEncodedArray : public Array {
 
   RunLengthEncodedArray(const std::shared_ptr<DataType>& type, int64_t length,
                         const std::shared_ptr<Array>& values_array,
-                        const std::shared_ptr<Buffer> run_ends_buffer,
-                        int64_t offset = 0);
+                        std::shared_ptr<Buffer> run_ends_buffer, int64_t offset = 0);
 
   /// \brief Construct a RunLengthEncodedArray from values and run ends arrays
   ///

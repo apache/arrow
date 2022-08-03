@@ -31,7 +31,7 @@ RunLengthEncodedArray::RunLengthEncodedArray(const std::shared_ptr<ArrayData>& d
 
 RunLengthEncodedArray::RunLengthEncodedArray(const std::shared_ptr<DataType>& type,
                                              int64_t length,
-                                             std::shared_ptr<Array>& values_array,
+                                             const std::shared_ptr<Array>& values_array,
                                              std::shared_ptr<Buffer> run_ends_buffer,
                                              int64_t offset) {
   ARROW_CHECK_EQ(type->id(), Type::RUN_LENGTH_ENCODED);
