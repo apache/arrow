@@ -212,7 +212,8 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 // A wrapper to allow us to supply an Aws::Client::RetryStrategy as an S3RetryStrategy
 class AwsRetryStrategy : public S3RetryStrategy {
  public:
-  AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy) : retry_strategy_(retry_strategy) {}
+  AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy)
+      : retry_strategy_(retry_strategy) {}
 
   bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
@@ -222,7 +223,8 @@ class AwsRetryStrategy : public S3RetryStrategy {
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& detail,
                                         int64_t attempted_retries) {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
-    return retry_strategy_->CalculateDelayBeforeNextRetry(error, static_cast<long>(attempted_retries));
+    return retry_strategy_->CalculateDelayBeforeNextRetry(
+        error, static_cast<long>(attempted_retries));
   }
 
  private:
@@ -232,8 +234,8 @@ class AwsRetryStrategy : public S3RetryStrategy {
     auto exception_name = ToAwsString(detail.exception_name);
     auto message = ToAwsString(detail.message);
     auto errors = Aws::Client::AWSError<Aws::Client::CoreErrors>(
-        static_cast<Aws::Client::CoreErrors>(detail.error_type), exception_name,
-        message, detail.should_retry);
+        static_cast<Aws::Client::CoreErrors>(detail.error_type), exception_name, message,
+        detail.should_retry);
     return errors;
   }
 };
@@ -409,21 +411,14 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
   return FromUri(uri, out_path);
 }
 
-std::shared_ptr<S3RetryStrategy> GetS3RetryStrategy(const std::string& name,
-                                                    long retry_attempts) {
-  if (name == "aws_standard") {
-    auto aws_standard = std::make_shared<AwsRetryStrategy>(
-        std::make_shared<Aws::Client::StandardRetryStrategy>(retry_attempts));
-    return std::static_pointer_cast<S3RetryStrategy>(aws_standard);
-  }
+std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(int64_t max_attempts) {
+  return std::make_shared<AwsRetryStrategy>(
+      std::make_shared<Aws::Client::StandardRetryStrategy>(max_attempts));
+}
 
-  if (name == "aws_default") {
-    auto aws_default = std::make_shared<AwsRetryStrategy>(
-        std::make_shared<Aws::Client::DefaultRetryStrategy>(retry_attempts));
-    return std::static_pointer_cast<S3RetryStrategy>(aws_default);
-  }
-
-  return NULL;
+std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(int64_t max_attempts) {
+  return std::make_shared<AwsRetryStrategy>(
+      std::make_shared<Aws::Client::DefaultRetryStrategy>(max_attempts));
 }
 
 bool S3Options::Equals(const S3Options& other) const {

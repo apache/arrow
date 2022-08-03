@@ -90,6 +90,12 @@ class S3RetryStrategy {
   /// Returns the time in milliseconds the S3 client should sleep for until retrying.
   virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                                 int64_t attempted_retries) = 0;
+  /// Returns a stock AWS Default retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
+      int64_t max_attempts);
+  /// Returns a stock AWS Standard retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(
+      int64_t max_attempts);
 };
 
 /// Options for the S3FileSystem implementation.
@@ -151,10 +157,6 @@ struct ARROW_EXPORT S3Options {
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
   S3Options();
-
-  /// Get a stock AWS retry strategy from a string.
-  static std::shared_ptr<S3RetryStrategy> GetS3RetryStrategy(const std::string& name,
-                                                             long retry_attempts);
 
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();

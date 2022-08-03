@@ -164,7 +164,7 @@ cdef class S3FileSystem(FileSystem):
         passed in a URI query parameter.
     retry_strategy : str, default None
         The name of the retry strategy to use with S3.  Valid values are
-        "aws_standard" and "aws_default". Ignore with None.
+        "aws_standard" and "aws_default". Uses "aws_standard" if not specified.
     retry_max_attempts : int, default 3
         The maximum number of attempts to pass to AWS retry strategies.
 
@@ -290,9 +290,14 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
 
-        if retry_strategy:
-            options.retry_strategy = options.GetS3RetryStrategy(
-                retry_strategy, retry_max_attempts);
+        switch (options.retry_strategy):
+
+        if retry_strategy is None or retry_strategy == "aws_standard":
+            options.retry_strategy = S3RetryStrategy::GetAwsStandardRetryStrategy(retry_max_attempts)
+        elif retry_strategy == "aws_default":
+            options.retry_strategy = S3RetryStrategy::GetAwsDefaultRetryStrategy(retry_max_attempts)
+        else:
+            raise ValueError('Invalid retry_strategy.')
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
