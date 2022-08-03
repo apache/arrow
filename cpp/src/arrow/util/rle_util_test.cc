@@ -37,7 +37,6 @@ TEST(TestRleUtil, FindPhysicalOffsetTest) {
   ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3*4, 2), 1);
   ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3*4, 3), 2);
   ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 3*4, 3), 1);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4, 5}, 3*4+3, 100), 2);
 }
 
 
