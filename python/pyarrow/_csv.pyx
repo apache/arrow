@@ -290,7 +290,7 @@ cdef class ReadOptions(_Weakrefable):
     @property
     def encoding(self):
         """
-        Character encoding used for this input. Default UTF-8.
+        Character encoding used for this input. Default 'utf8'.
         """
         return frombytes(deref(self.options).encoding)
 
@@ -1084,10 +1084,12 @@ cdef _get_reader(input_file, ReadOptions read_options,
                  shared_ptr[CInputStream]* out):
     use_memory_map = False
     get_input_stream(input_file, use_memory_map, out)
-    if read_options is not None:
+    if read_options is not None and read_options.encoding != 'utf8':
         out[0] = native_transcoding_input_stream(out[0],
                                                  read_options.encoding,
                                                  'utf8')
+        # Set encoding to utf8 because we are transcoding to that
+        read_options.encoding = 'utf8'
 
 
 cdef _get_read_options(ReadOptions read_options, CCSVReadOptions* out):
