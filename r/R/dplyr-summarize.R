@@ -179,11 +179,11 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
+summarise.arrow_dplyr_query <- function(.data, ...) {
 
   call <- match.call()
   .data <- as_adq(.data)
-  exprs <- unfold_across(.data, quos(...))
+  exprs <- quos(...)
 
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
@@ -200,7 +200,7 @@ summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
   .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
 
   # Try stuff, if successful return()
-  out <- try(do_arrow_summarize(.data, !!!exprs, .groups = .groups), silent = TRUE)
+  out <- try(do_arrow_summarize(.data, ...), silent = TRUE)
   if (inherits(out, "try-error")) {
     return(abandon_ship(call, .data, format(out)))
   } else {
