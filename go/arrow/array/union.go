@@ -457,7 +457,7 @@ func (a *DenseUnion) RawValueOffsets() []int32 { return a.offsets[a.data.offset:
 func (a *DenseUnion) setData(data *Data) {
 	a.union.setData(data)
 	debug.Assert(a.data.dtype.ID() == arrow.DENSE_UNION, "arrow/array: invalid data type for DenseUnion")
-	debug.Assert(len(a.data.buffers) == 3, "arrow/array: sparse unions should have exactly 3 buffers")
+	debug.Assert(len(a.data.buffers) == 3, "arrow/array: dense unions should have exactly 3 buffers")
 	debug.Assert(a.data.buffers[0] == nil, "arrow/array: validity bitmap for dense unions should be nil")
 
 	if data.length > 0 {
