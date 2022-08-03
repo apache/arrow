@@ -413,12 +413,14 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 
 std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(int64_t max_attempts) {
   return std::make_shared<AwsRetryStrategy>(
-      std::make_shared<Aws::Client::StandardRetryStrategy>(max_attempts));
+      std::make_shared<Aws::Client::DefaultRetryStrategy>(
+          static_cast<long>(max_attempts)));
 }
 
 std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(int64_t max_attempts) {
   return std::make_shared<AwsRetryStrategy>(
-      std::make_shared<Aws::Client::DefaultRetryStrategy>(max_attempts));
+      std::make_shared<Aws::Client::StandardRetryStrategy>(
+          static_cast<long>(max_attempts)));
 }
 
 bool S3Options::Equals(const S3Options& other) const {
