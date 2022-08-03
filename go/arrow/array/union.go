@@ -319,7 +319,7 @@ func (a *SparseUnion) GetFlattenedField(mem memory.Allocator, index int) (arrow.
 	defer childData.Release()
 
 	// synthesize a null bitmap based on the union discriminant
-	// make sure hte bitmap has extra bits corresponding to the child's offset
+	// make sure the bitmap has extra bits corresponding to the child's offset
 	flattenedNullBitmap := memory.NewResizableBuffer(mem)
 	flattenedNullBitmap.Resize(childData.Len() + childData.Offset())
 
