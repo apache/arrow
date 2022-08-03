@@ -46,7 +46,7 @@ auto int32_only_null = ArrayFromJSON(int32(), "[null, null, null]");
 
 TEST(RunLengthEncodedArray, MakeArray) {
   ASSERT_OK_AND_ASSIGN(auto rle_array,
-                       RunLengthEncodedArray::Make(string_values, int32_values, 3));
+                       RunLengthEncodedArray::Make(int32_values, string_values, 3));
   auto array_data = rle_array->data();
   auto new_array = MakeArray(array_data);
   ASSERT_ARRAYS_EQUAL(*new_array, *rle_array);
@@ -67,7 +67,7 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
 
   // explicitly passing offset
   ASSERT_OK_AND_ASSIGN(rle_array,
-                       RunLengthEncodedArray::Make(string_values, int32_values, 2, 1));
+                       RunLengthEncodedArray::Make(int32_values, string_values, 2, 1));
   ASSERT_EQ(rle_array->length(), 2);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *string_values);
   ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
