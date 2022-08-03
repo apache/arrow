@@ -36,8 +36,6 @@ Java to C++
 Share an Int64 array from C++ to Java
 =====================================
 
-Example: ``Share an Int64 array from C++ to Java``:
-
 **C++ Side**
 
 See :doc:`../developers/cpp/building` to build the Arrow C++ libraries:
@@ -226,12 +224,9 @@ Let's create a Java class to test our bridge:
 Share an Int32 array from Java to C++
 =====================================
 
-Example: ``Share an Int32 array from Java to C++``:
-
 **Java Side**
 
-For this example, we will export a Java jar with all dependencies needed to
-be readable by C++.
+For this example, we will build a JAR with all dependencies bundled.
 
 .. code-block:: xml
 
@@ -326,7 +321,7 @@ be readable by C++.
             intVector.setSafe(1, 2);
             intVector.setSafe(2, 3);
             intVector.setValueCount(3);
-            System.out.println("[Java - side]: FieldVector: \n" + intVector);
+            System.out.println("[Java] FieldVector: \n" + intVector);
             return intVector;
         }
 
@@ -354,17 +349,16 @@ be readable by C++.
         }
     }
 
-Compile our Java code to generate our jar with all dependencies needed for.
+Build the JAR and copy it to the C++ project.
 
 .. code-block:: shell
 
     $ mvn clean install
-    $ cp target/cpptojava-1.0-SNAPSHOT-jar-with-dependencies.jar cpptojava.jar
-    $ cp cpptojava.jar <c++_project_path>
+    $ cp target/cpptojava-1.0-SNAPSHOT-jar-with-dependencies.jar <c++ project path>/cpptojava.jar
 
 **C++ Side**
 
-This process fetch Java JVM references to call methods needed for, via the C Data Interface:
+This application uses JNI to call Java code, but transfers data (zero-copy) via the C Data Interface instead.
 
 .. code-block:: cpp
 
@@ -373,7 +367,7 @@ This process fetch Java JVM references to call methods needed for, via the C Dat
     #include <arrow/c/bridge.h>
     #include <jni.h>
 
-    JNIEnv* create_vm(JavaVM ** jvm) {
+    JNIEnv* CreateVM(JavaVM** jvm) {
         JNIEnv *env;
         JavaVMInitArgs vm_args;
         JavaVMOption options[2];
@@ -391,8 +385,8 @@ This process fetch Java JVM references to call methods needed for, via the C Dat
         JNIEnv* env;
         JavaVM* jvm;
         env = create_vm(&jvm);
-        if (env == NULL) return 1;
-        jclass  javaClassToBeCalledByCpp = NULL;
+        if (env == nullptr) return 1;
+        jclass javaClassToBeCalledByCpp = NULL;
         javaClassToBeCalledByCpp = env ->FindClass("ToBeCalledByCpp");
         if ( javaClassToBeCalledByCpp != NULL ) {
             jmethodID fillfieldvectorfromjavatocpp = NULL;
@@ -446,17 +440,15 @@ CMakeLists.txt definition file:
     project(firstarrowcpp)
     find_package(JNI REQUIRED)
     find_package(Arrow REQUIRED)
-    message(${ARROW_VERSION})
+    message(STATUS "Arrow version: ${ARROW_VERSION}")
     message(${ARROW_FULL_SO_VERSION})
-    include_directories(${JNI_INCLUDE_DIRS}) #'jni.h' file not found
-    set(CMAKE_CXX_STANDARD 14)
+    include_directories(${JNI_INCLUDE_DIRS})
+    set(CMAKE_CXX_STANDARD 11)
     add_executable(${PROJECT_NAME} main.cpp)
     target_link_libraries(firstarrowcpp PRIVATE arrow_shared)
     target_link_libraries(firstarrowcpp PRIVATE ${JNI_LIBRARIES})
 
-**C++ Test**
-
-This is the result of the test:
+**Result**
 
 .. code-block:: shell
 
