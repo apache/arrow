@@ -62,7 +62,7 @@ TEST(TestRleUtil, VisitMergedRuns) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> right_array, RunLengthEncodedArray::Make(right_run_ends, right_child, 2026));
 
   left_array = left_array->Slice(left_parent_offset);
-  left_array = left_array->Slice(left_parent_offset);
+  right_array = right_array->Slice(right_parent_offset);
 
   size_t position = 0;
 
