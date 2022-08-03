@@ -203,7 +203,7 @@ func NewBitmapWordReader(bitmap []byte, offset, length int) *BitmapWordReader {
 
 	if bm.nwords > 0 {
 		bm.curword = toFromLEFunc(endian.Native.Uint64(bm.bitmap))
-	} else {
+	} else if length > 0 {
 		setLSB(&bm.curword, bm.bitmap[0])
 	}
 	return bm
@@ -448,8 +448,21 @@ func alignedBitmapOp(op bitOp, left, right []byte, lOffset, rOffset int64, out [
 	left = left[lOffset/8:]
 	right = right[rOffset/8:]
 	out = out[outOffset/8:]
-	for i := int64(0); i < nbytes; i++ {
-		out[i] = op.opByte(left[i], right[i])
+	switch nbytes {
+	case 0:
+		return
+	case 1: // everything within a single byte
+		// (length+lOffset%8) <= 8
+		mask := PrecedingBitmask[lOffset%8] | TrailingBitmask[(lOffset+length)%8]
+		out[0] = (out[0] & mask) | (op.opByte(left[0], right[0]) &^ mask)
+	default:
+		firstByteMask := PrecedingBitmask[lOffset%8]
+		out[0] = (out[0] & firstByteMask) | (op.opByte(left[0], right[0]) &^ firstByteMask)
+		for i := int64(1); i < nbytes-1; i++ {
+			out[i] = op.opByte(left[i], right[i])
+		}
+		lastByteMask := TrailingBitmask[(lOffset+length)%8]
+		out[nbytes-1] = (out[nbytes-1] & lastByteMask) | (op.opByte(left[nbytes-1], right[nbytes-1]) &^ lastByteMask)
 	}
 }
 

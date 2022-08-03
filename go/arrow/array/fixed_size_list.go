@@ -200,6 +200,9 @@ func (b *FixedSizeListBuilder) AppendNull() {
 
 func (b *FixedSizeListBuilder) AppendEmptyValue() {
 	b.Append(true)
+	for i := int32(0); i < b.n; i++ {
+		b.values.AppendEmptyValue()
+	}
 }
 
 func (b *FixedSizeListBuilder) AppendValues(valid []bool) {
