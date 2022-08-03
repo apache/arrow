@@ -166,6 +166,8 @@ unfold_across <- function(.data, quos_in) {
     if (is_call(quo_expr, "across")) {
       new_quos <- list()
 
+      # use select to get the column names so we can take advantage of
+      # tidyselect
       cols <- names(select(.data, !!quo_expr[[2]]))
 
       funcs <- quo_expr[[3]]
