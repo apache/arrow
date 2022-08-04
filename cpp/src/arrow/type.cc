@@ -718,6 +718,12 @@ Result<std::shared_ptr<DataType>> DenseUnionType::Make(
 // ----------------------------------------------------------------------
 // Run-length encoded type
 
+RunLengthEncodedType::RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
+    : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {
+  children_ = {std::make_shared<Field>("run_ends", int32(), false),
+               std::make_shared<Field>("values", encoded_type, true)};
+}
+
 std::string RunLengthEncodedType::ToString() const {
   std::stringstream s;
   s << name() << "<" << encoded_type()->ToString() << ">";

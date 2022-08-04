@@ -1201,7 +1201,9 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
-/// \brief Type class for run-length encoded data
+/// \brief Type class class that can be subclassed by all encoding types, that allowes
+/// users to check if arrays are compatible besides the encoding independent of which
+/// exact encoding they use
 class ARROW_EXPORT EncodingType {
  public:
   explicit EncodingType(std::shared_ptr<DataType> encoded_type)
@@ -1220,12 +1222,12 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
 
   static constexpr const char* type_name() { return "run_length_encoded"; }
 
-  explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
-      : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {}
+  explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type);
 
   DataTypeLayout layout() const override {
-    // Fixed width layout means fixed size per logical item, which our buffers don't have
-    return DataTypeLayout({DataTypeLayout::VariableWidth()});
+    // always add one that is NULLPTR to make code, since existing code may assume there
+    // is at least one buffer
+    return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
   std::string ToString() const override;

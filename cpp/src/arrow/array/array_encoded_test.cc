@@ -46,12 +46,13 @@ auto int32_only_null = ArrayFromJSON(int32(), "[null, null, null]");
 
 TEST(RunLengthEncodedArray, MakeArray) {
   ASSERT_OK_AND_ASSIGN(auto rle_array,
-                       RunLengthEncodedArray::Make(string_values, int32_values, 3));
+                       RunLengthEncodedArray::Make(int32_values, string_values, 3));
   auto array_data = rle_array->data();
   auto new_array = MakeArray(array_data);
   ASSERT_ARRAYS_EQUAL(*new_array, *rle_array);
   // should be the exact same ArrayData object
   ASSERT_EQ(new_array->data(), array_data);
+  ASSERT_NE(std::dynamic_pointer_cast<RunLengthEncodedArray>(new_array), NULLPTR);
 }
 
 TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
@@ -61,35 +62,27 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
                        RunLengthEncodedArray::Make(int32_values, int32_values, 3));
   ASSERT_EQ(rle_array->length(), 3);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *int32_values);
-  ASSERT_EQ(rle_array->run_ends(), int32_values->data()->GetValues<int32_t>(1));
+  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
   ASSERT_EQ(rle_array->offset(), 0);
-  // explicitly access null count variable so it is not calculated automatically
   ASSERT_EQ(rle_array->data()->null_count, 0);
+  // one dummy buffer, since code may assume there is exactly one buffer
+  ASSERT_EQ(rle_array->data()->buffers.size(), 1);
 
   // explicitly passing offset
   ASSERT_OK_AND_ASSIGN(rle_array,
-                       RunLengthEncodedArray::Make(string_values, int32_values, 2, 1));
+                       RunLengthEncodedArray::Make(int32_values, string_values, 2, 1));
   ASSERT_EQ(rle_array->length(), 2);
   ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *string_values);
-  ASSERT_EQ(rle_array->run_ends(), int32_values->data()->GetValues<int32_t>(1));
+  ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
   ASSERT_EQ(rle_array->offset(), 1);
   // explicitly access null count variable so it is not calculated automatically
   ASSERT_EQ(rle_array->data()->null_count, 0);
 
   ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Run ends array must be int32 type",
-                             RunLengthEncodedArray::Make(int32_values, string_values, 3));
+                             RunLengthEncodedArray::Make(string_values, int32_values, 3));
   ASSERT_RAISES_WITH_MESSAGE(
       Invalid, "Invalid: Run ends array cannot contain null values",
-      RunLengthEncodedArray::Make(int32_values, int32_only_null, 3));
-}
-
-TEST(RunLengthEncodedArray, Accessors) {
-  ASSERT_OK_AND_ASSIGN(auto rle_array,
-                       RunLengthEncodedArray::Make(string_values, int32_values, 3));
-  ASSERT_ARRAYS_EQUAL(*rle_array->values_array(), *string_values);
-  ASSERT_EQ(rle_array->run_ends_buffer()->data(),
-            int32_values->data()->buffers[1]->data());
-  ASSERT_EQ(rle_array->run_ends(), int32_values->data()->GetValues<int32_t>(1, 0));
+      RunLengthEncodedArray::Make(int32_only_null, int32_values, 3));
 }
 
 }  // anonymous namespace
