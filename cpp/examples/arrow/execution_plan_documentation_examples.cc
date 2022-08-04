@@ -912,11 +912,10 @@ arrow::Status FetchExample(cp::ExecContext& exec_context) {
       cp::ExecNode * source,
       cp::MakeExecNode("source", plan.get(), {},
                        cp::SourceNodeOptions{input.schema, input.gen()}));
-
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode(
-      "fetch_sink", plan.get(), {source},
-      cp::FetchSinkNodeOptions{
-          0, 3, &sink_gen, {cp::SortKey("i32", cp::SortOrder::Ascending)}, false}));
+  cp::SortOptions sort_options{{cp::SortKey("i32", cp::SortOrder::Ascending)}};
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("fetch_sink", plan.get(), {source},
+                       cp::FetchSinkNodeOptions{0, 3, &sink_gen, sort_options, false}));
 
   auto schema = arrow::schema(
       {arrow::field("i32", arrow::int32()), arrow::field("str", arrow::utf8())});

@@ -440,19 +440,19 @@ class ARROW_EXPORT FetchSinkNodeOptions : public SinkNodeOptions {
   explicit FetchSinkNodeOptions(
       int64_t offset, int64_t count,
       std::function<Future<util::optional<ExecBatch>>()>* generator,
-      std::vector<SortKey> sort_keys = {}, bool sort_first = false)
+      SortOptions sort_options, bool sort_first = false)
       : SinkNodeOptions(generator),
         offset(offset),
         count(count),
-        sort_keys(sort_keys),
+        sort_options(sort_options),
         sort_first(sort_first) {}
 
   /// The number of rows to skip.
   int64_t offset;
   /// The number of rows to select.
   int64_t count;
-  /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
+  /// Sort options
+  SortOptions sort_options;
   /// Determine sort or fetch precedence.
   bool sort_first;
 };

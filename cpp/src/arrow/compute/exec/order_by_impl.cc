@@ -89,28 +89,26 @@ class SelectKBasicImpl : public SortBasicImpl {
 class FetchBasicImpl : public SortBasicImpl {
  public:
   FetchBasicImpl(ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
-                 int64_t offset, int64_t count, std::vector<SortKey> sort_keys,
-                 bool sort_first)
+                 int64_t offset, int64_t count, SortOptions sort_options, bool sort_first)
       : SortBasicImpl(ctx, output_schema),
         offset_(offset),
         count_(count),
-        sort_keys_(sort_keys),
+        sort_options_(sort_options),
         sort_first_(sort_first) {}
 
   Result<Datum> DoFinish() override {
     std::unique_lock<std::mutex> lock(mutex_);
     ARROW_ASSIGN_OR_RAISE(auto table,
                           Table::FromRecordBatches(output_schema_, std::move(batches_)));
-    if (sort_keys_.size() > 0) {
-      SortOptions sort_options(sort_keys_);
+    if (sort_options_.sort_keys.size() > 0) {
       if (!sort_first_) {
         auto fetch_table = table->Slice(offset_, count_);
         ARROW_ASSIGN_OR_RAISE(auto indices,
-                              SortIndices(fetch_table, std::move(sort_options), ctx_));
+                              SortIndices(fetch_table, std::move(sort_options_), ctx_));
         return Take(fetch_table, indices, TakeOptions::NoBoundsCheck(), ctx_);
       }
       ARROW_ASSIGN_OR_RAISE(auto indices,
-                            SortIndices(table, std::move(sort_options), ctx_));
+                            SortIndices(table, std::move(sort_options_), ctx_));
       ARROW_ASSIGN_OR_RAISE(auto sorted_table,
                             Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_));
       return sorted_table.table()->Slice(offset_, count_);
@@ -122,18 +120,15 @@ class FetchBasicImpl : public SortBasicImpl {
   std::string ToString() const override {
     auto to_str = "{ offset : " + std::to_string(offset_) +
                   ", count: " + std::to_string(count_) +
-                  ", sort_first: " + std::to_string(sort_first_) + ", sort_keys: [";
-    for (const auto& key : sort_keys_) {
-      to_str += key.ToString() + ", ";
-    }
-    to_str += "]}";
-    return std::move(to_str);
+                  ", sort_first: " + std::to_string(sort_first_) +
+                  ", sort_options: " + sort_options_.ToString();
+    return to_str;
   }
 
  private:
   int64_t offset_;
   int64_t count_;
-  std::vector<SortKey> sort_keys_;
+  SortOptions sort_options_;
   bool sort_first_;
 };
 
@@ -153,9 +148,9 @@ Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSelectK(
 
 Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeFetch(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema, int64_t offset,
-    int64_t count, std::vector<SortKey> sort_keys, bool sort_first) {
+    int64_t count, SortOptions sort_options, bool sort_first) {
   std::unique_ptr<OrderByImpl> impl{
-      new FetchBasicImpl(ctx, output_schema, offset, count, sort_keys, sort_first)};
+      new FetchBasicImpl(ctx, output_schema, offset, count, sort_options, sort_first)};
   return std::move(impl);
 }
 

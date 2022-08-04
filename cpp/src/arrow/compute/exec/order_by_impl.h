@@ -50,7 +50,7 @@ class OrderByImpl {
 
   static Result<std::unique_ptr<OrderByImpl>> MakeFetch(
       ExecContext* ctx, const std::shared_ptr<Schema>& output_schema, int64_t offset,
-      int64_t count, std::vector<SortKey> sort_keys, bool sort_first);
+      int64_t count, SortOptions sort_options, bool sort_first);
 };
 
 }  // namespace compute
