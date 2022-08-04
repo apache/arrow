@@ -803,6 +803,10 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 		return
 	}
 
+	if len(rawOffsets) == 0 {
+		return
+	}
+
 	switch rawOffsets[0].(type) {
 	case string:
 		out := make([]int64, len(rawOffsets))
@@ -1185,7 +1189,13 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer typeIdBuf.Release()
 		buffers := []*memory.Buffer{nil, typeIdBuf}
 		if dt.Mode() == arrow.DenseMode {
-			offsetBuf := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))
+			var offsets []byte
+			if arr.Offset == nil {
+				offsets = []byte{}
+			} else {
+				offsets = arrow.Int32Traits.CastToBytes(arr.Offset.([]int32))
+			}
+			offsetBuf := memory.NewBufferBytes(offsets)
 			defer offsetBuf.Release()
 			buffers = append(buffers, offsetBuf)
 		}
