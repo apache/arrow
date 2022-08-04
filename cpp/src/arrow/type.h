@@ -1201,7 +1201,9 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
   std::string name() const override { return "dense_union"; }
 };
 
-/// \brief Type class for run-length encoded data
+/// \brief Type class class that can be subclassed by all encoding types, that allowes
+/// users to check if arrays are compatible besides the encoding independent of which
+/// exact encoding they use
 class ARROW_EXPORT EncodingType {
  public:
   explicit EncodingType(std::shared_ptr<DataType> encoded_type)
