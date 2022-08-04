@@ -28,14 +28,14 @@
 namespace arrow {
 namespace rle_util {
 
-/// \brief Get the child array holding the data values from an RLE array
+/// \brief Get the physical offset from a logical offset given run end values
 int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
                            int64_t logical_offset);
 
 /// \brief Get the child array holding the data values from an RLE array
 static const ArraySpan& RunEndsArray(const ArraySpan& span) { return span.child_data[0]; }
 
-/// \brief Get a pointer to run ends values of an
+/// \brief Get a pointer to run ends values of an RLE array
 static const int32_t* RunEnds(const ArraySpan& span) {
   return RunEndsArray(span).GetValues<int32_t>(1);
 }
