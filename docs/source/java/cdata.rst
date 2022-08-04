@@ -400,7 +400,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
                 std::shared_ptr<arrow::Array> array = resultImportArray.ValueOrDie();
                 std::cout << "[C++] Array: " << array->ToString() << std::endl;
             } else {
-                std::cout << "Problem to read method fillVector\n" << std::endl;
+                std::cout << "Could not find fillVector method\n" << std::endl;
                 return EXIT_FAILURE;
             }
             jmethodID fillVectorSchemaRoot = NULL;
@@ -416,15 +416,15 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
                 std::shared_ptr<arrow::RecordBatch> recordBatch = resultImportVectorSchemaRoot.ValueOrDie();
                 std::cout << "[C++] RecordBatch: " << recordBatch->ToString() << std::endl;
             } else {
-                std::cout << "Problem to read method fillVectorSchemaRoot\n" << std::endl;
+                std::cout << "Could not find fillVectorSchemaRoot method\n" << std::endl;
                 return EXIT_FAILURE;
             }
         } else {
-            std::cout << "Problem to read class ToBeCalledByCpp\n" << std::endl;
+            std::cout << "Could not find ToBeCalledByCpp class\n" << std::endl;
             return EXIT_FAILURE;
         }
         jvm->DestroyJavaVM();
-        return 0;
+        return EXIT_SUCCESS;
     }
 
 CMakeLists.txt definition file:
