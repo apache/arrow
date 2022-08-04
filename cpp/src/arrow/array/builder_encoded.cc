@@ -104,14 +104,8 @@ Status RunLengthEncodedBuilder::AppendArraySlice(const ArraySpan& array, int64_t
   // Create a slice of the slice for the part we actually want to add
   ArraySpan to_append = array;
   to_append.SetSlice(array.offset + offset, length);
-
-  const int32_t* array_run_ends = rle_util::RunEnds(to_append);
-  const int64_t physical_offset = rle_util::FindPhysicalOffset(
-      array_run_ends, rle_util::RunEndsArray(to_append).length, to_append.offset);
-  const int64_t physical_length = rle_util::FindPhysicalOffset(
-      array_run_ends + physical_offset, rle_util::RunEndsArray(array).length,
-      to_append.offset);
-
+  const int64_t physical_offset = rle_util::GetPhysicalOffset(to_append);
+  const int64_t physical_length = rle_util::GetPhysicalLength(to_append);
   RETURN_NOT_OK(run_end_builder().AppendArraySlice(rle_util::RunEndsArray(to_append),
                                                    physical_offset, physical_length));
   RETURN_NOT_OK(value_builder().AppendArraySlice(rle_util::DataArray(to_append),
