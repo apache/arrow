@@ -210,7 +210,7 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
   Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
                              Executor* executor);
   Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
-      Executor* executor, bool sequence_fragments);
+      Executor* executor, bool sequence_fragments, bool use_legacy_batching = false);
   Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
 
   Result<FragmentGenerator> GetFragments() const;
@@ -351,7 +351,7 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
-    Executor* cpu_executor, bool sequence_fragments) {
+    Executor* cpu_executor, bool sequence_fragments, bool use_legacy_batching) {
   if (!scan_options_->use_threads) {
     cpu_executor = nullptr;
   }
@@ -362,6 +362,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
+  plan->SetUseLegacyBatching(use_legacy_batching);
   AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
 
   auto exprs = scan_options_->projection.call()->arguments;
@@ -518,8 +519,9 @@ Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     Executor* cpu_executor) {
-  ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(
-                                            cpu_executor, /*sequence_fragments=*/true));
+  ARROW_ASSIGN_OR_RAISE(
+      auto unordered, ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/true,
+                                                /*use_legacy_batching=*/true));
   // We need an initial value sentinel, so we use one with fragment.index < 0
   auto is_before_any = [](const EnumeratedRecordBatch& batch) {
     return batch.fragment.index < 0;
@@ -611,8 +613,10 @@ Future<> AsyncScanner::VisitBatchesAsync(std::function<Status(TaggedRecordBatch)
 
 Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(Executor* cpu_executor) {
   auto scan_options = scan_options_;
-  ARROW_ASSIGN_OR_RAISE(auto positioned_batch_gen,
-                        ScanBatchesUnorderedAsync(cpu_executor));
+  ARROW_ASSIGN_OR_RAISE(
+      auto positioned_batch_gen,
+      ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/false,
+                                /*use_legacy_batching=*/true));
   /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
   /// invalidate concurrently running tasks when Finish() early returns
   /// and the mutex/batches fail out of scope.
@@ -900,9 +904,6 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
       std::move(batch_gen),
       [scan_options](const EnumeratedRecordBatch& partial)
           -> Result<util::optional<compute::ExecBatch>> {
-        ARROW_ASSIGN_OR_RAISE(util::optional<compute::ExecBatch> batch,
-                              compute::MakeExecBatch(*scan_options->dataset_schema,
-                                                     partial.record_batch.value));
         // TODO(ARROW-13263) fragments may be able to attach more guarantees to batches
         // than this, for example parquet's row group stats. Failing to do this leaves
         // perf on the table because row group stats could be used to skip kernel execs in
@@ -911,7 +912,12 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         // Additionally, if a fragment failed to perform projection pushdown there may be
         // unnecessarily materialized columns in batch. We could drop them now instead of
         // letting them coast through the rest of the plan.
-        batch->guarantee = partial.fragment.value->partition_expression();
+        auto guarantee = partial.fragment.value->partition_expression();
+
+        ARROW_ASSIGN_OR_RAISE(
+            util::optional<compute::ExecBatch> batch,
+            compute::MakeExecBatch(*scan_options->dataset_schema,
+                                   partial.record_batch.value, guarantee));
 
         // tag rows with fragment- and batch-of-origin
         batch->values.emplace_back(partial.fragment.index);

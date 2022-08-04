@@ -49,8 +49,8 @@ class JniPendingException : public std::runtime_error {
   explicit JniPendingException(const std::string& arg, jthrowable cause)
       : runtime_error(arg), cause_(cause) {}
 
-  const jthrowable GetCause() const { return cause_; }
-  const bool HasCause() const { return cause_ != nullptr; }
+  jthrowable GetCause() const { return cause_; }
+  bool HasCause() const { return cause_ != nullptr; }
 
  private:
   jthrowable cause_;

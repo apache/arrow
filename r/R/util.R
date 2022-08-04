@@ -93,6 +93,15 @@ all_funs <- function(expr) {
     expr <- quo_get_expr(expr)
   }
   names <- all.names(expr)
+  # if we have namespace-qualified functions, we rebuild the function name with
+  # the `pkg::` prefix
+  if ("::" %in% names) {
+    for (i in seq_along(names)) {
+      if (names[i] == "::") {
+        names[i] <- paste0(names[i + 1], names[i], names[i + 2])
+      }
+    }
+  }
   names[map_lgl(names, ~ is_function(expr, .))]
 }
 
@@ -158,7 +167,7 @@ as_writable_table <- function(x) {
 #' @keywords internal
 recycle_scalars <- function(arrays) {
   # Get lengths of items in arrays
-  arr_lens <- map_int(arrays, NROW)
+  arr_lens <- map_dbl(arrays, NROW)
 
   is_scalar <- arr_lens == 1
 

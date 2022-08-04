@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/float16"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -234,6 +234,12 @@ func Equal(left, right arrow.Array) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -288,6 +294,9 @@ func Equal(left, right arrow.Array) bool {
 	case *List:
 		r := right.(*List)
 		return arrayEqualList(l, r)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayEqualLargeList(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayEqualFixedSizeList(l, r)
@@ -469,6 +478,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -523,6 +538,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *List:
 		r := right.(*List)
 		return arrayApproxEqualList(l, r, opt)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayApproxEqualLargeList(l, r, opt)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayApproxEqualFixedSizeList(l, r, opt)
@@ -620,6 +638,25 @@ func arrayApproxEqualFloat64(left, right *Float64, opt equalOption) bool {
 }
 
 func arrayApproxEqualList(left, right *List, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualLargeList(left, right *LargeList, opt equalOption) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue

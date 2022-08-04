@@ -17,7 +17,7 @@
 
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
-#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap imap_chr flatten
+#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr flatten
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
@@ -41,7 +41,8 @@
       "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
       "arrange", "rename", "pull", "relocate", "compute", "collapse",
       "distinct", "left_join", "right_join", "inner_join", "full_join",
-      "semi_join", "anti_join", "count", "tally", "rename_with", "union", "union_all", "glimpse"
+      "semi_join", "anti_join", "count", "tally", "rename_with", "union",
+      "union_all", "glimpse", "show_query", "explain"
     )
   )
   for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {

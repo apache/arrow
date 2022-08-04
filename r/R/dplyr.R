@@ -42,7 +42,7 @@ arrow_dplyr_query <- function(.data) {
   gv <- tryCatch(
     # If dplyr is not available, or if the input doesn't have a group_vars
     # method, assume no group vars
-    dplyr::group_vars(.data) %||% character(),
+    dplyr::group_vars(.data),
     error = function(e) character()
   )
 
@@ -185,6 +185,28 @@ dim.arrow_dplyr_query <- function(x) {
 }
 
 #' @export
+unique.arrow_dplyr_query <- function(x, incomparables = FALSE, fromLast = FALSE, ...) {
+
+  if (isTRUE(incomparables)) {
+    arrow_not_supported("`unique()` with `incomparables = TRUE`")
+  }
+
+  if (fromLast == TRUE) {
+    arrow_not_supported("`unique()` with `fromLast = TRUE`")
+  }
+
+  dplyr::distinct(x)
+}
+
+#' @export
+unique.Dataset <- unique.arrow_dplyr_query
+#' @export
+unique.ArrowTabular <- unique.arrow_dplyr_query
+#' @export
+unique.RecordBatchReader <- unique.arrow_dplyr_query
+
+
+#' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
   collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
 }
@@ -218,6 +240,53 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   }
   x
 }
+
+#' Show the details of an Arrow Execution Plan
+#'
+#' This is a function which gives more details about the logical query plan
+#' that will be executed when evaluating an `arrow_dplyr_query` object.
+#' It calls the C++ `ExecPlan` object's print method.
+#' Functionally, it is similar to `dplyr::explain()`. This function is used as
+#' the `dplyr::explain()` and `dplyr::show_query()` methods.
+#'
+#' @param x an `arrow_dplyr_query` to print the `ExecPlan` for.
+#'
+#' @return `x`, invisibly.
+#' @export
+#'
+#' @examplesIf arrow_with_dataset() && requireNamespace("dplyr", quietly = TRUE)
+#' library(dplyr)
+#' mtcars %>%
+#'   arrow_table() %>%
+#'   filter(mpg > 20) %>%
+#'   mutate(x = gear/carb) %>%
+#'   show_exec_plan()
+show_exec_plan <- function(x) {
+  adq <- as_adq(x)
+  plan <- ExecPlan$create()
+  # do not show the plan if we have a nested query (as this will force the
+  # evaluation of the inner query/queries)
+  # TODO see if we can remove after ARROW-16628
+  if (is_collapsed(x) && has_head_tail(x$.data)) {
+    warn("The `ExecPlan` cannot be printed for a nested query.")
+    return(invisible(x))
+  }
+  final_node <- plan$Build(adq)
+  cat(plan$BuildAndShow(final_node))
+  invisible(x)
+}
+
+show_query.arrow_dplyr_query <- function(x, ...) {
+  show_exec_plan(x)
+}
+
+show_query.Dataset <- show_query.ArrowTabular <- show_query.RecordBatchReader <- show_query.arrow_dplyr_query
+
+explain.arrow_dplyr_query <- function(x, ...) {
+  show_exec_plan(x)
+}
+
+explain.Dataset <- explain.ArrowTabular <- explain.RecordBatchReader <- explain.arrow_dplyr_query
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {

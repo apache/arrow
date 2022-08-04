@@ -41,14 +41,20 @@ class HashJoinImpl {
   using OutputBatchCallback = std::function<void(int64_t, ExecBatch)>;
   using BuildFinishedCallback = std::function<Status(size_t)>;
   using FinishedCallback = std::function<void(int64_t)>;
+  using RegisterTaskGroupCallback = std::function<int(
+      std::function<Status(size_t, int64_t)>, std::function<Status(size_t)>)>;
+  using StartTaskGroupCallback = std::function<Status(int, int64_t)>;
+  using AbortContinuationImpl = std::function<void()>;
 
   virtual ~HashJoinImpl() = default;
   virtual Status Init(ExecContext* ctx, JoinType join_type, size_t num_threads,
                       const HashJoinProjectionMaps* proj_map_left,
                       const HashJoinProjectionMaps* proj_map_right,
                       std::vector<JoinKeyCmp> key_cmp, Expression filter,
+                      RegisterTaskGroupCallback register_task_group_callback,
+                      StartTaskGroupCallback start_task_group_callback,
                       OutputBatchCallback output_batch_callback,
-                      FinishedCallback finished_callback, TaskScheduler* scheduler) = 0;
+                      FinishedCallback finished_callback) = 0;
 
   virtual Status BuildHashTable(size_t thread_index, AccumulationQueue batches,
                                 BuildFinishedCallback on_finished) = 0;

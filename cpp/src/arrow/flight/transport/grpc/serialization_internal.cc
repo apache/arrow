@@ -134,10 +134,17 @@ class GrpcBuffer : public MutableBuffer {
         return Status::IOError("Internal gRPC error reading from ByteBuffer");
       }
       grpc_slice slice = grpc_byte_buffer_reader_readall(&reader);
+      if (slice.refcount) {
+        // Steal the slice reference
+        *out = std::make_shared<GrpcBuffer>(slice, false);
+      } else {
+        // grpc_byte_buffer_reader_readall can give us an inlined slice,
+        // copy the data as above
+        const uint8_t length = slice.data.inlined.length;
+        ARROW_ASSIGN_OR_RAISE(*out, arrow::AllocateBuffer(length));
+        std::memcpy((*out)->mutable_data(), slice.data.inlined.bytes, length);
+      }
       grpc_byte_buffer_reader_destroy(&reader);
-
-      // Steal the slice reference
-      *out = std::make_shared<GrpcBuffer>(slice, false);
     }
 
     return Status::OK();

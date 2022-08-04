@@ -66,7 +66,7 @@ class SubstraitExecutor {
  public:
   explicit SubstraitExecutor(std::shared_ptr<compute::ExecPlan> plan,
                              compute::ExecContext exec_context)
-      : plan_(std::move(plan)), exec_context_(exec_context) {}
+      : plan_(std::move(plan)), plan_started_(false), exec_context_(exec_context) {}
 
   ~SubstraitExecutor() { ARROW_UNUSED(this->Close()); }
 
@@ -75,6 +75,7 @@ class SubstraitExecutor {
       RETURN_NOT_OK(decl.AddToPlan(plan_.get()).status());
     }
     RETURN_NOT_OK(plan_->Validate());
+    plan_started_ = true;
     RETURN_NOT_OK(plan_->StartProducing());
     auto schema = sink_consumer_->schema();
     std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
@@ -82,7 +83,10 @@ class SubstraitExecutor {
     return sink_reader;
   }
 
-  Status Close() { return plan_->finished().status(); }
+  Status Close() {
+    if (plan_started_) return plan_->finished().status();
+    return Status::OK();
+  }
 
   Status Init(const Buffer& substrait_buffer, const ExtensionIdRegistry* registry) {
     if (substrait_buffer.size() == 0) {
@@ -102,6 +106,7 @@ class SubstraitExecutor {
   arrow::PushGenerator<util::optional<compute::ExecBatch>> generator_;
   std::vector<compute::Declaration> declarations_;
   std::shared_ptr<compute::ExecPlan> plan_;
+  bool plan_started_;
   compute::ExecContext exec_context_;
   std::shared_ptr<SubstraitSinkConsumer> sink_consumer_;
 };

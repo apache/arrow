@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,37 +17,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-set -u
+set -ex
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <version> <rc-num>"
-  exit
-fi
+arrow_dir=${1}
+build_dir=${2}/java_jni
+# The directory where the final binaries will be stored when scripts finish
+dist_dir=${3}
 
-version=$1
-rc=$2
+echo "=== Clear output directories and leftovers ==="
+# Clear output directories and leftovers
+rm -rf ${build_dir}
 
-case ${version} in
-  *.0.0) # Major release
-    echo "Do nothing for major release"
-    ;;
-  *.*.0) # Minor release
-    echo "Minor release isn't supported yet"
-    exit 1
-    ;;
-  *) # Patch release
-    echo "Fetching all commits"
-    git fetch --all --prune --tags --force -j$(nproc)
+echo "=== Building Arrow Java C Data Interface native library ==="
+mkdir -p "${build_dir}"
+pushd "${build_dir}"
 
-    release_branch=release-${version}-rc${rc}
-    maint_branch=maint-$(echo ${version} | sed -e 's/\.[0-9]*$/.x/')
-    echo "Merging ${release_branch} to ${merge_branch}"
-    git branch -D ${maint_branch}
-    git checkout -b ${maint_branch} apache/${maint_branch}
-    git merge release-${version}-rc${rc}
-    git push apache ${maint_branch}
-    git checkout -
-    ;;
-  *)
-esac
+cmake \
+  -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-release} \
+  -DCMAKE_INSTALL_PREFIX=${dist_dir} \
+  -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
+  ${JAVA_JNI_CMAKE_ARGS:-} \
+  ${arrow_dir}/java
+cmake --build . --target install --config ${ARROW_BUILD_TYPE:-release}
+popd
