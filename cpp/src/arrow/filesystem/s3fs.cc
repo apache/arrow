@@ -386,10 +386,11 @@ bool S3Options::Equals(const S3Options& other) const {
       default_metadata_size
           ? (other.default_metadata && other.default_metadata->Equals(*default_metadata))
           : (!other.default_metadata || other.default_metadata->size() == 0);
-  return (region == other.region && endpoint_override == other.endpoint_override &&
-          scheme == other.scheme && role_arn == other.role_arn &&
-          session_name == other.session_name && external_id == other.external_id &&
-          load_frequency == other.load_frequency &&
+  return (region == other.region && connect_timeout == other.connect_timeout &&
+          request_timeout == other.request_timeout &&
+          endpoint_override == other.endpoint_override && scheme == other.scheme &&
+          role_arn == other.role_arn && session_name == other.session_name &&
+          external_id == other.external_id && load_frequency == other.load_frequency &&
           proxy_options.Equals(other.proxy_options) &&
           credentials_kind == other.credentials_kind &&
           background_writes == other.background_writes &&
@@ -718,6 +719,14 @@ class ClientBuilder {
     if (!options_.region.empty()) {
       client_config_.region = ToAwsString(options_.region);
     }
+    if (options_.request_timeout > 0) {
+      // Use ceil() to avoid setting it to 0 as that probably means no timeout.
+      client_config_.requestTimeoutMs = ceil(options_.request_timeout * 1000);
+    }
+    if (options_.connect_timeout > 0) {
+      client_config_.connectTimeoutMs = ceil(options_.connect_timeout * 1000);
+    }
+
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
       client_config_.scheme = Aws::Http::Scheme::HTTP;

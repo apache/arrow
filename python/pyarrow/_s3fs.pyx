@@ -137,6 +137,13 @@ cdef class S3FileSystem(FileSystem):
         assumed role session will be refreshed.
     region : str, default 'us-east-1'
         AWS region to connect to.
+    request_timeout : double, default None
+        Socket read timeouts on Windows and macOS, in seconds.
+        If omitted, the AWS SDK default value is used (typically 3 seconds).
+        This option is ignored on non-Windows, non-macOS systems.
+    connect_timeout : double, default None
+        Socket connection timeout, in seconds.
+        If omitted, the AWS SDK default value is used (typically 1 second).
     scheme : str, default 'https'
         S3 connection transport scheme.
     endpoint_override : str, default None
@@ -183,10 +190,11 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, region=None, scheme=None,
-                 endpoint_override=None, bint background_writes=True,
-                 default_metadata=None, role_arn=None, session_name=None,
-                 external_id=None, load_frequency=900, proxy_options=None,
+                 bint anonymous=False, region=None, request_timeout=None,
+                 connect_timeout=None, scheme=None, endpoint_override=None,
+                 bint background_writes=True, default_metadata=None,
+                 role_arn=None, session_name=None, external_id=None,
+                 load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False):
         cdef:
             CS3Options options
@@ -254,6 +262,10 @@ cdef class S3FileSystem(FileSystem):
 
         if region is not None:
             options.region = tobytes(region)
+        if request_timeout is not None:
+            options.request_timeout = request_timeout
+        if connect_timeout is not None:
+            options.connect_timeout = connect_timeout
         if scheme is not None:
             options.scheme = tobytes(scheme)
         if endpoint_override is not None:
@@ -324,6 +336,8 @@ cdef class S3FileSystem(FileSystem):
                            CS3CredentialsKind_Anonymous),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
+                connect_timeout=opts.connect_timeout,
+                request_timeout=opts.request_timeout,
                 endpoint_override=frombytes(opts.endpoint_override),
                 role_arn=frombytes(opts.role_arn),
                 session_name=frombytes(opts.session_name),
