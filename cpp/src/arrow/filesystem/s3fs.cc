@@ -764,10 +764,10 @@ class ClientBuilder {
     }
     if (options_.request_timeout > 0) {
       // Use ceil() to avoid setting it to 0 as that probably means no timeout.
-      client_config_.requestTimeoutMs = ceil(options_.request_timeout * 1000);
+      client_config_.requestTimeoutMs = (long)ceil(options_.request_timeout * 1000);
     }
     if (options_.connect_timeout > 0) {
-      client_config_.connectTimeoutMs = ceil(options_.connect_timeout * 1000);
+      client_config_.connectTimeoutMs = (long)ceil(options_.connect_timeout * 1000);
     }
 
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
