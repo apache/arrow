@@ -86,13 +86,32 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
 }
 
 TEST(RunLengthEncodedArray, OffsetLength) {
-  auto run_ends = ArrayFromJSON(int32(), "[1000000, 2000000, 3000000, 4000000, 5000000]");
+  auto run_ends = ArrayFromJSON(int32(), "[100, 200, 300, 400, 500]");
   auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "RLE"])");
   ASSERT_OK_AND_ASSIGN(auto rle_array,
-                       RunLengthEncodedArray::Make(run_ends, values, 50000));
-  auto slice = std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(1999999, 5));
+                       RunLengthEncodedArray::Make(run_ends, values, 500));
+
+  ASSERT_EQ(rle_array->GetPhysicalLength(), 5);
+  ASSERT_EQ(rle_array->GetPhysicalOffset(), 0);
+
+  auto slice = std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(199, 5));
   ASSERT_EQ(slice->GetPhysicalLength(), 2);
   ASSERT_EQ(slice->GetPhysicalOffset(), 1);
+
+  auto slice2 =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(199, 101));
+  ASSERT_EQ(slice2->GetPhysicalLength(), 2);
+  ASSERT_EQ(slice2->GetPhysicalOffset(), 1);
+
+  auto slice3 =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(100, 200));
+  ASSERT_EQ(slice3->GetPhysicalLength(), 2);
+  ASSERT_EQ(slice3->GetPhysicalOffset(), 1);
+
+  auto slice4 =
+      std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(0, 150));
+  ASSERT_EQ(slice4->GetPhysicalLength(), 2);
+  ASSERT_EQ(slice4->GetPhysicalOffset(), 0);
 }
 
 }  // anonymous namespace
