@@ -105,7 +105,7 @@ without writing JNI bindings ourselves.
        <properties>
            <maven.compiler.source>8</maven.compiler.source>
            <maven.compiler.target>8</maven.compiler.target>
-           <arrow.version>8.0.0</arrow.version>
+           <arrow.version>9.0.0</arrow.version>
        </properties>
        <dependencies>
            <dependency>
@@ -239,16 +239,10 @@ For this example, we will build a JAR with all dependencies bundled.
        <artifactId>cpptojava</artifactId>
        <version>1.0-SNAPSHOT</version>
        <properties>
-           <maven.compiler.source>11</maven.compiler.source>
-           <maven.compiler.target>11</maven.compiler.target>
-           <arrow.version>8.0.0</arrow.version>
+           <maven.compiler.source>8</maven.compiler.source>
+           <maven.compiler.target>8</maven.compiler.target>
+           <arrow.version>9.0.0</arrow.version>
        </properties>
-       <repositories>
-           <repository>
-               <id>arrow-nightly</id>
-               <url>https://nightlies.apache.org/arrow/java</url>
-           </repository>
-       </repositories>
        <dependencies>
            <dependency>
                <groupId>org.apache.arrow</groupId>
@@ -273,13 +267,6 @@ For this example, we will build a JAR with all dependencies bundled.
                                <goal>single</goal>
                            </goals>
                            <configuration>
-                               <archive>
-                                   <manifest>
-                                       <mainClass>
-                                           ToBeCalledByCpp
-                                       </mainClass>
-                                   </manifest>
-                               </archive>
                                <descriptorRefs>
                                    <descriptorRef>jar-with-dependencies</descriptorRef>
                                </descriptorRefs>
@@ -307,6 +294,11 @@ For this example, we will build a JAR with all dependencies bundled.
    public class ToBeCalledByCpp {
        final static BufferAllocator allocator = new RootAllocator();
 
+       /**
+        * Create a {@link FieldVector} and export this to an existing memory address
+        * @param schemaAddress Schema memory address to wrap
+        * @param arrayAddress Array memory address to wrap
+        */
        public static void fillVector(long schemaAddress, long arrayAddress){
            try (ArrowArray arrow_array = ArrowArray.wrap(arrayAddress);
                 ArrowSchema arrow_schema = ArrowSchema.wrap(schemaAddress) ) {
@@ -314,7 +306,19 @@ For this example, we will build a JAR with all dependencies bundled.
            }
        }
 
-       public static FieldVector populateFieldVectorToExport(){
+       /**
+        * Create a {@link VectorSchemaRoot} and export this to an existing memory address
+        * @param schemaAddress Schema memory address to wrap
+        * @param arrayAddress Array memory address to wrap
+        */
+       public static void fillVectorSchemaRoot(long schemaAddress, long arrayAddress){
+           try (ArrowArray arrow_array = ArrowArray.wrap(arrayAddress);
+                ArrowSchema arrow_schema = ArrowSchema.wrap(schemaAddress) ) {
+               Data.exportVectorSchemaRoot(allocator, populateVectorSchemaRootToExport(), null, arrow_array, arrow_schema);
+           }
+       }
+
+       private static FieldVector populateFieldVectorToExport(){
            IntVector intVector = new IntVector("int-to-export", allocator);
            intVector.allocateNew(3);
            intVector.setSafe(0, 1);
@@ -325,14 +329,7 @@ For this example, we will build a JAR with all dependencies bundled.
            return intVector;
        }
 
-       public static void fillVectorSchemaRoot(long schemaAddress, long arrayAddress){
-           try (ArrowArray arrow_array = ArrowArray.wrap(arrayAddress);
-                ArrowSchema arrow_schema = ArrowSchema.wrap(schemaAddress) ) {
-               Data.exportVectorSchemaRoot(allocator, populateVectorSchemaRootToExport(), null, arrow_array, arrow_schema);
-           }
-       }
-
-       public static VectorSchemaRoot populateVectorSchemaRootToExport(){
+       private static VectorSchemaRoot populateVectorSchemaRootToExport(){
            IntVector intVector = new IntVector("age-to-export", allocator);
            intVector.setSafe(0, 10);
            intVector.setSafe(1, 20);
@@ -367,7 +364,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
        JNIEnv *env;
        JavaVMInitArgs vm_args;
        JavaVMOption options[2];
-       options[0].optionString = "-Djava.class.path=cpptojava.jar"; // java jar name
+       options[0].optionString = "-Djava.class.path=cpptojava.jar";
        options[1].optionString = "-DXcheck:jni:pedantic";
        vm_args.version = JNI_VERSION_1_8;
        vm_args.nOptions = 2;
@@ -395,8 +392,8 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
                struct ArrowArray arrowArray;
                std::cout << "\n<<<<< C++ to Java for Arrays >>>>>\n" << std::endl;
                env->CallStaticVoidMethod(javaClassToBeCalledByCpp, fillVector,
-                                         reinterpret_cast<uintptr_t>(&arrowSchema),
-                                         reinterpret_cast<uintptr_t>(&arrowArray));
+                                         static_cast<jlong>(reinterpret_cast<uintptr_t>(&arrowSchema)),
+                                         static_cast<jlong>(reinterpret_cast<uintptr_t>(&arrowArray)));
                auto resultImportArray = arrow::ImportArray(&arrowArray, &arrowSchema);
                std::shared_ptr<arrow::Array> array = resultImportArray.ValueOrDie();
                std::cout << "[C++] Array: " << array->ToString() << std::endl;
@@ -412,8 +409,8 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
                struct ArrowArray arrowArray;
                std::cout << "\n<<<<< C++ to Java for RecordBatch >>>>>\n" << std::endl;
                env->CallStaticVoidMethod(javaClassToBeCalledByCpp, fillVectorSchemaRoot,
-                                         static_cast<long>(reinterpret_cast<uintptr_t>(&arrowSchema)),
-                                         static_cast<long>(reinterpret_cast<uintptr_t>(&arrowArray)));
+                                         static_cast<jlong>(reinterpret_cast<uintptr_t>(&arrowSchema)),
+                                         static_cast<jlong>(reinterpret_cast<uintptr_t>(&arrowArray)));
                auto resultImportVectorSchemaRoot = arrow::ImportRecordBatch(&arrowArray, &arrowSchema);
                std::shared_ptr<arrow::RecordBatch> recordBatch = resultImportVectorSchemaRoot.ValueOrDie();
                std::cout << "[C++] RecordBatch: " << recordBatch->ToString() << std::endl;
