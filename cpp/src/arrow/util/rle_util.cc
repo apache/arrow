@@ -21,5 +21,22 @@ void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
   array->child_data[0] = builder->Finish().ValueOrDie()->Slice(offset)->data();
 }
 
+int64_t GetPhysicalOffset(const ArraySpan& span) {
+  // TODO: caching
+  return FindPhysicalOffset(RunEnds(span), RunEndsArray(span).length, span.offset);
+}
+
+int64_t GetPhysicalLength(const ArraySpan& span) {
+  // TODO: caching
+  if (span.length == 0) {
+    return 0;
+  } else {
+    // find the offset of the last element and add 1
+    return FindPhysicalOffset(RunEnds(span) + GetPhysicalOffset(span),
+                              RunEndsArray(span).length, span.offset + span.length - 1) +
+           1;
+  }
+}
+
 }  // namespace rle_util
 }  // namespace arrow

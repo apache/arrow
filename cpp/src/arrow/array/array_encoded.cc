@@ -18,6 +18,7 @@
 #include "arrow/array/array_encoded.h"
 #include "arrow/array/util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/rle_util.h"
 
 namespace arrow {
 
@@ -61,6 +62,16 @@ std::shared_ptr<Array> RunLengthEncodedArray::values_array() const {
 
 std::shared_ptr<Array> RunLengthEncodedArray::run_ends_array() const {
   return MakeArray(data()->child_data[0]);
+}
+
+int64_t RunLengthEncodedArray::GetPhysicalOffset() const {
+  const ArraySpan span(*this->data_);
+  return rle_util::GetPhysicalOffset(span);
+}
+
+int64_t RunLengthEncodedArray::GetPhysicalLength() const {
+  const ArraySpan span(*this->data_);
+  return rle_util::GetPhysicalLength(span);
 }
 
 }  // namespace arrow

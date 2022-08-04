@@ -28,9 +28,19 @@
 namespace arrow {
 namespace rle_util {
 
-/// \brief Get the physical offset from a logical offset given run end values
+/// \brief Get the physical offset from a logical offset given run end values using binary
+/// search
 int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
                            int64_t logical_offset);
+
+/// \brief Get the physical offset of an RLE ArraySpan. Warning: calling this may result
+/// in in an O(log(N)) binary search on the run ends buffer
+int64_t GetPhysicalOffset(const ArraySpan& span);
+
+/// \brief Get the physical length of an RLE ArraySpan. Avoid calling this method in a
+/// context where you can easily calculate the value yourself. Calling this can result in
+/// an O(log(N)) binary search on the run ends buffer
+int64_t GetPhysicalLength(const ArraySpan& span);
 
 /// \brief Get the child array holding the data values from an RLE array
 static const ArraySpan& RunEndsArray(const ArraySpan& span) { return span.child_data[0]; }
@@ -43,12 +53,13 @@ static const int32_t* RunEnds(const ArraySpan& span) {
 /// \brief Get the child array holding the data values from an RLE array
 static const ArraySpan& DataArray(const ArraySpan& span) { return span.child_data[1]; }
 
-/// \brief Iterate over two run-length encoded arrays in segments of runs that are inside run
-/// boundaries in each input. A callback is called on each of these segments
+/// \brief Iterate over two run-length encoded arrays in segments of runs that are inside
+/// run boundaries in each input. A callback is called on each of these segments
 /// \param[in] a first input as ArraySpan
 /// \param[in] b second input as ArraySpan
-/// \param[in] callback taking 3 int64_t arguments: the length of the current run segment, and a
-/// phyiscal index into the data array arrays of a and b. Offsets are already applied.
+/// \param[in] callback taking 3 int64_t arguments: the length of the current run segment,
+/// and a phyiscal index into the data array arrays of a and b. Offsets are already
+/// applied.
 template <typename CallbackType>
 void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callback) {
   const int64_t a_physical_offset =
