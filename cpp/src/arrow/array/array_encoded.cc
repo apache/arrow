@@ -35,7 +35,7 @@ RunLengthEncodedArray::RunLengthEncodedArray(const std::shared_ptr<DataType>& ty
                                              const std::shared_ptr<Array>& values_array,
                                              int64_t offset) {
   ARROW_CHECK_EQ(type->id(), Type::RUN_LENGTH_ENCODED);
-  SetData(ArrayData::Make(type, length, {}, 0, offset));
+  SetData(ArrayData::Make(type, length, {NULLPTR}, 0, offset));
   data_->child_data.push_back(std::move(run_ends_array->data()));
   data_->child_data.push_back(std::move(values_array->data()));
 }
@@ -51,8 +51,8 @@ Result<std::shared_ptr<RunLengthEncodedArray>> RunLengthEncodedArray::Make(
   }
 
   return std::make_shared<RunLengthEncodedArray>(run_length_encoded(values_array->type()),
-                                                 logical_length, run_ends_array, values_array,
-                                                 offset);
+                                                 logical_length, run_ends_array,
+                                                 values_array, offset);
 }
 
 std::shared_ptr<Array> RunLengthEncodedArray::values_array() const {
