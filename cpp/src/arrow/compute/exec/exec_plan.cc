@@ -18,6 +18,7 @@
 #include "arrow/compute/exec/exec_plan.h"
 
 #include <optional>
+#include <mutex>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -56,29 +57,27 @@ struct ExecPlanImpl : public ExecPlan {
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
       ARROW_LOG(WARNING) << "Plan was destroyed before finishing";
-      StopProducing();
+      Abort();
       finished().Wait();
     }
   }
 
   size_t GetThreadIndex() { return thread_indexer_(); }
   size_t max_concurrency() const { return thread_indexer_.Capacity(); }
+  const std::vector<std::unique_ptr<ExecNode>>& nodes() const { return nodes_; }
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->label().empty()) {
       node->SetLabel(std::to_string(auto_label_counter_++));
-    }
-    if (node->num_inputs() == 0) {
-      sources_.push_back(node.get());
-    }
-    if (node->num_outputs() == 0) {
-      sinks_.push_back(node.get());
     }
     nodes_.push_back(std::move(node));
     return nodes_.back().get();
   }
 
   Result<Future<>> BeginExternalTask() {
+    // The task group isn't relevant in synchronous execution mode
+    if (!exec_context_->executor()) return Future<>::Make();
+
     Future<> completion_future = Future<>::Make();
     if (async_scheduler_->AddSimpleTask(
             [completion_future] { return completion_future; })) {
@@ -93,7 +92,19 @@ struct ExecPlanImpl : public ExecPlan {
     // Adds a task which submits fn to the executor and tracks its progress.  If we're
     // aborted then the task is ignored and fn is not executed.
     async_scheduler_->AddSimpleTask(
-        [executor, fn]() { return executor->Submit(std::move(fn)); });
+        [this, executor, fn = std::move(fn)]()
+        {
+            ARROW_ASSIGN_OR_RAISE(Future<> fut,
+                                  executor->Submit(stop_source_.token(), std::move(fn)));
+            fut.AddCallback([this](const Status& status) {
+                if (!status.ok()) {
+                    std::lock_guard<std::mutex> guard(abort_mutex_);
+                    errors_.emplace_back(std::move(status));
+                    AbortUnlocked();
+                }
+            });
+            return Status::OK();
+        });
     return Status::OK();
   }
 
@@ -143,16 +154,7 @@ struct ExecPlanImpl : public ExecPlan {
       return Status::Invalid("restarted ExecPlan");
     }
 
-    std::vector<Future<>> futures;
-    for (auto& n : nodes_) {
-      RETURN_NOT_OK(n->Init());
-      futures.push_back(n->finished());
-    }
-
-    AllFinished(futures).AddCallback([this](const Status& st) {
-      error_st_ = st;
-      EndTaskGroup();
-    });
+    for (std::unique_ptr<ExecNode>& n : nodes_) RETURN_NOT_OK(n->Init());
 
     task_scheduler_->RegisterEnd();
     int num_threads = 1;
@@ -169,163 +171,77 @@ struct ExecPlanImpl : public ExecPlan {
         /*concurrent_tasks=*/2 * num_threads, sync_execution));
 
     started_ = true;
-    // producers precede consumers
-    sorted_nodes_ = TopoSort();
-
-    Status st = Status::OK();
-
-    using rev_it = std::reverse_iterator<NodeVector::iterator>;
-    for (rev_it it(sorted_nodes_.end()), end(sorted_nodes_.begin()); it != end; ++it) {
-      auto node = *it;
-
-      EVENT(span_, "StartProducing:" + node->label(),
-            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
-      st = node->StartProducing();
-      EVENT(span_, "StartProducing:" + node->label(), {{"status", st.ToString()}});
+    for (std::unique_ptr<ExecNode>& n : nodes_) {
+      Status st = n->StartProducing();
       if (!st.ok()) {
-        // Stop nodes that successfully started, in reverse order
-        stopped_ = true;
-        StopProducingImpl(it.base(), sorted_nodes_.end());
-        for (NodeVector::iterator fw_it = sorted_nodes_.begin(); fw_it != it.base();
-             ++fw_it) {
-          Future<> fut = (*fw_it)->finished();
-          if (!fut.is_finished()) fut.MarkFinished();
-        }
+        Abort();
         return st;
       }
     }
-    return st;
+    // StartProducing will have added some tasks to the task group.
+    // Now we end the task group so that as soon as we run out of tasks,
+    // we've finished executing.
+    EndTaskGroup();
+    return Status::OK();
   }
 
   void EndTaskGroup() {
     bool expected = false;
     if (group_ended_.compare_exchange_strong(expected, true)) {
-      async_scheduler_->End();
-      async_scheduler_->OnFinished().AddCallback([this](const Status& st) {
+       async_scheduler_->End();
+       async_scheduler_->OnFinished().AddCallback([this](const Status& st) {
         MARK_SPAN(span_, error_st_ & st);
         END_SPAN(span_);
-        finished_.MarkFinished(error_st_ & st);
+        if (aborted_) {
+          for (std::unique_ptr<ExecNode>& node : nodes_) node->Abort();
+        }
+        if (!errors_.empty())
+          finished_.MarkFinished(errors_[0]);
+        else
+          finished_.MarkFinished(st);
       });
     }
   }
 
-  void StopProducing() {
-    DCHECK(started_) << "stopped an ExecPlan which never started";
-    EVENT(span_, "StopProducing");
-    stopped_ = true;
-    task_scheduler_->Abort(
-        [this]() { StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end()); });
+  void Abort() {
+    DCHECK(started_) << "aborted an ExecPlan which never started";
+    EVENT(span_, "Abort");
+    if (finished_.is_finished()) return;
+    std::lock_guard<std::mutex> guard(abort_mutex_);
+    AbortUnlocked();
   }
 
-  template <typename It>
-  void StopProducingImpl(It begin, It end) {
-    for (auto it = begin; it != end; ++it) {
-      auto node = *it;
-      EVENT(span_, "StopProducing:" + node->label(),
-            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
-      node->StopProducing();
+  void AbortUnlocked() {
+    if (!aborted_) {
+      aborted_ = true;
+      stop_source_.RequestStop();
+      EndTaskGroup();
+      task_scheduler_->Abort([]() {});
     }
-  }
-
-  NodeVector TopoSort() const {
-    struct Impl {
-      const std::vector<std::unique_ptr<ExecNode>>& nodes;
-      std::unordered_set<ExecNode*> visited;
-      NodeVector sorted;
-
-      explicit Impl(const std::vector<std::unique_ptr<ExecNode>>& nodes) : nodes(nodes) {
-        visited.reserve(nodes.size());
-        sorted.resize(nodes.size());
-
-        for (const auto& node : nodes) {
-          Visit(node.get());
-        }
-
-        DCHECK_EQ(visited.size(), nodes.size());
-      }
-
-      void Visit(ExecNode* node) {
-        if (visited.count(node) != 0) return;
-
-        for (auto input : node->inputs()) {
-          // Ensure that producers are inserted before this consumer
-          Visit(input);
-        }
-
-        sorted[visited.size()] = node;
-        visited.insert(node);
-      }
-    };
-
-    return std::move(Impl{nodes_}.sorted);
-  }
-
-  // This function returns a node vector and a vector of integers with the
-  // number of spaces to add as an indentation. The main difference between
-  // this function and the TopoSort function is that here we visit the nodes
-  // in reverse order and we can have repeated nodes if necessary.
-  // For example, in the following plan:
-  // s1 --> s3 -
-  //   -        -
-  //    -        -> s5 --> s6
-  //     -      -
-  // s2 --> s4 -
-  // Toposort node vector: s1 s2 s3 s4 s5 s6
-  // OrderedNodes node vector: s6 s5 s3 s1 s4 s2 s1
-  std::pair<NodeVector, std::vector<int>> OrderedNodes() const {
-    struct Impl {
-      const std::vector<std::unique_ptr<ExecNode>>& nodes;
-      std::unordered_set<ExecNode*> visited;
-      std::unordered_set<ExecNode*> marked;
-      NodeVector sorted;
-      std::vector<int> indents;
-
-      explicit Impl(const std::vector<std::unique_ptr<ExecNode>>& nodes) : nodes(nodes) {
-        visited.reserve(nodes.size());
-
-        for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
-          if (visited.count(it->get()) != 0) continue;
-          Visit(it->get());
-        }
-
-        DCHECK_EQ(visited.size(), nodes.size());
-      }
-
-      void Visit(ExecNode* node, int indent = 0) {
-        marked.insert(node);
-        for (auto input : node->inputs()) {
-          if (marked.count(input) != 0) continue;
-          Visit(input, indent + 1);
-        }
-        marked.erase(node);
-
-        indents.push_back(indent);
-        sorted.push_back(node);
-        visited.insert(node);
-      }
-    };
-
-    auto result = Impl{nodes_};
-    return std::make_pair(result.sorted, result.indents);
   }
 
   std::string ToString() const {
     std::stringstream ss;
     ss << "ExecPlan with " << nodes_.size() << " nodes:" << std::endl;
-    auto sorted = OrderedNodes();
-    for (size_t i = sorted.first.size(); i > 0; --i) {
-      for (int j = 0; j < sorted.second[i - 1]; ++j) ss << "  ";
-      ss << sorted.first[i - 1]->ToString(sorted.second[i - 1]) << std::endl;
+    for (const std::unique_ptr<ExecNode>& node : nodes_) {
+      if (!node->output()) {
+        PrintSubtree(node.get(), ss, /*indent=*/0);
+      }
     }
     return ss.str();
   }
 
-  Status error_st_;
+  void PrintSubtree(ExecNode* node, std::stringstream& ss, int indent) const {
+    for (int i = 0; i < indent; i++) ss << "  ";
+    ss << node->ToString(indent) << std::endl;
+    for (ExecNode* input : node->inputs()) {
+      PrintSubtree(input, ss, indent + 1);
+    }
+  }
+
   Future<> finished_ = Future<>::Make();
-  bool started_ = false, stopped_ = false;
+  bool started_ = false;
   std::vector<std::unique_ptr<ExecNode>> nodes_;
-  NodeVector sources_, sinks_;
-  NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
   util::tracing::Span span_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
@@ -335,6 +251,11 @@ struct ExecPlanImpl : public ExecPlan {
   std::unique_ptr<util::AsyncTaskScheduler> async_scheduler_ =
       util::AsyncTaskScheduler::Make();
   std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
+
+  std::mutex abort_mutex_;
+  bool aborted_ = false;
+  StopSource stop_source_;
+  std::vector<Status> errors_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -364,14 +285,11 @@ ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
   return ToDerived(this)->AddNode(std::move(node));
 }
 
-const ExecPlan::NodeVector& ExecPlan::sources() const {
-  return ToDerived(this)->sources_;
-}
-
-const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
-
 size_t ExecPlan::GetThreadIndex() { return ToDerived(this)->GetThreadIndex(); }
 size_t ExecPlan::max_concurrency() const { return ToDerived(this)->max_concurrency(); }
+const std::vector<std::unique_ptr<ExecNode>>& ExecPlan::nodes() const {
+  return ToDerived(this)->nodes();
+}
 
 Result<Future<>> ExecPlan::BeginExternalTask() {
   return ToDerived(this)->BeginExternalTask();
@@ -398,8 +316,7 @@ util::AsyncTaskScheduler* ExecPlan::async_scheduler() {
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
 Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
-
-void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
+void ExecPlan::Abort() { ToDerived(this)->Abort(); }
 
 Future<> ExecPlan::finished() { return ToDerived(this)->finished_; }
 
@@ -413,18 +330,23 @@ std::string ExecPlan::ToString() const { return ToDerived(this)->ToString(); }
 
 ExecNode::ExecNode(ExecPlan* plan, NodeVector inputs,
                    std::vector<std::string> input_labels,
-                   std::shared_ptr<Schema> output_schema, int num_outputs)
+                   std::shared_ptr<Schema> output_schema)
     : plan_(plan),
       inputs_(std::move(inputs)),
       input_labels_(std::move(input_labels)),
       output_schema_(std::move(output_schema)),
-      num_outputs_(num_outputs) {
+      output_(nullptr) {
   for (auto input : inputs_) {
-    input->outputs_.push_back(this);
+    input->output_ = this;
   }
 }
 
-Status ExecNode::Init() { return Status::OK(); }
+Status ExecNode::Init() {
+  START_COMPUTE_SPAN(
+      span_, std::string(kind_name()) + ":" + label(),
+      {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
+  return Status::OK();
+}
 
 Status ExecNode::Validate() const {
   if (inputs_.size() != input_labels_.size()) {
@@ -432,19 +354,12 @@ Status ExecNode::Validate() const {
                            num_inputs(), ", actual ", input_labels_.size(), ")");
   }
 
-  if (static_cast<int>(outputs_.size()) != num_outputs_) {
-    return Status::Invalid("Invalid number of outputs for '", label(), "' (expected ",
-                           num_outputs(), ", actual ", outputs_.size(), ")");
-  }
-
-  for (auto out : outputs_) {
-    auto input_index = GetNodeIndex(out->inputs(), this);
-    if (!input_index) {
-      return Status::Invalid("Node '", label(), "' outputs to node '", out->label(),
+  if (output_) {
+    auto input_index = GetNodeIndex(output_->inputs(), this);
+    if (!input_index)
+      return Status::Invalid("Node '", label(), "' outputs to node '", output_->label(),
                              "' but is not listed as an input.");
-    }
   }
-
   return Status::OK();
 }
 
@@ -468,15 +383,6 @@ std::string ExecNode::ToString(int indent) const {
 }
 
 std::string ExecNode::ToStringExtra(int indent = 0) const { return ""; }
-
-bool ExecNode::ErrorIfNotOk(Status status) {
-  if (status.ok()) return false;
-
-  for (auto out : outputs_) {
-    out->ErrorReceived(this, out == outputs_.back() ? std::move(status) : status);
-  }
-  return true;
-}
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
     std::shared_ptr<Schema> schema, std::function<Future<std::optional<ExecBatch>>()> gen,

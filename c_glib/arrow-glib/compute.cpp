@@ -1914,7 +1914,7 @@ garrow_execute_plan_start(GArrowExecutePlan *plan,
 }
 
 /**
- * garrow_execute_plan_stop:
+ * garrow_execute_plan_abort:
  * @plan: A #GArrowExecutePlan.
  *
  * Stops this plan.
@@ -1922,10 +1922,10 @@ garrow_execute_plan_start(GArrowExecutePlan *plan,
  * Since: 6.0.0
  */
 void
-garrow_execute_plan_stop(GArrowExecutePlan *plan)
+garrow_execute_plan_abort(GArrowExecutePlan *plan)
 {
   auto arrow_plan = garrow_execute_plan_get_raw(plan);
-  arrow_plan->StopProducing();
+  arrow_plan->Abort();
 }
 
 /**

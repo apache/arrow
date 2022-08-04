@@ -56,65 +56,47 @@ TEST(ExecPlanConstruction, Empty) {
 
 TEST(ExecPlanConstruction, SingleNode) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/0);
+  std::ignore = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{});
   ASSERT_OK(plan->Validate());
-  ASSERT_THAT(plan->sources(), ElementsAre(node));
-  ASSERT_THAT(plan->sinks(), ElementsAre(node));
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/1);
+  std::ignore = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{});
   // Output not bound
-  ASSERT_THAT(plan->Validate(), Raises(StatusCode::Invalid));
-}
-
-TEST(ExecPlanConstruction, SourceSink) {
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source = MakeDummyNode(plan.get(), "source", /*inputs=*/{}, /*num_outputs=*/1);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*inputs=*/{source}, /*num_outputs=*/0);
-
-  ASSERT_OK(plan->Validate());
-  EXPECT_THAT(plan->sources(), ElementsAre(source));
-  EXPECT_THAT(plan->sinks(), ElementsAre(sink));
+  ASSERT_THAT(plan->Validate(), Raises(StatusCode::OK));
 }
 
 TEST(ExecPlanConstruction, MultipleNode) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  auto source1 = MakeDummyNode(plan.get(), "source1", /*inputs=*/{}, /*num_outputs=*/2);
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*inputs=*/{});
 
-  auto source2 = MakeDummyNode(plan.get(), "source2", /*inputs=*/{}, /*num_outputs=*/1);
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*inputs=*/{});
 
-  auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1}, /*num_outputs=*/2);
+  auto process1 = MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1});
 
-  auto process2 = MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1, source2},
-                                /*num_outputs=*/1);
+  auto process2 = MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1, source2});
 
   auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*inputs=*/{process1, process2, process1},
-                    /*num_outputs=*/1);
+      MakeDummyNode(plan.get(), "process3", /*inputs=*/{process1, process2, process1});
 
-  auto sink = MakeDummyNode(plan.get(), "sink", /*inputs=*/{process3}, /*num_outputs=*/0);
+  std::ignore /*sink*/ = MakeDummyNode(plan.get(), "sink", /*inputs=*/{process3});
 
   ASSERT_OK(plan->Validate());
-  ASSERT_THAT(plan->sources(), ElementsAre(source1, source2));
-  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
 }
 
 TEST(ExecPlanConstruction, AutoLabel) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source1 = MakeDummyNode(plan.get(), "", /*inputs=*/{}, /*num_outputs=*/2);
-  auto source2 =
-      MakeDummyNode(plan.get(), "some_label", /*inputs=*/{}, /*num_outputs=*/1);
-  auto source3 = MakeDummyNode(plan.get(), "", /*inputs=*/{}, /*num_outputs=*/2);
+  auto source1 = MakeDummyNode(plan.get(), "", /*inputs=*/{});
+  auto source2 = MakeDummyNode(plan.get(), "some_label", /*inputs=*/{});
+  auto source3 = MakeDummyNode(plan.get(), "", /*inputs=*/{});
 
   ASSERT_EQ("0", source1->label());
   ASSERT_EQ("some_label", source2->label());
   ASSERT_EQ("2", source3->label());
 }
 
-struct StartStopTracker {
-  std::vector<std::string> started, stopped;
+struct StartAbortTracker {
+  std::vector<std::string> started, aborted;
 
   StartProducingFunc start_producing_func(Status st = Status::OK()) {
     return [this, st](ExecNode* node) {
@@ -123,50 +105,41 @@ struct StartStopTracker {
     };
   }
 
-  StopProducingFunc stop_producing_func() {
-    return [this](ExecNode* node) { stopped.push_back(node->label()); };
+  AbortFunc abort_func() {
+    return [this](ExecNode* node) { aborted.push_back(node->label()); };
   }
 };
 
 TEST(ExecPlan, DummyStartProducing) {
-  StartStopTracker t;
+  StartAbortTracker t;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  auto source1 = MakeDummyNode(plan.get(), "source1", /*inputs=*/{}, /*num_outputs=*/2,
-                               t.start_producing_func(), t.stop_producing_func());
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*inputs=*/{},
+                               t.start_producing_func(), t.abort_func());
 
-  auto source2 = MakeDummyNode(plan.get(), "source2", /*inputs=*/{}, /*num_outputs=*/1,
-                               t.start_producing_func(), t.stop_producing_func());
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*inputs=*/{},
+                               t.start_producing_func(), t.abort_func());
 
-  auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1}, /*num_outputs=*/2,
-                    t.start_producing_func(), t.stop_producing_func());
+  auto process1 = MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1},
+                                t.start_producing_func(), t.abort_func());
 
-  auto process2 =
-      MakeDummyNode(plan.get(), "process2", /*inputs=*/{process1, source2},
-                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
+  auto process2 = MakeDummyNode(plan.get(), "process2", /*inputs=*/{process1, source2},
+                                t.start_producing_func(), t.abort_func());
 
   auto process3 =
       MakeDummyNode(plan.get(), "process3", /*inputs=*/{process1, source1, process2},
-                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
+                    t.start_producing_func(), t.abort_func());
 
-  MakeDummyNode(plan.get(), "sink", /*inputs=*/{process3}, /*num_outputs=*/0,
-                t.start_producing_func(), t.stop_producing_func());
+  MakeDummyNode(plan.get(), "sink", /*inputs=*/{process3}, t.start_producing_func(),
+                t.abort_func());
 
   ASSERT_OK(plan->Validate());
   ASSERT_EQ(t.started.size(), 0);
-  ASSERT_EQ(t.stopped.size(), 0);
+  ASSERT_EQ(t.aborted.size(), 0);
 
   ASSERT_OK(plan->StartProducing());
-  // Note that any correct reverse topological order may do
-  ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1",
-                                     "source2", "source1"));
-
-  plan->StopProducing();
-  ASSERT_THAT(plan->finished(), Finishes(Ok()));
-  // Note that any correct topological order may do
-  ASSERT_THAT(t.stopped, ElementsAre("source1", "source2", "process1", "process2",
+  ASSERT_THAT(t.started, ElementsAre("source1", "source2", "process1", "process2",
                                      "process3", "sink"));
 
   ASSERT_THAT(plan->StartProducing(),
@@ -174,41 +147,40 @@ TEST(ExecPlan, DummyStartProducing) {
 }
 
 TEST(ExecPlan, DummyStartProducingError) {
-  StartStopTracker t;
+  StartAbortTracker t;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source1 = MakeDummyNode(
-      plan.get(), "source1", /*num_inputs=*/{}, /*num_outputs=*/2,
-      t.start_producing_func(Status::NotImplemented("zzz")), t.stop_producing_func());
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/{},
+                               t.start_producing_func(Status::NotImplemented("zzz")),
+                               t.abort_func());
 
-  auto source2 =
-      MakeDummyNode(plan.get(), "source2", /*num_inputs=*/{}, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/{},
+                               t.start_producing_func(), t.abort_func());
 
-  auto process1 = MakeDummyNode(
-      plan.get(), "process1", /*num_inputs=*/{source1}, /*num_outputs=*/2,
-      t.start_producing_func(Status::IOError("xxx")), t.stop_producing_func());
+  auto process1 =
+      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/{source1},
+                    t.start_producing_func(Status::IOError("xxx")), t.abort_func());
 
   auto process2 =
       MakeDummyNode(plan.get(), "process2", /*num_inputs=*/{process1, source2},
-                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
+                    t.start_producing_func(), t.abort_func());
 
   auto process3 =
       MakeDummyNode(plan.get(), "process3", /*num_inputs=*/{process1, source1, process2},
-                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
+                    t.start_producing_func(), t.abort_func());
 
-  MakeDummyNode(plan.get(), "sink", /*num_inputs=*/{process3}, /*num_outputs=*/0,
-                t.start_producing_func(), t.stop_producing_func());
+  MakeDummyNode(plan.get(), "sink", /*num_inputs=*/{process3}, t.start_producing_func(),
+                t.abort_func());
 
   ASSERT_OK(plan->Validate());
   ASSERT_EQ(t.started.size(), 0);
-  ASSERT_EQ(t.stopped.size(), 0);
+  ASSERT_EQ(t.aborted.size(), 0);
 
-  // `process1` raises IOError
-  ASSERT_THAT(plan->StartProducing(), Raises(StatusCode::IOError));
-  ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1"));
-  // Nodes that started successfully were stopped in reverse order
-  ASSERT_THAT(t.stopped, ElementsAre("process2", "process3", "sink"));
+  // `source1` raises NotImplemented
+  ASSERT_THAT(plan->StartProducing(), Raises(StatusCode::NotImplemented));
+  ASSERT_THAT(t.started, ElementsAre("source1"));
+  ASSERT_THAT(t.aborted, ElementsAre("source1", "source2", "process1", "process2",
+                                     "process3", "sink"));
 }
 
 TEST(ExecPlanExecution, SourceSink) {
@@ -305,7 +277,8 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
       kPauseIfAbove * static_cast<uint32_t>(batch->TotalBufferSize());
   uint32_t resume_if_below_bytes =
       kResumeIfBelow * static_cast<uint32_t>(batch->TotalBufferSize());
-  EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
+  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+  EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(&ctx));
   PushGenerator<std::optional<ExecBatch>> batch_producer;
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   BackpressureMonitor* backpressure_monitor;
@@ -349,7 +322,6 @@ TEST(ExecPlanExecution, SinkNodeBackpressure) {
 
   // Cleanup
   batch_producer.producer().Push(IterationEnd<std::optional<ExecBatch>>());
-  plan->StopProducing();
   ASSERT_FINISHES_OK(plan->finished());
 }
 
@@ -366,8 +338,6 @@ TEST(ExecPlan, ToString) {
                     {"sink", SinkNodeOptions{&sink_gen}},
                 })
                 .AddToPlan(plan.get()));
-  EXPECT_EQ(plan->sources()[0]->ToString(), R"(:SourceNode{})");
-  EXPECT_EQ(plan->sinks()[0]->ToString(), R"(:SinkNode{})");
   EXPECT_EQ(plan->ToString(), R"(ExecPlan with 2 nodes:
 :SinkNode{}
   :SourceNode{}
@@ -445,8 +415,8 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
 	count(i32, {mode=NON_NULL}),
 ]}
     :UnionNode{}
-      rhs:SourceNode{}
       lhs:SourceNode{}
+      rhs:SourceNode{}
 )a");
 }
 
@@ -511,9 +481,21 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
 
     for (bool parallel : {false, true}) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
-      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+      ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+      ASSERT_OK_AND_ASSIGN(auto plan,
+                           ExecPlan::Make(parallel ? &ctx : default_exec_context()));
       std::atomic<uint32_t> batches_seen{0};
       Future<> finish = Future<>::Make();
+
+      struct AutoMarker {
+        explicit AutoMarker(Future<> fut) : fut_(std::move(fut)) {}
+        ~AutoMarker() {
+          if (!fut_.is_finished()) fut_.MarkFinished();
+        }
+        Future<> fut_;
+      } marker(finish);
+
       struct TestConsumer : public SinkNodeConsumer {
         TestConsumer(std::atomic<uint32_t>* batches_seen, Future<> finish)
             : batches_seen(batches_seen), finish(std::move(finish)) {}
@@ -544,12 +526,16 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
       ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
                              ConsumingSinkNodeOptions(consumer)));
       ASSERT_OK(plan->StartProducing());
-      // Source should finish fairly quickly
-      ASSERT_FINISHES_OK(source->finished());
+      SleepABit();
+      SleepABit();
       SleepABit();
       ASSERT_EQ(2, batches_seen);
-      // Consumer isn't finished and so plan shouldn't have finished
-      AssertNotFinished(plan->finished());
+      if (parallel) {
+        // Consumer isn't finished and so plan shouldn't have finished,
+        // unless we're in synchronous mode in which case the plan must've
+        // finished by now.
+        AssertNotFinished(plan->finished());
+      }
       // Mark consumption complete, plan should finish
       finish.MarkFinished();
       ASSERT_FINISHES_OK(plan->finished());
@@ -577,14 +563,13 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
                                                       basic_data.gen(parallel, slow))));
       ASSERT_OK(MakeExecNode("table_sink", plan.get(), {source}, options));
       ASSERT_OK(plan->StartProducing());
-      // Source should finish fairly quickly
-      ASSERT_FINISHES_OK(source->finished());
       SleepABit();
+      ASSERT_FINISHES_OK(plan->finished());
+
       ASSERT_OK_AND_ASSIGN(auto actual,
                            TableFromExecBatches(basic_data.schema, basic_data.batches));
       ASSERT_EQ(5, out->num_rows());
       AssertTablesEqual(*actual, *out);
-      ASSERT_FINISHES_OK(plan->finished());
     }
   }
 }
@@ -605,21 +590,21 @@ TEST(ExecPlanExecution, ConsumingSinkNames) {
     auto consumer = std::make_shared<SchemaKeepingConsumer>();
     ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
     auto basic_data = MakeBasicBatches();
-    ASSERT_OK(Declaration::Sequence(
-                  {{"source",
-                    SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
-                   {"consuming_sink", ConsumingSinkNodeOptions(consumer, names)}})
-                  .AddToPlan(plan.get()));
-    ASSERT_OK_AND_ASSIGN(
-        auto source,
-        MakeExecNode("source", plan.get(), {},
-                     SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))));
-    ASSERT_OK(MakeExecNode("consuming_sink", plan.get(), {source},
-                           ConsumingSinkNodeOptions(consumer, names)));
+
     if (names.size() != 0 &&
         names.size() != static_cast<size_t>(basic_data.batches[0].num_values())) {
-      ASSERT_RAISES(Invalid, plan->StartProducing());
+      ASSERT_RAISES(Invalid,
+                    Declaration::Sequence(
+                        {{"source", SourceNodeOptions(basic_data.schema,
+                                                      basic_data.gen(false, false))},
+                         {"consuming_sink", ConsumingSinkNodeOptions(consumer, names)}})
+                        .AddToPlan(plan.get()));
     } else {
+      ASSERT_OK(Declaration::Sequence(
+                    {{"source",
+                      SourceNodeOptions(basic_data.schema, basic_data.gen(false, false))},
+                     {"consuming_sink", ConsumingSinkNodeOptions(consumer, names)}})
+                    .AddToPlan(plan.get()));
       auto expected_names = names.size() == 0 ? basic_data.schema->field_names() : names;
       ASSERT_OK(plan->StartProducing());
       ASSERT_FINISHES_OK(plan->finished());
@@ -635,7 +620,8 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
       return Status::Invalid("XYZ");
     }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
-    Future<> Finish() override { return Future<>::MakeFinished(); }
+    Future<> Finish() override { return finished_; }
+    Future<> finished_ = Future<>::MakeFinished();
   };
   struct ConsumeErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
@@ -643,7 +629,8 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
       return Status::OK();
     }
     Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }
-    Future<> Finish() override { return Future<>::MakeFinished(); }
+    Future<> Finish() override { return finished_; }
+    Future<> finished_ = Future<>::MakeFinished();
   };
   struct FinishErrorConsumer : public SinkNodeConsumer {
     Status Init(const std::shared_ptr<Schema>& schema,
@@ -651,14 +638,17 @@ TEST(ExecPlanExecution, ConsumingSinkError) {
       return Status::OK();
     }
     Status Consume(ExecBatch batch) override { return Status::OK(); }
-    Future<> Finish() override { return Future<>::MakeFinished(Status::Invalid("XYZ")); }
+    Future<> Finish() override { return finished_; }
+    Future<> finished_ = Future<>::MakeFinished(Status::Invalid("XYZ"));
   };
   std::vector<std::shared_ptr<SinkNodeConsumer>> consumers{
       std::make_shared<InitErrorConsumer>(), std::make_shared<ConsumeErrorConsumer>(),
       std::make_shared<FinishErrorConsumer>()};
 
+  ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+
   for (auto& consumer : consumers) {
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&ctx));
     auto basic_data = MakeBasicBatches();
     ASSERT_OK(Declaration::Sequence(
                   {{"source",
@@ -778,7 +768,7 @@ TEST(ExecPlanExecution, StressSourceGroupedSumStop) {
 
       ASSERT_OK(plan->Validate());
       ASSERT_OK(plan->StartProducing());
-      plan->StopProducing();
+      plan->Abort();
       ASSERT_FINISHES_OK(plan->finished());
     }
   }
@@ -812,7 +802,7 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
 
       EXPECT_THAT(sink_gen(), Finishes(ResultWith(Optional(random_data.batches[0]))));
 
-      plan->StopProducing();
+      plan->Abort();
       ASSERT_THAT(plan->finished(), Finishes(Ok()));
     }
   }

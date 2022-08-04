@@ -1017,8 +1017,7 @@ TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                        DeserializePlan(*buf, NullSinkNodeConsumer::Make()));
-  ASSERT_EQ(1, plan->sinks().size());
-  compute::ExecNode* sink_node = plan->sinks()[0];
+  compute::ExecNode* sink_node = plan->nodes()[1].get();
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];

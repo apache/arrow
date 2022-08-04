@@ -2506,11 +2506,9 @@ TEST(ScanNode, MinimalEndToEnd) {
 
   // finally, pipe the project node into a sink node
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
+  ASSERT_OK_AND_ASSIGN(std::ignore /*sink*/,
                        compute::MakeExecNode("ordered_sink", plan.get(), {project},
                                              compute::SinkNodeOptions{&sink_gen}));
-
-  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
 
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
@@ -2606,11 +2604,9 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
+  ASSERT_OK_AND_ASSIGN(std::ignore /*sink*/,
                        compute::MakeExecNode("sink", plan.get(), {aggregate},
                                              compute::SinkNodeOptions{&sink_gen}));
-
-  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
 
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader =
@@ -2696,11 +2692,9 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * sink,
+  ASSERT_OK_AND_ASSIGN(std::ignore /*sink*/,
                        compute::MakeExecNode("sink", plan.get(), {aggregate},
                                              compute::SinkNodeOptions{&sink_gen}));
-
-  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
 
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(

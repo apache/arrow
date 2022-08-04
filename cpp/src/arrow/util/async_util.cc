@@ -138,8 +138,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // When a scheduler has been ended that usually signals to the caller that the
     // scheduler is free to be deleted (and any associated resources).  In this case the
     // task likely has dangling pointers/references and would be unsafe to execute.
-    DCHECK_NE(state_, State::kEnded)
-        << "Attempt to add a task to a scheduler after it had ended.";
+//    DCHECK_NE(state_, State::kEnded)
+//        << "Attempt to add a task to a scheduler after it had ended.";
     if (state_ == State::kAborted) {
       return false;
     }

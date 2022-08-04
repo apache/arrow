@@ -921,7 +921,7 @@ Result<std::vector<ExecBatch>> HashJoinWithExecPlan(
 
   auto batches_fut = StartAndCollect(plan.get(), sink_gen);
   if (!batches_fut.Wait(::arrow::kDefaultAssertFinishesWaitSeconds)) {
-    plan->StopProducing();
+    plan->Abort();
     // If this second wait fails then there isn't much we can do.  We will abort
     // and probably get a segmentation fault.
     plan->finished().Wait(::arrow::kDefaultAssertFinishesWaitSeconds);

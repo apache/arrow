@@ -48,8 +48,7 @@ namespace {
 struct SourceNode : ExecNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<std::optional<ExecBatch>> generator)
-      : ExecNode(plan, {}, {}, std::move(output_schema),
-                 /*num_outputs=*/1),
+      : ExecNode(plan, {}, {}, std::move(output_schema)),
         generator_(std::move(generator)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -65,17 +64,54 @@ struct SourceNode : ExecNode {
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
   }
-  [[noreturn]] void InputReceived(ExecNode*, ExecBatch) override { NoInputs(); }
-  [[noreturn]] void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
-  [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
+  [[noreturn]] Status InputReceived(ExecNode*, ExecBatch) override { NoInputs(); }
+  [[noreturn]] Status InputFinished(ExecNode*, int) override { NoInputs(); }
 
-  Status StartProducing() override {
+  Status Init() override {
     START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
                        {{"node.kind", kind_name()},
                         {"node.label", label()},
                         {"node.output_schema", output_schema()->ToString()},
                         {"node.detail", ToString()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
+    return Status::OK();
+  }
+
+  Status SynchronousSourceLoop() {
+    for (;;) {
+      Future<std::optional<ExecBatch>> fut = generator_();
+      ARROW_ASSIGN_OR_RAISE(std::optional<ExecBatch> maybe_morsel, fut.result());
+      if (!maybe_morsel.has_value()) break;
+
+      bool use_legacy_batching = plan_->UseLegacyBatching();
+      ExecBatch morsel = std::move(*maybe_morsel);
+      int64_t morsel_length = static_cast<int64_t>(morsel.length);
+      if (use_legacy_batching || morsel_length == 0) {
+        // For various reasons (e.g. ARROW-13982) we pass empty batches
+        // through
+        batch_count_++;
+      } else {
+        int num_batches =
+            static_cast<int>(bit_util::CeilDiv(morsel_length, ExecPlan::kMaxBatchSize));
+        batch_count_ += num_batches;
+      }
+      int64_t offset = 0;
+      do {
+        int64_t batch_size =
+            std::min<int64_t>(morsel_length - offset, ExecPlan::kMaxBatchSize);
+        // In order for the legacy batching model to work we must
+        // not slice batches from the source
+        if (use_legacy_batching) {
+          batch_size = morsel_length;
+        }
+        ExecBatch batch = morsel.Slice(offset, batch_size);
+        offset += batch_size;
+        RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
+      } while (offset < morsel.length);
+    }
+    return output_->InputFinished(this, batch_count_);
+  }
+
+  Status StartProducing() override {
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -90,6 +126,10 @@ struct SourceNode : ExecNode {
 
     CallbackOptions options;
     auto executor = plan()->exec_context()->executor();
+    if (!executor) {
+      return SynchronousSourceLoop();
+    }
+
     if (executor) {
       // These options will transfer execution to the desired Executor if necessary.
       // This can happen for in-memory scans where batches didn't require
@@ -99,11 +139,12 @@ struct SourceNode : ExecNode {
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
     ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->BeginExternalTask());
+    END_SPAN_ON_FUTURE_COMPLETION(span_, scan_task);
     if (!scan_task.is_valid()) {
-      finished_.MarkFinished();
       // Plan has already been aborted, no need to start scanning
       return Status::OK();
     }
+
     auto fut = Loop([this, options] {
                  std::unique_lock<std::mutex> lock(mutex_);
                  if (stop_requested_) {
@@ -143,7 +184,7 @@ struct SourceNode : ExecNode {
                            }
                            ExecBatch batch = morsel.Slice(offset, batch_size);
                            offset += batch_size;
-                           outputs_[0]->InputReceived(this, std::move(batch));
+                           RETURN_NOT_OK(output_->InputReceived(this, std::move(batch)));
                          } while (offset < morsel.length);
                          return Status::OK();
                        }));
@@ -156,19 +197,18 @@ struct SourceNode : ExecNode {
                        return Future<ControlFlow<int>>::MakeFinished(Continue());
                      },
                      [=](const Status& error) -> ControlFlow<int> {
-                       outputs_[0]->ErrorReceived(this, error);
+                       status_ = error;
                        return Break(batch_count_);
                      },
                      options);
                })
                    .Then(
                        [this, scan_task](int total_batches) mutable {
-                         outputs_[0]->InputFinished(this, total_batches);
-                         scan_task.MarkFinished();
-                         finished_.MarkFinished();
+                         RETURN_NOT_OK(output_->InputFinished(this, total_batches));
+                         scan_task.MarkFinished(status_);
+                         return Status::OK();
                        },
                        {}, options);
-    if (!executor && finished_.is_finished()) return finished_.status();
     return Status::OK();
   }
 
@@ -201,18 +241,7 @@ struct SourceNode : ExecNode {
     to_finish.MarkFinished();
   }
 
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    stop_requested_ = true;
-    if (!started_) {
-      finished_.MarkFinished();
-    }
-  }
+  void Abort() override { stop_requested_ = true; }
 
  private:
   std::mutex mutex_;
@@ -222,6 +251,7 @@ struct SourceNode : ExecNode {
   bool started_ = false;
   int batch_count_{0};
   AsyncGenerator<std::optional<ExecBatch>> generator_;
+  Status status_ = Status::OK();
 };
 
 struct TableSourceNode : public SourceNode {

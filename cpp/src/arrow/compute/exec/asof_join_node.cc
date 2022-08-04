@@ -794,26 +794,17 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
-  void Process() {
+  Status Process() {
     std::lock_guard<std::mutex> guard(gate_);
-    if (finished_.is_finished()) {
-      return;
-    }
-
     // Process batches while we have data
     for (;;) {
-      Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> result, ProcessInner());
 
-      if (result.ok()) {
-        auto out_rb = *result;
-        if (!out_rb) break;
-        ++batches_produced_;
-        ExecBatch out_b(*out_rb);
-        outputs_[0]->InputReceived(this, std::move(out_b));
-      } else {
-        ErrorIfNotOk(result.status());
-        return;
-      }
+      if (!result) break;
+      ++batches_produced_;
+      ExecBatch out_b(*result);
+
+      return output_->InputReceived(this, std::move(out_b));
     }
 
     // Report to the output the total batch count, if we've already finished everything
@@ -822,9 +813,9 @@ class AsofJoinNode : public ExecNode {
     // It may happen here in cases where InputFinished was called before we were finished
     // producing results (so we didn't know the output size at that time)
     if (state_.at(0)->Finished()) {
-      outputs_[0]->InputFinished(this, batches_produced_);
-      finished_.MarkFinished();
+      return output_->InputFinished(this, batches_produced_);
     }
+    return Status::OK();
   }
 
   void ProcessThread() {
@@ -832,7 +823,10 @@ class AsofJoinNode : public ExecNode {
       if (!process_.Pop()) {
         return;
       }
-      Process();
+      Status st = Process();
+      if (!st.ok()) {
+        plan_->Abort();
+      }
     }
   }
 
@@ -1075,24 +1069,19 @@ class AsofJoinNode : public ExecNode {
 
   const char* kind_name() const override { return "AsofJoinNode"; }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
     // Get the input
     ARROW_DCHECK(std_has(inputs_, input));
     size_t k = std_find(inputs_, input) - inputs_.begin();
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
-    Status st = state_.at(k)->Push(rb);
-    if (!st.ok()) {
-      ErrorReceived(input, st);
-      return;
-    }
+    RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
+    return Status::OK();
   }
-  void ErrorReceived(ExecNode* input, Status error) override {
-    outputs_[0]->ErrorReceived(this, std::move(error));
-  }
-  void InputFinished(ExecNode* input, int total_batches) override {
+
+  Status InputFinished(ExecNode* input, int total_batches) override {
     {
       std::lock_guard<std::mutex> guard(gate_);
       ARROW_DCHECK(std_has(inputs_, input));
@@ -1104,22 +1093,18 @@ class AsofJoinNode : public ExecNode {
     // know whether the RHS of the join is up-to-date until we know that the table is
     // finished.
     process_.Push(true);
-  }
-  Status StartProducing() override {
-    finished_ = arrow::Future<>::Make();
     return Status::OK();
   }
-  void PauseProducing(ExecNode* output, int32_t counter) override {}
-  void ResumeProducing(ExecNode* output, int32_t counter) override {}
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-  void StopProducing() override {
+
+  Status StartProducing() override { return Status::OK(); }
+
+  void Abort() override {
     process_.Clear();
     process_.Push(false);
   }
-  arrow::Future<> finished() override { return finished_; }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {}
+  void ResumeProducing(ExecNode* output, int32_t counter) override {}
 
  private:
   arrow::Future<> finished_;
@@ -1128,6 +1113,7 @@ class AsofJoinNode : public ExecNode {
   std::vector<std::unique_ptr<KeyHasher>> key_hashers_;
   bool must_hash_;
   bool may_rehash_;
+
   // InputStates
   // Each input state correponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
@@ -1152,8 +1138,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::unique_ptr<KeyHasher>> key_hashers,
                            bool must_hash, bool may_rehash)
     : ExecNode(plan, inputs, input_labels,
-               /*output_schema=*/std::move(output_schema),
-               /*num_outputs=*/1),
+               /*output_schema=*/std::move(output_schema)),
       indices_of_on_key_(std::move(indices_of_on_key)),
       indices_of_by_key_(std::move(indices_of_by_key)),
       key_hashers_(std::move(key_hashers)),
@@ -1162,7 +1147,6 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       tolerance_(tolerance),
       process_(),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
-  finished_ = arrow::Future<>::MakeFinished();
 }
 
 namespace internal {

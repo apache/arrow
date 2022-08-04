@@ -379,6 +379,11 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
 
+  auto options = scan_options_;
+  ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset_->GetFragments(scan_options_->filter));
+  ARROW_ASSIGN_OR_RAISE(auto fragments, fragments_it.ToVector());
+  auto shared_fragments = std::make_shared<FragmentVector>(std::move(fragments));
+
   RETURN_NOT_OK(
       compute::Declaration::Sequence(
           {
@@ -392,11 +397,6 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
 
   RETURN_NOT_OK(plan->StartProducing());
 
-  auto options = scan_options_;
-  ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset_->GetFragments(scan_options_->filter));
-  ARROW_ASSIGN_OR_RAISE(auto fragments, fragments_it.ToVector());
-  auto shared_fragments = std::make_shared<FragmentVector>(std::move(fragments));
-
   // If the generator is destroyed before being completely drained, inform plan
   std::shared_ptr<void> stop_producing{
       nullptr, [plan, exec_context](...) {
@@ -404,7 +404,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
             [&plan, &exec_context] { return [plan, exec_context](const Status&) {}; });
 
         if (not_finished_yet) {
-          plan->StopProducing();
+          plan->Abort();
         }
       }};
 

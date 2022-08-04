@@ -116,15 +116,15 @@ class ScanNode : public cp::ExecNode {
  public:
   ScanNode(cp::ExecPlan* plan, ScanV2Options options,
            std::shared_ptr<Schema> output_schema)
-      : cp::ExecNode(plan, {}, {}, std::move(output_schema),
-                     /*num_outputs=*/1),
+      : cp::ExecNode(plan, {}, {}, std::move(output_schema)),
         options_(options),
-        fragments_throttle_(
-            util::AsyncTaskScheduler::MakeThrottle(options_.fragment_readahead + 1)),
-        batches_throttle_(
-            util::AsyncTaskScheduler::MakeThrottle(options_.target_bytes_readahead + 1)) {
-  }
-
+      fragments_throttle_(
+          util::AsyncTaskScheduler::MakeThrottle(options_.fragment_readahead + 1)),
+      batches_throttle_(
+          util::AsyncTaskScheduler::MakeThrottle(options_.target_bytes_readahead + 1))
+    {
+    }
+        
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
                                                     compute::ExecContext* ctx) {
     ScanV2Options normalized(options);
@@ -177,9 +177,8 @@ class ScanNode : public cp::ExecNode {
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
   }
-  [[noreturn]] void InputReceived(cp::ExecNode*, cp::ExecBatch) override { NoInputs(); }
-  [[noreturn]] void ErrorReceived(cp::ExecNode*, Status) override { NoInputs(); }
-  [[noreturn]] void InputFinished(cp::ExecNode*, int) override { NoInputs(); }
+  [[noreturn]] Status InputReceived(cp::ExecNode*, cp::ExecBatch) override { NoInputs(); }
+  [[noreturn]] Status InputFinished(cp::ExecNode*, int) override { NoInputs(); }
 
   Status Init() override { return Status::OK(); }
 
@@ -218,8 +217,7 @@ class ScanNode : public cp::ExecNode {
                                                  scan_->scan_request.columns));
       return node_->plan_->ScheduleTask(
           [node = node_, evolved_batch = std::move(evolved_batch)] {
-            node->outputs_[0]->InputReceived(node, std::move(evolved_batch));
-            return Status::OK();
+            return node->output_->InputReceived(node, std::move(evolved_batch));
           });
     }
 
@@ -310,14 +308,12 @@ class ScanNode : public cp::ExecNode {
                         {"node.label", label()},
                         {"node.output_schema", output_schema()->ToString()},
                         {"node.detail", ToString()}});
-    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_);
     AsyncGenerator<std::shared_ptr<Fragment>> frag_gen =
         GetFragments(options_.dataset.get(), options_.filter);
     util::AsyncTaskScheduler* scan_scheduler = plan_->async_scheduler()->MakeSubScheduler(
         [this]() {
-          outputs_[0]->InputFinished(this, num_batches_.load());
-          finished_.MarkFinished();
-          return Status::OK();
+          END_SPAN(span_);
+          return output_->InputFinished(this, num_batches_.load());
         },
         fragments_throttle_.get());
     plan_->async_scheduler()->AddAsyncGenerator<std::shared_ptr<Fragment>>(
@@ -341,12 +337,7 @@ class ScanNode : public cp::ExecNode {
     // TODO(ARROW-17755)
   }
 
-  void StopProducing(ExecNode* output) override {
-    DCHECK_EQ(output, outputs_[0]);
-    StopProducing();
-  }
-
-  void StopProducing() override {}
+  void Abort() override { }
 
  private:
   ScanV2Options options_;

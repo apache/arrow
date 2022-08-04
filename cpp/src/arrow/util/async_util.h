@@ -276,9 +276,6 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// This is a utility method for workflows where the finish future needs to be
   /// referenced before all top level tasks have been queued.
   virtual Future<> OnFinished() const = 0;
-
-  /// Create a sub-scheduler for tracking a subset of tasks
-  ///
   /// The parent scheduler will manage the lifetime of the sub-scheduler.  It will
   /// be destroyed once it is finished.
   ///

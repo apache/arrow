@@ -26,8 +26,8 @@
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec/forest_internal.h"
-#include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/subtree_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
@@ -471,13 +471,13 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
 
 namespace {
 
-class TeeNode : public compute::MapNode {
+class TeeNode : public compute::ExecNode {
  public:
   TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
           std::unique_ptr<internal::DatasetWriter> dataset_writer,
           FileSystemDatasetWriteOptions write_options)
-      : MapNode(plan, std::move(inputs), std::move(output_schema)),
+      : compute::ExecNode(plan, std::move(inputs), {"target"}, std::move(output_schema)),
         dataset_writer_(std::move(dataset_writer)),
         write_options_(std::move(write_options)) {
     std::unique_ptr<util::AsyncTaskScheduler::Throttle> serial_throttle =
@@ -509,18 +509,10 @@ class TeeNode : public compute::MapNode {
 
   const char* kind_name() const override { return "TeeNode"; }
 
-  void Finish(Status finish_st) override {
-    if (!finish_st.ok()) {
-      MapNode::Finish(std::move(finish_st));
-      return;
-    }
-    Status writer_finish_st = dataset_writer_->Finish();
-    if (!writer_finish_st.ok()) {
-      MapNode::Finish(std::move(writer_finish_st));
-      return;
-    }
-    serial_scheduler_->End();
-    MapNode::Finish(Status::OK());
+  Status Finish() {
+      RETURN_NOT_OK(dataset_writer_->Finish());
+      serial_scheduler_->End();
+      return Status::OK();
   }
 
   Result<compute::ExecBatch> DoTee(const compute::ExecBatch& batch) {
@@ -549,22 +541,41 @@ class TeeNode : public compute::MapNode {
                       });
   }
 
-  void InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
+  Status StartProducing() override {
+    return Status::OK();
+  }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->PauseProducing(this, counter);
+  }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->ResumeProducing(this, counter);
+  }
+
+  Status InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
     EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](compute::ExecBatch batch) {
-      util::tracing::Span span;
-      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                             {{"tee", ToStringExtra()},
-                              {"node.label", label()},
-                              {"batch.length", batch.length}});
-      auto result = DoTee(std::move(batch));
-      MARK_SPAN(span, result.status());
-      END_SPAN(span);
-      return result;
-    };
-    this->SubmitTask(std::move(func), std::move(batch));
+    ARROW_ASSIGN_OR_RAISE(compute::ExecBatch teed, DoTee(std::move(batch)));
+    RETURN_NOT_OK(output_->InputReceived(this, std::move(teed)));
+    if (input_counter_.Increment()) {
+      return Finish();
+    }
+    return Status::OK();
   }
+
+  Status InputFinished(compute::ExecNode* input, int num_batches) override {
+    RETURN_NOT_OK(output_->InputFinished(this, num_batches));
+    if (input_counter_.SetTotal(num_batches)) return Finish();
+    return Status::OK();
+  }
+
+    void Abort() override
+    {
+        Status st = Finish();
+        if(!st.ok())
+            arrow::internal::InvalidValueOrDie(st);
+    }
 
   void Pause() { inputs_[0]->PauseProducing(this, ++backpressure_counter_); }
 
@@ -582,6 +593,7 @@ class TeeNode : public compute::MapNode {
   // only returns an unfinished future when it needs backpressure.  Using a serial
   // scheduler here ensures we pause while we wait for backpressure to clear
   util::AsyncTaskScheduler* serial_scheduler_;
+  compute::AtomicCounter input_counter_;
   int32_t backpressure_counter_ = 0;
 };
 

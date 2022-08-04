@@ -21,7 +21,6 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/map_node.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/datum.h"
@@ -38,11 +37,12 @@ using internal::checked_cast;
 namespace compute {
 namespace {
 
-class ProjectNode : public MapNode {
+class ProjectNode : public ExecNode {
  public:
   ProjectNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
               std::shared_ptr<Schema> output_schema, std::vector<Expression> exprs)
-      : MapNode(plan, std::move(inputs), std::move(output_schema)),
+      : ExecNode(plan, std::move(inputs), /*input_labels=*/{"target"},
+                 std::move(output_schema)),
         exprs_(std::move(exprs)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -76,7 +76,12 @@ class ProjectNode : public MapNode {
 
   const char* kind_name() const override { return "ProjectNode"; }
 
-  Result<ExecBatch> DoProject(const ExecBatch& target) {
+  Result<ExecBatch> DoProject(ExecBatch target) {
+    util::tracing::Span span;
+    START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                                   {{"project", ToStringExtra()},
+                                    {"node.label", label()},
+                                    {"batch.length", target.length}});
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
       util::tracing::Span span;
@@ -90,25 +95,33 @@ class ProjectNode : public MapNode {
       ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(simplified_expr, target,
                                                                plan()->exec_context()));
     }
+    END_SPAN(span);
+
     return ExecBatch{std::move(values), target.length};
   }
 
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](ExecBatch batch) {
-      util::tracing::Span span;
-      START_COMPUTE_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                                     {{"project", ToStringExtra()},
-                                      {"node.label", label()},
-                                      {"batch.length", batch.length}});
-      auto result = DoProject(std::move(batch));
-      MARK_SPAN(span, result.status());
-      END_SPAN(span);
-      return result;
-    };
-    this->SubmitTask(std::move(func), std::move(batch));
+  Status StartProducing() override { return Status::OK(); }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->PauseProducing(this, counter);
   }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->ResumeProducing(this, counter);
+  }
+
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+    ARROW_ASSIGN_OR_RAISE(ExecBatch projected, DoProject(std::move(batch)));
+    return output_->InputReceived(this, std::move(projected));
+  }
+
+  Status InputFinished(ExecNode* input, int num_batches) override {
+    END_SPAN(span_);
+    return output_->InputFinished(this, num_batches);
+  }
+
+  void Abort() override {}
 
  protected:
   std::string ToStringExtra(int indent = 0) const override {

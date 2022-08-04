@@ -74,6 +74,8 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// e.g. make an array of thread-locals off this.
   size_t max_concurrency() const;
 
+  const std::vector<std::unique_ptr<ExecNode>>& nodes() const;
+
   /// \brief Start an external task
   ///
   /// This should be avoided if possible.  It is kept in for now for legacy
@@ -122,12 +124,6 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   util::AsyncTaskScheduler* async_scheduler();
 
-  /// The initial inputs
-  const NodeVector& sources() const;
-
-  /// The final outputs
-  const NodeVector& sinks() const;
-
   Status Validate();
 
   /// \brief Start producing on all nodes
@@ -136,11 +132,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// is started before all of its inputs.
   Status StartProducing();
 
-  /// \brief Stop producing on all nodes
-  ///
-  /// Nodes are stopped in topological order, such that any node
-  /// is stopped before all of its outputs.
-  void StopProducing();
+  void Abort();
 
   /// \brief A future which will be marked finished when all nodes have stopped producing.
   Future<> finished();
@@ -182,7 +174,6 @@ class ARROW_EXPORT ExecNode {
 
   // The number of inputs/outputs expected by this node
   int num_inputs() const { return static_cast<int>(inputs_.size()); }
-  int num_outputs() const { return num_outputs_; }
 
   /// This node's predecessors in the exec plan
   const NodeVector& inputs() const { return inputs_; }
@@ -190,8 +181,8 @@ class ARROW_EXPORT ExecNode {
   /// \brief Labels identifying the function of each input.
   const std::vector<std::string>& input_labels() const { return input_labels_; }
 
-  /// This node's successors in the exec plan
-  const NodeVector& outputs() const { return outputs_; }
+  /// This node's successor in the exec plan
+  const ExecNode* output() const { return output_; }
 
   /// The datatypes for batches produced by this node
   const std::shared_ptr<Schema>& output_schema() const { return output_schema_; }
@@ -220,17 +211,14 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, ExecBatch batch) = 0;
-
-  /// Signal error to ExecNode
-  virtual void ErrorReceived(ExecNode* input, Status error) = 0;
+  virtual Status InputReceived(ExecNode* input, ExecBatch batch) = 0;
 
   /// Mark the inputs finished after the given number of batches.
   ///
   /// This may be called before all inputs are received.  This simply fixes
   /// the total number of incoming batches for an input, so that the ExecNode
   /// knows when it has received all input, regardless of order.
-  virtual void InputFinished(ExecNode* input, int total_batches) = 0;
+  virtual Status InputFinished(ExecNode* input, int total_batches) = 0;
 
   /// \brief Perform any needed initialization
   ///
@@ -328,27 +316,14 @@ class ARROW_EXPORT ExecNode {
   /// This may be called any number of times after StartProducing() succeeds.
   virtual void ResumeProducing(ExecNode* output, int32_t counter) = 0;
 
-  /// \brief Stop producing definitively to a single output
-  ///
-  /// This call is a hint that an output node has completed and is not willing
-  /// to receive any further data.
-  virtual void StopProducing(ExecNode* output) = 0;
-
-  /// \brief Stop producing definitively to all outputs
-  virtual void StopProducing() = 0;
-
-  /// \brief A future which will be marked finished when this node has stopped producing.
-  virtual Future<> finished() { return finished_; }
+  /// \brief Abort execution and perform any needed cleanup (such as closing files, etc.)
+  virtual void Abort() = 0;
 
   std::string ToString(int indent = 0) const;
 
  protected:
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
-           std::shared_ptr<Schema> output_schema, int num_outputs);
-
-  // A helper method to send an error status to all outputs.
-  // Returns true if the status was an error.
-  bool ErrorIfNotOk(Status status);
+           std::shared_ptr<Schema> output_schema);
 
   /// Provide extra info to include in the string representation.
   virtual std::string ToStringExtra(int indent) const;
@@ -360,11 +335,7 @@ class ARROW_EXPORT ExecNode {
   std::vector<std::string> input_labels_;
 
   std::shared_ptr<Schema> output_schema_;
-  int num_outputs_;
-  NodeVector outputs_;
-
-  // Future to sync finished
-  Future<> finished_ = Future<>::Make();
+  ExecNode* output_;
 
   util::tracing::Span span_;
 };
