@@ -1821,15 +1821,10 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t10);
 }
 
-static void test_membership(const std::vector<std::shared_ptr<DataType>>& all_types,
-                            const std::vector<std::shared_ptr<DataType>>& member_types,
-                            std::function<bool(const DataType&)> membership_check) {
-  for (auto type : all_types) {
-    bool expect =
-        std::find(member_types.begin(), member_types.end(), type) != member_types.end();
-    ASSERT_EQ(expect, membership_check(*type));
+#define TEST_PREDICATE(all_types, type_predicate)                 \
+  for (auto type : all_types) {                                   \
+    ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
   }
-}
 
 TEST(TypesTest, TestMembership) {
   std::vector<std::shared_ptr<DataType>> all_types;
@@ -1845,17 +1840,29 @@ TEST(TypesTest, TestMembership) {
   for (auto type : PrimitiveTypes()) {
     all_types.push_back(type);
   }
-  test_membership(all_types, BaseBinaryTypes(), IsBaseBinaryType);
-  test_membership(all_types, BinaryTypes(), IsBinaryType);
-  test_membership(all_types, StringTypes(), IsStringType);
-  test_membership(all_types, SignedIntTypes(), IsSignedIntType);
-  test_membership(all_types, UnsignedIntTypes(), IsUnsignedIntType);
-  test_membership(all_types, IntTypes(), IsIntType);
-  test_membership(all_types, FloatingPointTypes(), IsFloatingPointType);
-  test_membership(all_types, NumericTypes(), IsNumericType);
-  test_membership(all_types, TemporalTypes(), IsTemporalType);
-  test_membership(all_types, IntervalTypes(), IsIntervalType);
-  test_membership(all_types, PrimitiveTypes(), IsPrimitiveType);
+  TEST_PREDICATE(all_types, is_integer);
+  TEST_PREDICATE(all_types, is_signed_integer);
+  TEST_PREDICATE(all_types, is_unsigned_integer);
+  TEST_PREDICATE(all_types, is_floating);
+  TEST_PREDICATE(all_types, is_numeric);
+  TEST_PREDICATE(all_types, is_decimal);
+  TEST_PREDICATE(all_types, is_primitive);
+  TEST_PREDICATE(all_types, is_primitive_like);
+  TEST_PREDICATE(all_types, is_base_binary_like);
+  TEST_PREDICATE(all_types, is_binary_like);
+  TEST_PREDICATE(all_types, is_large_binary_like);
+  TEST_PREDICATE(all_types, is_binary);
+  TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_temporal);
+  TEST_PREDICATE(all_types, is_interval);
+  TEST_PREDICATE(all_types, is_dictionary);
+  TEST_PREDICATE(all_types, is_fixed_size_binary);
+  TEST_PREDICATE(all_types, is_fixed_width);
+  TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_nested);
+  TEST_PREDICATE(all_types, is_union);
 }
+
+#undef TEST_PREDICATE
 
 }  // namespace arrow
