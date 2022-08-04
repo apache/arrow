@@ -49,6 +49,7 @@ func init() {
 	Records["decimal128"] = makeDecimal128sRecords()
 	Records["maps"] = makeMapsRecords()
 	Records["extension"] = makeExtensionRecords()
+	// Records["union"] = makeUnionRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)

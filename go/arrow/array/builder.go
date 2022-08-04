@@ -35,6 +35,9 @@ type Builder interface {
 	// you can unmarshal a json array to add the values to a builder
 	json.Unmarshaler
 
+	// Type returns the datatype that this is building
+	Type() arrow.DataType
+
 	// Retain increases the reference count by 1.
 	// Retain may be called simultaneously from multiple goroutines.
 	Retain()
@@ -55,6 +58,9 @@ type Builder interface {
 	// AppendNull adds a new null value to the array being built.
 	AppendNull()
 
+	// AppendEmptyValue adds a new zero value of the appropriate type
+	AppendEmptyValue()
+
 	// Reserve ensures there is enough space for appending n elements
 	// by checking the capacity and calling Resize if necessary.
 	Reserve(n int)
@@ -73,6 +79,8 @@ type Builder interface {
 
 	unmarshalOne(*json.Decoder) error
 	unmarshal(*json.Decoder) error
+
+	newData() *Data
 }
 
 // builder provides common functionality for managing the validity bitmap (nulls) when building arrays.
@@ -298,7 +306,11 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		typ := dtype.(*arrow.StructType)
 		return NewStructBuilder(mem, typ)
 	case arrow.SPARSE_UNION:
+		typ := dtype.(*arrow.SparseUnionType)
+		return NewSparseUnionBuilder(mem, typ)
 	case arrow.DENSE_UNION:
+		typ := dtype.(*arrow.DenseUnionType)
+		return NewDenseUnionBuilder(mem, typ)
 	case arrow.DICTIONARY:
 		typ := dtype.(*arrow.DictionaryType)
 		return NewDictionaryBuilder(mem, typ)

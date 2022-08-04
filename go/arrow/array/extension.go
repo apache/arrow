@@ -228,6 +228,8 @@ func NewExtensionBuilder(mem memory.Allocator, dt arrow.ExtensionType) *Extensio
 	return &ExtensionBuilder{Builder: NewBuilder(mem, dt.StorageType()), dt: dt}
 }
 
+func (b *ExtensionBuilder) Type() arrow.DataType { return b.dt }
+
 // StorageBuilder returns the builder for the underlying storage type.
 func (b *ExtensionBuilder) StorageBuilder() Builder { return b.Builder }
 
