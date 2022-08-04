@@ -162,7 +162,7 @@ cdef class S3FileSystem(FileSystem):
     allow_bucket_deletion : bool, default False
         Whether to allow DeleteDir at the bucket-level. This option may also be
         passed in a URI query parameter.
-    retry_strategy : str, default None
+    retry_strategy : str, default "aws_standard"
         The name of the retry strategy to use with S3.  Valid values are
         "aws_standard" and "aws_default". Uses "aws_standard" if not specified.
     retry_max_attempts : int, default 3
@@ -184,12 +184,13 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, region=None, scheme=None,
-                 endpoint_override=None, bint background_writes=True,
-                 default_metadata=None, role_arn=None, session_name=None,
-                 external_id=None, load_frequency=900, proxy_options=None,
+                 bint anonymous=False, region=None, request_timeout=None,
+                 connect_timeout=None, scheme=None, endpoint_override=None,
+                 bint background_writes=True, default_metadata=None,
+                 role_arn=None, session_name=None, external_id=None,
+                 load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
-                 retry_strategy=None, retry_max_attempts=3):
+                 retry_strategy="aws_standard", retry_max_attempts=3):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -290,7 +291,7 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
 
-        if retry_strategy is None or retry_strategy == "aws_standard":
+        if retry_strategy == "aws_standard":
             options.retry_strategy = S3RetryStrategy::GetAwsStandardRetryStrategy(retry_max_attempts)
         elif retry_strategy == "aws_default":
             options.retry_strategy = S3RetryStrategy::GetAwsDefaultRetryStrategy(retry_max_attempts)
