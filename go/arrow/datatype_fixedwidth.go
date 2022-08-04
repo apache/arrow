@@ -546,7 +546,7 @@ func (t *Decimal256Type) Fingerprint() string {
 }
 
 func (Decimal256Type) Layout() DataTypeLayout {
-	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal128SizeBytes)}}
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal256SizeBytes)}}
 }
 
 // MonthInterval represents a number of months.
