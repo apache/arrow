@@ -136,7 +136,8 @@ def test_python_file_get_stream(nbytes, file_offset):
 
     # negative nbytes or offsets don't make sense here, raise ValueError
     if nbytes < 0 or file_offset < 0:
-        with pytest.raises(ValueError, match="negative"):
+        with pytest.raises(pa.ArrowInvalid,
+                           match="should be a positive value"):
             f.get_stream(file_offset=file_offset, nbytes=nbytes)
         f.close()
         return
