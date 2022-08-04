@@ -28,7 +28,7 @@
 namespace arrow {
 namespace rle_util {
 
-int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t buffer_size,
+int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
                            int64_t logical_offset);
 
 static const ArraySpan& RunEndsArray(const ArraySpan& span) { return span.child_data[0]; }
@@ -42,9 +42,9 @@ static const ArraySpan& DataArray(const ArraySpan& span) { return span.child_dat
 template <typename CallbackType>
 void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callback) {
   const int64_t a_physical_offset =
-      rle_util::FindPhysicalOffset(RunEnds(a), DataArray(a).length, a.offset);
+      rle_util::FindPhysicalOffset(RunEnds(a), RunEndsArray(a).length, a.offset);
   const int64_t b_physical_offset =
-      rle_util::FindPhysicalOffset(RunEnds(b), DataArray(b).length, b.offset);
+      rle_util::FindPhysicalOffset(RunEnds(b), RunEndsArray(b).length, b.offset);
 
   ARROW_DCHECK_EQ(a.length, b.length);
   const int64_t logical_length = a.length;

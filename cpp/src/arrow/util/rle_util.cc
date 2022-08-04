@@ -5,11 +5,12 @@
 namespace arrow {
 namespace rle_util {
 
-int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t buffer_size,
+int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
                            int64_t logical_offset) {
-  auto it = std::upper_bound(run_ends, run_ends + buffer_size / sizeof(int32_t),
-                             logical_offset);
-  return std::distance(run_ends, it);
+  auto it = std::upper_bound(run_ends, run_ends + num_run_ends, logical_offset);
+  int64_t result = std::distance(run_ends, it);
+  ARROW_DCHECK_LT(result, num_run_ends);
+  return result;
 }
 
 void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
