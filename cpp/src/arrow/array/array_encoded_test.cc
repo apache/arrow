@@ -85,6 +85,16 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
       RunLengthEncodedArray::Make(int32_only_null, int32_values, 3));
 }
 
+TEST(RunLengthEncodedArray, OffsetLength) {
+  auto run_ends = ArrayFromJSON(int32(), "[1000000, 2000000, 3000000, 4000000, 5000000]");
+  auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "RLE"])");
+  ASSERT_OK_AND_ASSIGN(auto rle_array,
+                       RunLengthEncodedArray::Make(run_ends, values, 50000));
+  auto slice = std::dynamic_pointer_cast<RunLengthEncodedArray>(rle_array->Slice(1999999, 5));
+  ASSERT_EQ(slice->GetPhysicalLength(), 2);
+  ASSERT_EQ(slice->GetPhysicalOffset(), 1);
+}
+
 }  // anonymous namespace
 
 }  // namespace arrow
