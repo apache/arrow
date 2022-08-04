@@ -28,17 +28,27 @@
 namespace arrow {
 namespace rle_util {
 
+/// \brief Get the child array holding the data values from an RLE array
 int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
                            int64_t logical_offset);
 
+/// \brief Get the child array holding the data values from an RLE array
 static const ArraySpan& RunEndsArray(const ArraySpan& span) { return span.child_data[0]; }
 
+/// \brief Get a pointer to run ends values of an
 static const int32_t* RunEnds(const ArraySpan& span) {
   return RunEndsArray(span).GetValues<int32_t>(1);
 }
 
+/// \brief Get the child array holding the data values from an RLE array
 static const ArraySpan& DataArray(const ArraySpan& span) { return span.child_data[1]; }
 
+/// \brief Iterate over two run-length encoded arrays in segments of runs that are inside run
+/// boundaries in each input. A callback is called on each of these segments
+/// \param[in] a first input as ArraySpan
+/// \param[in] b second input as ArraySpan
+/// \param[in] callback taking 3 int64_t arguments: the length of the current run segment, and a
+/// phyiscal index into the data array arrays of a and b. Offsets are already applied.
 template <typename CallbackType>
 void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callback) {
   const int64_t a_physical_offset =
