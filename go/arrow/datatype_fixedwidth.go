@@ -529,7 +529,7 @@ func (Decimal128Type) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal128SizeBytes)}}
 }
 
-// Decimal128Type represents a fixed-size 128-bit decimal type.
+// Decimal256Type represents a fixed-size 256-bit decimal type.
 type Decimal256Type struct {
 	Precision int32
 	Scale     int32
