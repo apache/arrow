@@ -457,10 +457,10 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 			return
 		}
 		switch t.BitWidth {
-		case 128:
-			arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 		case 256:
 			arrowType = &arrow.Decimal256Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		case 128, 0: // default to 128 bits when missing
+			arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 		}
 	}
 
