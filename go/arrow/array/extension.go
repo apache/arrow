@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -128,6 +128,10 @@ func NewExtensionData(data arrow.ArrayData) ExtensionArray {
 type ExtensionArrayBase struct {
 	array
 	storage arraymarshal
+}
+
+func (e *ExtensionArrayBase) String() string {
+	return fmt.Sprintf("(%s)%s", e.data.dtype, e.storage)
 }
 
 func (e *ExtensionArrayBase) getOneForMarshal(i int) interface{} {

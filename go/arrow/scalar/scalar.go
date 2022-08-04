@@ -26,14 +26,14 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/endian"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -444,10 +444,10 @@ func init() {
 		arrow.STRUCT:                  func(dt arrow.DataType) Scalar { return &Struct{scalar: scalar{dt, false}} },
 		arrow.SPARSE_UNION:            unsupportedScalarType,
 		arrow.DENSE_UNION:             unsupportedScalarType,
-		arrow.DICTIONARY:              unsupportedScalarType,
-		arrow.LARGE_STRING:            unsupportedScalarType,
-		arrow.LARGE_BINARY:            unsupportedScalarType,
-		arrow.LARGE_LIST:              unsupportedScalarType,
+		arrow.DICTIONARY:              func(dt arrow.DataType) Scalar { return NewNullDictScalar(dt) },
+		arrow.LARGE_STRING:            func(dt arrow.DataType) Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
+		arrow.LARGE_BINARY:            func(dt arrow.DataType) Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
+		arrow.LARGE_LIST:              func(dt arrow.DataType) Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
 		arrow.DECIMAL256:              unsupportedScalarType,
 		arrow.MAP:                     func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
 		arrow.EXTENSION:               func(dt arrow.DataType) Scalar { return &Extension{scalar: scalar{dt, false}} },
@@ -558,6 +558,18 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewTime64Scalar(arr.Value(idx), arr.DataType()), nil
 	case *array.Timestamp:
 		return NewTimestampScalar(arr.Value(idx), arr.DataType()), nil
+	case *array.Dictionary:
+		ty := arr.DataType().(*arrow.DictionaryType)
+		index, err := MakeScalarParam(arr.GetValueIndex(idx), ty.IndexType)
+		if err != nil {
+			return nil, err
+		}
+
+		scalar := &Dictionary{scalar: scalar{ty, arr.IsValid(idx)}}
+		scalar.Value.Index = index
+		scalar.Value.Dict = arr.Dictionary()
+		scalar.Value.Dict.Retain()
+		return scalar, nil
 	}
 
 	return nil, fmt.Errorf("cannot create scalar from array of type %s", arr.DataType())
@@ -818,6 +830,10 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			if c.IsValid() {
 				out ^= Hash(seed, c)
 			}
+		}
+	case *Dictionary:
+		if s.Value.Index.IsValid() {
+			out ^= Hash(seed, s.Value.Index)
 		}
 	}
 

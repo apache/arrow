@@ -22,7 +22,20 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 # TESTING is set in test-nixlibs.R; it won't be set when called from configure
 test_mode <- exists("TESTING")
 
-arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+# Prevent error with binary selection during testing.
+if (test_mode && is.na(VERSION)) {
+  VERSION <- "8.0.0.9000"
+}
+
+dev_version <- package_version(VERSION)[1, 4]
+
+# Small dev versions are added for R-only changes during CRAN submission.
+if (is.na(dev_version) || dev_version < 100) {
+  VERSION <- package_version(VERSION)[1, 1:3]
+  arrow_repo <- sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s/libarrow/", VERSION)
+} else {
+  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))

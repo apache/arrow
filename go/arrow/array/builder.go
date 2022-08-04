@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -249,8 +249,12 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewFloat64Builder(mem)
 	case arrow.STRING:
 		return NewStringBuilder(mem)
+	case arrow.LARGE_STRING:
+		return NewLargeStringBuilder(mem)
 	case arrow.BINARY:
 		return NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	case arrow.LARGE_BINARY:
+		return NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
 	case arrow.FIXED_SIZE_BINARY:
 		typ := dtype.(*arrow.FixedSizeBinaryType)
 		return NewFixedSizeBinaryBuilder(mem, typ)
@@ -298,9 +302,9 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.DICTIONARY:
 		typ := dtype.(*arrow.DictionaryType)
 		return NewDictionaryBuilder(mem, typ)
-	case arrow.LARGE_STRING:
-	case arrow.LARGE_BINARY:
 	case arrow.LARGE_LIST:
+		typ := dtype.(*arrow.LargeListType)
+		return NewLargeListBuilder(mem, typ.Elem())
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)

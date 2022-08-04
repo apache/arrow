@@ -30,6 +30,8 @@ dist
 .coverage
 coverage.xml
 htmlcov
+# Hypothesis test framework
+.hypothesis/
 # Cache
 .cache
 

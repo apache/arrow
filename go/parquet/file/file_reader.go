@@ -23,10 +23,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v9/parquet/metadata"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/parquet"
+	"github.com/apache/arrow/go/v10/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v10/parquet/metadata"
 	"golang.org/x/exp/mmap"
 	"golang.org/x/xerrors"
 )

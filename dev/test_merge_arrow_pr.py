@@ -77,7 +77,7 @@ class FakeJIRA:
             'fixVersions': fixVersions
         }
 
-    def get_candidate_fix_versions(self):
+    def get_candidate_fix_versions(self, maintenance_branches):
         return SOURCE_VERSIONS, ['0.11.0']
 
     def project_versions(self, project):
@@ -107,6 +107,19 @@ def test_jira_fix_versions():
     all_versions, default_versions = issue.get_candidate_fix_versions()
     assert all_versions == SOURCE_VERSIONS
     assert default_versions == ['0.9.0']
+
+
+def test_jira_fix_versions_filters_maintenance():
+    maintenance_branches = ["maint-0.9.0"]
+    jira = FakeJIRA(project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
+
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    all_versions, default_versions = issue.get_candidate_fix_versions(
+        maintenance_branches=maintenance_branches
+    )
+    assert all_versions == SOURCE_VERSIONS
+    assert default_versions == ['0.10.0']
 
 
 def test_jira_no_suggest_patch_release():

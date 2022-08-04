@@ -188,7 +188,12 @@ read_delim_arrow <- function(file,
   }
 
   if (!inherits(file, "InputStream")) {
+    compression <- detect_compression(file)
     file <- make_readable_file(file)
+    if (compression != "uncompressed") {
+      # TODO: accept compression and compression_level as args
+      file <- CompressedInputStream$create(file, compression)
+    }
     on.exit(file$close())
   }
   reader <- CsvTableReader$create(
@@ -699,7 +704,6 @@ write_csv_arrow <- function(x,
     )
   }
 
-  # default values are considered missing by base R
   if (missing(include_header) && !missing(col_names)) {
     include_header <- col_names
   }
@@ -712,16 +716,27 @@ write_csv_arrow <- function(x,
   }
 
   x_out <- x
-  if (is.data.frame(x)) {
-    x <- Table$create(x)
-  }
-
-  if (inherits(x, c("Dataset", "arrow_dplyr_query"))) {
-    x <- Scanner$create(x)$ToRecordBatchReader()
+  if (!inherits(x, "ArrowTabular")) {
+    tryCatch(
+      x <- as_record_batch_reader(x),
+      error = function(e) {
+        abort(
+          paste0(
+            "x must be an object of class 'data.frame', 'RecordBatch', ",
+            "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
+          )
+        )
+      }
+    )
   }
 
   if (!inherits(sink, "OutputStream")) {
+    compression <- detect_compression(sink)
     sink <- make_output_stream(sink)
+    if (compression != "uncompressed") {
+      # TODO: accept compression and compression_level as args
+      sink <- CompressedOutputStream$create(sink, codec = compression)
+    }
     on.exit(sink$close())
   }
 
@@ -731,17 +746,6 @@ write_csv_arrow <- function(x,
     csv___WriteCSV__Table(x, write_options, sink)
   } else if (inherits(x, c("RecordBatchReader"))) {
     csv___WriteCSV__RecordBatchReader(x, write_options, sink)
-  } else {
-    abort(
-      c(
-        paste0(
-          paste(
-            "x must be an object of class 'data.frame', 'RecordBatch',",
-            "'Dataset', 'Table', or 'RecordBatchReader' not '"
-          ), class(x)[[1]], "'."
-        )
-      )
-    )
   }
 
   invisible(x_out)

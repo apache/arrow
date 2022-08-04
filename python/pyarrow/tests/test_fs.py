@@ -1131,6 +1131,15 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(request_timeout=0.5, connect_timeout=0.25)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(request_timeout=0.25, connect_timeout=0.5)
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1616,15 +1625,17 @@ def test_s3_real_aws():
     assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-2')
-    entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
+    entries = fs.get_file_info(FileSelector(
+        'voltrondata-labs-datasets/nyc-taxi'))
     assert len(entries) > 0
-    with fs.open_input_stream('ursa-labs-taxi-data/2019/06/data.parquet') as f:
+    key = 'voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
+    with fs.open_input_stream(key) as f:
         md = f.metadata()
         assert 'Content-Type' in md
-        assert md['Last-Modified'] == b'2020-01-17T16:26:28Z'
+        assert md['Last-Modified'] == b'2022-07-12T23:32:00Z'
         # For some reason, the header value is quoted
         # (both with AWS and Minio)
-        assert md['ETag'] == b'"f1efd5d76cb82861e1542117bfa52b90-8"'
+        assert md['ETag'] == b'"4c6a76826a695c6ac61592bc30cda3df-16"'
 
 
 @pytest.mark.s3
@@ -1653,7 +1664,7 @@ def test_s3_real_aws_region_selection():
 @pytest.mark.s3
 def test_resolve_s3_region():
     from pyarrow.fs import resolve_s3_region
-    assert resolve_s3_region('ursa-labs-taxi-data') == 'us-east-2'
+    assert resolve_s3_region('voltrondata-labs-datasets') == 'us-east-2'
     assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
 
     with pytest.raises(ValueError, match="Not a valid bucket name"):

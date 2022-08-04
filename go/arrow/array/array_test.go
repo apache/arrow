@@ -19,11 +19,11 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/v9/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,6 +36,7 @@ func (d *testDataType) Name() string              { panic("implement me") }
 func (d *testDataType) BitWidth() int             { return 8 }
 func (d *testDataType) Fingerprint() string       { return "" }
 func (testDataType) Layout() arrow.DataTypeLayout { return arrow.DataTypeLayout{} }
+func (testDataType) String() string               { return "" }
 
 func TestMakeFromData(t *testing.T) {
 	tests := []struct {
@@ -62,6 +63,8 @@ func TestMakeFromData(t *testing.T) {
 		{name: "float64", d: &testDataType{arrow.FLOAT64}},
 		{name: "string", d: &testDataType{arrow.STRING}, size: 3},
 		{name: "binary", d: &testDataType{arrow.BINARY}, size: 3},
+		{name: "large_string", d: &testDataType{arrow.LARGE_STRING}, size: 3},
+		{name: "large_binary", d: &testDataType{arrow.LARGE_BINARY}, size: 3},
 		{name: "fixed_size_binary", d: &testDataType{arrow.FIXED_SIZE_BINARY}},
 		{name: "date32", d: &testDataType{arrow.DATE32}},
 		{name: "date64", d: &testDataType{arrow.DATE64}},
@@ -74,6 +77,11 @@ func TestMakeFromData(t *testing.T) {
 		{name: "month_day_nano_interval", d: arrow.FixedWidthTypes.MonthDayNanoInterval},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []arrow.ArrayData{
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+		}},
+
+		{name: "large list", d: &testDataType{arrow.LARGE_LIST}, child: []arrow.ArrayData{
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
@@ -114,9 +122,6 @@ func TestMakeFromData(t *testing.T) {
 		// unsupported types
 		{name: "sparse union", d: &testDataType{arrow.SPARSE_UNION}, expPanic: true, expError: "unsupported data type: SPARSE_UNION"},
 		{name: "dense union", d: &testDataType{arrow.DENSE_UNION}, expPanic: true, expError: "unsupported data type: DENSE_UNION"},
-		{name: "large string", d: &testDataType{arrow.LARGE_STRING}, expPanic: true, expError: "unsupported data type: LARGE_STRING"},
-		{name: "large binary", d: &testDataType{arrow.LARGE_BINARY}, expPanic: true, expError: "unsupported data type: LARGE_BINARY"},
-		{name: "large list", d: &testDataType{arrow.LARGE_LIST}, expPanic: true, expError: "unsupported data type: LARGE_LIST"},
 		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}, expPanic: true, expError: "unsupported data type: DECIMAL256"},
 
 		// invalid types

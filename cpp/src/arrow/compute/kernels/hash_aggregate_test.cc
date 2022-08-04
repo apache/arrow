@@ -77,7 +77,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 
   ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_batch.GetTypes()));
 
-  ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
+  ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(ExecSpan(key_batch)));
 
   ARROW_ASSIGN_OR_RAISE(
       auto groupings,
@@ -184,7 +184,7 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
                                    const std::vector<Datum>& keys,
                                    const std::vector<Aggregate>& aggregates,
                                    bool use_threads, ExecContext* ctx) {
-  using arrow::compute::detail::ExecBatchIterator;
+  using arrow::compute::detail::ExecSpanIterator;
 
   FieldVector scan_fields(arguments.size() + keys.size());
   std::vector<std::string> key_names(keys.size());
@@ -202,14 +202,15 @@ Result<Datum> GroupByUsingExecPlan(const std::vector<Datum>& arguments,
   inputs.reserve(inputs.size() + keys.size());
   inputs.insert(inputs.end(), keys.begin(), keys.end());
 
-  ARROW_ASSIGN_OR_RAISE(auto batch_iterator,
-                        ExecBatchIterator::Make(inputs, ctx->exec_chunksize()));
+  ExecSpanIterator span_iterator;
+  ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make(inputs));
+  RETURN_NOT_OK(span_iterator.Init(batch, ctx->exec_chunksize()));
   BatchesWithSchema input;
   input.schema = schema(std::move(scan_fields));
-  ExecBatch batch;
-  while (batch_iterator->Next(&batch)) {
-    if (batch.length == 0) continue;
-    input.batches.push_back(std::move(batch));
+  ExecSpan span;
+  while (span_iterator.Next(&span)) {
+    if (span.length == 0) continue;
+    input.batches.push_back(span.ToExecBatch());
   }
 
   return GroupByUsingExecPlan(input, key_names, aggregates, use_threads, ctx);
@@ -388,7 +389,7 @@ struct TestGrouper {
   }
 
   void ConsumeAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
-    ASSERT_OK_AND_ASSIGN(Datum id_batch, grouper_->Consume(key_batch));
+    ASSERT_OK_AND_ASSIGN(Datum id_batch, grouper_->Consume(ExecSpan(key_batch)));
 
     ValidateConsume(key_batch, id_batch);
 
@@ -536,11 +537,13 @@ TEST(Grouper, DictKey) {
   g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
                   ArrayFromJSON(uint32(), "[3, 1, 4,    0, 2]"));
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, HasSubstr("Unifying differing dictionaries"),
-      g.grouper_->Consume(*ExecBatch::Make({*DictionaryArray::FromArrays(
-          ArrayFromJSON(int32(), "[0, 1]"),
-          ArrayFromJSON(utf8(), R"(["different", "dictionary"])"))})));
+  auto dict_arr = *DictionaryArray::FromArrays(
+      ArrayFromJSON(int32(), "[0, 1]"),
+      ArrayFromJSON(utf8(), R"(["different", "dictionary"])"));
+  ExecSpan dict_span({*dict_arr->data()}, 2);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  HasSubstr("Unifying differing dictionaries"),
+                                  g.grouper_->Consume(dict_span));
 }
 
 TEST(Grouper, StringInt64Key) {

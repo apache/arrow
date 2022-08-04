@@ -17,9 +17,10 @@
 package arrow
 
 import (
+	"fmt"
 	"hash/maphash"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as
@@ -161,6 +162,7 @@ const (
 
 // DataType is the representation of an Arrow type.
 type DataType interface {
+	fmt.Stringer
 	ID() Type
 	// Name is name of the data type.
 	Name() string
@@ -179,6 +181,11 @@ type FixedWidthDataType interface {
 type BinaryDataType interface {
 	DataType
 	binary()
+}
+
+type OffsetsDataType interface {
+	DataType
+	OffsetTypeTraits() OffsetTraits
 }
 
 func HashType(seed maphash.Seed, dt DataType) uint64 {
@@ -250,6 +257,16 @@ func SpecAlwaysNull() BufferSpec      { return BufferSpec{KindAlwaysNull, -1} }
 func IsInteger(t Type) bool {
 	switch t {
 	case UINT8, INT8, UINT16, INT16, UINT32, INT32, UINT64, INT64:
+		return true
+	}
+	return false
+}
+
+// IsUnsignedInteger is a helper that returns true if the type ID provided is
+// one of the uint integral types (uint8, uint16, uint32, uint64)
+func IsUnsignedInteger(t Type) bool {
+	switch t {
+	case UINT8, UINT16, UINT32, UINT64:
 		return true
 	}
 	return false

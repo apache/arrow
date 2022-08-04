@@ -18,6 +18,7 @@ vignettes/nyc-taxi/
 arrow_*.tar.gz
 arrow_*.tgz
 extra-tests/files
+.deps
 
 # C++ sources for an offline build. They're copied from the ../cpp directory, so ignore them here.
 /tools/cpp/

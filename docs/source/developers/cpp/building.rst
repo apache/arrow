@@ -323,6 +323,7 @@ boolean flags to ``cmake``.
   filesystems
 * ``-DARROW_FLIGHT=ON``: Arrow Flight RPC system, which depends at least on
   gRPC
+* ``-DARROW_FLIGHT_SQL=ON``: Arrow Flight SQL
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
 * ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java

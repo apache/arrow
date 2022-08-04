@@ -224,7 +224,7 @@ class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
                        Compression::type codec, const ReaderProperties& properties,
-                       const CryptoContext* crypto_ctx)
+                       const CryptoContext* crypto_ctx, bool always_compressed)
       : properties_(properties),
         stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
@@ -238,6 +238,7 @@ class SerializedPageReader : public PageReader {
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodec(codec);
+    always_compressed_ = always_compressed;
   }
 
   // Implement the PageReader interface
@@ -264,6 +265,8 @@ class SerializedPageReader : public PageReader {
   // Compression codec to use.
   std::unique_ptr<::arrow::util::Codec> decompressor_;
   std::shared_ptr<ResizableBuffer> decompression_buffer_;
+
+  bool always_compressed_;
 
   // The fields below are used for calculation of AAD (additional authenticated data)
   // suffix which is part of the Parquet Modular Encryption.
@@ -449,7 +452,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           header.repetition_levels_byte_length < 0) {
         throw ParquetException("Invalid page header (negative levels byte length)");
       }
-      bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
+      // Arrow prior to 3.0.0 set is_compressed to false but still compressed.
+      bool is_compressed =
+          (header.__isset.is_compressed ? header.is_compressed : false) ||
+          always_compressed_;
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
       seen_num_rows_ += header.num_values;
 
@@ -516,18 +522,21 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
                                              int64_t total_num_rows,
                                              Compression::type codec,
                                              const ReaderProperties& properties,
+                                             bool always_compressed,
                                              const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(new SerializedPageReader(
-      std::move(stream), total_num_rows, codec, properties, ctx));
+      std::move(stream), total_num_rows, codec, properties, ctx, always_compressed));
 }
 
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
+                                             bool always_compressed,
                                              ::arrow::MemoryPool* pool,
                                              const CryptoContext* ctx) {
-  return std::unique_ptr<PageReader>(new SerializedPageReader(
-      std::move(stream), total_num_rows, codec, ReaderProperties(pool), ctx));
+  return std::unique_ptr<PageReader>(
+      new SerializedPageReader(std::move(stream), total_num_rows, codec,
+                               ReaderProperties(pool), ctx, always_compressed));
 }
 
 namespace {

@@ -1021,7 +1021,7 @@ ArrayKernelExec TypeAgnosticBitWiseExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1046,7 +1046,7 @@ ArrayKernelExec ShiftExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1059,7 +1059,7 @@ ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
       return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1188,7 +1188,7 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
       return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 

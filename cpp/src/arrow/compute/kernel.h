@@ -258,7 +258,7 @@ class ARROW_EXPORT OutputType {
   ///
   /// This function SHOULD _not_ be used to check for arity, that is to be
   /// performed one or more layers above.
-  typedef Result<TypeHolder> (*Resolver)(KernelContext*, const std::vector<TypeHolder>&);
+  using Resolver = Result<TypeHolder> (*)(KernelContext*, const std::vector<TypeHolder>&);
 
   /// \brief Output an exact type
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
@@ -500,7 +500,7 @@ struct Kernel {
 /// endeavor to write into pre-allocated memory if they are able, though for
 /// some kernels (e.g. in cases when a builder like StringBuilder) must be
 /// employed this may not be possible.
-typedef Status (*ArrayKernelExec)(KernelContext*, const ExecSpan&, ExecResult*);
+using ArrayKernelExec = Status (*)(KernelContext*, const ExecSpan&, ExecResult*);
 
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
@@ -548,7 +548,7 @@ struct VectorKernel : public Kernel {
 
   /// \brief Function for executing a stateful VectorKernel against a
   /// ChunkedArray input. Does not need to be defined for all VectorKernels
-  typedef Status (*ChunkedExec)(KernelContext*, const ExecBatch&, Datum* out);
+  using ChunkedExec = Status (*)(KernelContext*, const ExecBatch&, Datum* out);
 
   VectorKernel() = default;
 
@@ -609,20 +609,17 @@ struct VectorKernel : public Kernel {
 // ----------------------------------------------------------------------
 // ScalarAggregateKernel (for ScalarAggregateFunction)
 
-using ScalarAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
-
-using ScalarAggregateMerge =
-    std::function<Status(KernelContext*, KernelState&&, KernelState*)>;
-
+using ScalarAggregateConsume = Status (*)(KernelContext*, const ExecSpan&);
+using ScalarAggregateMerge = Status (*)(KernelContext*, KernelState&&, KernelState*);
 // Finalize returns Datum to permit multiple return values
-using ScalarAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
+using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 
 /// \brief Kernel data structure for implementations of
 /// ScalarAggregateFunction. The four necessary components of an aggregation
 /// kernel are the init, consume, merge, and finalize functions.
 ///
 /// * init: creates a new KernelState for a kernel.
-/// * consume: processes an ExecBatch and updates the KernelState found in the
+/// * consume: processes an ExecSpan and updates the KernelState found in the
 ///   KernelContext.
 /// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
@@ -634,16 +631,16 @@ struct ScalarAggregateKernel : public Kernel {
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
                         ScalarAggregateFinalize finalize)
       : Kernel(std::move(sig), std::move(init)),
-        consume(std::move(consume)),
-        merge(std::move(merge)),
-        finalize(std::move(finalize)) {}
+        consume(consume),
+        merge(merge),
+        finalize(finalize) {}
 
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,
                         ScalarAggregateMerge merge, ScalarAggregateFinalize finalize)
       : ScalarAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
+            std::move(init), consume, merge, finalize) {}
 
   /// \brief Merge a vector of KernelStates into a single KernelState.
   /// The merged state will be returned and will be set on the KernelContext.
@@ -659,15 +656,12 @@ struct ScalarAggregateKernel : public Kernel {
 // ----------------------------------------------------------------------
 // HashAggregateKernel (for HashAggregateFunction)
 
-using HashAggregateResize = std::function<Status(KernelContext*, int64_t)>;
-
-using HashAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
-
-using HashAggregateMerge =
-    std::function<Status(KernelContext*, KernelState&&, const ArrayData&)>;
+using HashAggregateResize = Status (*)(KernelContext*, int64_t);
+using HashAggregateConsume = Status (*)(KernelContext*, const ExecSpan&);
+using HashAggregateMerge = Status (*)(KernelContext*, KernelState&&, const ArrayData&);
 
 // Finalize returns Datum to permit multiple return values
-using HashAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
+using HashAggregateFinalize = Status (*)(KernelContext*, Datum*);
 
 /// \brief Kernel data structure for implementations of
 /// HashAggregateFunction. The four necessary components of an aggregation
@@ -675,7 +669,7 @@ using HashAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
 ///
 /// * init: creates a new KernelState for a kernel.
 /// * resize: ensure that the KernelState can accommodate the specified number of groups.
-/// * consume: processes an ExecBatch (which includes the argument as well
+/// * consume: processes an ExecSpan (which includes the argument as well
 ///   as an array of group identifiers) and updates the KernelState found in the
 ///   KernelContext.
 /// * merge: combines one KernelState with another.
@@ -688,10 +682,10 @@ struct HashAggregateKernel : public Kernel {
                       HashAggregateResize resize, HashAggregateConsume consume,
                       HashAggregateMerge merge, HashAggregateFinalize finalize)
       : Kernel(std::move(sig), std::move(init)),
-        resize(std::move(resize)),
-        consume(std::move(consume)),
-        merge(std::move(merge)),
-        finalize(std::move(finalize)) {}
+        resize(resize),
+        consume(consume),
+        merge(merge),
+        finalize(finalize) {}
 
   HashAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                       KernelInit init, HashAggregateConsume consume,
@@ -699,8 +693,7 @@ struct HashAggregateKernel : public Kernel {
                       HashAggregateFinalize finalize)
       : HashAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), std::move(resize), std::move(consume), std::move(merge),
-            std::move(finalize)) {}
+            std::move(init), resize, consume, merge, finalize) {}
 
   HashAggregateResize resize;
   HashAggregateConsume consume;

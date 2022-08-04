@@ -54,19 +54,19 @@ struct TDigestImpl : public ScalarAggregator {
   double ToDouble(const Decimal128& value) const { return value.ToDouble(decimal_scale); }
   double ToDouble(const Decimal256& value) const { return value.ToDouble(decimal_scale); }
 
-  Status Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
     if (!this->all_valid) return Status::OK();
     if (!options.skip_nulls && batch[0].null_count() > 0) {
       this->all_valid = false;
       return Status::OK();
     }
     if (batch[0].is_array()) {
-      const ArrayData& data = *batch[0].array();
+      const ArraySpan& data = batch[0].array;
       const CType* values = data.GetValues<CType>(1);
 
       if (data.length > data.GetNullCount()) {
         this->count += data.length - data.GetNullCount();
-        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+        VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
                             [&](int64_t pos, int64_t len) {
                               for (int64_t i = 0; i < len; ++i) {
                                 this->tdigest.NanAdd(ToDouble(values[pos + i]));
@@ -74,8 +74,8 @@ struct TDigestImpl : public ScalarAggregator {
                             });
       }
     } else {
-      const CType value = UnboxScalar<ArrowType>::Unbox(*batch[0].scalar());
-      if (batch[0].scalar()->is_valid) {
+      const CType value = UnboxScalar<ArrowType>::Unbox(*batch[0].scalar);
+      if (batch[0].scalar->is_valid) {
         this->count += 1;
         for (int64_t i = 0; i < batch.length; i++) {
           this->tdigest.NanAdd(ToDouble(value));
