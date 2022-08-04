@@ -80,37 +80,32 @@ arrow_mask <- function(.data, expr = NULL, aggregation = FALSE) {
 
   f_env <- new_environment(.cache$functions)
 
+  unknown <- NULL
   if (!is.null(expr)) {
     # figure out if the expression is unknown
     # TODO update this to check recursively (for nested functions)
-    unknown <- setdiff(rlang::call_name(expr), names(f_env))
+    unknown <- setdiff(all_funs(expr), names(f_env))
+  }
 
-    if (length(unknown) != 0) {
-      # TODO find a different approach as `call_standardise` is now deprecated
-      expr <- call_standardise(expr)
-      # get the function in the expression
-      fn <- call_fn(expr)
+  if (length(unknown) != 0) {
+    # TODO find a different approach as `call_standardise` is now deprecated
+    std_expr <- quo_get_expr(call_standardise(expr))
 
-      # get the body of the function
-      expr_body <- fn_body(fn)
+    fn <- as_function(unknown)
 
-      # we can use `all_funs()` here (if we can't we might need to write our own
-      # version of `all_calls()`
-      calls <- all_funs(expr_body[[2]])
+    # get the args and the body of the unknown binding
+    fnctn_formals <- formals(fn)
+    fnctn_body <- fn_body(fn)
 
-      args <- call_args(expr)
+    # get all the function calls inside the body of the unknown binding
+    body_calls <- all_funs(fnctn_body[[2]])
 
-      # we can translate if all calls have bindings
-      if (all(calls %in% names(f_env))) {
-        # we can translate
-        # this is a rough placeholder until I have a translation function
-        expr_body <- expr(1 + call_binding("nchar", x))
-        # replace the unknown expression with the translation
-        f_env[[unknown]] <- new_function(
-          args = args,
-          body = expr_body
-        )
-      }
+    # we can translate if all calls have bindings
+    if (all(body_calls %in% names(f_env))) {
+      f_env[[unknown]] <- new_function(
+        args = fnctn_formals,
+        body = translate_to_arrow(fnctn_body[[2]])
+      )
     }
   }
 
@@ -155,4 +150,18 @@ format_expr <- function(x) {
     out[1] <- paste0(out[1], "...")
   }
   head(out, 1)
+}
+
+
+translate_to_arrow <- function(x) {
+  switch_expr(x,
+              constant = ,
+              symbol = x,
+              call = {
+                function_name <- as.character(x[[1]])
+                children <- as.list(x[-1])
+                children_translated <- map(children, translate_to_arrow)
+                call2("call_binding", function_name, !!!children_translated)
+              }
+  )
 }
