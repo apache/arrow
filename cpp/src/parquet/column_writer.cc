@@ -128,6 +128,7 @@ struct ValueBufferSlicer {
   NOT_IMPLEMENTED_VISIT(Struct);
   NOT_IMPLEMENTED_VISIT(FixedSizeList);
   NOT_IMPLEMENTED_VISIT(Dictionary);
+  NOT_IMPLEMENTED_VISIT(RunLengthEncoded);
   NOT_IMPLEMENTED_VISIT(Extension);
 
 #undef NOT_IMPLEMENTED_VISIT
