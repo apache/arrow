@@ -157,11 +157,6 @@ static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOption
 static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("k", &SelectKOptions::k),
     DataMember("sort_keys", &SelectKOptions::sort_keys));
-static auto kFetchOptionsType = GetFunctionOptionsType<FetchOptions>(
-    DataMember("offset", &FetchOptions::offset),
-    DataMember("count", &FetchOptions::count),
-    DataMember("sort_keys", &FetchOptions::sort_keys),
-    DataMember("sort_first", &FetchOptions::sort_first));
 static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
     DataMember("start", &CumulativeSumOptions::start),
     DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
@@ -211,15 +206,6 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-FetchOptions::FetchOptions(int64_t offset, int64_t count, std::vector<SortKey> sort_keys,
-                           bool sort_first)
-    : FunctionOptions(internal::kFetchOptionsType),
-      offset(offset),
-      count(count),
-      sort_keys(std::move(sort_keys)),
-      sort_first(sort_first) {}
-constexpr char FetchOptions::kTypeName[];
-
 CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
                                            bool check_overflow)
     : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
@@ -249,7 +235,6 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kFetchOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeSumOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
 }

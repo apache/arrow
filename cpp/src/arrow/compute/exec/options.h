@@ -438,13 +438,23 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 class ARROW_EXPORT FetchSinkNodeOptions : public SinkNodeOptions {
  public:
   explicit FetchSinkNodeOptions(
-      FetchOptions sort_and_fetch_options,
-      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      int64_t offset, int64_t count,
+      std::function<Future<util::optional<ExecBatch>>()>* generator,
+      std::vector<SortKey> sort_keys = {}, bool sort_first = false)
       : SinkNodeOptions(generator),
-        sort_and_fetch_options(std::move(sort_and_fetch_options)) {}
+        offset(offset),
+        count(count),
+        sort_keys(sort_keys),
+        sort_first(sort_first) {}
 
-  /// Fetch options
-  FetchOptions sort_and_fetch_options;
+  /// The number of rows to skip.
+  int64_t offset;
+  /// The number of rows to select.
+  int64_t count;
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
+  /// Determine sort or fetch precedence.
+  bool sort_first;
 };
 
 /// \brief Adapt a Table as a sink node

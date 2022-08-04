@@ -519,16 +519,17 @@ struct OrderBySinkNode final : public SinkNode {
     ARROW_ASSIGN_OR_RAISE(
         std::unique_ptr<OrderByImpl> impl,
         OrderByImpl::MakeFetch(plan->exec_context(), inputs[0]->output_schema(),
-                               sink_options.sort_and_fetch_options));
+                               sink_options.offset, sink_options.count,
+                               sink_options.sort_keys, sink_options.sort_first));
     return plan->EmplaceNode<OrderBySinkNode>(plan, std::move(inputs), std::move(impl),
                                               sink_options.generator);
   }
 
   static Status ValidateFetchOptions(const FetchSinkNodeOptions& options) {
-    if (options.sort_and_fetch_options.count < 0) {
+    if (options.count < 0) {
       return Status::Invalid("count must be > 0");
     }
-    if (options.sort_and_fetch_options.offset < 0) {
+    if (options.offset < 0) {
       return Status::Invalid("offset must be > 0");
     }
     return ValidateCommonOrderOptions(options);

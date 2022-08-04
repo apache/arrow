@@ -174,23 +174,6 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   std::vector<SortKey> sort_keys;
 };
 
-/// \brief Fetch options
-class ARROW_EXPORT FetchOptions : public FunctionOptions {
- public:
-  explicit FetchOptions(int64_t offset = 0, int64_t count = 0,
-                        std::vector<SortKey> sort_keys = {}, bool sort_first = true);
-  static constexpr char const kTypeName[] = "FetchOptions";
-
-  /// The number of `offset` elements to skip.
-  int64_t offset;
-  /// The number of `count` elements to select.
-  int64_t count;
-  /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
-  /// Determine sort or fetch precedence
-  bool sort_first;
-};
-
 /// \brief Rank options
 class ARROW_EXPORT RankOptions : public FunctionOptions {
  public:

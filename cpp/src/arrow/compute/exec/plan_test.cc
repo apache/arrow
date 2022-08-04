@@ -1495,14 +1495,16 @@ TEST(ExecPlanExecution, FetchAndSort) {
 
       auto basic_data = MakeBasicBatches();
 
-      FetchOptions options(0, 2, {SortKey("i32", SortOrder::Ascending)}, true);
-      ASSERT_OK(Declaration::Sequence(
-                    {
-                        {"source", SourceNodeOptions{basic_data.schema,
-                                                     basic_data.gen(parallel, slow)}},
-                        {"fetch_sink", FetchSinkNodeOptions{options, &sink_gen}},
-                    })
-                    .AddToPlan(plan.get()));
+      ASSERT_OK(
+          Declaration::Sequence(
+              {
+                  {"source",
+                   SourceNodeOptions{basic_data.schema, basic_data.gen(parallel, slow)}},
+                  {"fetch_sink",
+                   FetchSinkNodeOptions{
+                       0, 2, &sink_gen, {SortKey("i32", SortOrder::Ascending)}, true}},
+              })
+              .AddToPlan(plan.get()));
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(ElementsAreArray(expected))));
@@ -1524,14 +1526,16 @@ TEST(ExecPlanExecution, SortAndFetch) {
 
       auto basic_data = MakeBasicBatches();
 
-      FetchOptions options(0, 2, {SortKey("i32", SortOrder::Ascending)}, false);
-      ASSERT_OK(Declaration::Sequence(
-                    {
-                        {"source", SourceNodeOptions{basic_data.schema,
-                                                     basic_data.gen(parallel, slow)}},
-                        {"fetch_sink", FetchSinkNodeOptions{options, &sink_gen}},
-                    })
-                    .AddToPlan(plan.get()));
+      ASSERT_OK(
+          Declaration::Sequence(
+              {
+                  {"source",
+                   SourceNodeOptions{basic_data.schema, basic_data.gen(parallel, slow)}},
+                  {"fetch_sink",
+                   FetchSinkNodeOptions{
+                       0, 2, &sink_gen, {SortKey("i32", SortOrder::Ascending)}, false}},
+              })
+              .AddToPlan(plan.get()));
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
                   Finishes(ResultWith(ElementsAreArray(expected))));
@@ -1553,12 +1557,11 @@ TEST(ExecPlanExecution, FetchBasic) {
 
       auto basic_data = MakeBasicBatches();
 
-      FetchOptions options(0, 2);
       ASSERT_OK(Declaration::Sequence(
                     {
                         {"source", SourceNodeOptions{basic_data.schema,
                                                      basic_data.gen(parallel, slow)}},
-                        {"fetch_sink", FetchSinkNodeOptions{options, &sink_gen}},
+                        {"fetch_sink", FetchSinkNodeOptions{0, 2, &sink_gen}},
                     })
                     .AddToPlan(plan.get()));
 
