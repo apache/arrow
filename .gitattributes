@@ -5,3 +5,4 @@ r/src/arrowExports.cpp linguist-generated=true
 r/man/*.Rd linguist-generated=true
 cpp/src/generated/*.h linguist-generated=true
 r/NEWS.md merge=union
+go/**/*.s linguist-generated=true
