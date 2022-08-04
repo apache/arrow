@@ -76,7 +76,7 @@ arrow_not_supported <- function(msg) {
 }
 
 # Create a data mask for evaluating a dplyr expression
-arrow_mask <- function(.data, expr = NULL, aggregation = FALSE) {
+arrow_mask <- function(.data, aggregation = FALSE, expr = NULL) {
 
   f_env <- new_environment(.cache$functions)
 
