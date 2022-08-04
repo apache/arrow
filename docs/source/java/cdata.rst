@@ -358,9 +358,10 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
 .. code-block:: cpp
 
    #include <iostream>
+   #include <jni.h>
+
    #include <arrow/api.h>
    #include <arrow/c/bridge.h>
-   #include <jni.h>
 
    JNIEnv *CreateVM(JavaVM **jvm) {
        JNIEnv *env;
@@ -373,7 +374,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
        vm_args.options = options;
        int status = JNI_CreateJavaVM(jvm, (void **) &env, &vm_args);
        if (status < 0) {
-           std::cout << "\n<<<<< Unable to Launch JVM >>>>>\n" << std::endl;
+           std::cerr << "\n<<<<< Unable to Launch JVM >>>>>\n" << std::endl;
            return nullptr;
        }
        return env;
@@ -400,7 +401,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
                std::shared_ptr<arrow::Array> array = resultImportArray.ValueOrDie();
                std::cout << "[C++] Array: " << array->ToString() << std::endl;
            } else {
-               std::cout << "Could not find fillVector method\n" << std::endl;
+               std::cerr << "Could not find fillVector method\n" << std::endl;
                return EXIT_FAILURE;
            }
            jmethodID fillVectorSchemaRoot = env->GetStaticMethodID(javaClassToBeCalledByCpp,
@@ -417,7 +418,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
                std::shared_ptr<arrow::RecordBatch> recordBatch = resultImportVectorSchemaRoot.ValueOrDie();
                std::cout << "[C++] RecordBatch: " << recordBatch->ToString() << std::endl;
            } else {
-               std::cout << "Could not find fillVectorSchemaRoot method\n" << std::endl;
+               std::cerr << "Could not find fillVectorSchemaRoot method\n" << std::endl;
                return EXIT_FAILURE;
            }
        } else {
@@ -430,7 +431,7 @@ This application uses JNI to call Java code, but transfers data (zero-copy) via 
 
 CMakeLists.txt definition file:
 
-.. code-block:: xml
+.. code-block:: cmake
 
    cmake_minimum_required(VERSION 3.19)
    project(cdatacpptojava)
@@ -445,7 +446,7 @@ CMakeLists.txt definition file:
 
 **Result**
 
-.. code-block:: shell
+.. code-block:: text
 
    <<<<< C++ to Java for Arrays >>>>>
    [Java] FieldVector:
