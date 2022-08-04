@@ -17,6 +17,10 @@
 #include "../../../internal/utils/_lib/arch.h"
 #include <stdint.h>
 
+// like elsewhere in this repo, this .c file gets compiled into optimized
+// assembly and then converted to go plan9 assembly via c2goasm so we can
+// call these functions. see the Makefile in the parent directory.
+
 void FULL_NAME(bitmap_aligned_and)(const uint8_t* left, const uint8_t* right, uint8_t* out, const int64_t nbytes) {
     for (int64_t i = 0; i < nbytes; ++i) {
         out[i] = left[i] & right[i];
