@@ -250,6 +250,14 @@ struct MakeBuilderImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunLengthEncodedType& rle_type) {
+    ARROW_ASSIGN_OR_RAISE(auto run_end_builder, ChildBuilder(int32()));
+    ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(rle_type.encoded_type()));
+    out.reset(new RunLengthEncodedBuilder(pool, std::move(run_end_builder),
+                                          std::move(value_builder), type));
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType&) { return NotImplemented(); }
   Status Visit(const DataType&) { return NotImplemented(); }
 

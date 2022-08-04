@@ -23,8 +23,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array/builder_base.h"
 #include "arrow/array.h"
+#include "arrow/array/builder_base.h"
 
 namespace arrow {
 
@@ -37,7 +37,10 @@ namespace arrow {
 
 class ARROW_EXPORT RunLengthEncodedBuilder : public ArrayBuilder {
  public:
-  RunLengthEncodedBuilder(std::shared_ptr<ArrayBuilder> values_builder, MemoryPool *pool);
+  RunLengthEncodedBuilder(MemoryPool* pool,
+                          const std::shared_ptr<ArrayBuilder>& run_end_builder,
+                          const std::shared_ptr<ArrayBuilder>& value_builder,
+                          std::shared_ptr<DataType> type);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) final;
   /// \cond FALSE
@@ -57,15 +60,15 @@ class ARROW_EXPORT RunLengthEncodedBuilder : public ArrayBuilder {
   Status AppendArraySlice(const ArraySpan& array, int64_t offset, int64_t length) final;
   std::shared_ptr<DataType> type() const final;
 
-  /// \brief Allocate enough memory for a given number of runs. Like Resize on non-RLE builders, it
-  /// does not account for variable size data.
+  /// \brief Allocate enough memory for a given number of runs. Like Resize on non-RLE
+  /// builders, it does not account for variable size data.
   Status ResizePhyiscal(int64_t capacity);
 
  private:
   Status FinishRun();
   Status AddLength(int64_t added_length);
-  Int32Builder &run_ends_builder();
-  ArrayBuilder &values_builder();
+  Int32Builder& run_end_builder();
+  ArrayBuilder& value_builder();
 
   std::shared_ptr<RunLengthEncodedType> type_;
   // must be null pointer for non-valid values
