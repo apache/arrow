@@ -85,7 +85,7 @@
   # When running valgrind we need to wait for the thread pools to finish
   # running background tasks or else we may get spurious memory leaks reported.
   if (on_linux_dev()) {
-    WaitForIdleThreadPool()
+    Sys.sleep(1)
   }
 }
 
