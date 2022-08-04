@@ -275,6 +275,10 @@ struct AppendScalarImpl {
     return Status::OK();
   }
 
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("AppendScalar for type ", type);
+  }
+
   Status Convert() { return VisitScalarTypeInline(*(*scalars_begin_)->type, this); }
 
   const std::shared_ptr<Scalar>* scalars_begin_;
