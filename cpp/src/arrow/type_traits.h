@@ -1318,9 +1318,7 @@ static inline bool is_unsigned_integer(const DataType& type) {
 /// \return whether type is a floating point type
 ///
 /// Convenience for checking using the types' id
-static inline bool is_floating(const DataType& type) {
-  return is_floating(type.id());
-}
+static inline bool is_floating(const DataType& type) { return is_floating(type.id()); }
 
 /// \brief Check for a numeric type (number except boolean type)
 ///
@@ -1344,9 +1342,7 @@ static inline bool is_decimal(const DataType& type) { return is_decimal(type.id(
 /// \return whether type is a primitive type
 ///
 /// Convenience for checking using the types' id
-static inline bool is_primitive(const DataType& type) {
-  return is_primitive(type.id());
-}
+static inline bool is_primitive(const DataType& type) { return is_primitive(type.id()); }
 
 /// \brief Check for a primitive-like type
 ///
@@ -1456,9 +1452,7 @@ static inline bool is_fixed_width(const DataType& type) {
 /// \return whether type is a list-like type
 ///
 /// Convenience for checking using the types' id
-static inline bool is_list_like(const DataType& type) {
-  return is_list_like(type.id());
-}
+static inline bool is_list_like(const DataType& type) { return is_list_like(type.id()); }
 
 /// \brief Check for a nested type
 ///
