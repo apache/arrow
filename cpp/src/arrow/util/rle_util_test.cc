@@ -28,18 +28,17 @@ namespace rle_util {
 
 TEST(TestRleUtil, FindPhysicalOffsetTest) {
   ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1}, 1, 0), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3 * 4, 0), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3 * 4, 1), 1);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3 * 4, 2), 2);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3 * 4, 3), 3);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3 * 4, 0), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3 * 4, 1), 0);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3 * 4, 2), 1);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3 * 4, 3), 2);
-  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 3 * 4, 3), 1);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3, 0), 0);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3, 1), 1);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3}, 3, 2), 2);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3, 0), 0);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3, 1), 0);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3, 2), 1);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 3, 4}, 3, 3), 2);
+  ASSERT_EQ(FindPhysicalOffset((const int32_t[]){2, 4, 6}, 3, 3), 1);
   ASSERT_EQ(FindPhysicalOffset((const int32_t[]){1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005,
                                                  1015, 1020, 1025, 1050},
-                               15 * 4, 1000),
+                               15, 1000),
             10);
 }
 
@@ -74,21 +73,13 @@ TEST(TestRleUtil, VisitMergedRuns) {
 
   size_t position = 0;
 
-  std::cout << left_array << std::endl;
-  std::cout << left_array->data() << std::endl;
-  std::cout << left_array->data()->length << std::endl;
-  std::cout << left_array->data()->buffers.data() << std::endl;
-
-  auto arrspan = ArraySpan(*left_array->data());
-
-  std::cout << position << std::endl;
-
-  rle_util::
-      VisitMergedRuns(ArraySpan(*left_array->data()), ArraySpan(*left_array->data()), [&position /*, &expected_run_lengths, &expected_left_visits, &expected_right_visits*/](int64_t run_length, int64_t left_index, int64_t right_index) {
-        std::cout << position << std::endl;
-        /*ASSERT_EQ(run_length, expected_run_lengths[position]);
+  rle_util::VisitMergedRuns(
+      ArraySpan(*left_array->data()), ArraySpan(*right_array->data()),
+      [&position, &expected_run_lengths, &expected_left_visits, &expected_right_visits](
+          int64_t run_length, int64_t left_index, int64_t right_index) {
+        ASSERT_EQ(run_length, expected_run_lengths[position]);
         ASSERT_EQ(left_index, expected_left_visits[position]);
-        ASSERT_EQ(run_length, expected_right_visits[position]);*/
+        ASSERT_EQ(right_index, expected_right_visits[position]);
         position++;
       });
 
