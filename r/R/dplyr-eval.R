@@ -89,7 +89,7 @@ arrow_mask <- function(.data, expr = NULL, aggregation = FALSE) {
 
   if (length(unknown) != 0) {
     # TODO find a different approach as `call_standardise` is now deprecated
-    std_expr <- quo_get_expr(call_standardise(expr))
+    std_expr <- quo_get_expr(rlang::call_standardise(expr))
 
     fn <- as_function(unknown)
 
@@ -163,5 +163,26 @@ translate_to_arrow <- function(x) {
                 children_translated <- map(children, translate_to_arrow)
                 call2("call_binding", function_name, !!!children_translated)
               }
+  )
+}
+
+expr_type <- function(x) {
+  if (rlang::is_syntactic_literal(x)) {
+    "constant"
+  } else if (is.symbol(x)) {
+    "symbol"
+  } else if (is.call(x)) {
+    "call"
+  } else if (is.pairlist(x)) {
+    "pairlist"
+  } else {
+    typeof(x)
+  }
+}
+
+switch_expr <- function(x, ...) {
+  switch(expr_type(x),
+         ...,
+         stop("Don't know how to handle type ", typeof(x), call. = FALSE)
   )
 }
