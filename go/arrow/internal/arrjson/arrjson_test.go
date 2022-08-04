@@ -3352,7 +3352,8 @@ func makeDecimal128sWantJSONs() string {
         "type": {
           "name": "decimal",
           "scale": 1,
-          "precision": 10
+          "precision": 10,
+          "bitWidth": 128
         },
         "nullable": true,
         "children": []
