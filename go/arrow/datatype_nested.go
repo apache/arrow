@@ -274,7 +274,7 @@ func (*StructType) ID() Type     { return STRUCT }
 func (*StructType) Name() string { return "struct" }
 
 func (t *StructType) String() string {
-	o := new(strings.Builder)
+	var o strings.Builder
 	o.WriteString("struct<")
 	for i, f := range t.fields {
 		if i > 0 {
@@ -712,14 +712,14 @@ func (f Field) Equal(o Field) bool {
 }
 
 func (f Field) String() string {
-	o := new(strings.Builder)
+	var o strings.Builder
 	nullable := ""
 	if f.Nullable {
 		nullable = ", nullable"
 	}
-	fmt.Fprintf(o, "%s: type=%v%v", f.Name, f.Type, nullable)
+	fmt.Fprintf(&o, "%s: type=%v%v", f.Name, f.Type, nullable)
 	if f.HasMetadata() {
-		fmt.Fprintf(o, "\n%*.smetadata: %v", len(f.Name)+2, "", f.Metadata)
+		fmt.Fprintf(&o, "\n%*.smetadata: %v", len(f.Name)+2, "", f.Metadata)
 	}
 	return o.String()
 }
