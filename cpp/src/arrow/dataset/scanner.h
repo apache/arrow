@@ -381,7 +381,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// This option provides a control limiting the memory owned by any RecordBatch.
   Status BatchSize(int64_t batch_size);
 
-  /// \brief Set the number of batches to read aheadw ithin a file.
+  /// \brief Set the number of batches to read ahead within a file.
   ///
   /// \param[in] batch_readahead How many batches to read ahead within a file,
   ///  might not work for all formats. refer to comments above.
