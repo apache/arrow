@@ -149,12 +149,12 @@ def test_python_file_get_stream(nbytes, file_offset):
     # Read to end of each stream
     assert stream.read() == buf.read()
 
-    # Try reading passed the stream
+    # Try reading past the stream
     n = len(data) * 2
     assert stream.read(n) == buf.read(n)
 
     # NativeFile[CInputStream] is not seekable
-    with pytest.raises(OSError, match="seekable") as e:
+    with pytest.raises(OSError, match="seekable"):
         stream.seek(0)
 
     stream.close()
