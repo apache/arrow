@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/array/builder_encoded.h"
+#include "arrow/array/builder_primitive.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -25,7 +26,8 @@
 #include "arrow/scalar.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/rle
+#include "arrow/util/rle_util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
@@ -33,14 +35,19 @@ namespace arrow {
 // RunLengthEncodedBuilder
 
 RunLengthEncodedBuilder::RunLengthEncodedBuilder(std::shared_ptr<ArrayBuilder> values_builder, MemoryPool *pool) :
-  ArrayBuilder(pool), type_(internal::checked_pointer_cast<RunLengthEncodedType>(values_builder->type())), values_builder_(*values_builder) {
-  children_ = {std::move(values_builder)};
+  ArrayBuilder(pool), type_(internal::checked_pointer_cast<RunLengthEncodedType>(values_builder->type())) {
+  auto run_ends_builder = std::static_pointer_cast<ArrayBuilder>(std::make_shared<Int32Builder>(type_, pool_));
+  children_ = {std::move(run_ends_builder), std::move(values_builder)};
+}
+
+Status RunLengthEncodedBuilder::Resize(int64_t) {
+  return Status::NotImplemented("Resizing an RLE for a given number of logical elements is not possible, since the physical length will vary depending on the contents. To allocate memory for a certain number of runs, use ResizePhysical.");
 }
 
 void RunLengthEncodedBuilder::Reset() {
   capacity_ = length_ = null_count_ = 0;
-  values_builder_.Reset();
-  run_ends_builder_.Reset();
+  values_builder().Reset();
+  run_ends_builder().Reset();
   current_value_.reset();
   run_start_ = 0;
 }
@@ -61,11 +68,11 @@ Status RunLengthEncodedBuilder::AppendNulls(int64_t length) {
 }
 
 Status RunLengthEncodedBuilder::AppendEmptyValue() {
-  return Status::NotImplemented("Appending empty values to RLE builder");
+  return AppendNull();
 }
 
 Status RunLengthEncodedBuilder::AppendEmptyValues(int64_t length) {
-  return Status::NotImplemented("Appending empty values to RLE builder");
+  return AppendNulls(length);
 }
 
 Status RunLengthEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
@@ -88,45 +95,60 @@ Status RunLengthEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
 
 Status RunLengthEncodedBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
                                                  int64_t length) {
-  auto full_array = array.ToArray();
-  if (array.type->Equals(type_)) {
-    // array is also run-length encoded
-    for (size_t index = 0; index < length; index++) {
-      // TODO: rle_util
-      const int32_t *array_run_ends = array.GetValues<int32_t>(0, 1);
-      ARROW_ASSIGN_OR_RAISE(auto scalar, full_array->GetScalar(offset + index));
-      RETURN_NOT_OK(AppendScalar(*scalar, 1));
-    }
-  } else if (array.type->Equals(type_->encoded_type())) {
-    // array is not encoded
-    for (size_t index = 0; index < length; index++) {
-      ARROW_ASSIGN_OR_RAISE(auto scalar, full_array->GetScalar(offset + index));
-      RETURN_NOT_OK(AppendScalar(*scalar, 1));
-    }
-  } else {
-    return Status::Invalid("adding ", array.type," array slice to ", type_, " builder");
-  }
+  // Finish eventual runs started using AppendScalars() and others before. We don't attempt to merge
+  // them with the runs from the appended array slice for now
+  RETURN_NOT_OK(FinishRun());
+
+  ARROW_DCHECK(offset + length < array.length);
+  ARROW_DCHECK(array.type->Equals(type_));
+  // Create a slice of the slice for the part we actually want to add
+  ArraySpan to_append = array;
+  to_append.SetSlice(array.offset + offset, length);
+
+  const int32_t *array_run_ends = rle_util::RunEnds(to_append);
+  const int64_t physical_offset = rle_util::FindPhysicalOffset(array_run_ends,
+                                                               rle_util::RunEndsArray(to_append).length,
+                                                               to_append.offset);
+  const int64_t physical_length = rle_util::FindPhysicalOffset(array_run_ends + physical_offset,
+                                                               rle_util::RunEndsArray(array).length,
+                                                               to_append.offset);
+
+  RETURN_NOT_OK(run_ends_builder().AppendArraySlice(rle_util::RunEndsArray(to_append), physical_offset, physical_length));
+  RETURN_NOT_OK(values_builder().AppendArraySlice(rle_util::DataArray(to_append), physical_offset, physical_length));
+  length_ += length;
+  return Status::OK();
 }
 
+std::shared_ptr<DataType> RunLengthEncodedBuilder::type() const {
+  return type_;
+}
+
+Status RunLengthEncodedBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto run_ends_array, run_ends_builder().Finish());
+  ARROW_ASSIGN_OR_RAISE(auto values_array, values_builder().Finish());
+  ARROW_ASSIGN_OR_RAISE(auto rle_array, RunLengthEncodedArray::Make(run_ends_array, values_array, length_));
+  *out = std::move(rle_array->data());
+  return Status::OK();
+}
 
 Status RunLengthEncodedBuilder::FinishRun() {
   if (length_ - run_start_ == 0) {
     return Status::OK();
   }
   if (current_value_) {
-    RETURN_NOT_OK(values_builder_.AppendScalar(*current_value_));
+    RETURN_NOT_OK(values_builder().AppendScalar(*current_value_));
   } else {
-    RETURN_NOT_OK(values_builder_.AppendNull());
+    RETURN_NOT_OK(values_builder().AppendNull());
   }
-  RETURN_NOT_OK(run_ends_builder_.Append(length_));
+  RETURN_NOT_OK(run_ends_builder().Append(length_));
   current_value_.reset();
   run_start_ = 0;
   return Status::OK();
 }
 
-Status RunLengthEncodedBuilder::ResizePhysical(int64_t capacity) {
-  RETURN_NOT_OK(values_builder_.Resize(capacity));
-  return run_ends_builder_.Resize(capacity);
+Status RunLengthEncodedBuilder::ResizePhyiscal(int64_t capacity) {
+  RETURN_NOT_OK(values_builder().Resize(capacity));
+  return run_ends_builder().Resize(capacity);
 }
 
 Status RunLengthEncodedBuilder::AddLength(int64_t added_length) {
@@ -144,6 +166,10 @@ Status RunLengthEncodedBuilder::AddLength(int64_t added_length) {
   length_ += added_length;
   return Status::OK();
 }
+
+Int32Builder &RunLengthEncodedBuilder::run_ends_builder() { return internal::checked_cast<Int32Builder&>(*children_[0]); }
+
+ArrayBuilder &RunLengthEncodedBuilder::values_builder() { return *children_[1]; };
 
 
 }  // namespace arrow
