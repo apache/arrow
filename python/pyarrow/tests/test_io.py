@@ -126,27 +126,27 @@ def test_python_file_read():
         pa.PythonFile(StringIO(), mode='r')
 
 
-@pytest.mark.parametrize("nbytes", (0, 1, 5, 100))
+@pytest.mark.parametrize("nbytes", (-1, 0, 1, 5, 100))
 @pytest.mark.parametrize("file_offset", (-1, 0, 5, 100))
 def test_python_file_get_stream(nbytes, file_offset):
 
     data = b'data1data2data3data4data5'
 
     f = pa.PythonFile(BytesIO(data), mode='r')
-    stream = f.get_stream(file_offset=file_offset, nbytes=nbytes)
 
-    # negative file_offset should fail to read
-    if file_offset < 0:
-        with pytest.raises(ValueError, match='negative seek value'):
-            stream.read()
+    # negative nbytes or offsets don't make sense here, raise ValueError
+    if nbytes < 0 or file_offset < 0:
+        with pytest.raises(ValueError, match="negative"):
+            f.get_stream(file_offset=file_offset, nbytes=nbytes)
+        f.close()
         return
+    else:
+        stream = f.get_stream(file_offset=file_offset, nbytes=nbytes)
 
     # Subsequent calls to 'read' should match behavior if same
     # data passed to BytesIO where get_stream should handle if
     # nbytes/file_offset results in no bytes b/c out of bounds.
     start = min(file_offset, len(data))
-    if nbytes < 0:  # same behavior in get_stream as wanting all data
-        nbytes = len(data)
     end = min(file_offset + nbytes, len(data))
     buf = BytesIO(data[start:end])
 
