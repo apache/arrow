@@ -157,6 +157,7 @@ ensure_named_exprs <- function(exprs) {
 # Take the input quos and unfold any instances of across()
 # into individual quosures
 unfold_across <- function(.data, quos_in) {
+
   quos_out <- list()
   # Check for any expressions starting with across
   for (quo_i in seq_along(quos_in)) {
@@ -174,15 +175,14 @@ unfold_across <- function(.data, quos_in) {
       # TODO: refactor to take in the .names argument to across()
       col_names <- get_across_names(cols, funcs)
 
-      for (col in cols) {
+      # TODO: refactor some of this into helper functions
+      # TODO: also look at using the purrr functions
+      for (one_col in cols) {
         for (i in seq_along(funcs)) {
 
-          # TODO: this has a weird smell, refactor
-          # work out the name of the new column
           if (length(funcs) == 1) {
             func <- funcs
             name_ref <- i
-
           } else {
             func <- funcs[[i]]
             name_ref <- i - 1
@@ -192,10 +192,9 @@ unfold_across <- function(.data, quos_in) {
           if (!is_symbol(func, "list")) {
 
             # get the expression
-            new_quo <- list(quo(!!call2(func, sym(col))))
+            new_quo <- list(quo(!!call2(func, sym(one_col))))
             # give the expression a name
-            names(new_quo) <- col_names[[col]][[name_ref]]
-
+            names(new_quo) <- col_names[[one_col]][[name_ref]]
             # append to temporary list of new quosures
             new_quos <- append(new_quos, new_quo)
 
@@ -228,13 +227,11 @@ get_across_names <- function(cols, funcs){
         }
         new_colnames <- set_names(paste0(cols, "_", col_suffix), cols)
 
-        # TODO: refactor this - surely it can be vectorised?
-        for (col_i in seq_along(new_colnames)) {
-          which_item <- names(new_colnames)[[col_i]]
-          col_name <- new_colnames[[col_i]]
-
-          old_vals <- names[[which_item]]
-          names[[which_item]] <- c(old_vals, col_name)
+        # append the new names to the list of column names
+        if (is_empty(names)) {
+          names <- as.list(new_colnames)
+        } else {
+          names <- Map(c, names, new_colnames)
         }
       }
     }
