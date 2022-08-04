@@ -1199,43 +1199,104 @@ static inline int offset_bit_width(Type::type type_id) {
   return 0;
 }
 
-/// @}
-
+/// \brief Check for a signed integer type
+///
+/// \param[in] type the type to check
+/// \return whether type is a signed integer type
+///
+/// Convenience for checking membership of a type in SignedIntTypes()
 static inline bool IsSignedIntType(const DataType& type) {
   return is_signed_integer(type.id());
 }
 
+/// \brief Check for an unsigned integer type
+///
+/// \param[in] type the type to check
+/// \return whether type is an unsigned integer type
+///
+/// Convenience for checking membership of a type in UnsignedIntTypes()
 static inline bool IsUnsignedIntType(const DataType& type) {
   return is_unsigned_integer(type.id());
 }
 
+/// \brief Check for an integer type (signed or unsigned integer type)
+///
+/// \param[in] type the type to check
+/// \return whether type is an integer type
+///
+/// Convenience for checking membership of a type in IntTypes()
 static inline bool IsIntType(const DataType& type) { return is_integer(type.id()); }
 
+/// \brief Check for a floating point type
+///
+/// \param[in] type the type to check
+/// \return whether type is a floating point type
+///
+/// Convenience for checking membership of a type in FloatingPointTypes()
 static inline bool IsFloatingPointType(const DataType& type) {
   return is_floating(type.id());
 }
 
-// Number types without boolean
+/// \brief Check for a numeric type (number except boolean type)
+///
+/// \param[in] type the type to check
+/// \return whether type is a numeric type
+///
+/// Convenience for checking membership of a type in NumericTypes()
 static inline bool IsNumericType(const DataType& type) { return is_numeric(type.id()); }
 
-// Binary and string-like types (except fixed-size binary)
+/// \brief Check for a binary or string-like type (except fixed-size binary)
+///
+/// \param[in] type the type to check
+/// \return whether type is a binary or string-like type
+///
+/// Convenience for checking membership of a type in BaseBinaryTypes()
 static inline bool IsBaseBinaryType(const DataType& type) {
   return is_base_binary_like(type.id());
 }
 
+/// \brief Check for a binary type
+///
+/// \param[in] type the type to check
+/// \return whether type is a binary type
+///
+/// Convenience for checking membership of a type in BinaryTypes()
 static inline bool IsBinaryType(const DataType& type) { return is_binary(type.id()); }
 
+/// \brief Check for a string type
+///
+/// \param[in] type the type to check
+/// \return whether type is a string type
+///
+/// Convenience for checking membership of a type in StringTypes()
 static inline bool IsStringType(const DataType& type) { return is_string(type.id()); }
 
-// Temporal types including time and timestamps for each unit
+/// \brief Check for a temporal type, including time and timestamps for each unit
+///
+/// \param[in] type the type to check
+/// \return whether type is a temporal type
+///
+/// Convenience for checking membership of a type in TemporalTypes()
 static inline bool IsTemporalType(const DataType& type) { return is_temporal(type.id()); }
 
-// Interval types
+/// \brief Check for an interval type
+///
+/// \param[in] type the type to check
+/// \return whether type is a interval type
+///
+/// Convenience for checking membership of a type in IntervalTypes()
 static inline bool IsIntervalType(const DataType& type) { return is_interval(type.id()); }
 
-// Integer, floating point, base binary, and temporal
+/// \brief Check for a primitive type - numeric, base binary, date, boolean or null
+///
+/// \param[in] type the type to check
+/// \return whether type is a primitive type
+///
+/// Convenience for checking membership of a type in PrimitiveTypes()
 static inline bool IsPrimitiveType(const DataType& type) {
   return is_primitive_like(type.id());
 }
+
+/// @}
 
 }  // namespace arrow
