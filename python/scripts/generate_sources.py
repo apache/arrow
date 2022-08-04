@@ -1,6 +1,8 @@
 import pyarrow as pa
 from pyarrow import _rstutils as arrowdoc
 from pyarrow.vendored import docscrape
+import textwrap
+
 
 from pyarrow._compute import (  # noqa
     Function,
@@ -74,7 +76,6 @@ import inspect
 import warnings
 from inspect import Parameter
 from collections import namedtuple
-from textwrap import indent, dedent
 
 # Avoid clashes with Python keywords
 function_name_rewrites = {'and': 'and_', 'or': 'or_'}
@@ -200,17 +201,17 @@ def generate_compute_function_doc(exposed_name, func, options_class,
                           f"does not have a docstring", RuntimeWarning)
             options_sig = inspect.signature(options_class)
             for p in options_sig.parameters.values():
-                docstring += dedent("""\
+                docstring += textwrap.dedent("""\
                 {0} : optional
                     Parameter for {1} constructor. Either `options`
                     or `{0}` can be passed, but not both at the same time.
                 """.format(p.name, options_class.__name__))
-        docstring += dedent(f"""\
+        docstring += textwrap.dedent(f"""\
             options : pyarrow.compute.{options_class.__name__}, optional
                 Alternative way of passing options.
             """)
 
-    docstring += dedent("""\
+    docstring += textwrap.dedent("""\
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         \n""")
@@ -289,77 +290,94 @@ def generate_function_def(name, cpp_name, func, arity, custom_overrides=None):
     all_params.append(Parameter("memory_pool", Parameter.KEYWORD_ONLY,
                             default=None))
 
-    funcdoc = generate_compute_function_doc(name, func, options_class,
-        custom_overrides)
-    funcdoc = indent(funcdoc, " " * 12, lambda l: l != "\n").strip()
-
+    
     if len(argnames) == 1:
         argstring = f'[{argnames[0]}]'
     else:
         argstring = f"[{', '.join(argnames)}]"
 
     full_signature = inspect.Signature(all_params)
-    if not options_class:
-        # create the expression handling the expression if there is a
-        # regular argument
-        if len(argnames) > 2 or (len(argnames) and not var_argname):
-            expression_clause = f'''\
 
-            if isinstance({argnames[0]}, Expression):
-                return Expression._call('{name}', {argstring})
-            '''
-        else:
-            expression_clause = ""
+    # because we are indeed committing the output to a file that will be linted
+    # we need to wrap lines appropriately, and wrapping/linting requirements
+    # differ based on the type of code we're dealing with. 
+    # Perhaps in review (or in the future) a better way to deal with this issue
+    # will emerge, but in the meantime it means doing a piece-by-piece
+    # analysis. 
 
-        function_text = dedent(f'''\
-        def {name}{full_signature}:
-            """{funcdoc}
-            """
-            func = pyarrow._compute.get_function('{cpp_name}')
-            {expression_clause}
-            return(
-                func.call({argstring}, memory_pool=memory_pool)
-            )
-        ''')
-    else:
+    # --- handle the function name and parameter signature
+
+    function_text = f"def {name}"
+    # now add the parameters, which need to be aligned to the parenthesis
+    # to pass the linter (E128)
+    maxchar = 79 - len(function_text)
+    function_text += textwrap.fill(
+        f"{full_signature}:", 
+        width = maxchar, 
+        subsequent_indent = " "*(len(function_text)+1),
+    )
+
+    # --- handle the documentation for the function
+    
+    # get the full documentation, unindented and not line-limited
+    funcdoc = generate_compute_function_doc(name, func, options_class,
+        custom_overrides)
+    # indent it based on code requirements and wrap based on the linter
+    funcdoc = "\n".join([textwrap.fill(
+        line, 
+        width = 77, 
+        initial_indent = " "*4, 
+        subsequent_indent = " "*8,
+        replace_whitespace = False, 
+        break_long_words = False, 
+        drop_whitespace = True, 
+        break_on_hyphens = False,
+    ) for line in funcdoc.split("\n")]).strip()
+
+    function_text += f'\n    """{funcdoc}\n    """\n\n'
+
+    if options_class:
         # here we need to create the kwargs param substring for the
         # _handle_options function
         if arity is Ellipsis or len(argnames) <= arity:
             option_args = ''
         else:
-            option_args = ', '.join(argnames[arity:]) + ','
+            option_args = ",\n        ".join(argnames[arity:])
+            option_args += ",\n        "
 
-        if len(argnames) > 2 or (len(argnames) and not var_argname):
-            expression_clause = f'''\
+        keyword_options = ",\n        ".join(
+            opt + '=' + opt for opt in option_params
+        ) 
+        function_text += f'''    _computed_options = _handle_options(
+        '{name}',
+        {options_class_name},
+        options,
+        ({option_args}),
+        {keyword_options}\n    )\n'''
 
-            if isinstance({argnames[0]}, Expression):
-                return Expression._call('{name}', {argstring}, options)
-            '''
-        else:
-            expression_clause = ""
 
+    function_text += f"    func = pyarrow._compute.get_function('{cpp_name}')\n"
+    if len(argnames) > 2 or (len(argnames) and not var_argname):
+        # handle the Expression construct
+        function_text += f"\n    if isinstance({argnames[0]}, Expression):\n"\
+            f"        return Expression._call(\n"\
+            f"            '{name}',\n"\
+            f"            {argstring}"
+        if options_class:
+            function_text += ",\n            _computed_options"
+        function_text += "\n        )\n\n"
 
-        function_text = dedent(f'''\
-        def {name}{full_signature}:
-            """{funcdoc}
-            """
+    if options_class:
+        function_text += f"""    return(
+        func.call({argstring}, _computed_options, memory_pool)
+    )"""
+    else:
 
-            options = _handle_options(
-                '{name}',
-                {options_class_name},
-                options,
-                ({option_args}),
-                {', '.join(opt + '=' + opt for opt in option_params)}
-            )
-            func = pyarrow._compute.get_function('{cpp_name}')
-            {expression_clause}
-            return(
-                func.call({argstring}, options, memory_pool)
-            )
-        ''')
+        function_text += f"""    return(
+        func.call({argstring}, memory_pool=memory_pool)
+    )"""
 
     return(function_text)
-
 
 def write_compute_file(output_path):
     """
@@ -400,7 +418,7 @@ def write_compute_file(output_path):
         function_defs.append(function_def)
 
     with open(output_path, 'w') as fh:
-        fh.write(dedent(f"""\
+        fh.write(textwrap.dedent(f"""\
     # File GENERATED by scripts/generate_sources.py - DO NOT EDIT.
     #
     # Licensed to the Apache Software Foundation (ASF) under one
@@ -424,6 +442,7 @@ def write_compute_file(output_path):
     import pyarrow._compute
     from pyarrow._compute import Expression
 
+
     def _handle_options(name, options_class, options, args, **kwargs):
         if options is not None:
             if isinstance(options, dict):
@@ -438,8 +457,8 @@ def write_compute_file(output_path):
             # Note: This check is no longer permissable
             # Generating function code with real signatures means that
             # All of the keyword arguments have default values, and so
-            # this would always be true. As the default for the options object is
-            # always false, the options object takes precedence if provided.
+            # this would always be true. As the default for the options object
+            # is always false, the options object takes precedence if provided.
             #
             # if options is not None:
             #    raise TypeError(
@@ -450,8 +469,8 @@ def write_compute_file(output_path):
             return options_class(*args, **kwargs)
 
         return None
-        """))
-        fh.write("\n\n".join(function_defs))
+        \n\n"""))
+        fh.write("\n\n\n".join(function_defs) + "\n")
     #print("\n\n".join(function_defs))
 
 if __name__ == "__main__":

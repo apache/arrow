@@ -16,7 +16,8 @@
 # under the License.
 
 import pyarrow as pa
-from ._compute_generated import *
+
+from ._compute_generated import *  # noqa
 
 from pyarrow._compute import (  # noqa
     Function,
