@@ -304,12 +304,18 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 		if err != nil {
 			return nil, err
 		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal128 value %v will not fit in new precision %d", newVal, to.Precision)
+		}
 		return NewDecimal128Scalar(newVal, to), nil
 	case arrow.DECIMAL256:
 		to := to.(*arrow.Decimal256Type)
 		newVal, err := decimal256.FromDecimal128(s.Value).Rescale(dt.Scale, to.Scale)
 		if err != nil {
 			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal256 value %v will not fit in new precision %d", newVal, to.Precision)
 		}
 		return NewDecimal256Scalar(newVal, to), nil
 	case arrow.STRING:
@@ -361,6 +367,9 @@ func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
 		newVal, err := s.Value.Rescale(dt.Scale, to.Scale)
 		if err != nil {
 			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal256 value %v will not fit in new precision %d", newVal, to.Precision)
 		}
 		return NewDecimal256Scalar(newVal, to), nil
 	case arrow.STRING:
