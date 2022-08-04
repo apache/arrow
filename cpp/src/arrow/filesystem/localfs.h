@@ -87,6 +87,7 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   /// \endcond
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
+  FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
