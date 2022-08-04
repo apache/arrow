@@ -70,7 +70,7 @@ enum class S3CredentialsKind : int8_t {
 };
 
 /// Pure virtual class for describing custom S3 retry strategies
-class ARROW_EXPORT S3RetryStrategy {
+class S3RetryStrategy {
  public:
   virtual ~S3RetryStrategy() = default;
 
