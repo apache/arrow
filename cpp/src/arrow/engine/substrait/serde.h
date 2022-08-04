@@ -211,9 +211,10 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(
 ///
 /// \param[in] declaration the Arrow compute declaration to serialize
 /// \param[in,out] ext_set the extension mapping to use; may be updated to add
+/// \param[in] conversion_options options to control how the conversion is done
 /// mappings for the components in the used declaration
 /// \return a buffer containing the protobuf serialization of the corresponding Substrait
-/// Relation message
+/// relation message
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
     const compute::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
