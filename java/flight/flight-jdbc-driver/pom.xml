@@ -195,8 +195,9 @@
                                     <pattern>org.</pattern>
                                     <shadedPattern>cfjd.org.</shadedPattern>
                                     <excludes>
-                                        <exclude>org.apache.arrow.driver.jdbc.**</exclude>
+                                        <exclude>org.apache.arrow.**</exclude>
                                         <exclude>org.slf4j.**</exclude>
+                                        <exclude>org.apache.calcite.**</exclude>
                                         <!-- Avoid shading Flight JDBC Properties -->
                                         <exclude>org.apache.arrow.flight.name</exclude>
                                         <exclude>org.apache.arrow.flight.version</exclude>

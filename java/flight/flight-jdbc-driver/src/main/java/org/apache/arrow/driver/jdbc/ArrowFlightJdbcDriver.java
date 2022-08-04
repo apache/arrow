@@ -245,9 +245,10 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     resultMap.put(ArrowFlightConnectionProperty.PORT.camelName(), uri.getPort()); // port
 
     final String extraParams = uri.getRawQuery(); // optional params
-
-    final Map<String, String> keyValuePairs = UrlParser.parse(extraParams, "&");
-    resultMap.putAll(keyValuePairs);
+    if(extraParams != null) {
+      final Map<String, String> keyValuePairs = UrlParser.parse(extraParams, "&");
+      resultMap.putAll(keyValuePairs);
+    }
 
     return resultMap;
   }

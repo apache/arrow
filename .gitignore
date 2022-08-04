@@ -87,3 +87,6 @@ cpp/Brewfile.lock.json
 java-dist/
 java-native-c/
 java-native-cpp/
+
+# files altered by build
+java/flight/flight-jdbc-driver/src/main/resources/properties/flight.properties
