@@ -2010,7 +2010,7 @@ TEST(Substrait, BasicPlanRoundTrippingEndToEnd) {
   ASSERT_OK_AND_ASSIGN(auto tempdir,
                        arrow::internal::TemporaryDir::Make("substrait_tempdir"));
   ASSERT_OK_AND_ASSIGN(auto file_path, tempdir->path().Join(file_name));
-  std::string file_path_str = file_path.ToString();
+  std::string file_path_str = file_path.ToNative();
 
   // Note: there is an additional forward slash introduced by the tempdir
   // it must be replaced to properly load into reading files
