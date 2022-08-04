@@ -28,8 +28,14 @@ int64_t GetPhysicalOffset(const ArraySpan& span) {
 
 int64_t GetPhysicalLength(const ArraySpan& span) {
   // TODO: caching
-  return FindPhysicalOffset(RunEnds(span) + GetPhysicalOffset(span),
-                            RunEndsArray(span).length, span.offset);
+  if (span.length == 0) {
+    return 0;
+  } else {
+    // find the offset of the last element and add 1
+    return FindPhysicalOffset(RunEnds(span) + GetPhysicalOffset(span),
+                              RunEndsArray(span).length, span.offset + span.length - 1) +
+           1;
+  }
 }
 
 }  // namespace rle_util
