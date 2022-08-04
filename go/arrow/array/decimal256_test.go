@@ -77,7 +77,9 @@ func TestNewDecimal256Builder(t *testing.T) {
 
 	assert.Equal(t, want, a.Values(), "unexpected Decimal256Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
+	assert.Equal(t, 4, a.Data().Buffers()[0].Len(), "should be 4 bytes due to minBuilderCapacity")
 	assert.Len(t, a.Values(), 10, "unexpected length of Decimal256Values")
+	assert.Equal(t, 10*arrow.Decimal256SizeBytes, a.Data().Buffers()[1].Len())
 
 	a.Release()
 	ab.Append(decimal256.FromI64(7))
@@ -86,8 +88,10 @@ func TestNewDecimal256Builder(t *testing.T) {
 	a = ab.NewDecimal256Array()
 
 	assert.Equal(t, 0, a.NullN())
+	assert.Equal(t, 4, a.Data().Buffers()[0].Len(), "should be 4 bytes due to minBuilderCapacity")
 	assert.Equal(t, []decimal256.Num{decimal256.FromI64(7), decimal256.FromI64(8)}, a.Values())
 	assert.Len(t, a.Values(), 2)
+	assert.Equal(t, 2*arrow.Decimal256SizeBytes, a.Data().Buffers()[1].Len())
 
 	a.Release()
 }

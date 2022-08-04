@@ -85,56 +85,7 @@ func (n Num) Negate() Num {
 }
 
 func FromFloat32(v float32, prec, scale int32) (Num, error) {
-	debug.Assert(prec > 0 && prec <= 76, "invalid precision for converting to decimal256")
-
-	if math.IsInf(float64(v), 0) {
-		return Num{}, fmt.Errorf("cannot convert %f to decimal256", v)
-	}
-
-	if v < 0 {
-		dec, err := fromPositiveFloat32(-v, prec, scale)
-		if err != nil {
-			return dec, err
-		}
-		return dec.Negate(), nil
-	}
-	return fromPositiveFloat32(v, prec, scale)
-}
-
-func fromPositiveFloat32(v float32, prec, scale int32) (Num, error) {
-	var pscale float32
-	if scale >= -76 && scale <= 76 {
-		pscale = float32PowersOfTen[scale+76]
-	} else {
-		pscale = float32(math.Pow10(int(scale)))
-	}
-
-	v *= pscale
-	v = float32(math.RoundToEven(float64(v)))
-	maxabs := float32PowersOfTen[prec+76]
-	if v <= -maxabs || v >= maxabs {
-		return Num{}, fmt.Errorf("cannot convert %f to decimal256(precision=%d, scale=%d): overflow",
-			v, prec, scale)
-	}
-
-	var arr [4]float32
-	arr[3] = float32(math.Floor(math.Ldexp(float64(v), -192)))
-	v -= float32(math.Ldexp(float64(arr[3]), 192))
-	arr[2] = float32(math.Floor(math.Ldexp(float64(v), -128)))
-	v -= float32(math.Ldexp(float64(arr[2]), 128))
-	arr[1] = float32(math.Floor(math.Ldexp(float64(v), -64)))
-	v -= float32(math.Ldexp(float64(arr[1]), 64))
-	arr[0] = v
-
-	debug.Assert(arr[3] >= 0, "bad conversion float64 to decimal256")
-	debug.Assert(arr[3] < 1.8446744e+19, "bad conversion float32 to decimal256") // 2**64
-	debug.Assert(arr[2] >= 0, "bad conversion float64 to decimal256")
-	debug.Assert(arr[2] < 1.8446744e+19, "bad conversion float32 to decimal256") // 2**64
-	debug.Assert(arr[1] >= 0, "bad conversion float64 to decimal256")
-	debug.Assert(arr[1] < 1.8446744e+19, "bad conversion float32 to decimal256") // 2**64
-	debug.Assert(arr[0] >= 0, "bad conversion float64 to decimal256")
-	debug.Assert(arr[0] < 1.8446744e+19, "bad conversion float32 to decimal256") // 2**64
-	return Num{[4]uint64{uint64(arr[0]), uint64(arr[1]), uint64(arr[2]), uint64(arr[3])}}, nil
+	return FromFloat64(float64(v), prec, scale)
 }
 
 func FromFloat64(v float64, prec, scale int32) (Num, error) {
@@ -190,20 +141,6 @@ func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 	return Num{[4]uint64{uint64(arr[0]), uint64(arr[1]), uint64(arr[2]), uint64(arr[3])}}, nil
 }
 
-func (n Num) tofloat32Positive(scale int32) float32 {
-	const twoTo64 float32 = 1.8446744e+19
-	if n.arr[3] != 0 || n.arr[2] != 0 {
-		return floatInf
-	}
-	x := float32(n.arr[1]) * twoTo64
-	x += float32(n.arr[0])
-	if scale >= -76 && scale <= 76 {
-		return x * float32PowersOfTen[-scale+76]
-	}
-
-	return x * float32(math.Pow10(-int(scale)))
-}
-
 func (n Num) tofloat64Positive(scale int32) float64 {
 	const (
 		twoTo64  float64 = 1.8446744073709552e+19
@@ -223,12 +160,7 @@ func (n Num) tofloat64Positive(scale int32) float64 {
 	return x * math.Pow10(-int(scale))
 }
 
-func (n Num) ToFloat32(scale int32) float32 {
-	if n.Sign() < 0 {
-		return -n.Negate().tofloat32Positive(scale)
-	}
-	return n.tofloat32Positive(scale)
-}
+func (n Num) ToFloat32(scale int32) float32 { return float32(n.ToFloat64(scale)) }
 
 func (n Num) ToFloat64(scale int32) float64 {
 	if n.Sign() < 0 {
@@ -246,7 +178,7 @@ func (n Num) Sign() int {
 
 func FromBigInt(v *big.Int) (n Num) {
 	bitlen := v.BitLen()
-	if bitlen > 256 {
+	if bitlen > 255 {
 		panic("arrow/decimal256: cannot represent value larger than 256bits")
 	} else if bitlen == 0 {
 		return
@@ -526,31 +458,6 @@ var (
 		New(796545955566226138, 9489746690038731964, 13527356396454709248, 0),
 	}
 
-	floatInf           = float32(math.Inf(0))
-	float32PowersOfTen = [...]float32{
-		0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 1e-45, 1e-44, 1e-43, 1e-42,
-		1e-41, 1e-40, 1e-39, 1e-38, 1e-37, 1e-36, 1e-35,
-		1e-34, 1e-33, 1e-32, 1e-31, 1e-30, 1e-29, 1e-28,
-		1e-27, 1e-26, 1e-25, 1e-24, 1e-23, 1e-22, 1e-21,
-		1e-20, 1e-19, 1e-18, 1e-17, 1e-16, 1e-15, 1e-14,
-		1e-13, 1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7,
-		1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0,
-		1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7,
-		1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14,
-		1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21,
-		1e22, 1e23, 1e24, 1e25, 1e26, 1e27, 1e28,
-		1e29, 1e30, 1e31, 1e32, 1e33, 1e34, 1e35,
-		1e36, 1e37, 1e38, floatInf, floatInf, floatInf, floatInf,
-		floatInf, floatInf, floatInf, floatInf, floatInf, floatInf, floatInf,
-		floatInf, floatInf, floatInf, floatInf, floatInf, floatInf, floatInf,
-		floatInf, floatInf, floatInf, floatInf, floatInf, floatInf, floatInf,
-		floatInf, floatInf, floatInf, floatInf, floatInf, floatInf, floatInf,
-		floatInf, floatInf, floatInf, floatInf, floatInf, floatInf,
-	}
 	float64PowersOfTen = [...]float64{
 		1e-76, 1e-75, 1e-74, 1e-73, 1e-72, 1e-71, 1e-70, 1e-69, 1e-68, 1e-67, 1e-66, 1e-65,
 		1e-64, 1e-63, 1e-62, 1e-61, 1e-60, 1e-59, 1e-58, 1e-57, 1e-56, 1e-55, 1e-54, 1e-53,

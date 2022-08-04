@@ -295,11 +295,23 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 		return MakeNullScalar(to), nil
 	}
 
+	dt := s.Type.(*arrow.Decimal128Type)
+
 	switch to.ID() {
 	case arrow.DECIMAL128:
-		return NewDecimal128Scalar(s.Value, to), nil
+		to := to.(*arrow.Decimal128Type)
+		newVal, err := s.Value.Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal128Scalar(newVal, to), nil
 	case arrow.DECIMAL256:
-		return NewDecimal256Scalar(decimal256.FromDecimal128(s.Value), to), nil
+		to := to.(*arrow.Decimal256Type)
+		newVal, err := decimal256.FromDecimal128(s.Value).Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal256Scalar(newVal, to), nil
 	case arrow.STRING:
 		dt := s.Type.(*arrow.Decimal128Type)
 		scale := big.NewFloat(math.Pow10(int(dt.Scale)))
@@ -341,11 +353,17 @@ func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
 		return MakeNullScalar(to), nil
 	}
 
+	dt := s.Type.(*arrow.Decimal256Type)
+
 	switch to.ID() {
 	case arrow.DECIMAL256:
-		return NewDecimal256Scalar(s.Value, to), nil
+		to := to.(*arrow.Decimal256Type)
+		newVal, err := s.Value.Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal256Scalar(newVal, to), nil
 	case arrow.STRING:
-		dt := s.Type.(*arrow.Decimal256Type)
 		scale := big.NewFloat(math.Pow10(int(dt.Scale)))
 		val := (&big.Float{}).SetInt(s.Value.BigInt())
 		return NewStringScalar(val.Quo(val, scale).Text('g', int(dt.Precision))), nil
@@ -852,6 +870,15 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			binary.Write(&h, endian.Native, v.LowBits())
 			hash()
 			binary.Write(&h, endian.Native, uint64(v.HighBits()))
+		case decimal256.Num:
+			arr := v.Array()
+			binary.Write(&h, endian.Native, arr[3])
+			hash()
+			binary.Write(&h, endian.Native, arr[2])
+			hash()
+			binary.Write(&h, endian.Native, arr[1])
+			hash()
+			binary.Write(&h, endian.Native, arr[0])
 		}
 		hash()
 		return out
