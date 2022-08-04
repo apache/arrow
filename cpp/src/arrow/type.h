@@ -1223,8 +1223,8 @@ class ARROW_EXPORT RunLengthEncodedType : public NestedType, public EncodingType
   explicit RunLengthEncodedType(std::shared_ptr<DataType> encoded_type);
 
   DataTypeLayout layout() const override {
-    // always add one that is NULLPTR to make code, since existing code may assume there is at least
-    // one buffer
+    // always add one that is NULLPTR to make code, since existing code may assume there
+    // is at least one buffer
     return DataTypeLayout({DataTypeLayout::AlwaysNull()});
   }
 
