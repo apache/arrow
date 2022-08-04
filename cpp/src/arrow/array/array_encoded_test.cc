@@ -52,6 +52,7 @@ TEST(RunLengthEncodedArray, MakeArray) {
   ASSERT_ARRAYS_EQUAL(*new_array, *rle_array);
   // should be the exact same ArrayData object
   ASSERT_EQ(new_array->data(), array_data);
+  ASSERT_NE(std::dynamic_pointer_cast<RunLengthEncodedArray>(new_array), NULLPTR);
 }
 
 TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
@@ -64,6 +65,8 @@ TEST(RunLengthEncodedArray, FromRunEndsAndValues) {
   ASSERT_ARRAYS_EQUAL(*rle_array->run_ends_array(), *int32_values);
   ASSERT_EQ(rle_array->offset(), 0);
   ASSERT_EQ(rle_array->data()->null_count, 0);
+  // one dummy buffer, since code may assume there is exactly one buffer
+  ASSERT_EQ(rle_array->data()->buffers.size(), 1);
 
   // explicitly passing offset
   ASSERT_OK_AND_ASSIGN(rle_array,
