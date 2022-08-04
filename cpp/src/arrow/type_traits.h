@@ -384,7 +384,7 @@ struct TypeTraits<LargeStringType> {
 template <>
 struct TypeTraits<RunLengthEncodedType> {
   using ArrayType = RunLengthEncodedArray;
-  // TODO: using BuilderType = RunLengthEncodedBuilder;
+  using BuilderType = RunLengthEncodedBuilder;
 
   constexpr static bool is_parameter_free = false;
 };
