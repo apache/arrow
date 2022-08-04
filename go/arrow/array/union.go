@@ -44,7 +44,7 @@ type Union interface {
 	// or types of the children arrays mismatching with the Type of the
 	// Union Array. nil is returned if there are no problems.
 	Validate() error
-	// ValidateFull runs the same checks that Validate() does, but additionall
+	// ValidateFull runs the same checks that Validate() does, but additionally
 	// checks that all childIDs are valid (>= 0 || ==InvalidID) and for
 	// dense unions validates that all offsets are within the bounds of their
 	// respective child.
