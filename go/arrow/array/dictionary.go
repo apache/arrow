@@ -25,14 +25,14 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/internal/hashing"
-	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/hashing"
+	"github.com/apache/arrow/go/v10/internal/utils"
 	"github.com/goccy/go-json"
 )
 

@@ -22,7 +22,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 var (

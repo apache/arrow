@@ -22,9 +22,15 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/goccy/go-json"
 )
+
+type BinaryLike interface {
+	arrow.Array
+	ValueBytes() []byte
+	ValueOffset64(int) int64
+}
 
 // A type which represents an immutable sequence of variable-length binary strings.
 type Binary struct {
@@ -62,6 +68,10 @@ func (a *Binary) ValueOffset(i int) int {
 		panic("arrow/array: index out of range")
 	}
 	return int(a.valueOffsets[a.array.data.offset+i])
+}
+
+func (a *Binary) ValueOffset64(i int) int64 {
+	return int64(a.ValueOffset(i))
 }
 
 func (a *Binary) ValueLen(i int) int {
@@ -191,6 +201,10 @@ func (a *LargeBinary) ValueOffset(i int) int64 {
 		panic("arrow/array: index out of range")
 	}
 	return a.valueOffsets[a.array.data.offset+i]
+}
+
+func (a *LargeBinary) ValueOffset64(i int) int64 {
+	return a.ValueOffset(i)
 }
 
 func (a *LargeBinary) ValueLen(i int) int {

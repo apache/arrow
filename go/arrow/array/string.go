@@ -23,8 +23,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -60,6 +60,10 @@ func (a *String) ValueOffset(i int) int {
 		panic("arrow/array: index out of range")
 	}
 	return int(a.offsets[i+a.array.data.offset])
+}
+
+func (a *String) ValueOffset64(i int) int64 {
+	return int64(a.ValueOffset(i))
 }
 
 func (a *String) ValueOffsets() []int32 {
@@ -191,6 +195,10 @@ func (a *LargeString) ValueOffset(i int) int64 {
 		panic("arrow/array: index out of range")
 	}
 	return a.offsets[i+a.array.data.offset]
+}
+
+func (a *LargeString) ValueOffset64(i int) int64 {
+	return a.ValueOffset(i)
 }
 
 func (a *LargeString) ValueOffsets() []int64 {

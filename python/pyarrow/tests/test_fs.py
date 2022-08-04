@@ -1131,6 +1131,15 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(request_timeout=0.5, connect_timeout=0.25)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(request_timeout=0.25, connect_timeout=0.5)
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):

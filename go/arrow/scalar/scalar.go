@@ -26,14 +26,14 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/endian"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/endian"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -445,9 +445,9 @@ func init() {
 		arrow.SPARSE_UNION:            unsupportedScalarType,
 		arrow.DENSE_UNION:             unsupportedScalarType,
 		arrow.DICTIONARY:              func(dt arrow.DataType) Scalar { return NewNullDictScalar(dt) },
-		arrow.LARGE_STRING:            unsupportedScalarType,
-		arrow.LARGE_BINARY:            unsupportedScalarType,
-		arrow.LARGE_LIST:              unsupportedScalarType,
+		arrow.LARGE_STRING:            func(dt arrow.DataType) Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
+		arrow.LARGE_BINARY:            func(dt arrow.DataType) Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
+		arrow.LARGE_LIST:              func(dt arrow.DataType) Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
 		arrow.DECIMAL256:              unsupportedScalarType,
 		arrow.MAP:                     func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
 		arrow.EXTENSION:               func(dt arrow.DataType) Scalar { return &Extension{scalar: scalar{dt, false}} },

@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -303,6 +303,8 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		typ := dtype.(*arrow.DictionaryType)
 		return NewDictionaryBuilder(mem, typ)
 	case arrow.LARGE_LIST:
+		typ := dtype.(*arrow.LargeListType)
+		return NewLargeListBuilder(mem, typ.Elem())
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)

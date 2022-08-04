@@ -152,6 +152,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
+        double connect_timeout
+        double request_timeout
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
