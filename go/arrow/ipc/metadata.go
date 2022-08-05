@@ -285,6 +285,15 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.DecimalStart(fv.b)
 		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
 		flatbuf.DecimalAddScale(fv.b, dt.Scale)
+		flatbuf.DecimalAddBitWidth(fv.b, 128)
+		fv.offset = flatbuf.DecimalEnd(fv.b)
+
+	case *arrow.Decimal256Type:
+		fv.dtype = flatbuf.TypeDecimal
+		flatbuf.DecimalStart(fv.b)
+		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
+		flatbuf.DecimalAddScale(fv.b, dt.Scale)
+		flatbuf.DecimalAddBitWidth(fv.b, 256)
 		fv.offset = flatbuf.DecimalEnd(fv.b)
 
 	case *arrow.FixedSizeBinaryType:
@@ -809,7 +818,14 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 }
 
 func decimalFromFB(data flatbuf.Decimal) (arrow.DataType, error) {
-	return &arrow.Decimal128Type{Precision: data.Precision(), Scale: data.Scale()}, nil
+	switch data.BitWidth() {
+	case 128:
+		return &arrow.Decimal128Type{Precision: data.Precision(), Scale: data.Scale()}, nil
+	case 256:
+		return &arrow.Decimal256Type{Precision: data.Precision(), Scale: data.Scale()}, nil
+	default:
+		return nil, fmt.Errorf("arrow/ipc: invalid decimal bitwidth: %d", data.BitWidth())
+	}
 }
 
 func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {

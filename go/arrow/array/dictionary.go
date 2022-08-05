@@ -382,7 +382,7 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 		ret = hashing.NewFloat32MemoTable(0)
 	case arrow.FLOAT64:
 		ret = hashing.NewFloat64MemoTable(0)
-	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
+	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.DECIMAL256, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary))
 	case arrow.STRING:
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String))
@@ -620,6 +620,13 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.DECIMAL256:
+		ret := &Decimal256DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Decimal256)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.LIST:
 	case arrow.STRUCT:
 	case arrow.SPARSE_UNION:
@@ -1238,6 +1245,24 @@ func (b *Decimal128DictionaryBuilder) InsertDictValues(arr *Decimal128) (err err
 			break
 		}
 		data = data[arrow.Decimal128SizeBytes:]
+	}
+	return
+}
+
+type Decimal256DictionaryBuilder struct {
+	dictionaryBuilder
+}
+
+func (b *Decimal256DictionaryBuilder) Append(v decimal128.Num) error {
+	return b.appendValue((*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&v)))[:])
+}
+func (b *Decimal256DictionaryBuilder) InsertDictValues(arr *Decimal256) (err error) {
+	data := arrow.Decimal256Traits.CastToBytes(arr.values)
+	for len(data) > 0 {
+		if err = b.insertDictValue(data[:arrow.Decimal256SizeBytes]); err != nil {
+			break
+		}
+		data = data[arrow.Decimal256SizeBytes:]
 	}
 	return
 }

@@ -82,6 +82,19 @@ func swapType(dt arrow.DataType, data *array.Data) (err error) {
 			rawdata[idx] = bits.ReverseBytes64(rawdata[idx+1])
 			rawdata[idx+1] = tmp
 		}
+	case *arrow.Decimal256Type:
+		rawdata := arrow.Uint64Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		length := data.Buffers()[1].Len() / arrow.Decimal256SizeBytes
+		for i := 0; i < length; i++ {
+			idx := i * 4
+			tmp0 := bits.ReverseBytes64(rawdata[idx])
+			tmp1 := bits.ReverseBytes64(rawdata[idx+1])
+			tmp2 := bits.ReverseBytes64(rawdata[idx+2])
+			rawdata[idx] = bits.ReverseBytes64(rawdata[idx+3])
+			rawdata[idx+1] = tmp2
+			rawdata[idx+2] = tmp1
+			rawdata[idx+3] = tmp0
+		}
 	case *arrow.ListType:
 		swapOffsets(1, 32, data)
 	case *arrow.LargeListType:

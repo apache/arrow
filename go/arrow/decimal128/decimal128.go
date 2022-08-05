@@ -67,7 +67,7 @@ func FromI64(v int64) Num {
 // BitLen > 128, this will panic.
 func FromBigInt(v *big.Int) (n Num) {
 	bitlen := v.BitLen()
-	if bitlen > 128 {
+	if bitlen > 127 {
 		panic("arrow/decimal128: cannot represent value larger than 128bits")
 	} else if bitlen == 0 {
 		// if bitlen is 0, then the value is 0 so return the default zeroed
@@ -101,26 +101,6 @@ func (n Num) Negate() Num {
 	return n
 }
 
-func fromPositiveFloat32(v float32, prec, scale int32) (Num, error) {
-	var pscale float32
-	if scale >= -38 && scale <= 38 {
-		pscale = float32PowersOfTen[scale+38]
-	} else {
-		pscale = float32(math.Pow10(int(scale)))
-	}
-
-	v *= pscale
-	v = float32(math.RoundToEven(float64(v)))
-	maxabs := float32PowersOfTen[prec+38]
-	if v <= -maxabs || v >= maxabs {
-		return Num{}, fmt.Errorf("cannot convert %f to decimal128(precision=%d, scale=%d): overflow", v, prec, scale)
-	}
-
-	hi := float32(math.Floor(math.Ldexp(float64(v), -64)))
-	low := v - float32(math.Ldexp(float64(hi), 64))
-	return Num{hi: int64(hi), lo: uint64(low)}, nil
-}
-
 func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 	var pscale float64
 	if scale >= -38 && scale <= 38 {
@@ -145,14 +125,7 @@ func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 // value using the provided precision and scale. Will return an error if the
 // value cannot be accurately represented with the desired precision and scale.
 func FromFloat32(v float32, prec, scale int32) (Num, error) {
-	if v < 0 {
-		dec, err := fromPositiveFloat32(-v, prec, scale)
-		if err != nil {
-			return dec, err
-		}
-		return dec.Negate(), nil
-	}
-	return fromPositiveFloat32(v, prec, scale)
+	return FromFloat64(float64(v), prec, scale)
 }
 
 // FromFloat64 returns a new decimal128.Num constructed from the given float64
@@ -169,25 +142,10 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 	return fromPositiveFloat64(v, prec, scale)
 }
 
-func (n Num) tofloat32Positive(scale int32) float32 {
-	const twoTo64 float32 = 1.8446744e+19
-	x := float32(n.hi) * twoTo64
-	x += float32(n.lo)
-	if scale >= -38 && scale <= 38 {
-		x *= float32PowersOfTen[-scale+38]
-	} else {
-		x *= float32(math.Pow10(-int(scale)))
-	}
-	return x
-}
-
 // ToFloat32 returns a float32 value representative of this decimal128.Num,
 // but with the given scale.
 func (n Num) ToFloat32(scale int32) float32 {
-	if n.hi < 0 {
-		return -n.Negate().tofloat32Positive(scale)
-	}
-	return n.tofloat32Positive(scale)
+	return float32(n.ToFloat64(scale))
 }
 
 func (n Num) tofloat64Positive(scale int32) float64 {
@@ -195,11 +153,10 @@ func (n Num) tofloat64Positive(scale int32) float64 {
 	x := float64(n.hi) * twoTo64
 	x += float64(n.lo)
 	if scale >= -38 && scale <= 38 {
-		x *= float64PowersOfTen[-scale+38]
-	} else {
-		x *= math.Pow10(-int(scale))
+		return x * float64PowersOfTen[-scale+38]
 	}
-	return x
+
+	return x * math.Pow10(-int(scale))
 }
 
 // ToFloat64 returns a float64 value representative of this decimal128.Num,
@@ -429,17 +386,6 @@ var (
 		New(27105054312137610, 15683169460410122240),
 		New(271050543121376108, 9257742014424809472),
 		New(2710505431213761085, 343699775700336640),
-	}
-
-	float32PowersOfTen = [...]float32{
-		1e-38, 1e-37, 1e-36, 1e-35, 1e-34, 1e-33, 1e-32, 1e-31, 1e-30, 1e-29,
-		1e-28, 1e-27, 1e-26, 1e-25, 1e-24, 1e-23, 1e-22, 1e-21, 1e-20, 1e-19,
-		1e-18, 1e-17, 1e-16, 1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10, 1e-9,
-		1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1,
-		1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
-		1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21,
-		1e22, 1e23, 1e24, 1e25, 1e26, 1e27, 1e28, 1e29, 1e30, 1e31,
-		1e32, 1e33, 1e34, 1e35, 1e36, 1e37, 1e38,
 	}
 
 	float64PowersOfTen = [...]float64{

@@ -74,6 +74,7 @@ func TestMakeFromData(t *testing.T) {
 		{name: "month_interval", d: arrow.FixedWidthTypes.MonthInterval},
 		{name: "day_time_interval", d: arrow.FixedWidthTypes.DayTimeInterval},
 		{name: "decimal128", d: &testDataType{arrow.DECIMAL128}},
+		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}},
 		{name: "month_day_nano_interval", d: arrow.FixedWidthTypes.MonthDayNanoInterval},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []arrow.ArrayData{
@@ -121,9 +122,6 @@ func TestMakeFromData(t *testing.T) {
 
 		{name: "extension", d: &testDataType{arrow.EXTENSION}, expPanic: true, expError: "arrow/array: DataType for ExtensionArray must implement arrow.ExtensionType"},
 		{name: "extension", d: types.NewUUIDType()},
-
-		// unsupported types
-		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}, expPanic: true, expError: "unsupported data type: DECIMAL256"},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},

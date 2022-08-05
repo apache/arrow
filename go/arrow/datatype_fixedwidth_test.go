@@ -69,6 +69,33 @@ func TestDecimal128Type(t *testing.T) {
 	}
 }
 
+func TestDecimal256Type(t *testing.T) {
+	for _, tc := range []struct {
+		precision int32
+		scale     int32
+		want      string
+	}{
+		{1, 10, "decimal256(1, 10)"},
+		{10, 10, "decimal256(10, 10)"},
+		{10, 1, "decimal256(10, 1)"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			dt := arrow.Decimal256Type{Precision: tc.precision, Scale: tc.scale}
+			if got, want := dt.BitWidth(), 256; got != want {
+				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
+			}
+
+			if got, want := dt.ID(), arrow.DECIMAL256; got != want {
+				t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
+			}
+
+			if got, want := dt.String(), tc.want; got != want {
+				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
+			}
+		})
+	}
+}
+
 func TestFixedSizeBinaryType(t *testing.T) {
 	for _, tc := range []struct {
 		byteWidth int

@@ -299,6 +299,9 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 			return NewDecimal128Builder(mem, typ)
 		}
 	case arrow.DECIMAL256:
+		if typ, ok := dtype.(*arrow.Decimal256Type); ok {
+			return NewDecimal256Builder(mem, typ)
+		}
 	case arrow.LIST:
 		typ := dtype.(*arrow.ListType)
 		return NewListBuilder(mem, typ.Elem())

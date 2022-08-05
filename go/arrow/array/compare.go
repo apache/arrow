@@ -276,6 +276,9 @@ func Equal(left, right arrow.Array) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -531,6 +534,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
