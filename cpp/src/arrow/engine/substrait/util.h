@@ -27,8 +27,6 @@ namespace arrow {
 
 namespace engine {
 
-namespace substrait {
-
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR,
@@ -44,8 +42,6 @@ ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
 ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
 
 ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri();
-
-}  // namespace substrait
 
 }  // namespace engine
 

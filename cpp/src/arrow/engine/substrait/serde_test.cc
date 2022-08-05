@@ -701,7 +701,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
                                R"("
       },
       {
@@ -725,7 +725,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
 })";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_OK_AND_ASSIGN(auto sink_decls,
@@ -749,7 +749,7 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
@@ -764,7 +764,7 @@ TEST(Substrait, ExtensionSetFromPlanMissingFunc) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
@@ -790,7 +790,7 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
@@ -805,7 +805,7 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(
@@ -827,7 +827,7 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
     "extension_uris": [
       {
         "extension_uri_anchor": 7,
-        "uri": ")" + substrait::default_extension_types_uri() +
+        "uri": ")" + default_extension_types_uri() +
                                R"("
       }
     ],
@@ -841,7 +841,7 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   })";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
-  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  auto sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
   // invalid before registration
   ExtensionSet ext_set_invalid(ext_id_reg);
@@ -849,7 +849,7 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
                 DeserializePlans(
                     *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set_invalid));
   ASSERT_OK(ext_id_reg->AddSubstraitCallToArrow(
-      {substrait::default_extension_types_uri(), "new_func"}, "multiply"));
+      {default_extension_types_uri(), "new_func"}, "multiply"));
   // valid after registration
   ExtensionSet ext_set_valid(ext_id_reg);
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
@@ -903,7 +903,7 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations,
                        DeserializePlans(*buf, NullSinkNodeConsumer::Make));
   ASSERT_EQ(declarations.size(), 1);
@@ -926,7 +926,7 @@ TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
   GTEST_SKIP() << "ARROW-16392: Substrait File URI not supported for Windows";
 #else
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
                        DeserializePlan(*buf, NullSinkNodeConsumer::Make()));
   ASSERT_EQ(1, plan->sinks().size());
@@ -963,7 +963,7 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
     return std::make_shared<dataset::WriteNodeOptions>(options);
   };
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
-  ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
+  ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations, DeserializePlans(*buf, write_options_factory));
   ASSERT_EQ(declarations.size(), 1);
   compute::Declaration* decl = &declarations[0];
@@ -987,7 +987,7 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
 static void test_with_registries(
     std::function<void(ExtensionIdRegistry*, compute::FunctionRegistry*)> test) {
   auto default_func_reg = compute::GetFunctionRegistry();
-  auto nested_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  auto nested_ext_id_reg = MakeExtensionIdRegistry();
   auto nested_func_reg = compute::FunctionRegistry::Make(default_func_reg);
   test(nullptr, default_func_reg);
   test(nullptr, nested_func_reg.get());
@@ -1002,8 +1002,8 @@ TEST(Substrait, GetRecordBatchReader) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
-    ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
-    ASSERT_OK_AND_ASSIGN(auto reader, substrait::ExecuteSerializedPlan(*buf));
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+    ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
     // in case of a test failure, re-evalaute the content in the file
@@ -1019,8 +1019,8 @@ TEST(Substrait, InvalidPlan) {
   })";
   test_with_registries([&substrait_json](ExtensionIdRegistry* ext_id_reg,
                                          compute::FunctionRegistry* func_registry) {
-    ASSERT_OK_AND_ASSIGN(auto buf, substrait::SerializeJsonPlan(substrait_json));
-    ASSERT_RAISES(Invalid, substrait::ExecuteSerializedPlan(*buf));
+    ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
+    ASSERT_RAISES(Invalid, ExecuteSerializedPlan(*buf));
   });
 }
 
@@ -1131,7 +1131,7 @@ TEST(Substrait, JoinPlanBasic) {
   })";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_OK_AND_ASSIGN(auto sink_decls,
@@ -1274,7 +1274,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
   })";
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
@@ -1342,7 +1342,7 @@ TEST(Substrait, JoinPlanInvalidExpression) {
   }]
   })"));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
@@ -1415,7 +1415,7 @@ TEST(Substrait, JoinPlanInvalidKeys) {
   }]
   })"));
   for (auto sp_ext_id_reg :
-       {std::shared_ptr<ExtensionIdRegistry>(), substrait::MakeExtensionIdRegistry()}) {
+       {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
     ASSERT_RAISES(Invalid, DeserializePlans(
@@ -1501,7 +1501,7 @@ TEST(Substrait, AggregateBasic) {
     }],
   })"));
 
-  auto sp_ext_id_reg = substrait::MakeExtensionIdRegistry();
+  auto sp_ext_id_reg = MakeExtensionIdRegistry();
   ASSERT_OK_AND_ASSIGN(auto sink_decls,
                        DeserializePlans(*buf, [] { return kNullConsumer; }));
   auto agg_decl = sink_decls[0].inputs[0];

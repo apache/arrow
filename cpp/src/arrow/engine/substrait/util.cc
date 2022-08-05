@@ -23,8 +23,6 @@ namespace arrow {
 
 namespace engine {
 
-namespace substrait {
-
 namespace {
 
 /// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
@@ -140,8 +138,6 @@ const std::string& default_extension_types_uri() {
   static std::string uri = engine::kArrowExtTypesUri.to_string();
   return uri;
 }
-
-}  // namespace substrait
 
 }  // namespace engine
 

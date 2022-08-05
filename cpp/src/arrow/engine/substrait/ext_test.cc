@@ -56,7 +56,7 @@ struct DefaultExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
 
 struct NestedExtensionIdRegistryProvider : public ExtensionIdRegistryProvider {
   virtual ~NestedExtensionIdRegistryProvider() {}
-  std::shared_ptr<ExtensionIdRegistry> registry_ = substrait::MakeExtensionIdRegistry();
+  std::shared_ptr<ExtensionIdRegistry> registry_ = MakeExtensionIdRegistry();
   ExtensionIdRegistry* get() const override { return &*registry_; }
 };
 
@@ -187,7 +187,7 @@ TEST(ExtensionIdRegistryTest, RegisterTempTypes) {
   auto default_registry = default_extension_id_registry();
   constexpr int rounds = 3;
   for (int i = 0; i < rounds; i++) {
-    auto registry = substrait::MakeExtensionIdRegistry();
+    auto registry = MakeExtensionIdRegistry();
 
     for (TypeName e : kTempTypeNames) {
       auto id = Id{kArrowExtTypesUri, e.name};
@@ -204,7 +204,7 @@ TEST(ExtensionIdRegistryTest, RegisterTempFunctions) {
   auto default_registry = default_extension_id_registry();
   constexpr int rounds = 3;
   for (int i = 0; i < rounds; i++) {
-    auto registry = substrait::MakeExtensionIdRegistry();
+    auto registry = MakeExtensionIdRegistry();
 
     for (util::string_view name : kTempFunctionNames) {
       auto id = Id{kArrowExtTypesUri, name};
@@ -256,13 +256,13 @@ TEST(ExtensionIdRegistryTest, RegisterNestedFunctions) {
   auto default_registry = default_extension_id_registry();
   constexpr int rounds = 3;
   for (int i = 0; i < rounds; i++) {
-    auto registry1 = substrait::MakeExtensionIdRegistry();
+    auto registry1 = MakeExtensionIdRegistry();
 
     ASSERT_OK(registry1->CanAddSubstraitCallToArrow(id1));
     ASSERT_OK(registry1->AddSubstraitCallToArrow(id1, name1.to_string()));
 
     for (int j = 0; j < rounds; j++) {
-      auto registry2 = substrait::MakeExtensionIdRegistry();
+      auto registry2 = MakeExtensionIdRegistry();
 
       ASSERT_OK(registry2->CanAddSubstraitCallToArrow(id2));
       ASSERT_OK(registry2->AddSubstraitCallToArrow(id2, name2.to_string()));
