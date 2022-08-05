@@ -333,7 +333,7 @@ class ARROW_EXPORT RecordBatchReader {
   ///
   /// \param[in] batches an iterator of RecordBatch to read from.
   /// \param[in] schema schema that each record batch in iterator will conform to.
-  static Result<std::shared_ptr<RecordBatchReader>> Make(
+  static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
       Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
 

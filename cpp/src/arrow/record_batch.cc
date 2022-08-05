@@ -390,7 +390,7 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
   return std::make_shared<SimpleRecordBatchReader>(std::move(batches), schema);
 }
 
-Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
+Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::MakeFromIterator(
     Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
   if (schema == nullptr) {
     return Status::Invalid("Schema cannot be nullptr");
