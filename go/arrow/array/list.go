@@ -284,8 +284,7 @@ func (a *LargeList) Release() {
 type baseListBuilder struct {
 	builder
 
-	etype   arrow.DataType // data type of the list's elements.
-	values  Builder        // value builder for the list's elements.
+	values  Builder // value builder for the list's elements.
 	offsets Builder
 
 	// actual list type
@@ -314,13 +313,22 @@ func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 	return &ListBuilder{
 		baseListBuilder{
 			builder:         builder{refCount: 1, mem: mem},
-			etype:           etype,
 			values:          NewBuilder(mem, etype),
 			offsets:         offsetBldr,
 			dt:              arrow.ListOf(etype),
 			appendOffsetVal: func(o int) { offsetBldr.Append(int32(o)) },
 		},
 	}
+}
+
+func (b *baseListBuilder) Type() arrow.DataType {
+	switch b.dt.ID() {
+	case arrow.LIST:
+		return arrow.ListOf(b.values.Type())
+	case arrow.LARGE_LIST:
+		return arrow.LargeListOf(b.values.Type())
+	}
+	return nil
 }
 
 // NewLargeListBuilder returns a builder, using the provided memory allocator.
@@ -330,7 +338,6 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 	return &LargeListBuilder{
 		baseListBuilder{
 			builder:         builder{refCount: 1, mem: mem},
-			etype:           etype,
 			values:          NewBuilder(mem, etype),
 			offsets:         offsetBldr,
 			dt:              arrow.LargeListOf(etype),
@@ -370,6 +377,10 @@ func (b *baseListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
 	b.appendNextOffset()
+}
+
+func (b *baseListBuilder) AppendEmptyValue() {
+	b.Append(true)
 }
 
 func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
@@ -476,7 +487,7 @@ func (b *baseListBuilder) newData() (data *Data) {
 	}
 
 	data = NewData(
-		b.dt, b.length,
+		b.Type(), b.length,
 		[]*memory.Buffer{
 			b.nullBitmap,
 			offsets,
@@ -510,7 +521,7 @@ func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
-			Struct: arrow.ListOf(b.etype).String(),
+			Struct: b.dt.String(),
 		}
 	}
 

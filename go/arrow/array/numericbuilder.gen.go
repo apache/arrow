@@ -45,6 +45,8 @@ func NewInt64Builder(mem memory.Allocator) *Int64Builder {
 	return &Int64Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Int64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int64 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Int64Builder) Release() {
@@ -71,6 +73,10 @@ func (b *Int64Builder) Append(v int64) {
 func (b *Int64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int64Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Int64Builder) UnsafeAppend(v int64) {
@@ -248,6 +254,8 @@ func NewUint64Builder(mem memory.Allocator) *Uint64Builder {
 	return &Uint64Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Uint64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint64 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Uint64Builder) Release() {
@@ -274,6 +282,10 @@ func (b *Uint64Builder) Append(v uint64) {
 func (b *Uint64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint64Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Uint64Builder) UnsafeAppend(v uint64) {
@@ -451,6 +463,8 @@ func NewFloat64Builder(mem memory.Allocator) *Float64Builder {
 	return &Float64Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Float64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Float64 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Float64Builder) Release() {
@@ -477,6 +491,10 @@ func (b *Float64Builder) Append(v float64) {
 func (b *Float64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Float64Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Float64Builder) UnsafeAppend(v float64) {
@@ -654,6 +672,8 @@ func NewInt32Builder(mem memory.Allocator) *Int32Builder {
 	return &Int32Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Int32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int32 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Int32Builder) Release() {
@@ -680,6 +700,10 @@ func (b *Int32Builder) Append(v int32) {
 func (b *Int32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int32Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Int32Builder) UnsafeAppend(v int32) {
@@ -857,6 +881,8 @@ func NewUint32Builder(mem memory.Allocator) *Uint32Builder {
 	return &Uint32Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Uint32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint32 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Uint32Builder) Release() {
@@ -883,6 +909,10 @@ func (b *Uint32Builder) Append(v uint32) {
 func (b *Uint32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint32Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Uint32Builder) UnsafeAppend(v uint32) {
@@ -1060,6 +1090,8 @@ func NewFloat32Builder(mem memory.Allocator) *Float32Builder {
 	return &Float32Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Float32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Float32 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Float32Builder) Release() {
@@ -1086,6 +1118,10 @@ func (b *Float32Builder) Append(v float32) {
 func (b *Float32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Float32Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Float32Builder) UnsafeAppend(v float32) {
@@ -1263,6 +1299,8 @@ func NewInt16Builder(mem memory.Allocator) *Int16Builder {
 	return &Int16Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Int16Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int16 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Int16Builder) Release() {
@@ -1289,6 +1327,10 @@ func (b *Int16Builder) Append(v int16) {
 func (b *Int16Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int16Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Int16Builder) UnsafeAppend(v int16) {
@@ -1466,6 +1508,8 @@ func NewUint16Builder(mem memory.Allocator) *Uint16Builder {
 	return &Uint16Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Uint16Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint16 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Uint16Builder) Release() {
@@ -1492,6 +1536,10 @@ func (b *Uint16Builder) Append(v uint16) {
 func (b *Uint16Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint16Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Uint16Builder) UnsafeAppend(v uint16) {
@@ -1669,6 +1717,8 @@ func NewInt8Builder(mem memory.Allocator) *Int8Builder {
 	return &Int8Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Int8Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int8 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Int8Builder) Release() {
@@ -1695,6 +1745,10 @@ func (b *Int8Builder) Append(v int8) {
 func (b *Int8Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int8Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Int8Builder) UnsafeAppend(v int8) {
@@ -1872,6 +1926,8 @@ func NewUint8Builder(mem memory.Allocator) *Uint8Builder {
 	return &Uint8Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Uint8Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint8 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Uint8Builder) Release() {
@@ -1898,6 +1954,10 @@ func (b *Uint8Builder) Append(v uint8) {
 func (b *Uint8Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint8Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Uint8Builder) UnsafeAppend(v uint8) {
@@ -2076,6 +2136,8 @@ func NewTimestampBuilder(mem memory.Allocator, dtype *arrow.TimestampType) *Time
 	return &TimestampBuilder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
 
+func (b *TimestampBuilder) Type() arrow.DataType { return b.dtype }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *TimestampBuilder) Release() {
@@ -2102,6 +2164,10 @@ func (b *TimestampBuilder) Append(v arrow.Timestamp) {
 func (b *TimestampBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *TimestampBuilder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *TimestampBuilder) UnsafeAppend(v arrow.Timestamp) {
@@ -2282,6 +2348,8 @@ func NewTime32Builder(mem memory.Allocator, dtype *arrow.Time32Type) *Time32Buil
 	return &Time32Builder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
 
+func (b *Time32Builder) Type() arrow.DataType { return b.dtype }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Time32Builder) Release() {
@@ -2308,6 +2376,10 @@ func (b *Time32Builder) Append(v arrow.Time32) {
 func (b *Time32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Time32Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Time32Builder) UnsafeAppend(v arrow.Time32) {
@@ -2487,6 +2559,8 @@ func NewTime64Builder(mem memory.Allocator, dtype *arrow.Time64Type) *Time64Buil
 	return &Time64Builder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
 
+func (b *Time64Builder) Type() arrow.DataType { return b.dtype }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Time64Builder) Release() {
@@ -2513,6 +2587,10 @@ func (b *Time64Builder) Append(v arrow.Time64) {
 func (b *Time64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Time64Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Time64Builder) UnsafeAppend(v arrow.Time64) {
@@ -2691,6 +2769,8 @@ func NewDate32Builder(mem memory.Allocator) *Date32Builder {
 	return &Date32Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Date32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Date32 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Date32Builder) Release() {
@@ -2717,6 +2797,10 @@ func (b *Date32Builder) Append(v arrow.Date32) {
 func (b *Date32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Date32Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Date32Builder) UnsafeAppend(v arrow.Date32) {
@@ -2894,6 +2978,8 @@ func NewDate64Builder(mem memory.Allocator) *Date64Builder {
 	return &Date64Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Date64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Date64 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Date64Builder) Release() {
@@ -2920,6 +3006,10 @@ func (b *Date64Builder) Append(v arrow.Date64) {
 func (b *Date64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Date64Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *Date64Builder) UnsafeAppend(v arrow.Date64) {
@@ -3098,6 +3188,8 @@ func NewDurationBuilder(mem memory.Allocator, dtype *arrow.DurationType) *Durati
 	return &DurationBuilder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
 
+func (b *DurationBuilder) Type() arrow.DataType { return b.dtype }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *DurationBuilder) Release() {
@@ -3124,6 +3216,10 @@ func (b *DurationBuilder) Append(v arrow.Duration) {
 func (b *DurationBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *DurationBuilder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *DurationBuilder) UnsafeAppend(v arrow.Duration) {

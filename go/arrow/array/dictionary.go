@@ -656,6 +656,8 @@ func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) Dictio
 	return NewDictionaryBuilderWithDict(mem, dt, nil)
 }
 
+func (b *dictionaryBuilder) Type() arrow.DataType { return b.dt }
+
 func (b *dictionaryBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
@@ -673,6 +675,11 @@ func (b *dictionaryBuilder) AppendNull() {
 	b.length += 1
 	b.nulls += 1
 	b.idxBuilder.AppendNull()
+}
+
+func (b *dictionaryBuilder) AppendEmptyValue() {
+	b.length += 1
+	b.idxBuilder.AppendEmptyValue()
 }
 
 func (b *dictionaryBuilder) Reserve(n int) {
@@ -728,19 +735,24 @@ func (b *dictionaryBuilder) NewArray() arrow.Array {
 	return b.NewDictionaryArray()
 }
 
-func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
-	a := &Dictionary{}
-	a.refCount = 1
-
+func (b *dictionaryBuilder) newData() *Data {
 	indices, dict, err := b.newWithDictOffset(0)
 	if err != nil {
 		panic(err)
 	}
-	defer indices.Release()
 
 	indices.dtype = b.dt
 	indices.dictionary = dict
+	return indices
+}
+
+func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
+	a := &Dictionary{}
+	a.refCount = 1
+
+	indices := b.newData()
 	a.setData(indices)
+	indices.Release()
 	return a
 }
 
