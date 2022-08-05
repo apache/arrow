@@ -121,6 +121,32 @@ void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
   ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
 }
 
+void DoRunInvalidAtRuntimeTest(const std::vector<util::string_view>& l_data,
+                               const std::vector<util::string_view>& r0_data) {
+  auto l_schema =
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())});
+  auto r_schema =
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())});
+  BatchesWithSchema l_batches = MakeBatchesFromString(l_schema, l_data);
+  BatchesWithSchema r_batches = MakeBatchesFromString(r_schema, r0_data);
+
+  auto exec_ctx =
+      arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+  AsofJoinNodeOptions join_options("time", "key", 0);
+  Declaration join{"asofjoin", join_options};
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
+  join.inputs.emplace_back(Declaration{
+      "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
+
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+  ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
+                .AddToPlan(plan.get()));
+  ASSERT_FINISHES_AND_RAISES(Invalid, StartAndCollect(plan.get(), sink_gen));
+}
+
 class AsofJoinTest : public testing::Test {};
 
 TEST(AsofJoinTest, TestBasic1) {
@@ -304,6 +330,11 @@ TEST(AsofJoinTest, TestMissingKeys) {
       schema({field("time", int64()), field("key1", int32()), field("l_v0", float64())}),
       schema(
           {field("time", int64()), field("key1", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, SourceInOrderAssertion) {
+  DoRunInvalidAtRuntimeTest({R"([[1, 1, 1.0], [2, 1, 1.0]])", R"([[1, 1, 2.0]])"},
+                            {R"([[1, 1, 1.0], [2, 1, 1.0]])"});
 }
 
 }  // namespace compute

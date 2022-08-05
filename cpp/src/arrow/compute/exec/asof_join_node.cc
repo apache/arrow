@@ -46,52 +46,66 @@ typedef uint64_t row_index_t;
 typedef int col_index_t;
 
 /**
- * Simple implementation for an unbound concurrent queue
+ * Simple implementation for a bounded concurrent queue
  */
 template <class T>
-class ConcurrentQueue {
+class ConcurrentBoundedQueue {
+  size_t remaining_;
+  std::vector<T> buffer_;
+  mutable std::mutex gate_;
+  std::condition_variable not_full_;
+  std::condition_variable not_empty_;
+
+  size_t next_push_ = 0;
+  size_t next_pop_ = 0;
+
  public:
+  explicit ConcurrentBoundedQueue(size_t capacity)
+      : remaining_(capacity), buffer_(capacity) {}
+
+  // Push new value to queue, waiting for capacity indefinitely.
+  void Push(const T& t) {
+    std::unique_lock<std::mutex> lock(gate_);
+    not_full_.wait(lock, [&] { return remaining_ > 0; });
+    buffer_[next_push_++] = t;
+    next_push_ %= buffer_.size();
+    --remaining_;
+    not_empty_.notify_one();
+  }
+  // Get oldest value from queue, or wait indefinitely for it.
   T Pop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    cond_.wait(lock, [&] { return !queue_.empty(); });
-    auto item = queue_.front();
-    queue_.pop();
-    return item;
+    std::unique_lock<std::mutex> lock(gate_);
+    not_empty_.wait(lock, [&] { return remaining_ < buffer_.size(); });
+    T r = buffer_[next_pop_++];
+    next_pop_ %= buffer_.size();
+    ++remaining_;
+    not_full_.notify_one();
+    return r;
   }
-
-  void Push(const T& item) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    queue_.push(item);
-    cond_.notify_one();
-  }
-
+  // Try to pop the oldest value from the queue (or return nullopt if none)
   util::optional<T> TryPop() {
-    // Try to pop the oldest value from the queue (or return nullopt if none)
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (queue_.empty()) {
-      return util::nullopt;
-    } else {
-      auto item = queue_.front();
-      queue_.pop();
-      return item;
-    }
+    std::unique_lock<std::mutex> lock(gate_);
+    if (remaining_ == buffer_.size()) return util::nullopt;
+    T r = buffer_[next_pop_++];
+    next_pop_ %= buffer_.size();
+    ++remaining_;
+    not_full_.notify_one();
+    return r;
   }
 
+  // Test whether empty
   bool Empty() const {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return queue_.empty();
+    std::unique_lock<std::mutex> lock(gate_);
+    return remaining_ == buffer_.size();
   }
 
   // Un-synchronized access to front
   // For this to be "safe":
   // 1) the caller logically guarantees that queue is not empty
   // 2) pop/try_pop cannot be called concurrently with this
-  const T& UnsyncFront() const { return queue_.front(); }
-
- private:
-  std::queue<T> queue_;
-  mutable std::mutex mutex_;
-  std::condition_variable cond_;
+  // 3) note that push can be called concurrently, because
+  // it does not change the object located at _next_pop.
+  const T& UnsyncFront() const { return buffer_[next_pop_]; }
 };
 
 struct MemoStore {
@@ -145,7 +159,7 @@ class InputState {
  public:
   InputState(const std::shared_ptr<arrow::Schema>& schema,
              const std::string& time_col_name, const std::string& key_col_name)
-      : queue_(),
+      : queue_(2),
         schema_(schema),
         time_col_index_(schema->GetFieldIndex(time_col_name)),
         key_col_index_(schema->GetFieldIndex(key_col_name)) {}
@@ -249,12 +263,23 @@ class InputState {
     return updated;
   }
 
-  void Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
+  Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
+      int64_t batch_earliest_time =
+          rb->column_data(time_col_index_)->GetValues<int64_t>(1)[0];
+      int64_t batch_latest_time =
+          rb->column_data(time_col_index_)->GetValues<int64_t>(1)[rb->num_rows() - 1];
+      // Batches must be in order
+      if (batch_earliest_time < latest_time_) {
+        return Status::Invalid("Batches out of order.");
+      } else {
+        latest_time_ = batch_latest_time;
+      }
       queue_.Push(rb);
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
     }
+    return Status::OK();
   }
 
   util::optional<const MemoStore::Entry*> GetMemoEntryForKey(KeyType key) {
@@ -284,7 +309,7 @@ class InputState {
 
  private:
   // Pending record batches. The latest is the front. Batches cannot be empty.
-  ConcurrentQueue<std::shared_ptr<RecordBatch>> queue_;
+  ConcurrentBoundedQueue<std::shared_ptr<RecordBatch>> queue_;
   // Schema associated with the input
   std::shared_ptr<Schema> schema_;
   // Total number of batches (only int because InputFinished uses int)
@@ -302,6 +327,8 @@ class InputState {
   MemoStore memo_;
   // Mapping of source columns to destination columns
   std::vector<util::optional<col_index_t>> src_to_dst_;
+  // Latest time seen for source to assert sortedness.
+  std::atomic<int64_t> latest_time_{-1};
 };
 
 template <size_t MAX_TABLES>
@@ -684,7 +711,7 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
-    state_.at(k)->Push(rb);
+    ErrorIfNotOk(state_.at(k)->Push(rb));
     process_.Push(true);
   }
   void ErrorReceived(ExecNode* input, Status error) override {
@@ -731,7 +758,7 @@ class AsofJoinNode : public ExecNode {
 
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
-  ConcurrentQueue<bool> process_;
+  ConcurrentBoundedQueue<bool> process_;
   // Worker thread
   std::thread process_thread_;
 
@@ -747,7 +774,7 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
       options_(join_options),
-      process_(),
+      process_(1),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
   for (size_t i = 0; i < inputs.size(); ++i)
     state_.push_back(::arrow::internal::make_unique<InputState>(

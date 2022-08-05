@@ -49,6 +49,20 @@ static Result<TableStats> MakeTable(const TableGenerationProperties& properties)
   return Result<TableStats>({table, rows, rows * row_size});
 }
 
+// As opposed to using table_source, we create a ReaderGenerator for the specified
+// table. This allows us to specify a thread pool to isolate the threads used for each
+// source as an anti-deadlocking mechanism.
+static ExecNode* MakeTableSourceNode(arrow::compute::ExecPlan* plan,
+                                     std::shared_ptr<Table> table, int batch_size,
+                                     arrow::internal::ThreadPool* thread_pool) {
+  std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
+  reader->set_chunksize(batch_size);
+  auto batch_gen = *arrow::compute::MakeReaderGenerator(std::move(reader), thread_pool);
+  return *arrow::compute::MakeExecNode(
+      "source", plan, {},
+      arrow::compute::SourceNodeOptions(table->schema(), std::move(batch_gen)));
+}
+
 static void TableJoinOverhead(benchmark::State& state,
                               TableGenerationProperties left_table_properties,
                               TableGenerationProperties right_table_properties,
@@ -77,14 +91,20 @@ static void TableJoinOverhead(benchmark::State& state,
     state.PauseTiming();
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<arrow::compute::ExecPlan> plan,
                          ExecPlan::Make(&ctx));
-    std::vector<ExecNode*> input_nodes = {*arrow::compute::MakeExecNode(
-        "table_source", plan.get(), {},
-        arrow::compute::TableSourceNodeOptions(left_table_stats.table, batch_size))};
+    // Each source (for each table) is dedicated its own thread pool to prevent
+    // deadlocking.
+    std::vector<std::shared_ptr<arrow::internal::ThreadPool>> right_thread_pools;
+    std::shared_ptr<arrow::internal::ThreadPool> left_thread_pool =
+        *arrow::internal::ThreadPool::MakeEternal(1);
+    std::vector<ExecNode*> input_nodes = {MakeTableSourceNode(
+        plan.get(), left_table_stats.table, batch_size, left_thread_pool.get())};
     input_nodes.reserve(right_input_tables.size() + 1);
     for (TableStats table_stats : right_input_tables) {
-      input_nodes.push_back(*arrow::compute::MakeExecNode(
-          "table_source", plan.get(), {},
-          arrow::compute::TableSourceNodeOptions(table_stats.table, batch_size)));
+      std::shared_ptr<arrow::internal::ThreadPool> right_thread_pool =
+          *arrow::internal::ThreadPool::MakeEternal(1);
+      input_nodes.push_back(MakeTableSourceNode(plan.get(), table_stats.table, batch_size,
+                                                right_thread_pool.get()));
+      right_thread_pools.push_back(std::move(right_thread_pool));
     }
     ASSERT_OK_AND_ASSIGN(arrow::compute::ExecNode * join_node,
                          MakeExecNode(factory_name, plan.get(), input_nodes, options));
@@ -102,9 +122,6 @@ static void TableJoinOverhead(benchmark::State& state,
       benchmark::Counter(static_cast<double>(state.iterations() *
                                              (left_table_stats.bytes + right_hand_bytes)),
                          benchmark::Counter::kIsRate);
-
-  state.counters["maximum_peak_memory"] =
-      benchmark::Counter(static_cast<double>(ctx.memory_pool()->max_memory()));
 }
 
 static void AsOfJoinOverhead(benchmark::State& state) {
