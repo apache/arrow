@@ -44,6 +44,12 @@ arrow_eval <- function(expr, mask) {
       # One of ours. Mark it so that consumers can handle it differently
       class(out) <- c("arrow-try-error", class(out))
     }
+    # if any of the expression calls are not to bindings in the function registry
+    # then we mark it as unknown binding error and attempt translation
+    expr_funs <- all_funs(expr)
+    if (!all(expr_funs %in% names(mask$.top_env))) {
+      class(out) <- c("unknown-binding-error", class(out))
+    }
     invisible(out)
   })
 }
@@ -77,35 +83,27 @@ arrow_not_supported <- function(msg) {
 
 # Create a data mask for evaluating a dplyr expression
 arrow_mask <- function(.data, aggregation = FALSE, expr = NULL) {
-
+  # browser()
   f_env <- new_environment(.cache$functions)
 
-  unknown <- NULL
+  # so far we only pass an expression to the data mask builder if we want to
+  # try to translate it
   if (!is.null(expr)) {
-    # figure out if the expression is unknown
-    # TODO update this to check recursively (for nested functions)
-    unknown <- setdiff(all_funs(expr), names(f_env))
-  }
+    # figure out which of the calls in expr are unknown (do not have corresponding
+    # bindings)
+    unknown_functions <- setdiff(all_funs(expr), names(f_env))
 
-  if (length(unknown) != 0) {
-    # TODO find a different approach as `call_standardise` is now deprecated
-    std_expr <- quo_get_expr(rlang::call_standardise(expr))
+    if (length(unknown_functions) != 0) {
+      # get the functions from the expr (quosure) original environment
+      functions <- map(unknown_functions, as_function, env = rlang::quo_get_env(expr))
 
-    fn <- as_function(unknown)
+      translated_functions <- map(functions, ~ translate_to_arrow(.x, f_env))
 
-    # get the args and the body of the unknown binding
-    fnctn_formals <- formals(fn)
-    fnctn_body <- fn_body(fn)
-
-    # get all the function calls inside the body of the unknown binding
-    body_calls <- all_funs(fnctn_body[[2]])
-
-    # we can translate if all calls have bindings
-    if (all(body_calls %in% names(f_env))) {
-      f_env[[unknown]] <- new_function(
-        args = fnctn_formals,
-        body = translate_to_arrow(fnctn_body[[2]])
-      )
+      if (purrr::none(translated_functions, is.null)) {
+        purrr::walk2(.x = unknown_functions,
+              .y = translated_functions,
+              .f = ~ register_binding(.x, .y, registry = f_env))
+      }
     }
   }
 
@@ -152,18 +150,107 @@ format_expr <- function(x) {
   head(out, 1)
 }
 
+#' Translate a function in a given context (environment with bindings)
+#'
+#' Translates a function (if possible) with the help of existing bindings in a
+#' given environment.
+#'
+#' @param fn function to be translated
+#' @param env environment to translate against
+#'
+#' @return a translated function
+#' @keywords internal
+#' @noRd
+translate_to_arrow <- function(.fun, .env) {
+  # get the args and the body of the unknown binding
+  function_formals <- formals(.fun)
 
-translate_to_arrow <- function(x) {
+  if (is.primitive(.fun)) {
+    # exit as the function can't be translated, we can only translate closures
+    stop("`", as.character(.fun[[1]]), "` is a primitive and cannot be translated")
+  }
+
+  # TODO handle errors. `fn_body()` errors when fn is a primitive, `body()` returns
+  # NULL so maybe we can work with that
+  function_body <- rlang::fn_body(.fun)
+
+  # # get all the function calls inside the body of the unknown binding
+  # # the second element is the actual body of a function (the first one are the
+  # # curly brackets)
+  # body_calls <- all_funs(function_body[[2]])
+
+  # we can translate if all calls have matching bindings in env
+  # if (all(body_calls %in% names(.env))) {
+  if (translatable(.fun, .env)) {
+    translated_function <- rlang::new_function(
+      args = function_formals,
+      body = translate_to_arrow_rec(function_body[[2]])
+    )
+  } else {
+    # if the function is not directly translatable, make one more try by
+    # attempting to translate the unknown calls
+    unknown_function <- setdiff(all_funs(function_body[[2]]), names(.env))
+
+    fn <- as_function(unknown_function, env = caller_env())
+    translated_function <- NULL
+  }
+
+  translated_function
+}
+
+#' Translate the body of a function to an Arrow binding
+#'
+#' Walks the abstract syntax tree of a function recursively and replaces any
+#' function call with a `call_binding()` call (e.g. `1 + foo(bar)` becomes
+#' `call_binding("+", 1, call_binding("foo", bar))`)
+#'
+#' @param x the body of a function
+#'
+#' @return an expression that can be used as a function body
+#' @keywords internal
+#' @noRd
+translate_to_arrow_rec <- function(x) {
   switch_expr(x,
               constant = ,
               symbol = x,
               call = {
                 function_name <- as.character(x[[1]])
+                # gymnastics to make sure pkg::fun order is respected (as is in
+                # the binding name)
+                if ("::" %in% function_name && length(function_name) == 3) {
+                  function_name <- paste0(function_name[2], function_name[1], function_name[3])
+                }
                 children <- as.list(x[-1])
-                children_translated <- map(children, translate_to_arrow)
+                children_translated <- map(children, translate_to_arrow_rec)
                 call2("call_binding", function_name, !!!children_translated)
               }
   )
+}
+
+#' Assess if a function is directly translatable to an Arrow binding
+#'
+#' If all calls in the body of the function have corresponding bindings, then
+#' a function is deemed as translatable
+#'
+#' @inheritParams translate_to_arrow
+#'
+#' @return logical. `TRUE` or `FALSE`
+#'
+#' @keywords internal
+#' @noRd
+translatable <- function(.fun, .env) {
+  function_body <- rlang::fn_body(.fun)
+  # get all the function calls inside the body of the unknown binding
+  # the second element is the actual body of a function (the first one are the
+  # curly brackets)
+  body_calls <- all_funs(function_body[[2]])
+
+  # we can translate if all calls have matching bindings in env
+  if (all(body_calls %in% names(.env))) {
+    TRUE
+  } else {
+    FALSE
+  }
 }
 
 expr_type <- function(x) {
@@ -180,6 +267,7 @@ expr_type <- function(x) {
   }
 }
 
+# switch wrapper to make it easier to step through an expression
 switch_expr <- function(x, ...) {
   switch(expr_type(x),
          ...,
