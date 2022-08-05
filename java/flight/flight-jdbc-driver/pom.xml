@@ -16,7 +16,7 @@
     <parent>
         <artifactId>arrow-flight</artifactId>
         <groupId>org.apache.arrow</groupId>
-        <version>8.0.0-SNAPSHOT</version>
+        <version>9.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -28,10 +28,10 @@
     <url>http://maven.apache.org</url>
 
     <properties>
-        <org.apache.arrow.flight.name>${pom.parent.groupId}:${pom.parent.artifactId}</org.apache.arrow.flight.name>
-        <org.apache.arrow.flight.version>${pom.parent.version}</org.apache.arrow.flight.version>
-        <org.apache.arrow.flight.jdbc-driver.name>${pom.name}</org.apache.arrow.flight.jdbc-driver.name>
-        <org.apache.arrow.flight.jdbc-driver.version>${pom.version}</org.apache.arrow.flight.jdbc-driver.version>
+        <org.apache.arrow.flight.name>${project.parent.groupId}:${project.parent.artifactId}</org.apache.arrow.flight.name>
+        <org.apache.arrow.flight.version>${project.parent.version}</org.apache.arrow.flight.version>
+        <org.apache.arrow.flight.jdbc-driver.name>${project.name}</org.apache.arrow.flight.jdbc-driver.name>
+        <org.apache.arrow.flight.jdbc-driver.version>${project.version}</org.apache.arrow.flight.jdbc-driver.version>
         <jacoco.ut.execution.data.file>${project.build.directory}/coverage-reports/jacoco-ut.html</jacoco.ut.execution.data.file>
     </properties>
 
@@ -93,7 +93,6 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>${dep.protobuf.version}</version>
         </dependency>
         <dependency>
             <groupId>org.hamcrest</groupId>
@@ -165,30 +164,6 @@
             </resource>
         </resources>
         <plugins>
-            <plugin>
-                <groupId>org.apache.rat</groupId>
-                <artifactId>apache-rat-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>**/flight.properties</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <configuration>
-                    <resourceExcludes>**/flight.properties</resourceExcludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>8</source>
-                    <target>8</target>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

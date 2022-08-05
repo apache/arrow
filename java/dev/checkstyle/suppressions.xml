@@ -39,4 +39,6 @@
   <!-- Suppress certain checks requiring many code changes, that add little benefit -->
   <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
 
+  <!-- No license header in generated file -->
+  <suppress checks="header" files="flight.properties"/>
 </suppressions>
