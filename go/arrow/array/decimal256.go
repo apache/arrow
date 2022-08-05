@@ -180,7 +180,7 @@ func (b *Decimal256Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 // all values in v are appended and considered valid.
 func (b *Decimal256Builder) AppendValues(v []decimal256.Num, valid []bool) {
 	if len(v) != len(valid) && len(valid) != 0 {
-		panic("len(v) != len(valid) && len(valid) != 0")
+		panic("arrow/array: len(v) != len(valid) && len(valid) != 0")
 	}
 
 	if len(v) == 0 {
@@ -321,7 +321,7 @@ func (b *Decimal256Builder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("decimal256 builder must unpack from json array, found %s", delim)
+		return fmt.Errorf("arrow/array: decimal256 builder must unpack from json array, found %s", delim)
 	}
 
 	return b.unmarshal(dec)
