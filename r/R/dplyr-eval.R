@@ -83,7 +83,6 @@ arrow_not_supported <- function(msg) {
 
 # Create a data mask for evaluating a dplyr expression
 arrow_mask <- function(.data, aggregation = FALSE, expr = NULL) {
-  # browser()
   f_env <- new_environment(.cache$functions)
 
   # so far we only pass an expression to the data mask builder if we want to
