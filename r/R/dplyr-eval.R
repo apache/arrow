@@ -173,21 +173,14 @@ translate_to_arrow <- function(.fun, .env) {
   # NULL so maybe we can work with that
   function_body <- rlang::fn_body(.fun)
 
-  # # get all the function calls inside the body of the unknown binding
-  # # the second element is the actual body of a function (the first one are the
-  # # curly brackets)
-  # body_calls <- all_funs(function_body[[2]])
-
-  # we can translate if all calls have matching bindings in env
-  # if (all(body_calls %in% names(.env))) {
   if (translatable(.fun, .env)) {
     translated_function <- rlang::new_function(
       args = function_formals,
       body = translate_to_arrow_rec(function_body[[2]])
     )
   } else {
-    # if the function is not directly translatable, make one more try by
-    # attempting to translate the unknown calls
+    # TODO WIP if the function is not directly translatable, make one more try
+    # by attempting to translate the unknown calls
     unknown_function <- setdiff(all_funs(function_body[[2]]), names(.env))
 
     fn <- as_function(unknown_function, env = caller_env())
