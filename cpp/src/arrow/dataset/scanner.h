@@ -384,15 +384,15 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set the number of batches to read ahead within a file.
   ///
   /// \param[in] batch_readahead How many batches to read ahead within a file,
-  ///  might not work for all formats. refer to comments above.
+  ///  might not work for all formats. 
   /// \returns An error if this number is less than 0.
   ///
-  /// This option provides a control on RAM vs IO tradeoff.
+  /// This option provides a control on RAM vs I/O tradeoff.
   Status BatchReadahead(int32_t batch_readahead);
 
-  /// \brief Set the number of How many files to read ahead
+  /// \brief Set the number of fragments to read ahead
   ///
-  /// \param[in] fragment_readahead How many files to read ahead
+  /// \param[in] fragment_readahead How many fragments to read ahead
   /// \returns An error if this number is less than 0.
   ///
   /// This option provides a control on RAM vs IO tradeoff.
