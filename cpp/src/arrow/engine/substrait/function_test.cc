@@ -49,20 +49,20 @@ struct FunctionTestCase {
   std::shared_ptr<DataType> expected_output_type;
 };
 
-std::shared_ptr<Array> GetArray(const std::string& value,
-                                const std::shared_ptr<DataType>& data_type) {
+Result<std::shared_ptr<Array>> GetArray(const std::string& value,
+                                        const std::shared_ptr<DataType>& data_type) {
   StringBuilder str_builder;
   if (value.empty()) {
     ARROW_EXPECT_OK(str_builder.AppendNull());
   } else {
     ARROW_EXPECT_OK(str_builder.Append(value));
   }
-  EXPECT_OK_AND_ASSIGN(std::shared_ptr<Array> value_str, str_builder.Finish());
-  EXPECT_OK_AND_ASSIGN(Datum value_datum, compute::Cast(value_str, data_type));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value_str, str_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(Datum value_datum, compute::Cast(value_str, data_type));
   return value_datum.make_array();
 }
 
-std::shared_ptr<Table> GetInputTable(
+Result<std::shared_ptr<Table>> GetInputTable(
     const std::vector<std::string>& arguments,
     const std::vector<std::shared_ptr<DataType>>& data_types) {
   std::vector<std::shared_ptr<Array>> columns;
@@ -70,36 +70,38 @@ std::shared_ptr<Table> GetInputTable(
   EXPECT_EQ(arguments.size(), data_types.size());
   for (std::size_t i = 0; i < arguments.size(); i++) {
     if (data_types[i]) {
-      columns.push_back(GetArray(arguments[i], data_types[i]));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arg_array,
+                            GetArray(arguments[i], data_types[i]));
+      columns.push_back(std::move(arg_array));
       fields.push_back(field("arg_" + std::to_string(i), data_types[i]));
     }
   }
   std::shared_ptr<RecordBatch> batch =
       RecordBatch::Make(schema(std::move(fields)), 1, columns);
-  EXPECT_OK_AND_ASSIGN(std::shared_ptr<Table> table, Table::FromRecordBatches({batch}));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table, Table::FromRecordBatches({batch}));
   return table;
 }
 
-std::shared_ptr<Table> GetOutputTable(const std::string& output_value,
-                                      const std::shared_ptr<DataType>& output_type) {
+Result<std::shared_ptr<Table>> GetOutputTable(
+    const std::string& output_value, const std::shared_ptr<DataType>& output_type) {
   std::vector<std::shared_ptr<Array>> columns(1);
   std::vector<std::shared_ptr<Field>> fields(1);
-  columns[0] = GetArray(output_value, output_type);
+  ARROW_ASSIGN_OR_RAISE(columns[0], GetArray(output_value, output_type));
   fields[0] = field("output", output_type);
   std::shared_ptr<RecordBatch> batch =
       RecordBatch::Make(schema(std::move(fields)), 1, columns);
-  EXPECT_OK_AND_ASSIGN(std::shared_ptr<Table> table, Table::FromRecordBatches({batch}));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table, Table::FromRecordBatches({batch}));
   return table;
 }
 
-std::shared_ptr<compute::ExecPlan> PlanFromTestCase(
+Result<std::shared_ptr<compute::ExecPlan>> PlanFromTestCase(
     const FunctionTestCase& test_case, std::shared_ptr<Table>* output_table) {
-  std::shared_ptr<Table> input_table =
-      GetInputTable(test_case.arguments, test_case.data_types);
-  EXPECT_OK_AND_ASSIGN(std::shared_ptr<Buffer> substrait,
-                       internal::CreateScanProjectSubstrait(
-                           test_case.function_id, input_table, test_case.arguments,
-                           test_case.data_types, *test_case.expected_output_type));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> input_table,
+                        GetInputTable(test_case.arguments, test_case.data_types));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> substrait,
+                        internal::CreateScanProjectSubstrait(
+                            test_case.function_id, input_table, test_case.arguments,
+                            test_case.data_types, *test_case.expected_output_type));
   std::shared_ptr<compute::SinkNodeConsumer> consumer =
       std::make_shared<compute::TableSinkNodeConsumer>(output_table,
                                                        default_memory_pool());
@@ -114,7 +116,7 @@ std::shared_ptr<compute::ExecPlan> PlanFromTestCase(
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  EXPECT_OK_AND_ASSIGN(
+  ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<compute::ExecPlan> plan,
       DeserializePlan(*substrait, std::move(consumer), default_extension_id_registry(),
                       /*ext_set_out=*/nullptr, conversion_options));
@@ -124,7 +126,8 @@ std::shared_ptr<compute::ExecPlan> PlanFromTestCase(
 void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
   for (const FunctionTestCase& test_case : valid_cases) {
     std::shared_ptr<Table> output_table;
-    std::shared_ptr<compute::ExecPlan> plan = PlanFromTestCase(test_case, &output_table);
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                         PlanFromTestCase(test_case, &output_table));
     ASSERT_OK(plan->StartProducing());
     ASSERT_FINISHES_OK(plan->finished());
 
@@ -132,8 +135,9 @@ void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
     ASSERT_OK_AND_ASSIGN(output_table,
                          output_table->SelectColumns({output_table->num_columns() - 1}));
 
-    std::shared_ptr<Table> expected_output =
-        GetOutputTable(test_case.expected_output, test_case.expected_output_type);
+    ASSERT_OK_AND_ASSIGN(
+        std::shared_ptr<Table> expected_output,
+        GetOutputTable(test_case.expected_output, test_case.expected_output_type));
     AssertTablesEqual(*expected_output, *output_table, /*same_chunk_layout=*/false);
   }
 }
@@ -141,7 +145,8 @@ void CheckValidTestCases(const std::vector<FunctionTestCase>& valid_cases) {
 void CheckErrorTestCases(const std::vector<FunctionTestCase>& error_cases) {
   for (const FunctionTestCase& test_case : error_cases) {
     std::shared_ptr<Table> output_table;
-    std::shared_ptr<compute::ExecPlan> plan = PlanFromTestCase(test_case, &output_table);
+    ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
+                         PlanFromTestCase(test_case, &output_table));
     ASSERT_OK(plan->StartProducing());
     ASSERT_FINISHES_AND_RAISES(Invalid, plan->finished());
   }
