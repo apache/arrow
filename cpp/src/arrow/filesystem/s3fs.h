@@ -92,6 +92,7 @@ class S3RetryStrategy {
                                                 int64_t attempted_retries) = 0;
 };
 
+/// Wraps a stock AWS retry strategy inside an S3RetryStrategy.
 class AwsRetryStrategy : public S3RetryStrategy {
   /// Returns a stock AWS Default retry strategy.
   static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
