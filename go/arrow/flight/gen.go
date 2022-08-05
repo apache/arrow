@@ -17,3 +17,4 @@
 package flight
 
 //go:generate protoc -I../../../format --go_out=./internal/flight --go-grpc_out=./internal/flight --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative Flight.proto
+//go:generate protoc --experimental_allow_proto3_optional -I../../../format --go_out=./internal/flight --go-grpc_out=./internal/flight --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative FlightSql.proto
