@@ -22,4 +22,18 @@ test_that("binding translation works", {
       collect(),
     tibble::tibble(my_string = "1234")
   )
+
+  # user function defined using namespacing
+  nchar3 <- function(x) {
+    2 + base::nchar(x)
+  }
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        var1 = nchar(my_string),
+        var3 = 1 + nchar2(my_string)) %>%
+      collect(),
+    tibble::tibble(my_string = "1234")
+  )
 })
