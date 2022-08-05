@@ -220,7 +220,6 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 128}
 	case *arrow.Decimal256Type:
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 256}
-		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision)}
 	case arrow.UnionType:
 		typ = unionJSON{"union", dt.Mode().String(), dt.TypeCodes()}
 	default:
@@ -464,7 +463,7 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 			arrowType = &arrow.Decimal256Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 		case 128, 0: // default to 128 bits when missing
 			arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
-		arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		}
 	case "union":
 		t := unionJSON{}
 		if err = json.Unmarshal(typ, &t); err != nil {
