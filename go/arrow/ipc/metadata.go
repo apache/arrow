@@ -49,6 +49,20 @@ const (
 	kMaxNestingDepth = 64
 )
 
+func hasValidityBitmap(id arrow.Type, version MetadataVersion) bool {
+	// in <=V4 Null types had no validity bitmap
+	// in >=V5 Null and Union types have no validity bitmap
+	if version < MetadataV5 {
+		return id != arrow.NULL
+	}
+
+	switch id {
+	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION:
+		return false
+	}
+	return true
+}
+
 type startVecFunc func(b *flatbuffers.Builder, n int) flatbuffers.UOffsetT
 
 type fieldMetadata struct {
@@ -441,11 +455,14 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		for i, field := range dt.Fields() {
 			offsets[i] = fieldToFB(fv.b, fv.pos.Child(int32(i)), field, fv.memo)
 		}
-		typeIDs := make([]int32, len(dt.TypeCodes()))
-		for i, c := range dt.TypeCodes() {
-			typeIDs[i] = int32(c)
+
+		codes := dt.TypeCodes()
+		flatbuf.UnionStartTypeIdsVector(fv.b, len(codes))
+
+		for i := len(codes) - 1; i >= 0; i-- {
+			fv.b.PlaceInt32(int32(codes[i]))
 		}
-		fbTypeIDs := fv.b.CreateByteVector(arrow.Int32Traits.CastToBytes(typeIDs))
+		fbTypeIDs := fv.b.EndVector(len(dt.TypeCodes()))
 		flatbuf.UnionStart(fv.b)
 		switch dt.Mode() {
 		case arrow.SparseMode:
@@ -729,7 +746,7 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 			mode = arrow.DenseMode
 		}
 
-		typeIDLen := dt.TypeIdsLength() / arrow.Int32SizeBytes
+		typeIDLen := dt.TypeIdsLength()
 
 		if typeIDLen == 0 {
 			for i := range children {

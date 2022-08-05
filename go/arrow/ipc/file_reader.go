@@ -344,8 +344,9 @@ func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, 
 			codec: codec,
 			mem:   mem,
 		},
-		memo: memo,
-		max:  kMaxNestingDepth,
+		memo:    memo,
+		max:     kMaxNestingDepth,
+		version: MetadataVersion(msg.Version()),
 	}
 
 	pos := dictutils.NewFieldPos()
@@ -381,6 +382,7 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 	if !src.meta.Buffers(&buf, i) {
 		panic("buffer index out of bound")
 	}
+
 	if buf.Length() == 0 {
 		return memory.NewBufferBytes(nil)
 	}
@@ -433,6 +435,7 @@ type arrayLoaderContext struct {
 	ibuffer int
 	max     int
 	memo    *dictutils.Memo
+	version MetadataVersion
 }
 
 func (ctx *arrayLoaderContext) field() *flatbuf.FieldNode {
@@ -503,16 +506,19 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 	}
 }
 
-func (ctx *arrayLoaderContext) loadCommon(nbufs int) (*flatbuf.FieldNode, []*memory.Buffer) {
+func (ctx *arrayLoaderContext) loadCommon(typ arrow.Type, nbufs int) (*flatbuf.FieldNode, []*memory.Buffer) {
 	buffers := make([]*memory.Buffer, 0, nbufs)
 	field := ctx.field()
 
 	var buf *memory.Buffer
-	switch field.NullCount() {
-	case 0:
-		ctx.ibuffer++
-	default:
-		buf = ctx.buffer()
+
+	if hasValidityBitmap(typ, ctx.version) {
+		switch field.NullCount() {
+		case 0:
+			ctx.ibuffer++
+		default:
+			buf = ctx.buffer()
+		}
 	}
 	buffers = append(buffers, buf)
 
@@ -535,7 +541,7 @@ func (ctx *arrayLoaderContext) loadNull() arrow.ArrayData {
 }
 
 func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 
 	switch field.Length() {
 	case 0:
@@ -551,7 +557,7 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.ArrayData 
 }
 
 func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(3)
+	field, buffers := ctx.loadCommon(dt.ID(), 3)
 	buffers = append(buffers, ctx.buffer(), ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -559,7 +565,7 @@ func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.ArrayData {
 }
 
 func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -567,7 +573,7 @@ func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType
 }
 
 func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -583,7 +589,7 @@ type listLike interface {
 }
 
 func (ctx *arrayLoaderContext) loadList(dt listLike) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(2)
+	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
@@ -594,7 +600,7 @@ func (ctx *arrayLoaderContext) loadList(dt listLike) arrow.ArrayData {
 }
 
 func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(1)
+	field, buffers := ctx.loadCommon(dt.ID(), 1)
 	defer releaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
@@ -604,7 +610,7 @@ func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) ar
 }
 
 func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData {
-	field, buffers := ctx.loadCommon(1)
+	field, buffers := ctx.loadCommon(dt.ID(), 1)
 	defer releaseBuffers(buffers)
 
 	subs := make([]arrow.ArrayData, len(dt.Fields()))
@@ -626,7 +632,7 @@ func (ctx *arrayLoaderContext) loadUnion(dt arrow.UnionType) arrow.ArrayData {
 		nBuffers = 3
 	}
 
-	field, buffers := ctx.loadCommon(nBuffers)
+	field, buffers := ctx.loadCommon(dt.ID(), nBuffers)
 	if field.NullCount() != 0 && buffers[0] != nil {
 		panic("cannot read pre-1.0.0 union array with top-level validity bitmap")
 	}

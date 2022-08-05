@@ -479,23 +479,25 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		return nil
 	}
 
-	switch arr.NullN() {
-	case 0:
-		// there are no null values, drop the null bitmap
-		p.body = append(p.body, nil)
-	default:
-		data := arr.Data()
-		var bitmap *memory.Buffer
-		if data.NullN() == data.Len() {
-			// every value is null, just use a new unset bitmap to avoid the expense of copying
-			bitmap = memory.NewResizableBuffer(w.mem)
-			minLength := paddedLength(bitutil.BytesForBits(int64(data.Len())), kArrowAlignment)
-			bitmap.Resize(int(minLength))
-		} else {
-			// otherwise truncate and copy the bits
-			bitmap = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
+	if hasValidityBitmap(arr.DataType().ID(), currentMetadataVersion) {
+		switch arr.NullN() {
+		case 0:
+			// there are no null values, drop the null bitmap
+			p.body = append(p.body, nil)
+		default:
+			data := arr.Data()
+			var bitmap *memory.Buffer
+			if data.NullN() == data.Len() {
+				// every value is null, just use a new unset bitmap to avoid the expense of copying
+				bitmap = memory.NewResizableBuffer(w.mem)
+				minLength := paddedLength(bitutil.BytesForBits(int64(data.Len())), kArrowAlignment)
+				bitmap.Resize(int(minLength))
+			} else {
+				// otherwise truncate and copy the bits
+				bitmap = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
+			}
+			p.body = append(p.body, bitmap)
 		}
-		p.body = append(p.body, bitmap)
 	}
 
 	switch dtype := arr.DataType().(type) {
