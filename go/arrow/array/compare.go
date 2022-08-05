@@ -327,6 +327,12 @@ func Equal(left, right arrow.Array) bool {
 	case *Dictionary:
 		r := right.(*Dictionary)
 		return arrayEqualDict(l, r)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionEqual(l, r)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionEqual(l, r)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
@@ -360,12 +366,17 @@ func ArraySliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array
 
 // SliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
 func SliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
+	opt := newEqualOption(opts...)
+	return sliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opt)
+}
+
+func sliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opt equalOption) bool {
 	l := NewSlice(left, lbeg, lend)
 	defer l.Release()
 	r := NewSlice(right, rbeg, rend)
 	defer r.Release()
 
-	return ApproxEqual(l, r, opts...)
+	return arrayApproxEqual(l, r, opt)
 }
 
 const defaultAbsoluteTolerance = 1e-5
@@ -574,6 +585,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayApproxEqualExtension(l, r, opt)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionApproxEqual(l, r, opt)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionApproxEqual(l, r, opt)
 	default:
 		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}

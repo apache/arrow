@@ -106,6 +106,9 @@ func TestMakeFromData(t *testing.T) {
 			}, 0 /* nulls */, 0 /* offset */)},
 		},
 
+		{name: "sparse union", d: arrow.SparseUnionOf(nil, nil), child: []arrow.ArrayData{}, size: 2},
+		{name: "dense union", d: arrow.DenseUnionOf(nil, nil), child: []arrow.ArrayData{}, size: 3},
+
 		// various dictionary index types and value types
 		{name: "dictionary", d: &testDataType{arrow.DICTIONARY}, expPanic: true, expError: "arrow/array: no dictionary set in Data for Dictionary array"},
 		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: &testDataType{arrow.INT64}}, dict: array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
@@ -119,10 +122,6 @@ func TestMakeFromData(t *testing.T) {
 
 		{name: "extension", d: &testDataType{arrow.EXTENSION}, expPanic: true, expError: "arrow/array: DataType for ExtensionArray must implement arrow.ExtensionType"},
 		{name: "extension", d: types.NewUUIDType()},
-
-		// unsupported types
-		{name: "sparse union", d: &testDataType{arrow.SPARSE_UNION}, expPanic: true, expError: "unsupported data type: SPARSE_UNION"},
-		{name: "dense union", d: &testDataType{arrow.DENSE_UNION}, expPanic: true, expError: "unsupported data type: DENSE_UNION"},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},

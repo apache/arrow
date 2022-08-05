@@ -3419,7 +3419,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
       num_rows: 3
       num_row_groups: 1
       format_version: 2.6
-      serialized_size: 561
+      serialized_size: ...
     """
     return ParquetFile(where, memory_map=memory_map,
                        decryption_properties=decryption_properties).metadata
