@@ -17,7 +17,7 @@
 
 import { targetDir, observableFromStreams } from './util.js';
 
-import del from 'del';
+import { deleteAsync as del } from 'del';
 import gulp from 'gulp';
 import mkdirp from 'mkdirp';
 import gulpRename from 'gulp-rename';
