@@ -212,8 +212,7 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 // -----------------------------------------------------------------------
 // AwsRetryStrategy implementation
 
-class AwsRetryStrategy::Impl
-    : public std::enable_shared_from_this<AwsRetryStrategy::Impl> {
+class AwsRetryStrategy : public S3RetryStrategy {
  public:
   AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy)
       : retry_strategy_(retry_strategy) {}
@@ -243,14 +242,14 @@ class AwsRetryStrategy::Impl
   }
 };
 
-std::shared_ptr<S3RetryStrategy> AwsRetryStrategy::GetAwsDefaultRetryStrategy(
+std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsDefaultRetryStrategy(
     int64_t max_attempts) {
   return std::make_shared<AwsRetryStrategy>(
       std::make_shared<Aws::Client::DefaultRetryStrategy>(
           static_cast<long>(max_attempts)));
 }
 
-std::shared_ptr<S3RetryStrategy> AwsRetryStrategy::GetAwsStandardRetryStrategy(
+std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsStandardRetryStrategy(
     int64_t max_attempts) {
   return std::make_shared<AwsRetryStrategy>(
       std::make_shared<Aws::Client::StandardRetryStrategy>(
