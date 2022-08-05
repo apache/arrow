@@ -114,10 +114,6 @@ var (
 	makeArrayFn [64]arrayConstructorFn
 )
 
-func unsupportedArrayType(data arrow.ArrayData) arrow.Array {
-	panic("unsupported data type: " + data.DataType().ID().String())
-}
-
 func invalidDataType(data arrow.ArrayData) arrow.Array {
 	panic("invalid data type: " + data.DataType().ID().String())
 }
