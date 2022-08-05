@@ -47,13 +47,21 @@ mutate.arrow_dplyr_query <- function(.data,
     return(abandon_ship(call, .data, "window functions not currently supported in Arrow"))
   }
 
-  mask <- arrow_mask(.data, exprs = exprs)
+  mask <- arrow_mask(.data)
   results <- list()
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
     new_var <- names(exprs)[i]
     results[[new_var]] <- arrow_eval(exprs[[i]], mask)
+    # if it's a failure due to an unknown binding, attempt to translate and re-evaluate
+    if (inherits(results[[new_var]], "unknown-binding-error")) {
+      # we rebuild the mask, this time aware of the expression we're trying to
+      # evaluate
+      mask <- arrow_mask(.data, expr = exprs[[i]])
+      results[[new_var]] <- arrow_eval(exprs[[i]], mask)
+    }
+
     if (inherits(results[[new_var]], "try-error")) {
       msg <- handle_arrow_not_supported(
         results[[new_var]],
