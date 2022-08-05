@@ -79,6 +79,9 @@ Status RunLengthEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_rep
   if (n_repeats == 0) {
     return Status::OK();
   }
+  if (!scalar.is_valid) {
+    return AppendNulls(n_repeats);
+  }
   if (!current_value_ || !current_value_->Equals(scalar)) {
     RETURN_NOT_OK(FinishRun());
     current_value_ = scalar.shared_from_this();
