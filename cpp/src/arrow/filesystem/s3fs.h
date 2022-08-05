@@ -93,7 +93,7 @@ class S3RetryStrategy {
 };
 
 /// Wraps a stock AWS retry strategy inside an S3RetryStrategy.
-class ARROW_EXPORT AwsRetryStrategy : public S3RetryStrategy {
+class AwsRetryStrategy : public S3RetryStrategy {
  public:
   /// Returns a stock AWS Default retry strategy.
   static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
