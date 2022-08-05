@@ -160,6 +160,10 @@ func (b *Decimal256Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Decimal256Builder) AppendEmptyValue() {
+	b.Append(decimal256.Num{})
+}
+
 func (b *Decimal256Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
