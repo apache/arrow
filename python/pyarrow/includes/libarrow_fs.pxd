@@ -151,9 +151,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
             "arrow::fs::S3CredentialsKind::WebIdentity"
 
     cdef cppclass CS3RetryStrategy "arrow::fs::S3RetryStrategy":
-        pass
-
-    cdef cppclass CAwsRetryStrategy "arrow::fs::AwsRetryStrategy":
         @staticmethod
         shared_ptr[CS3RetryStrategy] GetAwsDefaultRetryStrategy(int64_t max_attempts)
         @staticmethod
