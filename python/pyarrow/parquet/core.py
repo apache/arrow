@@ -296,6 +296,12 @@ class ParquetFile:
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.close()
+
     def _build_nested_paths(self):
         paths = self.reader.column_paths
 
@@ -374,6 +380,13 @@ class ParquetFile:
         1
         """
         return self.reader.num_row_groups
+
+    def close(self):
+        self.reader.close()
+
+    @property
+    def closed(self) -> bool:
+        return self.reader.closed
 
     def read_row_group(self, i, columns=None, use_threads=True,
                        use_pandas_metadata=False):
@@ -1128,8 +1141,8 @@ class ParquetDatasetPiece:
         -------
         metadata : FileMetaData
         """
-        f = self.open()
-        return f.metadata
+        with self.open() as parquet:
+            return parquet.metadata
 
     def open(self):
         """
@@ -1202,7 +1215,7 @@ class ParquetDatasetPiece:
 
                 arr = pa.DictionaryArray.from_arrays(indices, dictionary)
                 table = table.append_column(name, arr)
-
+        reader.close()
         return table
 
 
@@ -1790,6 +1803,10 @@ Examples
         if validate_schema:
             self.validate_schemas()
 
+    def close(self):
+        for piece in self._pieces:
+            piece.close()
+
     def equals(self, other):
         if not isinstance(other, ParquetDataset):
             raise TypeError('`other` must be an instance of ParquetDataset')
@@ -1889,7 +1906,8 @@ Examples
         """
         tables = []
         for piece in self._pieces:
-            table = piece.read(columns=columns, use_threads=use_threads,
+            table = piece.read(columns=columns,
+                               use_threads=use_threads,
                                partitions=self._partitions,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)

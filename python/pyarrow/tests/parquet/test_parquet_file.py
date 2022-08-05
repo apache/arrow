@@ -17,8 +17,10 @@
 
 import io
 import os
+from unittest import mock
 
 import pytest
+from fsspec.implementations.local import LocalFileSystem
 
 import pyarrow as pa
 
@@ -277,3 +279,56 @@ def test_pre_buffer(pre_buffer):
     buf.seek(0)
     pf = pq.ParquetFile(buf, pre_buffer=pre_buffer)
     assert pf.read().num_rows == N
+
+
+def test_parquet_file_explicitly_closed(tmpdir):
+    """
+    Unopened files should be closed explicitly after use.
+    """
+    # create test parquet file
+    df = pd.DataFrame([{'col1': 0, 'col2': 0}, {'col1': 1, 'col2': 1}])
+    fn = str(tmpdir.join('file.parquet'))
+    df.to_parquet(fn)
+
+    class LocalTempFile:
+        def __init__(self, fs, path, mode):
+            self.path = path
+            self.fh = open(path, mode)
+
+        def close(self):
+            self.fh.close()
+
+        def __getattr__(self, item):
+            return getattr(self.fh, item)
+
+    class TestFileSystem(LocalFileSystem):
+        def _open(self, path, mode="rb", block_size=None, **kwargs):
+            return LocalTempFile(self, path, mode=mode)
+
+    fs = TestFileSystem()
+
+    # pyarrow.read_table & # pyarrow.parquet.ParquetDataset (V2)
+    with mock.patch.object(LocalTempFile, "close") as mock_close:
+        pq.read_table(fn, filesystem=fs, use_legacy_dataset=False)
+        pq.ParquetDataset(fn, filesystem=fs, use_legacy_dataset=False).read()
+
+        # TODO: _ParquetDatasetV2 closing of passed file not implemented
+        # for either ParquetDataset or read_table.
+        with pytest.raises(AssertionError):
+            mock_close.assert_called()
+
+    # pyarrow.read_table (legacy)
+    with mock.patch.object(LocalTempFile, "close") as mock_close:
+        pq.read_table(fn, filesystem=fs, use_legacy_dataset=True)
+        mock_close.assert_called()
+
+    # pyarrow.parquet.ParquetDataset test (legacy)
+    with mock.patch.object(LocalTempFile, "close") as mock_close:
+        pq.ParquetDataset(fn, filesystem=fs, use_legacy_dataset=True).read()
+        mock_close.assert_called()
+
+    # pyarrow.parquet.ParquetFile
+    with mock.patch.object(LocalTempFile, "close") as mock_close:
+        with pq.ParquetFile(LocalTempFile(fs, fn, 'rb')):
+            mock_close.assert_not_called()
+        mock_close.assert_called()

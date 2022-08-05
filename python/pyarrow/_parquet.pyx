@@ -39,7 +39,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
                           pyarrow_wrap_buffer,
                           pyarrow_wrap_batch,
                           pyarrow_wrap_scalar,
-                          NativeFile, get_reader, get_writer,
+                          NativeFile, get_reader, get_writer, get_native_file,
                           string_to_timeunit)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
@@ -1159,6 +1159,7 @@ cdef class ParquetReader(_Weakrefable):
         CMemoryPool* pool
         unique_ptr[FileReader] reader
         FileMetaData _metadata
+        NativeFile nf
 
     cdef public:
         _column_idx_map
@@ -1222,7 +1223,9 @@ cdef class ParquetReader(_Weakrefable):
 
         self.source = source
 
-        get_reader(source, use_memory_map, &rd_handle)
+        nf = get_native_file(source, use_memory_map)
+        (&rd_handle)[0] = <shared_ptr[CRandomAccessFile]>nf.get_random_access_file()
+        self.nf = nf
         with nogil:
             check_status(builder.Open(rd_handle, properties, c_metadata))
 
@@ -1435,6 +1438,8 @@ cdef class ParquetReader(_Weakrefable):
                          .ReadColumn(column_index, &out))
         return pyarrow_wrap_chunked_array(out)
 
+    def close(self):
+        self.nf.close()
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
