@@ -28,6 +28,7 @@ require (
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/klauspost/asmfmt v1.3.2
 	github.com/klauspost/compress v1.15.9
+	github.com/kr/pretty v0.1.0 // indirect
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
 	github.com/pierrec/lz4/v4 v4.1.15
@@ -41,4 +42,5 @@ require (
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.1
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )

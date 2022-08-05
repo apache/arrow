@@ -27,7 +27,6 @@ import (
 	"github.com/apache/arrow/go/v10/parquet"
 	"github.com/apache/arrow/go/v10/parquet/internal/encryption"
 	"github.com/apache/arrow/go/v10/parquet/metadata"
-	"golang.org/x/exp/mmap"
 	"golang.org/x/xerrors"
 )
 
@@ -48,47 +47,6 @@ type Reader struct {
 	metadata      *metadata.FileMetaData
 	footerOffset  int64
 	fileDecryptor encryption.FileDecryptor
-}
-
-// an adapter for mmap'd files
-type mmapAdapter struct {
-	*mmap.ReaderAt
-
-	pos int64
-}
-
-func (m *mmapAdapter) Close() error {
-	return m.ReaderAt.Close()
-}
-
-func (m *mmapAdapter) ReadAt(p []byte, off int64) (int, error) {
-	return m.ReaderAt.ReadAt(p, off)
-}
-
-func (m *mmapAdapter) Read(p []byte) (n int, err error) {
-	n, err = m.ReaderAt.ReadAt(p, m.pos)
-	m.pos += int64(n)
-	return
-}
-
-func (m *mmapAdapter) Seek(offset int64, whence int) (int64, error) {
-	newPos, offs := int64(0), offset
-	switch whence {
-	case io.SeekStart:
-		newPos = offs
-	case io.SeekCurrent:
-		newPos = m.pos + offs
-	case io.SeekEnd:
-		newPos = int64(m.ReaderAt.Len()) + offs
-	}
-	if newPos < 0 {
-		return 0, xerrors.New("negative result pos")
-	}
-	if newPos > int64(m.ReaderAt.Len()) {
-		return 0, xerrors.New("new position exceeds size of file")
-	}
-	m.pos = newPos
-	return newPos, nil
 }
 
 type ReadOption func(*Reader)
@@ -119,11 +77,10 @@ func OpenParquetFile(filename string, memoryMap bool, opts ...ReadOption) (*Read
 
 	var err error
 	if memoryMap {
-		rdr, err := mmap.Open(filename)
+		source, err = mmapOpen(filename)
 		if err != nil {
 			return nil, err
 		}
-		source = &mmapAdapter{rdr, 0}
 	} else {
 		source, err = os.Open(filename)
 		if err != nil {
