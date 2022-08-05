@@ -99,22 +99,17 @@ class AwsRetryStrategy(object):
     def __init__(self, max_attempts=3):
         self.max_attempts = max_attempts
 
-    def GetStrategy(self):
-        raise NotImplementedError
-
 class AwsStandardRetryStrategy(AwsRetryStrategy):
     """
     Represents an AWS Standard retry strategy.
     """
-    def GetStrategy(self):
-        return CS3RetryStrategy.GetAwsStandardRetryStrategy(self.max_attempts)
+    pass
 
 class AwsDefaultRetryStrategy(AwsRetryStrategy):
     """
     Represents an AWS Default retry strategy.
     """
-    def GetStrategy(self):
-        return CS3RetryStrategy.GetAwsDefaultRetryStrategy(self.max_attempts)
+    pass
 
 cdef class S3FileSystem(FileSystem):
     """
@@ -331,7 +326,13 @@ cdef class S3FileSystem(FileSystem):
 
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
-        options.retry_strategy = retry_strategy.GetStrategy()
+
+        if isinstance(retry_strategy, AwsStandardRetryStrategy):
+            options.retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(retry_strategy.max_attempts)
+        elif isinstance(retry_strategy, AwsDefaultRetryStrategy):
+            options.retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(retry_strategy.max_attempts)
+        else:
+            raise ValueError('Invalid retry_strategy.')
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
