@@ -1117,7 +1117,7 @@ TEST(Substrait, JoinPlanBasic) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + kSubstraitComparisonFunctionsUri +
+        "uri": ")" + std::string(kSubstraitComparisonFunctionsUri) +
                                R"("
       }
     ],
@@ -1260,7 +1260,7 @@ TEST(Substrait, JoinPlanInvalidKeyCmp) {
   "extension_uris": [
       {
         "extension_uri_anchor": 0,
-        "uri": ")" + kSubstraitArithmeticFunctionsUri +
+        "uri": ")" + std::string(kSubstraitArithmeticFunctionsUri) +
                                R"("
       }
     ],
