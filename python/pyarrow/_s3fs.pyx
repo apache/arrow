@@ -327,6 +327,7 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_creation = allow_bucket_creation
         options.allow_bucket_deletion = allow_bucket_deletion
 
+        self._retry_strategy = retry_strategy
         if isinstance(retry_strategy, AwsStandardRetryStrategy):
             options.retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(retry_strategy.max_attempts)
         elif isinstance(retry_strategy, AwsDefaultRetryStrategy):
@@ -388,6 +389,7 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
+                retry_strategy=self._retry_strategy,
             ),)
         )
 
