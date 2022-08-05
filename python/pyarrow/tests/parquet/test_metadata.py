@@ -25,7 +25,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
-from pyarrow.filesystem import LocalFileSystem, FileSystem
+from pyarrow.fs import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 
 try:
