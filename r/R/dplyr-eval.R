@@ -44,8 +44,8 @@ arrow_eval <- function(expr, mask) {
       # One of ours. Mark it so that consumers can handle it differently
       class(out) <- c("arrow-try-error", class(out))
     }
-    # if any of the expression calls are not to bindings in the function registry
-    # then we mark it as unknown binding error and attempt translation
+    # if any of the calls in expr are to bindings not yet in the function
+    # registry, we mark it as unknown-binding-error and attempt translation
     expr_funs <- all_funs(expr)
     if (!all(expr_funs %in% names(mask$.top_env))) {
       class(out) <- c("unknown-binding-error", class(out))
