@@ -77,9 +77,12 @@ void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callba
 
   while (logical_position < logical_length) {
     // logical indices of the end of the run we are currently in in each input
-    const int64_t a_run_end = RunEnds(a)[a_run_index] - a.offset;
-    const int64_t b_run_end = RunEnds(b)[b_run_index] - b.offset;
+    int64_t a_run_end = RunEnds(a)[a_run_index] - a.offset;
+    int64_t b_run_end = RunEnds(b)[b_run_index] - b.offset;
 
+    // the logical length may end in the middle of a run
+    a_run_end = std::min(a_run_end, logical_length);
+    b_run_end = std::min(b_run_end, logical_length);
     ARROW_DCHECK_GT(a_run_end, logical_position);
     ARROW_DCHECK_GT(b_run_end, logical_position);
 
