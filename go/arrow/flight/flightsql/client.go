@@ -19,7 +19,10 @@ package flightsql
 import (
 	"context"
 	"errors"
+<<<<<<< HEAD
 	"io"
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -32,6 +35,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+<<<<<<< HEAD
 // NewClient is a convenience function to automatically construct
 // a flight.Client and return a flightsql.Client containing it rather
 // than having to manually construct both yourself. It just delegates
@@ -47,6 +51,8 @@ func NewClient(addr string, auth flight.ClientAuthHandler, middleware []flight.C
 
 // Client wraps a regular Flight RPC Client to provide the FlightSQL
 // interface functions and methods.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 type Client struct {
 	Client flight.Client
 }
@@ -72,7 +78,11 @@ func flightInfoForCommand(ctx context.Context, cl *Client, cmd proto.Message, op
 	if err != nil {
 		return nil, err
 	}
+<<<<<<< HEAD
 	return cl.getFlightInfo(ctx, desc, opts...)
+=======
+	return cl.GetFlightInfo(ctx, desc, opts...)
+>>>>>>> 7c0a7b52f (initial flightsql client)
 }
 
 // Execute executes the desired query on the server and returns a FlightInfo
@@ -85,7 +95,11 @@ func (c *Client) Execute(ctx context.Context, query string, opts ...grpc.CallOpt
 // ExecuteUpdate is for executing an update query and only returns the number of affected rows.
 func (c *Client) ExecuteUpdate(ctx context.Context, query string, opts ...grpc.CallOption) (n int64, err error) {
 	var (
+<<<<<<< HEAD
 		cmd          pb.CommandStatementUpdate
+=======
+		cmd          pb.CommandStatementQuery
+>>>>>>> 7c0a7b52f (initial flightsql client)
 		desc         *flight.FlightDescriptor
 		stream       pb.FlightService_DoPutClient
 		res          *pb.PutResult
@@ -129,7 +143,11 @@ func (c *Client) GetCatalogs(ctx context.Context, opts ...grpc.CallOption) (*fli
 // GetDBSchemas requests the list of schemas from the database and
 // returns a FlightInfo object where the response can be retrieved
 func (c *Client) GetDBSchemas(ctx context.Context, cmdOpts *GetDBSchemasOpts, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
+<<<<<<< HEAD
 	return flightInfoForCommand(ctx, c, (*pb.CommandGetDbSchemas)(cmdOpts), opts...)
+=======
+	return flightInfoForCommand(ctx, c, cmdOpts, opts...)
+>>>>>>> 7c0a7b52f (initial flightsql client)
 }
 
 // DoGet uses the provided flight ticket to request the stream of data.
@@ -149,12 +167,18 @@ func (c *Client) DoGet(ctx context.Context, in *flight.Ticket, opts ...grpc.Call
 // should be returned, etc.). Returns a FlightInfo object where the response
 // can be retrieved.
 func (c *Client) GetTables(ctx context.Context, reqOptions *GetTablesOpts, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
+<<<<<<< HEAD
 	return flightInfoForCommand(ctx, c, (*pb.CommandGetTables)(reqOptions), opts...)
 }
 
 // GetPrimaryKeys requests the primary keys for a specific table from the
 // server, specified using a TableRef. Returns a FlightInfo object where
 // the response can be retrieved.
+=======
+	return flightInfoForCommand(ctx, c, reqOptions, opts...)
+}
+
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (c *Client) GetPrimaryKeys(ctx context.Context, ref TableRef, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	cmd := pb.CommandGetPrimaryKeys{
 		Catalog:  ref.Catalog,
@@ -164,9 +188,12 @@ func (c *Client) GetPrimaryKeys(ctx context.Context, ref TableRef, opts ...grpc.
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+<<<<<<< HEAD
 // GetExportedKeys retrieves a description about the foreign key columns
 // that reference the primary key columns of the specified table. Returns
 // a FlightInfo object where the response can be retrieved.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (c *Client) GetExportedKeys(ctx context.Context, ref TableRef, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	cmd := pb.CommandGetExportedKeys{
 		Catalog:  ref.Catalog,
@@ -176,8 +203,11 @@ func (c *Client) GetExportedKeys(ctx context.Context, ref TableRef, opts ...grpc
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+<<<<<<< HEAD
 // GetImportedKeys returns the foreign key columns for the specified table.
 // Returns a FlightInfo object indicating where the response can be retrieved.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (c *Client) GetImportedKeys(ctx context.Context, ref TableRef, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	cmd := pb.CommandGetImportedKeys{
 		Catalog:  ref.Catalog,
@@ -187,11 +217,14 @@ func (c *Client) GetImportedKeys(ctx context.Context, ref TableRef, opts ...grpc
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+<<<<<<< HEAD
 // GetCrossReference retrieves a description of the foreign key columns
 // in the specified ForeignKey table that reference the primary key or
 // columns representing a restraint of the parent table (could be the same
 // or a different table). Returns a FlightInfo object indicating where
 // the response can be retrieved with DoGet.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (c *Client) GetCrossReference(ctx context.Context, pkTable, fkTable TableRef, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	cmd := pb.CommandGetCrossReference{
 		PkCatalog:  pkTable.Catalog,
@@ -204,23 +237,32 @@ func (c *Client) GetCrossReference(ctx context.Context, pkTable, fkTable TableRe
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+<<<<<<< HEAD
 // GetTableTypes requests a list of the types of tables available on this
 // server. Returns a FlightInfo object indicating where the response can
 // be retrieved.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (c *Client) GetTableTypes(ctx context.Context, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	return flightInfoForCommand(ctx, c, &pb.CommandGetTableTypes{}, opts...)
 }
 
+<<<<<<< HEAD
 // GetXdbcTypeInfo requests the information about all the data types supported
 // (dataType == nil) or a specific data type. Returns a FlightInfo object
 // indicating where the response can be retrieved.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (c *Client) GetXdbcTypeInfo(ctx context.Context, dataType *int32, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	return flightInfoForCommand(ctx, c, &pb.CommandGetXdbcTypeInfo{DataType: dataType}, opts...)
 }
 
+<<<<<<< HEAD
 // GetSqlInfo returns a list of the requested SQL information corresponding
 // to the values in the info slice. Returns a FlightInfo object indicating
 // where the response can be retrieved.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (c *Client) GetSqlInfo(ctx context.Context, info []SqlInfo, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	cmd := &pb.CommandGetSqlInfo{Info: make([]uint32, len(info))}
 
@@ -230,12 +272,17 @@ func (c *Client) GetSqlInfo(ctx context.Context, info []SqlInfo, opts ...grpc.Ca
 	return flightInfoForCommand(ctx, c, cmd, opts...)
 }
 
+<<<<<<< HEAD
 // Prepare creates a PreparedStatement object for the specified query.
 // The resulting PreparedStatement object should be Closed when no longer
 // needed. It will maintain a reference to this Client for use to execute
 // and use the specified allocator for any allocations it needs to perform.
 func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
 	const actionType = CreatePreparedStatementActionType
+=======
+func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
+	const actionType = "CreatePreparedStatement"
+>>>>>>> 7c0a7b52f (initial flightsql client)
 	var (
 		cmd, cmdResult        anypb.Any
 		res                   *pb.Result
@@ -272,6 +319,7 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 		return
 	}
 
+<<<<<<< HEAD
 	if result.DatasetSchema != nil {
 		dsSchema, err = flight.DeserializeSchema(result.DatasetSchema, mem)
 		if err != nil {
@@ -283,6 +331,15 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 		if err != nil {
 			return
 		}
+=======
+	dsSchema, err = flight.DeserializeSchema(result.DatasetSchema, mem)
+	if err != nil {
+		return
+	}
+	paramSchema, err = flight.DeserializeSchema(result.ParameterSchema, mem)
+	if err != nil {
+		return
+>>>>>>> 7c0a7b52f (initial flightsql client)
 	}
 
 	prep = &PreparedStatement{
@@ -295,6 +352,7 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 	return
 }
 
+<<<<<<< HEAD
 func (c *Client) getFlightInfo(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	return c.Client.GetFlightInfo(ctx, desc, opts...)
 }
@@ -309,6 +367,14 @@ func (c *Client) Close() error { return c.Client.Close() }
 // If the server returned the Dataset Schema or Parameter Binding schemas
 // at creation, they will also be accessible from this object. Close
 // should be called when no longer needed.
+=======
+func (c *Client) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
+	return c.Client.GetFlightInfo(ctx, desc, opts...)
+}
+
+func (c *Client) Close() error { return c.Client.Close() }
+
+>>>>>>> 7c0a7b52f (initial flightsql client)
 type PreparedStatement struct {
 	client        *Client
 	opts          []grpc.CallOption
@@ -319,11 +385,14 @@ type PreparedStatement struct {
 	closed        bool
 }
 
+<<<<<<< HEAD
 // Execute executes the prepared statement on the server and returns a FlightInfo
 // indicating where to retrieve the response. If SetParameters has been called
 // then the parameter bindings will be sent before execution.
 //
 // Will error if already closed.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, error) {
 	if p.closed {
 		return nil, errors.New("arrow/flightsql: prepared statement already closed")
@@ -353,17 +422,27 @@ func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, er
 		pstream.CloseSend()
 
 		// wait for the server to ack the result
+<<<<<<< HEAD
 		if _, err = pstream.Recv(); err != nil && err != io.EOF {
+=======
+		if _, err = pstream.Recv(); err != nil {
+>>>>>>> 7c0a7b52f (initial flightsql client)
 			return nil, err
 		}
 	}
 
+<<<<<<< HEAD
 	return p.client.getFlightInfo(ctx, desc, p.opts...)
 }
 
 // ExecuteUpdate executes the prepared statement update query on the server
 // and returns the number of rows affected. If SetParameters was called,
 // the parameter bindings will be sent with the request to execute.
+=======
+	return p.client.GetFlightInfo(ctx, desc, p.opts...)
+}
+
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, err error) {
 	if p.closed {
 		return 0, errors.New("arrow/flightsql: prepared statement already closed")
@@ -394,7 +473,11 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, 
 		}
 	} else {
 		schema := arrow.NewSchema([]arrow.Field{}, nil)
+<<<<<<< HEAD
 		wr = flight.NewRecordWriter(pstream, ipc.WithSchema(schema))
+=======
+		wr = flight.NewRecordWriter(pstream, ipc.WithSchema(p.paramBinding.Schema()))
+>>>>>>> 7c0a7b52f (initial flightsql client)
 		wr.SetFlightDescriptor(desc)
 		rec := array.NewRecord(schema, []arrow.Array{}, 0)
 		if err = wr.Write(rec); err != nil {
@@ -419,6 +502,7 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, 
 	return updateResult.GetRecordCount(), nil
 }
 
+<<<<<<< HEAD
 // DatasetSchema may be nil if the server did not return it when creating the
 // Prepared Statement.
 func (p *PreparedStatement) DatasetSchema() *arrow.Schema { return p.datasetSchema }
@@ -434,6 +518,11 @@ func (p *PreparedStatement) ParameterSchema() *arrow.Schema { return p.paramSche
 // out from under the statement. Release will be called on a previous
 // binding record if it existed, and will be called upon calling Close
 // on the PreparedStatement.
+=======
+func (p *PreparedStatement) DatasetSchema() *arrow.Schema   { return p.datasetSchema }
+func (p *PreparedStatement) ParameterSchema() *arrow.Schema { return p.paramSchema }
+
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (p *PreparedStatement) SetParameters(binding arrow.Record) {
 	if p.paramBinding != nil {
 		p.paramBinding.Release()
@@ -443,9 +532,12 @@ func (p *PreparedStatement) SetParameters(binding arrow.Record) {
 	p.paramBinding.Retain()
 }
 
+<<<<<<< HEAD
 // Close calls release on any parameter binding record and sends
 // a ClosePreparedStatement action to the server. After calling
 // Close, the PreparedStatement should not be used again.
+=======
+>>>>>>> 7c0a7b52f (initial flightsql client)
 func (p *PreparedStatement) Close(ctx context.Context) error {
 	if p.closed {
 		return errors.New("arrow/flightsql: already closed")
@@ -456,7 +548,11 @@ func (p *PreparedStatement) Close(ctx context.Context) error {
 		p.paramBinding = nil
 	}
 
+<<<<<<< HEAD
 	const actionType = ClosePreparedStatementActionType
+=======
+	const actionType = "ClosePreparedStatement"
+>>>>>>> 7c0a7b52f (initial flightsql client)
 	var (
 		cmd     anypb.Any
 		request pb.ActionClosePreparedStatementRequest

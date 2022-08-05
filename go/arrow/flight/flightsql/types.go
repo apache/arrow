@@ -18,114 +18,31 @@ package flightsql
 
 import (
 	pb "github.com/apache/arrow/go/v10/arrow/flight/internal/flight"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
-// Constants for Action types
-const (
-	CreatePreparedStatementActionType = "CreatePreparedStatement"
-	ClosePreparedStatementActionType  = "ClosePreparedStatement"
-)
-
-func toCrossTableRef(cmd *pb.CommandGetCrossReference) CrossTableRef {
-	return CrossTableRef{
-		PKRef: TableRef{
-			Catalog:  cmd.PkCatalog,
-			DBSchema: cmd.PkDbSchema,
-			Table:    cmd.PkTable,
-		},
-		FKRef: TableRef{
-			Catalog:  cmd.FkCatalog,
-			DBSchema: cmd.FkDbSchema,
-			Table:    cmd.FkTable,
-		},
-	}
-}
-
-func pkToTableRef(cmd *pb.CommandGetPrimaryKeys) TableRef {
-	return TableRef{
-		Catalog:  cmd.Catalog,
-		DBSchema: cmd.DbSchema,
-		Table:    cmd.Table,
-	}
-}
-
-func exkToTableRef(cmd *pb.CommandGetExportedKeys) TableRef {
-	return TableRef{
-		Catalog:  cmd.Catalog,
-		DBSchema: cmd.DbSchema,
-		Table:    cmd.Table,
-	}
-}
-
-func impkToTableRef(cmd *pb.CommandGetImportedKeys) TableRef {
-	return TableRef{
-		Catalog:  cmd.Catalog,
-		DBSchema: cmd.DbSchema,
-		Table:    cmd.Table,
-	}
-}
-
-// CreateStatementQueryTicket is a helper that constructs a properly
-// serialized TicketStatementQuery containing a given opaque binary handle
-// for use with constructing a ticket to return from GetFlightInfoStatement.
-func CreateStatementQueryTicket(handle []byte) ([]byte, error) {
-	query := &pb.TicketStatementQuery{StatementHandle: handle}
-	var ticket anypb.Any
-	ticket.MarshalFrom(query)
-
-	return proto.Marshal(&ticket)
+type TableRef struct {
+	// Catalog specifies the catalog this table belongs to.
+	// An empty string refers to tables without a catalog.
+	// If nil, can reference a table in any catalog.
+	Catalog *string
+	// DBSchema specifies the database schema the table belongs to.
+	// An empty string refers to a table which does not belong to
+	// a database schema.
+	// If nil, can reference a table in any database schema.
+	DBSchema *string
+	// Table is the name of the table that is being referenced.
+	Table string
 }
 
 type (
-	// GetDBSchemasOpts contains the options to request Database Schemas:
-	// an optional Catalog and a Schema Name filter pattern.
-	GetDBSchemasOpts pb.CommandGetDbSchemas
-	// GetTablesOpts contains the options for retrieving a list of tables:
-	// optional Catalog, Schema filter pattern, Table name filter pattern,
-	// a filter of table types, and whether or not to include the schema
-	// in the response.
-	GetTablesOpts pb.CommandGetTables
-
-	// SqlInfoResultMap is a mapping of SqlInfo ids to the desired response.
-	// This is part of a Server and used for registering responses to a
-	// SqlInfo request.
-	SqlInfoResultMap map[uint32]interface{}
-
-	// TableRef is a helpful struct for referencing a specific Table
-	// by its catalog, schema, and table name.
-	TableRef struct {
-		// Catalog specifies the catalog this table belongs to.
-		// An empty string refers to tables without a catalog.
-		// If nil, can reference a table in any catalog.
-		Catalog *string
-		// DBSchema specifies the database schema the table belongs to.
-		// An empty string refers to a table which does not belong to
-		// a database schema.
-		// If nil, can reference a table in any database schema.
-		DBSchema *string
-		// Table is the name of the table that is being referenced.
-		Table string
-	}
-
-	// CrossTableRef contains a reference to a Primary Key table
-	// and a Foreign Key table.
-	CrossTableRef struct {
-		PKRef TableRef
-		FKRef TableRef
-	}
-
+	GetDBSchemasOpts = pb.CommandGetDbSchemas
+	GetTablesOpts    = pb.CommandGetTables
 	// since we are hiding the Protobuf internals in an internal
 	// package, we need to provide enum values for the SqlInfo enum here
 	SqlInfo uint32
 )
 
-// SqlInfo enum values
 const (
-	// Server Information
-	// Values [0-500): Provide information about the Flight SQL Server itself
-
 	// Retrieves a UTF-8 string with the name of the Flight SQL Server.
 	SqlInfoFlightSqlServerName = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_NAME)
 	// Retrieves a UTF-8 string with the native version of the Flight SQL Server.
@@ -139,9 +56,6 @@ const (
 	// - false: if read-write
 	// - true: if read only
 	SqlInfoFlightSqlServerReadOnly = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_READ_ONLY)
-
-	// SQL Syntax Information
-	// Values [500-1000): provide information about the supported SQL Syntax
 
 	// Retrieves a boolean value indicating whether the Flight SQL Server supports CREATE and DROP of catalogs.
 	//
@@ -686,60 +600,3 @@ const (
 )
 
 func (s SqlInfo) String() string { return pb.SqlInfo(int32(s)).String() }
-
-// SqlSupportedCaseSensitivity indicates whether something
-// (e.g. an identifier) is case-sensitive
-//
-// duplicated from protobuf to avoid relying directly on the protobuf
-// generated code, also making them shorter and easier to use
-type SqlSupportedCaseSensitivity = pb.SqlSupportedCaseSensitivity
-
-const (
-	SqlCaseSensitivityUnknown         = pb.SqlSupportedCaseSensitivity_SQL_CASE_SENSITIVITY_UNKNOWN
-	SqlCaseSensitivityCaseInsensitive = pb.SqlSupportedCaseSensitivity_SQL_CASE_SENSITIVITY_CASE_INSENSITIVE
-	SqlCaseSensitivityUpperCase       = pb.SqlSupportedCaseSensitivity_SQL_CASE_SENSITIVITY_UPPERCASE
-	SqlCaseSensitivityLowerCase       = pb.SqlSupportedCaseSensitivity_SQL_CASE_SENSITIVITY_LOWERCASE
-)
-
-// SqlNullOrdering indicates how nulls are sorted
-//
-// duplicated from protobuf to avoid relying directly on the protobuf
-// generated code, also making them shorter and easier to use
-type SqlNullOrdering = pb.SqlNullOrdering
-
-const (
-	SqlNullOrderingSortHigh    = pb.SqlNullOrdering_SQL_NULLS_SORTED_HIGH
-	SqlNullOrderingSortLow     = pb.SqlNullOrdering_SQL_NULLS_SORTED_LOW
-	SqlNullOrderingSortAtStart = pb.SqlNullOrdering_SQL_NULLS_SORTED_AT_START
-	SqlNullOrderingSortAtEnd   = pb.SqlNullOrdering_SQL_NULLS_SORTED_AT_END
-)
-
-// SqlSupportsConvert indicates support for converting between different
-// types.
-//
-// duplicated from protobuf to avoid relying directly on the protobuf
-// generated code, also making them shorter and easier to use
-type SqlSupportsConvert = pb.SqlSupportsConvert
-
-const (
-	SqlConvertBigInt            = pb.SqlSupportsConvert_SQL_CONVERT_BIGINT
-	SqlConvertBinary            = pb.SqlSupportsConvert_SQL_CONVERT_BINARY
-	SqlConvertBit               = pb.SqlSupportsConvert_SQL_CONVERT_BIT
-	SqlConvertChar              = pb.SqlSupportsConvert_SQL_CONVERT_CHAR
-	SqlConvertDate              = pb.SqlSupportsConvert_SQL_CONVERT_DATE
-	SqlConvertDecimal           = pb.SqlSupportsConvert_SQL_CONVERT_DECIMAL
-	SqlConvertFloat             = pb.SqlSupportsConvert_SQL_CONVERT_FLOAT
-	SqlConvertInteger           = pb.SqlSupportsConvert_SQL_CONVERT_INTEGER
-	SqlConvertIntervalDayTime   = pb.SqlSupportsConvert_SQL_CONVERT_INTERVAL_DAY_TIME
-	SqlConvertIntervalYearMonth = pb.SqlSupportsConvert_SQL_CONVERT_INTERVAL_YEAR_MONTH
-	SqlConvertLongVarbinary     = pb.SqlSupportsConvert_SQL_CONVERT_LONGVARBINARY
-	SqlConvertLongVarchar       = pb.SqlSupportsConvert_SQL_CONVERT_LONGVARCHAR
-	SqlConvertNumeric           = pb.SqlSupportsConvert_SQL_CONVERT_NUMERIC
-	SqlConvertReal              = pb.SqlSupportsConvert_SQL_CONVERT_REAL
-	SqlConvertSmallInt          = pb.SqlSupportsConvert_SQL_CONVERT_SMALLINT
-	SqlConvertTime              = pb.SqlSupportsConvert_SQL_CONVERT_TIME
-	SqlConvertTimestamp         = pb.SqlSupportsConvert_SQL_CONVERT_TIMESTAMP
-	SqlConvertTinyInt           = pb.SqlSupportsConvert_SQL_CONVERT_TINYINT
-	SqlConvertVarbinary         = pb.SqlSupportsConvert_SQL_CONVERT_VARBINARY
-	SqlConvertVarchar           = pb.SqlSupportsConvert_SQL_CONVERT_VARCHAR
-)
