@@ -295,7 +295,7 @@ For this example, we will build a JAR with all dependencies bundled.
        final static BufferAllocator allocator = new RootAllocator();
 
        /**
-        * Create a {@link FieldVector} and export this to an existing memory address
+        * Create a {@link FieldVector} and export it via the C Data Interface
         * @param schemaAddress Schema memory address to wrap
         * @param arrayAddress Array memory address to wrap
         */
@@ -307,7 +307,7 @@ For this example, we will build a JAR with all dependencies bundled.
        }
 
        /**
-        * Create a {@link VectorSchemaRoot} and export this to an existing memory address
+        * Create a {@link VectorSchemaRoot} and export it via the C Data Interface
         * @param schemaAddress Schema memory address to wrap
         * @param arrayAddress Array memory address to wrap
         */
