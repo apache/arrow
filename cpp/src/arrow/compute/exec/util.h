@@ -344,7 +344,7 @@ class TailSkipForSIMD {
 };
 
 /// \brief A consumer that collects results into an in-memory table
-struct TableSinkNodeConsumer : public SinkNodeConsumer {
+struct ARROW_EXPORT TableSinkNodeConsumer : public SinkNodeConsumer {
  public:
   TableSinkNodeConsumer(std::shared_ptr<Table>* out, MemoryPool* pool)
       : out_(out), pool_(pool) {}

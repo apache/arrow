@@ -52,7 +52,7 @@ namespace internal {
 ///
 /// If `arguments` is defined at an index then the plan will create an
 /// enum argument with that value.
-Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
     const std::vector<std::string>& arguments,
     const std::vector<std::shared_ptr<DataType>>& data_types,
@@ -63,7 +63,7 @@ Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
 /// The plan will create an aggregate with one grouping set (defined by
 /// key_idxs) and one measure.  The measure will be a unary function
 /// defined by `function_id` and a direct reference to `arg_idx`.
-Result<std::shared_ptr<Buffer>> CreateScanAggSubstrait(
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> CreateScanAggSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
     const std::vector<int>& key_idxs, int arg_idx, const DataType& output_type);
 
