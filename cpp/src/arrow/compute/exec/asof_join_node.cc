@@ -50,15 +50,6 @@ typedef int col_index_t;
  */
 template <class T>
 class ConcurrentBoundedQueue {
-  size_t remaining_;
-  std::vector<T> buffer_;
-  mutable std::mutex gate_;
-  std::condition_variable not_full_;
-  std::condition_variable not_empty_;
-
-  size_t next_push_ = 0;
-  size_t next_pop_ = 0;
-
  public:
   explicit ConcurrentBoundedQueue(size_t capacity)
       : remaining_(capacity), buffer_(capacity) {}
@@ -106,6 +97,16 @@ class ConcurrentBoundedQueue {
   // 3) note that push can be called concurrently, because
   // it does not change the object located at _next_pop.
   const T& UnsyncFront() const { return buffer_[next_pop_]; }
+
+ private:
+  size_t remaining_;
+  std::vector<T> buffer_;
+  mutable std::mutex gate_;
+  std::condition_variable not_full_;
+  std::condition_variable not_empty_;
+
+  size_t next_push_ = 0;
+  size_t next_pop_ = 0;
 };
 
 struct MemoStore {
@@ -271,7 +272,8 @@ class InputState {
           rb->column_data(time_col_index_)->GetValues<int64_t>(1)[rb->num_rows() - 1];
       // Batches must be in order
       if (batch_earliest_time < latest_time_) {
-        return Status::Invalid("Batches out of order.");
+        return Status::Invalid("Batches out of order. Latest time seen: ", latest_time_,
+                               " Batch's earliest time: ", batch_earliest_time);
       } else {
         latest_time_ = batch_latest_time;
       }

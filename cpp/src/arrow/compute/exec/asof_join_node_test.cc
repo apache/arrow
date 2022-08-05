@@ -144,7 +144,9 @@ void DoRunInvalidAtRuntimeTest(const std::vector<util::string_view>& l_data,
   AsyncGenerator<util::optional<ExecBatch>> sink_gen;
   ASSERT_OK(Declaration::Sequence({join, {"sink", SinkNodeOptions{&sink_gen}}})
                 .AddToPlan(plan.get()));
-  ASSERT_FINISHES_AND_RAISES(Invalid, StartAndCollect(plan.get(), sink_gen));
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                               ::testing::HasSubstr("out of order"),
+                                               StartAndCollect(plan.get(), sink_gen));
 }
 
 class AsofJoinTest : public testing::Test {};
@@ -332,7 +334,7 @@ TEST(AsofJoinTest, TestMissingKeys) {
           {field("time", int64()), field("key1", int32()), field("r0_v0", float64())}));
 }
 
-TEST(AsofJoinTest, SourceInOrderAssertion) {
+TEST(AsofJoinTest, TestSourceOutOfOrder) {
   DoRunInvalidAtRuntimeTest({R"([[1, 1, 1.0], [2, 1, 1.0]])", R"([[1, 1, 2.0]])"},
                             {R"([[1, 1, 1.0], [2, 1, 1.0]])"});
 }
