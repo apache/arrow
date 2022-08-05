@@ -44,7 +44,7 @@ TEST(TestRleUtil, FindPhysicalOffsetTest) {
 
 TEST(TestRleUtil, VisitMergedRuns) {
   const auto left_run_ends = ArrayFromJSON(
-      int32(), "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 1050]");
+      int32(), "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1000, 1005, 1015, 1020, 1025, 30000]");
   const auto right_run_ends =
       ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 2005, 2009, 2025, 2050]");
   const std::vector<int32_t> expected_run_lengths = {5, 4, 6, 5, 5, 25};
@@ -60,7 +60,7 @@ TEST(TestRleUtil, VisitMergedRuns) {
   std::shared_ptr<Array> right_child =
       std::make_shared<NullArray>(right_child_offset + right_run_ends->length());
 
-  left_child = left_child->Slice(left_child_offset);
+  left_child = left_child->Slice(left_child_offset, 50);
   right_child = right_child->Slice(right_child_offset);
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> left_array,
@@ -72,11 +72,23 @@ TEST(TestRleUtil, VisitMergedRuns) {
   right_array = right_array->Slice(right_parent_offset);
 
   size_t position = 0;
-
   rle_util::VisitMergedRuns(
       ArraySpan(*left_array->data()), ArraySpan(*right_array->data()),
       [&position, &expected_run_lengths, &expected_left_visits, &expected_right_visits](
           int64_t run_length, int64_t left_index, int64_t right_index) {
+        ASSERT_EQ(run_length, expected_run_lengths[position]);
+        ASSERT_EQ(left_index, expected_left_visits[position]);
+        ASSERT_EQ(right_index, expected_right_visits[position]);
+        position++;
+      });
+  ASSERT_EQ(position, expected_run_lengths.size());
+
+  // test the same data with left/right swapped
+  position = 0;
+  rle_util::VisitMergedRuns(
+      ArraySpan(*right_array->data()), ArraySpan(*left_array->data()),
+      [&position, &expected_run_lengths, &expected_left_visits, &expected_right_visits](
+          int64_t run_length, int64_t right_index, int64_t left_index) {
         ASSERT_EQ(run_length, expected_run_lengths[position]);
         ASSERT_EQ(left_index, expected_left_visits[position]);
         ASSERT_EQ(right_index, expected_right_visits[position]);
