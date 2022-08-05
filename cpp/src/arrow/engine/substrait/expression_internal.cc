@@ -76,18 +76,32 @@ Result<SubstraitCall> DecodeScalarFunction(
   return std::move(call);
 }
 
+std::string EnumToString(int value, const google::protobuf::EnumDescriptor* descriptor) {
+  const google::protobuf::EnumValueDescriptor* value_desc =
+      descriptor->FindValueByNumber(value);
+  if (value_desc == nullptr) {
+    return "unknown";
+  }
+  return value_desc->name();
+}
+
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
                                 const ExtensionSet& ext_set,
                                 const ConversionOptions& conversion_options) {
   if (func.phase() != substrait::AggregationPhase::AGGREGATION_PHASE_INITIAL_TO_RESULT) {
     return Status::NotImplemented(
-        "Unsupported aggregation phase.  Only INITIAL_TO_RESULT is supported");
+        "Unsupported aggregation phase '",
+        EnumToString(func.phase(), substrait::AggregationPhase_descriptor()),
+        "'.  Only INITIAL_TO_RESULT is supported");
   }
   if (func.invocation() !=
       substrait::AggregateFunction::AggregationInvocation::
           AggregateFunction_AggregationInvocation_AGGREGATION_INVOCATION_ALL) {
     return Status::NotImplemented(
-        "Unsupported aggregation invocation.  Only AGGREGATION_INVOCATION_ALL is "
+        "Unsupported aggregation invocation '",
+        EnumToString(func.invocation(),
+                     substrait::AggregateFunction::AggregationInvocation_descriptor()),
+        "'.  Only AGGREGATION_INVOCATION_ALL is "
         "supported");
   }
   if (func.sorts_size() > 0) {

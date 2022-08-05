@@ -391,8 +391,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 
   Status CanAddSubstraitCallToArrow(Id substrait_function_id) const override {
     if (substrait_to_arrow_.find(substrait_function_id) != substrait_to_arrow_.end()) {
-      return Status::Invalid(
-          "Cannot register function converter because a converter already exists");
+      return Status::Invalid("Cannot register function converter for Substrait id ",
+                             substrait_function_id.ToString(),
+                             " because a converter already exists");
     }
     if (parent_) {
       return parent_->CanAddSubstraitCallToArrow(substrait_function_id);
@@ -404,7 +405,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     if (substrait_to_arrow_agg_.find(substrait_function_id) !=
         substrait_to_arrow_agg_.end()) {
       return Status::Invalid(
-          "Cannot register function converter because a converter already exists");
+          "Cannot register aggregate function converter for Substrait id ",
+          substrait_function_id.ToString(),
+          " because an aggregate converter already exists");
     }
     if (parent_) {
       return parent_->CanAddSubstraitAggregateToArrow(substrait_function_id);
@@ -423,7 +426,8 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
     if (!add_result.second) {
       return Status::Invalid(
           "Failed to register Substrait to Arrow function converter because a converter "
-          "already existed");
+          "already existed for Substrait id ",
+          substrait_id.ToString());
     }
 
     return Status::OK();
