@@ -41,13 +41,13 @@ namespace internal {
 using ::arrow::internal::make_unique;
 }  // namespace internal
 
-Status DecodeArg(const substrait::FunctionArgument& arg, int idx, SubstraitCall* call,
-                 const ExtensionSet& ext_set,
+Status DecodeArg(const substrait::FunctionArgument& arg, uint32_t idx,
+                 SubstraitCall* call, const ExtensionSet& ext_set,
                  const ConversionOptions& conversion_options) {
   if (arg.has_enum_()) {
     const substrait::FunctionArgument::Enum& enum_val = arg.enum_();
     if (enum_val.has_specified()) {
-      call->SetEnumArg(static_cast<uint32_t>(idx), enum_val.specified());
+      call->SetEnumArg(idx, enum_val.specified());
     } else {
       call->SetEnumArg(idx, util::nullopt);
     }
@@ -70,8 +70,8 @@ Result<SubstraitCall> DecodeScalarFunction(
                         FromProto(scalar_fn.output_type(), ext_set, conversion_options));
   SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second);
   for (int i = 0; i < scalar_fn.arguments_size(); i++) {
-    ARROW_RETURN_NOT_OK(
-        DecodeArg(scalar_fn.arguments(i), i, &call, ext_set, conversion_options));
+    ARROW_RETURN_NOT_OK(DecodeArg(scalar_fn.arguments(i), static_cast<uint32_t>(i), &call,
+                                  ext_set, conversion_options));
   }
   return std::move(call);
 }
@@ -113,8 +113,8 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
   SubstraitCall call(id, output_type_and_nullable.first, output_type_and_nullable.second,
                      is_hash);
   for (int i = 0; i < func.arguments_size(); i++) {
-    ARROW_RETURN_NOT_OK(
-        DecodeArg(func.arguments(i), i, &call, ext_set, conversion_options));
+    ARROW_RETURN_NOT_OK(DecodeArg(func.arguments(i), static_cast<uint32_t>(i), &call,
+                                  ext_set, conversion_options));
   }
   return std::move(call);
 }

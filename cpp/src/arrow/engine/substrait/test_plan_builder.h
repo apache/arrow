@@ -39,12 +39,30 @@ namespace arrow {
 namespace engine {
 namespace internal {
 
+/// \brief Create a scan->project->sink plan for tests
+///
+/// The plan will project one additional column using the function
+/// defined by `function_id`, `arguments`, and data_types.  `arguments`
+/// and `data_types` should have the same length but only one of each
+/// should be defined at each index.
+///
+/// If `data_types` is defined at an index then the plan will create a
+/// direct reference (starting at index 0 and increasing by 1 for each
+/// argument of this type).
+///
+/// If `arguments` is defined at an index then the plan will create an
+/// enum argument with that value.
 Result<std::shared_ptr<Buffer>> CreateScanProjectSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
     const std::vector<std::string>& arguments,
     const std::vector<std::shared_ptr<DataType>>& data_types,
     const DataType& output_type);
 
+/// \brief Create a scan->aggregate->sink plan for tests
+///
+/// The plan will create an aggregate with one grouping set (defined by
+/// key_idxs) and one measure.  The measure will be a unary function
+/// defined by `function_id` and a direct reference to `arg_idx`.
 Result<std::shared_ptr<Buffer>> CreateScanAggSubstrait(
     Id function_id, const std::shared_ptr<Table>& input_table,
     const std::vector<int>& key_idxs, int arg_idx, const DataType& output_type);
