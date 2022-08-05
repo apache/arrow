@@ -229,6 +229,18 @@ class AwsRetryStrategy : public S3RetryStrategy {
         error, static_cast<long>(attempted_retries));
   }
 
+  std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(int64_t max_attempts) {
+    return std::make_shared<AwsRetryStrategy>(
+        std::make_shared<Aws::Client::DefaultRetryStrategy>(
+            static_cast<long>(max_attempts)));
+  }
+
+  std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(int64_t max_attempts) {
+    return std::make_shared<AwsRetryStrategy>(
+        std::make_shared<Aws::Client::StandardRetryStrategy>(
+            static_cast<long>(max_attempts)));
+  }
+
  private:
   std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy_;
   static Aws::Client::AWSError<Aws::Client::CoreErrors> DetailToError(
@@ -241,20 +253,6 @@ class AwsRetryStrategy : public S3RetryStrategy {
     return errors;
   }
 };
-
-std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsDefaultRetryStrategy(
-    int64_t max_attempts) {
-  return std::make_shared<AwsRetryStrategy>(
-      std::make_shared<Aws::Client::DefaultRetryStrategy>(
-          static_cast<long>(max_attempts)));
-}
-
-std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsStandardRetryStrategy(
-    int64_t max_attempts) {
-  return std::make_shared<AwsRetryStrategy>(
-      std::make_shared<Aws::Client::StandardRetryStrategy>(
-          static_cast<long>(max_attempts)));
-}
 
 // -----------------------------------------------------------------------
 // S3Options implementation
