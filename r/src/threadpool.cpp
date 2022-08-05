@@ -54,8 +54,3 @@ int GetIOThreadPoolCapacity() { return arrow::io::GetIOThreadPoolCapacity(); }
 void SetIOThreadPoolCapacity(int threads) {
   StopIfNotOk(arrow::io::SetIOThreadPoolCapacity(threads));
 }
-
-// [[arrow::export]]
-void WaitForIdleThreadPool() {
-  arrow::internal::GetCpuThreadPool()->WaitForIdle();
-}
