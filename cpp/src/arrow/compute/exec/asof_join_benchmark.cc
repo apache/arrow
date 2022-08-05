@@ -55,12 +55,14 @@ static Result<TableStats> MakeTable(const TableGenerationProperties& properties)
 static ExecNode* MakeTableSourceNode(arrow::compute::ExecPlan* plan,
                                      std::shared_ptr<Table> table, int batch_size,
                                      arrow::internal::ThreadPool* thread_pool) {
-  std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
+  std::shared_ptr<arrow::Schema> schema = table->schema();
+  std::shared_ptr<TableBatchReader> reader =
+      std::make_shared<TableBatchReader>(std::move(table));
   reader->set_chunksize(batch_size);
   auto batch_gen = *arrow::compute::MakeReaderGenerator(std::move(reader), thread_pool);
   return *arrow::compute::MakeExecNode(
       "source", plan, {},
-      arrow::compute::SourceNodeOptions(table->schema(), std::move(batch_gen)));
+      arrow::compute::SourceNodeOptions(schema, std::move(batch_gen)));
 }
 
 static void TableJoinOverhead(benchmark::State& state,
