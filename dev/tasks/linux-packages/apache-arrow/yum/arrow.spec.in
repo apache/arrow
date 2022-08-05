@@ -1014,6 +1014,9 @@ Documentation for Apache Parquet GLib.
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Fri Jul 29 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 9.0.0-1
+- New upstream release.
+
 * Tue May 03 2022 Krisztián Szűcs <szucs.krisztian@gmail.com> - 8.0.0-1
 - New upstream release.
 

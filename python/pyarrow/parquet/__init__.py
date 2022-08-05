@@ -109,13 +109,13 @@ def _check_filters(filters, check_null_strings=True):
     return filters
 
 
-_DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF), like
-    ``[[('x', '=', 0), ...], ...]``. DNF allows arbitrary boolean logical
+_DNF_filter_doc = """Predicates are expressed in disjunctive normal form (DNF),
+    like ``[[('x', '=', 0), ...], ...]``. DNF allows arbitrary boolean logical
     combinations of single column predicates. The innermost tuples each
     describe a single column predicate. The list of inner predicates is
-    interpreted as a conjunction (AND), forming a more selective and
-    multiple column predicate. Finally, the most outer list combines these
-    filters as a disjunction (OR).
+    interpreted as a conjunction (AND), forming a more selective and multiple
+    column predicate. Finally, the most outer list combines these filters as a
+    disjunction (OR).
 
     Predicates may also be passed as List[Tuple]. This form is interpreted
     as a single conjunction. To express OR in predicates, one must
@@ -3419,7 +3419,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None):
       num_rows: 3
       num_row_groups: 1
       format_version: 2.6
-      serialized_size: 561
+      serialized_size: ...
     """
     return ParquetFile(where, memory_map=memory_map,
                        decryption_properties=decryption_properties).metadata

@@ -19,11 +19,11 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/v9/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -81,6 +81,11 @@ func TestMakeFromData(t *testing.T) {
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
 
+		{name: "large list", d: &testDataType{arrow.LARGE_LIST}, child: []arrow.ArrayData{
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+		}},
+
 		{name: "struct", d: &testDataType{arrow.STRUCT}},
 		{name: "struct", d: &testDataType{arrow.STRUCT}, child: []arrow.ArrayData{
 			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
@@ -100,6 +105,9 @@ func TestMakeFromData(t *testing.T) {
 			}, 0 /* nulls */, 0 /* offset */)},
 		},
 
+		{name: "sparse union", d: arrow.SparseUnionOf(nil, nil), child: []arrow.ArrayData{}, size: 2},
+		{name: "dense union", d: arrow.DenseUnionOf(nil, nil), child: []arrow.ArrayData{}, size: 3},
+
 		// various dictionary index types and value types
 		{name: "dictionary", d: &testDataType{arrow.DICTIONARY}, expPanic: true, expError: "arrow/array: no dictionary set in Data for Dictionary array"},
 		{name: "dictionary", d: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: &testDataType{arrow.INT64}}, dict: array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */)},
@@ -115,9 +123,6 @@ func TestMakeFromData(t *testing.T) {
 		{name: "extension", d: types.NewUUIDType()},
 
 		// unsupported types
-		{name: "sparse union", d: &testDataType{arrow.SPARSE_UNION}, expPanic: true, expError: "unsupported data type: SPARSE_UNION"},
-		{name: "dense union", d: &testDataType{arrow.DENSE_UNION}, expPanic: true, expError: "unsupported data type: DENSE_UNION"},
-		{name: "large list", d: &testDataType{arrow.LARGE_LIST}, expPanic: true, expError: "unsupported data type: LARGE_LIST"},
 		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}, expPanic: true, expError: "unsupported data type: DECIMAL256"},
 
 		// invalid types

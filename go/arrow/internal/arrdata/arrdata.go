@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v9/arrow/ipc"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/float16"
+	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v10/arrow/ipc"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 var (
@@ -49,6 +49,7 @@ func init() {
 	Records["decimal128"] = makeDecimal128sRecords()
 	Records["maps"] = makeMapsRecords()
 	Records["extension"] = makeExtensionRecords()
+	// Records["union"] = makeUnionRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -1437,6 +1438,17 @@ func buildArray(bldr array.Builder, data arrow.Array) {
 
 	case *array.StringBuilder:
 		data := data.(*array.String)
+		for i := 0; i < data.Len(); i++ {
+			switch {
+			case data.IsValid(i):
+				bldr.Append(data.Value(i))
+			default:
+				bldr.AppendNull()
+			}
+		}
+
+	case *array.LargeStringBuilder:
+		data := data.(*array.LargeString)
 		for i := 0; i < data.Len(); i++ {
 			switch {
 			case data.IsValid(i):

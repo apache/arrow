@@ -17,8 +17,8 @@
 package endian
 
 import (
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/flatbuf"
 )
 
 type Endianness flatbuf.Endianness

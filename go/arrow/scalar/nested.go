@@ -21,10 +21,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -65,6 +65,8 @@ func (l *List) Validate() (err error) {
 
 	switch dt := l.Type.(type) {
 	case *arrow.ListType:
+		valueType = dt.Elem()
+	case *arrow.LargeListType:
 		valueType = dt.Elem()
 	case *arrow.FixedSizeListType:
 		valueType = dt.Elem()
@@ -118,6 +120,18 @@ func NewListScalar(val arrow.Array) *List {
 
 func NewListScalarData(val arrow.ArrayData) *List {
 	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val)}
+}
+
+type LargeList struct {
+	*List
+}
+
+func NewLargeListScalar(val arrow.Array) *LargeList {
+	return &LargeList{&List{scalar{arrow.LargeListOf(val.DataType()), true}, array.MakeFromData(val.Data())}}
+}
+
+func NewLargeListScalarData(val arrow.ArrayData) *LargeList {
+	return &LargeList{&List{scalar{arrow.LargeListOf(val.DataType()), true}, array.MakeFromData(val)}}
 }
 
 func makeMapType(typ *arrow.StructType) *arrow.MapType {

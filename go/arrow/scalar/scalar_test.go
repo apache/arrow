@@ -25,11 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/arrow/scalar"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )

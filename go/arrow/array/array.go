@@ -19,9 +19,9 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 type arraymarshal interface {
@@ -169,8 +169,8 @@ func init() {
 		arrow.DECIMAL256:              unsupportedArrayType,
 		arrow.LIST:                    func(data arrow.ArrayData) arrow.Array { return NewListData(data) },
 		arrow.STRUCT:                  func(data arrow.ArrayData) arrow.Array { return NewStructData(data) },
-		arrow.SPARSE_UNION:            unsupportedArrayType,
-		arrow.DENSE_UNION:             unsupportedArrayType,
+		arrow.SPARSE_UNION:            func(data arrow.ArrayData) arrow.Array { return NewSparseUnionData(data) },
+		arrow.DENSE_UNION:             func(data arrow.ArrayData) arrow.Array { return NewDenseUnionData(data) },
 		arrow.DICTIONARY:              func(data arrow.ArrayData) arrow.Array { return NewDictionaryData(data) },
 		arrow.MAP:                     func(data arrow.ArrayData) arrow.Array { return NewMapData(data) },
 		arrow.EXTENSION:               func(data arrow.ArrayData) arrow.Array { return NewExtensionData(data) },
@@ -178,7 +178,7 @@ func init() {
 		arrow.DURATION:                func(data arrow.ArrayData) arrow.Array { return NewDurationData(data) },
 		arrow.LARGE_STRING:            func(data arrow.ArrayData) arrow.Array { return NewLargeStringData(data) },
 		arrow.LARGE_BINARY:            func(data arrow.ArrayData) arrow.Array { return NewLargeBinaryData(data) },
-		arrow.LARGE_LIST:              unsupportedArrayType,
+		arrow.LARGE_LIST:              func(data arrow.ArrayData) arrow.Array { return NewLargeListData(data) },
 		arrow.INTERVAL:                func(data arrow.ArrayData) arrow.Array { return NewIntervalData(data) },
 		arrow.INTERVAL_MONTH_DAY_NANO: func(data arrow.ArrayData) arrow.Array { return NewMonthDayNanoIntervalData(data) },
 

@@ -22,12 +22,12 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/internal/bitutils"
-	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/bitutil"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/internal/bitutils"
+	"github.com/apache/arrow/go/v10/internal/utils"
 )
 
 // Concatenate creates a new arrow.Array which is the concatenation of the
@@ -437,6 +437,23 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 		out.buffers[2] = concatBuffers(gatherBufferRanges(data, 2, valueRanges), mem)
 		out.buffers[1] = offsetBuffer
 	case *arrow.ListType:
+		offsetWidth := dt.Layout().Buffers[1].ByteWidth
+		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
+		if err != nil {
+			return nil, err
+		}
+		childData := gatherChildrenRanges(data, 0, valueRanges)
+		for _, c := range childData {
+			defer c.Release()
+		}
+
+		out.buffers[1] = offsetBuffer
+		out.childData = make([]arrow.ArrayData, 1)
+		out.childData[0], err = concat(childData, mem)
+		if err != nil {
+			return nil, err
+		}
+	case *arrow.LargeListType:
 		offsetWidth := dt.Layout().Buffers[1].ByteWidth
 		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
 		if err != nil {

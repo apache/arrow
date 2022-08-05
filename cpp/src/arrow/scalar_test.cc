@@ -1049,11 +1049,15 @@ class TestListScalar : public ::testing::Test {
     ASSERT_OK(scalar.ValidateFull());
     ASSERT_TRUE(scalar.is_valid);
     AssertTypeEqual(scalar.type, type_);
+    // list<item: int16>[1, 2, null]
+    ASSERT_THAT(scalar.ToString(), ::testing::AllOf(::testing::HasSubstr("item: int16"),
+                                                    ::testing::EndsWith("[1, 2, null]")));
 
     auto null_scalar = CheckMakeNullScalar(type_);
     ASSERT_OK(null_scalar->ValidateFull());
     ASSERT_FALSE(null_scalar->is_valid);
     AssertTypeEqual(null_scalar->type, type_);
+    ASSERT_EQ(null_scalar->ToString(), "null");
   }
 
   void TestValidateErrors() {
