@@ -32,7 +32,7 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     // ARROW-6180 / PARQUET-1636 Create isolated reader that references segment
     // of source
     PARQUET_ASSIGN_OR_THROW(
-      std::shared_ptr<::arrow::io::InputStream> safe_stream,
+        std::shared_ptr<::arrow::io::InputStream> safe_stream,
         ::arrow::io::RandomAccessFile::GetStream(source, start, num_bytes));
     PARQUET_ASSIGN_OR_THROW(
         auto stream, ::arrow::io::BufferedInputStream::Create(buffer_size_, pool_,
