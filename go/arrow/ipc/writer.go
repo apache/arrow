@@ -615,32 +615,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 
 		var valueOffsets *memory.Buffer
 		if offset != 0 {
-			// this case sucks. Because the offsets are different for each
-			// child array, when we have a sliced array, we need to re-base
-			// the value offsets for each array! ew.
-
-			unshiftedOffsets := arr.RawValueOffsets()
-			codes := arr.RawTypeCodes()
-
-			shiftedOffsetsBuf := memory.NewResizableBuffer(w.mem)
-			shiftedOffsetsBuf.Resize(arrow.Int32Traits.BytesRequired(length))
-			shiftedOffsets := arrow.Int32Traits.CastFromBytes(shiftedOffsetsBuf.Bytes())
-
-			// offsets may not be ascending, so we need to find out the start offset for each child
-			for i, c := range codes {
-				if offsets[c] == -1 {
-					offsets[c] = unshiftedOffsets[i]
-				} else {
-					offsets[c] = minI32(offsets[c], unshiftedOffsets[i])
-				}
-			}
-
-			// now compute shifted offsets by subtracting child offset
-			for i, c := range codes {
-				shiftedOffsets[i] = unshiftedOffsets[i] - offsets[c]
-				lengths[c] = maxI32(lengths[c], shiftedOffsets[i]+1)
-			}
-			valueOffsets = shiftedOffsetsBuf
+			valueOffsets = w.rebaseDenseUnionValueOffsets(arr, offsets, lengths)
 		} else {
 			valueOffsets = getTruncatedBuffer(int64(offset), int64(length), int32(arrow.Int32SizeBytes), arr.ValueOffsets())
 		}
@@ -819,6 +794,34 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 	}
 
 	return voffsets, nil
+}
+
+func (w *recordEncoder) rebaseDenseUnionValueOffsets(arr *array.DenseUnion, offsets, lengths []int32) *memory.Buffer {
+	// this case sucks. Because the offsets are different for each
+	// child array, when we have a sliced array, we need to re-base
+	// the value offsets for each array! ew.
+	unshiftedOffsets := arr.RawValueOffsets()
+	codes := arr.RawTypeCodes()
+
+	shiftedOffsetsBuf := memory.NewResizableBuffer(w.mem)
+	shiftedOffsetsBuf.Resize(arrow.Int32Traits.BytesRequired(arr.Len()))
+	shiftedOffsets := arrow.Int32Traits.CastFromBytes(shiftedOffsetsBuf.Bytes())
+
+	// offsets may not be ascending, so we need to find out the start offset for each child
+	for i, c := range codes {
+		if offsets[c] == -1 {
+			offsets[c] = unshiftedOffsets[i]
+		} else {
+			offsets[c] = minI32(offsets[c], unshiftedOffsets[i])
+		}
+	}
+
+	// now compute shifted offsets by subtracting child offset
+	for i, c := range codes {
+		shiftedOffsets[i] = unshiftedOffsets[i] - offsets[c]
+		lengths[c] = maxI32(lengths[c], shiftedOffsets[i]+1)
+	}
+	return shiftedOffsetsBuf
 }
 
 func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {

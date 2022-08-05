@@ -380,7 +380,7 @@ type ipcSource struct {
 func (src *ipcSource) buffer(i int) *memory.Buffer {
 	var buf flatbuf.Buffer
 	if !src.meta.Buffers(&buf, i) {
-		panic("buffer index out of bound")
+		panic("arrow/ipc: buffer index out of bound")
 	}
 
 	if buf.Length() == 0 {
@@ -424,7 +424,7 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 func (src *ipcSource) fieldMetadata(i int) *flatbuf.FieldNode {
 	var node flatbuf.FieldNode
 	if !src.meta.Nodes(&node, i) {
-		panic("field metadata out of bound")
+		panic("arrow/ipc: field metadata out of bound")
 	}
 	return &node
 }
@@ -502,7 +502,7 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		return ctx.loadUnion(dt)
 
 	default:
-		panic(fmt.Errorf("array type %T not handled yet", dt))
+		panic(fmt.Errorf("arrow/ipc: array type %T not handled yet", dt))
 	}
 }
 
@@ -627,14 +627,16 @@ func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData 
 }
 
 func (ctx *arrayLoaderContext) loadUnion(dt arrow.UnionType) arrow.ArrayData {
+	// Sparse unions have 2 buffers (a nil validity bitmap, and the type ids)
 	nBuffers := 2
+	// Dense unions have a third buffer, the offsets
 	if dt.Mode() == arrow.DenseMode {
 		nBuffers = 3
 	}
 
 	field, buffers := ctx.loadCommon(dt.ID(), nBuffers)
 	if field.NullCount() != 0 && buffers[0] != nil {
-		panic("cannot read pre-1.0.0 union array with top-level validity bitmap")
+		panic("arrow/ipc: cannot read pre-1.0.0 union array with top-level validity bitmap")
 	}
 
 	switch field.Length() {
