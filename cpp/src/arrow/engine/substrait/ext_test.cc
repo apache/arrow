@@ -140,7 +140,8 @@ TEST_P(ExtensionIdRegistryTest, GetFunctions) {
   auto registry = provider->get();
 
   for (Id func_id : kFunctionIds) {
-    ASSERT_OK_AND_ASSIGN(auto converter, registry->GetSubstraitCallToArrow(func_id));
+    ASSERT_OK_AND_ASSIGN(ExtensionIdRegistry::SubstraitCallToArrow converter,
+                         registry->GetSubstraitCallToArrow(func_id));
     ASSERT_TRUE(converter);
   }
   ASSERT_RAISES(NotImplemented, registry->GetSubstraitCallToArrow(kNonExistentId));

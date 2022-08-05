@@ -433,7 +433,7 @@ void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
 
   // The aggregate node's output is unpredictable so we sort by the key column
   ASSERT_OK_AND_ASSIGN(
-      auto sort_indices,
+      std::shared_ptr<Array> sort_indices,
       compute::SortIndices(output_table, compute::SortOptions({compute::SortKey(
                                              output_table->num_columns() - 1,
                                              compute::SortOrder::Ascending)})));
@@ -451,7 +451,7 @@ void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
 }
 
 void CheckAggregateCases(const std::vector<AggregateTestCase>& test_cases) {
-  for (const auto& test_case : test_cases) {
+  for (const AggregateTestCase& test_case : test_cases) {
     CheckWholeAggregateCase(test_case);
     CheckGroupedAggregateCase(test_case);
   }

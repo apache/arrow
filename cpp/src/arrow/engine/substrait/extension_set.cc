@@ -649,7 +649,7 @@ Result<std::vector<compute::Expression>> GetValueArgs(const SubstraitCall& call,
                                                       int start_index) {
   std::vector<compute::Expression> expressions;
   for (uint32_t index = start_index; index < call.size(); index++) {
-    ARROW_ASSIGN_OR_RAISE(auto arg, call.GetValueArg(index));
+    ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(index));
     expressions.push_back(arg);
   }
   return std::move(expressions);

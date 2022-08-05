@@ -74,7 +74,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   }
 
   for (uint32_t anchor = 0; anchor < ext_set.num_functions(); ++anchor) {
-    ARROW_ASSIGN_OR_RAISE(auto function_id, ext_set.DecodeFunction(anchor));
+    ARROW_ASSIGN_OR_RAISE(Id function_id, ext_set.DecodeFunction(anchor));
 
     auto fn = internal::make_unique<ExtDecl::ExtensionFunction>();
     fn->set_extension_uri_reference(map[function_id.uri]);

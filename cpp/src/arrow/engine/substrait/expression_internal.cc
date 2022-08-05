@@ -246,7 +246,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
 
       ARROW_ASSIGN_OR_RAISE(Id function_id,
                             ext_set.DecodeFunction(scalar_fn.function_reference()));
-      ARROW_ASSIGN_OR_RAISE(auto function_converter,
+      ARROW_ASSIGN_OR_RAISE(ExtensionIdRegistry::SubstraitCallToArrow function_converter,
                             ext_set.registry()->GetSubstraitCallToArrow(function_id));
       ARROW_ASSIGN_OR_RAISE(
           SubstraitCall substrait_call,
@@ -1028,7 +1028,8 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
 
   // other expression types dive into extensions immediately
   ARROW_ASSIGN_OR_RAISE(
-      auto converter, ext_set->registry()->GetArrowToSubstraitCall(call->function_name));
+      ExtensionIdRegistry::ArrowToSubstraitCall converter,
+      ext_set->registry()->GetArrowToSubstraitCall(call->function_name));
   ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn,
                         EncodeSubstraitCall(substrait_call, ext_set, conversion_options));

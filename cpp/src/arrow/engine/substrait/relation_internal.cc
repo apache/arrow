@@ -366,12 +366,13 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
       std::vector<FieldRef> keys;
       if (aggregate.groupings_size() > 0) {
-        auto group = aggregate.groupings(0);
+        const substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
         keys.reserve(group.grouping_expressions_size());
         for (int exp_id = 0; exp_id < group.grouping_expressions_size(); exp_id++) {
-          ARROW_ASSIGN_OR_RAISE(auto expr, FromProto(group.grouping_expressions(exp_id),
-                                                     ext_set, conversion_options));
-          const auto* field_ref = expr.field_ref();
+          ARROW_ASSIGN_OR_RAISE(
+              compute::Expression expr,
+              FromProto(group.grouping_expressions(exp_id), ext_set, conversion_options));
+          const FieldRef* field_ref = expr.field_ref();
           if (field_ref) {
             keys.emplace_back(std::move(*field_ref));
           } else {

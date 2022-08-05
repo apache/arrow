@@ -737,7 +737,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
     EXPECT_EQ(decoded_null_type.id.name, "null");
     EXPECT_EQ(*decoded_null_type.type, NullType());
 
-    EXPECT_OK_AND_ASSIGN(auto decoded_add_func_id, ext_set.DecodeFunction(42));
+    EXPECT_OK_AND_ASSIGN(Id decoded_add_func_id, ext_set.DecodeFunction(42));
     EXPECT_EQ(decoded_add_func_id.uri, kSubstraitArithmeticFunctionsUri);
     EXPECT_EQ(decoded_add_func_id.name, "add");
   }
@@ -855,7 +855,7 @@ TEST(Substrait, ExtensionSetFromPlanRegisterFunc) {
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set_valid));
-  EXPECT_OK_AND_ASSIGN(auto decoded_add_func_id, ext_set_valid.DecodeFunction(42));
+  EXPECT_OK_AND_ASSIGN(Id decoded_add_func_id, ext_set_valid.DecodeFunction(42));
   EXPECT_EQ(decoded_add_func_id.uri, kArrowExtTypesUri);
   EXPECT_EQ(decoded_add_func_id.name, "new_func");
 }
