@@ -146,6 +146,13 @@ def generate_compute_function_doc(exposed_name, func, options_class,
     if 'details' in custom_overrides and custom_overrides['details']:
         docstring += "\n\n".join(custom_overrides['details']) + "\n\n"
 
+
+    # 2.c. Note about the C++ function
+    docstring += f"This wraps the \"{func.name}\" compute function in "\
+        "the Arrow C++ library.\n\n"
+
+
+
     # 3. Parameter description
     docstring += "Parameters\n----------\n"
 
@@ -222,10 +229,6 @@ def generate_compute_function_doc(exposed_name, func, options_class,
         for retval, retdesc in custom_overrides['return_type']:
             return_string += f"{retval}\n    {retdesc}\n"
         docstring += return_string
-
-    # 5. Note about the C++ function
-    docstring += f"See Also\n--------\nThe `{func.name}` compute function in "\
-        "the Arrow C++ library."
 
     # 6. Custom addition (e.g. examples)
     if 'examples' in custom_overrides:

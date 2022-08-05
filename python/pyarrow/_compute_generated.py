@@ -57,16 +57,14 @@ def abs(x, /, *, memory_pool=None):
     Use function "abs_checked" if you want overflow
     to return an error.
 
+    This wraps the "abs" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `abs` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('abs')
@@ -88,16 +86,14 @@ def abs_checked(x, /, *, memory_pool=None):
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "abs".
 
+    This wraps the "abs_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `abs_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('abs_checked')
@@ -119,16 +115,14 @@ def acos(x, /, *, memory_pool=None):
     NaN is returned for invalid input values;
     to raise an error instead, see "acos_checked".
 
+    This wraps the "acos" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `acos` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('acos')
@@ -150,16 +144,14 @@ def acos_checked(x, /, *, memory_pool=None):
     Invalid input values raise an error;
     to return NaN instead, see "acos".
 
+    This wraps the "acos_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `acos_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('acos_checked')
@@ -182,6 +174,8 @@ def add(x, y, /, *, memory_pool=None):
     Use function "add_checked" if you want overflow
     to return an error.
 
+    This wraps the "add" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -190,10 +184,6 @@ def add(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `add` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('add')
@@ -215,6 +205,8 @@ def add_checked(x, y, /, *, memory_pool=None):
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "add".
 
+    This wraps the "add_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -223,10 +215,6 @@ def add_checked(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `add_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('add_checked')
@@ -250,6 +238,8 @@ def all(array, /, *, skip_nulls=True, min_count=1, options=None,
     If the `skip_nulls` option is set to false, then Kleene logic is used.
     See "kleene_and" for more details on Kleene logic.
 
+    This wraps the "all" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -265,9 +255,7 @@ def all(array, /, *, skip_nulls=True, min_count=1, options=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `all` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -317,6 +305,8 @@ def and_(x, y, /, *, memory_pool=None):
     When a null is encountered in either input, a null is output.
     For a different null behavior, see function "and_kleene".
 
+    This wraps the "and" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -325,10 +315,6 @@ def and_(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `and` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('and')
@@ -359,6 +345,8 @@ def and_kleene(x, y, /, *, memory_pool=None):
     and an unknown value 'and' false is always false.
     For a different null behavior, see function "and".
 
+    This wraps the "and_kleene" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -367,10 +355,6 @@ def and_kleene(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `and_kleene` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('and_kleene')
@@ -392,6 +376,8 @@ def and_not(x, y, /, *, memory_pool=None):
     When a null is encountered in either input, a null is output.
     For a different null behavior, see function "and_not_kleene".
 
+    This wraps the "and_not" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -400,10 +386,6 @@ def and_not(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `and_not` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('and_not')
@@ -435,6 +417,9 @@ def and_not_kleene(x, y, /, *, memory_pool=None):
     'and not' an unknown value.
     For a different null behavior, see function "and_not".
 
+    This wraps the "and_not_kleene" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -443,10 +428,6 @@ def and_not_kleene(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `and_not_kleene` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('and_not_kleene')
@@ -470,6 +451,8 @@ def any(array, /, *, skip_nulls=True, min_count=1, options=None,
     If the `skip_nulls` option is set to false, then Kleene logic is used.
     See "kleene_or" for more details on Kleene logic.
 
+    This wraps the "any" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -485,9 +468,7 @@ def any(array, /, *, skip_nulls=True, min_count=1, options=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `any` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -544,6 +525,9 @@ def approximate_median(array, /, *, skip_nulls=True, min_count=1, options=None,
     Nulls and NaNs are ignored.
     A null scalar is returned if there is no valid data point.
 
+    This wraps the "approximate_median" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     array : Array-like
@@ -558,10 +542,6 @@ def approximate_median(array, /, *, skip_nulls=True, min_count=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `approximate_median` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -594,6 +574,8 @@ def array_filter(array, selection_filter, /, null_selection_behavior='drop', *,
     where the selection filter is non-zero.  Nulls in the selection filter
     are handled based on FilterOptions.
 
+    This wraps the "array_filter" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -607,10 +589,6 @@ def array_filter(array, selection_filter, /, null_selection_behavior='drop', *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `array_filter` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -646,6 +624,9 @@ def array_sort_indices(array, /, order='ascending', *, null_placement='at_end',
 
     The handling of nulls and NaNs can be changed in ArraySortOptions.
 
+    This wraps the "array_sort_indices" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     array : Array-like
@@ -660,10 +641,6 @@ def array_sort_indices(array, /, order='ascending', *, null_placement='at_end',
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `array_sort_indices` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -695,6 +672,8 @@ def array_take(array, indices, /, *, boundscheck=True, options=None,
     The output is populated with values from the input array at positions
     given by `indices`.  Nulls in `indices` emit null in the output.
 
+    This wraps the "array_take" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -709,10 +688,6 @@ def array_take(array, indices, /, *, boundscheck=True, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `array_take` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -744,16 +719,15 @@ def ascii_capitalize(strings, /, *, memory_pool=None):
     This function assumes the input is fully ASCII.  If it may contain
     non-ASCII characters, use "utf8_capitalize" instead.
 
+    This wraps the "ascii_capitalize" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_capitalize` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_capitalize')
@@ -778,6 +752,8 @@ def ascii_center(strings, /, width=None, padding=' ', *, options=None,
     with the given ASCII character.
     Null values emit null.
 
+    This wraps the "ascii_center" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -790,10 +766,6 @@ def ascii_center(strings, /, width=None, padding=' ', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_center` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -825,16 +797,15 @@ def ascii_is_alnum(strings, /, *, memory_pool=None):
     and consists only of alphanumeric ASCII characters.  Null strings emit
         null.
 
+    This wraps the "ascii_is_alnum" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_alnum` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_alnum')
@@ -857,16 +828,15 @@ def ascii_is_alpha(strings, /, *, memory_pool=None):
     and consists only of alphabetic ASCII characters.  Null strings emit
         null.
 
+    This wraps the "ascii_is_alpha" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_alpha` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_alpha')
@@ -888,16 +858,15 @@ def ascii_is_decimal(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of decimal ASCII characters.  Null strings emit null.
 
+    This wraps the "ascii_is_decimal" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_decimal` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_decimal')
@@ -919,16 +888,15 @@ def ascii_is_lower(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of lowercase ASCII characters.  Null strings emit null.
 
+    This wraps the "ascii_is_lower" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_lower` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_lower')
@@ -950,16 +918,15 @@ def ascii_is_printable(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of printable ASCII characters.  Null strings emit null.
 
+    This wraps the "ascii_is_printable" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_printable` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_printable')
@@ -982,16 +949,15 @@ def ascii_is_space(strings, /, *, memory_pool=None):
     and consists only of whitespace ASCII characters.  Null strings emit
         null.
 
+    This wraps the "ascii_is_space" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_space` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_space')
@@ -1015,16 +981,15 @@ def ascii_is_title(strings, /, *, memory_pool=None):
     follows an uncased character, and each lowercase character follows
     an uppercase character.
 
+    This wraps the "ascii_is_title" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_title` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_title')
@@ -1046,16 +1011,15 @@ def ascii_is_upper(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of uppercase ASCII characters.  Null strings emit null.
 
+    This wraps the "ascii_is_upper" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_is_upper` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_is_upper')
@@ -1079,16 +1043,14 @@ def ascii_lower(strings, /, *, memory_pool=None):
     This function assumes the input is fully ASCII.  If it may contain
     non-ASCII characters, use "utf8_lower" instead.
 
+    This wraps the "ascii_lower" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_lower` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_lower')
@@ -1112,6 +1074,8 @@ def ascii_lpad(strings, /, width=None, padding=' ', *, options=None,
     the given ASCII character.
     Null values emit null.
 
+    This wraps the "ascii_lpad" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1124,10 +1088,6 @@ def ascii_lpad(strings, /, width=None, padding=' ', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_lpad` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1162,6 +1122,8 @@ def ascii_ltrim(strings, /, characters=None, *, options=None,
     Both the `strings` and the `characters` are interpreted as
     ASCII; to trim non-ASCII characters, use `utf8_ltrim`.
 
+    This wraps the "ascii_ltrim" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1172,10 +1134,6 @@ def ascii_ltrim(strings, /, characters=None, *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_ltrim` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1206,16 +1164,15 @@ def ascii_ltrim_whitespace(strings, /, *, memory_pool=None):
     characters removed.  Use `utf8_ltrim_whitespace` to trim leading Unicode
     whitespace characters. Null values emit null.
 
+    This wraps the "ascii_ltrim_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_ltrim_whitespace` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_ltrim_whitespace')
@@ -1239,16 +1196,14 @@ def ascii_reverse(strings, /, *, memory_pool=None):
     This function assumes the input is fully ASCII.  If it may contain
     non-ASCII characters, use "utf8_reverse" instead.
 
+    This wraps the "ascii_reverse" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_reverse` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_reverse')
@@ -1272,6 +1227,8 @@ def ascii_rpad(strings, /, width=None, padding=' ', *, options=None,
     the given ASCII character.
     Null values emit null.
 
+    This wraps the "ascii_rpad" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1284,10 +1241,6 @@ def ascii_rpad(strings, /, width=None, padding=' ', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_rpad` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1322,6 +1275,8 @@ def ascii_rtrim(strings, /, characters=None, *, options=None,
     Both the `strings` and the `characters` are interpreted as
     ASCII; to trim non-ASCII characters, use `utf8_rtrim`.
 
+    This wraps the "ascii_rtrim" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1332,10 +1287,6 @@ def ascii_rtrim(strings, /, characters=None, *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_rtrim` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1367,16 +1318,15 @@ def ascii_rtrim_whitespace(strings, /, *, memory_pool=None):
     characters removed. Use `utf8_rtrim_whitespace` to trim trailing Unicode
     whitespace characters. Null values emit null.
 
+    This wraps the "ascii_rtrim_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_rtrim_whitespace` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_rtrim_whitespace')
@@ -1404,6 +1354,9 @@ def ascii_split_whitespace(strings, /, *, max_splits=None, reverse=False,
     The maximum number of splits and direction of splitting
     (forward, reverse) can optionally be defined in SplitOptions.
 
+    This wraps the "ascii_split_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1417,10 +1370,6 @@ def ascii_split_whitespace(strings, /, *, max_splits=None, reverse=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_split_whitespace` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1453,16 +1402,15 @@ def ascii_swapcase(strings, /, *, memory_pool=None):
     This function assumes the input is fully ASCII.  If it may contain
     non-ASCII characters, use "utf8_swapcase" instead.
 
+    This wraps the "ascii_swapcase" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_swapcase` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_swapcase')
@@ -1488,16 +1436,14 @@ def ascii_title(strings, /, *, memory_pool=None):
     This function assumes the input is fully ASCII.  If it may contain
     non-ASCII characters, use "utf8_title" instead.
 
+    This wraps the "ascii_title" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_title` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_title')
@@ -1522,6 +1468,8 @@ def ascii_trim(strings, /, characters=None, *, options=None, memory_pool=None):
     Both the `strings` and the `characters` are interpreted as
     ASCII; to trim non-ASCII characters, use `utf8_trim`.
 
+    This wraps the "ascii_trim" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1532,10 +1480,6 @@ def ascii_trim(strings, /, characters=None, *, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_trim` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1567,16 +1511,15 @@ def ascii_trim_whitespace(strings, /, *, memory_pool=None):
     whitespace characters removed. Use `utf8_trim_whitespace` to trim Unicode
     whitespace characters. Null values emit null.
 
+    This wraps the "ascii_trim_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_trim_whitespace` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_trim_whitespace')
@@ -1600,16 +1543,14 @@ def ascii_upper(strings, /, *, memory_pool=None):
     This function assumes the input is fully ASCII.  It it may contain
     non-ASCII characters, use "utf8_upper" instead.
 
+    This wraps the "ascii_upper" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ascii_upper` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ascii_upper')
@@ -1631,16 +1572,14 @@ def asin(x, /, *, memory_pool=None):
     NaN is returned for invalid input values;
     to raise an error instead, see "asin_checked".
 
+    This wraps the "asin" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `asin` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('asin')
@@ -1662,16 +1601,14 @@ def asin_checked(x, /, *, memory_pool=None):
     Invalid input values raise an error;
     to return NaN instead, see "asin".
 
+    This wraps the "asin_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `asin_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('asin_checked')
@@ -1701,6 +1638,9 @@ def assume_timezone(timestamps, /, timezone=None, *, ambiguous='raise',
     "timezone-aware" timestamps. An error is returned if the timestamps
     already have a defined timezone.
 
+    This wraps the "assume_timezone" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     timestamps : Array-like or scalar-like
@@ -1717,10 +1657,6 @@ def assume_timezone(timestamps, /, timezone=None, *, ambiguous='raise',
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `assume_timezone` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1752,16 +1688,14 @@ def atan(x, /, *, memory_pool=None):
     The return value is in the range [-pi/2, pi/2];
     for a full return range [-pi, pi], see "atan2".
 
+    This wraps the "atan" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `atan` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('atan')
@@ -1782,6 +1716,8 @@ def atan2(y, x, /, *, memory_pool=None):
 
     The return value is in the range [-pi, pi].
 
+    This wraps the "atan2" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     y : Array-like or scalar-like
@@ -1790,10 +1726,6 @@ def atan2(y, x, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `atan2` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('atan2')
@@ -1816,6 +1748,8 @@ def binary_join(strings, separator, /, *, memory_pool=None):
     between each given string.
     Any null input and any null `list` element emits a null output.
 
+    This wraps the "binary_join" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1824,10 +1758,6 @@ def binary_join(strings, separator, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `binary_join` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('binary_join')
@@ -1854,6 +1784,9 @@ def binary_join_element_wise(*strings, null_handling='emit_null',
     Any null separator element emits a null output. Null elements either
     emit a null (the default), are skipped, or replaced with a given string.
 
+    This wraps the "binary_join_element_wise" compute function in the Arrow
+        C++ library.
+
     Parameters
     ----------
     *strings : Array-like or scalar-like
@@ -1868,10 +1801,6 @@ def binary_join_element_wise(*strings, null_handling='emit_null',
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `binary_join_element_wise` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -1894,16 +1823,14 @@ def binary_length(strings, /, *, memory_pool=None):
     For each string in `strings`, emit its length of bytes.
     Null values emit null.
 
+    This wraps the "binary_length" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `binary_length` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('binary_length')
@@ -1924,6 +1851,8 @@ def binary_repeat(strings, num_repeats, /, *, memory_pool=None):
 
     For each binary string in `strings`, return a replicated version.
 
+    This wraps the "binary_repeat" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1932,10 +1861,6 @@ def binary_repeat(strings, num_repeats, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `binary_repeat` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('binary_repeat')
@@ -1962,6 +1887,9 @@ def binary_replace_slice(strings, /, start=None, stop=None, replacement=None,
     and `stop` is exclusive, and both are measured in bytes.
     Null values emit null.
 
+    This wraps the "binary_replace_slice" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -1976,10 +1904,6 @@ def binary_replace_slice(strings, /, start=None, stop=None, replacement=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `binary_replace_slice` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2012,16 +1936,15 @@ def binary_reverse(strings, /, *, memory_pool=None):
 
     This function reverses the binary data at a byte-level.
 
+    This wraps the "binary_reverse" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `binary_reverse` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('binary_reverse')
@@ -2042,6 +1965,8 @@ def bit_wise_and(x, y, /, *, memory_pool=None):
 
     Null values return null.
 
+    This wraps the "bit_wise_and" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -2050,10 +1975,6 @@ def bit_wise_and(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `bit_wise_and` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('bit_wise_and')
@@ -2074,16 +1995,14 @@ def bit_wise_not(x, /, *, memory_pool=None):
 
     Null values return null.
 
+    This wraps the "bit_wise_not" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `bit_wise_not` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('bit_wise_not')
@@ -2104,6 +2023,8 @@ def bit_wise_or(x, y, /, *, memory_pool=None):
 
     Null values return null.
 
+    This wraps the "bit_wise_or" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -2112,10 +2033,6 @@ def bit_wise_or(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `bit_wise_or` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('bit_wise_or')
@@ -2136,6 +2053,8 @@ def bit_wise_xor(x, y, /, *, memory_pool=None):
 
     Null values return null.
 
+    This wraps the "bit_wise_xor" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -2144,10 +2063,6 @@ def bit_wise_xor(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `bit_wise_xor` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('bit_wise_xor')
@@ -2179,6 +2094,8 @@ def case_when(cond, /, *cases, memory_pool=None):
     Essentially, this implements a switch-case or if-else, if-else...
         statement.
 
+    This wraps the "case_when" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     cond : Array-like or scalar-like
@@ -2187,10 +2104,6 @@ def case_when(cond, /, *cases, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `case_when` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('case_when')
@@ -2207,6 +2120,8 @@ def cast(input, /, target_type=None, *, allow_int_overflow=None,
 
     Behavior when values wouldn't fit in the target type
     can be controlled through CastOptions.
+
+    This wraps the "cast" compute function in the Arrow C++ library.
 
     Parameters
     ----------
@@ -2230,10 +2145,6 @@ def cast(input, /, target_type=None, *, allow_int_overflow=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `cast` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2268,16 +2179,14 @@ def ceil(x, /, *, memory_pool=None):
 
     Compute the smallest integer value not less in magnitude than `x`.
 
+    This wraps the "ceil" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ceil` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ceil')
@@ -2303,6 +2212,8 @@ def ceil_temporal(timestamps, /, multiple=1, unit='day', *,
     Null values emit null.
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
+
+    This wraps the "ceil_temporal" compute function in the Arrow C++ library.
 
     Parameters
     ----------
@@ -2349,10 +2260,6 @@ def ceil_temporal(timestamps, /, multiple=1, unit='day', *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ceil_temporal` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2390,6 +2297,8 @@ def choose(indices, /, *values, memory_pool=None):
 
     If an index is null, the output will be null.
 
+    This wraps the "choose" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     indices : Array-like or scalar-like
@@ -2398,10 +2307,6 @@ def choose(indices, /, *values, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `choose` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('choose')
@@ -2419,16 +2324,14 @@ def coalesce(*values, memory_pool=None):
         output
     will be null.
 
+    This wraps the "coalesce" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     *values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `coalesce` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('coalesce')
@@ -2443,16 +2346,14 @@ def cos(x, /, *, memory_pool=None):
     NaN is returned for invalid input values;
     to raise an error instead, see "cos_checked".
 
+    This wraps the "cos" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `cos` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('cos')
@@ -2474,16 +2375,14 @@ def cos_checked(x, /, *, memory_pool=None):
     Infinite values raise an error;
     to return NaN instead, see "cos".
 
+    This wraps the "cos_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `cos_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('cos_checked')
@@ -2505,6 +2404,8 @@ def count(array, /, mode='only_valid', *, options=None, memory_pool=None):
     By default, only non-null values are counted.
     This can be changed through CountOptions.
 
+    This wraps the "count" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -2517,9 +2418,7 @@ def count(array, /, mode='only_valid', *, options=None, memory_pool=None):
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `count` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -2576,6 +2475,9 @@ def count_distinct(array, /, mode='only_valid', *, options=None,
     By default, only non-null values are counted.
     This can be changed through CountOptions.
 
+    This wraps the "count_distinct" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     array : Array-like
@@ -2588,9 +2490,7 @@ def count_distinct(array, /, mode='only_valid', *, options=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `count_distinct` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -2649,6 +2549,9 @@ def count_substring(strings, /, pattern=None, *, ignore_case=False,
     Null inputs emit null. The pattern must be given in
         MatchSubstringOptions.
 
+    This wraps the "count_substring" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -2661,10 +2564,6 @@ def count_substring(strings, /, pattern=None, *, ignore_case=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `count_substring` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2699,6 +2598,9 @@ def count_substring_regex(strings, /, pattern=None, *, ignore_case=False,
     Null inputs emit null. The pattern must be given in
         MatchSubstringOptions.
 
+    This wraps the "count_substring_regex" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -2711,10 +2613,6 @@ def count_substring_regex(strings, /, pattern=None, *, ignore_case=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `count_substring_regex` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2748,6 +2646,9 @@ def cumulative_sum(values, /, start=0.0, *, skip_nulls=False, options=None,
     integer overflow. Use function "cumulative_sum_checked" if you want
     overflow to return an error.
 
+    This wraps the "cumulative_sum" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like
@@ -2760,10 +2661,6 @@ def cumulative_sum(values, /, start=0.0, *, skip_nulls=False, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `cumulative_sum` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2798,6 +2695,9 @@ def cumulative_sum_checked(values, /, start=0.0, *, skip_nulls=False,
     on overflow. For a variant that doesn't fail on overflow, use
     function "cumulative_sum".
 
+    This wraps the "cumulative_sum_checked" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like
@@ -2810,10 +2710,6 @@ def cumulative_sum_checked(values, /, start=0.0, *, skip_nulls=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `cumulative_sum_checked` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2845,16 +2741,14 @@ def day(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "day" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `day` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('day')
@@ -2886,6 +2780,8 @@ def day_of_week(values, /, *, count_from_zero=True, week_start=1, options=None,
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "day_of_week" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -2899,10 +2795,6 @@ def day_of_week(values, /, *, count_from_zero=True, week_start=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `day_of_week` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -2935,16 +2827,14 @@ def day_of_year(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "day_of_year" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `day_of_year` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('day_of_year')
@@ -2971,6 +2861,9 @@ def day_time_interval_between(start, end, /, *, memory_pool=None):
     millisecond.
     Null values return null.
 
+    This wraps the "day_time_interval_between" compute function in the Arrow
+        C++ library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -2979,11 +2872,6 @@ def day_time_interval_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `day_time_interval_between` compute function in the Arrow C++
-        library.
     """
 
     func = pyarrow._compute.get_function('day_time_interval_between')
@@ -3007,6 +2895,8 @@ def days_between(start, end, /, *, memory_pool=None):
     truncated to the day.
     Null values emit null.
 
+    This wraps the "days_between" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -3015,10 +2905,6 @@ def days_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `days_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('days_between')
@@ -3040,6 +2926,9 @@ def dictionary_encode(array, /, null_encoding='mask', *, options=None,
 
     Return a dictionary-encoded version of the input array.
 
+    This wraps the "dictionary_encode" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     array : Array-like
@@ -3053,10 +2942,6 @@ def dictionary_encode(array, /, null_encoding='mask', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `dictionary_encode` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -3088,6 +2973,8 @@ def divide(dividend, divisor, /, *, memory_pool=None):
     Use function "divide_checked" if you want to get an error
     in all the aforementioned cases.
 
+    This wraps the "divide" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     dividend : Array-like or scalar-like
@@ -3096,10 +2983,6 @@ def divide(dividend, divisor, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `divide` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('divide')
@@ -3121,6 +3004,9 @@ def divide_checked(dividend, divisor, /, *, memory_pool=None):
     An error is returned when trying to divide by zero, or when
     integer overflow is encountered.
 
+    This wraps the "divide_checked" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     dividend : Array-like or scalar-like
@@ -3129,10 +3015,6 @@ def divide_checked(dividend, divisor, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `divide_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('divide_checked')
@@ -3156,16 +3038,14 @@ def drop_null(input, /, *, memory_pool=None):
     For the RecordBatch and Table cases, `drop_null` drops the full row if
     there is any null.
 
+    This wraps the "drop_null" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     input : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `drop_null` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('drop_null')
@@ -3191,6 +3071,8 @@ def ends_with(strings, /, pattern=None, *, ignore_case=False, options=None,
 
     Null inputs emit null.
 
+    This wraps the "ends_with" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -3203,10 +3085,6 @@ def ends_with(strings, /, pattern=None, *, ignore_case=False, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ends_with` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -3236,6 +3114,8 @@ def equal(x, y, /, *, memory_pool=None):
 
     A null on either side emits a null comparison result.
 
+    This wraps the "equal" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -3244,10 +3124,6 @@ def equal(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `equal` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('equal')
@@ -3273,6 +3149,8 @@ def extract_regex(strings, /, pattern=None, *, options=None, memory_pool=None):
 
     Regular expression matching is done using the Google RE2 library.
 
+    This wraps the "extract_regex" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -3283,10 +3161,6 @@ def extract_regex(strings, /, pattern=None, *, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `extract_regex` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -3317,16 +3191,15 @@ def fill_null_backward(values, /, *, memory_pool=None):
         valid
     or nothing if all next values are null.
 
+    This wraps the "fill_null_backward" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `fill_null_backward` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('fill_null_backward')
@@ -3348,16 +3221,15 @@ def fill_null_forward(values, /, *, memory_pool=None):
     Given an array, propagate last valid observation forward to next valid
     or nothing if all previous values are null.
 
+    This wraps the "fill_null_forward" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `fill_null_forward` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('fill_null_forward')
@@ -3381,6 +3253,8 @@ def filter(input, selection_filter, /, null_selection_behavior='drop', *,
     where the selection filter is non-zero.  Nulls in the selection filter
     are handled based on FilterOptions.
 
+    This wraps the "filter" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     input : Array-like or scalar-like
@@ -3395,9 +3269,7 @@ def filter(input, selection_filter, /, null_selection_behavior='drop', *,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `filter` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -3448,6 +3320,9 @@ def find_substring(strings, /, pattern=None, *, ignore_case=False,
     Null inputs emit null. The pattern must be given in
         MatchSubstringOptions.
 
+    This wraps the "find_substring" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -3460,10 +3335,6 @@ def find_substring(strings, /, pattern=None, *, ignore_case=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `find_substring` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -3499,6 +3370,9 @@ def find_substring_regex(strings, /, pattern=None, *, ignore_case=False,
     Null inputs emit null. The pattern must be given in
         MatchSubstringOptions.
 
+    This wraps the "find_substring_regex" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -3511,10 +3385,6 @@ def find_substring_regex(strings, /, pattern=None, *, ignore_case=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `find_substring_regex` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -3544,16 +3414,14 @@ def floor(x, /, *, memory_pool=None):
 
     Compute the largest integer value not greater in magnitude than `x`.
 
+    This wraps the "floor" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `floor` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('floor')
@@ -3579,6 +3447,9 @@ def floor_temporal(timestamps, /, multiple=1, unit='day', *,
     Null values emit null.
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
+
+    This wraps the "floor_temporal" compute function in the Arrow C++
+        library.
 
     Parameters
     ----------
@@ -3625,10 +3496,6 @@ def floor_temporal(timestamps, /, multiple=1, unit='day', *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `floor_temporal` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -3661,6 +3528,8 @@ def greater(x, y, /, *, memory_pool=None):
 
     A null on either side emits a null comparison result.
 
+    This wraps the "greater" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -3669,10 +3538,6 @@ def greater(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `greater` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('greater')
@@ -3693,6 +3558,8 @@ def greater_equal(x, y, /, *, memory_pool=None):
 
     A null on either side emits a null comparison result.
 
+    This wraps the "greater_equal" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -3701,10 +3568,6 @@ def greater_equal(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `greater_equal` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('greater_equal')
@@ -3727,16 +3590,14 @@ def hour(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "hour" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `hour` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('hour')
@@ -3760,6 +3621,8 @@ def hours_between(start, end, /, *, memory_pool=None):
     truncated to the hour.
     Null values emit null.
 
+    This wraps the "hours_between" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -3768,10 +3631,6 @@ def hours_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `hours_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('hours_between')
@@ -3794,6 +3653,8 @@ def if_else(cond, left, right, /, *, memory_pool=None):
     `left` or `right` must be of the same type scalar/ array.
     `null` values in `cond` will be promoted to the output.
 
+    This wraps the "if_else" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     cond : Array-like or scalar-like
@@ -3804,10 +3665,6 @@ def if_else(cond, left, right, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `if_else` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('if_else')
@@ -3829,6 +3686,8 @@ def index(array, /, value=None, *, options=None, memory_pool=None):
     -1 is returned if the value is not found in the array.
     The search value is specified in IndexOptions.
 
+    This wraps the "index" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -3840,9 +3699,7 @@ def index(array, /, value=None, *, options=None, memory_pool=None):
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `index` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -3894,6 +3751,8 @@ def index_in(values, /, value_set=None, *, skip_nulls=False, options=None,
     By default, nulls are matched against the value set, this can be
     changed in SetLookupOptions.
 
+    This wraps the "index_in" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -3908,10 +3767,6 @@ def index_in(values, /, value_set=None, *, skip_nulls=False, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `index_in` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -3942,6 +3797,9 @@ def index_in_meta_binary(values, value_set, /, *, memory_pool=None):
     For each element in `values`, return its index in the `value_set`,
     or null if it is not found there.
 
+    This wraps the "index_in_meta_binary" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -3950,10 +3808,6 @@ def index_in_meta_binary(values, value_set, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `index_in_meta_binary` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('index_in_meta_binary')
@@ -3977,6 +3831,9 @@ def indices_nonzero(values, /, *, memory_pool=None):
 
     Note that indices_nonzero does not work with string arrays.
 
+    This wraps the "indices_nonzero" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like
@@ -3984,9 +3841,7 @@ def indices_nonzero(values, /, *, memory_pool=None):
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `indices_nonzero` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -4019,16 +3874,14 @@ def indices_nonzero(values, /, *, memory_pool=None):
 def invert(values, /, *, memory_pool=None):
     """Invert boolean values.
 
+    This wraps the "invert" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `invert` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('invert')
@@ -4052,16 +3905,14 @@ def is_dst(values, /, *, memory_pool=None):
     Null values emit null.
     An error is returned if the values do not have a defined timezone.
 
+    This wraps the "is_dst" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_dst` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('is_dst')
@@ -4083,16 +3934,14 @@ def is_finite(values, /, *, memory_pool=None):
     For each input value, emit true iff the value is finite
     (i.e. neither NaN, inf, nor -inf).
 
+    This wraps the "is_finite" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_finite` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('is_finite')
@@ -4118,6 +3967,8 @@ def is_in(values, /, value_set=None, *, skip_nulls=False, options=None,
     By default, nulls are matched against the value set, this can be
     changed in SetLookupOptions.
 
+    This wraps the "is_in" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -4132,10 +3983,6 @@ def is_in(values, /, value_set=None, *, skip_nulls=False, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_in` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -4166,6 +4013,9 @@ def is_in_meta_binary(values, value_set, /, *, memory_pool=None):
     For each element in `values`, return true if it is found in `value_set`,
     false otherwise.
 
+    This wraps the "is_in_meta_binary" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -4174,10 +4024,6 @@ def is_in_meta_binary(values, value_set, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_in_meta_binary` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('is_in_meta_binary')
@@ -4198,16 +4044,14 @@ def is_inf(values, /, *, memory_pool=None):
 
     For each input value, emit true iff the value is infinite (inf or -inf).
 
+    This wraps the "is_inf" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_inf` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('is_inf')
@@ -4230,16 +4074,14 @@ def is_leap_year(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "is_leap_year" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_leap_year` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('is_leap_year')
@@ -4260,16 +4102,14 @@ def is_nan(values, /, *, memory_pool=None):
 
     For each input value, emit true iff the value is NaN.
 
+    This wraps the "is_nan" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_nan` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('is_nan')
@@ -4292,6 +4132,8 @@ def is_null(values, /, *, nan_is_null=False, options=None, memory_pool=None):
     True may also be emitted for NaN values by setting the `nan_is_null`
         flag.
 
+    This wraps the "is_null" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -4302,10 +4144,6 @@ def is_null(values, /, *, nan_is_null=False, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_null` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -4334,16 +4172,14 @@ def is_valid(values, /, *, memory_pool=None):
 
     For each input value, emit true iff the value is valid (i.e. non-null).
 
+    This wraps the "is_valid" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `is_valid` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('is_valid')
@@ -4367,16 +4203,14 @@ def iso_calendar(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "iso_calendar" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `iso_calendar` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('iso_calendar')
@@ -4402,16 +4236,14 @@ def iso_week(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "iso_week" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `iso_week` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('iso_week')
@@ -4436,16 +4268,14 @@ def iso_year(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "iso_year" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `iso_year` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('iso_year')
@@ -4466,6 +4296,8 @@ def less(x, y, /, *, memory_pool=None):
 
     A null on either side emits a null comparison result.
 
+    This wraps the "less" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -4474,10 +4306,6 @@ def less(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `less` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('less')
@@ -4498,6 +4326,8 @@ def less_equal(x, y, /, *, memory_pool=None):
 
     A null on either side emits a null comparison result.
 
+    This wraps the "less_equal" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -4506,10 +4336,6 @@ def less_equal(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `less_equal` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('less_equal')
@@ -4532,6 +4358,8 @@ def list_element(lists, index, /, *, memory_pool=None):
     For each value in each list of `lists`, the element at `index`
     is emitted. Null values emit a null in the output.
 
+    This wraps the "list_element" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     lists : Array-like or scalar-like
@@ -4540,10 +4368,6 @@ def list_element(lists, index, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `list_element` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('list_element')
@@ -4566,16 +4390,14 @@ def list_flatten(lists, /, *, memory_pool=None):
     Return an array with the top list level flattened.
     Top-level null values in `lists` do not emit anything in the input.
 
+    This wraps the "list_flatten" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     lists : Array-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `list_flatten` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('list_flatten')
@@ -4598,16 +4420,15 @@ def list_parent_indices(lists, /, *, memory_pool=None):
     For each value in each list of `lists`, the top-level list index
     is emitted.
 
+    This wraps the "list_parent_indices" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     lists : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `list_parent_indices` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('list_parent_indices')
@@ -4630,16 +4451,15 @@ def list_value_length(lists, /, *, memory_pool=None):
     For each non-null value in `lists`, its length is emitted.
     Null values emit a null in the output.
 
+    This wraps the "list_value_length" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     lists : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `list_value_length` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('list_value_length')
@@ -4662,16 +4482,14 @@ def ln(x, /, *, memory_pool=None):
     Use function "ln_checked" if you want non-positive values to raise an
         error.
 
+    This wraps the "ln" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ln` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ln')
@@ -4693,16 +4511,14 @@ def ln_checked(x, /, *, memory_pool=None):
     Non-positive values raise an error. Null values return null.
     Use function "ln" if you want non-positive values to return -inf or NaN.
 
+    This wraps the "ln_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `ln_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('ln_checked')
@@ -4725,16 +4541,14 @@ def log10(x, /, *, memory_pool=None):
     Use function "log10_checked" if you want non-positive values
     to raise an error.
 
+    This wraps the "log10" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `log10` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('log10')
@@ -4757,16 +4571,14 @@ def log10_checked(x, /, *, memory_pool=None):
     Use function "log10" if you want non-positive values
     to return -inf or NaN.
 
+    This wraps the "log10_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `log10_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('log10_checked')
@@ -4790,16 +4602,14 @@ def log1p(x, /, *, memory_pool=None):
     Use function "log1p_checked" if you want invalid values to raise an
         error.
 
+    This wraps the "log1p" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `log1p` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('log1p')
@@ -4822,16 +4632,14 @@ def log1p_checked(x, /, *, memory_pool=None):
     This function may be more precise than log(1 + x) for x close to zero.
     Use function "log1p" if you want invalid values to return -inf or NaN.
 
+    This wraps the "log1p_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `log1p_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('log1p_checked')
@@ -4854,16 +4662,14 @@ def log2(x, /, *, memory_pool=None):
     Use function "log2_checked" if you want non-positive values
     to raise an error.
 
+    This wraps the "log2" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `log2` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('log2')
@@ -4886,16 +4692,14 @@ def log2_checked(x, /, *, memory_pool=None):
     Use function "log2" if you want non-positive values
     to return -inf or NaN.
 
+    This wraps the "log2_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `log2_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('log2_checked')
@@ -4918,6 +4722,8 @@ def logb(x, b, /, *, memory_pool=None):
     Use function "logb_checked" if you want non-positive values to raise an
         error.
 
+    This wraps the "logb" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -4926,10 +4732,6 @@ def logb(x, b, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `logb` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('logb')
@@ -4952,6 +4754,8 @@ def logb_checked(x, b, /, *, memory_pool=None):
     Use function "logb" if you want non-positive values to return -inf or
         NaN.
 
+    This wraps the "logb_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -4960,10 +4764,6 @@ def logb_checked(x, b, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `logb_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('logb_checked')
@@ -4987,6 +4787,8 @@ def make_struct(*args, field_names=(), field_nullability=None,
     Names of the StructArray's fields are
     specified through MakeStructOptions.
 
+    This wraps the "make_struct" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     *args : Array-like or scalar-like
@@ -5002,10 +4804,6 @@ def make_struct(*args, field_names=(), field_nullability=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `make_struct` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5031,6 +4829,8 @@ def map_lookup(container, /, query_key=None, occurrence=None, *, options=None,
     either the FIRST, LAST or ALL items from a Map that have
     matching keys.
 
+    This wraps the "map_lookup" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     container : Array-like or scalar-like
@@ -5044,10 +4844,6 @@ def map_lookup(container, /, query_key=None, occurrence=None, *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `map_lookup` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5084,6 +4880,8 @@ def match_like(strings, /, pattern=None, *, ignore_case=False, options=None,
     Null inputs emit null.  The pattern must be given in
         MatchSubstringOptions.
 
+    This wraps the "match_like" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -5096,10 +4894,6 @@ def match_like(strings, /, pattern=None, *, ignore_case=False, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `match_like` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5133,6 +4927,9 @@ def match_substring(strings, /, pattern=None, *, ignore_case=False,
     The pattern must be given in MatchSubstringOptions.
     If ignore_case is set, only simple case folding is performed.
 
+    This wraps the "match_substring" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -5145,10 +4942,6 @@ def match_substring(strings, /, pattern=None, *, ignore_case=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `match_substring` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5184,6 +4977,9 @@ def match_substring_regex(strings, /, pattern=None, *, ignore_case=False,
 
     Null inputs emit null.
 
+    This wraps the "match_substring_regex" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -5196,10 +4992,6 @@ def match_substring_regex(strings, /, pattern=None, *, ignore_case=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `match_substring_regex` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5231,6 +5023,8 @@ def max(array, /, *, skip_nulls=True, min_count=1, options=None,
     Null values are ignored by default.
     This can be changed through ScalarAggregateOptions.
 
+    This wraps the "max" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -5245,10 +5039,6 @@ def max(array, /, *, skip_nulls=True, min_count=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `max` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5279,6 +5069,9 @@ def max_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
     Nulls are ignored (by default) or propagated.
     NaN is preferred over null, but not over any valid value.
 
+    This wraps the "max_element_wise" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     *args : Array-like or scalar-like
@@ -5290,10 +5083,6 @@ def max_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `max_element_wise` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5322,6 +5111,8 @@ def mean(array, /, *, skip_nulls=True, min_count=1, options=None,
     For integers and floats, NaN is returned if min_count = 0 and
     there are no values. For decimals, null is returned instead.
 
+    This wraps the "mean" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -5336,10 +5127,6 @@ def mean(array, /, *, skip_nulls=True, min_count=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `mean` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5373,16 +5160,14 @@ def microsecond(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "microsecond" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `microsecond` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('microsecond')
@@ -5407,6 +5192,9 @@ def microseconds_between(start, end, /, *, memory_pool=None):
     truncated to the microsecond.
     Null values emit null.
 
+    This wraps the "microseconds_between" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -5415,10 +5203,6 @@ def microseconds_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `microseconds_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('microseconds_between')
@@ -5442,16 +5226,14 @@ def millisecond(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "millisecond" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `millisecond` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('millisecond')
@@ -5476,6 +5258,9 @@ def milliseconds_between(start, end, /, *, memory_pool=None):
     truncated to the millisecond.
     Null values emit null.
 
+    This wraps the "milliseconds_between" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -5484,10 +5269,6 @@ def milliseconds_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `milliseconds_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('milliseconds_between')
@@ -5510,6 +5291,8 @@ def min(array, /, *, skip_nulls=True, min_count=1, options=None,
     Null values are ignored by default.
     This can be changed through ScalarAggregateOptions.
 
+    This wraps the "min" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -5524,10 +5307,6 @@ def min(array, /, *, skip_nulls=True, min_count=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `min` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5558,6 +5337,9 @@ def min_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
     Nulls are ignored (by default) or propagated.
     NaN is preferred over null, but not over any valid value.
 
+    This wraps the "min_element_wise" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     *args : Array-like or scalar-like
@@ -5569,10 +5351,6 @@ def min_element_wise(*args, skip_nulls=True, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `min_element_wise` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5595,6 +5373,8 @@ def min_max(array, /, *, skip_nulls=True, min_count=1, options=None,
     Null values are ignored by default.
     This can be changed through ScalarAggregateOptions.
 
+    This wraps the "min_max" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -5609,10 +5389,6 @@ def min_max(array, /, *, skip_nulls=True, min_count=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `min_max` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -5644,16 +5420,14 @@ def minute(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "minute" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `minute` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('minute')
@@ -5677,6 +5451,9 @@ def minutes_between(start, end, /, *, memory_pool=None):
     truncated to the minute.
     Null values emit null.
 
+    This wraps the "minutes_between" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -5685,10 +5462,6 @@ def minutes_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `minutes_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('minutes_between')
@@ -5716,6 +5489,8 @@ def mode(array, /, n=1, *, skip_nulls=True, min_count=0, options=None,
     Nulls are ignored.  If there are no non-null values in the array,
     an empty array is returned.
 
+    This wraps the "mode" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -5733,9 +5508,7 @@ def mode(array, /, n=1, *, skip_nulls=True, min_count=0, options=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `mode` compute function in the Arrow C++ library.
+
 
     Examples
     --------
@@ -5780,16 +5553,14 @@ def month(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "month" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `month` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('month')
@@ -5817,6 +5588,9 @@ def month_day_nano_interval_between(start, end, /, *, memory_pool=None):
     timestamps is computed as if both times were truncated to the nanosecond.
     Null values return null.
 
+    This wraps the "month_day_nano_interval_between" compute function in the
+        Arrow C++ library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -5825,11 +5599,6 @@ def month_day_nano_interval_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `month_day_nano_interval_between` compute function in the Arrow C++
-        library.
     """
 
     func = pyarrow._compute.get_function('month_day_nano_interval_between')
@@ -5853,6 +5622,9 @@ def month_interval_between(start, end, /, *, memory_pool=None):
     truncated to the month.
     Null values emit null.
 
+    This wraps the "month_interval_between" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -5861,10 +5633,6 @@ def month_interval_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `month_interval_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('month_interval_between')
@@ -5887,6 +5655,8 @@ def multiply(x, y, /, *, memory_pool=None):
     Use function "multiply_checked" if you want overflow
     to return an error.
 
+    This wraps the "multiply" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -5895,10 +5665,6 @@ def multiply(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `multiply` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('multiply')
@@ -5920,6 +5686,9 @@ def multiply_checked(x, y, /, *, memory_pool=None):
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "multiply".
 
+    This wraps the "multiply_checked" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -5928,10 +5697,6 @@ def multiply_checked(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `multiply_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('multiply_checked')
@@ -5955,16 +5720,14 @@ def nanosecond(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "nanosecond" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `nanosecond` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('nanosecond')
@@ -5989,6 +5752,9 @@ def nanoseconds_between(start, end, /, *, memory_pool=None):
     truncated to the nanosecond.
     Null values emit null.
 
+    This wraps the "nanoseconds_between" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -5997,10 +5763,6 @@ def nanoseconds_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `nanoseconds_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('nanoseconds_between')
@@ -6023,16 +5785,14 @@ def negate(x, /, *, memory_pool=None):
     Use function "negate_checked" if you want overflow
     to return an error.
 
+    This wraps the "negate" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `negate` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('negate')
@@ -6054,16 +5814,15 @@ def negate_checked(x, /, *, memory_pool=None):
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "negate".
 
+    This wraps the "negate_checked" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `negate_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('negate_checked')
@@ -6084,6 +5843,8 @@ def not_equal(x, y, /, *, memory_pool=None):
 
     A null on either side emits a null comparison result.
 
+    This wraps the "not_equal" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -6092,10 +5853,6 @@ def not_equal(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `not_equal` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('not_equal')
@@ -6117,6 +5874,8 @@ def or_(x, y, /, *, memory_pool=None):
     When a null is encountered in either input, a null is output.
     For a different null behavior, see function "or_kleene".
 
+    This wraps the "or" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -6125,10 +5884,6 @@ def or_(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `or` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('or')
@@ -6159,6 +5914,8 @@ def or_kleene(x, y, /, *, memory_pool=None):
     and an unknown value 'or' true is always true.
     For a different null behavior, see function "and".
 
+    This wraps the "or_kleene" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -6167,10 +5924,6 @@ def or_kleene(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `or_kleene` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('or_kleene')
@@ -6208,6 +5961,9 @@ def partition_nth_indices(array, /, pivot=None, *, null_placement='at_end',
     The handling of nulls and NaNs can also be changed in
         PartitionNthOptions.
 
+    This wraps the "partition_nth_indices" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     array : Array-like
@@ -6221,10 +5977,6 @@ def partition_nth_indices(array, /, pivot=None, *, null_placement='at_end',
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `partition_nth_indices` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6256,6 +6008,8 @@ def power(base, exponent, /, *, memory_pool=None):
         overflow
     wraps around. If either base or exponent is null the result will be null.
 
+    This wraps the "power" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     base : Array-like or scalar-like
@@ -6264,10 +6018,6 @@ def power(base, exponent, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `power` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('power')
@@ -6290,6 +6040,8 @@ def power_checked(base, exponent, /, *, memory_pool=None):
         encountered,
     or integer overflow is encountered.
 
+    This wraps the "power_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     base : Array-like or scalar-like
@@ -6298,10 +6050,6 @@ def power_checked(base, exponent, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `power_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('power_checked')
@@ -6325,6 +6073,8 @@ def product(array, /, *, skip_nulls=True, min_count=1, options=None,
     values can be set and null is returned if too few are present.
     This can be changed through ScalarAggregateOptions.
 
+    This wraps the "product" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -6339,10 +6089,6 @@ def product(array, /, *, skip_nulls=True, min_count=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `product` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6377,6 +6123,8 @@ def quantile(array, /, q=0.5, *, interpolation='linear', skip_nulls=True,
     Nulls and NaNs are ignored.
     An array of nulls is returned if there is no valid data point.
 
+    This wraps the "quantile" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -6402,10 +6150,6 @@ def quantile(array, /, q=0.5, *, interpolation='linear', skip_nulls=True,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `quantile` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6440,16 +6184,14 @@ def quarter(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "quarter" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `quarter` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('quarter')
@@ -6474,6 +6216,9 @@ def quarters_between(start, end, /, *, memory_pool=None):
     truncated to the quarter.
     Null values emit null.
 
+    This wraps the "quarters_between" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -6482,10 +6227,6 @@ def quarters_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `quarters_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('quarters_between')
@@ -6508,6 +6249,8 @@ def random(*, initializer='system', options=None, memory_pool=None):
         1).
     Algorithm and seed can be changed via RandomOptions.
 
+    This wraps the "random" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     initializer : int or str
@@ -6520,10 +6263,6 @@ def random(*, initializer='system', options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `random` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6552,6 +6291,8 @@ def rank(input, /, sort_keys='ascending', *, null_placement='at_end',
 
     The handling of nulls, NaNs and tiebreakers can be changed in
         RankOptions.
+
+    This wraps the "rank" compute function in the Arrow C++ library.
 
     Parameters
     ----------
@@ -6582,10 +6323,6 @@ def rank(input, /, sort_keys='ascending', *, null_placement='at_end',
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `rank` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6623,6 +6360,9 @@ def replace_substring(strings, /, pattern=None, replacement=None, *,
     maximum amount replacements per input, counted from the left.
     Null values emit null.
 
+    This wraps the "replace_substring" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -6638,10 +6378,6 @@ def replace_substring(strings, /, pattern=None, replacement=None, *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `replace_substring` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6680,6 +6416,9 @@ def replace_substring_regex(strings, /, pattern=None, replacement=None, *,
     maximum amount replacements per input, counted from the left.
     Null values emit null.
 
+    This wraps the "replace_substring_regex" compute function in the Arrow
+        C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -6695,10 +6434,6 @@ def replace_substring_regex(strings, /, pattern=None, replacement=None, *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `replace_substring_regex` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6734,6 +6469,9 @@ def replace_with_mask(values, mask, replacements, /, *, memory_pool=None):
     or with null if the mask is null.
     Hence, for replacement arrays, len(replacements) == sum(mask == true).
 
+    This wraps the "replace_with_mask" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like
@@ -6744,10 +6482,6 @@ def replace_with_mask(values, mask, replacements, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `replace_with_mask` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('replace_with_mask')
@@ -6771,6 +6505,8 @@ def round(x, /, ndigits=0, round_mode='half_to_even', *, options=None,
     Default behavior is to round to the nearest integer and
     use half-to-even rule to break ties.
 
+    This wraps the "round" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -6786,10 +6522,6 @@ def round(x, /, ndigits=0, round_mode='half_to_even', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `round` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6824,6 +6556,9 @@ def round_temporal(timestamps, /, multiple=1, unit='day', *,
     Null values emit null.
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
+
+    This wraps the "round_temporal" compute function in the Arrow C++
+        library.
 
     Parameters
     ----------
@@ -6870,10 +6605,6 @@ def round_temporal(timestamps, /, multiple=1, unit='day', *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `round_temporal` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6909,6 +6640,9 @@ def round_to_multiple(x, /, multiple=1.0, round_mode='half_to_even', *,
     Default behavior is to round to the nearest integer and
     use half-to-even rule to break ties.
 
+    This wraps the "round_to_multiple" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -6925,10 +6659,6 @@ def round_to_multiple(x, /, multiple=1.0, round_mode='half_to_even', *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `round_to_multiple` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -6960,16 +6690,14 @@ def second(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "second" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `second` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('second')
@@ -6993,6 +6721,9 @@ def seconds_between(start, end, /, *, memory_pool=None):
     truncated to the second.
     Null values emit null.
 
+    This wraps the "seconds_between" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -7001,10 +6732,6 @@ def seconds_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `seconds_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('seconds_between')
@@ -7034,6 +6761,9 @@ def select_k_unstable(input, /, k=None, sort_keys=None, *, options=None,
         considered
     greater than any other non-null value, but smaller than null values.
 
+    This wraps the "select_k_unstable" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     input : Array-like or scalar-like
@@ -7050,10 +6780,6 @@ def select_k_unstable(input, /, k=None, sort_keys=None, *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `select_k_unstable` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7091,6 +6817,8 @@ def shift_left(x, y, /, *, memory_pool=None):
     Use function "shift_left_checked" if you want an invalid shift amount
     to return an error.
 
+    This wraps the "shift_left" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -7099,10 +6827,6 @@ def shift_left(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `shift_left` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('shift_left')
@@ -7131,6 +6855,9 @@ def shift_left_checked(x, y, /, *, memory_pool=None):
     See "shift_left" for a variant that doesn't fail for an invalid shift
         amount.
 
+    This wraps the "shift_left_checked" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -7139,10 +6866,6 @@ def shift_left_checked(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `shift_left_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('shift_left_checked')
@@ -7167,6 +6890,8 @@ def shift_right(x, y, /, *, memory_pool=None):
     Use function "shift_right_checked" if you want an invalid shift amount
     to return an error.
 
+    This wraps the "shift_right" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -7175,10 +6900,6 @@ def shift_right(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `shift_right` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('shift_right')
@@ -7203,6 +6924,9 @@ def shift_right_checked(x, y, /, *, memory_pool=None):
     See "shift_right" for a variant that doesn't fail for an invalid shift
         amount
 
+    This wraps the "shift_right_checked" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -7211,10 +6935,6 @@ def shift_right_checked(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `shift_right_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('shift_right_checked')
@@ -7237,16 +6957,14 @@ def sign(x, /, *, memory_pool=None):
     NaN values return NaN.  Integral values return signedness as Int8 and
     floating-point values return it with the same type as the input values.
 
+    This wraps the "sign" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `sign` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('sign')
@@ -7268,16 +6986,14 @@ def sin(x, /, *, memory_pool=None):
     NaN is returned for invalid input values;
     to raise an error instead, see "sin_checked".
 
+    This wraps the "sin" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `sin` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('sin')
@@ -7299,16 +7015,14 @@ def sin_checked(x, /, *, memory_pool=None):
     Invalid input values raise an error;
     to return NaN instead, see "sin".
 
+    This wraps the "sin_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `sin_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('sin_checked')
@@ -7336,6 +7050,8 @@ def sort_indices(input, /, sort_keys=(), *, null_placement='at_end',
 
     The handling of nulls and NaNs can be changed in SortOptions.
 
+    This wraps the "sort_indices" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     input : Array-like or scalar-like
@@ -7352,10 +7068,6 @@ def sort_indices(input, /, sort_keys=(), *, null_placement='at_end',
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `sort_indices` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7391,6 +7103,8 @@ def split_pattern(strings, /, pattern=None, *, max_splits=None, reverse=False,
     The maximum number of splits and direction of splitting
     (forward, reverse) can optionally be defined in SplitPatternOptions.
 
+    This wraps the "split_pattern" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -7406,10 +7120,6 @@ def split_pattern(strings, /, pattern=None, *, max_splits=None, reverse=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `split_pattern` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7447,6 +7157,9 @@ def split_pattern_regex(strings, /, pattern=None, *, max_splits=None,
     The maximum number of splits and direction of splitting
     (forward, reverse) can optionally be defined in SplitPatternOptions.
 
+    This wraps the "split_pattern_regex" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -7462,10 +7175,6 @@ def split_pattern_regex(strings, /, pattern=None, *, max_splits=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `split_pattern_regex` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7497,16 +7206,14 @@ def sqrt(x, /, *, memory_pool=None):
     A negative argument returns a NaN.  For a variant that returns an
     error, use function "sqrt_checked".
 
+    This wraps the "sqrt" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `sqrt` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('sqrt')
@@ -7528,16 +7235,14 @@ def sqrt_checked(x, /, *, memory_pool=None):
     A negative argument returns an error.  For a variant that returns a
     NaN, use function "sqrt".
 
+    This wraps the "sqrt_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `sqrt_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('sqrt_checked')
@@ -7564,6 +7269,8 @@ def starts_with(strings, /, pattern=None, *, ignore_case=False, options=None,
 
     Null inputs emit null.
 
+    This wraps the "starts_with" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -7576,10 +7283,6 @@ def starts_with(strings, /, pattern=None, *, ignore_case=False, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `starts_with` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7613,6 +7316,8 @@ def stddev(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
     Nulls are ignored.  If there are not enough non-null values in the array
     to satisfy `ddof`, null is returned.
 
+    This wraps the "stddev" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -7629,10 +7334,6 @@ def stddev(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `stddev` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7673,6 +7374,8 @@ def strftime(timestamps, /, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
     cannot be found in the timezone database, or if the specified locale
     does not exist on this system.
 
+    This wraps the "strftime" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     timestamps : Array-like or scalar-like
@@ -7685,10 +7388,6 @@ def strftime(timestamps, /, format='%Y-%m-%dT%H:%M:%S', locale='C', *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `strftime` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7719,16 +7418,15 @@ def string_is_ascii(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string consists only
     of ASCII characters.  Null strings emit null.
 
+    This wraps the "string_is_ascii" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `string_is_ascii` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('string_is_ascii')
@@ -7753,6 +7451,8 @@ def strptime(strings, /, format=None, unit=None, error_is_null=False, *,
     in StrptimeOptions. Null inputs emit null. If a non-null string
     fails parsing, an error is returned by default.
 
+    This wraps the "strptime" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -7768,10 +7468,6 @@ def strptime(strings, /, format=None, unit=None, error_is_null=False, *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `strptime` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7810,6 +7506,8 @@ def struct_field(values, /, indices=None, *, options=None, memory_pool=None):
 
     An empty list of indices returns the argument unchanged.
 
+    This wraps the "struct_field" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -7821,10 +7519,6 @@ def struct_field(values, /, indices=None, *, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `struct_field` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -7856,16 +7550,14 @@ def subsecond(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "subsecond" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `subsecond` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('subsecond')
@@ -7888,6 +7580,8 @@ def subtract(x, y, /, *, memory_pool=None):
     Use function "subtract_checked" if you want overflow
     to return an error.
 
+    This wraps the "subtract" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -7896,10 +7590,6 @@ def subtract(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `subtract` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('subtract')
@@ -7921,6 +7611,9 @@ def subtract_checked(x, y, /, *, memory_pool=None):
     This function returns an error on overflow.  For a variant that
     doesn't fail on overflow, use function "subtract".
 
+    This wraps the "subtract_checked" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -7929,10 +7622,6 @@ def subtract_checked(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `subtract_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('subtract_checked')
@@ -7956,6 +7645,8 @@ def sum(array, /, *, skip_nulls=True, min_count=1, options=None,
     values can be set and null is returned if too few are present.
     This can be changed through ScalarAggregateOptions.
 
+    This wraps the "sum" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -7970,10 +7661,6 @@ def sum(array, /, *, skip_nulls=True, min_count=1, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `sum` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -8005,6 +7692,8 @@ def take(input, indices, /, *, boundscheck=True, options=None,
     The output is populated with values from the input at positions
     given by `indices`.  Nulls in `indices` emit null in the output.
 
+    This wraps the "take" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     input : Array-like or scalar-like
@@ -8019,10 +7708,6 @@ def take(input, indices, /, *, boundscheck=True, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `take` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -8052,16 +7737,14 @@ def tan(x, /, *, memory_pool=None):
     NaN is returned for invalid input values;
     to raise an error instead, see "tan_checked".
 
+    This wraps the "tan" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `tan` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('tan')
@@ -8083,16 +7766,14 @@ def tan_checked(x, /, *, memory_pool=None):
     Infinite values raise an error;
     to return NaN instead, see "tan".
 
+    This wraps the "tan_checked" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `tan_checked` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('tan_checked')
@@ -8116,6 +7797,8 @@ def tdigest(array, /, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
     Nulls and NaNs are ignored.
     An array of nulls is returned if there is no valid data point.
 
+    This wraps the "tdigest" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -8136,10 +7819,6 @@ def tdigest(array, /, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `tdigest` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -8173,16 +7852,15 @@ def true_unless_null(values, /, *, memory_pool=None):
     For each input value, emit true iff the value
     is valid (non-null), otherwise emit null.
 
+    This wraps the "true_unless_null" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `true_unless_null` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('true_unless_null')
@@ -8203,16 +7881,14 @@ def trunc(x, /, *, memory_pool=None):
 
     Compute the nearest integer not greater in magnitude than `x`.
 
+    This wraps the "trunc" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `trunc` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('trunc')
@@ -8233,16 +7909,14 @@ def unique(array, /, *, memory_pool=None):
 
     Return an array with distinct values.  Nulls in the input are ignored.
 
+    This wraps the "unique" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `unique` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('unique')
@@ -8268,16 +7942,14 @@ def us_week(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "us_week" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `us_week` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('us_week')
@@ -8303,16 +7975,14 @@ def us_year(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "us_year" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `us_year` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('us_year')
@@ -8334,16 +8004,15 @@ def utf8_capitalize(strings, /, *, memory_pool=None):
     For each string in `strings`, return a capitalized version,
     with the first character uppercased and the others lowercased.
 
+    This wraps the "utf8_capitalize" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_capitalize` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_capitalize')
@@ -8368,6 +8037,8 @@ def utf8_center(strings, /, width=None, padding=' ', *, options=None,
     with the given UTF8 codeunit.
     Null values emit null.
 
+    This wraps the "utf8_center" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -8380,10 +8051,6 @@ def utf8_center(strings, /, width=None, padding=' ', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_center` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -8415,16 +8082,14 @@ def utf8_is_alnum(strings, /, *, memory_pool=None):
     and consists only of alphanumeric Unicode characters.  Null strings emit
         null.
 
+    This wraps the "utf8_is_alnum" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_alnum` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_alnum')
@@ -8447,16 +8112,14 @@ def utf8_is_alpha(strings, /, *, memory_pool=None):
     and consists only of alphabetic Unicode characters.  Null strings emit
         null.
 
+    This wraps the "utf8_is_alpha" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_alpha` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_alpha')
@@ -8478,16 +8141,15 @@ def utf8_is_decimal(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of decimal Unicode characters.  Null strings emit null.
 
+    This wraps the "utf8_is_decimal" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_decimal` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_decimal')
@@ -8509,16 +8171,14 @@ def utf8_is_digit(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of Unicode digits.  Null strings emit null.
 
+    This wraps the "utf8_is_digit" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_digit` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_digit')
@@ -8541,16 +8201,14 @@ def utf8_is_lower(strings, /, *, memory_pool=None):
     and consists only of lowercase Unicode characters.  Null strings emit
         null.
 
+    This wraps the "utf8_is_lower" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_lower` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_lower')
@@ -8572,16 +8230,15 @@ def utf8_is_numeric(strings, /, *, memory_pool=None):
     For each string in `strings`, emit true iff the string is non-empty
     and consists only of numeric Unicode characters.  Null strings emit null.
 
+    This wraps the "utf8_is_numeric" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_numeric` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_numeric')
@@ -8604,16 +8261,15 @@ def utf8_is_printable(strings, /, *, memory_pool=None):
     and consists only of printable Unicode characters.  Null strings emit
         null.
 
+    This wraps the "utf8_is_printable" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_printable` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_printable')
@@ -8636,16 +8292,14 @@ def utf8_is_space(strings, /, *, memory_pool=None):
     and consists only of whitespace Unicode characters.  Null strings emit
         null.
 
+    This wraps the "utf8_is_space" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_space` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_space')
@@ -8669,16 +8323,14 @@ def utf8_is_title(strings, /, *, memory_pool=None):
     follows an uncased character, and each lowercase character follows
     an uppercase character.
 
+    This wraps the "utf8_is_title" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_title` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_title')
@@ -8701,16 +8353,14 @@ def utf8_is_upper(strings, /, *, memory_pool=None):
     and consists only of uppercase Unicode characters.  Null strings emit
         null.
 
+    This wraps the "utf8_is_upper" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_is_upper` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_is_upper')
@@ -8732,16 +8382,14 @@ def utf8_length(strings, /, *, memory_pool=None):
     For each string in `strings`, emit its length in UTF8 characters.
     Null values emit null.
 
+    This wraps the "utf8_length" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_length` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_length')
@@ -8762,16 +8410,14 @@ def utf8_lower(strings, /, *, memory_pool=None):
 
     For each string in `strings`, return a lowercase version.
 
+    This wraps the "utf8_lower" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_lower` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_lower')
@@ -8795,6 +8441,8 @@ def utf8_lpad(strings, /, width=None, padding=' ', *, options=None,
     the given UTF8 codeunit.
     Null values emit null.
 
+    This wraps the "utf8_lpad" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -8807,10 +8455,6 @@ def utf8_lpad(strings, /, width=None, padding=' ', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_lpad` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -8842,6 +8486,8 @@ def utf8_ltrim(strings, /, characters=None, *, options=None, memory_pool=None):
     from the `characters` option (as given in TrimOptions).
     Null values emit null.
 
+    This wraps the "utf8_ltrim" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -8852,10 +8498,6 @@ def utf8_ltrim(strings, /, characters=None, *, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_ltrim` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -8887,16 +8529,15 @@ def utf8_ltrim_whitespace(strings, /, *, memory_pool=None):
         Unicode
     standard.  Null values emit null.
 
+    This wraps the "utf8_ltrim_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_ltrim_whitespace` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_ltrim_whitespace')
@@ -8920,6 +8561,9 @@ def utf8_normalize(strings, /, form=None, *, options=None, memory_pool=None):
     The normalization form must be given in the options.
     Null inputs emit null.
 
+    This wraps the "utf8_normalize" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -8931,10 +8575,6 @@ def utf8_normalize(strings, /, form=None, *, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_normalize` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -8968,6 +8608,9 @@ def utf8_replace_slice(strings, /, start=None, stop=None, replacement=None, *,
     and `stop` is exclusive, and both are measured in UTF8 characters.
     Null values emit null.
 
+    This wraps the "utf8_replace_slice" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -8982,10 +8625,6 @@ def utf8_replace_slice(strings, /, start=None, stop=None, replacement=None, *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_replace_slice` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9020,16 +8659,14 @@ def utf8_reverse(strings, /, *, memory_pool=None):
     clusters. Hence, it will not correctly reverse grapheme clusters
     composed of multiple codepoints.
 
+    This wraps the "utf8_reverse" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_reverse` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_reverse')
@@ -9053,6 +8690,8 @@ def utf8_rpad(strings, /, width=None, padding=' ', *, options=None,
     the given UTF8 codeunit.
     Null values emit null.
 
+    This wraps the "utf8_rpad" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -9065,10 +8704,6 @@ def utf8_rpad(strings, /, width=None, padding=' ', *, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_rpad` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9100,6 +8735,8 @@ def utf8_rtrim(strings, /, characters=None, *, options=None, memory_pool=None):
     from the `characters` option (as given in TrimOptions).
     Null values emit null.
 
+    This wraps the "utf8_rtrim" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -9110,10 +8747,6 @@ def utf8_rtrim(strings, /, characters=None, *, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_rtrim` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9145,16 +8778,15 @@ def utf8_rtrim_whitespace(strings, /, *, memory_pool=None):
         Unicode
     standard.  Null values emit null.
 
+    This wraps the "utf8_rtrim_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_rtrim_whitespace` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_rtrim_whitespace')
@@ -9183,6 +8815,9 @@ def utf8_slice_codeunits(strings, /, start=None, stop=None, step=1, *,
     An error is raised if `step` is zero.
     Null inputs emit null.
 
+    This wraps the "utf8_slice_codeunits" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -9198,10 +8833,6 @@ def utf8_slice_codeunits(strings, /, start=None, stop=None, step=1, *,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_slice_codeunits` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9239,6 +8870,9 @@ def utf8_split_whitespace(strings, /, *, max_splits=None, reverse=False,
     The maximum number of splits and direction of splitting
     (forward, reverse) can optionally be defined in SplitOptions.
 
+    This wraps the "utf8_split_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -9252,10 +8886,6 @@ def utf8_split_whitespace(strings, /, *, max_splits=None, reverse=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_split_whitespace` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9286,16 +8916,14 @@ def utf8_swapcase(strings, /, *, memory_pool=None):
 
     For each string in `strings`, return an opposite case version.
 
+    This wraps the "utf8_swapcase" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_swapcase` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_swapcase')
@@ -9318,16 +8946,14 @@ def utf8_title(strings, /, *, memory_pool=None):
     Each word in the output will start with an uppercase character and its
     remaining characters will be lowercase.
 
+    This wraps the "utf8_title" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_title` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_title')
@@ -9350,6 +8976,8 @@ def utf8_trim(strings, /, characters=None, *, options=None, memory_pool=None):
     from the `characters` option (as given in TrimOptions).
     Null values emit null.
 
+    This wraps the "utf8_trim" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
@@ -9360,10 +8988,6 @@ def utf8_trim(strings, /, characters=None, *, options=None, memory_pool=None):
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_trim` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9394,16 +9018,15 @@ def utf8_trim_whitespace(strings, /, *, memory_pool=None):
     whitespace characters removed, where whitespace characters are defined
     by the Unicode standard.  Null values emit null.
 
+    This wraps the "utf8_trim_whitespace" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_trim_whitespace` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_trim_whitespace')
@@ -9424,16 +9047,14 @@ def utf8_upper(strings, /, *, memory_pool=None):
 
     For each string in `strings`, return an uppercase version.
 
+    This wraps the "utf8_upper" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     strings : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `utf8_upper` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('utf8_upper')
@@ -9457,16 +9078,14 @@ def value_counts(array, /, *, memory_pool=None):
     The result is returned as an array of `struct<input type, int64>`.
     Nulls in the input are ignored.
 
+    This wraps the "value_counts" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `value_counts` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('value_counts')
@@ -9491,6 +9110,8 @@ def variance(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
     Nulls are ignored.  If there are not enough non-null values in the array
     to satisfy `ddof`, null is returned.
 
+    This wraps the "variance" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -9507,10 +9128,6 @@ def variance(array, /, *, ddof=0, skip_nulls=True, min_count=0, options=None,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `variance` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9547,6 +9164,8 @@ def week(values, /, *, week_starts_monday=True, count_from_zero=False,
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "week" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
@@ -9566,10 +9185,6 @@ def week(values, /, *, week_starts_monday=True, count_from_zero=False,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `week` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9604,6 +9219,8 @@ def weeks_between(start, end, /, *, count_from_zero=True, week_start=1,
     truncated to the week.
     Null values emit null.
 
+    This wraps the "weeks_between" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -9619,10 +9236,6 @@ def weeks_between(start, end, /, *, count_from_zero=True, week_start=1,
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `weeks_between` compute function in the Arrow C++ library.
     """
 
     _computed_options = _handle_options(
@@ -9652,6 +9265,8 @@ def xor(x, y, /, *, memory_pool=None):
 
     When a null is encountered in either input, a null is output.
 
+    This wraps the "xor" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -9660,10 +9275,6 @@ def xor(x, y, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `xor` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('xor')
@@ -9686,16 +9297,14 @@ def year(values, /, *, memory_pool=None):
     An error is returned if the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "year" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `year` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('year')
@@ -9718,16 +9327,15 @@ def year_month_day(values, /, *, memory_pool=None):
     An error is returned in the values have a defined timezone but it
     cannot be found in the timezone database.
 
+    This wraps the "year_month_day" compute function in the Arrow C++
+        library.
+
     Parameters
     ----------
     values : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `year_month_day` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('year_month_day')
@@ -9751,6 +9359,8 @@ def years_between(start, end, /, *, memory_pool=None):
     truncated to the year.
     Null values emit null.
 
+    This wraps the "years_between" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     start : Array-like or scalar-like
@@ -9759,10 +9369,6 @@ def years_between(start, end, /, *, memory_pool=None):
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `years_between` compute function in the Arrow C++ library.
     """
 
     func = pyarrow._compute.get_function('years_between')
