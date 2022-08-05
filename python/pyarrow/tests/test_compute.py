@@ -673,6 +673,8 @@ def test_generated_docstrings():
     Null values are ignored by default.
     This can be changed through ScalarAggregateOptions.
 
+    This wraps the "min_max" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     array : Array-like
@@ -686,11 +688,7 @@ def test_generated_docstrings():
     options : pyarrow.compute.ScalarAggregateOptions, optional
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
-        If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `min_max` compute function in the Arrow C++ library."""
+        If not passed, will allocate memory from the default memory pool."""
     )
     # Without options
     assert pc.add.__doc__.strip() == textwrap.dedent(
@@ -700,6 +698,8 @@ def test_generated_docstrings():
     Use function "add_checked" if you want overflow
     to return an error.
 
+    This wraps the "add" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     x : Array-like or scalar-like
@@ -707,11 +707,7 @@ def test_generated_docstrings():
     y : Array-like or scalar-like
         Argument to compute function.
     memory_pool : pyarrow.MemoryPool, optional
-        If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `add` compute function in the Arrow C++ library."""
+        If not passed, will allocate memory from the default memory pool."""
     )
     # Varargs with options
     assert pc.min_element_wise.__doc__.strip() == textwrap.dedent(
@@ -719,6 +715,9 @@ def test_generated_docstrings():
 
     Nulls are ignored (by default) or propagated.
     NaN is preferred over null, but not over any valid value.
+
+    This wraps the "min_element_wise" compute function in the Arrow C++
+        library.
 
     Parameters
     ----------
@@ -730,11 +729,7 @@ def test_generated_docstrings():
     options : pyarrow.compute.ElementWiseAggregateOptions, optional
         Alternative way of passing options.
     memory_pool : pyarrow.MemoryPool, optional
-        If not passed, will allocate memory from the default memory pool.
-
-    See Also
-    --------
-    The `min_element_wise` compute function in the Arrow C++ library."""
+        If not passed, will allocate memory from the default memory pool."""
     )
 
     assert pc.random.__doc__.strip() == textwrap.dedent(
@@ -766,6 +761,8 @@ def test_generated_docstrings():
     where the selection filter is non-zero.  Nulls in the selection filter
     are handled based on FilterOptions.
 
+    This wraps the "filter" compute function in the Arrow C++ library.
+
     Parameters
     ----------
     input : Array-like or scalar-like
@@ -780,9 +777,7 @@ def test_generated_docstrings():
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
-    See Also
-    --------
-    The `filter` compute function in the Arrow C++ library.
+
 
     Examples
     --------
