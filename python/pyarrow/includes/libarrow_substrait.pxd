@@ -23,7 +23,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
 
-cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine::substrait" nogil:
+cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(const CBuffer& substrait_buffer)
     CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)
 
