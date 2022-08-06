@@ -6,3 +6,4 @@ r/man/*.Rd linguist-generated=true
 cpp/src/generated/*.h linguist-generated=true
 r/NEWS.md merge=union
 go/**/*.s linguist-generated=true
+go/arrow/unionmode_string.go linguist-generated=true
