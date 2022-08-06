@@ -156,10 +156,7 @@ namespace Apache.Arrow
                     int length = arrayData.Length;
                     ReadOnlySpan<byte> span = arrayData.Buffers[bufferIndex].Span;
 
-                    for (int i = 0; i < length; i++)
-                    {
-                        builder.Append(span.IsEmpty || BitUtility.GetBit(span, i));
-                    }
+                    builder.Append(span, length);
                 }
 
                 return builder.Build(_allocator);

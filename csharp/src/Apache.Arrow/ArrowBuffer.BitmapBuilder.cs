@@ -69,7 +69,7 @@ namespace Apache.Arrow
                 Memory = new byte[BitUtility.ByteCount(capacity)];
                 Capacity = capacity;
             }
-
+                        
             /// <summary>
             /// Append a single bit.
             /// </summary>
@@ -86,6 +86,37 @@ namespace Apache.Arrow
                 BitUtility.SetBit(Span, Length, value);
                 Length++;
                 SetBitCount += value ? 1 : 0;
+                return this;
+            }
+
+            /// <summary>
+            /// Append a span of bits.
+            /// </summary>
+            /// <param name="source">Source of bit span.</param>
+            /// <param name="validBits">Number of valid bits in the bit span</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
+            public BitmapBuilder Append(ReadOnlySpan<byte> source, int validBits)
+            {
+                var length = source.IsEmpty ? validBits : Math.Min(source.Length * 8, validBits);
+
+                // Check if memory copy can be used from the source array (performance optimization for byte-aligned coping)
+                if (!source.IsEmpty && this.Length % 8 == 0)
+                {
+                    EnsureAdditionalCapacity(length * 8);
+                    source.Slice(0, BitUtility.ByteCount(length)).CopyTo(Span.Slice(Length / 8));
+                    
+                    Length += length;
+                    SetBitCount = BitUtility.CountBits(Span, 0, Length);
+                    
+                }
+                else
+                {
+                    for (int i = 0; i < length; i++)
+                    {
+                        this.Append(source.IsEmpty || BitUtility.GetBit(source, i));
+                    }
+                }
+
                 return this;
             }
 
