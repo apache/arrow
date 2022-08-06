@@ -1599,7 +1599,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_decimal128_case(),
 
-        generate_decimal256_case()        
+        generate_decimal256_case()
         .skip_category('JS'),
 
         generate_datetime_case(),

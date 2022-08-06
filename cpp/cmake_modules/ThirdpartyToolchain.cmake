@@ -1703,11 +1703,14 @@ if(ARROW_WITH_PROTOBUF)
   get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
                       IMPORTED_LOCATION)
   message(STATUS "Found protoc: ${PROTOBUF_PROTOC_EXECUTABLE}")
-  # Protobuf_PROTOC_LIBRARY is set by all versions of FindProtobuf.cmake
-  message(STATUS "Found libprotoc: ${Protobuf_PROTOC_LIBRARY}")
-  get_target_property(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF} IMPORTED_LOCATION)
-  message(STATUS "Found libprotobuf: ${PROTOBUF_LIBRARY}")
-  message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
+  get_target_property(PROTOBUF_TYPE ${ARROW_PROTOBUF_LIBPROTOBUF} TYPE)
+  if(NOT STREQUAL "INTERFACE_LIBRARY")
+    # Protobuf_PROTOC_LIBRARY is set by all versions of FindProtobuf.cmake
+    message(STATUS "Found libprotoc: ${Protobuf_PROTOC_LIBRARY}")
+    get_target_property(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF} IMPORTED_LOCATION)
+    message(STATUS "Found libprotobuf: ${PROTOBUF_LIBRARY}")
+    message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
+  endif()
 endif()
 
 # ----------------------------------------------------------------------
@@ -3942,7 +3945,9 @@ if(ARROW_WITH_GRPC)
     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
     # depending on the gRPC version.
     get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
-    if(EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
+    if(GRPC_INCLUDE_DIR MATCHES "^\\$<"
+       OR # generator expression
+          EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
       set(GRPCPP_PP_INCLUDE TRUE)
     elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")
       set(GRPCPP_PP_INCLUDE FALSE)
