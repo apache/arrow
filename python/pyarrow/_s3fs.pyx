@@ -87,7 +87,7 @@ def resolve_s3_region(bucket):
 
     return frombytes(c_region)
 
-class AwsRetryStrategy(object):
+class AwsRetryStrategy:
     """
     Base class for AWS retry strategies.
 
