@@ -211,30 +211,20 @@ unfold_across <- function(.data, quos_in) {
   quos_out
 }
 
+#' @return A named list, each element is a vector of column names
 get_across_names <- function(cols, funcs){
 
   names <- list()
-
   if (length(funcs) == 1) {
     names <- set_names(as.list(cols), cols)
   } else {
-    for (i in seq_along(funcs)) {
-      func <- funcs[[i]]
-      col_suffix <- names(funcs)[[i]]
-      if (!is_symbol(func, "list")) {
-        if (col_suffix == "") {
-          col_suffix <- i - 1
-        }
-        new_colnames <- set_names(paste0(cols, "_", col_suffix), cols)
-
-        # append the new names to the list of column names
-        if (is_empty(names)) {
-          names <- as.list(new_colnames)
-        } else {
-          names <- Map(c, names, new_colnames)
-        }
-      }
-    }
+    extracted_funcs <- funcs[map_lgl(funcs, ~!is_symbol(.x, "list"))]
+    func_names <- names(extracted_funcs)
+    func_indices <- seq_along(extracted_funcs)
+    # if the function is unnamed (an empty character), use the index instead
+    suffixes <- map2_chr(func_names, func_indices, max)
+    out_cols <- map(cols, ~paste(.x, suffixes, sep="_"))
+    names <- set_names(out_cols, cols)
   }
   names
 }
