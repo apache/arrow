@@ -74,23 +74,29 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     /*same_chunk_layout=*/true, /*flatten=*/true);
 }
 
-void DoRunBasicTest(const std::vector<util::string_view>& l_data,
-                    const std::vector<util::string_view>& r0_data,
-                    const std::vector<util::string_view>& r1_data,
-                    const std::vector<util::string_view>& exp_data, int64_t tolerance) {
+struct BasicTestTypes {
+  std::shared_ptr<DataType> time, key, l_val, r0_val, r1_val;
+};
+
+void DoRunBasicTestTypes(const std::vector<util::string_view>& l_data,
+                         const std::vector<util::string_view>& r0_data,
+                         const std::vector<util::string_view>& r1_data,
+                         const std::vector<util::string_view>& exp_data,
+                         int64_t tolerance, BasicTestTypes basic_test_types) {
+  const BasicTestTypes& b = basic_test_types;
   auto l_schema =
-      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())});
+      schema({field("time", b.time), field("key", b.key), field("l_v0", b.l_val)});
   auto r0_schema =
-      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())});
+      schema({field("time", b.time), field("key", b.key), field("r0_v0", b.r0_val)});
   auto r1_schema =
-      schema({field("time", int64()), field("key", int32()), field("r1_v0", float32())});
+      schema({field("time", b.time), field("key", b.key), field("r1_v0", b.r1_val)});
 
   auto exp_schema = schema({
-      field("time", int64()),
-      field("key", int32()),
-      field("l_v0", float64()),
-      field("r0_v0", float64()),
-      field("r1_v0", float32()),
+      field("time", b.time),
+      field("key", b.key),
+      field("l_v0", b.l_val),
+      field("r0_v0", b.r0_val),
+      field("r1_v0", b.r1_val),
   });
 
   // Test three table join
@@ -101,6 +107,64 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
   exp_batches = MakeBatchesFromString(exp_schema, exp_data);
   CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches, "time", "key",
                  tolerance);
+}
+
+static inline void init_types(
+    const std::vector<std::shared_ptr<DataType>>& all_types,
+    std::vector<std::shared_ptr<DataType>>& types,
+    std::function<bool(const std::shared_ptr<DataType>)> type_cond) {
+  if (types.size() == 0) {
+    for (auto type : all_types) {
+      if (type_cond(type)) {
+        types.push_back(type);
+      }
+    }
+  }
+}
+
+void DoRunBasicTest(const std::vector<util::string_view>& l_data,
+                    const std::vector<util::string_view>& r0_data,
+                    const std::vector<util::string_view>& r1_data,
+                    const std::vector<util::string_view>& exp_data, int64_t tolerance,
+                    std::vector<std::shared_ptr<DataType>> time_types = {},
+                    std::vector<std::shared_ptr<DataType>> key_types = {},
+                    std::vector<std::shared_ptr<DataType>> l_types = {},
+                    std::vector<std::shared_ptr<DataType>> r0_types = {},
+                    std::vector<std::shared_ptr<DataType>> r1_types = {}) {
+  std::vector<std::shared_ptr<DataType>> all_types = {int8(),
+                                                      int16(),
+                                                      int32(),
+                                                      int64(),
+                                                      uint8(),
+                                                      uint16(),
+                                                      uint32(),
+                                                      uint64(),
+                                                      timestamp(TimeUnit::NANO, "UTC"),
+                                                      timestamp(TimeUnit::MICRO, "UTC"),
+                                                      timestamp(TimeUnit::MILLI, "UTC"),
+                                                      timestamp(TimeUnit::SECOND, "UTC"),
+                                                      float32(),
+                                                      float64()};
+  using T = const std::shared_ptr<DataType>;
+  init_types(all_types, time_types,
+             [](T& t) { return t->byte_width() > 1 && !is_floating(t->id()); });
+  init_types(all_types, key_types, [](T& t) { return is_integer(t->id()); });
+  init_types(all_types, l_types,
+             [](T& t) { return t->byte_width() > 1 && t->id() != Type::TIMESTAMP; });
+  init_types(all_types, r0_types, [](T& t) { return is_floating(t->id()); });
+  init_types(all_types, r1_types, [](T& t) { return is_floating(t->id()); });
+  for (auto time_type : time_types) {
+    for (auto key_type : key_types) {
+      for (auto l_type : l_types) {
+        for (auto r0_type : r0_types) {
+          for (auto r1_type : r1_types) {
+            DoRunBasicTestTypes(l_data, r0_data, r1_data, exp_data, tolerance,
+                                {time_type, key_type, float64(), float64(), float32()});
+          }
+        }
+      }
+    }
+  }
 }
 
 void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,

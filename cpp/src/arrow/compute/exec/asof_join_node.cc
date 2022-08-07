@@ -17,9 +17,9 @@
 
 #include <condition_variable>
 #include <mutex>
-#include <set>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -37,13 +37,44 @@
 namespace arrow {
 namespace compute {
 
-// Remove this when multiple keys and/or types is supported
-typedef int32_t KeyType;
+typedef uint64_t KeyType;
+typedef uint64_t TimeType;
 
 // Maximum number of tables that can be joined
 #define MAX_JOIN_TABLES 64
 typedef uint64_t row_index_t;
 typedef int col_index_t;
+
+#define VAL_SIGNED(val, w)                                                            \
+  static inline uint64_t val(int##w##_t t, uint64_t bias = (uint64_t)1 << (w - 1)) {  \
+    return t < 0 ? static_cast<uint64_t>(t + bias) : static_cast<uint64_t>(t) + bias; \
+  }
+
+#define VAL_UNSIGNED(val, w)                                     \
+  static inline uint64_t val(uint##w##_t t, uint64_t bias = 0) { \
+    return static_cast<uint64_t>(t);                             \
+  }
+
+VAL_SIGNED(time_value, 8)
+VAL_SIGNED(time_value, 16)
+VAL_SIGNED(time_value, 32)
+VAL_SIGNED(time_value, 64)
+VAL_UNSIGNED(time_value, 8)
+VAL_UNSIGNED(time_value, 16)
+VAL_UNSIGNED(time_value, 32)
+VAL_UNSIGNED(time_value, 64)
+
+VAL_SIGNED(key_value, 8)
+VAL_SIGNED(key_value, 16)
+VAL_SIGNED(key_value, 32)
+VAL_SIGNED(key_value, 64)
+VAL_UNSIGNED(key_value, 8)
+VAL_UNSIGNED(key_value, 16)
+VAL_UNSIGNED(key_value, 32)
+VAL_UNSIGNED(key_value, 64)
+
+#undef VAL_SIGNED
+#undef VAL_UNSIGNED
 
 /**
  * Simple implementation for an unbound concurrent queue
@@ -99,7 +130,7 @@ struct MemoStore {
 
   struct Entry {
     // Timestamp associated with the entry
-    int64_t time;
+    TimeType time;
 
     // Batch associated with the entry (perf is probably OK for this; batches change
     // rarely)
@@ -111,7 +142,7 @@ struct MemoStore {
 
   std::unordered_map<KeyType, Entry> entries_;
 
-  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, int64_t time,
+  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, TimeType time,
              KeyType key) {
     auto& e = entries_[key];
     // that we can do this assignment optionally, is why we
@@ -128,7 +159,7 @@ struct MemoStore {
     return util::optional<const Entry*>(&e->second);
   }
 
-  void RemoveEntriesWithLesserTime(int64_t ts) {
+  void RemoveEntriesWithLesserTime(TimeType ts) {
     for (auto e = entries_.begin(); e != entries_.end();)
       if (e->second.time < ts)
         e = entries_.erase(e);
@@ -148,7 +179,9 @@ class InputState {
       : queue_(),
         schema_(schema),
         time_col_index_(schema->GetFieldIndex(time_col_name)),
-        key_col_index_(schema->GetFieldIndex(key_col_name)) {}
+        key_col_index_(schema->GetFieldIndex(key_col_name)),
+        time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
+        key_type_id_(schema_->fields()[key_col_index_]->type()->id()) {}
 
   col_index_t InitSrcToDstMapping(col_index_t dst_offset, bool skip_time_and_key_fields) {
     src_to_dst_.resize(schema_->num_fields());
@@ -184,17 +217,47 @@ class InputState {
     return queue_.UnsyncFront();
   }
 
-  KeyType GetLatestKey() const {
-    return queue_.UnsyncFront()
-        ->column_data(key_col_index_)
-        ->GetValues<KeyType>(1)[latest_ref_row_];
+#define LATEST_VAL_CASE(id, val)                            \
+  case Type::id: {                                          \
+    using T = typename TypeIdTraits<Type::id>::Type;        \
+    using CType = typename TypeTraits<T>::CType;            \
+    return val(data->GetValues<CType>(1)[latest_ref_row_]); \
   }
 
-  int64_t GetLatestTime() const {
-    return queue_.UnsyncFront()
-        ->column_data(time_col_index_)
-        ->GetValues<int64_t>(1)[latest_ref_row_];
+  KeyType GetLatestKey() const {
+    auto data = queue_.UnsyncFront()->column_data(key_col_index_);
+    switch (key_type_id_) {
+      LATEST_VAL_CASE(INT8, key_value)
+      LATEST_VAL_CASE(INT16, key_value)
+      LATEST_VAL_CASE(INT32, key_value)
+      LATEST_VAL_CASE(INT64, key_value)
+      LATEST_VAL_CASE(UINT8, key_value)
+      LATEST_VAL_CASE(UINT16, key_value)
+      LATEST_VAL_CASE(UINT32, key_value)
+      LATEST_VAL_CASE(UINT64, key_value)
+      default:
+        return 0;  // cannot happen
+    }
   }
+
+  TimeType GetLatestTime() const {
+    auto data = queue_.UnsyncFront()->column_data(time_col_index_);
+    switch (time_type_id_) {
+      LATEST_VAL_CASE(INT8, time_value)
+      LATEST_VAL_CASE(INT16, time_value)
+      LATEST_VAL_CASE(INT32, time_value)
+      LATEST_VAL_CASE(INT64, time_value)
+      LATEST_VAL_CASE(UINT8, time_value)
+      LATEST_VAL_CASE(UINT16, time_value)
+      LATEST_VAL_CASE(UINT32, time_value)
+      LATEST_VAL_CASE(UINT64, time_value)
+      LATEST_VAL_CASE(TIMESTAMP, time_value)
+      default:
+        return 0;  // cannot happen
+    }
+  }
+
+#undef LATEST_VAL_CASE
 
   bool Finished() const { return batches_processed_ == total_batches_; }
 
@@ -222,28 +285,25 @@ class InputState {
   // latest_time and latest_ref_row to the value that immediately pass the
   // specified timestamp.
   // Returns true if updates were made, false if not.
-  bool AdvanceAndMemoize(int64_t ts) {
+  bool AdvanceAndMemoize(TimeType ts) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
 
     // Check if already updated for TS (or if there is no latest)
     if (Empty()) return false;  // can't advance if empty
-    auto latest_time = GetLatestTime();
-    if (latest_time > ts) return false;  // already advanced
 
     // Not updated.  Try to update and possibly advance.
     bool updated = false;
     do {
-      latest_time = GetLatestTime();
+      auto latest_time = GetLatestTime();
       // if Advance() returns true, then the latest_ts must also be valid
       // Keep advancing right table until we hit the latest row that has
       // timestamp <= ts. This is because we only need the latest row for the
       // match given a left ts.
-      if (latest_time <= ts) {
-        memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
-      } else {
+      if (latest_time > ts) {
         break;  // hit a future timestamp -- done updating for now
       }
+      memo_.Store(GetLatestBatch(), latest_ref_row_, latest_time, GetLatestKey());
       updated = true;
     } while (Advance());
     return updated;
@@ -261,7 +321,7 @@ class InputState {
     return memo_.GetEntryForKey(key);
   }
 
-  util::optional<int64_t> GetMemoTimeForKey(KeyType key) {
+  util::optional<TimeType> GetMemoTimeForKey(KeyType key) {
     auto r = GetMemoEntryForKey(key);
     if (r.has_value()) {
       return (*r)->time;
@@ -270,7 +330,7 @@ class InputState {
     }
   }
 
-  void RemoveMemoEntriesWithLesserTime(int64_t ts) {
+  void RemoveMemoEntriesWithLesserTime(TimeType ts) {
     memo_.RemoveEntriesWithLesserTime(ts);
   }
 
@@ -295,6 +355,10 @@ class InputState {
   col_index_t time_col_index_;
   // Index of the key col
   col_index_t key_col_index_;
+  // Type id of the time column
+  Type::type time_type_id_;
+  // Type id of the key column
+  Type::type key_type_id_;
   // Index of the latest row reference within; if >0 then queue_ cannot be empty
   // Must be < queue_.front()->num_rows() if queue_ is non-empty
   row_index_t latest_ref_row_ = 0;
@@ -336,7 +400,7 @@ class CompositeReferenceTable {
   // Adds the latest row from the input state as a new composite reference row
   // - LHS must have a valid key,timestep,and latest rows
   // - RHS must have valid data memo'ed for the key
-  void Emplace(std::vector<std::unique_ptr<InputState>>& in, int64_t tolerance) {
+  void Emplace(std::vector<std::unique_ptr<InputState>>& in, TimeType tolerance) {
     DCHECK_EQ(in.size(), n_tables_);
 
     // Get the LHS key
@@ -347,7 +411,7 @@ class CompositeReferenceTable {
     DCHECK(!in[0]->Empty());
     const std::shared_ptr<arrow::RecordBatch>& lhs_latest_batch = in[0]->GetLatestBatch();
     row_index_t lhs_latest_row = in[0]->GetLatestRow();
-    int64_t lhs_latest_time = in[0]->GetLatestTime();
+    TimeType lhs_latest_time = in[0]->GetLatestTime();
     if (0 == lhs_latest_row) {
       // On the first row of the batch, we resize the destination.
       // The destination size is dictated by the size of the LHS batch.
@@ -407,29 +471,34 @@ class CompositeReferenceTable {
           DCHECK_EQ(src_field->name(), dst_field->name());
           const auto& field_type = src_field->type();
 
-          if (field_type->Equals(arrow::int32())) {
-            ARROW_ASSIGN_OR_RAISE(
-                arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::Int32Builder, int32_t>(
-                    memory_pool, i_table, i_src_col)));
-          } else if (field_type->Equals(arrow::int64())) {
-            ARROW_ASSIGN_OR_RAISE(
-                arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::Int64Builder, int64_t>(
-                    memory_pool, i_table, i_src_col)));
-          } else if (field_type->Equals(arrow::float32())) {
-            ARROW_ASSIGN_OR_RAISE(arrays.at(i_dst_col),
-                                  (MaterializePrimitiveColumn<arrow::FloatBuilder, float>(
-                                      memory_pool, i_table, i_src_col)));
-          } else if (field_type->Equals(arrow::float64())) {
-            ARROW_ASSIGN_OR_RAISE(
-                arrays.at(i_dst_col),
-                (MaterializePrimitiveColumn<arrow::DoubleBuilder, double>(
-                    memory_pool, i_table, i_src_col)));
-          } else {
-            ARROW_RETURN_NOT_OK(
-                Status::Invalid("Unsupported data type: ", src_field->name()));
+#define ASOFJOIN_MATERIALIZE_CASE(id)                                       \
+  case Type::id: {                                                          \
+    using T = typename TypeIdTraits<Type::id>::Type;                        \
+    ARROW_ASSIGN_OR_RAISE(                                                  \
+        arrays.at(i_dst_col),                                               \
+        MaterializeColumn<T>(memory_pool, field_type, i_table, i_src_col)); \
+    break;                                                                  \
+  }
+
+          switch (field_type->id()) {
+            ASOFJOIN_MATERIALIZE_CASE(INT8)
+            ASOFJOIN_MATERIALIZE_CASE(INT16)
+            ASOFJOIN_MATERIALIZE_CASE(INT32)
+            ASOFJOIN_MATERIALIZE_CASE(INT64)
+            ASOFJOIN_MATERIALIZE_CASE(UINT8)
+            ASOFJOIN_MATERIALIZE_CASE(UINT16)
+            ASOFJOIN_MATERIALIZE_CASE(UINT32)
+            ASOFJOIN_MATERIALIZE_CASE(UINT64)
+            ASOFJOIN_MATERIALIZE_CASE(FLOAT)
+            ASOFJOIN_MATERIALIZE_CASE(DOUBLE)
+            ASOFJOIN_MATERIALIZE_CASE(TIMESTAMP)
+            default:
+              return Status::Invalid("Unsupported data type ",
+                                     src_field->type()->ToString(), " for field ",
+                                     src_field->name());
           }
+
+#undef ASOFJOIN_MATERIALIZE_CASE
         }
       }
     }
@@ -459,11 +528,13 @@ class CompositeReferenceTable {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
   }
 
-  template <class Builder, class PrimitiveType>
-  Result<std::shared_ptr<Array>> MaterializePrimitiveColumn(MemoryPool* memory_pool,
-                                                            size_t i_table,
-                                                            col_index_t i_col) {
-    Builder builder(memory_pool);
+  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType,
+            class PrimitiveType = typename TypeTraits<Type>::CType>
+  Result<std::shared_ptr<Array>> MaterializeColumn(MemoryPool* memory_pool,
+                                                   const std::shared_ptr<DataType>& type,
+                                                   size_t i_table, col_index_t i_col) {
+    ARROW_ASSIGN_OR_RAISE(auto a_builder, MakeBuilder(type, memory_pool));
+    Builder& builder = *checked_cast<Builder*>(a_builder.get());
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
     for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
@@ -495,7 +566,7 @@ class AsofJoinNode : public ExecNode {
   bool IsUpToDateWithLhsRow() const {
     auto& lhs = *state_[0];
     if (lhs.Empty()) return false;  // can't proceed if nothing on the LHS
-    int64_t lhs_ts = lhs.GetLatestTime();
+    TimeType lhs_ts = lhs.GetLatestTime();
     for (size_t i = 1; i < state_.size(); ++i) {
       auto& rhs = *state_[i];
       if (!rhs.Finished()) {
@@ -531,7 +602,7 @@ class AsofJoinNode : public ExecNode {
       // the LHS and adding joined row to rows_ (done by Emplace). Finally,
       // input batches that are no longer needed are removed to free up memory.
       if (IsUpToDateWithLhsRow()) {
-        dst.Emplace(state_, options_.tolerance);
+        dst.Emplace(state_, time_value(options_.tolerance, 0));
         if (!lhs.Advance()) break;  // if we can't advance LHS, we're done for this batch
       } else {
         if (!any_rhs_advanced) break;  // need to wait for new data
@@ -542,7 +613,7 @@ class AsofJoinNode : public ExecNode {
     if (!lhs.Empty()) {
       for (size_t i = 1; i < state_.size(); ++i) {
         state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() -
-                                                   options_.tolerance);
+                                                   time_value(options_.tolerance, 0));
       }
     }
 
@@ -610,6 +681,16 @@ class AsofJoinNode : public ExecNode {
     process_thread_.join();
   }
 
+  static bool find_type(std::unordered_set<std::shared_ptr<DataType>> type_set,
+                        const std::shared_ptr<DataType>& type) {
+    for (auto ty : type_set) {
+      if (*ty.get() == *type.get()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
       const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
@@ -617,6 +698,8 @@ class AsofJoinNode : public ExecNode {
     const auto& on_field_name = *options.on_key.name();
     const auto& by_field_name = *options.by_key.name();
 
+    const DataType* on_key_type = NULLPTR;
+    const DataType* by_key_type = NULLPTR;
     // Take all non-key, non-time RHS fields
     for (size_t j = 0; j < inputs.size(); ++j) {
       const auto& input_schema = inputs[j]->output_schema();
@@ -627,27 +710,47 @@ class AsofJoinNode : public ExecNode {
         return Status::Invalid("Missing join key on table ", j);
       }
 
+      const auto& on_field_type = input_schema->fields()[on_field_ix]->type();
+      const auto& by_field_type = input_schema->fields()[by_field_ix]->type();
+      if (on_key_type == NULLPTR) {
+        on_key_type = on_field_type.get();
+      } else if (*on_key_type != *on_field_type) {
+        return Status::Invalid("Expected on-key type ", *on_key_type, " but got ",
+                               *on_field_type, " for field ", on_field_name, " in input ",
+                               j);
+      }
+      if (by_key_type == NULLPTR) {
+        by_key_type = by_field_type.get();
+      } else if (*by_key_type != *by_field_type) {
+        return Status::Invalid("Expected on-key type ", *by_key_type, " but got ",
+                               *by_field_type, " for field ", by_field_name, " in input ",
+                               j);
+      }
+
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
         if (field->name() == on_field_name) {
-          if (kSupportedOnTypes_.find(field->type()) == kSupportedOnTypes_.end()) {
-            return Status::Invalid("Unsupported type for on key: ", field->name());
+          if (!find_type(kSupportedOnTypes_, field->type())) {
+            return Status::Invalid("Unsupported type ", field->type()->ToString(),
+                                   " for on-key ", field->name());
           }
           // Only add on field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
         } else if (field->name() == by_field_name) {
-          if (kSupportedByTypes_.find(field->type()) == kSupportedByTypes_.end()) {
-            return Status::Invalid("Unsupported type for by key: ", field->name());
+          if (!find_type(kSupportedByTypes_, field->type())) {
+            return Status::Invalid("Unsupported type ", field->type()->ToString(),
+                                   " for by-key ", field->name());
           }
           // Only add by field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
         } else {
-          if (kSupportedDataTypes_.find(field->type()) == kSupportedDataTypes_.end()) {
-            return Status::Invalid("Unsupported data type: ", field->name());
+          if (!find_type(kSupportedDataTypes_, field->type())) {
+            return Status::Invalid("Unsupported data type ", field->type()->ToString(),
+                                   " for field ", field->name());
           }
 
           fields.push_back(field);
@@ -718,9 +821,9 @@ class AsofJoinNode : public ExecNode {
   arrow::Future<> finished() override { return finished_; }
 
  private:
-  static const std::set<std::shared_ptr<DataType>> kSupportedOnTypes_;
-  static const std::set<std::shared_ptr<DataType>> kSupportedByTypes_;
-  static const std::set<std::shared_ptr<DataType>> kSupportedDataTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedOnTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedByTypes_;
+  static const std::unordered_set<std::shared_ptr<DataType>> kSupportedDataTypes_;
 
   arrow::Future<> finished_;
   // InputStates
@@ -760,10 +863,47 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
 }
 
 // Currently supported types
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {int64()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {int32()};
-const std::set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
-    int32(), int64(), float32(), float64()};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedOnTypes_ = {
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    timestamp(TimeUnit::NANO, "UTC"),
+    timestamp(TimeUnit::MICRO, "UTC"),
+    timestamp(TimeUnit::MILLI, "UTC"),
+    timestamp(TimeUnit::SECOND, "UTC")};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedByTypes_ = {
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    timestamp(TimeUnit::NANO, "UTC"),
+    timestamp(TimeUnit::MICRO, "UTC"),
+    timestamp(TimeUnit::MILLI, "UTC"),
+    timestamp(TimeUnit::SECOND, "UTC")};
+const std::unordered_set<std::shared_ptr<DataType>> AsofJoinNode::kSupportedDataTypes_ = {
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    timestamp(TimeUnit::NANO, "UTC"),
+    timestamp(TimeUnit::MICRO, "UTC"),
+    timestamp(TimeUnit::MILLI, "UTC"),
+    timestamp(TimeUnit::SECOND, "UTC"),
+    float32(),
+    float64()};
 
 namespace internal {
 void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {
