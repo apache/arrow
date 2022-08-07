@@ -87,9 +87,9 @@ def resolve_s3_region(bucket):
 
     return frombytes(c_region)
 
-class AwsRetryStrategy:
+class S3RetryStrategy:
     """
-    Base class for AWS retry strategies.
+    Base class for AWS retry strategies for use with S3.
 
     Parameters
     ----------
@@ -99,15 +99,15 @@ class AwsRetryStrategy:
     def __init__(self, max_attempts=3):
         self.max_attempts = max_attempts
 
-class AwsStandardRetryStrategy(AwsRetryStrategy):
+class AwsStandardS3RetryStrategy(S3RetryStrategy):
     """
-    Represents an AWS Standard retry strategy.
+    Represents an AWS Standard retry strategy for use with S3.
     """
     pass
 
-class AwsDefaultRetryStrategy(AwsRetryStrategy):
+class AwsDefaultS3RetryStrategy(S3RetryStrategy):
     """
-    Represents an AWS Default retry strategy.
+    Represents an AWS Default retry strategy for use with S3.
     """
     pass
 
@@ -196,9 +196,9 @@ cdef class S3FileSystem(FileSystem):
     allow_bucket_deletion : bool, default False
         Whether to allow DeleteDir at the bucket-level. This option may also be
         passed in a URI query parameter.
-    retry_strategy : AwsRetryStrategy, default AwsStandardRetryStrategy(max_attempts=3)
+    retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
         The retry strategy to use with S3; fail after max_attempts. Available
-        strategies are AwsStandardRetryStrategy, AwsDefaultRetryStrategy.
+        strategies are AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy.
 
     Examples
     --------
@@ -222,7 +222,7 @@ cdef class S3FileSystem(FileSystem):
                  role_arn=None, session_name=None, external_id=None,
                  load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
-                 retry_strategy: AwsRetryStrategy=AwsStandardRetryStrategy(max_attempts=3)):
+                 retry_strategy: S3RetryStrategy=AwsStandardS3RetryStrategy(max_attempts=3)):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -328,9 +328,9 @@ cdef class S3FileSystem(FileSystem):
         options.allow_bucket_deletion = allow_bucket_deletion
 
         self._retry_strategy = retry_strategy
-        if isinstance(retry_strategy, AwsStandardRetryStrategy):
+        if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
             options.retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(retry_strategy.max_attempts)
-        elif isinstance(retry_strategy, AwsDefaultRetryStrategy):
+        elif isinstance(retry_strategy, AwsDefaultS3RetryStrategy):
             options.retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(retry_strategy.max_attempts)
         else:
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
