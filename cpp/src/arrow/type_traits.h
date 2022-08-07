@@ -991,38 +991,6 @@ static inline bool is_primitive(Type::type type_id) {
   return false;
 }
 
-/// \brief Check for a primitive-like type
-///
-/// \param[in] type_id the type-id to check
-/// \return whether type-id is a primitive-like type one
-static inline bool is_primitive_like(Type::type type_id) {
-  switch (type_id) {
-    case Type::NA:
-    case Type::BOOL:
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-    case Type::DATE32:
-    case Type::DATE64:
-    case Type::BINARY:
-    case Type::STRING:
-    case Type::LARGE_BINARY:
-    case Type::LARGE_STRING:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
 /// \brief Check for a base-binary-like type
 ///
 /// \param[in] type_id the type-id to check
@@ -1343,16 +1311,6 @@ static inline bool is_decimal(const DataType& type) { return is_decimal(type.id(
 ///
 /// Convenience for checking using the types' id
 static inline bool is_primitive(const DataType& type) { return is_primitive(type.id()); }
-
-/// \brief Check for a primitive-like type
-///
-/// \param[in] type the type to check
-/// \return whether type is a primitive-like type
-///
-/// Convenience for checking using the types' id
-static inline bool is_primitive_like(const DataType& type) {
-  return is_primitive_like(type.id());
-}
 
 /// \brief Check for a binary or string-like type (except fixed-size binary)
 ///

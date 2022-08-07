@@ -1847,7 +1847,6 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_numeric);
   TEST_PREDICATE(all_types, is_decimal);
   TEST_PREDICATE(all_types, is_primitive);
-  TEST_PREDICATE(all_types, is_primitive_like);
   TEST_PREDICATE(all_types, is_base_binary_like);
   TEST_PREDICATE(all_types, is_binary_like);
   TEST_PREDICATE(all_types, is_large_binary_like);
