@@ -91,7 +91,11 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     int32(), float64(),
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit({
+    unregister_binding("times_32", update_cache = TRUE)
+    # TODO(ARROW-17178) remove the need for this!
+    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
+  })
 
   expect_true("times_32" %in% names(asNamespace("arrow")$.cache$functions))
   expect_true("times_32" %in% list_compute_functions())
@@ -112,8 +116,6 @@ test_that("register_scalar_function() adds a compute function to the registry", 
       dplyr::collect(),
     tibble::tibble(a = 1L, b = 32.0)
   )
-
-  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
 test_that("arrow_scalar_function() with bad return type errors", {
@@ -125,9 +127,11 @@ test_that("arrow_scalar_function() with bad return type errors", {
     int32(),
     float64()
   )
-  on.exit(
+  on.exit({
     unregister_binding("times_32_bad_return_type_array", update_cache = TRUE)
-  )
+    # TODO(ARROW-17178) remove the need for this!
+    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
+  })
 
   expect_error(
     call_function("times_32_bad_return_type_array", Array$create(1L)),
@@ -140,20 +144,19 @@ test_that("arrow_scalar_function() with bad return type errors", {
     int32(),
     float64()
   )
-  on.exit(
+  on.exit({
     unregister_binding("times_32_bad_return_type_scalar", update_cache = TRUE)
-  )
+    # TODO(ARROW-17178) remove the need for this!
+    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
+  })
 
   expect_error(
     call_function("times_32_bad_return_type_scalar", Array$create(1L)),
     "Expected return Array or Scalar with type 'double'"
   )
-
-  # TODO(ARROW-17178) remove the need for this!
-  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
-test_that("register_user_defined_function() can register multiple kernels", {
+test_that("register_scalar_function() can register multiple kernels", {
   skip_if_not(CanRunWithCapturedR())
 
   register_scalar_function(
@@ -163,7 +166,11 @@ test_that("register_user_defined_function() can register multiple kernels", {
     out_type = function(in_types) in_types[[1]],
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit({
+    unregister_binding("times_32", update_cache = TRUE)
+    # TODO(ARROW-17178) remove the need for this!
+    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
+  })
 
   expect_equal(
     call_function("times_32", Scalar$create(1L, int32())),
@@ -181,7 +188,10 @@ test_that("register_user_defined_function() can register multiple kernels", {
   )
 })
 
-test_that("register_user_defined_function() errors for unsupported specifications", {
+test_that("register_scalar_function() errors for unsupported specifications", {
+  # TODO(ARROW-17178) remove the need for this!
+  on.exit(Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF"))
+
   expect_error(
     register_scalar_function(
       "no_kernels",
@@ -211,9 +221,6 @@ test_that("register_user_defined_function() errors for unsupported specification
     ),
     "Kernels for user-defined function must accept the same number of arguments"
   )
-
-  # TODO(ARROW-17178) remove the need for this!
-  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
 test_that("user-defined functions work during multi-threaded execution", {
@@ -249,7 +256,11 @@ test_that("user-defined functions work during multi-threaded execution", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit({
+    unregister_binding("times_32", update_cache = TRUE)
+    # TODO(ARROW-17178) remove the need for this!
+    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
+  })
 
   # check a regular collect()
   result <- open_dataset(tf_dataset) %>%
@@ -269,9 +280,6 @@ test_that("user-defined functions work during multi-threaded execution", {
     dplyr::collect()
 
   expect_identical(result2$fun_result, example_df$value * 32)
-
-  # TODO(ARROW-17178) remove the need for this!
-  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
 test_that("user-defined error when called from an unsupported context", {
@@ -285,7 +293,11 @@ test_that("user-defined error when called from an unsupported context", {
     float64(),
     auto_convert = TRUE
   )
-  on.exit(unregister_binding("times_32", update_cache = TRUE))
+  on.exit({
+    unregister_binding("times_32", update_cache = TRUE)
+    # TODO(ARROW-17178) remove the need for this!
+    Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
+  })
 
   stream_plan_with_udf <- function() {
    record_batch(a = 1:1000) %>%
@@ -321,7 +333,4 @@ test_that("user-defined error when called from an unsupported context", {
       "Call to R \\(.*?\\) from a non-R thread from an unsupported context"
     )
   }
-
-  # TODO(ARROW-17178) remove the need for this!
-  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
