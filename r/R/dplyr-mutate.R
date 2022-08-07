@@ -167,41 +167,13 @@ unfold_across <- function(.data, quos_in) {
     if (is_call(quo_expr, "across")) {
       new_quos <- list()
 
-      # use select to get the column names so we can take advantage of
-      # tidyselect
+      # use select to get the column names so we can take advantage of tidyselect
       cols <- names(select(.data, !!quo_expr[[2]]))
       funcs <- quo_expr[[3]]
 
       # TODO: refactor to take in the .names argument to across()
-      col_names <- get_across_names(cols, funcs)
+      new_quos <- get_across_names(cols, funcs)
 
-      # TODO: refactor some of this into helper functions
-      # TODO: also look at using the purrr functions
-      for (one_col in cols) {
-        for (i in seq_along(funcs)) {
-
-          if (length(funcs) == 1) {
-            func <- funcs
-            name_ref <- i
-          } else {
-            func <- funcs[[i]]
-            name_ref <- i - 1
-          }
-
-          # if we've supplied multiple functions using list() ignore this element
-          if (!is_symbol(func, "list")) {
-
-            # get the expression
-            new_quo <- list(quo(!!call2(func, sym(one_col))))
-            # give the expression a name
-            names(new_quo) <- col_names[[one_col]][[name_ref]]
-            # append to temporary list of new quosures
-            new_quos <- append(new_quos, new_quo)
-
-          }
-        }
-      }
-      # append the new expressions generated
       quos_out <- append(quos_out, new_quos)
     } else {
       quos_out <- append(quos_out, quo_in)
@@ -214,18 +186,38 @@ unfold_across <- function(.data, quos_in) {
 #' @return A named list, each element is a vector of column names
 get_across_names <- function(cols, funcs){
 
-  names <- list()
+  new_quosures <- list()
+
   if (length(funcs) == 1) {
-    names <- set_names(as.list(cols), cols)
+    # work out the quosures from the call
+    col_syms <- syms(cols)
+    new_quosures <- map(col_syms, ~quo(!!call2(funcs, .x)))
+    # if only 1 function, we overwrite the old columns
+    new_quosures <- set_names(new_quosures, cols)
   } else {
     # list() is used to specify the list of functions so remove it
     extracted_funcs <- funcs[map_lgl(funcs, ~!is_symbol(.x, "list"))]
+
     # if the function is unnamed (an empty character), use the index instead
+    func_list <- as.list(extracted_funcs)
     func_names <- names(extracted_funcs)
     func_indices <- seq_along(extracted_funcs)
-    suffixes <- map2_chr(func_names, func_indices, max)
-    out_cols <- map(cols, ~paste(.x, suffixes, sep="_"))
-    names <- set_names(out_cols, cols)
+    names(func_list) <- map2_chr(func_names, func_indices, max)
+
+    func_list_full <- rep(func_list, length(cols))
+    cols <- rep(cols, each = length(func_list))
+
+    # get names of new quosures
+    new_quo_names <- map2_chr(names(func_list_full), cols, ~paste(.y, .x, sep="_"))
+
+    # get new quosures
+    new_quo_list <- map2(func_list_full, cols, ~quo(!!call2(.x, sym(.y))))
+
+    new_quosures <- set_names(new_quo_list, new_quo_names)
+
   }
-  names
+  new_quosures
 }
+
+# write the function which gets you an individual quosire and names is
+# then write/find the functions which takes the list of
