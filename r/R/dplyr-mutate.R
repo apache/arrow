@@ -218,10 +218,11 @@ get_across_names <- function(cols, funcs){
   if (length(funcs) == 1) {
     names <- set_names(as.list(cols), cols)
   } else {
+    # list() is used to specify the list of functions so remove it
     extracted_funcs <- funcs[map_lgl(funcs, ~!is_symbol(.x, "list"))]
+    # if the function is unnamed (an empty character), use the index instead
     func_names <- names(extracted_funcs)
     func_indices <- seq_along(extracted_funcs)
-    # if the function is unnamed (an empty character), use the index instead
     suffixes <- map2_chr(func_names, func_indices, max)
     out_cols <- map(cols, ~paste(.x, suffixes, sep="_"))
     names <- set_names(out_cols, cols)
