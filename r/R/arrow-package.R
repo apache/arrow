@@ -83,7 +83,7 @@
 
 .onUnload <- function(...) {
   # When running valgrind we need to wait for the thread pools to finish
-  # running background tasks or else we may get spurious memory leaks reported.
+  # running background tasks or else spurious memory leaks may be reported.
   if (on_linux_dev()) {
     WaitForIdleThreadPool()
   }
