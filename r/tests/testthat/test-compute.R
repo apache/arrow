@@ -106,14 +106,14 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     Scalar$create(32L, float64())
   )
 
-  withr::with_envvar(list(R_ARROW_COLLECT_WITH_UDF = "true"), {
-    expect_identical(
-      record_batch(a = 1L) %>%
-        dplyr::mutate(b = times_32(a)) %>%
-        dplyr::collect(),
-      tibble::tibble(a = 1L, b = 32.0)
-    )
-  })
+  expect_identical(
+    record_batch(a = 1L) %>%
+      dplyr::mutate(b = times_32(a)) %>%
+      dplyr::collect(),
+    tibble::tibble(a = 1L, b = 32.0)
+  )
+
+  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
 test_that("arrow_scalar_function() with bad return type errors", {
@@ -148,6 +148,9 @@ test_that("arrow_scalar_function() with bad return type errors", {
     call_function("times_32_bad_return_type_scalar", Array$create(1L)),
     "Expected return Array or Scalar with type 'double'"
   )
+
+  # TODO(ARROW-17178) remove the need for this!
+  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
 test_that("register_user_defined_function() can register multiple kernels", {
@@ -208,6 +211,9 @@ test_that("register_user_defined_function() errors for unsupported specification
     ),
     "Kernels for user-defined function must accept the same number of arguments"
   )
+
+  # TODO(ARROW-17178) remove the need for this!
+  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
 test_that("user-defined functions work during multi-threaded execution", {
@@ -245,26 +251,27 @@ test_that("user-defined functions work during multi-threaded execution", {
   )
   on.exit(unregister_binding("times_32", update_cache = TRUE))
 
-  withr::with_envvar(list(R_ARROW_COLLECT_WITH_UDF = "true"), {
-    # check a regular collect()
-    result <- open_dataset(tf_dataset) %>%
-      dplyr::mutate(fun_result = times_32(value)) %>%
-      dplyr::collect() %>%
-      dplyr::arrange(row_num)
+  # check a regular collect()
+  result <- open_dataset(tf_dataset) %>%
+    dplyr::mutate(fun_result = times_32(value)) %>%
+    dplyr::collect() %>%
+    dplyr::arrange(row_num)
 
-    expect_identical(result$fun_result, example_df$value * 32)
+  expect_identical(result$fun_result, example_df$value * 32)
 
-    # check a write_dataset()
-    open_dataset(tf_dataset) %>%
-      dplyr::mutate(fun_result = times_32(value)) %>%
-      write_dataset(tf_dest)
+  # check a write_dataset()
+  open_dataset(tf_dataset) %>%
+    dplyr::mutate(fun_result = times_32(value)) %>%
+    write_dataset(tf_dest)
 
-    result2 <- dplyr::collect(open_dataset(tf_dest)) %>%
-      dplyr::arrange(row_num) %>%
-      dplyr::collect()
+  result2 <- dplyr::collect(open_dataset(tf_dest)) %>%
+    dplyr::arrange(row_num) %>%
+    dplyr::collect()
 
-    expect_identical(result2$fun_result, example_df$value * 32)
-  })
+  expect_identical(result2$fun_result, example_df$value * 32)
+
+  # TODO(ARROW-17178) remove the need for this!
+  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
 
 test_that("user-defined error when called from an unsupported context", {
@@ -314,4 +321,7 @@ test_that("user-defined error when called from an unsupported context", {
       "Call to R \\(.*?\\) from a non-R thread from an unsupported context"
     )
   }
+
+  # TODO(ARROW-17178) remove the need for this!
+  Sys.unsetenv("R_ARROW_COLLECT_WITH_UDF")
 })
