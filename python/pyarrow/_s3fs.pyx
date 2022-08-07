@@ -333,7 +333,7 @@ cdef class S3FileSystem(FileSystem):
         elif isinstance(retry_strategy, AwsDefaultRetryStrategy):
             options.retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(retry_strategy.max_attempts)
         else:
-            raise ValueError('Invalid retry_strategy.')
+            raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
