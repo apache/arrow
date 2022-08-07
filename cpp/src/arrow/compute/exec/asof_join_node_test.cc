@@ -149,8 +149,7 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
   init_types(all_types, time_types,
              [](T& t) { return t->byte_width() > 1 && !is_floating(t->id()); });
   init_types(all_types, key_types, [](T& t) { return is_integer(t->id()); });
-  init_types(all_types, l_types,
-             [](T& t) { return t->byte_width() > 1 && t->id() != Type::TIMESTAMP; });
+  init_types(all_types, l_types, [](T& t) { return is_floating(t->id()); });
   init_types(all_types, r0_types, [](T& t) { return is_floating(t->id()); });
   init_types(all_types, r1_types, [](T& t) { return is_floating(t->id()); });
   for (auto time_type : time_types) {
@@ -159,7 +158,7 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
         for (auto r0_type : r0_types) {
           for (auto r1_type : r1_types) {
             DoRunBasicTestTypes(l_data, r0_data, r1_data, exp_data, tolerance,
-                                {time_type, key_type, float64(), float64(), float32()});
+                                {time_type, key_type, l_type, r0_type, r1_type});
           }
         }
       }
