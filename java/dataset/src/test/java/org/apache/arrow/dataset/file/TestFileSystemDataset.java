@@ -316,6 +316,28 @@ public class TestFileSystemDataset extends TestNativeDataset {
     AutoCloseables.close(factory);
   }
 
+  @Test
+  public void testBaseArrowIpcRead() throws Exception {
+
+    String arrowDataURI = TestFileSystemDataset.class.getResource("/osm_nodes.arrow").toURI().toString();
+    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.ARROW_IPC, arrowDataURI);
+    ScanOptions options = new ScanOptions(100);
+    Schema schema = inferResultSchemaFromFactory(factory, options);
+    List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+
+    assertSingleTaskProduced(factory, options);
+    assertEquals(1, datum.size());
+    assertEquals(4, schema.getFields().size());
+    assertEquals("id", schema.getFields().get(0).getName());
+    assertEquals("latitude", schema.getFields().get(1).getName());
+    assertEquals("longitude", schema.getFields().get(2).getName());
+    assertEquals("tags", schema.getFields().get(3).getName());
+
+    AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
+  }
+
   private void checkParquetReadResult(Schema schema, String expectedJson, List<ArrowRecordBatch> actual)
       throws IOException {
     final ObjectMapper json = new ObjectMapper();
