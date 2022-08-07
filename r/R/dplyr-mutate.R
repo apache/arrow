@@ -159,6 +159,7 @@ ensure_named_exprs <- function(exprs) {
 unfold_across <- function(.data, quos_in) {
   quos_out <- list()
   # Check for any expressions starting with across
+  # TODO: can we refactor this to not be a for loop?
   for (quo_i in seq_along(quos_in)) {
     quo_in <- quos_in[quo_i]
     quo_expr <- quo_get_expr(quo_in[[1]])
