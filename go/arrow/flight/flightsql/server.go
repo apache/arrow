@@ -194,7 +194,7 @@ func (b *BaseServer) DoGetSqlInfo(_ context.Context, cmd GetSqlInfo) (*arrow.Sch
 	ch := make(chan flight.StreamChunk)
 	rdr, err := array.NewRecordReader(schema_ref.SqlInfo, []arrow.Record{batch})
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "error producing record response: %w", err)
+		return nil, nil, status.Errorf(codes.Internal, "error producing record response: %s", err.Error())
 	}
 
 	go flight.StreamChunksFromReader(rdr, ch)
@@ -326,11 +326,11 @@ func (f *flightSqlServer) GetFlightInfo(ctx context.Context, request *flight.Fli
 		err    error
 	)
 	if err = proto.Unmarshal(request.Cmd, &anycmd); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "unable to parse command: %w", err)
+		return nil, status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 	}
 
 	if cmd, err = anycmd.UnmarshalNew(); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "could not unmarshal Any to a command type: %w", err)
+		return nil, status.Errorf(codes.InvalidArgument, "could not unmarshal Any to a command type: %s", err.Error())
 	}
 
 	switch cmd := cmd.(type) {
@@ -371,11 +371,11 @@ func (f *flightSqlServer) DoGet(request *flight.Ticket, stream flight.FlightServ
 		sc     *arrow.Schema
 	)
 	if err = proto.Unmarshal(request.Ticket, &anycmd); err != nil {
-		return status.Errorf(codes.InvalidArgument, "unable to parse ticket: %w", err)
+		return status.Errorf(codes.InvalidArgument, "unable to parse ticket: %s", err.Error())
 	}
 
 	if cmd, err = anycmd.UnmarshalNew(); err != nil {
-		return status.Errorf(codes.InvalidArgument, "unable to unmarshal proto.Any: %w", err)
+		return status.Errorf(codes.InvalidArgument, "unable to unmarshal proto.Any: %s", err.Error())
 	}
 
 	switch cmd := cmd.(type) {
@@ -436,7 +436,7 @@ func (p *putMetadataWriter) WriteMetadata(appMetadata []byte) error {
 func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 	rdr, err := flight.NewRecordReader(stream, ipc.WithAllocator(f.mem))
 	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "failed to read input stream: %w", err)
+		return status.Errorf(codes.InvalidArgument, "failed to read input stream: %s", err.Error())
 	}
 
 	// flight descriptor should have come with the schema message
@@ -447,11 +447,11 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 		cmd    proto.Message
 	)
 	if err = proto.Unmarshal(request.Cmd, &anycmd); err != nil {
-		return status.Errorf(codes.InvalidArgument, "unable to parse command: %w", err)
+		return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 	}
 
 	if cmd, err = anycmd.UnmarshalNew(); err != nil {
-		return status.Errorf(codes.InvalidArgument, "could not unmarshal google.protobuf.Any: %w", err)
+		return status.Errorf(codes.InvalidArgument, "could not unmarshal google.protobuf.Any: %s", err.Error())
 	}
 
 	switch cmd := cmd.(type) {
@@ -464,7 +464,7 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 		result := pb.DoPutUpdateResult{RecordCount: recordCount}
 		out := &flight.PutResult{}
 		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
-			return status.Errorf(codes.Internal, "failed to marshal PutResult: %w", err)
+			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
 		}
 		return stream.Send(out)
 	case *pb.CommandPreparedStatementQuery:
@@ -478,7 +478,7 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 		result := pb.DoPutUpdateResult{RecordCount: recordCount}
 		out := &flight.PutResult{}
 		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
-			return status.Errorf(codes.Internal, "failed to marshal PutResult: %w", err)
+			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
 		}
 		return stream.Send(out)
 	default:
@@ -503,7 +503,7 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 	switch cmd.Type {
 	case CreatePreparedStatementActionType:
 		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to parse command: %w", err)
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 		}
 
 		var (
@@ -512,7 +512,7 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			ret     pb.Result
 		)
 		if err := anycmd.UnmarshalTo(&request); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %w", err)
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
 		}
 
 		output, err := f.srv.CreatePreparedStatement(stream.Context(), &request)
@@ -529,21 +529,21 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 
 		if err := anycmd.MarshalFrom(&result); err != nil {
-			return status.Errorf(codes.Internal, "unable to marshal final response: %w", err)
+			return status.Errorf(codes.Internal, "unable to marshal final response: %s", err.Error())
 		}
 
 		if ret.Body, err = proto.Marshal(&anycmd); err != nil {
-			return status.Errorf(codes.Internal, "unable to marshal result: %w", err)
+			return status.Errorf(codes.Internal, "unable to marshal result: %s", err.Error())
 		}
 		return stream.Send(&ret)
 	case ClosePreparedStatementActionType:
 		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to parse command: %w", err)
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 		}
 
 		var request pb.ActionClosePreparedStatementRequest
 		if err := anycmd.UnmarshalTo(&request); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %w", err)
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
 		}
 
 		if err := f.srv.ClosePreparedStatement(stream.Context(), &request); err != nil {

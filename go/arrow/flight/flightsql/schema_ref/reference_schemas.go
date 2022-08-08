@@ -78,7 +78,7 @@ var (
 			{Name: "int32_to_int32_list_map",
 				Type: arrow.MapOf(arrow.PrimitiveTypes.Int32,
 					arrow.ListOf(arrow.PrimitiveTypes.Int32))},
-		}, []arrow.UnionTypeCode{})},
+		}, []arrow.UnionTypeCode{0, 1, 2, 3, 4, 5})},
 	}, nil)
 	XdbcTypeInfo = arrow.NewSchema([]arrow.Field{
 		{Name: "type_name", Type: arrow.BinaryTypes.String, Nullable: false},
