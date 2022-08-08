@@ -91,9 +91,11 @@ class ARROW_EXPORT S3RetryStrategy {
   virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                                 int64_t attempted_retries) = 0;
   /// Returns a stock AWS Default retry strategy.
-  static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(long max_attempts);
+  static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
+      int64_t max_attempts);
   /// Returns a stock AWS Standard retry strategy.
-  static std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(long max_attempts);
+  static std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(
+      int64_t max_attempts);
 };
 
 /// Options for the S3FileSystem implementation.
