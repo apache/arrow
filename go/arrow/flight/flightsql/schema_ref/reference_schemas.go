@@ -64,7 +64,7 @@ var (
 		{Name: "fk_key_name", Type: arrow.BinaryTypes.String, Nullable: true},
 		{Name: "pk_key_name", Type: arrow.BinaryTypes.String, Nullable: true},
 		{Name: "update_rule", Type: arrow.PrimitiveTypes.Uint8, Nullable: false},
-		{Name: "delete_rule", Type: arrow.PrimitiveTypes.Uint8, Nullable: false},
+		{Name: "delete_rule", Type: arrow.PrimitiveTypes.Uint8, Nullable: true},
 	}, nil)
 	ImportedKeys   = ImportedExportedKeysAndCrossReference
 	ExportedKeys   = ImportedExportedKeysAndCrossReference
@@ -80,7 +80,7 @@ var (
 			{Name: "int32_to_int32_list_map",
 				Type: arrow.MapOf(arrow.PrimitiveTypes.Int32,
 					arrow.ListOf(arrow.PrimitiveTypes.Int32))},
-		}, []arrow.UnionTypeCode{0, 1, 2, 3, 4, 5})},
+		}, []arrow.UnionTypeCode{})},
 	}, nil)
 	XdbcTypeInfo = arrow.NewSchema([]arrow.Field{
 		{Name: "type_name", Type: arrow.BinaryTypes.String, Nullable: false},
@@ -88,7 +88,7 @@ var (
 		{Name: "column_size", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
 		{Name: "literal_prefix", Type: arrow.BinaryTypes.String, Nullable: true},
 		{Name: "literal_suffix", Type: arrow.BinaryTypes.String, Nullable: true},
-		{Name: "create_params", Type: arrow.ListOfField(arrow.Field{Name: "item", Type: arrow.BinaryTypes.String, Nullable: false}), Nullable: true},
+		{Name: "create_params", Type: arrow.ListOfField(arrow.Field{Name: "item", Type: arrow.BinaryTypes.String, Nullable: false})},
 		{Name: "nullable", Type: arrow.PrimitiveTypes.Int32, Nullable: false},
 		{Name: "case_sensitive", Type: arrow.FixedWidthTypes.Boolean, Nullable: false},
 		{Name: "searchable", Type: arrow.PrimitiveTypes.Int32, Nullable: false},
