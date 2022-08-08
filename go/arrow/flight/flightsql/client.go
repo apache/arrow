@@ -95,11 +95,7 @@ func (c *Client) Execute(ctx context.Context, query string, opts ...grpc.CallOpt
 // ExecuteUpdate is for executing an update query and only returns the number of affected rows.
 func (c *Client) ExecuteUpdate(ctx context.Context, query string, opts ...grpc.CallOption) (n int64, err error) {
 	var (
-<<<<<<< HEAD
 		cmd          pb.CommandStatementUpdate
-=======
-		cmd          pb.CommandStatementQuery
->>>>>>> 7c0a7b52f (initial flightsql client)
 		desc         *flight.FlightDescriptor
 		stream       pb.FlightService_DoPutClient
 		res          *pb.PutResult
@@ -315,7 +311,6 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 		return
 	}
 
-<<<<<<< HEAD
 	if result.DatasetSchema != nil {
 		dsSchema, err = flight.DeserializeSchema(result.DatasetSchema, mem)
 		if err != nil {
@@ -327,15 +322,6 @@ func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string
 		if err != nil {
 			return
 		}
-=======
-	dsSchema, err = flight.DeserializeSchema(result.DatasetSchema, mem)
-	if err != nil {
-		return
-	}
-	paramSchema, err = flight.DeserializeSchema(result.ParameterSchema, mem)
-	if err != nil {
-		return
->>>>>>> 7c0a7b52f (initial flightsql client)
 	}
 
 	prep = &PreparedStatement{
