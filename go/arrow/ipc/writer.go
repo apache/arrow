@@ -881,13 +881,6 @@ func minI64(a, b int64) int64 {
 	return b
 }
 
-func minI32(a, b int32) int32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func maxI32(a, b int32) int32 {
 	if a > b {
 		return a
