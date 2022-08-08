@@ -2543,7 +2543,9 @@ void CheckModes(const Datum& array, const ModeOptions options,
   for (int i = 0; i < out_array.length(); ++i) {
     // equal or nan equal
     ASSERT_TRUE((expected_modes[i] == out_modes[i]) ||
-                (expected_modes[i] != expected_modes[i] && out_modes[i] != out_modes[i]));
+                (expected_modes[i] != expected_modes[i] && out_modes[i] != out_modes[i]))
+        << "  Actual Value: " << out_modes[i] << "\n"
+        << "Expected Value: " << expected_modes[i];
     ASSERT_EQ(expected_counts[i], out_counts[i]);
   }
 }
@@ -2561,7 +2563,7 @@ void CheckModes<bool>(const Datum& array, const ModeOptions options,
   const uint8_t* out_modes = out_array.field(0)->data()->GetValues<uint8_t>(1);
   const int64_t* out_counts = out_array.field(1)->data()->GetValues<int64_t>(1);
   for (int i = 0; i < out_array.length(); ++i) {
-    ASSERT_TRUE(expected_modes[i] == bit_util::GetBit(out_modes, i));
+    ASSERT_EQ(expected_modes[i], bit_util::GetBit(out_modes, i));
     ASSERT_EQ(expected_counts[i], out_counts[i]);
   }
 }
@@ -3351,7 +3353,9 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
           const auto& numeric_scalar =
               checked_pointer_cast<DoubleScalar>(expected[j][i].scalar());
           ASSERT_TRUE((quantiles[j] == numeric_scalar->value) ||
-                      (std::isnan(quantiles[j]) && std::isnan(numeric_scalar->value)));
+                      (std::isnan(quantiles[j]) && std::isnan(numeric_scalar->value)))
+              << "  Actual Value: " << quantiles[j] << "\n"
+              << "Expected Value: " << numeric_scalar->value;
         }
       } else {
         AssertTypeEqual(out_array->type(), type_singleton());
