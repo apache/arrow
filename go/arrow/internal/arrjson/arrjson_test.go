@@ -20,7 +20,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -46,11 +45,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["extension"] = makeExtensionsWantJSONs()
 	wantJSONs["dictionary"] = makeDictionaryWantJSONs()
 
-	tempDir, err := ioutil.TempDir("", "go-arrow-read-write-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
