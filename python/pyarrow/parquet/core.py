@@ -20,6 +20,8 @@ from collections import defaultdict
 from concurrent import futures
 from functools import partial, reduce
 
+import sys
+import inspect
 import json
 from collections.abc import Collection
 import numpy as np
@@ -3456,3 +3458,10 @@ def read_schema(where, memory_map=False, decryption_properties=None):
     return ParquetFile(
         where, memory_map=memory_map,
         decryption_properties=decryption_properties).schema.to_arrow_schema()
+
+
+# re-export everything
+# std `from . import *` ignores symbols with leading `_`
+__all__ = [
+    m for m, _ in inspect.getmembers(sys.modules[__name__])
+]
