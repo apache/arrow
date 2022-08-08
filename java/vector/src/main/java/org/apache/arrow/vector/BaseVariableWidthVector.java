@@ -46,6 +46,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
         implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
+  private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
   private int lastValueCapacity;
   private long lastValueAllocationSizeInBytes;
 
@@ -430,7 +431,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /* Check if the data buffer size is within bounds. */
   private void checkDataBufferSize(long size) {
-    if (size > MAX_ALLOCATION_SIZE || size < 0) {
+    if (size > MAX_BUFFER_SIZE || size < 0) {
       throw new OversizedAllocationException("Memory required for vector " +
           " is (" + size + "), which is more than max allowed (" + MAX_ALLOCATION_SIZE + ")");
     }
@@ -445,7 +446,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
      * an additional slot in offset buffer.
      */
     final long size = computeCombinedBufferSize(valueCount + 1, OFFSET_WIDTH);
-    if (size > MAX_ALLOCATION_SIZE) {
+    if (size > MAX_BUFFER_SIZE) {
       throw new OversizedAllocationException("Memory required for vector capacity " +
           valueCount +
           " is (" + size + "), which is more than max allowed (" + MAX_ALLOCATION_SIZE + ")");
@@ -1240,7 +1241,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
      * So even though we may have setup an initial capacity of 1024
      * elements in the vector, it is quite possible
      * that we need to reAlloc() the data buffer when we are setting
-     * the 5th element in the vector simply because previous
+     * the 1025th element in the vector simply because previous
      * variable length elements have exhausted the buffer capacity.
      * However, we really don't need to reAlloc() validity and
      * offset buffers until we try to set the 1025th element
@@ -1251,7 +1252,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       reallocValidityAndOffsetBuffers();
     }
     final int startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
-    while (valueBuffer.capacity() < (startOffset + dataLength)) {
+    final long targetCapacity = startOffset + dataLength;
+    checkDataBufferSize(targetCapacity);
+    while (valueBuffer.capacity() < targetCapacity) {
       reallocDataBuffer();
     }
   }
