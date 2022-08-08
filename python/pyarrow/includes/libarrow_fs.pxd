@@ -152,9 +152,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CS3RetryStrategy "arrow::fs::S3RetryStrategy":
         @staticmethod
-        shared_ptr[CS3RetryStrategy] GetAwsDefaultRetryStrategy(int64_t max_attempts)
+        shared_ptr[CS3RetryStrategy] GetAwsDefaultRetryStrategy(c_long max_attempts)
         @staticmethod
-        shared_ptr[CS3RetryStrategy] GetAwsStandardRetryStrategy(int64_t max_attempts)
+        shared_ptr[CS3RetryStrategy] GetAwsStandardRetryStrategy(c_long max_attempts)
 
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
