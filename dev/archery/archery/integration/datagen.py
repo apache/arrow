@@ -1636,7 +1636,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_unions_case()
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('JS'),
 
         generate_custom_metadata_case()

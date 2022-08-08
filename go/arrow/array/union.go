@@ -314,15 +314,16 @@ func (a *SparseUnion) setData(data *Data) {
 }
 
 func (a *SparseUnion) getOneForMarshal(i int) interface{} {
+	typeID := a.RawTypeCodes()[i]
+
 	childID := a.ChildID(i)
-	field := a.unionType.Fields()[childID]
 	data := a.Field(childID)
 
 	if data.IsNull(i) {
 		return nil
 	}
 
-	return map[string]interface{}{field.Name: data.(arraymarshal).getOneForMarshal(i)}
+	return []interface{}{typeID, data.(arraymarshal).getOneForMarshal(i)}
 }
 
 func (a *SparseUnion) MarshalJSON() ([]byte, error) {
@@ -570,8 +571,9 @@ func (a *DenseUnion) setData(data *Data) {
 }
 
 func (a *DenseUnion) getOneForMarshal(i int) interface{} {
+	typeID := a.RawTypeCodes()[i]
+
 	childID := a.ChildID(i)
-	field := a.unionType.Fields()[childID]
 	data := a.Field(childID)
 
 	offsets := a.RawValueOffsets()
@@ -579,7 +581,7 @@ func (a *DenseUnion) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return map[string]interface{}{field.Name: data.(arraymarshal).getOneForMarshal(int(offsets[i]))}
+	return []interface{}{typeID, data.(arraymarshal).getOneForMarshal(int(offsets[i]))}
 }
 
 func (a *DenseUnion) MarshalJSON() ([]byte, error) {

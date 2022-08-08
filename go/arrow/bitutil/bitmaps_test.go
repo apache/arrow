@@ -378,7 +378,6 @@ func (s *BitmapOpSuite) testAligned(op bitmapOp, leftBits, rightBits []int, resu
 		out         *memory.Buffer
 		length      int64
 	)
-
 	for _, lOffset := range []int64{0, 1, 3, 5, 7, 8, 13, 21, 38, 75, 120, 65536} {
 		s.Run(fmt.Sprintf("left offset %d", lOffset), func() {
 			left = bitmapFromSlice(leftBits, int(lOffset))

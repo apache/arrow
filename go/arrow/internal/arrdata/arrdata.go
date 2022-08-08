@@ -49,7 +49,7 @@ func init() {
 	Records["decimal128"] = makeDecimal128sRecords()
 	Records["maps"] = makeMapsRecords()
 	Records["extension"] = makeExtensionRecords()
-	// Records["union"] = makeUnionRecords()
+	Records["union"] = makeUnionRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -933,6 +933,68 @@ func makeExtensionRecords() []arrow.Record {
 	}
 
 	return recs
+}
+
+func makeUnionRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+
+	unionFields := []arrow.Field{
+		{Name: "u0", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "u1", Type: arrow.PrimitiveTypes.Uint8, Nullable: true},
+	}
+
+	typeCodes := []arrow.UnionTypeCode{5, 10}
+	sparseType := arrow.SparseUnionOf(unionFields, typeCodes)
+	denseType := arrow.DenseUnionOf(unionFields, typeCodes)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "sparse", Type: sparseType, Nullable: true},
+		{Name: "dense", Type: denseType, Nullable: true},
+	}, nil)
+
+	sparseChildren := make([]arrow.Array, 4)
+	denseChildren := make([]arrow.Array, 4)
+
+	const length = 7
+
+	typeIDsBuffer := memory.NewBufferBytes(arrow.Uint8Traits.CastToBytes([]uint8{5, 10, 5, 5, 10, 10, 5}))
+	sparseChildren[0] = arrayOf(mem, []int32{0, 1, 2, 3, 4, 5, 6},
+		[]bool{true, true, true, false, true, true, true})
+	defer sparseChildren[0].Release()
+	sparseChildren[1] = arrayOf(mem, []uint8{10, 11, 12, 13, 14, 15, 16},
+		nil)
+	defer sparseChildren[1].Release()
+	sparseChildren[2] = arrayOf(mem, []int32{0, -1, -2, -3, -4, -5, -6},
+		[]bool{true, true, true, true, true, true, false})
+	defer sparseChildren[2].Release()
+	sparseChildren[3] = arrayOf(mem, []uint8{100, 101, 102, 103, 104, 105, 106},
+		nil)
+	defer sparseChildren[3].Release()
+
+	denseChildren[0] = arrayOf(mem, []int32{0, 2, 3, 7}, []bool{true, false, true, true})
+	defer denseChildren[0].Release()
+	denseChildren[1] = arrayOf(mem, []uint8{11, 14, 15}, nil)
+	defer denseChildren[1].Release()
+	denseChildren[2] = arrayOf(mem, []int32{0, -2, -3, -7}, []bool{false, true, true, false})
+	defer denseChildren[2].Release()
+	denseChildren[3] = arrayOf(mem, []uint8{101, 104, 105}, nil)
+	defer denseChildren[3].Release()
+
+	offsetsBuffer := memory.NewBufferBytes(arrow.Int32Traits.CastToBytes([]int32{0, 0, 1, 2, 1, 2, 3}))
+	sparse1 := array.NewSparseUnion(sparseType, length, sparseChildren[:2], typeIDsBuffer, 0)
+	dense1 := array.NewDenseUnion(denseType, length, denseChildren[:2], typeIDsBuffer, offsetsBuffer, 0)
+
+	sparse2 := array.NewSparseUnion(sparseType, length, sparseChildren[2:], typeIDsBuffer, 0)
+	dense2 := array.NewDenseUnion(denseType, length, denseChildren[2:], typeIDsBuffer, offsetsBuffer, 0)
+
+	defer sparse1.Release()
+	defer dense1.Release()
+	defer sparse2.Release()
+	defer dense2.Release()
+
+	return []arrow.Record{
+		array.NewRecord(schema, []arrow.Array{sparse1, dense1}, -1),
+		array.NewRecord(schema, []arrow.Array{sparse2, dense2}, -1)}
 }
 
 func extArray(mem memory.Allocator, dt arrow.ExtensionType, a interface{}, valids []bool) arrow.Array {

@@ -399,8 +399,8 @@ const (
 	MaxUnionTypeCode    UnionTypeCode = 127
 	InvalidUnionChildID int           = -1
 
-	SparseMode UnionMode = iota
-	DenseMode
+	SparseMode UnionMode = iota // SPARSE
+	DenseMode                   // DENSE
 )
 
 // UnionType is an interface to encompass both Dense and Sparse Union types.
