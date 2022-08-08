@@ -117,6 +117,7 @@ def test_combine_chunks():
     expected = pa.array([1, 2, 1, 2])
     assert res.equals(expected)
 
+
 def test_chunked_array_can_combine_chunks_with_no_chunks():
     # https://issues.apache.org/jira/browse/ARROW-17256
     assert pa.chunked_array([], type=pa.bool_()).combine_chunks() == pa.array(
