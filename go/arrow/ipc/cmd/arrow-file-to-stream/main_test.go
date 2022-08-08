@@ -19,7 +19,6 @@ package main
 import (
 	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow/internal/arrdata"
@@ -27,11 +26,7 @@ import (
 )
 
 func TestFileToStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-file-to-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {

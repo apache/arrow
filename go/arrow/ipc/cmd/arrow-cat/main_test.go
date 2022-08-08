@@ -31,11 +31,7 @@ import (
 )
 
 func TestCatStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-cat-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		name string
@@ -229,11 +225,7 @@ record 3...
 }
 
 func TestCatFile(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-cat-file-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		name   string
