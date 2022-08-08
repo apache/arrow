@@ -15,24 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from datetime import datetime, timezone, timedelta
 import gzip
 import os
 import pathlib
 import pickle
-
-import pytest
 import weakref
+from datetime import datetime, timedelta, timezone
 
 import pyarrow as pa
+import pytest
+from pyarrow.fs import (FileInfo, FileSelector, FileSystem, FileSystemHandler,
+                        FileType, FSSpecHandler, LocalFileSystem, PyFileSystem,
+                        SubTreeFileSystem, _MockFileSystem, copy_files)
 from pyarrow.tests.test_io import assert_file_not_found
-from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
-                                _configure_s3_limited_user)
-
-from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
-                        LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
-                        FileSystemHandler, PyFileSystem, FSSpecHandler,
-                        copy_files)
+from pyarrow.tests.util import (ProxyHandler, _configure_s3_limited_user,
+                                _filesystem_uri)
 
 
 class DummyHandler(FileSystemHandler):
@@ -1093,7 +1090,8 @@ def test_gcs_options():
 
 @pytest.mark.s3
 def test_s3_options():
-    from pyarrow.fs import S3FileSystem
+    from pyarrow.fs import (AwsStandardS3RetryStrategy, S3FileSystem,
+                            S3RetryStrategy)
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
@@ -1111,6 +1109,19 @@ def test_s3_options():
     assert isinstance(fs2, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs2)) == fs2
     assert fs2 != fs
+
+    # Check if we have set a C++ AWS Standard retry strategy by testing
+    # if the methods on the strategy quack like a Standard strategy.
+    fs = S3FileSystem(retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
+    assert fs.retry_strategy.ShouldRetry(None, 1)
+    assert not fs.retry_strategy.ShouldRetry(None, 6)
+
+    # CalculateDelayBeforeNextRetry has jitter, cref:
+    # https://docs.aws.amazon.com/sdkref/latest/guide/feature-retry-behavior.html
+    # In summary: for retry attempt 2, the delay can be anywhere between 0-4s.
+    next_retry_delay = fs.retry_strategy.CalculateDelayBeforeNextRetry(None, 2)
+    assert next_retry_delay >= 0 and next_retry_delay <= 4
 
     fs = S3FileSystem(anonymous=True)
     assert isinstance(fs, S3FileSystem)
@@ -1160,6 +1171,8 @@ def test_s3_options():
         S3FileSystem(role_arn="arn", anonymous=True)
     with pytest.raises(ValueError):
         S3FileSystem(default_metadata=["foo", "bar"])
+    with pytest.raises(ValueError):
+        S3FileSystem(retry_strategy=S3RetryStrategy())
 
 
 @pytest.mark.s3
