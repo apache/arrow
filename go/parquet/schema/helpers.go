@@ -17,7 +17,7 @@
 package schema
 
 import (
-	"github.com/apache/arrow/go/v9/parquet"
+	"github.com/apache/arrow/go/v10/parquet"
 	"golang.org/x/xerrors"
 )
 

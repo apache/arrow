@@ -126,6 +126,50 @@ def test_python_file_read():
         pa.PythonFile(StringIO(), mode='r')
 
 
+@pytest.mark.parametrize("nbytes", (-1, 0, 1, 5, 100))
+@pytest.mark.parametrize("file_offset", (-1, 0, 5, 100))
+def test_python_file_get_stream(nbytes, file_offset):
+
+    data = b'data1data2data3data4data5'
+
+    f = pa.PythonFile(BytesIO(data), mode='r')
+
+    # negative nbytes or offsets don't make sense here, raise ValueError
+    if nbytes < 0 or file_offset < 0:
+        with pytest.raises(pa.ArrowInvalid,
+                           match="should be a positive value"):
+            f.get_stream(file_offset=file_offset, nbytes=nbytes)
+        f.close()
+        return
+    else:
+        stream = f.get_stream(file_offset=file_offset, nbytes=nbytes)
+
+    # Subsequent calls to 'read' should match behavior if same
+    # data passed to BytesIO where get_stream should handle if
+    # nbytes/file_offset results in no bytes b/c out of bounds.
+    start = min(file_offset, len(data))
+    end = min(file_offset + nbytes, len(data))
+    buf = BytesIO(data[start:end])
+
+    # read some chunks
+    assert stream.read(nbytes=4) == buf.read(4)
+    assert stream.read(nbytes=6) == buf.read(6)
+
+    # Read to end of each stream
+    assert stream.read() == buf.read()
+
+    # Try reading past the stream
+    n = len(data) * 2
+    assert stream.read(n) == buf.read(n)
+
+    # NativeFile[CInputStream] is not seekable
+    with pytest.raises(OSError, match="seekable"):
+        stream.seek(0)
+
+    stream.close()
+    assert stream.closed
+
+
 def test_python_file_read_at():
     data = b'some sample data'
 
