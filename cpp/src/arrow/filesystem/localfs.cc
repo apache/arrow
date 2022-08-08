@@ -243,7 +243,8 @@ LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
 }
 
 bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
-  return use_mmap == other.use_mmap && directory_readahead == other.directory_readahead;
+  return use_mmap == other.use_mmap && directory_readahead == other.directory_readahead &&
+         file_info_batch_size == other.file_info_batch_size;
 }
 
 Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(

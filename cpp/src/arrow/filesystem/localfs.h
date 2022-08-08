@@ -35,13 +35,22 @@ namespace fs {
 /// Options for the LocalFileSystem implementation.
 struct ARROW_EXPORT LocalFileSystemOptions {
   static constexpr int32_t kDefaultDirectoryReadahead = 16;
+  static constexpr int32_t kDefaultFileInfoBatchSize = 1000;
 
   /// Whether OpenInputStream and OpenInputFile return a mmap'ed file,
   /// or a regular one.
   bool use_mmap = false;
+
+  /// Options related to `GetFileInfoGenerator` interface.
+
   /// How many directories should be processed in parallel
   /// by the `GetFileInfoGenerator` impl.
   int32_t directory_readahead = kDefaultDirectoryReadahead;
+  /// Specifies how much entries shall be aggregated into
+  /// a single FileInfoVector chunk by the `GetFileInfoGenerator` impl, which
+  /// is the result of `stat`:ing individual dirents, obtained by the call to
+  /// `internal::ListDir`.
+  int32_t file_info_batch_size = kDefaultFileInfoBatchSize;
 
   /// \brief Initialize with defaults
   static LocalFileSystemOptions Defaults();
