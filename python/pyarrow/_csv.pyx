@@ -286,7 +286,7 @@ cdef class ReadOptions(_Weakrefable):
     @skip_rows_after_names.setter
     def skip_rows_after_names(self, value):
         deref(self.options).skip_rows_after_names = value
-    
+
     @property
     def encoding(self):
         """
