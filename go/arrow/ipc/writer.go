@@ -488,7 +488,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			data := arr.Data()
 			var bitmap *memory.Buffer
 			if data.NullN() == data.Len() {
-				// every value is null, just use a new unset bitmap to avoid the expense of copying
+				// every value is null, just use a new zero-initialized bitmap to avoid the expense of copying
 				bitmap = memory.NewResizableBuffer(w.mem)
 				minLength := paddedLength(bitutil.BytesForBits(int64(data.Len())), kArrowAlignment)
 				bitmap.Resize(int(minLength))
@@ -807,18 +807,17 @@ func (w *recordEncoder) rebaseDenseUnionValueOffsets(arr *array.DenseUnion, offs
 	shiftedOffsetsBuf.Resize(arrow.Int32Traits.BytesRequired(arr.Len()))
 	shiftedOffsets := arrow.Int32Traits.CastFromBytes(shiftedOffsetsBuf.Bytes())
 
-	// offsets may not be ascending, so we need to find out the start offset for each child
+	// compute shifted offsets by subtracting child offset
 	for i, c := range codes {
 		if offsets[c] == -1 {
+			// offsets are guaranteed to be increasing according to the spec
+			// so the first offset we find for a child is the initial offset
+			// and will become the "0" for this child.
 			offsets[c] = unshiftedOffsets[i]
+			shiftedOffsets[i] = 0
 		} else {
-			offsets[c] = minI32(offsets[c], unshiftedOffsets[i])
+			shiftedOffsets[i] = unshiftedOffsets[i] - offsets[c]
 		}
-	}
-
-	// now compute shifted offsets by subtracting child offset
-	for i, c := range codes {
-		shiftedOffsets[i] = unshiftedOffsets[i] - offsets[c]
 		lengths[c] = maxI32(lengths[c], shiftedOffsets[i]+1)
 	}
 	return shiftedOffsetsBuf

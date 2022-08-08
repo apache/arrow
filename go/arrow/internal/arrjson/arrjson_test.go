@@ -5192,7 +5192,7 @@ func makeUnionWantJSONs() string {
                 1,
                 1,
                 1,
-                1,
+                0,
                 1,
                 1,
                 1
@@ -5267,7 +5267,7 @@ func makeUnionWantJSONs() string {
               "count": 4,
               "VALIDITY": [
                 1,
-                1,
+                0,
                 1,
                 1
               ],
@@ -5331,7 +5331,7 @@ func makeUnionWantJSONs() string {
                 1,
                 1,
                 1,
-                1
+                0
               ],
               "DATA": [
                 0,
@@ -5402,10 +5402,10 @@ func makeUnionWantJSONs() string {
               "name": "u0",
               "count": 4,
               "VALIDITY": [
+                0,
                 1,
                 1,
-                1,
-                1
+                0
               ],
               "DATA": [
                 0,

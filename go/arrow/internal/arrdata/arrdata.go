@@ -958,20 +958,24 @@ func makeUnionRecords() []arrow.Record {
 	const length = 7
 
 	typeIDsBuffer := memory.NewBufferBytes(arrow.Uint8Traits.CastToBytes([]uint8{5, 10, 5, 5, 10, 10, 5}))
-	sparseChildren[0] = arrayOf(mem, []int32{0, 1, 2, 3, 4, 5, 6}, nil)
+	sparseChildren[0] = arrayOf(mem, []int32{0, 1, 2, 3, 4, 5, 6},
+		[]bool{true, true, true, false, true, true, true})
 	defer sparseChildren[0].Release()
-	sparseChildren[1] = arrayOf(mem, []uint8{10, 11, 12, 13, 14, 15, 16}, nil)
+	sparseChildren[1] = arrayOf(mem, []uint8{10, 11, 12, 13, 14, 15, 16},
+		nil)
 	defer sparseChildren[1].Release()
-	sparseChildren[2] = arrayOf(mem, []int32{0, -1, -2, -3, -4, -5, -6}, nil)
+	sparseChildren[2] = arrayOf(mem, []int32{0, -1, -2, -3, -4, -5, -6},
+		[]bool{true, true, true, true, true, true, false})
 	defer sparseChildren[2].Release()
-	sparseChildren[3] = arrayOf(mem, []uint8{100, 101, 102, 103, 104, 105, 106}, nil)
+	sparseChildren[3] = arrayOf(mem, []uint8{100, 101, 102, 103, 104, 105, 106},
+		nil)
 	defer sparseChildren[3].Release()
 
-	denseChildren[0] = arrayOf(mem, []int32{0, 2, 3, 7}, nil)
+	denseChildren[0] = arrayOf(mem, []int32{0, 2, 3, 7}, []bool{true, false, true, true})
 	defer denseChildren[0].Release()
 	denseChildren[1] = arrayOf(mem, []uint8{11, 14, 15}, nil)
 	defer denseChildren[1].Release()
-	denseChildren[2] = arrayOf(mem, []int32{0, -2, -3, -7}, nil)
+	denseChildren[2] = arrayOf(mem, []int32{0, -2, -3, -7}, []bool{false, true, true, false})
 	defer denseChildren[2].Release()
 	denseChildren[3] = arrayOf(mem, []uint8{101, 104, 105}, nil)
 	defer denseChildren[3].Release()
