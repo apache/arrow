@@ -193,7 +193,7 @@ func (c *Client) GetSqlInfo(ctx context.Context, info []SqlInfo, opts ...grpc.Ca
 }
 
 func (c *Client) Prepare(ctx context.Context, mem memory.Allocator, query string, opts ...grpc.CallOption) (prep *PreparedStatement, err error) {
-	const actionType = "CreatePreparedStatement"
+	const actionType = CreatePreparedStatementActionType
 	var (
 		cmd, cmdResult        anypb.Any
 		res                   *pb.Result
@@ -379,7 +379,7 @@ func (p *PreparedStatement) Close(ctx context.Context) error {
 		p.paramBinding = nil
 	}
 
-	const actionType = "ClosePreparedStatement"
+	const actionType = ClosePreparedStatementActionType
 	var (
 		cmd     anypb.Any
 		request pb.ActionClosePreparedStatementRequest
