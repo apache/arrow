@@ -35,7 +35,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-<<<<<<< HEAD
 // NewClient is a convenience function to automatically construct
 // a flight.Client and return a flightsql.Client containing it rather
 // than having to manually construct both yourself. It just delegates
@@ -51,8 +50,6 @@ func NewClient(addr string, auth flight.ClientAuthHandler, middleware []flight.C
 
 // Client wraps a regular Flight RPC Client to provide the FlightSQL
 // interface functions and methods.
-=======
->>>>>>> 7c0a7b52f (initial flightsql client)
 type Client struct {
 	Client flight.Client
 }
