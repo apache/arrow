@@ -31,6 +31,14 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+func NewClient(addr string, auth flight.ClientAuthHandler, middleware []flight.ClientMiddleware, opts ...grpc.DialOption) (*Client, error) {
+	cl, err := flight.NewClientWithMiddleware(addr, auth, middleware, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{cl}, nil
+}
+
 type Client struct {
 	Client flight.Client
 }

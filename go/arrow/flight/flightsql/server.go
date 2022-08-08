@@ -310,7 +310,11 @@ type Server interface {
 }
 
 func NewFlightServer(srv Server) flight.FlightServer {
-	return &flightSqlServer{srv: srv}
+	return &flightSqlServer{srv: srv, mem: memory.DefaultAllocator}
+}
+
+func NewFlightServerWithAllocator(srv Server, mem memory.Allocator) flight.FlightServer {
+	return &flightSqlServer{srv: srv, mem: mem}
 }
 
 type flightSqlServer struct {
