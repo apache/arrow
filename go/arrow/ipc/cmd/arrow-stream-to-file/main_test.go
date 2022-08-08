@@ -55,6 +55,7 @@ func TestStreamToFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer o.Close()
 
 			err = processStream(o, f)
 			if err != nil {
