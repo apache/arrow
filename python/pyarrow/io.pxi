@@ -399,6 +399,42 @@ cdef class NativeFile(_Weakrefable):
 
         return PyObject_to_object(obj)
 
+    def get_stream(self, file_offset, nbytes):
+        """
+        Return an input stream that reads a file segment independent of the
+        state of the file.
+
+        Allows reading portions of a random access file as an input stream
+        without interfering with each other.
+
+        Parameters
+        ----------
+        file_offset : int
+        nbytes : int
+
+        Returns
+        -------
+        stream : NativeFile
+        """
+        cdef:
+            shared_ptr[CInputStream] data
+            int64_t c_file_offset
+            int64_t c_nbytes
+
+        c_file_offset = file_offset
+        c_nbytes = nbytes
+
+        handle = self.get_random_access_file()
+
+        data = GetResultValue(
+            CRandomAccessFile.GetStream(handle, c_file_offset, c_nbytes))
+
+        stream = NativeFile()
+        stream.set_input_stream(data)
+        stream.is_readable = True
+
+        return stream
+
     def read_at(self, nbytes, offset):
         """
         Read indicated number of bytes at offset from the file
