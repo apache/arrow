@@ -2306,43 +2306,34 @@ if(ARROW_WITH_ZLIB)
 endif()
 
 macro(build_lz4)
-  message(STATUS "Building lz4 from source")
-  set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
-  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix")
-
-  if(MSVC)
-    if(ARROW_USE_STATIC_CRT)
-      if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-        set(LZ4_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreadedDebug")
-      else()
-        set(LZ4_RUNTIME_LIBRARY_LINKAGE "/p:RuntimeLibrary=MultiThreaded")
-      endif()
-    endif()
-    set(LZ4_STATIC_LIB
-        "${LZ4_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
-    set(LZ4_BUILD_COMMAND
-        BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64
-        /p:PlatformToolset=v140 ${LZ4_RUNTIME_LIBRARY_LINKAGE} /t:Build
-        ${LZ4_BUILD_DIR}/build/VS2010/lz4.sln)
-  else()
-    set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
-    # Must explicitly invoke sh on MinGW
-    set(LZ4_BUILD_COMMAND
-        BUILD_COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/build-support/build-lz4-lib.sh"
-        "AR=${CMAKE_AR}" "OS=${CMAKE_SYSTEM_NAME}")
+  message(STATUS "Building LZ4 from source")
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    message(FATAL_ERROR "Building LZ4 using ExternalProject requires at least CMake 3.7")
   endif()
+
+  set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-install")
+
+  set(LZ4_STATIC_LIB
+      "${LZ4_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}lz4${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  set(LZ4_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DBUILD_SHARED_LIBS=OFF
+      -DBUILD_STATIC_LIBS=ON
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+      -DLZ4_BUILD_CLI=OFF
+      -DLZ4_BUILD_LEGACY_LZ4C=OFF)
 
   # We need to copy the header in lib to directory outside of the build
   externalproject_add(lz4_ep
-                      URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${LZ4_CMAKE_ARGS}
+                      SOURCE_SUBDIR "build/cmake"
+                      INSTALL_DIR ${LZ4_PREFIX}
+                      URL ${LZ4_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_LZ4_BUILD_SHA256_CHECKSUM}"
-                      UPDATE_COMMAND ${CMAKE_COMMAND} -E copy_directory
-                                     "${LZ4_BUILD_DIR}/lib" "${LZ4_PREFIX}/include"
-                                     ${LZ4_PATCH_COMMAND}
-                      CONFIGURE_COMMAND ""
-                      INSTALL_COMMAND ""
-                      BINARY_DIR ${LZ4_BUILD_DIR}
-                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB} ${LZ4_BUILD_COMMAND})
+                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB})
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
   add_library(lz4::lz4 STATIC IMPORTED)
@@ -2364,7 +2355,12 @@ if(ARROW_WITH_LZ4)
 endif()
 
 macro(build_zstd)
-  message(STATUS "Building zstd from source")
+  message(STATUS "Building Zstandard from source")
+  if(CMAKE_VERSION VERSION_LESS 3.7)
+    message(FATAL_ERROR "Building Zstandard using ExternalProject requires at least CMake 3.7"
+    )
+  endif()
+
   set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
 
   set(ZSTD_CMAKE_ARGS
@@ -2392,10 +2388,6 @@ macro(build_zstd)
         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
         -DCMAKE_C_FLAGS=${EP_C_FLAGS}
         -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS})
-  endif()
-
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    message(FATAL_ERROR "Building zstd using ExternalProject requires at least CMake 3.7")
   endif()
 
   externalproject_add(zstd_ep
