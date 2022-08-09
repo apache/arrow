@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+// Constants for Action types
 const (
 	CreatePreparedStatementActionType = "CreatePreparedStatement"
 	ClosePreparedStatementActionType  = "ClosePreparedStatement"
@@ -66,6 +67,9 @@ func impkToTableRef(cmd *pb.CommandGetImportedKeys) TableRef {
 	}
 }
 
+// CreateStatementQueryTicket is a helper that constructs a properly
+// serialized TicketStatementQuery containing a given opaque binary handle
+// for use with constructing a ticket to return from GetFlightInfoStatement.
 func CreateStatementQueryTicket(handle []byte) ([]byte, error) {
 	query := &pb.TicketStatementQuery{StatementHandle: handle}
 	var ticket anypb.Any
@@ -75,11 +79,22 @@ func CreateStatementQueryTicket(handle []byte) ([]byte, error) {
 }
 
 type (
-	GetDBSchemasOpts = pb.CommandGetDbSchemas
-	GetTablesOpts    = pb.CommandGetTables
+	// GetDBSchemasOpts contains the options to request Database Schemas:
+	// an optional Catalog and a Schema Name filter pattern.
+	GetDBSchemasOpts pb.CommandGetDbSchemas
+	// GetTablesOpts contains the options for retrieving a list of tables:
+	// optional Catalog, Schema filter pattern, Table name filter pattern,
+	// a filter of table types, and whether or not to include the schema
+	// in the response.
+	GetTablesOpts pb.CommandGetTables
 
+	// SqlInfoResultMap is a mapping of SqlInfo ids to the desired response.
+	// This is part of a Server and used for registering responses to a
+	// SqlInfo request.
 	SqlInfoResultMap map[uint32]interface{}
 
+	// TableRef is a helpful struct for referencing a specific Table
+	// by its catalog, schema, and table name.
 	TableRef struct {
 		// Catalog specifies the catalog this table belongs to.
 		// An empty string refers to tables without a catalog.
@@ -94,6 +109,8 @@ type (
 		Table string
 	}
 
+	// CrossTableRef contains a reference to a Primary Key table
+	// and a Foreign Key table.
 	CrossTableRef struct {
 		PKRef TableRef
 		FKRef TableRef
