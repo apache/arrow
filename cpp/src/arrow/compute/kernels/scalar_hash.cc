@@ -33,9 +33,6 @@
 
 #include "arrow/util/hashing.h"
 
-// NOTES:
-// * `KeyColumnArray` comes from light_array.h
-//   * Should be replaceable with `ExecSpan`
 
 namespace arrow {
 namespace compute {
@@ -46,6 +43,7 @@ namespace internal {
 namespace {
 
 using arrow::internal::ScalarHelper;
+using arrow::internal::ComputeStringHash;
 
 // ------------------------------
 // Function documentation
@@ -74,97 +72,74 @@ const FunctionDoc xx_hash_doc{
 
 // ------------------------------
 // Kernel implementations
-struct FastHash32Scalar {
-  static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
-    if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
-      return Status::Invalid("FastHash32 currently supports a single array input");
-    }
+// It is expected that HashArrowType is either Uint32Type (default) or Uint64Type
+template <typename HashArrowType = UInt32Type>
+struct FastHashScalar {
+  using OutputCType = typename TypeTraits<HashArrowType>::CType;
+  using KeyColumnArrayVec = std::vector<KeyColumnArray>;
 
-    auto exec_ctx = default_exec_context();
-    if (ctx && ctx->exec_context()) {
-      exec_ctx = ctx->exec_context();
-    }
-
-    // Initialize stack-based memory allocator with an allocator and memory size
-    util::TempVectorStack stack_memallocator;
-    ARROW_RETURN_NOT_OK(
-        stack_memallocator.Init(exec_ctx->memory_pool(),
-                                3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
-
-    // Prepare input data structure for propagation to hash function
-    ArraySpan hash_input = input_arg[0].array;
-    ARROW_ASSIGN_OR_RAISE(KeyColumnArray input_keycol,
-                          ColumnArrayFromArrayData(hash_input.ToArrayData(),
-                                                   default_rstart, hash_input.length));
-
-    // Call hashing function
-    LightContext hash_ctx;
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hash_buffer,
-                          AllocateBuffer(hash_input.length * sizeof(uint32_t)));
-
-    hash_ctx.hardware_flags = exec_ctx->cpu_info()->hardware_flags();
-    hash_ctx.stack = &stack_memallocator;
-    Hashing32::HashMultiColumn({input_keycol}, &hash_ctx,
-                               reinterpret_cast<uint32_t*>(hash_buffer->mutable_data()));
-
-    out->value =
-        ArrayData{uint32(), hash_input.length, {nullptr, std::move(hash_buffer)}};
-    return Status::OK();
+  // Internal wrapper functions to resolve Hashing32 vs Hashing64 using parameter types
+  static void FastHashMultiColumn(KeyColumnArrayVec &cols, LightContext *ctx, uint32_t *hashes) {
+    Hashing32::HashMultiColumn(cols, ctx, hashes);
   }
 
-  static constexpr int64_t default_rstart = 0;
-};
-
-struct FastHash64Scalar {
-  static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
-    if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
-      return Status::Invalid("FastHash64 currently supports a single array input");
-    }
-
-    auto exec_ctx = default_exec_context();
-    if (ctx && ctx->exec_context()) {
-      exec_ctx = ctx->exec_context();
-    }
-
-    // Initialize stack-based memory allocator with an allocator and memory size
-    util::TempVectorStack stack_memallocator;
-    ARROW_RETURN_NOT_OK(
-        stack_memallocator.Init(exec_ctx->memory_pool(),
-                                3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
-
-    // Prepare input data structure for propagation to hash function
-    ArraySpan hash_input = input_arg[0].array;
-    ARROW_ASSIGN_OR_RAISE(KeyColumnArray input_keycol,
-                          ColumnArrayFromArrayData(hash_input.ToArrayData(),
-                                                   default_rstart, hash_input.length));
-
-    // Call hashing function
-    LightContext hash_ctx;
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hash_buffer,
-                          AllocateBuffer(hash_input.length * sizeof(uint64_t)));
-
-    hash_ctx.hardware_flags = exec_ctx->cpu_info()->hardware_flags();
-    hash_ctx.stack = &stack_memallocator;
-    Hashing64::HashMultiColumn({input_keycol}, &hash_ctx,
-                               reinterpret_cast<uint64_t*>(hash_buffer->mutable_data()));
-
-    out->value =
-        ArrayData{uint64(), hash_input.length, {nullptr, std::move(hash_buffer)}};
-    return Status::OK();
+  static void FastHashMultiColumn(KeyColumnArrayVec &cols, LightContext *ctx, uint64_t *hashes) {
+    Hashing64::HashMultiColumn(cols, ctx, hashes);
   }
 
-  static constexpr int64_t default_rstart = 0;
+  static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
+    if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
+      return Status::Invalid("FastHash currently supports a single array input");
+    }
+    ArraySpan hash_input = input_arg[0].array;
+
+    auto exec_ctx = default_exec_context();
+    if (ctx && ctx->exec_context()) { exec_ctx = ctx->exec_context(); }
+
+    // Initialize stack-based memory allocator used by Hashing32 and Hashing64
+    util::TempVectorStack stack_memallocator;
+    ARROW_RETURN_NOT_OK(stack_memallocator.Init(exec_ctx->memory_pool(),
+                        3 * sizeof(int32_t) * util::MiniBatch::kMiniBatchLength));
+
+    // Prepare context used by Hashing32 and Hashing64
+    LightContext hash_ctx;
+    hash_ctx.hardware_flags = exec_ctx->cpu_info()->hardware_flags();
+    hash_ctx.stack = &stack_memallocator;
+
+    // Allocate an output buffer; this gets moved into an ArrayData at the end
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hash_buffer,
+                          AllocateBuffer(hash_input.length * sizeof(OutputCType)));
+
+    // Construct vector<KeyColumnArray> from input ArraySpan; this essentially
+    // flattens the input array span, lifting nested Array buffers into a single level
+    ARROW_ASSIGN_OR_RAISE(KeyColumnArrayVec input_keycols,
+                          ColumnArraysFromArraySpan(hash_input, hash_input.length));
+
+    // Call the hashing function, overloaded based on OutputCType
+    FastHashMultiColumn(input_keycols, &hash_ctx,
+                        reinterpret_cast<OutputCType*>(hash_buffer->mutable_data()));
+
+    out->value = ArrayData{TypeTraits<HashArrowType>::type_singleton(),
+                           hash_input.length,
+                           {hash_input.GetBuffer(0), std::move(hash_buffer)}};
+    return Status::OK();
+  }
 };
 
+// InputArrowType is the data type of the input values (used to get the input c type)
+template <typename ValueType>
 struct XxHashScalar {
-  static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
+
+  static Status ExecPrimitive(KernelContext* ctx, const ExecSpan& input_arg,
+                              ExecResult* out) {
     if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
-      return Status::Invalid("FastHash64 currently supports a single array input");
+      return Status::Invalid("xxHash currently supports a single array input");
     }
 
     // Prepare input data structure for propagation to hash function
-    const uint64_t* hash_inputs = input_arg[0].array.GetValues<uint64_t>(1, 0);
-    const auto input_len = input_arg[0].array.length;
+    const auto input_data = input_arg[0].array;
+    const auto input_len = input_data.length;
+    const ValueType* hash_inputs = input_arg[0].array.GetValues<ValueType>(1, 0);
 
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hash_buffer,
                           AllocateBuffer(input_len * sizeof(uint64_t)));
@@ -172,11 +147,51 @@ struct XxHashScalar {
     // Call hashing function
     uint64_t* hash_results = reinterpret_cast<uint64_t*>(hash_buffer->mutable_data());
     for (int val_ndx = 0; val_ndx < input_len; ++val_ndx) {
-      hash_results[val_ndx] = ScalarHelper<int64_t, 0>::ComputeHash(hash_inputs[val_ndx]);
-      // total += ScalarHelper<int64_t, 1>::ComputeHash(v);
+      if (input_data.IsValid(val_ndx)) {
+        hash_results[val_ndx] = (
+            ScalarHelper<ValueType, 0>::ComputeHash(hash_inputs[val_ndx])
+          + ScalarHelper<ValueType, 1>::ComputeHash(hash_inputs[val_ndx])
+        );
+      }
     }
 
-    out->value = ArrayData{uint64(), input_len, {nullptr, std::move(hash_buffer)}};
+    out->value = ArrayData{uint64(), input_len,
+                           {input_data.GetBuffer(0), std::move(hash_buffer)}};
+    return Status::OK();
+  }
+
+  static Status ExecBinary(KernelContext* ctx, const ExecSpan& input_arg,
+                           ExecResult* out) {
+    if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
+      return Status::Invalid("xxHash currently supports a single array input");
+    }
+
+    // Grab array buffers to check validity and compute element-wise hashes on binary
+    const auto input_data = input_arg[0].array;
+    const auto input_len = input_data.length;
+    const ValueType* input_offsets = input_data.GetValues<ValueType>(1);
+    const uint8_t* hash_inputs = input_data.GetValues<uint8_t>(2);
+
+    // Prepare a place to write the results of hashing
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hash_buffer,
+                          AllocateBuffer(input_len * sizeof(uint64_t)));
+    uint64_t* hash_results = reinterpret_cast<uint64_t*>(hash_buffer->mutable_data());
+
+    // Call hashing function
+    for (int val_ndx = 0; val_ndx < input_len; ++val_ndx) {
+      if (input_data.IsValid(val_ndx)) {
+        const auto value_offset = input_offsets[val_ndx];
+        const auto value_size = input_offsets[val_ndx + 1] - value_offset;
+
+        hash_results[val_ndx] = (
+            ComputeStringHash<0>(hash_inputs + value_offset, value_size)
+          + ComputeStringHash<1>(hash_inputs + value_offset, value_size)
+        );
+      }
+    }
+
+    out->value = ArrayData{uint64(), input_len,
+                           {input_data.GetBuffer(0), std::move(hash_buffer)}};
     return Status::OK();
   }
 };
@@ -191,7 +206,14 @@ std::shared_ptr<ScalarFunction> RegisterKernelsFastHash32() {
   // Associate kernel with function
   for (auto& simple_inputtype : PrimitiveTypes()) {
     DCHECK_OK(fn_fast_hash_32->AddKernel({InputType(simple_inputtype)},
-                                         OutputType(uint32()), FastHash32Scalar::Exec));
+                                         OutputType(uint32()), FastHashScalar<>::Exec));
+  }
+
+  for (const auto nested_type : {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION,
+                                 Type::LIST, Type::FIXED_SIZE_LIST,
+                                 Type::MAP, Type::DICTIONARY}) {
+    DCHECK_OK(fn_fast_hash_32->AddKernel({InputType(nested_type)},
+                                         OutputType(uint32()), FastHashScalar<UInt32Type>::Exec));
   }
 
   // Return function to be registered
@@ -206,7 +228,16 @@ std::shared_ptr<ScalarFunction> RegisterKernelsFastHash64() {
   // Associate kernel with function
   for (auto& simple_inputtype : PrimitiveTypes()) {
     DCHECK_OK(fn_fast_hash_64->AddKernel({InputType(simple_inputtype)},
-                                         OutputType(uint64()), FastHash64Scalar::Exec));
+                                         OutputType(uint64()),
+                                         FastHashScalar<UInt64Type>::Exec));
+  }
+
+  for (const auto nested_type : {Type::STRUCT, Type::DENSE_UNION, Type::SPARSE_UNION,
+                                 Type::LIST, Type::FIXED_SIZE_LIST,
+                                 Type::MAP, Type::DICTIONARY}) {
+    DCHECK_OK(fn_fast_hash_64->AddKernel({InputType(nested_type)},
+                                         OutputType(uint64()),
+                                         FastHashScalar<UInt64Type>::Exec));
   }
 
   // Return function to be registered
@@ -218,11 +249,62 @@ std::shared_ptr<ScalarFunction> RegisterKernelsXxHash() {
   auto fn_xx_hash =
       std::make_shared<ScalarFunction>("xx_hash", Arity::Unary(), xx_hash_doc);
 
-  // Associate kernel with function
-  for (auto& simple_inputtype : PrimitiveTypes()) {
-    DCHECK_OK(fn_xx_hash->AddKernel({InputType(simple_inputtype)}, OutputType(uint64()),
-                                    FastHash64Scalar::Exec));
-  }
+  // The output type for every XxHash kernel is uint64
+  auto &&out_type = OutputType(uint64());
+
+  // non null primitive types are handled by `ExecPrimitive` and template is for value
+  // types
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(int8())}, out_type,
+                                   XxHashScalar<int8_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(int16())}, out_type,
+                                   XxHashScalar<int16_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(int32())}, out_type,
+                                   XxHashScalar<int32_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(int64())}, out_type,
+                                   XxHashScalar<int64_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(uint8())}, out_type,
+                                   XxHashScalar<uint8_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(uint16())}, out_type,
+                                   XxHashScalar<uint16_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(uint32())}, out_type,
+                                   XxHashScalar<uint32_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(uint64())}, out_type,
+                                   XxHashScalar<uint64_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(float32())}, out_type,
+                                   XxHashScalar<float>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(float64())}, out_type,
+                                   XxHashScalar<double>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(boolean())}, out_type,
+                                   XxHashScalar<bool>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(date32())}, out_type,
+                                   XxHashScalar<int32_t>::ExecPrimitive));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(date64())}, out_type,
+                                   XxHashScalar<int64_t>::ExecPrimitive));
+
+  // binary types are handled by `ExecBinary`, and template is for offset types
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(binary())}, out_type,
+                                   XxHashScalar<int32_t>::ExecBinary));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(utf8())}, out_type,
+                                   XxHashScalar<int32_t>::ExecBinary));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(large_binary())}, out_type,
+                                   XxHashScalar<int64_t>::ExecBinary));
+
+  DCHECK_OK(fn_xx_hash->AddKernel({InputType(large_utf8())}, out_type,
+                                   XxHashScalar<int64_t>::ExecBinary));
 
   // Return function to be registered
   return fn_xx_hash;
