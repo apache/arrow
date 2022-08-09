@@ -97,6 +97,7 @@ class S3RetryStrategy:
     max_attempts : int, default 3
         The maximum number of retry attempts to attempt before failing.
     """
+
     def __init__(self, max_attempts=3):
         self.max_attempts = max_attempts
 
