@@ -41,7 +41,7 @@ Arrow is "ARROW".
 .. _required-permissions:
 
 Required permissions
-++++++++++++++++++++++++++++
+++++++++++++++++++++
 
 Any registered ASF Jira account may create Jira issues in the Apache Arrow
 project without additional permissions. Individuals may
