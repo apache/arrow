@@ -1093,7 +1093,8 @@ def test_gcs_options():
 
 @pytest.mark.s3
 def test_s3_options():
-    from pyarrow.fs import S3FileSystem, AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy
+    from pyarrow.fs import (AwsDefaultS3RetryStrategy,
+                            AwsStandardS3RetryStrategy, S3FileSystem)
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
