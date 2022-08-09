@@ -1178,9 +1178,9 @@ cdef class CsvFileFormat(FileFormat):
     """
     cdef:
         CCsvFileFormat* csv_format
-        # The encoding field in ReadOptions does not exist
-        # in the C++ struct. We need to store it here and override it when
-        # reading read_options or default_fragment_scan_options
+        # The encoding field in ReadOptions does not exist in the C++ struct.
+        # We need to store it here and override it when reading 
+        # default_fragment_scan_options.read_options
         public ReadOptions read_options_py
 
     # Avoid mistakingly creating attributes
@@ -1209,9 +1209,6 @@ cdef class CsvFileFormat(FileFormat):
             raise TypeError('`default_fragment_scan_options` must be either '
                             'a dictionary or an instance of '
                             'CsvFragmentScanOptions')
-        else:
-            # default_fragment_scan_options is needed to add a transcoder
-            self.default_fragment_scan_options = CsvFragmentScanOptions()
         if read_options is not None:
             self.read_options_py = read_options
 
@@ -1269,9 +1266,8 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     cdef:
         CCsvFragmentScanOptions* csv_options
-        # The encoding field in ReadOptions does not exist
-        # in the C++ struct. We need to store it here and override it when
-        # reading read_options
+        # The encoding field in ReadOptions does not exist in the C++ struct. 
+        # We need to store it here and override it when reading read_options
         ReadOptions read_options_py
 
     # Avoid mistakingly creating attributes
