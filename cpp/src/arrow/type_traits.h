@@ -920,6 +920,7 @@ static inline bool is_floating(Type::type type_id) {
 
 /// \brief Check for a numeric type
 ///
+/// This predicate doesn't match decimals (see `is_decimal`).
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a numeric type one
 static inline bool is_numeric(Type::type type_id) {
