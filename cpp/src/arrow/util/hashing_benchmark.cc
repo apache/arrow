@@ -24,8 +24,8 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/testing/random.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/util/hashing.h"
 
 #include "arrow/array/builder_primitive.h"
@@ -36,12 +36,12 @@ namespace arrow {
 namespace internal {
 
 namespace {
-  // copied from scalar_string_benchmark
-  constexpr auto kSeed = 0x94378165;
-  constexpr double null_prob = 0.2;
+// copied from scalar_string_benchmark
+constexpr auto kSeed = 0x94378165;
+constexpr double null_prob = 0.2;
 
-  static random::RandomArrayGenerator hashing_rng(kSeed);
-}
+static random::RandomArrayGenerator hashing_rng(kSeed);
+}  // namespace
 
 template <class Integer>
 static std::vector<Integer> MakeIntegers(int32_t n_values) {
@@ -315,14 +315,16 @@ static void FastHash64Int64(benchmark::State& state) {  // NOLINT non-const refe
   state.SetItemsProcessed(state.iterations() * test_vals->length());
 }
 
-static void FastHash64StructSmallStrings(benchmark::State& state) {  // NOLINT non-const reference
+static void FastHash64StructSmallStrings(
+    benchmark::State& state) {  // NOLINT non-const reference
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<StructArray> values_array,
                        MakeStructArray(10000, 2, 20));
 
   // 2nd column (index 1) is a string column, which has offset type of int32_t
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
                        values_array->GetFlattenedField(1));
-  std::shared_ptr<StringArray> str_vals = std::static_pointer_cast<StringArray>(values_second);
+  std::shared_ptr<StringArray> str_vals =
+      std::static_pointer_cast<StringArray>(values_second);
   int32_t total_string_size = str_vals->total_values_length();
 
   while (state.KeepRunning()) {
@@ -331,20 +333,23 @@ static void FastHash64StructSmallStrings(benchmark::State& state) {  // NOLINT n
     benchmark::DoNotOptimize(hash_result);
   }
 
-  state.SetBytesProcessed(state.iterations() * ((values_array->length() * sizeof(int64_t)) +
-                                                (total_string_size) +
-                                                (values_array->length() * sizeof(int64_t))));
+  state.SetBytesProcessed(state.iterations() *
+                          ((values_array->length() * sizeof(int64_t)) +
+                           (total_string_size) +
+                           (values_array->length() * sizeof(int64_t))));
   state.SetItemsProcessed(state.iterations() * 3 * values_array->length());
 }
 
-static void FastHash64StructMediumStrings(benchmark::State& state) {  // NOLINT non-const reference
+static void FastHash64StructMediumStrings(
+    benchmark::State& state) {  // NOLINT non-const reference
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<StructArray> values_array,
                        MakeStructArray(10000, 20, 120));
 
   // 2nd column (index 1) is a string column, which has offset type of int32_t
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
                        values_array->GetFlattenedField(1));
-  std::shared_ptr<StringArray> str_vals = std::static_pointer_cast<StringArray>(values_second);
+  std::shared_ptr<StringArray> str_vals =
+      std::static_pointer_cast<StringArray>(values_second);
   int32_t total_string_size = str_vals->total_values_length();
 
   while (state.KeepRunning()) {
@@ -353,20 +358,23 @@ static void FastHash64StructMediumStrings(benchmark::State& state) {  // NOLINT 
     benchmark::DoNotOptimize(hash_result);
   }
 
-  state.SetBytesProcessed(state.iterations() * ((values_array->length() * sizeof(int64_t)) +
-                                                (total_string_size) +
-                                                (values_array->length() * sizeof(int64_t))));
+  state.SetBytesProcessed(state.iterations() *
+                          ((values_array->length() * sizeof(int64_t)) +
+                           (total_string_size) +
+                           (values_array->length() * sizeof(int64_t))));
   state.SetItemsProcessed(state.iterations() * 3 * values_array->length());
 }
 
-static void FastHash64StructLargeStrings(benchmark::State& state) {  // NOLINT non-const reference
+static void FastHash64StructLargeStrings(
+    benchmark::State& state) {  // NOLINT non-const reference
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<StructArray> values_array,
                        MakeStructArray(10000, 120, 2000));
 
   // 2nd column (index 1) is a string column, which has offset type of int32_t
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> values_second,
                        values_array->GetFlattenedField(1));
-  std::shared_ptr<StringArray> str_vals = std::static_pointer_cast<StringArray>(values_second);
+  std::shared_ptr<StringArray> str_vals =
+      std::static_pointer_cast<StringArray>(values_second);
   int32_t total_string_size = str_vals->total_values_length();
 
   while (state.KeepRunning()) {
@@ -375,9 +383,10 @@ static void FastHash64StructLargeStrings(benchmark::State& state) {  // NOLINT n
     benchmark::DoNotOptimize(hash_result);
   }
 
-  state.SetBytesProcessed(state.iterations() * ((values_array->length() * sizeof(int64_t)) +
-                                                (total_string_size) +
-                                                (values_array->length() * sizeof(int64_t))));
+  state.SetBytesProcessed(state.iterations() *
+                          ((values_array->length() * sizeof(int64_t)) +
+                           (total_string_size) +
+                           (values_array->length() * sizeof(int64_t))));
   state.SetItemsProcessed(state.iterations() * 3 * values_array->length());
 }
 
