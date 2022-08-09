@@ -195,7 +195,7 @@ get attention from appropriate contributors.
 * Use the **Component** field to indicate the area of the project that your
   issue pertains to (for example "Python" or "C++").
 * Also prefix the issue title with the component name in brackets, for example
-  ``[Python] issue name`` ; this helps when navigating lists of open issues,
+  ``[Python] issue summary`` ; this helps when navigating lists of open issues,
   and it also makes our changelogs more readable. Most prefixes are exactly the
   same as the **Component** name, with the following exceptions:
 
