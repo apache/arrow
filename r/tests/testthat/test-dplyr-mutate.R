@@ -279,10 +279,11 @@ test_that("dplyr::mutate's examples", {
   # Examples we don't support should succeed
   # but warn that they're pulling data into R to do so
 
+  # test modified from version in dplyr::mutate due to ARROW-12632
   compare_dplyr_binding(
     .input %>%
-      select(name, homeworld, species) %>%
-      mutate(across(!name, as.factor)) %>%
+      select(name, height, mass) %>%
+      mutate(across(!name, as.character)) %>%
       collect(),
     starwars,
   )
