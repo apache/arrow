@@ -170,10 +170,10 @@ unfold_across <- function(.data, quos_in) {
 
       # use select to get the column names so we can take advantage of tidyselect
       cols <- names(select(.data, !!across_call[[".cols"]]))
-      funcs <- across_call[[".fns"]]
+      funcs <- as.character(across_call[[".fns"]])
 
       # ensure isn't single item vector or list
-      funcs <- funcs[!as.character(funcs) %in% c("c", "list")]
+      funcs <- funcs[!funcs %in% c("c", "list")]
 
       # ARROW-17364: add support for .names argument
       if (!is.null(across_call[[".names"]])) {
@@ -189,7 +189,7 @@ unfold_across <- function(.data, quos_in) {
       if (length(funcs) == 1) {
         # work out the quosures from the call
         col_syms <- syms(cols)
-        new_quos <- map(col_syms, ~ quo(!!call2(as.character(funcs), .x)))
+        new_quos <- map(col_syms, ~ quo(!!call2(funcs, .x)))
         # if only 1 function, we overwrite the old columns
         new_quos <- set_names(new_quos, cols)
       } else {
