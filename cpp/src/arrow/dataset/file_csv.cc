@@ -177,19 +177,13 @@ static inline Result<csv::ReadOptions> GetReadOptions(
 }
 
 static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
-    const FileSource& source, const CsvFileFormat& format,
-    const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor) {
+    const std::shared_ptr<io::BufferedInputStream>& input, const std::string & path,
+     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor) {
 #ifdef ARROW_WITH_OPENTELEMETRY
   auto tracer = arrow::internal::tracing::GetTracer();
   auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
 #endif
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
-
-  ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
-  const auto& path = source.path();
-  ARROW_ASSIGN_OR_RAISE(
-      input, io::BufferedInputStream::Create(reader_options.block_size,
-                                             default_memory_pool(), std::move(input)));
 
   // Grab the first block and use it to determine the schema and create a reader.  The
   // input->Peek call blocks so we run the whole thing on the I/O thread pool.
@@ -222,6 +216,25 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
 #endif
         return err.WithMessage("Could not open CSV input source '", path, "': ", err);
       });
+}
+
+static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
+    const FileSource& source, const CsvFileFormat& format,
+    const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
+#endif
+  ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
+
+  std::shared_ptr<io::InputStream> input;
+  ARROW_ASSIGN_OR_RAISE(input, source.OpenCompressed());
+  const auto& path = source.path();
+  ARROW_ASSIGN_OR_RAISE(
+      auto buffered_input, io::BufferedInputStream::Create(reader_options.block_size,
+                                             default_memory_pool(), std::move(input)));
+
+  return OpenReaderAsync(buffered_input, path, format, scan_options, ::arrow::internal::GetCpuThreadPool());
 }
 
 static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
@@ -274,8 +287,21 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
     const std::shared_ptr<FileFragment>& file) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
   auto source = file->source();
-  auto reader_fut =
-      OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
+  Future<std::shared_ptr<csv::StreamingReader>> reader_fut;
+  if(file->boundaries().first == 0 && file->boundaries().second==0)
+  {
+      reader_fut = OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(*this, scan_options));
+    std::shared_ptr<io::InputStream> input;
+    ARROW_ASSIGN_OR_RAISE(input, source.OpenRange({file->boundaries().first, file->boundaries().second}));
+    const auto& path = source.path();
+    ARROW_ASSIGN_OR_RAISE(
+      auto buffered_input, io::BufferedInputStream::Create(reader_options.block_size,
+                                             default_memory_pool(), std::move(input)));
+    reader_fut = OpenReaderAsync(buffered_input, path, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
+  }
+  
   auto generator = GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
   WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
       generator, "arrow::dataset::CsvFileFormat::ScanBatchesAsync::Next");
