@@ -1191,6 +1191,31 @@ Containment tests
 * \(8) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
+Hash Functions
+~~~~~~~~~~~~~~
+
+Not to be confused with the "group by" functions, Hash functions produce an array of hash
+values corresponding to the length of the input. Currently, these functions take a single
+array as input.
+
++-----------------------+-------+-----------------------------------+-------------+---------------+-------+
+| Function name         | Arity | Input types                       | Output type | Options class | Notes |
++=======================+=======+===================================+=============+===============+=======+
+| fast_hash_32          | Unary | Any                               | UInt32      |               | \(1)  |
++-----------------------+-------+-----------------------------------+-------------+---------------+-------+
+| fast_hash_64          | Unary | Any                               | UInt64      |               | \(1)  |
++-----------------------+-------+-----------------------------------+-------------+---------------+-------+
+| xx_hash               | Unary | Numeric, Binary-like, String-like | UInt64      |               | \(2)  |
++-----------------------+-------+-----------------------------------+-------------+---------------+-------+
+
+* \(1) The hashing algorithm is "xxHash-like", making some minor trade-offs in favor of
+  performance. Arrays containing nested types are recursively walked and flattened; such
+  that each field or attribute (corresponding to the same row) are hashed and combined
+  into a single hash value.
+
+* \(2) The hashing algorithm is "xxHash", using vendored code (see "hashing.h"). Nested
+  types are not currently supported. Hashing of small strings is specialized.
+
 Categorizations
 ~~~~~~~~~~~~~~~
 
