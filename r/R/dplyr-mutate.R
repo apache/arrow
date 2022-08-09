@@ -166,24 +166,30 @@ unfold_across <- function(.data, quos_in) {
 
     if (is_call(quo_expr, "across")) {
       new_quos <- list()
-      call <- match.call(dplyr::across, quo_expr)
+      across_call <- match.call(dplyr::across, quo_expr)
 
       # use select to get the column names so we can take advantage of tidyselect
-      cols <- names(select(.data, !!call[[".cols"]]))
-      funcs <- call[[".fns"]]
+      cols <- names(select(.data, !!across_call[[".cols"]]))
+      funcs <- across_call[[".fns"]]
+
+      # ensure isn't single item vector or list
+      funcs <- funcs[!as.character(funcs) %in% c("c", "list")]
 
       # ARROW-17364: add support for .names argument
-      if (!is.null(call[[".names"]])) {
+      if (!is.null(across_call[[".names"]])) {
         abort("`.names` argument to `across()` not yet supported in Arrow")
       }
 
-      # TODO: refactor to take in the .names argument to across()
+      if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
+        abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
+      }
+
       new_quos <- list()
 
       if (length(funcs) == 1) {
         # work out the quosures from the call
         col_syms <- syms(cols)
-        new_quos <- map(col_syms, ~ quo(!!call2(funcs, .x)))
+        new_quos <- map(col_syms, ~ quo(!!call2(as.character(funcs), .x)))
         # if only 1 function, we overwrite the old columns
         new_quos <- set_names(new_quos, cols)
       } else {

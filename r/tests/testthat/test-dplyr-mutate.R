@@ -598,6 +598,7 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
+  # across() arguments not in default order
   compare_dplyr_binding(
     .input %>%
       mutate(across(.fns = round, c(dbl, dbl2))) %>%
@@ -605,20 +606,27 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(c(1, 2), round)) %>%
+  # ARROW-17364: .names argument not yet supported for across()
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      mutate(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")) %>%
       collect(),
-    tbl
+      regexp = "`.names` argument to `across()` not yet supported in Arrow",
+    fixed = TRUE
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(1:dbl2, round)) %>%
+  # ellipses (...) are a deprecated argument
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      mutate(across(c(dbl, dbl2), round, digits = -1)) %>%
       collect(),
-    tbl
+      regexp = "`...` argument to `across()` is deprecated in dplyr and not supported in Arrow",
+    fixed = TRUE
   )
 
+  # alternative ways of specifying .fns - as a list
   compare_dplyr_binding(
     .input %>%
       mutate(across(1:dbl2, list(round))) %>%
@@ -626,9 +634,28 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
+  # supply .fns as a one-item vector
+  # Unclear as of yet whether the dplyr behaviour is a bug or not
+  # See: https://github.com/tidyverse/dplyr/issues/6395
   compare_dplyr_binding(
     .input %>%
       mutate(across(1:dbl2, c(round))) %>%
+      collect(),
+    tbl
+  )
+
+  # use a purrr-style lambda formula
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(1:dbl2, ~round(.x, digits = -1))) %>%
+      collect(),
+    tbl
+  )
+
+  # .fns = NULL, the default
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(1:dbl2, NULL)) %>%
       collect(),
     tbl
   )
