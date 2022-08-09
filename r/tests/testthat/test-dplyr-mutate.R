@@ -590,7 +590,6 @@ test_that("mutate() and transmute() with namespaced functions", {
 })
 
 test_that("Can use across() within mutate()", {
-
   compare_dplyr_binding(
     .input %>%
       mutate(across(c(dbl, dbl2), round)) %>%
@@ -612,7 +611,7 @@ test_that("Can use across() within mutate()", {
       arrow_table() %>%
       mutate(across(c(dbl, dbl2), round, .names = "{.col}.{.fn}")) %>%
       collect(),
-      regexp = "`.names` argument to `across()` not yet supported in Arrow",
+    regexp = "`.names` argument to `across()` not yet supported in Arrow",
     fixed = TRUE
   )
 
@@ -622,7 +621,7 @@ test_that("Can use across() within mutate()", {
       arrow_table() %>%
       mutate(across(c(dbl, dbl2), round, digits = -1)) %>%
       collect(),
-      regexp = "`...` argument to `across()` is deprecated in dplyr and not supported in Arrow",
+    regexp = "`...` argument to `across()` is deprecated in dplyr and not supported in Arrow",
     fixed = TRUE
   )
 
@@ -631,10 +630,10 @@ test_that("Can use across() within mutate()", {
   # See: https://github.com/tidyverse/dplyr/issues/6395 for why this is related
   expect_error(
     compare_dplyr_binding(
-        .input %>%
-          mutate(across(1:dbl2, list(round))) %>%
-          collect(),
-        tbl
+      .input %>%
+        mutate(across(1:dbl2, list(round))) %>%
+        collect(),
+      tbl
     )
   )
 
@@ -654,10 +653,10 @@ test_that("Can use across() within mutate()", {
   expect_error(
     compare_dplyr_binding(
       .input %>%
-        mutate(across(1:dbl2, ~round(.x, digits = -1))) %>%
+        mutate(across(1:dbl2, ~ round(.x, digits = -1))) %>%
         collect(),
       tbl
-      ),
+    ),
     regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
     fixed = TRUE
   )
@@ -692,5 +691,4 @@ test_that("Can use across() within mutate()", {
     "window functions not currently supported in Arrow; pulling data into R",
     fixed = TRUE
   )
-
 })
