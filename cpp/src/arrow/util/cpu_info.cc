@@ -111,7 +111,8 @@ void OsRetrieveCacheSize(std::array<int64_t, kCacheLevels>* cache_sizes) {
     if (RelationCache == buffer_position->Relationship) {
       PCACHE_DESCRIPTOR cache = &buffer_position->Cache;
       if (cache->Level >= 1 && cache->Level <= kCacheLevels) {
-        (*cache_sizes)[cache->Level - 1] += cache->Size;
+        const int64_t current = (*cache_sizes)[cache->Level - 1];
+        (*cache_sizes)[cache->Level - 1] = std::max<int64_t>(current, cache->Size);
       }
     }
     offset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
