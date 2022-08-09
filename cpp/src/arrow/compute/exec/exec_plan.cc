@@ -76,24 +76,26 @@ struct ExecPlanImpl : public ExecPlan {
 
   Result<Future<>> BeginExternalTask() {
     Future<> completion_future = Future<>::Make();
-    ARROW_ASSIGN_OR_RAISE(bool task_added,
-                          task_group_.AddTaskIfNotEnded(completion_future));
-    if (task_added) {
-      return std::move(completion_future);
-    }
-    // Return an invalid future if we were already finished to signal to the
-    // caller that they should not begin the task
+    // FIXME
     return Future<>{};
+    // ARROW_ASSIGN_OR_RAISE(bool task_added,
+    //                       task_group_.AddTaskIfNotEnded(completion_future));
+    // if (task_added) {
+    //   return std::move(completion_future);
+    // }
+    // // Return an invalid future if we were already finished to signal to the
+    // // caller that they should not begin the task
+    // return Future<>{};
   }
 
   Status ScheduleTask(std::function<Status()> fn) {
     auto executor = exec_context_->executor();
     if (!executor) return fn();
     // Adds a task which submits fn to the executor and tracks its progress.  If we're
-    // already stopping then the task is ignored and fn is not executed.
-    return task_group_
-        .AddTaskIfNotEnded([executor, fn]() { return executor->Submit(std::move(fn)); })
-        .status();
+    // aborted then the task is ignored and fn is not executed.
+    async_scheduler_->AddSimpleTask(
+        [executor, fn]() { return executor->Submit(std::move(fn)); });
+    return Status::OK();
   }
 
   Status ScheduleTask(std::function<Status(size_t)> fn) {
@@ -112,6 +114,8 @@ struct ExecPlanImpl : public ExecPlan {
   Status StartTaskGroup(int task_group_id, int64_t num_tasks) {
     return task_scheduler_->StartTaskGroup(GetThreadIndex(), task_group_id, num_tasks);
   }
+
+  util::AsyncTaskScheduler* async_scheduler() { return async_scheduler_.get(); }
 
   Status Validate() const {
     if (nodes_.empty()) {
@@ -197,7 +201,8 @@ struct ExecPlanImpl : public ExecPlan {
   void EndTaskGroup() {
     bool expected = false;
     if (group_ended_.compare_exchange_strong(expected, true)) {
-      task_group_.End().AddCallback([this](const Status& st) {
+      async_scheduler_->End();
+      async_scheduler_->OnFinished().AddCallback([this](const Status& st) {
         MARK_SPAN(span_, error_st_ & st);
         END_SPAN(span_);
         finished_.MarkFinished(error_st_ & st);
@@ -328,7 +333,8 @@ struct ExecPlanImpl : public ExecPlan {
 
   ThreadIndexer thread_indexer_;
   std::atomic<bool> group_ended_{false};
-  util::AsyncTaskGroup task_group_;
+  std::unique_ptr<util::AsyncTaskScheduler> async_scheduler_ =
+      util::AsyncTaskScheduler::Make();
   std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
 };
 
@@ -384,6 +390,10 @@ int ExecPlan::RegisterTaskGroup(std::function<Status(size_t, int64_t)> task,
 }
 Status ExecPlan::StartTaskGroup(int task_group_id, int64_t num_tasks) {
   return ToDerived(this)->StartTaskGroup(task_group_id, num_tasks);
+}
+
+util::AsyncTaskScheduler* ExecPlan::async_scheduler() {
+  return ToDerived(this)->async_scheduler();
 }
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }

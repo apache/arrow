@@ -1031,9 +1031,11 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Status Unlock() {
-    std::lock_guard<std::mutex> lk(mx_);
-    unlocked_ = true;
-    unlocked_cv_.notify_all();
+    {
+      std::lock_guard<std::mutex> lk(mx_);
+      unlocked_ = true;
+      unlocked_cv_.notify_all();
+    }
     unlocked_future_.MarkFinished();
     return status_;
   }
