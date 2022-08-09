@@ -33,7 +33,6 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/ir_consumer.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/function_internal.h"
@@ -308,18 +307,6 @@ bool operator==(const Declaration& l, const Declaration& r) {
   if (l.inputs != r.inputs) return false;
   if (l.label != r.label) return false;
 
-  if (l.factory_name == "catalog_source") {
-    auto l_opts = &OptionsAs<CatalogSourceNodeOptions>(l);
-    auto r_opts = &OptionsAs<CatalogSourceNodeOptions>(r);
-
-    bool schemas_equal = l_opts->schema == nullptr
-                             ? r_opts->schema == nullptr
-                             : l_opts->schema->Equals(r_opts->schema);
-
-    return l_opts->name == r_opts->name && schemas_equal &&
-           l_opts->filter == r_opts->filter && l_opts->projection == r_opts->projection;
-  }
-
   if (l.factory_name == "filter") {
     return OptionsAs<FilterNodeOptions>(l).filter_expression ==
            OptionsAs<FilterNodeOptions>(r).filter_expression;
@@ -367,22 +354,6 @@ bool operator==(const Declaration& l, const Declaration& r) {
 
 static inline void PrintToImpl(const std::string& factory_name,
                                const ExecNodeOptions& opts, std::ostream* os) {
-  if (factory_name == "catalog_source") {
-    auto o = &OptionsAs<CatalogSourceNodeOptions>(opts);
-    *os << o->name << ", schema=" << o->schema->ToString();
-    if (o->filter != literal(true)) {
-      *os << ", filter=" << o->filter.ToString();
-    }
-    if (!o->projection.empty()) {
-      *os << ", projection=[";
-      for (const auto& ref : o->projection) {
-        *os << ref.ToString() << ",";
-      }
-      *os << "]";
-    }
-    return;
-  }
-
   if (factory_name == "filter") {
     return PrintTo(OptionsAs<FilterNodeOptions>(opts).filter_expression, os);
   }
