@@ -166,10 +166,16 @@ unfold_across <- function(.data, quos_in) {
 
     if (is_call(quo_expr, "across")) {
       new_quos <- list()
+      call <- match.call(dplyr::across, quo_expr)
 
       # use select to get the column names so we can take advantage of tidyselect
-      cols <- names(select(.data, !!quo_expr[[2]]))
-      funcs <- quo_expr[[3]]
+      cols <- names(select(.data, !!call[[".cols"]]))
+      funcs <- call[[".fns"]]
+
+      # ARROW-17364: add support for .names argument
+      if (!is.null(call[[".names"]])) {
+        abort("`.names` argument to `across()` not yet supported in Arrow")
+      }
 
       # TODO: refactor to take in the .names argument to across()
       new_quos <- list()
