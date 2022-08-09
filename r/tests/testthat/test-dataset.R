@@ -1367,10 +1367,10 @@ test_that("can add in augmented fields", {
   )
 
   error_regex <- paste(
-      "Augmented fields such as 'filename' must",
-      "only be used with with Dataset objects which have",
-      "not been aggregated or joined."
-    )
+    "Augmented fields such as 'filename' must",
+    "only be used with with Dataset objects which have",
+    "not been aggregated or joined."
+  )
 
   # errors appropriately with ArrowTabular objects
   expect_error(
@@ -1411,9 +1411,9 @@ test_that("can add in augmented fields", {
 
   # this hits the implicit_schema path by joining afterwards
   join_after <- ds %>%
-      mutate(file = add_filename()) %>%
-      left_join(open_dataset("another_dataset"), by = "int") %>%
-      collect()
+    mutate(file = add_filename()) %>%
+    left_join(open_dataset("another_dataset"), by = "int") %>%
+    collect()
 
   expect_named(
     join_after,
@@ -1427,14 +1427,13 @@ test_that("can add in augmented fields", {
 
   # another test on the explicit_schema path
   summarise_after <- ds %>%
-      mutate(file = add_filename()) %>%
-      group_by(file) %>%
-      summarise(max_int = max(int)) %>%
-      collect()
+    mutate(file = add_filename()) %>%
+    group_by(file) %>%
+    summarise(max_int = max(int)) %>%
+    collect()
 
   expect_equal(
     sort(summarise_after$file),
     list.files(hive_dir, full.names = TRUE, recursive = TRUE)
   )
-
 })
