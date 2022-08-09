@@ -114,6 +114,7 @@ std::shared_ptr<::arrow::io::InputStream> MakeTransformInputStream(
 
 using StreamWrapFunc = std::function<Result<std::shared_ptr<io::InputStream>>(
     std::shared_ptr<io::InputStream>)>;
+ARROW_PYTHON_EXPORT
 std::shared_ptr<StreamWrapFunc> MakeStreamTransformFunc(TransformInputStreamVTable vtable,
                                                         PyObject* handler);
 }  // namespace py
