@@ -68,18 +68,16 @@ static std::vector<std::string> MakeStrings(int32_t n_values, int32_t min_length
 
 template <BuilderType, ValueType>
 static Result<std::shared_ptr<Array>> MakeArray(std::vector<ValueType> vals) {
-    BuilderType arr_builder;
-    ARROW_RETURN_NOT_OK(arr_builder.Reserve(vals.size()));
-    ARROW_RETURN_NOT_OK(arr_builder.AppendValues(vals));
+  BuilderType arr_builder;
+  ARROW_RETURN_NOT_OK(arr_builder.Reserve(vals.size()));
+  ARROW_RETURN_NOT_OK(arr_builder.AppendValues(vals));
 
-    return arr_builder.Finish();
+  return arr_builder.Finish();
 }
 
 static Result<std::shared_ptr<Array>> MakeStructArray(
-    std::vector<int64_t>     vals_first,
-    std::vector<std::string> vals_second,
-    std::vector<int64_t>     vals_third) {
-
+    std::vector<int64_t> vals_first, std::vector<std::string> vals_second,
+    std::vector<int64_t> vals_third) {
   std::shared_ptr<Array> valarray_first, valarray_second, valarray_third;
 
   // vals_first
@@ -95,11 +93,10 @@ static Result<std::shared_ptr<Array>> MakeStructArray(
                         MakeArray<arrow::Int64Builder, int64_t>(vals_third));
 
   return arrow::StructArray::Make(
-    arrow::ArrayVector { valarray_first, valarray_second, valarray_third },
-    arrow::FieldVector { arrow::field("first" , arrow::int64()),
+      arrow::ArrayVector{valarray_first, valarray_second, valarray_third},
+      arrow::FieldVector{arrow::field("first", arrow::int64()),
                          arrow::field("second", arrow::utf8()),
-                         arrow::field("third" , arrow::int64()) }
-  );
+                         arrow::field("third", arrow::int64())});
 }
 
 static void HashIntegers32(benchmark::State& state) {  // NOLINT non-const reference
@@ -169,9 +166,9 @@ static void FastHashIntegers64(benchmark::State& state) {  // NOLINT non-const r
 }
 
 static void FastHashStruct64(benchmark::State& state) {  // NOLINT non-const reference
-  const std::vector<int64_t>     vals_first  = MakeIntegers<int64_t>(10000);
+  const std::vector<int64_t> vals_first = MakeIntegers<int64_t>(10000);
   const std::vector<std::string> vals_second = MakeStrings(10000, 20, 120);
-  const std::vector<int64_t>     vals_third  = MakeIntegers<int64_t>(10000);
+  const std::vector<int64_t> vals_third = MakeIntegers<int64_t>(10000);
 
   uint64_t vals_second_total_size = 0;
   for (const std::string& v : vals_second) {
@@ -187,10 +184,9 @@ static void FastHashStruct64(benchmark::State& state) {  // NOLINT non-const ref
     benchmark::DoNotOptimize(hash_result);
   }
 
-  state.SetBytesProcessed(state.iterations() * (
-                          (vals_first.size() * sizeof(int64_t)) +
-                          (vals_second_total_size) +
-                          (vals_third.size() * sizeof(int64_t))));
+  state.SetBytesProcessed(state.iterations() * ((vals_first.size() * sizeof(int64_t)) +
+                                                (vals_second_total_size) +
+                                                (vals_third.size() * sizeof(int64_t))));
   state.SetItemsProcessed(state.iterations() * 3 * vals_first.size());
 }
 
