@@ -168,20 +168,28 @@ unfold_across <- function(.data, quos_in) {
       new_quos <- list()
       across_call <- match.call(dplyr::across, quo_expr)
 
-      # use select to get the column names so we can take advantage of tidyselect
-      cols <- names(select(.data, !!across_call[[".cols"]]))
-      funcs <- as.character(across_call[[".fns"]])
-
-      # ensure isn't single item vector or list
-      funcs <- funcs[!funcs %in% c("c", "list")]
+      if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
+        abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
+      }
 
       # ARROW-17364: add support for .names argument
       if (!is.null(across_call[[".names"]])) {
         abort("`.names` argument to `across()` not yet supported in Arrow")
       }
 
-      if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
-        abort("`...` argument to `across()` is deprecated in dplyr and not supported in Arrow")
+      # use select to get the column names so we can take advantage of tidyselect
+      cols <- names(select(.data, !!across_call[[".cols"]]))
+      funcs <- as.character(across_call[[".fns"]])
+
+      if (is_empty(funcs)) {
+        return()
+      }
+
+      # ensure isn't single item vector or list
+      funcs <- funcs[!funcs %in% c("c", "list")]
+
+      if (funcs[[1]] == "~") {
+        abort("purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow")
       }
 
       new_quos <- list()

@@ -650,12 +650,16 @@ test_that("Can use across() within mutate()", {
     )
   )
 
-  # use a purrr-style lambda formula
-  compare_dplyr_binding(
-    .input %>%
-      mutate(across(1:dbl2, ~round(.x, digits = -1))) %>%
-      collect(),
-    tbl
+  # ARROW-17366: purrr-style lmabda functions not yet supported
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(across(1:dbl2, ~round(.x, digits = -1))) %>%
+        collect(),
+      tbl
+      ),
+    regexp = "purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow",
+    fixed = TRUE
   )
 
   # .fns = NULL, the default
