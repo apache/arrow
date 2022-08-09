@@ -1115,6 +1115,7 @@ static inline bool is_dictionary(Type::type type_id) {
 
 /// \brief Check for a fixed-size-binary type
 ///
+/// This predicate also matches decimals.
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a fixed-size-binary type one
 static inline bool is_fixed_size_binary(Type::type type_id) {
