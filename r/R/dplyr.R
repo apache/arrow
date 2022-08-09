@@ -110,6 +110,7 @@ make_field_refs <- function(field_names) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
+  # If we are using this augmented field, it won't be in the schema
   schm[["__filename"]] <- string()
 
   types <- map_chr(x$selected_columns, function(expr) {
