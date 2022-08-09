@@ -1094,7 +1094,8 @@ def test_gcs_options():
 @pytest.mark.s3
 def test_s3_options():
     from pyarrow.fs import (AwsDefaultS3RetryStrategy,
-                            AwsStandardS3RetryStrategy, S3FileSystem)
+                            AwsStandardS3RetryStrategy, S3FileSystem,
+                            S3RetryStrategy)
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
@@ -1170,6 +1171,8 @@ def test_s3_options():
         S3FileSystem(role_arn="arn", anonymous=True)
     with pytest.raises(ValueError):
         S3FileSystem(default_metadata=["foo", "bar"])
+    with pytest.raises(ValueError):
+        S3FileSystem(retry_strategy=S3RetryStrategy())
 
 
 @pytest.mark.s3
