@@ -52,32 +52,38 @@ const (
 	IsSearchableKey    = "ARROW:FLIGHT:SQL:IS_SEARCHABLE"
 )
 
+// ColumnMetadata is a helper object for managing and querying the
+// standard SQL Column metadata using the expected Metadata Keys.
+// It can be created by just Wrapping an existing *arrow.Metadata.
+//
+// Each of the methods return a value and a boolean indicating if it
+// was set in the metadata or not.
 type ColumnMetadata struct {
-	data *arrow.Metadata
+	Data *arrow.Metadata
 }
 
 func (c *ColumnMetadata) findStrVal(key string) (string, bool) {
-	idx := c.data.FindKey(CatalogNameKey)
+	idx := c.Data.FindKey(CatalogNameKey)
 	if idx == -1 {
 		return "", false
 	}
-	return c.data.Values()[idx], true
+	return c.Data.Values()[idx], true
 }
 
 func (c *ColumnMetadata) findBoolVal(key string) (bool, bool) {
-	idx := c.data.FindKey(CatalogNameKey)
+	idx := c.Data.FindKey(CatalogNameKey)
 	if idx == -1 {
 		return false, false
 	}
-	return strToBool(c.data.Values()[idx]), true
+	return strToBool(c.Data.Values()[idx]), true
 }
 
 func (c *ColumnMetadata) findInt32Val(key string) (int32, bool) {
-	idx := c.data.FindKey(CatalogNameKey)
+	idx := c.Data.FindKey(CatalogNameKey)
 	if idx == -1 {
 		return 0, false
 	}
-	v, err := strconv.ParseInt(c.data.Values()[idx], 10, 32)
+	v, err := strconv.ParseInt(c.Data.Values()[idx], 10, 32)
 	if err != nil {
 		return 0, false
 	}
@@ -112,7 +118,7 @@ func (c *ColumnMetadata) IsAutoIncrement() (bool, bool) {
 	return c.findBoolVal(IsAutoIncrementKey)
 }
 
-func (c *ColumnMetadata) IsCaseSensitiveKey() (bool, bool) {
+func (c *ColumnMetadata) IsCaseSensitive() (bool, bool) {
 	return c.findBoolVal(IsCaseSensitiveKey)
 }
 
@@ -124,6 +130,10 @@ func (c *ColumnMetadata) IsSearchable() (bool, bool) {
 	return c.findBoolVal(IsSearchableKey)
 }
 
+// ColumnMetadataBuilder is a convenience builder for constructing
+// sql column metadata using the expected standard metadata keys.
+// All methods return the builder itself so it can be chained
+// to easily construct a final metadata object.
 type ColumnMetadataBuilder struct {
 	keys, vals []string
 }

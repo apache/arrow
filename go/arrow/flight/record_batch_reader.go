@@ -181,6 +181,7 @@ func DeserializeSchema(info []byte, mem memory.Allocator) (*arrow.Schema, error)
 	return rdr.Schema(), nil
 }
 
+// StreamChunk represents a single chunk of a FlightData stream
 type StreamChunk struct {
 	Data        arrow.Record
 	Desc        *FlightDescriptor
@@ -188,20 +189,33 @@ type StreamChunk struct {
 	Err         error
 }
 
-type MetadataRecordBatchReader interface {
+// MessageReader is an interface representing a RecordReader
+// that also provides StreamChunks and/or the ability to retrieve
+// FlightDescriptors and AppMetadata from the flight stream
+type MessageReader interface {
 	array.RecordReader
 	arrio.Reader
 	Err() error
 	Chunk() StreamChunk
-}
-
-type MessageReader interface {
-	MetadataRecordBatchReader
 	LatestFlightDescriptor() *FlightDescriptor
+	LatestAppMetadata() []byte
 }
 
+// StreamChunksFromReader is a convenience function to populate a channel
+// from a record reader. It is intended to be run using a separate goroutine
+// by calling `go flight.StreamChunksFromReader(rdr, ch)`.
+//
+// If the record reader panics, an error chunk will get sent on the channel.
+//
+// This will close the channel and release the reader when it completes.
 func StreamChunksFromReader(rdr array.RecordReader, ch chan<- StreamChunk) {
 	defer close(ch)
+	defer func() {
+		if err := recover(); err != nil {
+			ch <- StreamChunk{Err: fmt.Errorf("panic while reading: %s", err)}
+		}
+	}()
+
 	defer rdr.Release()
 	for rdr.Next() {
 		rec := rdr.Record()

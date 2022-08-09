@@ -163,7 +163,7 @@ func (s *FlightSqlClientSuite) TestGetDBSchemas() {
 	desc := getDesc(cmd)
 
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
-	info, err := s.sqlClient.GetDBSchemas(context.Background(), cmd, s.callOpts...)
+	info, err := s.sqlClient.GetDBSchemas(context.Background(), (*flightsql.GetDBSchemasOpts)(cmd), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }
@@ -186,7 +186,7 @@ func (s *FlightSqlClientSuite) TestGetTables() {
 	}
 	desc := getDesc(cmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
-	info, err := s.sqlClient.GetTables(context.Background(), cmd, s.callOpts...)
+	info, err := s.sqlClient.GetTables(context.Background(), (*flightsql.GetTablesOpts)(cmd), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }

@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package schema_ref contains the expected reference Schemas to be used
+// by FlightSQL servers and clients.
 package schema_ref
 
 import "github.com/apache/arrow/go/v10/arrow"

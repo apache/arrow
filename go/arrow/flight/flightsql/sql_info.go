@@ -30,6 +30,8 @@ const (
 	int32ToInt32ListIdx
 )
 
+// sqlInfoResultBldr is a helper for building up the dense union response
+// of a SqlInfo request.
 type sqlInfoResultBldr struct {
 	valueBldr *array.DenseUnionBuilder
 

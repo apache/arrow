@@ -34,34 +34,57 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+// the following interfaces wrap the Protobuf commands to avoid
+// exposing the Protobuf types themselves in the API.
+
+// StatementQuery represents a Sql Query
 type StatementQuery interface {
 	GetQuery() string
 }
 
+// StatementUpdate represents a SQL update query
 type StatementUpdate interface {
 	GetQuery() string
 }
 
+// StatementQueryTicket represents a request to execute a query
 type StatementQueryTicket interface {
+	// GetStatementHandle returns the server-generated opaque
+	// identifier for the query
 	GetStatementHandle() []byte
 }
 
+// PreparedStatementQuery represents a prepared query statement
 type PreparedStatementQuery interface {
+	// GetPreparedStatementHandle returns the server-generated opaque
+	// identifier for the statement
 	GetPreparedStatementHandle() []byte
 }
 
+// PreparedStatementUpdate represents a prepared update statement
 type PreparedStatementUpdate interface {
+	// GetPreparedStatementHandle returns the server-generated opaque
+	// identifier for the statement
 	GetPreparedStatementHandle() []byte
 }
 
+// ActionClosePreparedStatementRequest represents a request to close
+// a prepared statement
 type ActionClosePreparedStatementRequest interface {
+	// GetPreparedStatementHandle returns the server-generated opaque
+	// identifier for the statement
 	GetPreparedStatementHandle() []byte
 }
 
+// ActionCreatePreparedStatementRequest represents a request to construct
+// a new prepared statement
 type ActionCreatePreparedStatementRequest interface {
 	GetQuery() string
 }
 
+// ActionCreatePreparedStatementResult is the result of creating a new
+// prepared statement, optionally including the dataset and parameter
+// schemas.
 type ActionCreatePreparedStatementResult struct {
 	Handle          []byte
 	DatasetSchema   *arrow.Schema
@@ -74,11 +97,16 @@ type getXdbcTypeInfo struct {
 
 func (c *getXdbcTypeInfo) GetDataType() *int32 { return c.DataType }
 
+// GetXdbcTypeInfo represents a request for SQL Data Type information
 type GetXdbcTypeInfo interface {
+	// GetDataType returns either nil (get for all types)
+	// or a specific SQL type ID to fetch information about.
 	GetDataType() *int32
 }
 
+// GetSqlInfo represents a request for SQL Information
 type GetSqlInfo interface {
+	// GetInfo returns a slice of SqlInfo ids to return information about
 	GetInfo() []uint32
 }
 
@@ -89,6 +117,7 @@ type getDBSchemas struct {
 func (c *getDBSchemas) GetCatalog() *string               { return c.Catalog }
 func (c *getDBSchemas) GetDBSchemaFilterPattern() *string { return c.DbSchemaFilterPattern }
 
+// GetDBSchemas represents a request for list of database schemas
 type GetDBSchemas interface {
 	GetCatalog() *string
 	GetDBSchemaFilterPattern() *string
@@ -102,6 +131,7 @@ func (c *getTables) GetCatalog() *string                { return c.Catalog }
 func (c *getTables) GetDBSchemaFilterPattern() *string  { return c.DbSchemaFilterPattern }
 func (c *getTables) GetTableNameFilterPattern() *string { return c.TableNameFilterPattern }
 
+// GetTables represents a request to list the database's tables
 type GetTables interface {
 	GetCatalog() *string
 	GetDBSchemaFilterPattern() *string
@@ -110,15 +140,33 @@ type GetTables interface {
 	GetIncludeSchema() bool
 }
 
+// BaseServer must be embedded into any FlightSQL Server implementation
+// and provides default implementations of all methods returning an
+// unimplemented error if called. This allows consumers to gradually
+// implement methods as they want instead of requiring all consumers to
+// boilerplate the same "unimplemented" methods.
+//
+// The base implementation also contains handling for registering sql info
+// and serving it up in response to GetSqlInfo requests.
 type BaseServer struct {
 	sqlInfoToResult SqlInfoResultMap
+	// Alloc allows specifying a particular allocator to use for any
+	// allocations done by the base implementation.
+	// Will use memory.DefaultAlloctor if nil
+	Alloc memory.Allocator
 }
 
 func (BaseServer) mustEmbedBaseServer() {}
 
-func (b *BaseServer) RegisterSqlInfo(id uint32, result interface{}) error {
+// RegisterSqlInfo registers a specific result to return for a given sqlinfo
+// id. The result must be one of the following types: string, bool, int64,
+// int32, []string, or map[int32][]int32.
+//
+// Once registered, this value will be returned for any SqlInfo requests.
+func (b *BaseServer) RegisterSqlInfo(id SqlInfo, result interface{}) error {
 	switch result.(type) {
 	case string, bool, int64, int32, []string, map[int32][]int32:
+		b.sqlInfoToResult[uint32(id)] = result
 	default:
 		return fmt.Errorf("invalid sql info type '%T' registered for id: %d", result, id)
 	}
@@ -157,13 +205,35 @@ func (BaseServer) DoGetXdbcTypeInfo(context.Context, GetXdbcTypeInfo) (*arrow.Sc
 	return nil, nil, status.Errorf(codes.Unimplemented, "DoGetXdbcTypeInfo not implemented")
 }
 
-func (BaseServer) GetFlightInfoSqlInfo(context.Context, GetSqlInfo, *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "GetFlightInfoSqlInfo not implemented")
+// GetFlightInfoSqlInfo is a base implementation of GetSqlInfo by using any
+// registered sqlinfo (by calling RegisterSqlInfo). Will return an error
+// if there is no sql info registered, otherwise a FlightInfo for retrieving
+// the Sql info.
+func (b *BaseServer) GetFlightInfoSqlInfo(_ context.Context, _ GetSqlInfo, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if len(b.sqlInfoToResult) == 0 {
+		return nil, status.Error(codes.NotFound, "no sql information available")
+	}
+
+	if b.Alloc == nil {
+		b.Alloc = memory.DefaultAllocator
+	}
+
+	return &flight.FlightInfo{
+		Endpoint:         []*flight.FlightEndpoint{{Ticket: &flight.Ticket{Ticket: desc.Cmd}}},
+		FlightDescriptor: desc,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+		Schema:           flight.SerializeSchema(schema_ref.SqlInfo, b.Alloc),
+	}, nil
 }
 
+// DoGetSqlInfo returns a flight stream containing the list of sqlinfo results
 func (b *BaseServer) DoGetSqlInfo(_ context.Context, cmd GetSqlInfo) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	mem := memory.DefaultAllocator
-	bldr := array.NewRecordBuilder(mem, schema_ref.SqlInfo)
+	if b.Alloc == nil {
+		b.Alloc = memory.DefaultAllocator
+	}
+
+	bldr := array.NewRecordBuilder(b.Alloc, schema_ref.SqlInfo)
 	defer bldr.Release()
 
 	nameFieldBldr := bldr.Field(0).(*array.Uint32Builder)
@@ -197,6 +267,7 @@ func (b *BaseServer) DoGetSqlInfo(_ context.Context, cmd GetSqlInfo) (*arrow.Sch
 		return nil, nil, status.Errorf(codes.Internal, "error producing record response: %s", err.Error())
 	}
 
+	// StreamChunksFromReader will call release on the reader when done
 	go flight.StreamChunksFromReader(rdr, ch)
 	return schema_ref.SqlInfo, ch, nil
 }
@@ -276,48 +347,124 @@ func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatemen
 	return 0, status.Error(codes.Unimplemented, "DoPutPreparedStatementUpdate not implemented")
 }
 
+// Server is the required interface for a FlightSQL server. It is implemented by
+// BaseServer which must be embedded in any implementation. The default
+// implementation by BaseServer for each of these (except GetSqlInfo)
+//
+// GetFlightInfo* methods should return the FlightInfo object representing where
+// to retrieve the results for a given request.
+//
+// DoGet* methods should return the Schema of the resulting stream along with
+// a channel to retrieve stream chunks (each chunk is a record batch and optionally
+// a descriptor and app metadata). The channel will be read from until it
+// closes, sending each chunk on the stream. Since the channel is returned
+// from the method, it should be populated within a goroutine to ensure
+// there are no deadlocks.
 type Server interface {
+	// GetFlightInfoStatement returns a FlightInfo for executing the requested sql query
 	GetFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetStatement returns a stream containing the query results for the
+	// requested statement handle that was populated by GetFlightInfoStatement
 	DoGetStatement(context.Context, StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoPreparedStatement returns a FlightInfo for executing an already
+	// prepared statement with the provided statement handle.
 	GetFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetPreparedStatement returns a stream containing the results from executing
+	// a prepared statement query with the provided statement handle.
 	DoGetPreparedStatement(context.Context, PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoCatalogs returns a FlightInfo for the listing of all catalogs
 	GetFlightInfoCatalogs(context.Context, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetCatalogs returns the stream containing the list of catalogs
 	DoGetCatalogs(context.Context) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoXdbcTypeInfo returns a FlightInfo for retrieving data type info
 	GetFlightInfoXdbcTypeInfo(context.Context, GetXdbcTypeInfo, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetXdbcTypeInfo returns a stream containing the information about the
+	// requested supported datatypes
 	DoGetXdbcTypeInfo(context.Context, GetXdbcTypeInfo) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoSqlInfo returns a FlightInfo for retrieving SqlInfo from the server
 	GetFlightInfoSqlInfo(context.Context, GetSqlInfo, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetSqlInfo returns a stream containing the list of SqlInfo results
 	DoGetSqlInfo(context.Context, GetSqlInfo) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoSchemas returns a FlightInfo for requesting a list of schemas
 	GetFlightInfoSchemas(context.Context, GetDBSchemas, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetDBSchemas returns a stream containing the list of schemas
 	DoGetDBSchemas(context.Context, GetDBSchemas) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoTables returns a FlightInfo for listing the tables available
 	GetFlightInfoTables(context.Context, GetTables, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetTables returns a stream containing the list of tables
 	DoGetTables(context.Context, GetTables) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoTableTypes returns a FlightInfo for retrieving a list
+	// of table types supported
 	GetFlightInfoTableTypes(context.Context, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetTableTypes returns a stream containing the data related to the table types
 	DoGetTableTypes(context.Context) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoPrimaryKeys returns a FlightInfo for extracting information about primary keys
 	GetFlightInfoPrimaryKeys(context.Context, TableRef, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetPrimaryKeys returns a stream containing the data related to primary keys
 	DoGetPrimaryKeys(context.Context, TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoExportedKeys returns a FlightInfo for extracting information about foreign keys
 	GetFlightInfoExportedKeys(context.Context, TableRef, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetExportedKeys returns a stream containing the data related to foreign keys
 	DoGetExportedKeys(context.Context, TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoImportedKeys returns a FlightInfo for extracting information about imported keys
 	GetFlightInfoImportedKeys(context.Context, TableRef, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetImportedKeys returns a stream containing the data related to imported keys
 	DoGetImportedKeys(context.Context, TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// GetFlightInfoCrossReference returns a FlightInfo for extracting data related
+	// to primary and foreign keys
 	GetFlightInfoCrossReference(context.Context, CrossTableRef, *flight.FlightDescriptor) (*flight.FlightInfo, error)
+	// DoGetCrossReference returns a stream of data related to foreign and primary keys
 	DoGetCrossReference(context.Context, CrossTableRef) (*arrow.Schema, <-chan flight.StreamChunk, error)
+	// DoPutCommandStatementUpdate executes a sql update statement and returns
+	// the number of affected rows
 	DoPutCommandStatementUpdate(context.Context, StatementUpdate) (int64, error)
-	DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) error
-	DoPutPreparedStatementUpdate(context.Context, PreparedStatementUpdate, flight.MessageReader) (int64, error)
+	// CreatePreparedStatement constructs a prepared statement from a sql query
+	// and returns an opaque statement handle for use.
 	CreatePreparedStatement(context.Context, ActionCreatePreparedStatementRequest) (ActionCreatePreparedStatementResult, error)
+	// ClosePreparedStatement closes the prepared statement identified by the requested
+	// opaque statement handle.
 	ClosePreparedStatement(context.Context, ActionClosePreparedStatementRequest) error
+	// DoPutPreparedStatementQuery binds parameters to a given prepared statement
+	// identified by the provided statement handle.
+	//
+	// The provided MessageReader is a stream of record batches with optional
+	// app metadata and flight descriptors to represent the values to bind
+	// to the parameters.
+	//
+	// Currently anything written to the writer will be ignored. It is in the
+	// interface for potential future enhancements to avoid having to change
+	// the interface in the future.
+	DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) error
+	// DoPutPreparedStatementUpdate executes an update SQL Prepared statement
+	// for the specified statement handle. The reader allows providing a sequence
+	// of uploaded record batches to bind the parameters to. Returns the number
+	// of affected records.
+	DoPutPreparedStatementUpdate(context.Context, PreparedStatementUpdate, flight.MessageReader) (int64, error)
 
 	mustEmbedBaseServer()
 }
 
+// NewFlightServer constructs a FlightRPC server from the provided
+// FlightSQL Server so that it can be passed to RegisterFlightService.
 func NewFlightServer(srv Server) flight.FlightServer {
 	return &flightSqlServer{srv: srv, mem: memory.DefaultAllocator}
 }
 
+// NewFlightServerWithAllocator constructs a FlightRPC server from
+// the provided FlightSQL Server so that it can be passed to
+// RegisterFlightService, setting the provided allocator into the server
+// for use with any allocations necessary by the routing.
+//
+// Will default to memory.DefaultAllocator if mem is nil
 func NewFlightServerWithAllocator(srv Server, mem memory.Allocator) flight.FlightServer {
+	if mem == nil {
+		mem = memory.DefaultAllocator
+	}
 	return &flightSqlServer{srv: srv, mem: mem}
 }
 
+// flightSqlServer is a wrapper around a FlightSQL server interface to
+// perform routing from FlightRPC to FlightSQL.
 type flightSqlServer struct {
 	flight.BaseFlightServer
 	mem memory.Allocator
@@ -420,6 +567,10 @@ func (f *flightSqlServer) DoGet(request *flight.Ticket, stream flight.FlightServ
 	defer wr.Close()
 
 	for chunk := range cc {
+		if chunk.Err != nil {
+			return err
+		}
+
 		wr.SetFlightDescriptor(chunk.Desc)
 		if err = wr.WriteWithAppMetadata(chunk.Data, chunk.AppMetadata); err != nil {
 			return err
