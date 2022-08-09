@@ -214,19 +214,20 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 
 class AwsRetryStrategy : public S3RetryStrategy {
  public:
-  AwsRetryStrategy(const std::shared_ptr<Aws::Client::RetryStrategy>& retry_strategy)
-      : retry_strategy_(retry_strategy) {}
+  explicit AwsRetryStrategy(std::shared_ptr<Aws::Client::RetryStrategy> retry_strategy)
+      : retry_strategy_(std::move(retry_strategy)) {}
 
   bool ShouldRetry(const AWSErrorDetail& detail, int64_t attempted_retries) override {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
-    return retry_strategy_->ShouldRetry(error, static_cast<long>(attempted_retries));
+    return retry_strategy_->ShouldRetry(
+        error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
   }
 
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& detail,
                                         int64_t attempted_retries) override {
     Aws::Client::AWSError<Aws::Client::CoreErrors> error = DetailToError(detail);
     return retry_strategy_->CalculateDelayBeforeNextRetry(
-        error, static_cast<long>(attempted_retries));
+        error, static_cast<long>(attempted_retries));  // NOLINT: runtime/int
   }
 
  private:
@@ -246,14 +247,14 @@ std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsDefaultRetryStrategy(
     int64_t max_attempts) {
   return std::make_shared<AwsRetryStrategy>(
       std::make_shared<Aws::Client::DefaultRetryStrategy>(
-          static_cast<long>(max_attempts)));
+          static_cast<long>(max_attempts)));  // NOLINT: runtime/int
 }
 
 std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsStandardRetryStrategy(
     int64_t max_attempts) {
   return std::make_shared<AwsRetryStrategy>(
       std::make_shared<Aws::Client::StandardRetryStrategy>(
-          static_cast<long>(max_attempts)));
+          static_cast<long>(max_attempts)));  // NOLINT: runtime/int
 }
 
 // -----------------------------------------------------------------------
