@@ -277,7 +277,6 @@ func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatemen
 }
 
 type Server interface {
-	mustEmbedBaseServer()
 	GetFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error)
 	DoGetStatement(context.Context, StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error)
 	GetFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.FlightInfo, error)
@@ -307,6 +306,8 @@ type Server interface {
 	DoPutPreparedStatementUpdate(context.Context, PreparedStatementUpdate, flight.MessageReader) (int64, error)
 	CreatePreparedStatement(context.Context, ActionCreatePreparedStatementRequest) (ActionCreatePreparedStatementResult, error)
 	ClosePreparedStatement(context.Context, ActionClosePreparedStatementRequest) error
+
+	mustEmbedBaseServer()
 }
 
 func NewFlightServer(srv Server) flight.FlightServer {
@@ -438,10 +439,11 @@ func (p *putMetadataWriter) WriteMetadata(appMetadata []byte) error {
 }
 
 func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
-	rdr, err := flight.NewRecordReader(stream, ipc.WithAllocator(f.mem))
+	rdr, err := flight.NewRecordReader(stream, ipc.WithAllocator(f.mem), ipc.WithDelayReadSchema(true))
 	if err != nil {
 		return status.Errorf(codes.InvalidArgument, "failed to read input stream: %s", err.Error())
 	}
+	defer rdr.Release()
 
 	// flight descriptor should have come with the schema message
 	request := rdr.LatestFlightDescriptor()

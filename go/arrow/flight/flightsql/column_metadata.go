@@ -128,8 +128,8 @@ type ColumnMetadataBuilder struct {
 	keys, vals []string
 }
 
-func NewColumnMetadataBuilder() ColumnMetadataBuilder {
-	return ColumnMetadataBuilder{make([]string, 0), make([]string, 0)}
+func NewColumnMetadataBuilder() *ColumnMetadataBuilder {
+	return &ColumnMetadataBuilder{make([]string, 0), make([]string, 0)}
 }
 
 func (c *ColumnMetadataBuilder) Build() ColumnMetadata {

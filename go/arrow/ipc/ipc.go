@@ -69,6 +69,7 @@ type config struct {
 	codec              flatbuf.CompressionType
 	compressNP         int
 	ensureNativeEndian bool
+	noAutoSchema       bool
 }
 
 func newConfig(opts ...Option) *config {
@@ -147,6 +148,15 @@ func WithCompressConcurrency(n int) Option {
 func WithEnsureNativeEndian(v bool) Option {
 	return func(cfg *config) {
 		cfg.ensureNativeEndian = v
+	}
+}
+
+// WithDelayedReadSchema alters the ipc.Reader behavior to delay attempting
+// to read the schema from the stream until the first call to Next instead
+// of immediately attempting to read a schema from the stream when created.
+func WithDelayReadSchema(v bool) Option {
+	return func(cfg *config) {
+		cfg.noAutoSchema = v
 	}
 }
 

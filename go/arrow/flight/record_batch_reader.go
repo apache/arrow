@@ -38,6 +38,7 @@ type DataStreamReader interface {
 type dataMessageReader struct {
 	rdr DataStreamReader
 
+	peeked   *FlightData
 	refCount int64
 	msg      *ipc.Message
 
@@ -46,7 +47,18 @@ type dataMessageReader struct {
 }
 
 func (d *dataMessageReader) Message() (*ipc.Message, error) {
-	fd, err := d.rdr.Recv()
+	var (
+		fd  *FlightData
+		err error
+	)
+
+	if d.peeked != nil {
+		fd = d.peeked
+		d.peeked = nil
+	} else {
+		fd, err = d.rdr.Recv()
+	}
+
 	if err != nil {
 		if d.msg != nil {
 			// clear the previous message in the error case
@@ -135,8 +147,18 @@ func (r *Reader) Chunk() StreamChunk {
 // as the source of the ipc messages, opts passed will be passed to the underlying
 // ipc.Reader such as ipc.WithSchema and ipc.WithAllocator
 func NewRecordReader(r DataStreamReader, opts ...ipc.Option) (*Reader, error) {
+	// peek the first message for a descriptor
+	data, err := r.Recv()
+	if err != nil {
+		return nil, err
+	}
+
 	rdr := &Reader{dmr: &dataMessageReader{rdr: r}}
-	var err error
+	rdr.dmr.descr = data.FlightDescriptor
+	if len(data.DataHeader) > 0 {
+		rdr.dmr.peeked = data
+	}
+
 	if rdr.Reader, err = ipc.NewReaderFromMessageReader(rdr.dmr, opts...); err != nil {
 		return nil, fmt.Errorf("arrow/flight: could not create flight reader: %w", err)
 	}

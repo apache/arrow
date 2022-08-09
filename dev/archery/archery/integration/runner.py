@@ -435,7 +435,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
-            skip={"Rust", "Go"}
+            skip={"Rust"}
         ),
     ]
 

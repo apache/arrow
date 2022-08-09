@@ -19,6 +19,7 @@ package flightsql
 import (
 	"context"
 	"errors"
+	"io"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -306,7 +307,7 @@ func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, er
 		pstream.CloseSend()
 
 		// wait for the server to ack the result
-		if _, err = pstream.Recv(); err != nil {
+		if _, err = pstream.Recv(); err != nil && err != io.EOF {
 			return nil, err
 		}
 	}
@@ -344,7 +345,7 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, 
 		}
 	} else {
 		schema := arrow.NewSchema([]arrow.Field{}, nil)
-		wr = flight.NewRecordWriter(pstream, ipc.WithSchema(p.paramBinding.Schema()))
+		wr = flight.NewRecordWriter(pstream, ipc.WithSchema(schema))
 		wr.SetFlightDescriptor(desc)
 		rec := array.NewRecord(schema, []arrow.Array{}, 0)
 		if err = wr.Write(rec); err != nil {

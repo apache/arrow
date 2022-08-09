@@ -129,7 +129,8 @@ func getAction(cmd proto.Message) *flight.Action {
 	return &flight.Action{Body: data}
 }
 
-func (s *FlightSqlClientSuite) SetupSuite() {
+func (s *FlightSqlClientSuite) SetupTest() {
+	s.mockClient = FlightServiceClientMock{}
 	s.sqlClient.Client = &s.mockClient
 }
 
