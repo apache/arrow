@@ -1367,9 +1367,9 @@ test_that("can add in augmented fields", {
   )
 
   error_regex <- paste(
-    "Augmented fields such as 'filename' must",
-    "only be used with with Dataset objects which have",
-    "not been aggregated or joined."
+    "`add_filename()` or use of the `__filename` augmented field can only",
+    "be used with with Dataset objects, and can only be added before doing",
+    "an aggregation or a join."
   )
 
   # errors appropriately with ArrowTabular objects
@@ -1377,7 +1377,8 @@ test_that("can add in augmented fields", {
     arrow_table(mtcars) %>%
       mutate(file = add_filename()) %>%
       collect(),
-    regexp = error_regex
+    regexp = error_regex,
+    fixed = TRUE
   )
 
   # errors appropriately with aggregation
@@ -1386,7 +1387,8 @@ test_that("can add in augmented fields", {
       summarise(max_int = max(int)) %>%
       mutate(file_name = add_filename()) %>%
       collect(),
-    regexp = error_regex
+    regexp = error_regex,
+    fixed = TRUE
   )
 
   # joins to tables
@@ -1396,7 +1398,8 @@ test_that("can add in augmented fields", {
       left_join(another_table, by = "int") %>%
       mutate(file = add_filename()) %>%
       collect(),
-    regexp = error_regex
+    regexp = error_regex,
+    fixed = TRUE
   )
 
   # and on joins to datasets
@@ -1406,7 +1409,8 @@ test_that("can add in augmented fields", {
       left_join(open_dataset("another_dataset"), by = "int") %>%
       mutate(file = add_filename()) %>%
       collect(),
-    regexp = error_regex
+    regexp = error_regex,
+    fixed = TRUE
   )
 
   # this hits the implicit_schema path by joining afterwards
