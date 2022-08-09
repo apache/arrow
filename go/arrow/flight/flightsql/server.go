@@ -210,7 +210,7 @@ func (BaseServer) DoGetDBSchemas(context.Context, GetDBSchemas) (*arrow.Schema, 
 }
 
 func (BaseServer) GetFlightInfoTables(context.Context, GetTables, *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "GetTables not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "GetFlightInfoTables not implemented")
 }
 
 func (BaseServer) DoGetTables(context.Context, GetTables) (*arrow.Schema, <-chan flight.StreamChunk, error) {
