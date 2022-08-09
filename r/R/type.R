@@ -58,8 +58,6 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 
 #' Infer the arrow Array type from an R object
 #'
-#' Infer the arrow Array type from an R object.
-#'
 #' [type()] is deprecated in favor of [infer_type()].
 #'
 #' @param x an R object (usually a vector) to be converted to an [Array] or
