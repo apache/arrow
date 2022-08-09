@@ -156,9 +156,11 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CS3RetryStrategy "arrow::fs::S3RetryStrategy":
         c_bool ShouldRetry(const CAWSErrorDetail& error, int64_t attempted_retries)
         int64_t CalculateDelayBeforeNextRetry(const CAWSErrorDetail& error,
-                                                int64_t attempted_retries)
+                                              int64_t attempted_retries)
+
         @staticmethod
         shared_ptr[CS3RetryStrategy] GetAwsDefaultRetryStrategy(int64_t max_attempts)
+
         @staticmethod
         shared_ptr[CS3RetryStrategy] GetAwsStandardRetryStrategy(int64_t max_attempts)
 

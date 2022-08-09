@@ -1112,7 +1112,8 @@ def test_s3_options():
 
     # Check if we have set a C++ AWS Standard retry strategy by testing
     # if the methods on the strategy quack like a Standard strategy.
-    fs = S3FileSystem(retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
+    fs = S3FileSystem(
+        retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
     assert isinstance(fs, S3FileSystem)
     assert fs.retry_strategy.ShouldRetry(None, 1)
     assert not fs.retry_strategy.ShouldRetry(None, 6)
