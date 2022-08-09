@@ -175,11 +175,11 @@ class InputState {
 
  public:
   InputState(const std::shared_ptr<arrow::Schema>& schema,
-             const std::string& time_col_name, const std::string& key_col_name)
+             const col_index_t time_col_index, const col_index_t key_col_index)
       : queue_(),
         schema_(schema),
-        time_col_index_(schema->GetFieldIndex(time_col_name)),
-        key_col_index_(schema->GetFieldIndex(key_col_name)),
+        time_col_index_(time_col_index),
+        key_col_index_(key_col_index),
         time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
         key_type_id_(schema_->fields()[key_col_index_]->type()->id()) {}
 
@@ -602,7 +602,7 @@ class AsofJoinNode : public ExecNode {
       // the LHS and adding joined row to rows_ (done by Emplace). Finally,
       // input batches that are no longer needed are removed to free up memory.
       if (IsUpToDateWithLhsRow()) {
-        dst.Emplace(state_, time_value(options_.tolerance, 0));
+        dst.Emplace(state_, tolerance_);
         if (!lhs.Advance()) break;  // if we can't advance LHS, we're done for this batch
       } else {
         if (!any_rhs_advanced) break;  // need to wait for new data
@@ -612,8 +612,7 @@ class AsofJoinNode : public ExecNode {
     // Prune memo entries that have expired (to bound memory consumption)
     if (!lhs.Empty()) {
       for (size_t i = 1; i < state_.size(); ++i) {
-        state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() -
-                                                   time_value(options_.tolerance, 0));
+        state_[i]->RemoveMemoEntriesWithLesserTime(lhs.GetLatestTime() - tolerance_);
       }
     }
 
@@ -673,8 +672,9 @@ class AsofJoinNode : public ExecNode {
 
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
-               const AsofJoinNodeOptions& join_options,
-               std::shared_ptr<Schema> output_schema);
+               const std::vector<col_index_t>& on_key_col_indices,
+               const std::vector<col_index_t>& by_key_col_indices,
+               TimeType tolerance, std::shared_ptr<Schema> output_schema);
 
   virtual ~AsofJoinNode() {
     process_.Push(false);  // poison pill
@@ -692,56 +692,57 @@ class AsofJoinNode : public ExecNode {
   }
 
   static arrow::Result<std::shared_ptr<Schema>> MakeOutputSchema(
-      const std::vector<ExecNode*>& inputs, const AsofJoinNodeOptions& options) {
+      const std::vector<ExecNode*>& inputs,
+      const std::vector<col_index_t>& on_key_col_indices,
+      const std::vector<col_index_t>& by_key_col_indices) {
     std::vector<std::shared_ptr<arrow::Field>> fields;
-
-    const auto& on_field_name = *options.on_key.name();
-    const auto& by_field_name = *options.by_key.name();
 
     const DataType* on_key_type = NULLPTR;
     const DataType* by_key_type = NULLPTR;
     // Take all non-key, non-time RHS fields
     for (size_t j = 0; j < inputs.size(); ++j) {
       const auto& input_schema = inputs[j]->output_schema();
-      const auto& on_field_ix = input_schema->GetFieldIndex(on_field_name);
-      const auto& by_field_ix = input_schema->GetFieldIndex(by_field_name);
+      const auto& on_field_ix = on_key_col_indices[j];
+      const auto& by_field_ix = by_key_col_indices[j];
 
       if ((on_field_ix == -1) | (by_field_ix == -1)) {
         return Status::Invalid("Missing join key on table ", j);
       }
 
-      const auto& on_field_type = input_schema->fields()[on_field_ix]->type();
-      const auto& by_field_type = input_schema->fields()[by_field_ix]->type();
+      const auto& on_field = input_schema->fields()[on_field_ix];
+      const auto& by_field = input_schema->fields()[by_field_ix];
+      const auto& on_field_type = on_field->type();
+      const auto& by_field_type = by_field->type();
       if (on_key_type == NULLPTR) {
         on_key_type = on_field_type.get();
       } else if (*on_key_type != *on_field_type) {
         return Status::Invalid("Expected on-key type ", *on_key_type, " but got ",
-                               *on_field_type, " for field ", on_field_name, " in input ",
-                               j);
+                               *on_field_type, " for field ", on_field->name(),
+                               " in input ", j);
       }
       if (by_key_type == NULLPTR) {
         by_key_type = by_field_type.get();
       } else if (*by_key_type != *by_field_type) {
         return Status::Invalid("Expected on-key type ", *by_key_type, " but got ",
-                               *by_field_type, " for field ", by_field_name, " in input ",
-                               j);
+                               *by_field_type, " for field ", by_field->name(),
+                               " in input ", j);
       }
 
       for (int i = 0; i < input_schema->num_fields(); ++i) {
         const auto field = input_schema->field(i);
-        if (field->name() == on_field_name) {
+        if (i == on_field_ix) {
           if (!find_type(kSupportedOnTypes_, field->type())) {
-            return Status::Invalid("Unsupported type ", field->type()->ToString(),
-                                   " for on-key ", field->name());
+            return Status::Invalid("Unsupported type for on-key ", field->name(), " : ",
+                                   field->type()->ToString());
           }
           // Only add on field from the left table
           if (j == 0) {
             fields.push_back(field);
           }
-        } else if (field->name() == by_field_name) {
+        } else if (i == by_field_ix) {
           if (!find_type(kSupportedByTypes_, field->type())) {
-            return Status::Invalid("Unsupported type ", field->type()->ToString(),
-                                   " for by-key ", field->name());
+            return Status::Invalid("Unsupported type for by-key ", field->name(), " : ",
+                                   field->type()->ToString());
           }
           // Only add by field from the left table
           if (j == 0) {
@@ -749,8 +750,8 @@ class AsofJoinNode : public ExecNode {
           }
         } else {
           if (!find_type(kSupportedDataTypes_, field->type())) {
-            return Status::Invalid("Unsupported data type ", field->type()->ToString(),
-                                   " for field ", field->name());
+            return Status::Invalid("Unsupported type for field ", field->name(), " : ",
+                                   field->type()->ToString());
           }
 
           fields.push_back(field);
@@ -765,17 +766,46 @@ class AsofJoinNode : public ExecNode {
     DCHECK_GE(inputs.size(), 2) << "Must have at least two inputs";
 
     const auto& join_options = checked_cast<const AsofJoinNodeOptions&>(options);
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
-                          MakeOutputSchema(inputs, join_options));
-
-    std::vector<std::string> input_labels(inputs.size());
-    input_labels[0] = "left";
-    for (size_t i = 1; i < inputs.size(); ++i) {
-      input_labels[i] = "right_" + std::to_string(i);
+    if (join_options.tolerance < 0) {
+      return Status::Invalid("AsOfJoin tolerance must be non-negative but is ",
+                             join_options.tolerance);
     }
 
+    std::vector<std::string> input_labels(inputs.size());
+    std::vector<col_index_t> on_key_col_indices(inputs.size());
+    std::vector<col_index_t> by_key_col_indices(inputs.size());
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      input_labels[i] = i == 0 ? "left" : "right_" + std::to_string(i);
+      const auto& input_schema = inputs[i]->output_schema();
+
+#define ASOFJOIN_KEY_MATCH(k)                                                    \
+  auto k##_key_match_res = join_options.k##_key.FindOne(*input_schema);          \
+  if (!k##_key_match_res.ok()) {                                                 \
+    return Status::Invalid("Bad join key on table : ",                           \
+                           k##_key_match_res.status().message());                \
+  }                                                                              \
+  auto k##_key_match = k##_key_match_res.ValueOrDie();                           \
+  if (k##_key_match.indices().size() != 1) {                                     \
+    return Status::Invalid("AsOfJoinNode does not support a nested " #k "-key ", \
+                           join_options.k##_key.ToString());                     \
+  }                                                                              \
+  k##_key_col_indices[i] = k##_key_match.indices()[0];
+
+      ASOFJOIN_KEY_MATCH(on)
+      ASOFJOIN_KEY_MATCH(by)
+
+#undef ASOFJOIN_KEY_MATCH
+    }
+
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> output_schema,
+                          MakeOutputSchema(inputs, on_key_col_indices,
+                                           by_key_col_indices));
+
     return plan->EmplaceNode<AsofJoinNode>(plan, inputs, std::move(input_labels),
-                                           join_options, std::move(output_schema));
+                                           std::move(on_key_col_indices),
+                                           std::move(by_key_col_indices),
+                                           time_value(join_options.tolerance, 0),
+                                           std::move(output_schema));
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
@@ -830,7 +860,7 @@ class AsofJoinNode : public ExecNode {
   // Each input state correponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
   std::mutex gate_;
-  AsofJoinNodeOptions options_;
+  TimeType tolerance_;
 
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
@@ -844,17 +874,19 @@ class AsofJoinNode : public ExecNode {
 
 AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
-                           const AsofJoinNodeOptions& join_options,
-                           std::shared_ptr<Schema> output_schema)
+                           const std::vector<col_index_t>& on_key_col_indices,
+                           const std::vector<col_index_t>& by_key_col_indices,
+                           TimeType tolerance, std::shared_ptr<Schema> output_schema)
     : ExecNode(plan, inputs, input_labels,
                /*output_schema=*/std::move(output_schema),
                /*num_outputs=*/1),
-      options_(join_options),
+      tolerance_(tolerance),
       process_(),
       process_thread_(&AsofJoinNode::ProcessThreadWrapper, this) {
-  for (size_t i = 0; i < inputs.size(); ++i)
+  for (size_t i = 0; i < inputs.size(); ++i) {
     state_.push_back(::arrow::internal::make_unique<InputState>(
-        inputs[i]->output_schema(), *options_.on_key.name(), *options_.by_key.name()));
+        inputs[i]->output_schema(), on_key_col_indices[i], by_key_col_indices[i]));
+  }
   col_index_t dst_offset = 0;
   for (auto& state : state_)
     dst_offset = state->InitSrcToDstMapping(dst_offset, !!dst_offset);

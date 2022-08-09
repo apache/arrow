@@ -167,22 +167,81 @@ void DoRunBasicTest(const std::vector<util::string_view>& l_data,
   }
 }
 
-void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
-                          const std::shared_ptr<Schema>& r_schema) {
+void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema,
+                          FieldRef on_key, FieldRef by_key, int64_t tolerance,
+                          const std::string& expected_error_str) {
   BatchesWithSchema l_batches = MakeBatchesFromString(l_schema, {R"([])"});
   BatchesWithSchema r_batches = MakeBatchesFromString(r_schema, {R"([])"});
 
   ExecContext exec_ctx;
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
 
-  AsofJoinNodeOptions join_options("time", "key", 0);
+  AsofJoinNodeOptions join_options(on_key, by_key, tolerance);
   Declaration join{"asofjoin", join_options};
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{l_batches.schema, l_batches.gen(false, false)}});
   join.inputs.emplace_back(Declaration{
       "source", SourceNodeOptions{r_batches.schema, r_batches.gen(false, false)}});
 
-  ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr(expected_error_str), join.AddToPlan(plan.get()));
+}
+
+void DoRunInvalidPlanTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema,
+                          int64_t tolerance, const std::string& expected_error_str) {
+  DoRunInvalidPlanTest(l_schema, r_schema, "time", "key", tolerance, expected_error_str);
+}
+
+void DoRunInvalidTypeTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, 0, "Unsupported type for ");
+}
+
+void DoRunInvalidToleranceTest(const std::shared_ptr<Schema>& l_schema,
+                               const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, -1,
+                       "AsOfJoin tolerance must be non-negative but is ");
+}
+
+void DoRunMissingKeysTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : No match");
+}
+
+void DoRunMissingOnKeyTest(const std::shared_ptr<Schema>& l_schema,
+                           const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, "invalid_time", "key", 0,
+                       "Bad join key on table : No match");
+}
+
+void DoRunMissingByKeyTest(const std::shared_ptr<Schema>& l_schema,
+                           const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, "time", "invalid_key", 0,
+                       "Bad join key on table : No match");
+}
+
+void DoRunNestedOnKeyTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, {0, "time"}, "key", 0,
+                       "Bad join key on table : No match");
+}
+
+void DoRunNestedByKeyTest(const std::shared_ptr<Schema>& l_schema,
+                          const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, "time", {0, "key"}, 0,
+                       "Bad join key on table : No match");
+}
+
+void DoRunAmbiguousOnKeyTest(const std::shared_ptr<Schema>& l_schema,
+                             const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : Multiple matches");
+}
+
+void DoRunAmbiguousByKeyTest(const std::shared_ptr<Schema>& l_schema,
+                             const std::shared_ptr<Schema>& r_schema) {
+  DoRunInvalidPlanTest(l_schema, r_schema, 0, "Bad join key on table : Multiple matches");
 }
 
 class AsofJoinTest : public testing::Test {};
@@ -359,15 +418,60 @@ TEST(AsofJoinTest, TestUnsupportedDatatype) {
 }
 
 TEST(AsofJoinTest, TestMissingKeys) {
-  DoRunInvalidTypeTest(
+  DoRunMissingKeysTest(
       schema({field("time1", int64()), field("key", int32()), field("l_v0", float64())}),
       schema(
           {field("time1", int64()), field("key", int32()), field("r0_v0", float64())}));
 
-  DoRunInvalidTypeTest(
+  DoRunMissingKeysTest(
       schema({field("time", int64()), field("key1", int32()), field("l_v0", float64())}),
       schema(
           {field("time", int64()), field("key1", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestUnsupportedTolerance) {
+  // Utf8 is unsupported
+  DoRunInvalidToleranceTest(
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestMissingOnKey) {
+  DoRunMissingOnKeyTest(
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestMissingByKey) {
+  DoRunMissingByKeyTest(
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestNestedOnKey) {
+  DoRunNestedOnKeyTest(
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestNestedByKey) {
+  DoRunNestedByKeyTest(
+      schema({field("time", int64()), field("key", int32()), field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestAmbiguousOnKey) {
+  DoRunAmbiguousOnKeyTest(
+      schema({field("time", int64()), field("time", int64()), field("key", int32()),
+              field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
+}
+
+TEST(AsofJoinTest, TestAmbiguousByKey) {
+  DoRunAmbiguousByKeyTest(
+      schema({field("time", int64()), field("key", int64()), field("key", int32()),
+              field("l_v0", float64())}),
+      schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 }
 
 }  // namespace compute
