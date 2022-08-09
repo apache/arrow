@@ -1261,7 +1261,7 @@ static inline int offset_bit_width(Type::type type_id) {
 /// \param[in] type the type to check
 /// \return whether type is an integer type
 ///
-/// Convenience for checking using the types' id
+/// Convenience for checking using the type's id
 static inline bool is_integer(const DataType& type) { return is_integer(type.id()); }
 
 /// \brief Check for a signed integer type
