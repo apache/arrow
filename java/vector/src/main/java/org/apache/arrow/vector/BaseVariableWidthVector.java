@@ -1241,7 +1241,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
      * So even though we may have setup an initial capacity of 1024
      * elements in the vector, it is quite possible
      * that we need to reAlloc() the data buffer when we are setting
-     * the 1025th element in the vector simply because previous
+     * the 5th element in the vector simply because previous
      * variable length elements have exhausted the buffer capacity.
      * However, we really don't need to reAlloc() validity and
      * offset buffers until we try to set the 1025th element

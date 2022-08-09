@@ -1137,6 +1137,25 @@ public class TestValueVector {
     }
   }
 
+  @Test(expected = OversizedAllocationException.class)
+  public void testReallocateCheckSuccess() {
+
+    // Create a new value vector for 1024 integers.
+    try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+
+      vector.set(0, STR1);
+      // Check the sample strings.
+      assertArrayEquals(STR1, vector.get(0));
+
+      // update the index offset to a larger one
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      offsetBuf.setInt(VarBinaryVector.OFFSET_WIDTH, Integer.MAX_VALUE - 5);
+
+      vector.setValueLengthSafe(1, 6);
+    }
+  }
+
 
   /*
    * generic tests
