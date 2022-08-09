@@ -1053,6 +1053,12 @@ cdef class FileFragment(Fragment):
             self.partition_expression
         )
 
+    def slice(self, start, end):
+        """
+        Sets a byte range of the file fragment. Make this comment better.
+        """
+        self.file_fragment.set_boundaries(start, end)
+
     @property
     def path(self):
         """

@@ -215,6 +215,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFragment):
         const CFileSource& source() const
         const shared_ptr[CFileFormat]& format() const
+        void set_boundaries(int64_t start, int64_t end)
 
     cdef cppclass CFileSystemDatasetWriteOptions \
             "arrow::dataset::FileSystemDatasetWriteOptions":
