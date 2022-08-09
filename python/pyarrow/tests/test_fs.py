@@ -1108,6 +1108,7 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    # Note that the retry strategy won't survive pickling for now
     fs = S3FileSystem(
         retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
     assert isinstance(fs, S3FileSystem)
