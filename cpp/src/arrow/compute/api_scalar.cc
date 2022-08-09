@@ -913,6 +913,10 @@ Result<Datum> FastHash32(const Datum& input_array, ExecContext* ctx) {
   return CallFunction("fast_hash_32", {input_array}, ctx);
 }
 
+Result<Datum> FastHash64(const Datum& input_array, ExecContext* ctx) {
+  return CallFunction("fast_hash_64", {input_array}, ctx);
+}
+
 // ----------------------------------------------------------------------
 
 }  // namespace compute

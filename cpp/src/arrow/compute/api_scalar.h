@@ -1707,14 +1707,30 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 /// The result is an Array of length equal to the length of the input; however, the output
 /// shall be a UInt32Array, with each element being a hash constructed from each row of
 /// the input. If the input Array is a NestedArray, this means that each "attribute" or
-/// "field" of the input NestedArray will produce a single uint32_t hash. At the moment,
-/// this function does not take options, though these may be added in the future.
+/// "field" of the input NestedArray corresponding to the same "row" will collectively
+/// produce a single uint32_t hash. At the moment, this function does not take options,
+/// though these may be added in the future.
 ///
 /// \param[in] input_array input data to hash
 /// \param[in] ctx         function execution context, optional
 /// \return elementwise hash values
 ARROW_EXPORT
 Result<Datum> FastHash32(const Datum& input_array, ExecContext* ctx = NULLPTR);
+
+/// \brief Construct a hash value for each row of the input.
+///
+/// The result is an Array of length equal to the length of the input; however, the output
+/// shall be a UInt64Array, with each element being a hash constructed from each row of
+/// the input. If the input Array is a NestedArray, this means that each "attribute" or
+/// "field" of the input NestedArray corresponding to the same "row" will collectively
+/// produce a single uint64_t hash. At the moment, this function does not take options,
+/// though these may be added in the future.
+///
+/// \param[in] input_array input data to hash
+/// \param[in] ctx         function execution context, optional
+/// \return elementwise hash values
+ARROW_EXPORT
+Result<Datum> FastHash64(const Datum& input_array, ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
