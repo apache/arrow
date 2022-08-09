@@ -180,11 +180,9 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 # The following S3 methods are registered on load if dplyr is present
 
 summarise.arrow_dplyr_query <- function(.data, ...) {
-
   call <- match.call()
   .data <- as_adq(.data)
   exprs <- quos(...)
-
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
     unlist(lapply(exprs, all.vars)), # vars referenced in summarise
