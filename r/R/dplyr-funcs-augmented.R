@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-register_bindings_augmented <- function(){
+register_bindings_augmented <- function() {
   register_binding("add_filename", function() {
     Expression$field_ref("__filename")
   })
 }
-
