@@ -18,6 +18,8 @@ package flightsql
 
 import (
 	pb "github.com/apache/arrow/go/v10/arrow/flight/internal/flight"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -62,6 +64,14 @@ func impkToTableRef(cmd *pb.CommandGetImportedKeys) TableRef {
 		DBSchema: cmd.DbSchema,
 		Table:    cmd.Table,
 	}
+}
+
+func CreateStatementQueryTicket(handle []byte) ([]byte, error) {
+	query := &pb.TicketStatementQuery{StatementHandle: handle}
+	var ticket anypb.Any
+	ticket.MarshalFrom(query)
+
+	return proto.Marshal(&ticket)
 }
 
 type (

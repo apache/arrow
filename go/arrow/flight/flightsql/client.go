@@ -19,10 +19,7 @@ package flightsql
 import (
 	"context"
 	"errors"
-<<<<<<< HEAD
 	"io"
-=======
->>>>>>> 7c0a7b52f (initial flightsql client)
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -401,27 +398,17 @@ func (p *PreparedStatement) Execute(ctx context.Context) (*flight.FlightInfo, er
 		pstream.CloseSend()
 
 		// wait for the server to ack the result
-<<<<<<< HEAD
 		if _, err = pstream.Recv(); err != nil && err != io.EOF {
-=======
-		if _, err = pstream.Recv(); err != nil {
->>>>>>> 7c0a7b52f (initial flightsql client)
 			return nil, err
 		}
 	}
 
-<<<<<<< HEAD
 	return p.client.getFlightInfo(ctx, desc, p.opts...)
 }
 
 // ExecuteUpdate executes the prepared statement update query on the server
 // and returns the number of rows affected. If SetParameters was called,
 // the parameter bindings will be sent with the request to execute.
-=======
-	return p.client.GetFlightInfo(ctx, desc, p.opts...)
-}
-
->>>>>>> 7c0a7b52f (initial flightsql client)
 func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, err error) {
 	if p.closed {
 		return 0, errors.New("arrow/flightsql: prepared statement already closed")
@@ -452,11 +439,7 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context) (nrecords int64, 
 		}
 	} else {
 		schema := arrow.NewSchema([]arrow.Field{}, nil)
-<<<<<<< HEAD
 		wr = flight.NewRecordWriter(pstream, ipc.WithSchema(schema))
-=======
-		wr = flight.NewRecordWriter(pstream, ipc.WithSchema(p.paramBinding.Schema()))
->>>>>>> 7c0a7b52f (initial flightsql client)
 		wr.SetFlightDescriptor(desc)
 		rec := array.NewRecord(schema, []arrow.Array{}, 0)
 		if err = wr.Write(rec); err != nil {
