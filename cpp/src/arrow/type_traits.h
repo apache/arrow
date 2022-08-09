@@ -995,6 +995,7 @@ static inline bool is_primitive(Type::type type_id) {
 
 /// \brief Check for a base-binary-like type
 ///
+/// This predicate doesn't match fixed-size binary types.
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a base-binary-like type one
 static inline bool is_base_binary_like(Type::type type_id) {
