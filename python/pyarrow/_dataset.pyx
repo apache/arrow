@@ -835,9 +835,10 @@ cdef class FileFormat(_Weakrefable):
         dfso = FragmentScanOptions.wrap(
             self.wrapped.get().default_fragment_scan_options)
         # CsvFileFormat stores a Python-specific encoding field that needs
-        # to be restored because it does not exist in the C struct
-        if self.encoding is not None:
-            dfso.encoding = self.encoding
+        # to be restored because it does not exist in the C++ struct
+        if isinstance(self, CsvFileFormat):
+            if self.read_options_py is not None:
+                dfso.read_options = self.read_options_py
         return dfso
 
     @default_fragment_scan_options.setter
@@ -1178,9 +1179,9 @@ cdef class CsvFileFormat(FileFormat):
     cdef:
         CCsvFileFormat* csv_format
         # The encoding field in ReadOptions does not exist
-        # in the C struct. We need to store it here and override it when
+        # in the C++ struct. We need to store it here and override it when
         # reading read_options or default_fragment_scan_options
-        public object encoding
+        public ReadOptions read_options_py
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -1212,8 +1213,7 @@ cdef class CsvFileFormat(FileFormat):
             # default_fragment_scan_options is needed to add a transcoder
             self.default_fragment_scan_options = CsvFragmentScanOptions()
         if read_options is not None:
-            self.default_fragment_scan_options.encoding = read_options.encoding
-            self.encoding = read_options.encoding
+            self.read_options_py = read_options
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1236,8 +1236,8 @@ cdef class CsvFileFormat(FileFormat):
     cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
         if options.type_name == 'csv':
             self.csv_format.default_fragment_scan_options = options.wrapped
-            self.default_fragment_scan_options.encoding = options.encoding
-            self.encoding = options.encoding
+            self.default_fragment_scan_options.read_options = options.read_options
+            self.read_options_py = options.read_options
         else:
             super()._set_default_fragment_scan_options(options)
 
@@ -1270,23 +1270,22 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     cdef:
         CCsvFragmentScanOptions* csv_options
         # The encoding field in ReadOptions does not exist
-        # in the C struct. We need to store it here and override it when
+        # in the C++ struct. We need to store it here and override it when
         # reading read_options
-        public object encoding
+        ReadOptions read_options_py
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, ConvertOptions convert_options=None,
-                 ReadOptions read_options=None, encoding='utf8'):
+                 ReadOptions read_options=None):
         self.init(shared_ptr[CFragmentScanOptions](
             new CCsvFragmentScanOptions()))
         if convert_options is not None:
             self.convert_options = convert_options
-        self.encoding = encoding
         if read_options is not None:
             self.read_options = read_options
-            self.encoding = read_options.encoding
+            self.read_options_py = read_options
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -1303,19 +1302,17 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     @property
     def read_options(self):
         read_options = ReadOptions.wrap(self.csv_options.read_options)
-        if self.encoding is not None:
-            read_options.encoding = self.encoding
+        if self.read_options_py is not None:
+            read_options.encoding = self.read_options_py.encoding
         return read_options
 
     @read_options.setter
     def read_options(self, ReadOptions read_options not None):
         self.csv_options.read_options = deref(read_options.options)
-        self.encoding = read_options.encoding
-
-    def add_transcoder(self, src_encoding, dest_encoding):
-        if src_encoding != dest_encoding:
+        self.read_options_py = read_options
+        if (read_options.encoding != 'utf8'):
             self.csv_options.stream_transform_func = deref(
-                make_streamwrap_func(src_encoding, dest_encoding))
+                make_streamwrap_func(read_options.encoding, 'utf8'))
 
     def equals(self, CsvFragmentScanOptions other):
         return (
@@ -1325,7 +1322,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     def __reduce__(self):
         return CsvFragmentScanOptions, (self.convert_options,
-                                        self.read_options, self.encoding)
+                                        self.read_options)
 
 
 cdef class CsvFileWriteOptions(FileWriteOptions):
