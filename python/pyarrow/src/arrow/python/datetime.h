@@ -43,8 +43,8 @@
 #endif
 
 namespace arrow {
-using internal::MultiplyWithOverflow;
 using internal::AddWithOverflow;
+using internal::MultiplyWithOverflow;
 namespace py {
 namespace internal {
 
@@ -159,13 +159,12 @@ inline int64_t PyDelta_to_ms(PyDateTime_Delta* pytimedelta) {
 }
 
 ARROW_PYTHON_EXPORT
-// TODO which PyDeltas do we cover?
 inline Result<int64_t> PyDelta_to_us(PyDateTime_Delta* pytimedelta) {
   int64_t result = PyDelta_to_s(pytimedelta);
-  if (arrow::internal::MultiplyWithOverflow(result, 1000000LL, &result)) {
+  if (MultiplyWithOverflow(result, 1000000LL, &result)) {
     return Status::Invalid("Timedelta too large to fit in 64-bit integer");
   }
-  if (arrow::internal::AddWithOverflow(result, PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta), &result)) {
+  if (AddWithOverflow(result, PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta), &result)) {
     return Status::Invalid("Timedelta too large to fit in 64-bit integer");
   }
   return result;
