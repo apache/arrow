@@ -105,6 +105,11 @@ class S3RetryStrategy:
 class AwsStandardS3RetryStrategy(S3RetryStrategy):
     """
     Represents an AWS Standard retry strategy for use with S3.
+
+    Parameters
+    ----------
+    max_attempts : int, default 3
+        The maximum number of retry attempts to attempt before failing.
     """
     pass
 
@@ -112,6 +117,11 @@ class AwsStandardS3RetryStrategy(S3RetryStrategy):
 class AwsDefaultS3RetryStrategy(S3RetryStrategy):
     """
     Represents an AWS Default retry strategy for use with S3.
+
+    Parameters
+    ----------
+    max_attempts : int, default 3
+        The maximum number of retry attempts to attempt before failing.
     """
     pass
 
