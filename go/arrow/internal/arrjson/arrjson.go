@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/float16"
 	"github.com/apache/arrow/go/v10/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v10/arrow/ipc"
@@ -216,7 +217,11 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 	case *arrow.FixedSizeBinaryType:
 		typ = byteWidthJSON{"fixedsizebinary", dt.ByteWidth}
 	case *arrow.Decimal128Type:
-		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision)}
+		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 128}
+	case *arrow.Decimal256Type:
+		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 256}
+	case arrow.UnionType:
+		typ = unionJSON{"union", dt.Mode().String(), dt.TypeCodes()}
 	default:
 		return nil, fmt.Errorf("unknown arrow.DataType %v", arrowType)
 	}
@@ -453,7 +458,23 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		if err = json.Unmarshal(typ, &t); err != nil {
 			return
 		}
-		arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		switch t.BitWidth {
+		case 256:
+			arrowType = &arrow.Decimal256Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		case 128, 0: // default to 128 bits when missing
+			arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		}
+	case "union":
+		t := unionJSON{}
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
+		}
+		switch t.Mode {
+		case "SPARSE":
+			arrowType = arrow.SparseUnionOf(fieldsFromJSON(children), t.TypeIDs)
+		case "DENSE":
+			arrowType = arrow.DenseUnionOf(fieldsFromJSON(children), t.TypeIDs)
+		}
 	}
 
 	if arrowType == nil {
@@ -577,6 +598,7 @@ type decimalJSON struct {
 	Name      string `json:"name"`
 	Scale     int    `json:"scale,omitempty"`
 	Precision int    `json:"precision,omitempty"`
+	BitWidth  int    `json:"bitWidth,omitempty"`
 }
 
 type byteWidthJSON struct {
@@ -587,6 +609,12 @@ type byteWidthJSON struct {
 type mapJSON struct {
 	Name       string `json:"name"`
 	KeysSorted bool   `json:"keysSorted,omitempty"`
+}
+
+type unionJSON struct {
+	Name    string                `json:"name"`
+	Mode    string                `json:"mode"`
+	TypeIDs []arrow.UnionTypeCode `json:"typeIds"`
 }
 
 func schemaToJSON(schema *arrow.Schema, mapper *dictutils.Mapper) Schema {
@@ -733,12 +761,13 @@ func recordToJSON(rec arrow.Record) Record {
 }
 
 type Array struct {
-	Name     string        `json:"name"`
-	Count    int           `json:"count"`
-	Valids   []int         `json:"VALIDITY,omitempty"`
-	Data     []interface{} `json:"DATA,omitempty"`
-	Offset   interface{}   `json:"-"`
-	Children []Array       `json:"children,omitempty"`
+	Name     string                `json:"name"`
+	Count    int                   `json:"count"`
+	Valids   []int                 `json:"VALIDITY,omitempty"`
+	Data     []interface{}         `json:"DATA,omitempty"`
+	TypeID   []arrow.UnionTypeCode `json:"TYPE_ID,omitempty"`
+	Offset   interface{}           `json:"OFFSET,omitempty"`
+	Children []Array               `json:"children,omitempty"`
 }
 
 func (a *Array) MarshalJSON() ([]byte, error) {
@@ -770,6 +799,10 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 
 	var rawOffsets []interface{}
 	if err = json.Unmarshal(aux.RawOffset, &rawOffsets); err != nil {
+		return
+	}
+
+	if len(rawOffsets) == 0 {
 		return
 	}
 
@@ -1125,6 +1158,14 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		bldr.AppendValues(data, valids)
 		return returnNewArrayData(bldr)
 
+	case *arrow.Decimal256Type:
+		bldr := array.NewDecimal256Builder(mem, dt)
+		defer bldr.Release()
+		data := decimal256FromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return returnNewArrayData(bldr)
+
 	case arrow.ExtensionType:
 		storage := arrayFromJSON(mem, dt.StorageType(), arr)
 		defer storage.Release()
@@ -1134,6 +1175,31 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		indices := arrayFromJSON(mem, dt.IndexType, arr)
 		defer indices.Release()
 		return array.NewData(dt, indices.Len(), indices.Buffers(), indices.Children(), indices.NullN(), indices.Offset())
+
+	case arrow.UnionType:
+		fields := make([]arrow.ArrayData, len(dt.Fields()))
+		for i, f := range dt.Fields() {
+			child := arrayFromJSON(mem, f.Type, arr.Children[i])
+			defer child.Release()
+			fields[i] = child
+		}
+
+		typeIdBuf := memory.NewBufferBytes(arrow.Int8Traits.CastToBytes(arr.TypeID))
+		defer typeIdBuf.Release()
+		buffers := []*memory.Buffer{nil, typeIdBuf}
+		if dt.Mode() == arrow.DenseMode {
+			var offsets []byte
+			if arr.Offset == nil {
+				offsets = []byte{}
+			} else {
+				offsets = arrow.Int32Traits.CastToBytes(arr.Offset.([]int32))
+			}
+			offsetBuf := memory.NewBufferBytes(offsets)
+			defer offsetBuf.Release()
+			buffers = append(buffers, offsetBuf)
+		}
+
+		return array.NewData(dt, arr.Count, buffers, fields, 0, 0)
 
 	default:
 		panic(fmt.Errorf("unknown data type %v %T", dt, dt))
@@ -1447,11 +1513,37 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Valids: validsToJSON(arr),
 		}
 
+	case *array.Decimal256:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   decimal256ToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+
 	case array.ExtensionArray:
 		return arrayToJSON(field, arr.Storage())
 
 	case *array.Dictionary:
 		return arrayToJSON(field, arr.Indices())
+
+	case array.Union:
+		dt := arr.DataType().(arrow.UnionType)
+		o := Array{
+			Name:     field.Name,
+			Count:    arr.Len(),
+			Valids:   validsToJSON(arr),
+			TypeID:   arr.RawTypeCodes(),
+			Children: make([]Array, len(dt.Fields())),
+		}
+		if dt.Mode() == arrow.DenseMode {
+			o.Offset = arr.(*array.DenseUnion).RawValueOffsets()
+		}
+		fields := dt.Fields()
+		for i := range o.Children {
+			o.Children[i] = arrayToJSON(fields[i], arr.Field(i))
+		}
+		return o
 
 	default:
 		panic(fmt.Errorf("unknown array type %T", arr))
@@ -1739,6 +1831,27 @@ func decimal128FromJSON(vs []interface{}) []decimal128.Num {
 		}
 
 		o[i] = decimal128.FromBigInt(&tmp)
+	}
+	return o
+}
+
+func decimal256ToJSON(arr *array.Decimal256) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.Value(i).BigInt().String()
+	}
+	return o
+}
+
+func decimal256FromJSON(vs []interface{}) []decimal256.Num {
+	var tmp big.Int
+	o := make([]decimal256.Num, len(vs))
+	for i, v := range vs {
+		if err := tmp.UnmarshalJSON([]byte(v.(string))); err != nil {
+			panic(fmt.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
+		}
+
+		o[i] = decimal256.FromBigInt(&tmp)
 	}
 	return o
 }

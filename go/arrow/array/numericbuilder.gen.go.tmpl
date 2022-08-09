@@ -40,10 +40,15 @@ type {{.Name}}Builder struct {
 func New{{.Name}}Builder(mem memory.Allocator, dtype *arrow.{{.Name}}Type) *{{.Name}}Builder {
 	return &{{.Name}}Builder{builder: builder{refCount:1, mem: mem}, dtype: dtype}
 }
+
+func (b *{{.Name}}Builder) Type() arrow.DataType { return b.dtype }
+
 {{else}}
 func New{{.Name}}Builder(mem memory.Allocator) *{{.Name}}Builder {
 	return &{{.Name}}Builder{builder: builder{refCount:1, mem: mem}}
 }
+
+func (b *{{.Name}}Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.{{.Name}} }
 {{end}}
 
 // Release decreases the reference count by 1.
@@ -72,6 +77,10 @@ func (b *{{.Name}}Builder) Append(v {{or .QualifiedType .Type}}) {
 func (b *{{.Name}}Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *{{.Name}}Builder) AppendEmptyValue() {
+	b.Append(0)
 }
 
 func (b *{{.Name}}Builder) UnsafeAppend(v {{or .QualifiedType .Type}}) {

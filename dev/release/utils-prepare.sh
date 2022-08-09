@@ -160,16 +160,12 @@ update_versions() {
   git add .
   popd
 
-  case ${type} in
-    release)
-      pushd "${ARROW_DIR}"
-      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
-                         . \
-                         "${version}" \
-                         "${next_version}"
-      git add docs/source/_static/versions.json
-      git add r/pkgdown/assets/versions.json
-      popd
-      ;;
-  esac
+  pushd "${ARROW_DIR}"
+  ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                     . \
+                     "${base_version}" \
+                     "${next_version}"
+  git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.json
+  popd
 }

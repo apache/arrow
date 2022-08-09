@@ -311,6 +311,8 @@ func NewStringBuilder(mem memory.Allocator) *StringBuilder {
 	return b
 }
 
+func (b *StringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.String }
+
 // Append appends a string to the builder.
 func (b *StringBuilder) Append(v string) {
 	b.BinaryBuilder.Append([]byte(v))
@@ -401,6 +403,8 @@ func NewLargeStringBuilder(mem memory.Allocator) *LargeStringBuilder {
 	}
 	return b
 }
+
+func (b *LargeStringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.LargeString }
 
 // Append appends a string to the builder.
 func (b *LargeStringBuilder) Append(v string) {

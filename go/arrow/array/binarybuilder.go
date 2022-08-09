@@ -84,6 +84,8 @@ func NewBinaryBuilder(mem memory.Allocator, dtype arrow.BinaryDataType) *BinaryB
 	return b
 }
 
+func (b *BinaryBuilder) Type() arrow.DataType { return b.dtype }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 // Release may be called simultaneously from multiple goroutines.
@@ -121,6 +123,12 @@ func (b *BinaryBuilder) AppendNull() {
 	b.Reserve(1)
 	b.appendNextOffset()
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *BinaryBuilder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.appendNextOffset()
+	b.UnsafeAppendBoolToBitmap(true)
 }
 
 // AppendValues will append the values in the v slice. The valid slice determines which values

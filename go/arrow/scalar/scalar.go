@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/bitutil"
 	"github.com/apache/arrow/go/v10/arrow/decimal128"
+	"github.com/apache/arrow/go/v10/arrow/decimal256"
 	"github.com/apache/arrow/go/v10/arrow/endian"
 	"github.com/apache/arrow/go/v10/arrow/float16"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
@@ -294,9 +295,29 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 		return MakeNullScalar(to), nil
 	}
 
+	dt := s.Type.(*arrow.Decimal128Type)
+
 	switch to.ID() {
 	case arrow.DECIMAL128:
-		return NewDecimal128Scalar(s.Value, to), nil
+		to := to.(*arrow.Decimal128Type)
+		newVal, err := s.Value.Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal128 value %v will not fit in new precision %d", newVal, to.Precision)
+		}
+		return NewDecimal128Scalar(newVal, to), nil
+	case arrow.DECIMAL256:
+		to := to.(*arrow.Decimal256Type)
+		newVal, err := decimal256.FromDecimal128(s.Value).Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal256 value %v will not fit in new precision %d", newVal, to.Precision)
+		}
+		return NewDecimal256Scalar(newVal, to), nil
 	case arrow.STRING:
 		dt := s.Type.(*arrow.Decimal128Type)
 		scale := big.NewFloat(math.Pow10(int(dt.Scale)))
@@ -309,6 +330,59 @@ func (s *Decimal128) CastTo(to arrow.DataType) (Scalar, error) {
 
 func NewDecimal128Scalar(val decimal128.Num, typ arrow.DataType) *Decimal128 {
 	return &Decimal128{scalar{typ, true}, val}
+}
+
+type Decimal256 struct {
+	scalar
+	Value decimal256.Num
+}
+
+func (s *Decimal256) value() interface{} { return s.Value }
+
+func (s *Decimal256) String() string {
+	if !s.Valid {
+		return "null"
+	}
+	val, err := s.CastTo(arrow.BinaryTypes.String)
+	if err != nil {
+		return "..."
+	}
+	return string(val.(*String).Value.Bytes())
+}
+
+func (s *Decimal256) equals(rhs Scalar) bool {
+	return s.Value == rhs.(*Decimal256).Value
+}
+
+func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
+	if !s.Valid {
+		return MakeNullScalar(to), nil
+	}
+
+	dt := s.Type.(*arrow.Decimal256Type)
+
+	switch to.ID() {
+	case arrow.DECIMAL256:
+		to := to.(*arrow.Decimal256Type)
+		newVal, err := s.Value.Rescale(dt.Scale, to.Scale)
+		if err != nil {
+			return nil, err
+		}
+		if !newVal.FitsInPrecision(to.Precision) {
+			return nil, fmt.Errorf("decimal256 value %v will not fit in new precision %d", newVal, to.Precision)
+		}
+		return NewDecimal256Scalar(newVal, to), nil
+	case arrow.STRING:
+		scale := big.NewFloat(math.Pow10(int(dt.Scale)))
+		val := (&big.Float{}).SetInt(s.Value.BigInt())
+		return NewStringScalar(val.Quo(val, scale).Text('g', int(dt.Precision))), nil
+	}
+
+	return nil, fmt.Errorf("cannot cast non-nil decimal128 scalar to type %s", to)
+}
+
+func NewDecimal256Scalar(val decimal256.Num, typ arrow.DataType) *Decimal256 {
+	return &Decimal256{scalar{typ, true}, val}
 }
 
 type Extension struct {
@@ -448,7 +522,7 @@ func init() {
 		arrow.LARGE_STRING:            func(dt arrow.DataType) Scalar { return &LargeString{&String{&Binary{scalar: scalar{dt, false}}}} },
 		arrow.LARGE_BINARY:            func(dt arrow.DataType) Scalar { return &LargeBinary{&Binary{scalar: scalar{dt, false}}} },
 		arrow.LARGE_LIST:              func(dt arrow.DataType) Scalar { return &LargeList{&List{scalar: scalar{dt, false}}} },
-		arrow.DECIMAL256:              unsupportedScalarType,
+		arrow.DECIMAL256:              func(dt arrow.DataType) Scalar { return &Decimal256{scalar: scalar{dt, false}} },
 		arrow.MAP:                     func(dt arrow.DataType) Scalar { return &Map{&List{scalar: scalar{dt, false}}} },
 		arrow.EXTENSION:               func(dt arrow.DataType) Scalar { return &Extension{scalar: scalar{dt, false}} },
 		arrow.FIXED_SIZE_LIST:         func(dt arrow.DataType) Scalar { return &FixedSizeList{&List{scalar: scalar{dt, false}}} },
@@ -485,6 +559,8 @@ func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 		return NewDayTimeIntervalScalar(arr.Value(idx)), nil
 	case *array.Decimal128:
 		return NewDecimal128Scalar(arr.Value(idx), arr.DataType()), nil
+	case *array.Decimal256:
+		return NewDecimal256Scalar(arr.Value(idx), arr.DataType()), nil
 	case *array.Duration:
 		return NewDurationScalar(arr.Value(idx), arr.DataType()), nil
 	case array.ExtensionArray:
@@ -803,6 +879,15 @@ func Hash(seed maphash.Seed, s Scalar) uint64 {
 			binary.Write(&h, endian.Native, v.LowBits())
 			hash()
 			binary.Write(&h, endian.Native, uint64(v.HighBits()))
+		case decimal256.Num:
+			arr := v.Array()
+			binary.Write(&h, endian.Native, arr[3])
+			hash()
+			binary.Write(&h, endian.Native, arr[2])
+			hash()
+			binary.Write(&h, endian.Native, arr[1])
+			hash()
+			binary.Write(&h, endian.Native, arr[0])
 		}
 		hash()
 		return out

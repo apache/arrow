@@ -169,6 +169,8 @@ func NewFixedSizeListBuilder(mem memory.Allocator, n int32, etype arrow.DataType
 	}
 }
 
+func (b *FixedSizeListBuilder) Type() arrow.DataType { return arrow.FixedSizeListOf(b.n, b.etype) }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *FixedSizeListBuilder) Release() {
@@ -194,6 +196,13 @@ func (b *FixedSizeListBuilder) Append(v bool) {
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
+}
+
+func (b *FixedSizeListBuilder) AppendEmptyValue() {
+	b.Append(true)
+	for i := int32(0); i < b.n; i++ {
+		b.values.AppendEmptyValue()
+	}
 }
 
 func (b *FixedSizeListBuilder) AppendValues(valid []bool) {

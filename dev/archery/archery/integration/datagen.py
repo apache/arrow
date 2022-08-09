@@ -1600,7 +1600,6 @@ def get_generated_json_files(tempdir=None):
         generate_decimal128_case(),
 
         generate_decimal256_case()
-        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('JS'),
 
         generate_datetime_case(),
@@ -1637,7 +1636,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_unions_case()
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('JS'),
 
         generate_custom_metadata_case()

@@ -181,6 +181,15 @@ func NewStructBuilder(mem memory.Allocator, dtype *arrow.StructType) *StructBuil
 	return b
 }
 
+func (b *StructBuilder) Type() arrow.DataType {
+	fields := make([]arrow.Field, len(b.fields))
+	copy(fields, b.dtype.(*arrow.StructType).Fields())
+	for i, b := range b.fields {
+		fields[i].Type = b.Type()
+	}
+	return arrow.StructOf(fields...)
+}
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *StructBuilder) Release() {
@@ -214,6 +223,13 @@ func (b *StructBuilder) AppendValues(valids []bool) {
 }
 
 func (b *StructBuilder) AppendNull() { b.Append(false) }
+
+func (b *StructBuilder) AppendEmptyValue() {
+	b.Append(true)
+	for _, f := range b.fields {
+		f.AppendEmptyValue()
+	}
+}
 
 func (b *StructBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
@@ -276,7 +292,7 @@ func (b *StructBuilder) NewStructArray() (a *Struct) {
 	return
 }
 
-func (b *StructBuilder) newData() (data arrow.ArrayData) {
+func (b *StructBuilder) newData() (data *Data) {
 	fields := make([]arrow.ArrayData, len(b.fields))
 	for i, f := range b.fields {
 		arr := f.NewArray()
@@ -285,7 +301,7 @@ func (b *StructBuilder) newData() (data arrow.ArrayData) {
 	}
 
 	data = NewData(
-		b.dtype, b.length,
+		b.Type(), b.length,
 		[]*memory.Buffer{
 			b.nullBitmap,
 		},

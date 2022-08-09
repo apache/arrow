@@ -42,6 +42,8 @@ func NewFloat16Builder(mem memory.Allocator) *Float16Builder {
 	return &Float16Builder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *Float16Builder) Type() arrow.DataType { return arrow.FixedWidthTypes.Float16 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *Float16Builder) Release() {
@@ -74,6 +76,11 @@ func (b *Float16Builder) UnsafeAppend(v float16.Num) {
 func (b *Float16Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Float16Builder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.UnsafeAppend(float16.Num{})
 }
 
 func (b *Float16Builder) UnsafeAppendBoolToBitmap(isValid bool) {

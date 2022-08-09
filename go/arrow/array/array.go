@@ -114,10 +114,6 @@ var (
 	makeArrayFn [64]arrayConstructorFn
 )
 
-func unsupportedArrayType(data arrow.ArrayData) arrow.Array {
-	panic("unsupported data type: " + data.DataType().ID().String())
-}
-
 func invalidDataType(data arrow.ArrayData) arrow.Array {
 	panic("invalid data type: " + data.DataType().ID().String())
 }
@@ -166,11 +162,11 @@ func init() {
 		arrow.INTERVAL_MONTHS:         func(data arrow.ArrayData) arrow.Array { return NewMonthIntervalData(data) },
 		arrow.INTERVAL_DAY_TIME:       func(data arrow.ArrayData) arrow.Array { return NewDayTimeIntervalData(data) },
 		arrow.DECIMAL128:              func(data arrow.ArrayData) arrow.Array { return NewDecimal128Data(data) },
-		arrow.DECIMAL256:              unsupportedArrayType,
+		arrow.DECIMAL256:              func(data arrow.ArrayData) arrow.Array { return NewDecimal256Data(data) },
 		arrow.LIST:                    func(data arrow.ArrayData) arrow.Array { return NewListData(data) },
 		arrow.STRUCT:                  func(data arrow.ArrayData) arrow.Array { return NewStructData(data) },
-		arrow.SPARSE_UNION:            unsupportedArrayType,
-		arrow.DENSE_UNION:             unsupportedArrayType,
+		arrow.SPARSE_UNION:            func(data arrow.ArrayData) arrow.Array { return NewSparseUnionData(data) },
+		arrow.DENSE_UNION:             func(data arrow.ArrayData) arrow.Array { return NewDenseUnionData(data) },
 		arrow.DICTIONARY:              func(data arrow.ArrayData) arrow.Array { return NewDictionaryData(data) },
 		arrow.MAP:                     func(data arrow.ArrayData) arrow.Array { return NewMapData(data) },
 		arrow.EXTENSION:               func(data arrow.ArrayData) arrow.Array { return NewExtensionData(data) },

@@ -68,8 +68,6 @@ func swapType(dt arrow.DataType, data *array.Data) (err error) {
 	case arrow.NULL, arrow.BOOL, arrow.INT8, arrow.UINT8,
 		arrow.FIXED_SIZE_BINARY, arrow.FIXED_SIZE_LIST, arrow.STRUCT:
 		return
-	case arrow.DENSE_UNION, arrow.SPARSE_UNION:
-		panic("arrow endian swap not yet implemented for union types")
 	}
 
 	switch dt := dt.(type) {
@@ -81,6 +79,23 @@ func swapType(dt arrow.DataType, data *array.Data) (err error) {
 			tmp := bits.ReverseBytes64(rawdata[idx])
 			rawdata[idx] = bits.ReverseBytes64(rawdata[idx+1])
 			rawdata[idx+1] = tmp
+		}
+	case *arrow.Decimal256Type:
+		rawdata := arrow.Uint64Traits.CastFromBytes(data.Buffers()[1].Bytes())
+		length := data.Buffers()[1].Len() / arrow.Decimal256SizeBytes
+		for i := 0; i < length; i++ {
+			idx := i * 4
+			tmp0 := bits.ReverseBytes64(rawdata[idx])
+			tmp1 := bits.ReverseBytes64(rawdata[idx+1])
+			tmp2 := bits.ReverseBytes64(rawdata[idx+2])
+			rawdata[idx] = bits.ReverseBytes64(rawdata[idx+3])
+			rawdata[idx+1] = tmp2
+			rawdata[idx+2] = tmp1
+			rawdata[idx+3] = tmp0
+		}
+	case arrow.UnionType:
+		if dt.Mode() == arrow.DenseMode {
+			swapOffsets(2, 32, data)
 		}
 	case *arrow.ListType:
 		swapOffsets(1, 32, data)

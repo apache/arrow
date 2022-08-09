@@ -199,7 +199,7 @@ func validate(arrowName, jsonName string, verbose bool) error {
 
 	if !arr.Schema().Equal(jrr.Schema()) {
 		if verbose {
-			log.Printf("JSON schema:\n%v\nArrow schema:\n%v", arr.Schema(), jrr.Schema())
+			log.Printf("JSON schema:\n%v\nArrow schema:\n%v", jrr.Schema(), arr.Schema())
 		}
 		return fmt.Errorf("schemas did not match")
 	}
