@@ -600,7 +600,7 @@ test_that("Can use across() within mutate()", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(.fns = round, across(c(dbl, dbl2))) %>%
+      mutate(across(.fns = round, c(dbl, dbl2))) %>%
       collect(),
     tbl
   )
