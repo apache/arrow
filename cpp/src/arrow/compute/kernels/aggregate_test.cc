@@ -2532,6 +2532,7 @@ template <typename CType>
 void CheckModes(const Datum& array, const ModeOptions options,
                 const std::vector<CType>& expected_modes,
                 const std::vector<int64_t>& expected_counts) {
+  ARROW_SCOPED_TRACE("Mode Options: ", options.ToString());
   ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, options));
   ValidateOutput(out);
   const StructArray out_array(out.array());
@@ -2554,6 +2555,7 @@ template <>
 void CheckModes<bool>(const Datum& array, const ModeOptions options,
                       const std::vector<bool>& expected_modes,
                       const std::vector<int64_t>& expected_counts) {
+  ARROW_SCOPED_TRACE("Mode Options: ", options.ToString());
   ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, options));
   ValidateOutput(out);
   const StructArray out_array(out.array());
@@ -3339,6 +3341,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
     for (size_t i = 0; i < this->interpolations_.size(); ++i) {
       options.interpolation = this->interpolations_[i];
+      ARROW_SCOPED_TRACE("Quantile Options: ", options.ToString());
 
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
       const auto& out_array = out.make_array();
