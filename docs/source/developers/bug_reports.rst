@@ -48,7 +48,7 @@ project without additional permissions. Individuals may
 `create an ASF Jira account here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
 Self-assigning issues to work requires
 the "Contributor" permission. This permission is set by project maintainers,
-and may be requested by emailing the :ref:`development mailing list<mailing_list>`.
+and may be requested by emailing the :ref:`development mailing list <mailing_list>`.
 
 .. _creating-issues:
 
