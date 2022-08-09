@@ -1093,7 +1093,7 @@ def test_gcs_options():
 
 @pytest.mark.s3
 def test_s3_options():
-    from pyarrow.fs import S3FileSystem, AwsStandardS3RetryStrategy
+    from pyarrow.fs import S3FileSystem, AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
@@ -1109,6 +1109,10 @@ def test_s3_options():
 
     fs = S3FileSystem(
         retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
+
+    fs = S3FileSystem(
+        retry_strategy=AwsDefaultS3RetryStrategy(max_attempts=5))
     assert isinstance(fs, S3FileSystem)
 
     fs2 = S3FileSystem(role_arn='role')
