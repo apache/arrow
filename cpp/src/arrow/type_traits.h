@@ -960,6 +960,7 @@ static inline bool is_decimal(Type::type type_id) {
 
 /// \brief Check for a primitive type
 ///
+/// This predicate doesn't match null, decimals and binary-like types.
 /// \param[in] type_id the type-id to check
 /// \return whether type-id is a primitive type one
 static inline bool is_primitive(Type::type type_id) {
