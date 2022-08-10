@@ -151,6 +151,7 @@ create_binding_cache <- function() {
   register_bindings_math()
   register_bindings_string()
   register_bindings_type()
+  register_bindings_augmented()
 
   # We only create the cache for nse_funcs and not agg_funcs
   .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
