@@ -108,20 +108,13 @@ struct RunLengthEncodeExec
   Status Exec() {
     ArrayData* output_array_data = this->exec_result->array_data().get();
     if (this->input_array.length == 0) {
-      ARROW_ASSIGN_OR_RAISE(auto metadata_buffer,
-                            AllocateBuffer(sizeof(rle_util::Metadata),
-                                           this->kernel_context->memory_pool()));
       output_array_data->length = 0;
       output_array_data->offset = 0;
-      output_array_data->buffers = {std::move(metadata_buffer), NULLPTR};
+      output_array_data->buffers = {NULLPTR};
       output_array_data->child_data[0] =
           ArrayData::Make(this->input_array.type->GetSharedPtr(),
                           /*length =*/0,
                           /*buffers =*/{NULLPTR, NULLPTR});
-      auto output_metadata =
-          output_array_data->template GetMutableValues<rle_util::Metadata>(0);
-      output_metadata->physical_length = 0;
-      output_metadata->physical_offset = 0;
       return Status::OK();
     }
     if (this->input_array.length > std::numeric_limits<int32_t>::max()) {
@@ -170,37 +163,33 @@ struct RunLengthEncodeExec
                           AllocateBuffer(bit_util::BytesForBits(num_values_output *
                                                                 ArrowType().bit_width()),
                                          this->kernel_context->memory_pool()));
-    ARROW_ASSIGN_OR_RAISE(
-        auto metadata_buffer,
-        AllocateBuffer(sizeof(rle_util::Metadata), this->kernel_context->memory_pool()));
     ARROW_ASSIGN_OR_RAISE(auto run_lengths_buffer,
                           AllocateBuffer(num_values_output * sizeof(int32_t),
                                          this->kernel_context->memory_pool()));
 
     output_array_data->length = this->input_array.length;
     output_array_data->offset = 0;
-    output_array_data->buffers.resize(2);
+    output_array_data->buffers = {NULLPTR};
     output_array_data->child_data.resize(1);
-    auto child_array_data =
+    auto values_array_data =
         ArrayData::Make(this->input_array.type->GetSharedPtr(), num_values_output);
-    output_array_data->buffers[0] = std::move(metadata_buffer);
+    auto run_ends_array_data =
+        ArrayData::Make(int32(), num_values_output);
     output_array_data->buffers[1] = std::move(run_lengths_buffer);
-    child_array_data->buffers.push_back(std::move(validity_buffer));
-    child_array_data->buffers.push_back(std::move(values_buffer));
+    values_array_data->buffers.push_back(std::move(validity_buffer));
+    values_array_data->buffers.push_back(std::move(values_buffer));
+    values_array_data->buffers.push_back(NULLPTR);
+    values_array_data->buffers.push_back(std::move(run_lengths_buffer));
 
     output_array_data->null_count.store(input_null_count);
-    child_array_data->null_count = output_null_count;
+    values_array_data->null_count = output_null_count;
 
-    this->output_validity = child_array_data->template GetMutableValues<uint8_t>(0);
-    this->output_values = child_array_data->template GetMutableValues<uint8_t>(1);
-    auto output_metadata =
-        output_array_data->template GetMutableValues<rle_util::Metadata>(0);
-    auto output_run_lengths = output_array_data->template GetMutableValues<int32_t>(1);
+    this->output_validity = values_array_data->template GetMutableValues<uint8_t>(0);
+    this->output_values = values_array_data->template GetMutableValues<uint8_t>(1);
+    auto output_run_ends = run_ends_array_data->template GetMutableValues<int32_t>(1);
 
-    output_array_data->child_data[0] = std::move(child_array_data);
-
-    output_metadata->physical_offset = 0;
-    output_metadata->physical_length = num_values_output;
+    output_array_data->child_data[0] = std::move(values_array_data);
+    output_array_data->child_data[0] = std::move(run_ends_array_data);
 
     if (has_validity_buffer) {
       // clear last byte in validity buffer, which won't completely be overwritten with
@@ -220,11 +209,11 @@ struct RunLengthEncodeExec
       if (element != previous_element) {
         this->WriteValue(element);
         // run lengths buffer holds accumulated run length values
-        output_run_lengths[this->output_position - 1] = this->input_position;
+        output_run_ends[this->output_position - 1] = this->input_position;
         this->output_position++;
       }
     }
-    output_run_lengths[this->output_position - 1] = this->input_array.length;
+    output_run_ends[this->output_position - 1] = this->input_array.length;
     ARROW_DCHECK(this->output_position == num_values_output);
     return Status::OK();
   }
