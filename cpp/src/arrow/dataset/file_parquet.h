@@ -163,7 +163,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
-  /// \brief Override the set_bounds method of FileFragment to raise a warning that it's 
+  /// \brief Override the set_bounds method of FileFragment to raise a warning that it's
   /// not supported.
   void set_bounds(int64_t start, int64_t end);
 

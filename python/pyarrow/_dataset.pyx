@@ -1027,7 +1027,6 @@ cdef class FileFragment(Fragment):
     cdef void init(self, const shared_ptr[CFragment]& sp):
         Fragment.init(self, sp)
         self.file_fragment = <CFileFragment*> sp.get()
-    
 
     def __repr__(self):
         type_name = frombytes(self.fragment.type_name())
@@ -1056,7 +1055,9 @@ cdef class FileFragment(Fragment):
 
     def slice(self, start, end):
         """
-        Returns a new FileFragment object that shares the underlying C pointer
+        Returns a new FileFragment object that will only read 
+        a slice of the old FileFragment defined by start (start byte)
+        and end (end byte).
         """
 
         cdef FileFragment new_fragment = self.format.make_fragment(
