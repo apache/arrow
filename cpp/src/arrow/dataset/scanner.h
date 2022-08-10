@@ -82,7 +82,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
 
-  /// How many batches to read ahead within a file
+  /// How many batches to read ahead within a fragment.
   ///
   /// Set to 0 to disable batch readahead
   ///
@@ -381,13 +381,15 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// This option provides a control limiting the memory owned by any RecordBatch.
   Status BatchSize(int64_t batch_size);
 
-  /// \brief Set the number of batches to read ahead within a file.
+  /// \brief Set the number of batches to read ahead within a fragment.
   ///
-  /// \param[in] batch_readahead How many batches to read ahead within a file,
-  ///  might not work for all formats. 
+  /// \param[in] batch_readahead How many batches to read ahead within a fragment,
+  ///  might not work for all formats.
   /// \returns An error if this number is less than 0.
   ///
   /// This option provides a control on RAM vs I/O tradeoff.
+  /// It might not be support by all file formats, in which case it will
+  /// simply be ignored.
   Status BatchReadahead(int32_t batch_readahead);
 
   /// \brief Set the number of fragments to read ahead
