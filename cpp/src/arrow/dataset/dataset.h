@@ -76,6 +76,11 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
     return partition_expression_;
   }
 
+  /// \brief returns the physical schema.
+  const std::shared_ptr<Schema> physical_schema() const {
+    return physical_schema_;
+  }
+
   virtual ~Fragment() = default;
 
  protected:

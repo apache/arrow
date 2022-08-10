@@ -117,7 +117,7 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
   /// \brief Open a byte range of thie file source.
   /// \param[in] byte_range Must give the byte start and byte end as a pair
   Result<std::shared_ptr<io::InputStream>> OpenRange(
-      std::pair<int64_t,int64_t> byte_range) const;
+      int64_t start, int64_t end) const;
 
   /// \brief equality comparison with another FileSource
   bool Equals(const FileSource& other) const;
@@ -201,8 +201,9 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
-  const std::pair<int64_t, int64_t> boundaries() const { return boundaries_; }
-  void set_boundaries(int64_t start, int64_t end) { boundaries_ = {start,end}; }
+  const int64_t start_byte() const { return start_byte_; }
+  const int64_t end_byte() const { return end_byte_; }
+  void set_bounds(int64_t start, int64_t end) { start_byte_ = start; end_byte_ = end;}
 
   bool Equals(const FileFragment& other) const;
 
@@ -214,13 +215,16 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
         source_(std::move(source)),
         format_(std::move(format)) {}
 
-  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
+    Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
 
-  FileSource source_;
-  std::shared_ptr<FileFormat> format_;
-  std::pair<int64_t, int64_t> boundaries_ = {0,0};
-
-  friend class FileFormat;
+    FileSource source_;
+    std::shared_ptr<FileFormat> format_;
+    friend class FileFormat;
+ 
+ // we do not want ParquetFileFragment to inherit these things.
+ private:
+    int64_t start_byte_;
+    int64_t end_byte_;
 };
 
 /// \brief A Dataset of FileFragments.
