@@ -49,6 +49,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/extension/json.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
@@ -1034,6 +1035,20 @@ std::shared_ptr<Array> ExampleComplex128() {
   auto arr = ArrayFromJSON(struct_({field("", float64()), field("", float64())}),
                            "[[1.0, -2.5], null, [3.0, -4.5]]");
   return ExtensionType::WrapArray(complex128(), arr);
+}
+
+std::shared_ptr<Array> ExampleJson() {
+  std::shared_ptr<Array> arr = ArrayFromJSON(utf8(), R"([
+    "null",
+    "1234",
+    "3.14159",
+    "true",
+    "false",
+    "\"a json string\"",
+    "[\"a\", \"json\", \"array\"]",
+    "{\"obj\": \"a simple json object\"}"
+   ])");
+  return ExtensionType::WrapArray(arrow::extension::json(), arr);
 }
 
 ExtensionTypeGuard::ExtensionTypeGuard(const std::shared_ptr<DataType>& type)

@@ -193,6 +193,9 @@ ARROW_TESTING_EXPORT
 std::shared_ptr<Array> MakeComplex128(const std::shared_ptr<Array>& real,
                                       const std::shared_ptr<Array>& imag);
 
+ARROW_TESTING_EXPORT
+std::shared_ptr<Array> ExampleJson();
+
 // A RAII class that registers an extension type on construction
 // and unregisters it on destruction.
 class ARROW_TESTING_EXPORT ExtensionTypeGuard {
