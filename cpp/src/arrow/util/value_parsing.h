@@ -770,7 +770,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   return true;
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(ARROW_WITH_MUSL)
 static constexpr bool kStrptimeSupportsZone = false;
 #else
 static constexpr bool kStrptimeSupportsZone = true;

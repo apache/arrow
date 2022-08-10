@@ -43,8 +43,10 @@ RUN apk add \
         llvm13-static \
         lz4-dev \
         make \
+        musl-locales \
         nlohmann-json \
         openssl-dev \
+        perl \
         pkgconfig \
         protobuf-dev \
         py3-pip \
@@ -60,7 +62,10 @@ RUN apk add \
         tzdata \
         utf8proc-dev \
         zlib-dev \
-        zstd-dev
+        zstd-dev && \
+    rm -rf /var/cache/apk/* && \
+    ln -s /usr/share/zoneinfo/GMT /etc/localtime && \
+    echo "GMT" > /etc/timezone
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
@@ -85,6 +90,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
     ARROW_WITH_OPENTELEMETRY=OFF \
+    ARROW_WITH_MUSL=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
