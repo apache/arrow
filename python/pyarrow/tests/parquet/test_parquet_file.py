@@ -341,6 +341,7 @@ def test_parquet_file_explicitly_closed(tmpdir):
     # ParquetFile with opened file (will leave open)
     with open(fn, 'rb') as f:
         with pq.ParquetFile(f) as p:
+            p.read()
             assert not f.closed
             assert not p.closed
         assert not f.closed  # opened input file was not closed
@@ -350,5 +351,6 @@ def test_parquet_file_explicitly_closed(tmpdir):
 
     # ParquetFile with unopened file (will close)
     with pq.ParquetFile(fn) as p:
+        p.read()
         assert not p.closed
     assert p.closed  # parquet file obj reports as closed
