@@ -1019,12 +1019,16 @@ if(ARROW_USE_BOOST)
     # Find static boost headers and libs
     set(Boost_USE_STATIC_LIBS ON)
   endif()
+  if(ARROW_BOOST_REQUIRE_LIBRARY)
+    set(ARROW_BOOST_COMPONENTS system filesystem)
+  else()
+    set(ARROW_BOOST_COMPONENTS)
+  endif()
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      COMPONENTS
-                     system
-                     filesystem
+                     ${ARROW_BOOST_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
