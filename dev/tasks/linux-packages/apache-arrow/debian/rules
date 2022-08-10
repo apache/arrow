@@ -31,6 +31,7 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=cmake+ninja				\
 	  --							\
+	  -DARROW_BUILD_UTILITIES=ON				\
 	  -DARROW_COMPUTE=ON					\
 	  -DARROW_CSV=ON					\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
