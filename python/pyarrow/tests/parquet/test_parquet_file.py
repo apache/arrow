@@ -282,15 +282,17 @@ def test_pre_buffer(pre_buffer):
 
 def test_parquet_file_explicitly_closed(tmpdir):
     """
-    Unopened files should be closed explicitly after use.
+    Unopened files should be closed explicitly after use,
+    and previously opened files should be left open.
+    Applies to read_table, ParquetDataset, and ParquetFile
     """
-    pytest.importorskip('fsspec')
-    from fsspec.implementations.local import LocalFileSystem
-
     # create test parquet file
     df = pd.DataFrame([{'col1': 0, 'col2': 0}, {'col1': 1, 'col2': 1}])
     fn = str(tmpdir.join('file.parquet'))
     df.to_parquet(fn)
+
+    pytest.importorskip('fsspec')
+    from fsspec.implementations.local import LocalFileSystem
 
     class LocalTempFile:
         def __init__(self, fs, path, mode):
@@ -309,31 +311,37 @@ def test_parquet_file_explicitly_closed(tmpdir):
 
     fs = TestFileSystem()
 
-    # pyarrow.read_table & # pyarrow.parquet.ParquetDataset (V2)
-    with mock.patch.object(LocalTempFile, "close") as mock_close:
-        pq.read_table(fn, filesystem=fs, use_legacy_dataset=False)
-        pq.ParquetDataset(fn, filesystem=fs, use_legacy_dataset=False).read()
+    # read_table (legacy) with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        pq.read_table(f, use_legacy_dataset=True)
+        assert not f.closed  # Didn't close it internally after read_table
 
-        # TODO: _ParquetDatasetV2 closing of passed file not implemented
-        # for either ParquetDataset or read_table.
-        with pytest.raises(AssertionError):
-            mock_close.assert_called()
-
-    # pyarrow.read_table (legacy)
-    with mock.patch.object(LocalTempFile, "close") as mock_close:
-        pq.read_table(fn, filesystem=fs, use_legacy_dataset=True)
+    # read_table (legacy) with unopened file (will close)
+    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
+        pq.read_table(fn, use_legacy_dataset=True)
         mock_close.assert_called()
 
-    # pyarrow.parquet.ParquetDataset test (legacy)
+    # ParquetDataset test (legacy) with opened file (will leave open)
     with mock.patch.object(LocalTempFile, "close") as mock_close:
         pq.ParquetDataset(fn, filesystem=fs, use_legacy_dataset=True).read()
+        mock_close.assert_not_called()
+
+    # ParquetDataset test (legacy) with unopened file (will close)
+    with mock.patch.object(pq.ParquetFile, "close") as mock_close:
+        pq.ParquetDataset(fn, use_legacy_dataset=True).read()
         mock_close.assert_called()
 
-    # pyarrow.parquet.ParquetFile
-    with mock.patch.object(LocalTempFile, "close") as mock_close:
-        with pq.ParquetFile(LocalTempFile(fs, fn, 'rb')) as p:
-            mock_close.assert_not_called()
+    # ParquetFile with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        with pq.ParquetFile(f) as p:
+            assert not f.closed
             assert not p.closed
+        assert not f.closed  # opened input file was not closed
+        assert not p.closed  # parquet file obj reports as not closed
+    assert f.closed
+    assert p.closed  # parquet file being closed reflects underlying file
 
-        mock_close.assert_called()
-        assert p.closed
+    # ParquetFile with unopened file (will close)
+    with pq.ParquetFile(fn) as p:
+        assert not p.closed
+    assert p.closed  # parquet file obj reports as closed
