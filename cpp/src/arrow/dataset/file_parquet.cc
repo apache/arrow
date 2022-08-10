@@ -579,6 +579,11 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       row_groups_(std::move(row_groups)) {}
 
+
+void ParquetFileFragment::set_bounds(int64_t start, int64_t end) { 
+    ARROW_LOG(WARNING) << "Setting byte bounds for a ParquetFileFragment not supported! Use subset instead.";
+  }
+
 Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
   auto lock = physical_schema_mutex_.Lock();
   if (metadata_ != nullptr) {

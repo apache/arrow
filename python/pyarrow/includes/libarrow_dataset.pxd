@@ -75,6 +75,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_bool splittable() const
         c_string type_name() const
         const CExpression& partition_expression() const
+        const shared_ptr[CSchema] physical_schema() const
 
     ctypedef vector[shared_ptr[CFragment]] CFragmentVector \
         "arrow::dataset::FragmentVector"
@@ -215,7 +216,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFragment):
         const CFileSource& source() const
         const shared_ptr[CFileFormat]& format() const
-        void set_boundaries(int64_t start, int64_t end)
+        void set_bounds(int64_t start, int64_t end)
 
     cdef cppclass CFileSystemDatasetWriteOptions \
             "arrow::dataset::FileSystemDatasetWriteOptions":
