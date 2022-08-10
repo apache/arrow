@@ -382,8 +382,8 @@ class ParquetFile:
         """
         return self.reader.num_row_groups
 
-    def close(self):
-        if self._close_source:
+    def close(self, force: bool = False):
+        if self._close_source or force:
             self.reader.close()
 
     @property
@@ -1217,7 +1217,10 @@ class ParquetDatasetPiece:
 
                 arr = pa.DictionaryArray.from_arrays(indices, dictionary)
                 table = table.append_column(name, arr)
-        reader.close()
+
+        # To ParquetFile the source looked like it was already open, so won't
+        # actually close it without overriding.
+        reader.close(force=True)
         return table
 
 

@@ -321,15 +321,22 @@ def test_parquet_file_explicitly_closed(tmpdir):
         pq.read_table(fn, use_legacy_dataset=True)
         mock_close.assert_called()
 
-    # ParquetDataset test (legacy) with opened file (will leave open)
+    # ParquetDataset test (legacy) with unopened file via fsspec (will close)
     with mock.patch.object(LocalTempFile, "close") as mock_close:
         pq.ParquetDataset(fn, filesystem=fs, use_legacy_dataset=True).read()
-        mock_close.assert_not_called()
+        mock_close.assert_called()
 
     # ParquetDataset test (legacy) with unopened file (will close)
     with mock.patch.object(pq.ParquetFile, "close") as mock_close:
         pq.ParquetDataset(fn, use_legacy_dataset=True).read()
         mock_close.assert_called()
+
+    # ParquetDataset test (legacy) with opened file (will leave open)
+    with open(fn, 'rb') as f:
+        # ARROW-8075: support ParquetDataset from file-like, not just path-like
+        with pytest.raises(TypeError, match='not a path-like object'):
+            pq.ParquetDataset(f, use_legacy_dataset=True).read()
+            assert not f.closed
 
     # ParquetFile with opened file (will leave open)
     with open(fn, 'rb') as f:
