@@ -34,16 +34,18 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
   mkdir -p ${ARROW_HOME}/lib
 
+  pushd ${ARROW_HOME}/
+  pushd ${source_dir}
   protover=$(mvn help:evaluate -Dexpression=dep.protobuf-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
     echo "Error at protobuf: $protover"
     exit 1
   fi
   protover=echo $protover | sed "s/^[0-9]*.//"
-  pushd ${ARROW_HOME}/
+  popd
   wget https://github.com/protocolbuffers/protobuf/releases/download/v${protover}/protobuf-all-${protover}.tar.gz
   tar xf protobuf-all-${protover}.tar.gz
-  cd protobuf-${protover}
+  pushd protobuf-${protover}
   ./configure
   make -j 2
   # protoc requires libprotoc.so.* libprotobuf.so.*
@@ -61,15 +63,17 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   cp lib*.so.* ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
+
+  pushd ${source_dir}
   grpcver=$(mvn help:evaluate -Dexpression=dep.grpc-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
     echo "Error at grpc: $grpcver"
     exit 1
   fi
-  pushd ${ARROW_HOME}/
+  popd
   wget https://github.com/grpc/grpc-java/archive/refs/tags/v${grpcver}.tar.gz
   tar xf v${grpcver}.tar.gz
-  cd grpc-java-${grpcver}
+  pushd grpc-java-${grpcver}
   echo skipAndroid=true >> gradle.properties
   CXXFLAGS="-I${ARROW_HOME}/protobuf-${protover}/src" LDFLAGS="-L${ARROW_HOME}/protobuf-${protover}/src/.libs" ./gradlew java_pluginExecutable --no-daemon
   cp ./compiler/build/exe/java_plugin/protoc-gen-grpc-java ${ARROW_HOME}/lib
@@ -82,6 +86,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   extension="exe"
   target=${artifact}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${grpcver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=${ARROW_HOME}/lib/${target}
+  popd
 fi
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
