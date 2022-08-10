@@ -89,7 +89,7 @@ struct FastHashScalar {
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& input_arg, ExecResult* out) {
-    if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
+    if (input_arg.num_values() != 1 || !input_arg[0].is_array()) {
       return Status::Invalid("FastHash currently supports a single array input");
     }
     ArraySpan hash_input = input_arg[0].array;
@@ -135,7 +135,7 @@ template <typename ValueType>
 struct XxHashScalar {
   static Status ExecPrimitive(KernelContext* ctx, const ExecSpan& input_arg,
                               ExecResult* out) {
-    if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
+    if (input_arg.num_values() != 1 || !input_arg[0].is_array()) {
       return Status::Invalid("xxHash currently supports a single array input");
     }
 
@@ -164,7 +164,7 @@ struct XxHashScalar {
 
   static Status ExecBinary(KernelContext* ctx, const ExecSpan& input_arg,
                            ExecResult* out) {
-    if (input_arg.num_values() != 1 or !input_arg[0].is_array()) {
+    if (input_arg.num_values() != 1 || !input_arg[0].is_array()) {
       return Status::Invalid("xxHash currently supports a single array input");
     }
 
