@@ -375,6 +375,8 @@ set(ARROW_SRCS
     device.cc
     device_allocation_type_set.cc
     extension_type.cc
+    extension/json.cc
+    memory_pool.cc
     extension/bool8.cc
     extension/uuid.cc
     pretty_print.cc
