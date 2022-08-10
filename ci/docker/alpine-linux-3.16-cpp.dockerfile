@@ -64,8 +64,8 @@ RUN apk add \
         zlib-dev \
         zstd-dev && \
     rm -rf /var/cache/apk/* && \
-    ln -s /usr/share/zoneinfo/GMT /etc/localtime && \
-    echo "GMT" > /etc/timezone
+    ln -s /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
+    echo "Etc/UTC" > /etc/timezone
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
