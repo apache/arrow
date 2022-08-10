@@ -18,12 +18,6 @@
 # The following S3 methods are registered on load if dplyr is present
 
 distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
-  if (.keep_all == TRUE) {
-    # TODO(ARROW-14045): the function is called "hash_one" (from ARROW-13993)
-    # May need to call it: `summarize(x = one(x), ...)` for x in non-group cols
-    arrow_not_supported("`distinct()` with `.keep_all = TRUE`")
-  }
-
   original_gv <- dplyr::group_vars(.data)
   if (length(quos(...))) {
     # group_by() calls mutate() if there are any expressions in ...
@@ -36,7 +30,19 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
     .data <- dplyr::group_by(.data, !!!syms(names(.data)))
   }
 
-  out <- dplyr::summarize(.data, .groups = "drop")
+  if (.keep_all) {
+    other_cols <- names(.data)[!(names(.data) %in% .data$group_by_vars)]
+    rls <- lapply(other_cols, function(x) call2("one", sym(x)))
+    names(rls) <- other_cols 
+    # `summarize(x = one(x), y = one(y) ...)` for x, y in non-group cols to keep
+    # `one()` is wrapper for "hash_one" function (implemented ARROW-13993)
+    out <- dplyr::summarize(.data, !!!rls, .groups = "drop")
+    # restore cols order
+    out <- dplyr::select(out, !!!syms(names(.data)))
+  } else {
+    out <- dplyr::summarize(.data, .groups = "drop")
+  }
+
   # distinct() doesn't modify group by vars, so restore the original ones
   if (length(original_gv)) {
     out$group_by_vars <- original_gv
