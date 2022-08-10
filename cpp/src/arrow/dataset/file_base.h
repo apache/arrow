@@ -225,8 +225,8 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
 
   // we do not want ParquetFileFragment to inherit these things.
  private:
-  int64_t start_byte_;
-  int64_t end_byte_;
+  int64_t start_byte_ = 0;
+  int64_t end_byte_ = 0;
 };
 
 /// \brief A Dataset of FileFragments.
