@@ -96,6 +96,16 @@ TEST(TestRleUtil, VisitMergedRuns) {
       });
 
   ASSERT_EQ(position, expected_run_lengths.size());
+
+  position = 0;
+  for (auto it = MergedRunsIterator<2>(ArraySpan(*left_array->data()),
+                                       ArraySpan(*right_array->data()));
+       it != MergedRunsIterator<2>(); ++it) {
+    ASSERT_EQ(it.run_length(), expected_run_lengths[position]);
+    ASSERT_EQ(it.physical_index(0), expected_left_visits[position]);
+    ASSERT_EQ(it.physical_index(1), expected_right_visits[position]);
+    position++;
+  }
 }
 
 }  // namespace rle_util
