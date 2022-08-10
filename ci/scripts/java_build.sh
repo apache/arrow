@@ -32,44 +32,56 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   mvn_install="mvn install:install-file"
   wget="wget"
   artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
+  mkdir -p ${ARROW_HOME}/lib
 
-  ver=$(mvn help:evaluate -Dexpression=dep.protobuf-bom.version -q -DforceStdout)
+  pushd ${ARROW_HOME}
+  protover=$(mvn help:evaluate -Dexpression=dep.protobuf-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
-    echo "Error at protobuf: $ver"
+    echo "Error at protobuf: $protover"
     exit 1
   fi
-  ver=echo $ver | sed "s/^[0-9]*.//"
+  protover=echo $protover | sed "s/^[0-9]*.//"
+  wget https://github.com/protocolbuffers/protobuf/releases/download/v${protover}/protobuf-all-${protover}.tar.gz
+  tar xf protobuf-all-${protover}.tar.gz
+  cd protobuf-${protover}
+  ./configure
+  make -j 2
+  # protoc requires libprotoc.so.* libprotobuf.so.*
+  cp ./src/.libs/libprotoc.so.* ./src/.libs/libprotobuf.so.* ${ARROW_HOME}/lib
+  cp ./src/.libs/protoc ${ARROW_HOME}/lib
+  popd
+
   artifactory_dir="protoc-binary"
   group="com.google.protobuf"
   artifact="protoc"
   classifier="linux-s390_64"
   extension="exe"
-  # target=${artifact}-${ver}-${classifier}.${extension}
   target=${artifact}
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-  # protoc requires libprotoc.so.* libprotobuf.so.*
-  libver="32"
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.${libver}
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotobuf.so.${libver}
-  mkdir -p ${ARROW_HOME}/lib
-  cp lib*.so.${libver} ${ARROW_HOME}/lib
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${protover} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=${ARROW_HOME}/lib/${target}
+  cp lib*.so.* ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
-  ver=$(mvn help:evaluate -Dexpression=dep.grpc-bom.version -q -DforceStdout)
+  pushd ${ARROW_HOME}
+  grpcver=$(mvn help:evaluate -Dexpression=dep.grpc-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
-    echo "Error at grpc: $ver"
+    echo "Error at grpc: $grpcver"
     exit 1
   fi
+  wget https://github.com/grpc/grpc-java/archive/refs/tags/v${grpcver}.tar.gz
+  tar xf v${grpcver}.tar.gz
+  cd grpc-java-${grpcver}
+  echo skipAndroid=true >> gradle.properties
+  CXXFLAGS="-I${ARROW_HOME}/protobuf-${protover}/src" LDFLAGS="-L${ARROW_HOME}/protobuf-${protover}/src/.libs" ./gradlew java_pluginExecutable --no-daemon
+  cp ./compiler/build/exe/java_plugin/protoc-gen-grpc-java ${ARROW_HOME}/lib
+  popd
+
   artifactory_dir="protoc-gen-grpc-java-binary"
   group="io.grpc"
   artifact="protoc-gen-grpc-java"
   classifier="linux-s390_64"
   extension="exe"
-  # target=${artifact}-${ver}-${classifier}.${extension}
   target=${artifact}
-  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${grpcver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=${ARROW_HOME}/lib/${target}
 fi
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
