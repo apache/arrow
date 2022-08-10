@@ -633,27 +633,19 @@ test_that("Can use across() within mutate()", {
   )
 
   # alternative ways of specifying .fns - as a list
-  # ARROW-17364: .names argument not yet supported for across()
-  # See: https://github.com/tidyverse/dplyr/issues/6395 for why this is related
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(across(1:dbl2, list(round))) %>%
-        collect(),
-      tbl
-    )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(1:dbl2, list(round))) %>%
+      collect(),
+    tbl
   )
 
   # supply .fns as a one-item vector
-  # ARROW-17364: .names argument not yet supported for across()
-  # See: https://github.com/tidyverse/dplyr/issues/6395 for why this is related
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(across(1:dbl2, c(round))) %>%
-        collect(),
-      tbl
-    )
+  compare_dplyr_binding(
+    .input %>%
+      mutate(across(1:dbl2, c(round))) %>%
+      collect(),
+    tbl
   )
 
   # ARROW-17366: purrr-style lmabda functions not yet supported
