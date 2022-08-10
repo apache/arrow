@@ -433,7 +433,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   private void checkDataBufferSize(long size) {
     if (size > MAX_BUFFER_SIZE || size < 0) {
       throw new OversizedAllocationException("Memory required for vector " +
-          " is (" + size + "), which is more than max allowed (" + MAX_ALLOCATION_SIZE + ")");
+          "is (" + size + "), which is overflow or more than max allowed (" + MAX_BUFFER_SIZE + "). " +
+          "You could consider using LargeVarCharVector/LargeVarBinaryVector for large strings/large bytes types");
     }
   }
 
@@ -449,7 +450,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (size > MAX_BUFFER_SIZE) {
       throw new OversizedAllocationException("Memory required for vector capacity " +
           valueCount +
-          " is (" + size + "), which is more than max allowed (" + MAX_ALLOCATION_SIZE + ")");
+          " is (" + size + "), which is more than max allowed (" + MAX_BUFFER_SIZE + ")");
     }
     return size;
   }
@@ -515,13 +516,33 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
         newAllocationSize = INITIAL_BYTE_COUNT * 2L;
       }
     }
-    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
+
+    reallocDataBuffer(newAllocationSize);
+  }
+
+  /**
+   * Reallocate the data buffer to given size. Data Buffer stores the actual data for
+   * VARCHAR or VARBINARY elements in the vector. The actual allocate size may be larger
+   * than the request one because it will round up the provided value to the nearest
+   * power of two.
+   *
+   * @param desiredAllocSize the desired new allocation size
+   * @throws OversizedAllocationException if the desired new size is more than
+   *                                      max allowed
+   * @throws OutOfMemoryException if the internal memory allocation fails
+   */
+  public void reallocDataBuffer(long desiredAllocSize) {
+    if (desiredAllocSize == 0) {
+      return;
+    }
+
+    final long newAllocationSize = CommonUtil.nextPowerOfTwo(desiredAllocSize);
     assert newAllocationSize >= 1;
 
     checkDataBufferSize(newAllocationSize);
 
     final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
-    newBuf.setBytes(0, valueBuffer, 0, currentBufferCapacity);
+    newBuf.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
     valueBuffer.getReferenceManager().release();
     valueBuffer = newBuf;
     lastValueAllocationSizeInBytes = valueBuffer.capacity();
@@ -1253,9 +1274,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     }
     final long startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
     final long targetCapacity = startOffset + dataLength;
-    checkDataBufferSize(targetCapacity);
-    while (valueBuffer.capacity() < targetCapacity) {
-      reallocDataBuffer();
+    if (valueBuffer.capacity() < targetCapacity) {
+      reallocDataBuffer(targetCapacity);
     }
   }
 
