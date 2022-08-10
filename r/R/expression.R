@@ -77,10 +77,6 @@
   "lubridate::year" = "year",
   "lubridate::leap_year" = "is_leap_year"
 
-  # type conversion functions
-
-  # ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression
-  # "base::as.factor" = "dictionary_encode"
 )
 
 .binary_function_map <- list(
