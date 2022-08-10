@@ -220,11 +220,10 @@ services:
     volumes: &alpine-linux-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}alpine-linux-ccache:/ccache:delegated
-    command: |-
+    command: >-
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build
-      "
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   conda:
     # Base image for conda builds.
