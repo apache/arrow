@@ -331,5 +331,12 @@ as_arrow_table.arrow_dplyr_query <- function(x, ...) {
   # See query-engine.R for ExecPlan/Nodes
   plan <- ExecPlan$create()
   final_node <- plan$Build(x)
-  plan$Run(final_node, as_table = TRUE)
+
+  run_with_event_loop <- identical(
+    Sys.getenv("R_ARROW_COLLECT_WITH_UDF", ""),
+    "true"
+  )
+
+  result <- plan$Run(final_node, as_table = run_with_event_loop)
+  as_arrow_table(result)
 }

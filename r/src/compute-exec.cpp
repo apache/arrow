@@ -222,8 +222,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 
   options->dataset_schema = dataset->schema();
 
-  // ScanNode needs the filter to do predicate pushdown and skip partitions
-  options->filter = ValueOrStop(filter->Bind(*dataset->schema()));
+  options->filter = *filter;
 
   // ScanNode needs to know which fields to materialize (and which are unnecessary)
   std::vector<compute::Expression> exprs;
@@ -232,9 +231,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
   }
 
   options->projection =
-      ValueOrStop(call("make_struct", std::move(exprs),
-                       compute::MakeStructOptions{std::move(materialized_field_names)})
-                      .Bind(*dataset->schema()));
+      call("make_struct", std::move(exprs),
+           compute::MakeStructOptions{std::move(materialized_field_names)});
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
                             ds::ScanNodeOptions{dataset, options});

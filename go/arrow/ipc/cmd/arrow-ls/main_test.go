@@ -31,11 +31,7 @@ import (
 )
 
 func TestLsStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-ls-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		name string
@@ -174,11 +170,7 @@ records: 3
 }
 
 func TestLsFile(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-ls-file-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		stream bool

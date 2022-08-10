@@ -19,7 +19,6 @@ package ipc_test
 import (
 	"io"
 	"io/ioutil"
-	"os"
 	"strconv"
 	"testing"
 
@@ -29,11 +28,7 @@ import (
 )
 
 func TestStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
@@ -64,11 +59,7 @@ func TestStream(t *testing.T) {
 }
 
 func TestStreamCompressed(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	compressTypes := []flatbuf.CompressionType{
 		flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD,

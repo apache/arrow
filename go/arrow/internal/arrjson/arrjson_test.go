@@ -20,7 +20,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -45,12 +44,9 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["maps"] = makeMapsWantJSONs()
 	wantJSONs["extension"] = makeExtensionsWantJSONs()
 	wantJSONs["dictionary"] = makeDictionaryWantJSONs()
+	wantJSONs["union"] = makeUnionWantJSONs()
 
-	tempDir, err := ioutil.TempDir("", "go-arrow-read-write-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
@@ -5078,6 +5074,355 @@ func makeExtensionsWantJSONs() string {
             -13,
             -14,
             -15
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeUnionWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "sparse",
+        "type": {
+          "name": "union",
+          "mode": "SPARSE",
+          "typeIds": [
+            5,
+            10
+          ]
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "u0",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": true,
+            "children": []
+          },
+          {
+            "name": "u1",
+            "type": {
+              "name": "int",
+              "bitWidth": 8
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "dense",
+        "type": {
+          "name": "union",
+          "mode": "DENSE",
+          "typeIds": [
+            5,
+            10
+          ]
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "u0",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": true,
+            "children": []
+          },
+          {
+            "name": "u1",
+            "type": {
+              "name": "int",
+              "bitWidth": 8
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 7,
+      "columns": [
+        {
+          "name": "sparse",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "TYPE_ID": [
+            5,
+            10,
+            5,
+            5,
+            10,
+            10,
+            5
+          ],
+          "children": [
+            {
+              "name": "u0",
+              "count": 7,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                0,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ]
+            },
+            {
+              "name": "u1",
+              "count": 7,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dense",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "TYPE_ID": [
+            5,
+            10,
+            5,
+            5,
+            10,
+            10,
+            5
+          ],
+          "OFFSET": [
+            0,
+            0,
+            1,
+            2,
+            1,
+            2,
+            3
+          ],
+          "children": [
+            {
+              "name": "u0",
+              "count": 4,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1
+              ],
+              "DATA": [
+                0,
+                2,
+                3,
+                7
+              ]
+            },
+            {
+              "name": "u1",
+              "count": 3,
+              "VALIDITY": [
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                11,
+                14,
+                15
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "count": 7,
+      "columns": [
+        {
+          "name": "sparse",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "TYPE_ID": [
+            5,
+            10,
+            5,
+            5,
+            10,
+            10,
+            5
+          ],
+          "children": [
+            {
+              "name": "u0",
+              "count": 7,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                0,
+                -1,
+                -2,
+                -3,
+                -4,
+                -5,
+                -6
+              ]
+            },
+            {
+              "name": "u1",
+              "count": 7,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                100,
+                101,
+                102,
+                103,
+                104,
+                105,
+                106
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dense",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "TYPE_ID": [
+            5,
+            10,
+            5,
+            5,
+            10,
+            10,
+            5
+          ],
+          "OFFSET": [
+            0,
+            0,
+            1,
+            2,
+            1,
+            2,
+            3
+          ],
+          "children": [
+            {
+              "name": "u0",
+              "count": 4,
+              "VALIDITY": [
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                0,
+                -2,
+                -3,
+                -7
+              ]
+            },
+            {
+              "name": "u1",
+              "count": 3,
+              "VALIDITY": [
+                1,
+                1,
+                1
+              ],
+              "DATA": [
+                101,
+                104,
+                105
+              ]
+            }
           ]
         }
       ]

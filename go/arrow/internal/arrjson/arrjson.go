@@ -220,6 +220,8 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 128}
 	case *arrow.Decimal256Type:
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 256}
+	case arrow.UnionType:
+		typ = unionJSON{"union", dt.Mode().String(), dt.TypeCodes()}
 	default:
 		return nil, fmt.Errorf("unknown arrow.DataType %v", arrowType)
 	}
@@ -462,6 +464,17 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		case 128, 0: // default to 128 bits when missing
 			arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 		}
+	case "union":
+		t := unionJSON{}
+		if err = json.Unmarshal(typ, &t); err != nil {
+			return
+		}
+		switch t.Mode {
+		case "SPARSE":
+			arrowType = arrow.SparseUnionOf(fieldsFromJSON(children), t.TypeIDs)
+		case "DENSE":
+			arrowType = arrow.DenseUnionOf(fieldsFromJSON(children), t.TypeIDs)
+		}
 	}
 
 	if arrowType == nil {
@@ -596,6 +609,12 @@ type byteWidthJSON struct {
 type mapJSON struct {
 	Name       string `json:"name"`
 	KeysSorted bool   `json:"keysSorted,omitempty"`
+}
+
+type unionJSON struct {
+	Name    string                `json:"name"`
+	Mode    string                `json:"mode"`
+	TypeIDs []arrow.UnionTypeCode `json:"typeIds"`
 }
 
 func schemaToJSON(schema *arrow.Schema, mapper *dictutils.Mapper) Schema {
@@ -742,12 +761,13 @@ func recordToJSON(rec arrow.Record) Record {
 }
 
 type Array struct {
-	Name     string        `json:"name"`
-	Count    int           `json:"count"`
-	Valids   []int         `json:"VALIDITY,omitempty"`
-	Data     []interface{} `json:"DATA,omitempty"`
-	Offset   interface{}   `json:"-"`
-	Children []Array       `json:"children,omitempty"`
+	Name     string                `json:"name"`
+	Count    int                   `json:"count"`
+	Valids   []int                 `json:"VALIDITY,omitempty"`
+	Data     []interface{}         `json:"DATA,omitempty"`
+	TypeID   []arrow.UnionTypeCode `json:"TYPE_ID,omitempty"`
+	Offset   interface{}           `json:"OFFSET,omitempty"`
+	Children []Array               `json:"children,omitempty"`
 }
 
 func (a *Array) MarshalJSON() ([]byte, error) {
@@ -779,6 +799,10 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 
 	var rawOffsets []interface{}
 	if err = json.Unmarshal(aux.RawOffset, &rawOffsets); err != nil {
+		return
+	}
+
+	if len(rawOffsets) == 0 {
 		return
 	}
 
@@ -1152,6 +1176,31 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		defer indices.Release()
 		return array.NewData(dt, indices.Len(), indices.Buffers(), indices.Children(), indices.NullN(), indices.Offset())
 
+	case arrow.UnionType:
+		fields := make([]arrow.ArrayData, len(dt.Fields()))
+		for i, f := range dt.Fields() {
+			child := arrayFromJSON(mem, f.Type, arr.Children[i])
+			defer child.Release()
+			fields[i] = child
+		}
+
+		typeIdBuf := memory.NewBufferBytes(arrow.Int8Traits.CastToBytes(arr.TypeID))
+		defer typeIdBuf.Release()
+		buffers := []*memory.Buffer{nil, typeIdBuf}
+		if dt.Mode() == arrow.DenseMode {
+			var offsets []byte
+			if arr.Offset == nil {
+				offsets = []byte{}
+			} else {
+				offsets = arrow.Int32Traits.CastToBytes(arr.Offset.([]int32))
+			}
+			offsetBuf := memory.NewBufferBytes(offsets)
+			defer offsetBuf.Release()
+			buffers = append(buffers, offsetBuf)
+		}
+
+		return array.NewData(dt, arr.Count, buffers, fields, 0, 0)
+
 	default:
 		panic(fmt.Errorf("unknown data type %v %T", dt, dt))
 	}
@@ -1477,6 +1526,24 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 
 	case *array.Dictionary:
 		return arrayToJSON(field, arr.Indices())
+
+	case array.Union:
+		dt := arr.DataType().(arrow.UnionType)
+		o := Array{
+			Name:     field.Name,
+			Count:    arr.Len(),
+			Valids:   validsToJSON(arr),
+			TypeID:   arr.RawTypeCodes(),
+			Children: make([]Array, len(dt.Fields())),
+		}
+		if dt.Mode() == arrow.DenseMode {
+			o.Offset = arr.(*array.DenseUnion).RawValueOffsets()
+		}
+		fields := dt.Fields()
+		for i := range o.Children {
+			o.Children[i] = arrayToJSON(fields[i], arr.Field(i))
+		}
+		return o
 
 	default:
 		panic(fmt.Errorf("unknown array type %T", arr))

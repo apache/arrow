@@ -18,6 +18,7 @@ package ipc
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -47,6 +48,20 @@ const (
 	// maximum allowed recursion depth
 	kMaxNestingDepth = 64
 )
+
+func hasValidityBitmap(id arrow.Type, version MetadataVersion) bool {
+	// in <=V4 Null types had no validity bitmap
+	// in >=V5 Null and Union types have no validity bitmap
+	if version < MetadataV5 {
+		return id != arrow.NULL
+	}
+
+	switch id {
+	case arrow.NULL, arrow.DENSE_UNION, arrow.SPARSE_UNION:
+		return false
+	}
+	return true
+}
 
 type startVecFunc func(b *flatbuffers.Builder, n int) flatbuffers.UOffsetT
 
@@ -434,6 +449,33 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		field.Type = dt.ValueType
 		fv.visit(field)
 
+	case arrow.UnionType:
+		fv.dtype = flatbuf.TypeUnion
+		offsets := make([]flatbuffers.UOffsetT, len(dt.Fields()))
+		for i, field := range dt.Fields() {
+			offsets[i] = fieldToFB(fv.b, fv.pos.Child(int32(i)), field, fv.memo)
+		}
+
+		codes := dt.TypeCodes()
+		flatbuf.UnionStartTypeIdsVector(fv.b, len(codes))
+
+		for i := len(codes) - 1; i >= 0; i-- {
+			fv.b.PlaceInt32(int32(codes[i]))
+		}
+		fbTypeIDs := fv.b.EndVector(len(dt.TypeCodes()))
+		flatbuf.UnionStart(fv.b)
+		switch dt.Mode() {
+		case arrow.SparseMode:
+			flatbuf.UnionAddMode(fv.b, flatbuf.UnionModeSparse)
+		case arrow.DenseMode:
+			flatbuf.UnionAddMode(fv.b, flatbuf.UnionModeDense)
+		default:
+			panic("invalid union mode")
+		}
+		flatbuf.UnionAddTypeIds(fv.b, fbTypeIDs)
+		fv.offset = flatbuf.UnionEnd(fv.b)
+		fv.kids = append(fv.kids, offsets...)
+
 	default:
 		err := fmt.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
@@ -688,6 +730,40 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil
+
+	case flatbuf.TypeUnion:
+		var dt flatbuf.Union
+		dt.Init(data.Bytes, data.Pos)
+		var (
+			mode    arrow.UnionMode
+			typeIDs []arrow.UnionTypeCode
+		)
+
+		switch dt.Mode() {
+		case flatbuf.UnionModeSparse:
+			mode = arrow.SparseMode
+		case flatbuf.UnionModeDense:
+			mode = arrow.DenseMode
+		}
+
+		typeIDLen := dt.TypeIdsLength()
+
+		if typeIDLen == 0 {
+			for i := range children {
+				typeIDs = append(typeIDs, int8(i))
+			}
+		} else {
+			for i := 0; i < typeIDLen; i++ {
+				id := dt.TypeIds(i)
+				code := arrow.UnionTypeCode(id)
+				if int32(code) != id {
+					return nil, errors.New("union type id out of bounds")
+				}
+				typeIDs = append(typeIDs, code)
+			}
+		}
+
+		return arrow.UnionOf(mode, children, typeIDs), nil
 
 	case flatbuf.TypeTime:
 		var dt flatbuf.Time

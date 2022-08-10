@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# flake8: noqa
-
-from .core import *
+register_bindings_augmented <- function() {
+  register_binding("add_filename", function() {
+    Expression$field_ref("__filename")
+  })
+}
