@@ -24,6 +24,7 @@
 #include <limits>
 #include <queue>
 
+#include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
@@ -66,9 +67,6 @@ namespace arrow {
 //   until all outstanding futures have completed.  Generators that spawn multiple
 //   concurrent futures may need to hold onto an error while other concurrent futures wrap
 //   up.
-template <typename T>
-using AsyncGenerator = std::function<Future<T>()>;
-
 template <typename T>
 struct IterationTraits<AsyncGenerator<T>> {
   /// \brief by default when iterating through a sequence of AsyncGenerator<T>,
