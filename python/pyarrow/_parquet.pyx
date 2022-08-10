@@ -39,7 +39,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
                           pyarrow_wrap_buffer,
                           pyarrow_wrap_batch,
                           pyarrow_wrap_scalar,
-                          NativeFile, get_reader, get_writer, get_native_file,
+                          NativeFile, get_reader, get_writer,
                           string_to_timeunit)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
@@ -1222,10 +1222,8 @@ cdef class ParquetReader(_Weakrefable):
                 string_to_timeunit(coerce_int96_timestamp_unit))
 
         self.source = source
+        self.nf = get_reader(source, use_memory_map, &rd_handle)
 
-        nf = get_native_file(source, use_memory_map)
-        (&rd_handle)[0] = <shared_ptr[CRandomAccessFile]>nf.get_random_access_file()
-        self.nf = nf
         with nogil:
             check_status(builder.Open(rd_handle, properties, c_metadata))
 
