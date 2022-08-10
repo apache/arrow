@@ -32,7 +32,7 @@ problems and prioritize work to improve the libraries.
 Apache Arrow Jira
 =================
 
-The Arrow project uses `JIRA <https://issues.apache.org/jira/projects/ARROW/issues>`_
+The Arrow project uses `Jira <https://issues.apache.org/jira/projects/ARROW/issues>`_
 to track issues - both bug reports and feature requests. No account or
 permissions are required to view or search Jira issues. The Jira server
 hosts issue tracking for multiple Apache projects. The Jira project name for
