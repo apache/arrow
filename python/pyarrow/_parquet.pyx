@@ -1441,6 +1441,11 @@ cdef class ParquetReader(_Weakrefable):
     def close(self):
         self.nf.close()
 
+    @property
+    def closed(self):
+        return self.nf.closed
+
+
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
         compression=None,

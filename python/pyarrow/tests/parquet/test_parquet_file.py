@@ -329,6 +329,9 @@ def test_parquet_file_explicitly_closed(tmpdir):
 
     # pyarrow.parquet.ParquetFile
     with mock.patch.object(LocalTempFile, "close") as mock_close:
-        with pq.ParquetFile(LocalTempFile(fs, fn, 'rb')):
+        with pq.ParquetFile(LocalTempFile(fs, fn, 'rb')) as p:
             mock_close.assert_not_called()
+            assert not p.closed
+
         mock_close.assert_called()
+        assert p.closed
