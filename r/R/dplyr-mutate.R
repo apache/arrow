@@ -159,7 +159,6 @@ ensure_named_exprs <- function(exprs) {
 unfold_across <- function(.data, quos_in) {
   quos_out <- list()
   # Check for any expressions starting with across
-  # TODO: can we refactor this to not be a for loop?
   for (quo_i in seq_along(quos_in)) {
     quo_in <- quos_in[quo_i]
     quo_expr <- quo_get_expr(quo_in[[1]])
@@ -177,10 +176,11 @@ unfold_across <- function(.data, quos_in) {
         abort("`.names` argument to `across()` not yet supported in Arrow")
       }
 
-      # use select to get the column names so we can take advantage of tidyselect
+      # use select() to get the column names so we can take advantage of tidyselect
       cols <- names(select(.data, !!across_call[[".cols"]]))
       funcs <- as.character(across_call[[".fns"]])
 
+      # calling across() with .fns = NULL returns all columns unchanged
       if (is_empty(funcs)) {
         return()
       }
@@ -204,20 +204,16 @@ unfold_across <- function(.data, quos_in) {
         # list() is used to specify the list of functions so remove it
         extracted_funcs <- funcs[map_lgl(funcs, ~ !is_symbol(.x, "list"))]
 
-        # if the function is unnamed (an empty character), use the index instead
-        func_list <- as.list(extracted_funcs)
-        func_names <- names(extracted_funcs)
-        func_indices <- seq_along(extracted_funcs)
-        names(func_list) <- map2_chr(func_names, func_indices, max)
+        func_list <- ensure_named_funcs(extracted_funcs)
 
         func_list_full <- rep(func_list, length(cols))
-        cols <- rep(cols, each = length(func_list))
+        cols_list_full <- rep(cols, each = length(func_list))
 
         # get names of new quosures
-        new_quo_names <- map2_chr(names(func_list_full), cols, ~ paste(.y, .x, sep = "_"))
+        new_quo_names <- map2_chr(names(func_list_full), cols_list_full, ~ paste(.y, .x, sep = "_"))
 
         # get new quosures
-        new_quo_list <- map2(func_list_full, cols, ~ quo(!!call2(.x, sym(.y))))
+        new_quo_list <- map2(func_list_full, cols_list_full, ~ quo(!!call2(.x, sym(.y))))
 
         new_quos <- set_names(new_quo_list, new_quo_names)
       }
@@ -229,4 +225,13 @@ unfold_across <- function(.data, quos_in) {
   }
 
   quos_out
+}
+
+# if the function is unnamed (an empty character), use the index instead
+ensure_named_funcs <- function(funcs){
+  func_list <- as.list(funcs)
+  func_names <- names(funcs)
+  func_indices <- seq_along(funcs)
+  names(func_list) <- map2_chr(func_names, func_indices, max)
+  func_list
 }
