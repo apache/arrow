@@ -41,7 +41,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
     echo "Error at protobuf: $protover"
     exit 1
   fi
-  protover=echo $protover | sed "s/^[0-9]*.//"
+  protover=$(echo $protover | sed "s/^[0-9]*.//")
   popd
   wget https://github.com/protocolbuffers/protobuf/releases/download/v${protover}/protobuf-all-${protover}.tar.gz
   tar xf protobuf-all-${protover}.tar.gz
