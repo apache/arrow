@@ -104,10 +104,106 @@ void VisitMergedRuns(const ArraySpan& a, const ArraySpan& b, CallbackType callba
   }
 }
 
-/// \brief Iterate over the runs of a run-length encoded array. A callback is called on each of these segments
-/// \param[in] input as ArraySpan
-/// \param[in] callback taking 2 int64_t arguments: the length of the current run segment,
-/// and a phyiscal index into the data array array. Offsets are already applied.
+template <size_t NUM_INPUTS>
+class MergedRunsIterator {
+ public:
+  // end iterator
+  MergedRunsIterator() {}
+
+  // TODO: genereric constructor
+  MergedRunsIterator(const ArraySpan& a) {
+    static_assert(NUM_INPUTS == 1, "incorrect number of inputs");
+
+    inputs[0] = std::ref(a);
+
+    logical_length = a.length;
+
+    for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
+      ArraySpan& input = inputs[input_id];
+      run_index[input_id] = rle_util::FindPhysicalOffset(
+          RunEnds(input), RunEndsArray(input).length, input.offset);
+    }
+  }
+
+  MergedRunsIterator(const ArraySpan& a, const ArraySpan& b) {
+    static_assert(NUM_INPUTS == 2, "incorrect number of inputs");
+
+    inputs[0] = std::ref(a);
+    inputs[1] = std::ref(b);
+
+    ARROW_DCHECK_EQ(a.length, b.length);
+    logical_length = a.length;
+
+    for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
+      ArraySpan& input = inputs[input_id];
+      run_index[input_id] = rle_util::FindPhysicalOffset(
+          RunEnds(input), RunEndsArray(input).length, input.offset);
+    }
+  }
+
+  MergedRunsIterator(const MergedRunsIterator& other) = default;
+
+  MergedRunsIterator& operator++() {
+    logical_position += merged_run_length;
+
+    for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
+      if (logical_position == run_end[input_id]) {
+        run_index[input_id]++;
+      }
+    }
+    if (!isEnd()) {
+      FindMergedRun();
+    }
+
+    return *this;
+  }
+
+  MergedRunsIterator& operator++(int) {
+    auto result = *this;
+    ++(this);
+  }
+
+  bool operator==(const MergedRunsIterator& other) const {
+    return (isEnd() && other.isEnd()) || (logical_position == other.logical_position);
+  }
+
+  bool operator!=(const MergedRunsIterator& other) const { return !(*this == other); }
+
+  int64_t physical_index(int64_t input_id) const { return run_index[input_id]; }
+  int64_t run_length() const { return merged_run_length; }
+
+ private:
+  void FindMergedRun() {
+    int64_t merged_run_end = std::numeric_limits<int64_t>::max();
+    for (size_t input_id = 0; input_id < NUM_INPUTS; input_id++) {
+      // logical indices of the end of the run we are currently in each input
+      run_end[input_id] =
+          RunEnds(inputs[input_id])[run_index[input_id]] - inputs[input_id].offset;
+      // the logical length may end in the middle of a run, in case the array was sliced
+      run_end[input_id] = std::min(run_end[input_id], logical_length);
+      ARROW_DCHECK_GT(run_end[input_id], logical_position);
+
+      merged_run_end = std::min(merged_run_end, run_end[input_id]);
+    }
+    merged_run_length = merged_run_end - logical_position;
+  }
+
+  bool isEnd() const { return logical_position == logical_length; }
+
+  std::array<std::reference_wrapper<const ArraySpan>, NUM_INPUTS> inputs;
+  std::array<int64_t, NUM_INPUTS> physical_offset;
+  std::array<int64_t, NUM_INPUTS> run_index;
+  // logical indices of the end of the run we are currently in each input
+  std::array<int64_t, NUM_INPUTS> run_end;
+  int64_t logical_position = 0;
+  int64_t logical_length = 0;
+  int64_t merged_run_length;
+};
+
+/// \brief Iterate over the runs of a run-length encoded array. A callback is called on
+/// each of these segments \param[in] input as ArraySpan \param[in] callback taking 2
+/// int64_t arguments: the length of the current run segment, and a phyiscal index into
+/// the data array array. Offsets are already applied.
 template <typename CallbackType>
 void VisitRuns(const ArraySpan& span, CallbackType callback) {
   const int64_t physical_offset =
@@ -135,7 +231,6 @@ void VisitRuns(const ArraySpan& span, CallbackType callback) {
     run_index++;
   }
 }
-
 
 // TODO: this may fit better into some testing header
 void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset);
