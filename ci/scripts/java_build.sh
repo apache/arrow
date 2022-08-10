@@ -34,13 +34,13 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
   mkdir -p ${ARROW_HOME}/lib
 
-  pushd ${ARROW_HOME}/
-  protover=$(MAVEN_OPTS="-Xint" mvn help:evaluate -Dexpression=dep.protobuf-bom.version -q -DforceStdout)
+  protover=$(mvn help:evaluate -Dexpression=dep.protobuf-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
     echo "Error at protobuf: $protover"
     exit 1
   fi
   protover=echo $protover | sed "s/^[0-9]*.//"
+  pushd ${ARROW_HOME}/
   wget https://github.com/protocolbuffers/protobuf/releases/download/v${protover}/protobuf-all-${protover}.tar.gz
   tar xf protobuf-all-${protover}.tar.gz
   cd protobuf-${protover}
@@ -61,12 +61,12 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   cp lib*.so.* ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
-  pushd ${ARROW_HOME}/
-  grpcver=$(MAVEN_OPTS="-Xint" mvn help:evaluate -Dexpression=dep.grpc-bom.version -q -DforceStdout)
+  grpcver=$(mvn help:evaluate -Dexpression=dep.grpc-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
     echo "Error at grpc: $grpcver"
     exit 1
   fi
+  pushd ${ARROW_HOME}/
   wget https://github.com/grpc/grpc-java/archive/refs/tags/v${grpcver}.tar.gz
   tar xf v${grpcver}.tar.gz
   cd grpc-java-${grpcver}
