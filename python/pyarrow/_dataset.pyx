@@ -1179,7 +1179,7 @@ cdef class CsvFileFormat(FileFormat):
     cdef:
         CCsvFileFormat* csv_format
         # The encoding field in ReadOptions does not exist in the C++ struct.
-        # We need to store it here and override it when reading 
+        # We need to store it here and override it when reading
         # default_fragment_scan_options.read_options
         public ReadOptions read_options_py
 
@@ -1266,7 +1266,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     cdef:
         CCsvFragmentScanOptions* csv_options
-        # The encoding field in ReadOptions does not exist in the C++ struct. 
+        # The encoding field in ReadOptions does not exist in the C++ struct.
         # We need to store it here and override it when reading read_options
         ReadOptions read_options_py
 
