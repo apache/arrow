@@ -185,37 +185,27 @@ unfold_across <- function(.data, quos_in) {
         return()
       }
 
-      # ensure isn't single item vector or list
-      funcs <- funcs[!funcs %in% c("c", "list")]
-
       if (funcs[[1]] == "~") {
-        abort("purrr-style lambda functions as `.fns` argument to `across()` not yet supported in Arrow")
+        abort(
+          paste(
+            "purrr-style lambda functions as `.fns` argument to `across()`",
+            "not yet supported in Arrow"
+          )
+        )
       }
 
-      new_quos <- list()
-
+      # if only 1 function, we overwrite the old columns with the new values
       if (length(funcs) == 1) {
         # work out the quosures from the call
         col_syms <- syms(cols)
         new_quos <- map(col_syms, ~ quo(!!call2(funcs, .x)))
-        # if only 1 function, we overwrite the old columns
         new_quos <- set_names(new_quos, cols)
       } else {
-        # list() is used to specify the list of functions so remove it
-        extracted_funcs <- funcs[map_lgl(funcs, ~ !is_symbol(.x, "list"))]
+        # remove `c()` and `list()` which have been used to specify functions
+        extracted_funcs <- funcs[map_lgl(funcs, ~ !.x %in% c("c", "list"))]
 
         func_list <- ensure_named_funcs(extracted_funcs)
-
-        func_list_full <- rep(func_list, length(cols))
-        cols_list_full <- rep(cols, each = length(func_list))
-
-        # get names of new quosures
-        new_quo_names <- map2_chr(names(func_list_full), cols_list_full, ~ paste(.y, .x, sep = "_"))
-
-        # get new quosures
-        new_quo_list <- map2(func_list_full, cols_list_full, ~ quo(!!call2(.x, sym(.y))))
-
-        new_quos <- set_names(new_quo_list, new_quo_names)
+        new_quos <- quosures_from_func_list(func_list, cols)
       }
 
       quos_out <- append(quos_out, new_quos)
@@ -228,10 +218,30 @@ unfold_across <- function(.data, quos_in) {
 }
 
 # if the function is unnamed (an empty character), use the index instead
-ensure_named_funcs <- function(funcs){
+ensure_named_funcs <- function(funcs) {
   func_list <- as.list(funcs)
-  func_names <- names(funcs)
+  func_names <- names(funcs) %||% rep("", length(funcs))
   func_indices <- seq_along(funcs)
   names(func_list) <- map2_chr(func_names, func_indices, max)
   func_list
+}
+
+# given a named list of functions and column names, create a list of new quosures
+quosures_from_func_list <- function(func_list, cols) {
+  func_list_full <- rep(func_list, length(cols))
+  cols_list_full <- rep(cols, each = length(func_list))
+
+  # get names of new quosures
+  new_quo_names <- map2_chr(
+    names(func_list_full), cols_list_full,
+    ~ paste(.y, .x, sep = "_")
+  )
+
+  # get new quosures
+  new_quo_list <- map2(
+    func_list_full, cols_list_full,
+    ~ quo(!!call2(.x, sym(.y)))
+  )
+
+  set_names(new_quo_list, new_quo_names)
 }
