@@ -20,7 +20,6 @@ import os
 from unittest import mock
 
 import pytest
-from fsspec.implementations.local import LocalFileSystem
 
 import pyarrow as pa
 
@@ -285,6 +284,9 @@ def test_parquet_file_explicitly_closed(tmpdir):
     """
     Unopened files should be closed explicitly after use.
     """
+    pytest.importorskip('fsspec')
+    from fsspec.implementations.local import LocalFileSystem
+
     # create test parquet file
     df = pd.DataFrame([{'col1': 0, 'col2': 0}, {'col1': 1, 'col2': 1}])
     fn = str(tmpdir.join('file.parquet'))
