@@ -29,22 +29,34 @@ jobs:
       matrix:
           platform:
             - macos-11
-            - macos-10.15
+            - macos-10.13 # self-hosted
           r-version:
-            - release
-            - oldrel
+            - {{ macros.r_release }}
+            - {{ macros.r_oldrel }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Configure autobrew script
         run: |
-          # install minio for tests
-          brew install minio
+          # minio is pre-installed on the self-hosted 10.13 runer
+          if [ {{ '${{ matrix.platform }}' }} != macos-10.13  ]; then
+            # install minio for tests
+            brew install minio
+          fi
           cd arrow/r
           {{ macros.pin_brew_formulae(is_fork)|indent }}
       - uses: r-lib/actions/setup-r@v2
+        if: {{ '${{ matrix.platform }}' }} != 'macos-10.13'
         with:
           r-version: {{ '${{ matrix.r-version }}' }}
           use-public-rspm: true
+      - name: Setup R
+        if: {{ '${{ matrix.platform }}' }} == 'macos-10.13'
+        run: |
+          # rig is a system utility that allows for switching
+          # between pre-installed R version on the self-hosted runners
+          rig default {{ '${{ matrix.platform }}' }}
+          rig system setup-user-lib
+          rig system add-pak 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: 'arrow/r'

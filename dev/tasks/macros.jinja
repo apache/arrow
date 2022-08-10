@@ -321,3 +321,6 @@ on:
   {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
   {# use filter to cast to string and convert to lowercase to match yaml boolean #}
   {% set is_fork = (not is_upstream_b)|lower %}
+
+{% set r_release = '4.2' %}
+{% set r_oldrel = '4.1' %}
