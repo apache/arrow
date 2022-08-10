@@ -25,10 +25,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -138,7 +138,10 @@ func (r *Reader) Record() arrow.Record { return r.cur }
 // Next returns whether a Record could be extracted from the underlying CSV file.
 //
 // Next panics if the number of records extracted from a CSV row does not match
-// the number of fields of the associated schema.
+// the number of fields of the associated schema. If a parse failure occurs, Next
+// will return true and the Record will contain nulls where failures occurred.
+// Subsequent calls to Next will return false - The user should check Err() after
+// each call to Next to check if an error took place.
 func (r *Reader) Next() bool {
 	if r.header {
 		r.once.Do(func() {
@@ -209,11 +212,15 @@ func (r *Reader) nextn() bool {
 	var (
 		recs []string
 		n    = 0
+		err  error
 	)
 
 	for i := 0; i < r.chunk && !r.done; i++ {
-		recs, r.err = r.r.Read()
-		if r.err != nil {
+		recs, err = r.r.Read()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				r.err = err
+			}
 			r.done = true
 			break
 		}
@@ -225,9 +232,6 @@ func (r *Reader) nextn() bool {
 
 	if r.err != nil {
 		r.done = true
-		if errors.Is(r.err, io.EOF) {
-			r.err = nil
-		}
 	}
 
 	r.cur = r.bld.NewRecord()

@@ -37,6 +37,7 @@ override_dh_auto_configure:
 	  -DARROW_DATASET=ON					\
 	  -DARROW_FILESYSTEM=ON					\
 	  -DARROW_FLIGHT=ON					\
+	  -DARROW_FLIGHT_SQL=ON					\
 	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_GCS=ON					\
@@ -75,7 +76,7 @@ override_dh_auto_build:
 	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
 	  -Darrow_cpp_build_dir=../cpp_build		\
 	  -Dgtk_doc=true				\
-	  -Dvala=true
+	  -Dvapi=true
 	env							\
 	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
 	    dh_auto_build					\

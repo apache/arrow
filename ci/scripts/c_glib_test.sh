@@ -22,7 +22,7 @@ set -ex
 source_dir=${1}/c_glib
 build_dir=${2}/c_glib
 
-: ${ARROW_GLIB_VALA:=true}
+: ${ARROW_GLIB_VAPI:=true}
 
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
@@ -51,7 +51,7 @@ popd
 pushd ${build_dir}
 example/build
 example/extension-type
-if [ "${ARROW_GLIB_VALA}" = "true" ]; then
+if [ "${ARROW_GLIB_VAPI}" = "true" ]; then
   example/vala/build
 fi
 popd

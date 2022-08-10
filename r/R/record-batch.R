@@ -102,7 +102,7 @@ RecordBatch <- R6Class("RecordBatch",
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
     ReplaceSchemaMetadata = function(new) {
-      RecordBatch__ReplaceSchemaMetadata(self, new)
+      RecordBatch__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
@@ -196,8 +196,8 @@ rbind.RecordBatch <- function(...) {
 }
 
 cbind_check_length <- function(inputs, call = caller_env()) {
-  sizes <- map_int(inputs, NROW)
-  ok_lengths <- sizes %in% c(head(sizes, 1), 1L)
+  sizes <- map_dbl(inputs, NROW)
+  ok_lengths <- sizes %in% c(head(sizes, 1), 1)
   if (!all(ok_lengths)) {
     first_bad_one <- which.min(ok_lengths)
     abort(

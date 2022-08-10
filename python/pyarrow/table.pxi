@@ -317,9 +317,7 @@ cdef class ChunkedArray(_PandasConvertible):
           [
             false,
             false,
-            false
-          ],
-          [
+            false,
             false,
             true,
             false
@@ -490,7 +488,7 @@ cdef class ChunkedArray(_PandasConvertible):
             return values
         return values.astype(dtype)
 
-    def cast(self, object target_type, safe=True):
+    def cast(self, object target_type=None, safe=None, options=None):
         """
         Cast array values to another data type
 
@@ -498,10 +496,12 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        target_type : DataType
+        target_type : DataType, None
             Type to cast array to.
         safe : boolean, default True
             Whether to check for conversion errors such as overflow.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
@@ -520,7 +520,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs_seconds.type
         DurationType(duration[s])
         """
-        return _pc().cast(self, target_type, safe=safe)
+        return _pc().cast(self, target_type, safe=safe, options=options)
 
     def dictionary_encode(self, null_encoding='mask'):
         """
@@ -697,7 +697,10 @@ cdef class ChunkedArray(_PandasConvertible):
           100
         ]
         """
-        return concat_arrays(self.chunks)
+        if self.num_chunks == 0:
+            return array([], type=self.type)
+        else:
+            return concat_arrays(self.chunks)
 
     def unique(self):
         """
@@ -2913,6 +2916,20 @@ cdef class Table(_PandasConvertible):
         ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
 
+        Define an expression and select rows:
+
+        >>> import pyarrow.compute as pc
+        >>> expr = pc.field("year") <= 2020
+        >>> table.filter(expr)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2019]]
+        n_legs: [[2,5]]
+        animals: [["Flamingo","Brittle stars"]]
+
         Define a mask and select rows:
 
         >>> mask=[True, True, False, None]
@@ -3309,7 +3326,7 @@ cdef class Table(_PandasConvertible):
 
         Examples
         --------
-        >>> import pyarrow as pa  
+        >>> import pyarrow as pa
         >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> names=["n_legs", "animals"]
@@ -3340,7 +3357,7 @@ cdef class Table(_PandasConvertible):
 
         return result
 
-    def cast(self, Schema target_schema, bint safe=True):
+    def cast(self, Schema target_schema, safe=None, options=None):
         """
         Cast table values to another schema.
 
@@ -3350,6 +3367,8 @@ cdef class Table(_PandasConvertible):
             Schema to cast to, the names and order of fields must match.
         safe : bool, default True
             Check for overflows or other unsafe conversions.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
 
         Returns
         -------
@@ -3366,7 +3385,7 @@ cdef class Table(_PandasConvertible):
         n_legs: int64
         animals: string
         -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
 
         Define new schema and cast table values:
 
@@ -3393,7 +3412,7 @@ cdef class Table(_PandasConvertible):
                              .format(self.schema.names, target_schema.names))
 
         for column, field in zip(self.itercolumns(), target_schema):
-            casted = column.cast(field.type, safe=safe)
+            casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
         return Table.from_arrays(newcols, schema=target_schema)
@@ -3712,6 +3731,7 @@ cdef class Table(_PandasConvertible):
         >>> import pyarrow as pa
         >>> n_legs = pa.array([2, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> names = ["n_legs", "animals"]
         >>> batch = pa.record_batch([n_legs, animals], names=names)
         >>> batch.to_pandas()
            n_legs        animals
@@ -3866,7 +3886,7 @@ cdef class Table(_PandasConvertible):
         n_legs: int64
         animals: string
         -- schema metadata --
-        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' + 509
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
         >>> reader.read_all()
         pyarrow.Table
         n_legs: int64
@@ -4109,7 +4129,7 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> for i in table.itercolumns():
         ...     print(i.null_count)
-        ... 
+        ...
         2
         1
         """
@@ -4614,120 +4634,6 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    def join(self, right_table, keys, right_keys=None, join_type="left outer",
-             left_suffix=None, right_suffix=None, coalesce_keys=True,
-             use_threads=True):
-        """
-        Perform a join between this table and another one.
-
-        Result of the join will be a new Table, where further
-        operations can be applied.
-
-        Parameters
-        ----------
-        right_table : Table
-            The table to join to the current one, acting as the right table
-            in the join operation.
-        keys : str or list[str]
-            The columns from current table that should be used as keys
-            of the join operation left side.
-        right_keys : str or list[str], default None
-            The columns from the right_table that should be used as keys
-            on the join operation right side. 
-            When ``None`` use the same key names as the left table.
-        join_type : str, default "left outer"
-            The kind of join that should be performed, one of
-            ("left semi", "right semi", "left anti", "right anti",
-            "inner", "left outer", "right outer", "full outer")
-        left_suffix : str, default None
-            Which suffix to add to right column names. This prevents confusion
-            when the columns in left and right tables have colliding names.
-        right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
-            when the columns in left and right tables have colliding names.
-        coalesce_keys : bool, default True
-            If the duplicated keys should be omitted from one of the sides
-            in the join result.
-        use_threads : bool, default True
-            Whenever to use multithreading or not.
-
-        Returns
-        -------
-        Table
-
-        Examples
-        --------
-        >>> import pandas as pd
-        >>> import pyarrow as pa
-        >>> df1 = pd.DataFrame({'id': [1, 2, 3],
-        ...                     'year': [2020, 2022, 2019]})
-        >>> df2 = pd.DataFrame({'id': [3, 4],
-        ...                     'n_legs': [5, 100],
-        ...                     'animal': ["Brittle stars", "Centipede"]})
-        >>> t1 = pa.Table.from_pandas(df1)
-        >>> t2 = pa.Table.from_pandas(df2)
-
-        Left outer join:
-
-        >>> t1.join(t2, 'id')
-        pyarrow.Table
-        id: int64
-        year: int64
-        n_legs: int64
-        animal: string
-        ----
-        id: [[3,1,2]]
-        year: [[2019,2020,2022]]
-        n_legs: [[5,null,null]]
-        animal: [["Brittle stars",null,null]]
-
-        Full outer join:
-
-        >>> t1.join(t2, 'id', join_type="full outer")
-        pyarrow.Table
-        id: int64
-        year: int64
-        n_legs: int64
-        animal: string
-        ----
-        id: [[3,1,2],[4]]
-        year: [[2019,2020,2022],[null]]
-        n_legs: [[5,null,null],[100]]
-        animal: [["Brittle stars",null,null],["Centipede"]]
-
-        Right outer join:
-
-        >>> t1.join(t2, 'id', join_type="right outer")
-        pyarrow.Table
-        year: int64
-        id: int64
-        n_legs: int64
-        animal: string
-        ----
-        year: [[2019],[null]]
-        id: [[3],[4]]
-        n_legs: [[5],[100]]
-        animal: [["Brittle stars"],["Centipede"]]
-
-        Right anti join
-
-        >>> t1.join(t2, 'id', join_type="right anti")
-        pyarrow.Table
-        id: int64
-        n_legs: int64
-        animal: string
-        ----
-        id: [[4]]
-        n_legs: [[100]]
-        animal: [["Centipede"]]
-        """
-        if right_keys is None:
-            right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=Table)
-
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
 
@@ -4810,6 +4716,120 @@ cdef class Table(_PandasConvertible):
             sort_keys=sorting
         )
         return self.take(indices)
+
+    def join(self, right_table, keys, right_keys=None, join_type="left outer",
+             left_suffix=None, right_suffix=None, coalesce_keys=True,
+             use_threads=True):
+        """
+        Perform a join between this table and another one.
+
+        Result of the join will be a new Table, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_table : Table
+            The table to join to the current one, acting as the right table
+            in the join operation.
+        keys : str or list[str]
+            The columns from current table that should be used as keys
+            of the join operation left side.
+        right_keys : str or list[str], default None
+            The columns from the right_table that should be used as keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left table.
+        join_type : str, default "left outer"
+            The kind of join that should be performed, one of
+            ("left semi", "right semi", "left anti", "right anti",
+            "inner", "left outer", "right outer", "full outer")
+        left_suffix : str, default None
+            Which suffix to add to right column names. This prevents confusion
+            when the columns in left and right tables have colliding names.
+        right_suffix : str, default None
+            Which suffic to add to the left column names. This prevents confusion
+            when the columns in left and right tables have colliding names.
+        coalesce_keys : bool, default True
+            If the duplicated keys should be omitted from one of the sides
+            in the join result.
+        use_threads : bool, default True
+            Whenever to use multithreading or not.
+
+        Returns
+        -------
+        Table
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df1 = pd.DataFrame({'id': [1, 2, 3],
+        ...                     'year': [2020, 2022, 2019]})
+        >>> df2 = pd.DataFrame({'id': [3, 4],
+        ...                     'n_legs': [5, 100],
+        ...                     'animal': ["Brittle stars", "Centipede"]})
+        >>> t1 = pa.Table.from_pandas(df1)
+        >>> t2 = pa.Table.from_pandas(df2)
+
+        Left outer join:
+
+        >>> t1.join(t2, 'id').combine_chunks().sort_by('year')
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[3,1,2]]
+        year: [[2019,2020,2022]]
+        n_legs: [[5,null,null]]
+        animal: [["Brittle stars",null,null]]
+
+        Full outer join:
+
+        >>> t1.join(t2, 'id', join_type="full outer").combine_chunks().sort_by('year')
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[3,1,2,4]]
+        year: [[2019,2020,2022,null]]
+        n_legs: [[5,null,null,100]]
+        animal: [["Brittle stars",null,null,"Centipede"]]
+
+        Right outer join:
+
+        >>> t1.join(t2, 'id', join_type="right outer").combine_chunks().sort_by('year')
+        pyarrow.Table
+        year: int64
+        id: int64
+        n_legs: int64
+        animal: string
+        ----
+        year: [[2019,null]]
+        id: [[3,4]]
+        n_legs: [[5,100]]
+        animal: [["Brittle stars","Centipede"]]
+
+        Right anti join
+
+        >>> t1.join(t2, 'id', join_type="right anti")
+        pyarrow.Table
+        id: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[4]]
+        n_legs: [[100]]
+        animal: [["Centipede"]]
+        """
+        if right_keys is None:
+            right_keys = keys
+        return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
+                                              left_suffix=left_suffix, right_suffix=right_suffix,
+                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
+                                              output_type=Table)
 
 
 def _reconstruct_table(arrays, schema):
@@ -5278,6 +5298,7 @@ list[tuple(str, str, FunctionOptions)]
 
         Examples
         --------
+        >>> import pyarrow as pa
         >>> t = pa.table([
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),

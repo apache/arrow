@@ -34,10 +34,10 @@ FakeVersion = namedtuple('version', ['name', 'raw'])
 
 RAW_VERSION_JSON = [
     {'name': 'JS-0.4.0', 'released': False},
-    {'name': '0.11.0', 'released': False},
-    {'name': '0.12.0', 'released': False},
-    {'name': '0.10.0', 'released': True},
-    {'name': '0.9.0', 'released': True}
+    {'name': '0.9.0', 'released': False},
+    {'name': '0.10.0', 'released': False},
+    {'name': '0.8.0', 'released': True},
+    {'name': '0.7.0', 'released': True}
 ]
 
 
@@ -77,8 +77,8 @@ class FakeJIRA:
             'fixVersions': fixVersions
         }
 
-    def get_candidate_fix_versions(self):
-        return SOURCE_VERSIONS, ['0.12.0']
+    def get_candidate_fix_versions(self, maintenance_branches):
+        return SOURCE_VERSIONS, ['0.11.0']
 
     def project_versions(self, project):
         return self._project_versions
@@ -106,13 +106,26 @@ def test_jira_fix_versions():
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
     all_versions, default_versions = issue.get_candidate_fix_versions()
     assert all_versions == SOURCE_VERSIONS
-    assert default_versions == ['0.11.0']
+    assert default_versions == ['0.9.0']
+
+
+def test_jira_fix_versions_filters_maintenance():
+    maintenance_branches = ["maint-0.9.0"]
+    jira = FakeJIRA(project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
+
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    all_versions, default_versions = issue.get_candidate_fix_versions(
+        maintenance_branches=maintenance_branches
+    )
+    assert all_versions == SOURCE_VERSIONS
+    assert default_versions == ['0.10.0']
 
 
 def test_jira_no_suggest_patch_release():
     versions_json = [
-        {'name': '0.11.1', 'released': False},
-        {'name': '0.12.0', 'released': False},
+        {'name': '0.9.1', 'released': False},
+        {'name': '0.10.0', 'released': False},
     ]
 
     versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
@@ -121,7 +134,7 @@ def test_jira_no_suggest_patch_release():
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
     all_versions, default_versions = issue.get_candidate_fix_versions()
     assert all_versions == versions
-    assert default_versions == ['0.12.0']
+    assert default_versions == ['0.10.0']
 
 
 def test_jira_parquet_no_suggest_non_cpp():
@@ -199,7 +212,7 @@ def test_jira_resolve_released_fix_version():
                     project_versions=SOURCE_VERSIONS,
                     transitions=TRANSITIONS)
 
-    cmd = FakeCLI(responses=['0.9.0'])
+    cmd = FakeCLI(responses=['0.7.0'])
     fix_versions_json = merge_arrow_pr.prompt_for_fix_version(cmd, jira)
     assert fix_versions_json == [RAW_VERSION_JSON[-1]]
 
@@ -211,22 +224,22 @@ def test_multiple_authors_bad_input():
     distinct_authors = [a0, a1]
 
     cmd = FakeCLI(responses=[''])
-    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
-        cmd, distinct_authors)
+    primary_author, distinct_other_authors = \
+        merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a0
-    assert new_distinct_authors == [a0, a1]
+    assert distinct_other_authors == [a1]
 
     cmd = FakeCLI(responses=['oops', a1])
-    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
-        cmd, distinct_authors)
+    primary_author, distinct_other_authors = \
+        merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a1
-    assert new_distinct_authors == [a1, a0]
+    assert distinct_other_authors == [a0]
 
     cmd = FakeCLI(responses=[a2])
-    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
-        cmd, distinct_authors)
+    primary_author, distinct_other_authors = \
+        merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a2
-    assert new_distinct_authors == [a2, a0, a1]
+    assert distinct_other_authors == [a0, a1]
 
 
 def test_jira_already_resolved():
@@ -315,3 +328,13 @@ Assignee\tFoo Bar
 Components\tC++, Python
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
+
+
+def test_sorting_versions():
+    versions_json = [
+        {'name': '9.0.0', 'released': False},
+        {'name': '10.0.0', 'released': False},
+    ]
+    versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
+    ordered_versions = merge_arrow_pr.JiraIssue.sort_versions(versions)
+    assert ordered_versions[0].name == "10.0.0"

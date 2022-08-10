@@ -41,7 +41,8 @@ class TestListScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal("list<item: list<value: int8>>[list<value: int8>[1, 2, 3]]",
+                 @scalar.to_s)
   end
 
   def test_value

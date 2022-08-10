@@ -38,7 +38,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "parquet/column_page.h"
@@ -223,20 +223,22 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
 class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
-                       Compression::type codec, ::arrow::MemoryPool* pool,
-                       const CryptoContext* crypto_ctx)
-      : stream_(std::move(stream)),
-        decompression_buffer_(AllocateBuffer(pool, 0)),
+                       Compression::type codec, const ReaderProperties& properties,
+                       const CryptoContext* crypto_ctx, bool always_compressed)
+      : properties_(properties),
+        stream_(std::move(stream)),
+        decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
         page_ordinal_(0),
         seen_num_rows_(0),
         total_num_rows_(total_num_rows),
-        decryption_buffer_(AllocateBuffer(pool, 0)) {
+        decryption_buffer_(AllocateBuffer(properties_.memory_pool(), 0)) {
     if (crypto_ctx != nullptr) {
       crypto_ctx_ = *crypto_ctx;
       InitDecryption();
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodec(codec);
+    always_compressed_ = always_compressed;
   }
 
   // Implement the PageReader interface
@@ -254,6 +256,7 @@ class SerializedPageReader : public PageReader {
                                              int compressed_len, int uncompressed_len,
                                              int levels_byte_len = 0);
 
+  const ReaderProperties properties_;
   std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
@@ -262,6 +265,8 @@ class SerializedPageReader : public PageReader {
   // Compression codec to use.
   std::unique_ptr<::arrow::util::Codec> decompressor_;
   std::shared_ptr<ResizableBuffer> decompression_buffer_;
+
+  bool always_compressed_;
 
   // The fields below are used for calculation of AAD (additional authenticated data)
   // suffix which is part of the Parquet Modular Encryption.
@@ -326,9 +331,10 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
 }
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
+  ThriftDeserializer deserializer(properties_);
+
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
-
   while (seen_num_rows_ < total_num_rows_) {
     uint32_t header_size = 0;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
@@ -349,8 +355,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            data_page_header_aad_);
         }
-        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(view.data()), &header_size,
-                             &current_page_header_, crypto_ctx_.meta_decryptor);
+        deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
+                                        &header_size, &current_page_header_,
+                                        crypto_ctx_.meta_decryptor);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -445,7 +452,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           header.repetition_levels_byte_length < 0) {
         throw ParquetException("Invalid page header (negative levels byte length)");
       }
-      bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
+      // Arrow prior to 3.0.0 set is_compressed to false but still compressed.
+      bool is_compressed =
+          (header.__isset.is_compressed ? header.is_compressed : false) ||
+          always_compressed_;
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
       seen_num_rows_ += header.num_values;
 
@@ -511,10 +521,22 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
+                                             const ReaderProperties& properties,
+                                             bool always_compressed,
+                                             const CryptoContext* ctx) {
+  return std::unique_ptr<PageReader>(new SerializedPageReader(
+      std::move(stream), total_num_rows, codec, properties, ctx, always_compressed));
+}
+
+std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
+                                             int64_t total_num_rows,
+                                             Compression::type codec,
+                                             bool always_compressed,
                                              ::arrow::MemoryPool* pool,
                                              const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_rows, codec, pool, ctx));
+      new SerializedPageReader(std::move(stream), total_num_rows, codec,
+                               ReaderProperties(pool), ctx, always_compressed));
 }
 
 namespace {
@@ -791,8 +813,13 @@ class ColumnReaderImplBase {
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
-        case Encoding::DELTA_LENGTH_BYTE_ARRAY:
-          ParquetException::NYI("Unsupported encoding");
+        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
+          auto decoder =
+              MakeTypedDecoder<DType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_);
+          current_decoder_ = decoder.get();
+          decoders_[static_cast<int>(encoding)] = std::move(decoder);
+          break;
+        }
 
         default:
           throw ParquetException("Unknown encoding type.");

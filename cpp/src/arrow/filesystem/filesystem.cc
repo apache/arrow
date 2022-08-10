@@ -695,8 +695,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
   if (scheme == "gs" || scheme == "gcs") {
 #ifdef ARROW_GCS
     ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
-    ARROW_ASSIGN_OR_RAISE(auto gcsfs, GcsFileSystem::Make(options, io_context));
-    return gcsfs;
+    return GcsFileSystem::Make(options, io_context);
 #else
     return Status::NotImplemented("Got GCS URI but Arrow compiled without GCS support");
 #endif

@@ -26,9 +26,7 @@
 #' If `auto_disconnect = TRUE`, the DuckDB table that is created will be configured
 #' to be unregistered when the `tbl` object is garbage collected. This is helpful
 #' if you don't want to have extra table objects in DuckDB after you've finished
-#' using them. Currently, this cleanup can, however, sometimes lead to hangs if
-#' tables are created and deleted in quick succession, hence the default value
-#' of `FALSE`
+#' using them.
 #'
 #' @param .data the Arrow object (e.g. Dataset, Table) to use for the DuckDB table
 #' @param con a DuckDB connection to use (default will create one and store it
@@ -36,7 +34,7 @@
 #' @param table_name a name to use in DuckDB for this object. The default is a
 #' unique string `"arrow_"` followed by numbers.
 #' @param auto_disconnect should the table be automatically cleaned up when the
-#' resulting object is removed (and garbage collected)? Default: `FALSE`
+#' resulting object is removed (and garbage collected)? Default: `TRUE`
 #'
 #' @return A `tbl` of the new table in DuckDB
 #'
@@ -49,9 +47,9 @@
 #'
 #' ds %>%
 #'   filter(mpg < 30) %>%
-#'   to_duckdb() %>%
 #'   group_by(cyl) %>%
-#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE))
+#'   to_duckdb() %>%
+#'   slice_min(disp)
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),

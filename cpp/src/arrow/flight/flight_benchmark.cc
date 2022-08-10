@@ -230,7 +230,7 @@ arrow::Result<std::vector<SizedBatch>> GetPutData(const perf::Token& token) {
   int64_t records_sent = 0;
   while (records_sent < total_records) {
     if (records_sent + length > total_records) {
-      const int last_length = total_records - records_sent;
+      const int64_t last_length = total_records - records_sent;
       // Hard-coded
       batches.push_back(SizedBatch{batch->Slice(0, last_length),
                                    /*bytes=*/last_length * bytes_per_record});

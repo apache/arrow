@@ -51,7 +51,7 @@ public class GetReadableBuffer {
       tmpField = f;
       tmpClazz = clazz;
     } catch (Exception e) {
-      e.printStackTrace();
+      new RuntimeException("Failed to initialize GetReadableBuffer, falling back to slow path", e).printStackTrace();
     }
     READABLE_BUFFER = tmpField;
     BUFFER_INPUT_STREAM = tmpClazz;

@@ -555,6 +555,20 @@ class FileFormatFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
     ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
   }
+  void TestFragmentEquals() {
+    auto options = std::make_shared<ScanOptions>();
+    auto this_schema = schema({field("f64", float64())});
+    auto other_schema = schema({field("f32", float32())});
+    auto reader = this->GetRecordBatchReader(this_schema);
+    auto other_reader = this->GetRecordBatchReader(other_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto other_source = this->GetFileSource(other_reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    EXPECT_TRUE(fragment->Equals(*fragment));
+    auto other = this->MakeFragment(*other_source);
+    EXPECT_FALSE(fragment->Equals(*other));
+  }
 
  protected:
   std::shared_ptr<typename FormatHelper::FormatType> format_;

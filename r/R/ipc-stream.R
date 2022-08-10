@@ -23,11 +23,6 @@
 #' a "stream" format and a "file" format, known as Feather. `write_ipc_stream()`
 #' and [write_feather()] write those formats, respectively.
 #'
-#' `write_arrow()`, a wrapper around `write_ipc_stream()` and `write_feather()`
-#' with some nonstandard behavior, is deprecated. You should explicitly choose
-#' the function that will write the desired IPC format (stream or file) since
-#' either can be written to a file or `OutputStream`.
-#'
 #' @inheritParams write_feather
 #' @param ... extra parameters passed to `write_feather()`.
 #'
@@ -86,11 +81,6 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather. `read_ipc_stream()`
 #' and [read_feather()] read those formats, respectively.
-#'
-#' `read_arrow()`, a wrapper around `read_ipc_stream()` and `read_feather()`,
-#' is deprecated. You should explicitly choose
-#' the function that will read the desired IPC format (stream or file) since
-#' a file or `InputStream` may contain either.
 #'
 #' @param file A character file name or URI, `raw` vector, an Arrow input stream,
 #' or a `FileSystem` with path (`SubTreeFileSystem`).

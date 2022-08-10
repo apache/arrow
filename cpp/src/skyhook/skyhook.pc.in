@@ -23,4 +23,4 @@ Name: Skyhook
 Description: Skyhook is a plugin for offloading computations into Ceph.
 Version: @SKYHOOK_VERSION@
 Requires: arrow_dataset
-Libs: -L${libdir} -larrow_skyhook_client
+Libs: -L${libdir} -larrow_skyhook

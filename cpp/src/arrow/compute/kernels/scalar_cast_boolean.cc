@@ -54,7 +54,8 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
 
   for (const auto& ty : NumericTypes()) {
     ArrayKernelExec exec =
-        GenerateNumeric<applicator::ScalarUnary, BooleanType, IsNonZero>(*ty);
+        GenerateNumeric<applicator::ScalarUnary, BooleanType, ArrayKernelExec, IsNonZero>(
+            *ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
   for (const auto& ty : BaseBinaryTypes()) {

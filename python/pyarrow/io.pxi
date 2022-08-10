@@ -101,6 +101,10 @@ cdef class NativeFile(_Weakrefable):
     will not flush any pending data.
     """
 
+    # Default chunk size for chunked reads.
+    # Use a large enough value for networked filesystems.
+    _default_chunk_size = 256 * 1024
+
     def __cinit__(self):
         self.own_file = False
         self.is_readable = False
@@ -326,8 +330,7 @@ cdef class NativeFile(_Weakrefable):
 
     def write(self, data):
         """
-        Write byte from any object implementing buffer protocol (bytes,
-        bytearray, ndarray, pyarrow.Buffer)
+        Write data to the file.
 
         Parameters
         ----------
@@ -349,8 +352,9 @@ cdef class NativeFile(_Weakrefable):
 
     def read(self, nbytes=None):
         """
-        Read indicated number of bytes from file, or read all remaining bytes
-        if no argument passed
+        Read and return up to n bytes.
+
+        If *nbytes* is None, then the entire remaining file contents are read.
 
         Parameters
         ----------
@@ -368,7 +372,7 @@ cdef class NativeFile(_Weakrefable):
         if nbytes is None:
             if not self.is_seekable:
                 # Cannot get file size => read chunkwise
-                bs = 16384
+                bs = self._default_chunk_size
                 chunks = []
                 while True:
                     chunk = self.read(bs)
@@ -394,6 +398,42 @@ cdef class NativeFile(_Weakrefable):
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
 
         return PyObject_to_object(obj)
+
+    def get_stream(self, file_offset, nbytes):
+        """
+        Return an input stream that reads a file segment independent of the
+        state of the file.
+
+        Allows reading portions of a random access file as an input stream
+        without interfering with each other.
+
+        Parameters
+        ----------
+        file_offset : int
+        nbytes : int
+
+        Returns
+        -------
+        stream : NativeFile
+        """
+        cdef:
+            shared_ptr[CInputStream] data
+            int64_t c_file_offset
+            int64_t c_nbytes
+
+        c_file_offset = file_offset
+        c_nbytes = nbytes
+
+        handle = self.get_random_access_file()
+
+        data = GetResultValue(
+            CRandomAccessFile.GetStream(handle, c_file_offset, c_nbytes))
+
+        stream = NativeFile()
+        stream.set_input_stream(data)
+        stream.is_readable = True
+
+        return stream
 
     def read_at(self, nbytes, offset):
         """
@@ -436,14 +476,25 @@ cdef class NativeFile(_Weakrefable):
     def read1(self, nbytes=None):
         """Read and return up to n bytes.
 
-        Alias for read, needed to match the BufferedIOBase interface.
+        Unlike read(), if *nbytes* is None then a chunk is read, not the
+        entire file.
 
         Parameters
         ----------
-        nbytes : int
+        nbytes : int, default None
             The maximum number of bytes to read.
+
+        Returns
+        -------
+        data : bytes
         """
-        return self.read(nbytes=None)
+        if nbytes is None:
+            # The expectation when passing `nbytes=None` is not to read the
+            # entire file but to issue a single underlying read call up to
+            # a reasonable size (the use case being to read a bufferable
+            # amount of bytes, such as with io.TextIOWrapper).
+            nbytes = self._default_chunk_size
+        return self.read(nbytes)
 
     def readall(self):
         return self.read()
@@ -870,7 +921,7 @@ def memory_map(path, mode='r'):
     ----------
     path : str
     mode : {'r', 'r+', 'w'}, default 'r'
-        Whether the file is opened for reading ('r+'), writing ('w')
+        Whether the file is opened for reading ('r'), writing ('w')
         or both ('r+').
 
     Returns

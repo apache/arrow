@@ -44,13 +44,13 @@ BatchesWithSchema GenerateBatchesFromString(
     const std::vector<util::string_view>& json_strings, int multiplicity = 1) {
   BatchesWithSchema out_batches{{}, schema};
 
-  std::vector<ValueDescr> descrs;
+  std::vector<TypeHolder> types;
   for (auto&& field : schema->fields()) {
-    descrs.emplace_back(field->type());
+    types.emplace_back(field->type());
   }
 
   for (auto&& s : json_strings) {
-    out_batches.batches.push_back(ExecBatchFromJSON(descrs, s));
+    out_batches.batches.push_back(ExecBatchFromJSON(types, s));
   }
 
   size_t batch_count = out_batches.batches.size();
@@ -473,7 +473,7 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
   }
 }
 
-// Generate random arrays given list of data type descriptions and null probabilities.
+// Generate random arrays given list of data types and null probabilities.
 // Make sure that all generated records are unique.
 // The actual number of generated records may be lower than desired because duplicates
 // will be removed without replacement.
@@ -485,18 +485,18 @@ std::vector<std::shared_ptr<Array>> GenRandomUniqueRecords(
       GenRandomRecords(rng, data_types.data_types, num_desired);
 
   ExecContext* ctx = default_exec_context();
-  std::vector<ValueDescr> val_descrs;
+  std::vector<TypeHolder> val_types;
   for (size_t i = 0; i < result.size(); ++i) {
-    val_descrs.push_back(ValueDescr(result[i]->type(), ValueDescr::ARRAY));
+    val_types.push_back(result[i]->type());
   }
   internal::RowEncoder encoder;
-  encoder.Init(val_descrs, ctx);
+  encoder.Init(val_types, ctx);
   ExecBatch batch({}, num_desired);
   batch.values.resize(result.size());
   for (size_t i = 0; i < result.size(); ++i) {
     batch.values[i] = result[i];
   }
-  Status status = encoder.EncodeAndAppend(batch);
+  Status status = encoder.EncodeAndAppend(ExecSpan(batch));
   ARROW_DCHECK(status.ok());
 
   std::unordered_map<std::string, int> uniques;
@@ -977,7 +977,7 @@ TEST(HashJoin, Suffix) {
                        MakeExecNode("source", plan.get(), {},
                                     SourceNodeOptions{input_right.schema,
                                                       input_right.gen(/*parallel=*/false,
-                                                                      /*slow=*/false)}))
+                                                                      /*slow=*/false)}));
 
   HashJoinNodeOptions join_opts{JoinType::INNER,
                                 /*left_keys=*/{"lkey"},
@@ -1240,7 +1240,9 @@ void TestHashJoinDictionaryHelper(
     // side.
     int expected_num_r_no_match,
     // Whether to swap two inputs to the hash join
-    bool swap_sides) {
+    bool swap_sides,
+    // If true, send length=0 batches, if false, skip these batches
+    bool send_empty_batches = true) {
   int64_t l_length = l_key.is_array()       ? l_key.array()->length
                      : l_payload.is_array() ? l_payload.array()->length
                                             : -1;
@@ -1296,6 +1298,15 @@ void TestHashJoinDictionaryHelper(
       l_batches.batches.push_back(l_batches.batches[0]);
       l_batches.batches.push_back(l_batches.batches[1]);
     }
+  }
+
+  // When the input is empty we can either send length=0 batches
+  // or bypass the batches entirely
+  if (l_length == 0 && !send_empty_batches) {
+    l_batches.batches.resize(0);
+  }
+  if (r_length == 0 && !send_empty_batches) {
+    r_batches.batches.resize(0);
   }
 
   auto exec_ctx = arrow::internal::make_unique<ExecContext>(
@@ -1500,23 +1511,25 @@ TEST(HashJoin, Dictionary) {
     for (auto parallel : {false, true}) {
       for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
-          TestHashJoinDictionaryHelper(
-              JoinType::FULL_OUTER, cmp, parallel,
-              // Input
-              DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([])", R"([null, "b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([])", R"(["p", "r", "s"])"),
-              // Expected
-              DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([null, null, null])",
-                                R"(["b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([null, null, null])",
-                                R"(["p", "r", "s"])"),
-              0, swap_sides);
+          for (auto send_empty_batches : {false, true}) {
+            TestHashJoinDictionaryHelper(
+                JoinType::FULL_OUTER, cmp, parallel,
+                // Input
+                DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([])", R"([null, "b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([])", R"(["p", "r", "s"])"),
+                // Expected
+                DictArrayFromJSON(l_key_dict_type, R"([2, 0, 1])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([2, 2, 0])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([null, null, null])",
+                                  R"(["b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([null, null, null])",
+                                  R"(["p", "r", "s"])"),
+                0, swap_sides, send_empty_batches);
+          }
         }
       }
     }
@@ -1532,25 +1545,27 @@ TEST(HashJoin, Dictionary) {
     for (auto parallel : {false, true}) {
       for (auto swap_sides : {false, true}) {
         for (auto cmp : {JoinKeyCmp::IS, JoinKeyCmp::EQ}) {
-          TestHashJoinDictionaryHelper(
-              JoinType::FULL_OUTER, cmp, parallel,
-              // Input
-              DictArrayFromJSON(l_key_dict_type, R"([])", R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([])", R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([2, 0, 1, null])",
-                                R"([null, "b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
-                                R"(["p", "r", "s"])"),
-              // Expected
-              DictArrayFromJSON(l_key_dict_type, R"([null, null, null, null])",
-                                R"(["b", null, "a"])"),
-              DictArrayFromJSON(l_payload_dict_type, R"([null, null, null, null])",
-                                R"(["x", "y", "z"])"),
-              DictArrayFromJSON(r_key_dict_type, R"([1, null, 0, null])",
-                                R"(["b", "c"])"),
-              DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
-                                R"(["p", "r", "s"])"),
-              4, swap_sides);
+          for (auto send_empty_batches : {false, true}) {
+            TestHashJoinDictionaryHelper(
+                JoinType::FULL_OUTER, cmp, parallel,
+                // Input
+                DictArrayFromJSON(l_key_dict_type, R"([])", R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([])", R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([2, 0, 1, null])",
+                                  R"([null, "b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
+                                  R"(["p", "r", "s"])"),
+                // Expected
+                DictArrayFromJSON(l_key_dict_type, R"([null, null, null, null])",
+                                  R"(["b", null, "a"])"),
+                DictArrayFromJSON(l_payload_dict_type, R"([null, null, null, null])",
+                                  R"(["x", "y", "z"])"),
+                DictArrayFromJSON(r_key_dict_type, R"([1, null, 0, null])",
+                                  R"(["b", "c"])"),
+                DictArrayFromJSON(r_payload_dict_type, R"([1, 1, null, 0])",
+                                  R"(["p", "r", "s"])"),
+                4, swap_sides, send_empty_batches);
+          }
         }
       }
     }
@@ -1667,6 +1682,24 @@ TEST(HashJoin, Scalars) {
           ArrayFromJSON(utf8(), R"(["p", "q", "p", "q", "r"])"), 1, swap_sides);
     }
   }
+
+  // Scalars in key columns, Inner join to exercise Bloom filter
+  for (auto use_scalar_dict : {false, true}) {
+    for (auto swap_sides : {false, true}) {
+      TestHashJoinDictionaryHelper(
+          JoinType::INNER, JoinKeyCmp::EQ, false /*parallel*/,
+          // Input
+          use_scalar_dict ? DictScalarFromJSON(int8_utf8, "1", R"(["b", "a", "c"])")
+                          : ScalarFromJSON(utf8(), "\"a\""),
+          ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          ArrayFromJSON(utf8(), R"(["a", null, "b"])"),
+          ArrayFromJSON(utf8(), R"(["p", "q", "r"])"),
+          // Expected output
+          ArrayFromJSON(utf8(), R"(["a", "a"])"), ArrayFromJSON(utf8(), R"(["x", "y"])"),
+          ArrayFromJSON(utf8(), R"(["a", "a"])"), ArrayFromJSON(utf8(), R"(["p", "p"])"),
+          2, swap_sides);
+    }
+  }
 }
 
 TEST(HashJoin, DictNegative) {
@@ -1729,6 +1762,9 @@ TEST(HashJoin, DictNegative) {
     EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Unifying differing dictionaries"),
         StartAndCollect(plan.get(), sink_gen));
+    // Since we returned an error, the StartAndCollect future may return before
+    // the plan is done finishing.
+    plan->finished().Wait();
   }
 }
 
@@ -1762,6 +1798,71 @@ TEST(HashJoin, UnsupportedTypes) {
         "source", SourceNodeOptions{r_batches.schema, r_batches.gen(parallel, slow)}});
 
     ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
+  }
+}
+
+TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
+  auto exec_ctx =
+      arrow::internal::make_unique<ExecContext>(default_memory_pool(), nullptr);
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(exec_ctx.get()));
+
+  BatchesWithSchema input_left;
+  input_left.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
+                   [1, 4, 7],
+                   [2, 5, 8],
+                   [3, 6, 9]
+                 ])")};
+  input_left.schema = schema(
+      {field("lkey", int32()), field("shared", int32()), field("ldistinct", int32())});
+
+  BatchesWithSchema input_right;
+  input_right.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
+                   [1, 10, 13],
+                   [2, 11, 14],
+                   [3, 12, 15]
+                 ])")};
+  input_right.schema = schema(
+      {field("rkey", int32()), field("shared", int32()), field("rdistinct", int32())});
+
+  ExecNode* l_source;
+  ExecNode* r_source;
+  ASSERT_OK_AND_ASSIGN(
+      l_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{input_left.schema, input_left.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}));
+
+  ASSERT_OK_AND_ASSIGN(r_source,
+                       MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions{input_right.schema,
+                                                      input_right.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}))
+
+  std::vector<std::vector<FieldRef>> l_keys = {
+      {},
+      {FieldRef("lkey")},
+      {FieldRef("lkey"), FieldRef("shared"), FieldRef("ldistinct")}};
+  std::vector<std::vector<FieldRef>> r_keys = {
+      {},
+      {FieldRef("rkey")},
+      {FieldRef("rkey"), FieldRef("shared"), FieldRef("rdistinct")}};
+  std::vector<std::vector<JoinKeyCmp>> key_cmps = {
+      {}, {JoinKeyCmp::EQ}, {JoinKeyCmp::EQ, JoinKeyCmp::EQ, JoinKeyCmp::EQ}};
+
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      for (int k = 0; k < 3; ++k) {
+        if (i == j && j == k && i != 0) {
+          continue;
+        }
+
+        HashJoinNodeOptions options{JoinType::INNER, l_keys[j], r_keys[k], {}, {},
+                                    key_cmps[i]};
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            Invalid, ::testing::HasSubstr("key_cmp and keys"),
+            MakeExecNode("hashjoin", plan.get(), {l_source, r_source}, options));
+      }
+    }
   }
 }
 

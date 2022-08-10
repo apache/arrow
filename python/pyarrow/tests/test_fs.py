@@ -201,6 +201,34 @@ def subtree_localfs(request, tempdir, localfs):
 
 
 @pytest.fixture
+def gcsfs(request, gcs_server):
+    request.config.pyarrow.requires('gcs')
+    from pyarrow.fs import GcsFileSystem
+
+    host, port = gcs_server['connection']
+    bucket = 'pyarrow-filesystem/'
+    # Make sure the server is alive.
+    assert gcs_server['process'].poll() is None
+
+    fs = GcsFileSystem(
+        endpoint_override=f'{host}:{port}',
+        scheme='http',
+        # Mock endpoint doesn't check credentials.
+        anonymous=True,
+        retry_time_limit=timedelta(seconds=45)
+    )
+    fs.create_dir(bucket)
+
+    yield dict(
+        fs=fs,
+        pathfn=bucket.__add__,
+        allow_move_dir=False,
+        allow_append_to_file=False,
+    )
+    fs.delete_dir(bucket)
+
+
+@pytest.fixture
 def s3fs(request, s3_server):
     request.config.pyarrow.requires('s3')
     from pyarrow.fs import S3FileSystem
@@ -212,7 +240,9 @@ def s3fs(request, s3_server):
         access_key=access_key,
         secret_key=secret_key,
         endpoint_override='{}:{}'.format(host, port),
-        scheme='http'
+        scheme='http',
+        allow_bucket_creation=True,
+        allow_bucket_deletion=True
     )
     fs.create_dir(bucket)
 
@@ -346,6 +376,11 @@ def py_fsspec_s3fs(request, s3_server):
         marks=pytest.mark.s3
     ),
     pytest.param(
+        pytest.lazy_fixture('gcsfs'),
+        id='GcsFileSystem',
+        marks=pytest.mark.gcs
+    ),
+    pytest.param(
         pytest.lazy_fixture('hdfs'),
         id='HadoopFileSystem',
         marks=pytest.mark.hdfs
@@ -442,6 +477,12 @@ def test_s3fs_limited_permissions_create_bucket(s3_server):
         scheme='http'
     )
     fs.create_dir('existing-bucket/test')
+
+    with pytest.raises(pa.ArrowIOError, match="Bucket 'new-bucket' not found"):
+        fs.create_dir('new-bucket')
+
+    with pytest.raises(pa.ArrowIOError, match="Would delete bucket"):
+        fs.delete_dir('existing-bucket')
 
 
 def test_file_info_constructor():
@@ -870,6 +911,10 @@ def test_open_input_file(fs, pathfn):
 
     read_from = len(b'some data') * 512
     with fs.open_input_file(p) as f:
+        result = f.read()
+    assert result == data
+
+    with fs.open_input_file(p) as f:
         f.seek(read_from)
         result = f.read()
 
@@ -951,7 +996,7 @@ def test_open_output_stream_metadata(fs, pathfn):
         assert f.read() == data
         got_metadata = f.metadata()
 
-    if fs.type_name == 's3' or 'mock' in fs.type_name:
+    if fs.type_name in ['s3', 'gcs'] or 'mock' in fs.type_name:
         for k, v in metadata.items():
             assert got_metadata[k] == v.encode()
     else:
@@ -1010,9 +1055,47 @@ def test_mockfs_mtime_roundtrip(mockfs):
     assert info.mtime == dt
 
 
+@pytest.mark.gcs
+def test_gcs_options():
+    from pyarrow.fs import GcsFileSystem
+    dt = datetime.now()
+    fs = GcsFileSystem(access_token='abc',
+                       target_service_account='service_account@apache',
+                       credential_token_expiration=dt,
+                       default_bucket_location='us-west2',
+                       scheme='https', endpoint_override='localhost:8999')
+    assert isinstance(fs, GcsFileSystem)
+    assert fs.default_bucket_location == 'us-west2'
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = GcsFileSystem()
+    assert isinstance(fs, GcsFileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = GcsFileSystem(anonymous=True)
+    assert isinstance(fs, GcsFileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = GcsFileSystem(default_metadata={"ACL": "authenticated-read",
+                                         "Content-Type": "text/plain"})
+    assert isinstance(fs, GcsFileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    with pytest.raises(ValueError):
+        GcsFileSystem(access_token='access')
+    with pytest.raises(ValueError):
+        GcsFileSystem(anonymous=True, access_token='secret')
+    with pytest.raises(ValueError):
+        GcsFileSystem(anonymous=True, target_service_account='acct')
+    with pytest.raises(ValueError):
+        GcsFileSystem(credential_token_expiration=datetime.now())
+
+
 @pytest.mark.s3
 def test_s3_options():
-    from pyarrow.fs import S3FileSystem
+    from pyarrow.fs import (AwsDefaultS3RetryStrategy,
+                            AwsStandardS3RetryStrategy, S3FileSystem,
+                            S3RetryStrategy)
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
@@ -1026,15 +1109,47 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    # Note that the retry strategy won't survive pickling for now
+    fs = S3FileSystem(
+        retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
+
+    fs = S3FileSystem(
+        retry_strategy=AwsDefaultS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
+
+    fs2 = S3FileSystem(role_arn='role')
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
     fs = S3FileSystem(anonymous=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
-    fs = S3FileSystem(background_writes=True,
-                      default_metadata={"ACL": "authenticated-read",
-                                        "Content-Type": "text/plain"})
+    fs = S3FileSystem(background_writes=True)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(background_writes=True,
+                       default_metadata={"ACL": "authenticated-read",
+                                         "Content-Type": "text/plain"})
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
+    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(request_timeout=0.5, connect_timeout=0.25)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(request_timeout=0.25, connect_timeout=0.5)
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
 
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
@@ -1056,6 +1171,8 @@ def test_s3_options():
         S3FileSystem(role_arn="arn", anonymous=True)
     with pytest.raises(ValueError):
         S3FileSystem(default_metadata=["foo", "bar"])
+    with pytest.raises(ValueError):
+        S3FileSystem(retry_strategy=S3RetryStrategy())
 
 
 @pytest.mark.s3
@@ -1308,11 +1425,32 @@ def test_filesystem_from_uri_s3(s3_server):
 
     host, port, access_key, secret_key = s3_server['connection']
 
-    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}" \
-        .format(access_key, secret_key, host, port)
+    uri = "s3://{}:{}@mybucket/foo/bar?scheme=http&endpoint_override={}:{}"\
+          "&allow_bucket_creation=True" \
+          .format(access_key, secret_key, host, port)
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, S3FileSystem)
+    assert path == "mybucket/foo/bar"
+
+    fs.create_dir(path)
+    [info] = fs.get_file_info([path])
+    assert info.path == path
+    assert info.type == FileType.Directory
+
+
+@pytest.mark.gcs
+def test_filesystem_from_uri_gcs(gcs_server):
+    from pyarrow.fs import GcsFileSystem
+
+    host, port = gcs_server['connection']
+
+    uri = ("gs://anonymous@" +
+           f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}&" +
+           "retry_limit_seconds=5")
+
+    fs, path = FileSystem.from_uri(uri)
+    assert isinstance(fs, GcsFileSystem)
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
@@ -1500,15 +1638,17 @@ def test_s3_real_aws():
     assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-2')
-    entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
+    entries = fs.get_file_info(FileSelector(
+        'voltrondata-labs-datasets/nyc-taxi'))
     assert len(entries) > 0
-    with fs.open_input_stream('ursa-labs-taxi-data/2019/06/data.parquet') as f:
+    key = 'voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
+    with fs.open_input_stream(key) as f:
         md = f.metadata()
         assert 'Content-Type' in md
-        assert md['Last-Modified'] == b'2020-01-17T16:26:28Z'
+        assert md['Last-Modified'] == b'2022-07-12T23:32:00Z'
         # For some reason, the header value is quoted
         # (both with AWS and Minio)
-        assert md['ETag'] == b'"f1efd5d76cb82861e1542117bfa52b90-8"'
+        assert md['ETag'] == b'"4c6a76826a695c6ac61592bc30cda3df-16"'
 
 
 @pytest.mark.s3
@@ -1537,7 +1677,7 @@ def test_s3_real_aws_region_selection():
 @pytest.mark.s3
 def test_resolve_s3_region():
     from pyarrow.fs import resolve_s3_region
-    assert resolve_s3_region('ursa-labs-taxi-data') == 'us-east-2'
+    assert resolve_s3_region('voltrondata-labs-datasets') == 'us-east-2'
     assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
 
     with pytest.raises(ValueError, match="Not a valid bucket name"):

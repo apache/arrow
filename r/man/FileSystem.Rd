@@ -5,6 +5,7 @@
 \alias{FileSystem}
 \alias{LocalFileSystem}
 \alias{S3FileSystem}
+\alias{GcsFileSystem}
 \alias{SubTreeFileSystem}
 \title{FileSystem classes}
 \description{
@@ -50,6 +51,31 @@ that emulate S3.
 \item \code{scheme}: S3 connection transport (default "https")
 \item \code{background_writes}: logical, whether \code{OutputStream} writes will be issued
 in the background, without blocking (default \code{TRUE})
+\item \code{allow_bucket_creation}: logical, if TRUE, the filesystem will create
+buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALSE}).
+\item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
+buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
+}
+
+\code{GcsFileSystem$create()} optionally takes arguments:
+\itemize{
+\item \code{anonymous}: logical, default \code{FALSE}. If true, will not attempt to look up
+credentials using standard GCS configuration methods.
+\item \code{access_token}: optional string for authentication. Should be provided along
+with \code{expiration}
+\item \code{expiration}: optional date representing point at which \code{access_token} will
+expire.
+\item \code{json_credentials}: optional string for authentication. Point to a JSON
+credentials file downloaded from GCS.
+\item \code{endpoint_override}: if non-empty, will connect to provided host name / port,
+such as "localhost:9001", instead of default GCS ones. This is primarily useful
+for testing purposes.
+\item \code{scheme}: connection transport (default "https")
+\item \code{default_bucket_location}: the default location (or "region") to create new
+buckets in.
+\item \code{retry_limit_seconds}: the maximum amount of time to spend retrying if
+the filesystem encounters errors. Default is 15 seconds.
+\item \code{default_metadata}: default metadata to write in new objects.
 }
 }
 
@@ -95,5 +121,16 @@ containing a \code{S3FileSystem}
 \item \verb{$base_path}: for \code{SubTreeFileSystem}, the path in \verb{$base_fs} which is considered
 root in this \code{SubTreeFileSystem}.
 }
+}
+
+\section{Notes}{
+
+
+On S3FileSystem, \verb{$CreateDir()} on a top-level directory creates a new bucket.
+When S3FileSystem creates new buckets (assuming allow_bucket_creation is TRUE),
+it does not pass any non-default settings. In AWS S3, the bucket and all
+objects will be not publicly visible, and will have no bucket policies
+and no resource tags. To have more control over how buckets are created,
+use a different API to create them.
 }
 

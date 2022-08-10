@@ -146,16 +146,22 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
+# - Abseil is old
 # - libc-ares-dev does not install CMake config files
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
-ENV ARROW_BUILD_TESTS=ON \
+# ARROW-17051: this build uses static Protobuf, so we must also use
+# static Arrow to run Flight/Flight SQL tests
+ENV absl_SOURCE=BUNDLED \
+    ARROW_BUILD_STATIC=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
     ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=ON \
+    ARROW_GCS=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
@@ -175,10 +181,12 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     AWSSDK_SOURCE=BUNDLED \
+    google_cloud_cpp_storage_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    Protobuf_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3
+    Protobuf_SOURCE=BUNDLED \
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

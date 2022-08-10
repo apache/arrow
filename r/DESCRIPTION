@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 8.0.0.9000
+Version: 9.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -40,10 +40,11 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.0
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Suggests:
+    cli,
     DBI,
     dbplyr,
     decor,
@@ -53,6 +54,7 @@ Suggests:
     hms,
     knitr,
     lubridate,
+    pillar,
     pkgload,
     reticulate,
     rmarkdown,
@@ -88,7 +90,6 @@ Collate:
     'dataset-partition.R'
     'dataset-scan.R'
     'dataset-write.R'
-    'deprecated.R'
     'dictionary.R'
     'dplyr-arrange.R'
     'dplyr-collect.R'
@@ -97,6 +98,7 @@ Collate:
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
+    'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'
     'dplyr-funcs-math.R'
@@ -104,6 +106,7 @@ Collate:
     'dplyr-funcs-type.R'
     'expression.R'
     'dplyr-funcs.R'
+    'dplyr-glimpse.R'
     'dplyr-group-by.R'
     'dplyr-join.R'
     'dplyr-mutate.R'

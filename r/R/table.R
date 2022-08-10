@@ -93,7 +93,7 @@ Table <- R6Class("Table",
     AddColumn = function(i, new_field, value) Table__AddColumn(self, i, new_field, value),
     SetColumn = function(i, new_field, value) Table__SetColumn(self, i, new_field, value),
     ReplaceSchemaMetadata = function(new) {
-      Table__ReplaceSchemaMetadata(self, new)
+      Table__ReplaceSchemaMetadata(self, prepare_key_value_metadata(new))
     },
     field = function(i) Table__field(self, i),
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
@@ -317,4 +317,26 @@ as_arrow_table.RecordBatch <- function(x, ..., schema = NULL) {
 #' @export
 as_arrow_table.data.frame <- function(x, ..., schema = NULL) {
   Table$create(x, schema = schema)
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.RecordBatchReader <- function(x, ...) {
+  x$read_table()
+}
+
+#' @rdname as_arrow_table
+#' @export
+as_arrow_table.arrow_dplyr_query <- function(x, ...) {
+  # See query-engine.R for ExecPlan/Nodes
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
+
+  run_with_event_loop <- identical(
+    Sys.getenv("R_ARROW_COLLECT_WITH_UDF", ""),
+    "true"
+  )
+
+  result <- plan$Run(final_node, as_table = run_with_event_loop)
+  as_arrow_table(result)
 }

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include "arrow/compute/registry.h"
 #include "arrow/engine/substrait/api.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/optional.h"
@@ -26,18 +27,21 @@ namespace arrow {
 
 namespace engine {
 
-namespace substrait {
-
 /// \brief Retrieve a RecordBatchReader from a Substrait plan.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer);
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry = NULLPTR,
+    compute::FunctionRegistry* func_registry = NULLPTR);
 
 /// \brief Get a Serialized Plan from a Substrait JSON plan.
 /// This is a helper method for Python tests.
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeJsonPlan(
     const std::string& substrait_json);
 
-}  // namespace substrait
+/// \brief Make a nested registry with the default registry as parent.
+/// See arrow::engine::nested_extension_id_registry for details.
+ARROW_ENGINE_EXPORT std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry();
+
+ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri();
 
 }  // namespace engine
 

@@ -158,6 +158,8 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow GLib"
+export G_DEBUG=fatal-warnings
+
 ${APT_INSTALL} libarrow-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-glib-doc=${package_version}
 
@@ -186,6 +188,13 @@ echo "::group::Test Apache Arrow Flight"
 ${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
 ruby -r gi -e "p GI.load('ArrowFlight')"
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow Flight SQL"
+${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
+${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowFlightSQL')"
 echo "::endgroup::"
 
 

@@ -108,7 +108,7 @@ class ApacheArrowPackageTask < PackageTask
 
   def apt_prepare_debian_control_grpc(control, target)
     case target
-    when /\Adebian-buster/, /\Aubuntu-(?:bionic|focal)/
+    when /\Aubuntu-(?:bionic|focal)/
       use_system_grpc = "#"
     else
       use_system_grpc = ""
@@ -148,7 +148,7 @@ class ApacheArrowPackageTask < PackageTask
 
   def apt_prepare_debian_control_zstd(control, target)
     case target
-    when /\Adebian-buster/, /\Aubuntu-bionic/
+    when /\Aubuntu-bionic/
       use_system_zstd = "#"
     else
       use_system_zstd = ""

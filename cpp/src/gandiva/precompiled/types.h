@@ -223,6 +223,15 @@ gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 gdv_float32 div_float32_float32(gdv_int64 context, gdv_float32 in1, gdv_float32 in2);
 gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1, gdv_float64 in2);
 
+gdv_int32 sign_int32(gdv_int32 in);
+gdv_int64 sign_int64(gdv_int64 in);
+gdv_float32 sign_float32(gdv_float32 in);
+gdv_float64 sign_float64(gdv_float64 in);
+gdv_float32 ceiling_float32(gdv_float32 in);
+gdv_float64 ceiling_float64(gdv_float64 in);
+gdv_float32 floor_float32(gdv_float32 in);
+gdv_float64 floor_float64(gdv_float64 in);
+
 gdv_float32 round_float32(gdv_float32);
 gdv_float64 round_float64(gdv_float64);
 gdv_float64 bround_float64(gdv_float64);
@@ -572,6 +581,10 @@ const char* castVARBINARY_utf8_int64(gdv_int64 context, const char* data,
 const char* castVARBINARY_binary_int64(gdv_int64 context, const char* data,
                                        gdv_int32 data_len, int64_t out_len,
                                        int32_t* out_length);
+
+const char* castBINARY_utf8(const char* data, gdv_int32 data_len, int32_t* out_length);
+
+const char* castBINARY_binary(const char* data, gdv_int32 data_len, int32_t* out_length);
 
 gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const char* in2,
                       int32_t in2_len);

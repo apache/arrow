@@ -23,7 +23,8 @@ Using Arrow C++ in your own project
 ===================================
 
 This section assumes you already have the Arrow C++ libraries on your
-system, either after installing them using a package manager or after
+system, either after `installing them using a package manager
+<https://arrow.apache.org/install/>`_ or after
 :ref:`building them yourself <building-arrow-cpp>`.
 
 The recommended way to integrate the Arrow C++ libraries in your own
@@ -183,6 +184,6 @@ XML. To download, you can use the following batch script:
 By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
 but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
 
-   arrow::ArrowGlobalOptions options;
-   options.tz_db_path = "path/to/tzdata";
+   arrow::GlobalOptions options;
+   options.timezone_db_path = "path/to/tzdata";
    ARROW_RETURN_NOT_OK(arrow::Initialize(options));

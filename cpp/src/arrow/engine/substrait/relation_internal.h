@@ -21,17 +21,28 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
-#include "substrait/relations.pb.h"  // IWYU pragma: export
+#include "substrait/algebra.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 namespace engine {
 
+/// Information resulting from converting a Substrait relation.
+struct DeclarationInfo {
+  /// The compute declaration produced thus far.
+  compute::Declaration declaration;
+
+  /// The number of columns returned by the declaration.
+  int num_columns;
+};
+
 ARROW_ENGINE_EXPORT
-Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&);
+Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
+                                  const ConversionOptions&);
 
 }  // namespace engine
 }  // namespace arrow

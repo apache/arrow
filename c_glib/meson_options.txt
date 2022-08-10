@@ -32,7 +32,7 @@ option('gtk_doc',
        value: false,
        description: 'Build document by GTK-Doc')
 
-option('vala',
+option('vapi',
        type: 'boolean',
        value: false,
        description: 'Build Vala API')

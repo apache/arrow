@@ -47,6 +47,7 @@ RUN apt-get update -y -q && \
         g++ \
         gcc \
         libboost-all-dev \
+        libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
         libgtest-dev \
@@ -69,7 +70,7 @@ ARG cmake=3.11.4
 RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz | tar -xzf - -C /opt
 ENV PATH=/opt/cmake-${cmake}-Linux-x86_64/bin:$PATH
 
-ENV ARROW_BUILD_TESTS=OFF \
+ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA_JAVA=ON \
@@ -81,6 +82,7 @@ ENV ARROW_BUILD_TESTS=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA_JAVA_CLIENT=ON \
     ARROW_PLASMA=ON \
+    ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     CC=gcc \
     CXX=g++ \

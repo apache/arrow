@@ -323,13 +323,13 @@ boolean flags to ``cmake``.
   filesystems
 * ``-DARROW_FLIGHT=ON``: Arrow Flight RPC system, which depends at least on
   gRPC
+* ``-DARROW_FLIGHT_SQL=ON``: Arrow Flight SQL
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
 * ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java
 * ``-DARROW_GCS=ON``: Build Arrow with GCS support (requires the GCloud SDK for C++)
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
-* ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
 * ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
 * ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator

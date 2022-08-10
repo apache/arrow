@@ -183,7 +183,7 @@ test_that("vctrs extension type works", {
   expect_r6_class(type, "VctrsExtensionType")
   expect_identical(type$ptype(), vctrs::vec_ptype(custom_vctr))
   expect_true(type$Equals(type))
-  expect_match(type$ToString(), "arrow_custom_test")
+  expect_identical(type$ToString(), "<arrow_custom_test[0]>")
 
   array_in <- vctrs_extension_array(custom_vctr)
   expect_true(array_in$type$Equals(type))
@@ -312,6 +312,7 @@ test_that("Table can roundtrip extension types", {
 
 test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
   skip_if_not_available("dataset")
+  skip_if_not(CanRunWithCapturedR())
 
   tf <- tempfile()
   on.exit(unlink(tf, recursive = TRUE))

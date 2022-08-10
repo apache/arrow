@@ -19,6 +19,7 @@
 #include <regex>
 
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -34,12 +35,12 @@ namespace internal {
 std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   std::vector<std::string> parts;
   auto v = util::string_view(path);
-  // Strip trailing slash
-  if (v.length() > 0 && v.back() == kSep) {
+  // Strip trailing separator
+  if (v.length() > 0 && v.back() == sep) {
     v = v.substr(0, v.length() - 1);
   }
-  // Strip leading slash
-  if (v.length() > 0 && v.front() == kSep) {
+  // Strip leading separator
+  if (v.length() > 0 && v.front() == sep) {
     v = v.substr(1);
   }
   if (v.length() == 0) {
@@ -137,6 +138,13 @@ util::string_view RemoveLeadingSlash(util::string_view key) {
     key.remove_prefix(1);
   }
   return key;
+}
+
+Status AssertNoTrailingSlash(util::string_view key) {
+  if (key.back() == '/') {
+    return NotAFile(key);
+  }
+  return Status::OK();
 }
 
 Result<std::string> MakeAbstractPathRelative(const std::string& base,

@@ -788,7 +788,8 @@ namespace garrow {
     }
 
     arrow::Result<int64_t> Tell() const override {
-      if (!G_IS_SEEKABLE(input_stream_)) {
+      if (!(G_IS_SEEKABLE(input_stream_) &&
+            g_seekable_can_seek(G_SEEKABLE(input_stream_)))) {
         std::string message("[gio-input-stream][tell] "
                             "not seekable input stream: <");
         message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(input_stream_));

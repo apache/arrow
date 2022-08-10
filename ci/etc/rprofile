@@ -2,7 +2,9 @@ local({
   .pick_cran <- function() {
     # Return a CRAN repo URL, preferring RSPM binaries if available for this OS
     rspm_template <- "https://packagemanager.rstudio.com/cran/__linux__/%s/latest"
-    supported_os <- c("focal", "xenial", "bionic", "centos7", "centos8", "opensuse42", "opensuse15", "opensuse152")
+    # See https://github.com/rstudio/r-docker#releases-and-tags,
+    # but note that RSPM still uses "centos8"
+    supported_os <- c("bionic", "focal", "jammy", "centos7", "centos8", "opensuse153")
 
     if (nzchar(Sys.which("lsb_release"))) {
       os <- tolower(system("lsb_release -cs", intern = TRUE))
@@ -19,8 +21,8 @@ local({
         return(sprintf(rspm_template, os))
       } else {
         names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
-        if (vals["ID"] == "opensuse") {
-          version <- sub('^"?([0-9]+).*"?.*$', "\\1", vals["VERSION_ID"])
+        if (grepl("opensuse", vals["ID"])) {
+          version <- sub('^"?([0-9]+)\\.?([0-9]+).*"?.*$', "\\1\\2", vals["VERSION_ID"])
           os <- paste0("opensuse", version)
           if (os %in% supported_os) {
             return(sprintf(rspm_template, os))

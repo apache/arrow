@@ -84,6 +84,14 @@ struct _GAFlightServerCallContextClass
 };
 
 
+#define GAFLIGHT_TYPE_SERVABLE (gaflight_servable_get_type())
+G_DECLARE_INTERFACE(GAFlightServable,
+                    gaflight_servable,
+                    GAFLIGHT,
+                    SERVABLE,
+                    GObject)
+
+
 #define GAFLIGHT_TYPE_SERVER (gaflight_server_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightServer,
                          gaflight_server,
@@ -105,6 +113,10 @@ struct _GAFlightServerClass
                          GAFlightServerCallContext *context,
                          GAFlightCriteria *criteria,
                          GError **error);
+  GAFlightInfo *(*get_flight_info)(GAFlightServer *server,
+                                   GAFlightServerCallContext *context,
+                                   GAFlightDescriptor *request,
+                                   GError **error);
   GAFlightDataStream *(*do_get)(GAFlightServer *server,
                                 GAFlightServerCallContext *context,
                                 GAFlightTicket *ticket,
@@ -134,6 +146,12 @@ gaflight_server_list_flights(GAFlightServer *server,
                              GAFlightServerCallContext *context,
                              GAFlightCriteria *criteria,
                              GError **error);
+GARROW_AVAILABLE_IN_9_0
+GAFlightInfo *
+gaflight_server_get_flight_info(GAFlightServer *server,
+                                GAFlightServerCallContext *context,
+                                GAFlightDescriptor *request,
+                                GError **error);
 GARROW_AVAILABLE_IN_6_0
 GAFlightDataStream *
 gaflight_server_do_get(GAFlightServer *server,

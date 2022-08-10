@@ -22,7 +22,7 @@ import click
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
 from .reports import (ChatReport, Report, ReportUtils, ConsoleReport,
-                      EmailReport)
+                      EmailReport, CommentReport)
 from ..utils.source import ArrowSources
 
 
@@ -121,7 +121,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     # Override the detected repo url / remote, branch and sha - this aims to
     # make release procedure a bit simpler.
-    # Note, that the target resivion's crossbow templates must be
+    # Note, that the target revision's crossbow templates must be
     # compatible with the locally checked out version of crossbow (which is
     # in case of the release procedure), because the templates still
     # contain some business logic (dependency installation, deployments)
@@ -153,6 +153,64 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     else:
         queue.push()
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
+
+
+@crossbow.command()
+@click.option('--base-branch', default="master",
+              help='Set base branch for the PR.')
+@click.option('--create-pr', is_flag=True, default=False,
+              help='Create GitHub Pull Request')
+@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
+              help='OAuth token to create PR and comments in the arrow repo')
+@click.option('--head-branch', default=None,
+              help='Give the branch name explicitly, e.g. release-9.0.0-rc0')
+@click.option('--pr-body', default=None,
+              help='Set body for the PR.')
+@click.option('--pr-title', default=None,
+              help='Set title for the PR.')
+@click.option('--remote', default=None,
+              help='Set GitHub remote explicitly, which is going to be used '
+                   'for the PR. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/raulcd/arrow.')
+@click.option('--rc', default=None,
+              help='Relase Candidate number.')
+@click.option('--version', default=None,
+              help='Release version.')
+@click.option('--verify-binaries', is_flag=True, default=False,
+              help='Trigger the verify binaries jobs')
+@click.option('--verify-source', is_flag=True, default=False,
+              help='Trigger the verify source jobs')
+@click.option('--verify-wheels', is_flag=True, default=False,
+              help='Trigger the verify wheels jobs')
+@click.pass_obj
+def verify_release_candidate(obj, base_branch, create_pr, github_token,
+                             head_branch, pr_body, pr_title, remote,
+                             rc, version, verify_binaries, verify_source,
+                             verify_wheels):
+    # The verify-release-candidate command will create a PR (or find one)
+    # and add the verify-rc* comment to trigger the verify tasks
+
+    # Redefine Arrow repo to use the correct arrow remote.
+    arrow = Repo(path=obj['arrow'].path, remote_url=remote)
+    response = arrow.github_pr(title=pr_title, head=head_branch,
+                               base=base_branch, body=pr_body,
+                               github_token=github_token,
+                               create=create_pr)
+
+    # If we want to trigger any verification job we add a comment to the PR.
+    verify_flags = [verify_source, verify_binaries, verify_wheels]
+    if any(verify_flags):
+        command = "@github-actions crossbow submit"
+        verify_groups = ["verify-rc-source",
+                         "verify-rc-binaries", "verify-rc-wheels"]
+        job_groups = ""
+        for flag, group in zip(verify_flags, verify_groups):
+            if flag:
+                job_groups += f" --group {group}"
+        response.create_comment(
+            f"{command} {job_groups} --param " +
+            f"release={version} --param rc={rc}")
 
 
 @crossbow.command()
@@ -225,6 +283,41 @@ def status(obj, job_name, fetch, task_filters):
 
     report = ConsoleReport(job, task_filters=task_filters)
     report.show(output)
+
+
+@crossbow.command()
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set GitHub remote explicitly, which is going to be cloned '
+                   'on the CI services. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/raulcd/arrow.')
+@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
+              help='Crossbow repository on github to use')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.option('--github-token', envvar='ARROW_GITHUB_API_TOKEN',
+              help='OAuth token to create comments in the arrow repo. '
+                   'Only necessary if --track-on-pr-titled is set.')
+@click.option('--job-name', required=True)
+@click.option('--pr-title', required=True,
+              help='Track the job submitted on PR with given title')
+@click.pass_obj
+def report_pr(obj, arrow_remote, crossbow, fetch, github_token, job_name,
+              pr_title):
+    arrow = obj['arrow']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+    job = queue.get(job_name)
+
+    report = CommentReport(job, crossbow_repo=crossbow)
+    target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
+    pull_request = target_arrow.github_pr(title=pr_title,
+                                          github_token=github_token,
+                                          create=False)
+    # render the response comment's content on the PR
+    pull_request.create_comment(report.show())
+    click.echo(f'Job is tracked on PR {pull_request.html_url}')
 
 
 @crossbow.command()

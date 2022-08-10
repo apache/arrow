@@ -118,6 +118,16 @@ def test_combine_chunks():
     assert res.equals(expected)
 
 
+def test_chunked_array_can_combine_chunks_with_no_chunks():
+    # https://issues.apache.org/jira/browse/ARROW-17256
+    assert pa.chunked_array([], type=pa.bool_()).combine_chunks() == pa.array(
+        [], type=pa.bool_()
+    )
+    assert pa.chunked_array(
+        [pa.array([], type=pa.bool_())], type=pa.bool_()
+    ).combine_chunks() == pa.array([], type=pa.bool_())
+
+
 def test_chunked_array_to_numpy():
     data = pa.chunked_array([
         [1, 2, 3],
@@ -2144,4 +2154,43 @@ def test_table_filter_expression():
         "colA": [1, 2, 6, 2, 1],
         "colB": [10, 20, 60, 20, 10],
         "colVals": ["a", "b", "f", "B", "A"]
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_many_columns():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colB": [99, 2, 1],
+        "col3": ["Z", "B", "A"],
+        "col4": ["Z", "B", "A"],
+        "col5": ["Z", "B", "A"],
+        "col6": ["Z", "B", "A"],
+        "col7": ["Z", "B", "A"]
+    })
+
+    result = t1.join(t2, "colA", "colB")
+    assert result.combine_chunks() == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "col3": ["A", "B", None],
+        "col4": ["A", "B", None],
+        "col5": ["A", "B", None],
+        "col6": ["A", "B", None],
+        "col7": ["A", "B", None]
+    })
+
+    result = t1.join(t2, "colA", "colB", join_type="full outer")
+    assert result.combine_chunks().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6, 99],
+        "col2": ["a", "b", "f", None],
+        "col3": ["A", "B", None, "Z"],
+        "col4": ["A", "B", None, "Z"],
+        "col5": ["A", "B", None, "Z"],
+        "col6": ["A", "B", None, "Z"],
+        "col7": ["A", "B", None, "Z"],
     })

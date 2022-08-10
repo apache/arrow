@@ -296,7 +296,10 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
 }
 
 std::int64_t Depth(arrow::util::string_view path) {
-  return std::count(path.begin(), path.end(), fs::internal::kSep);
+  // The last slash is not counted towards depth because it represents a
+  // directory.
+  bool has_trailing_slash = !path.empty() && path.back() == '/';
+  return std::count(path.begin(), path.end(), fs::internal::kSep) - has_trailing_slash;
 }
 
 }  // namespace internal

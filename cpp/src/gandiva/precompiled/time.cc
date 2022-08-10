@@ -40,18 +40,24 @@ extern "C" {
   INNER(date64)           \
   INNER(timestamp)
 
-// Expand inner macro for all base numeric types.
-#define NUMERIC_TYPES(INNER) \
-  INNER(int8)                \
-  INNER(int16)               \
-  INNER(int32)               \
-  INNER(int64)               \
-  INNER(uint8)               \
-  INNER(uint16)              \
-  INNER(uint32)              \
-  INNER(uint64)              \
-  INNER(float32)             \
+#define INTEGER_NUMERIC_TYPES(INNER) \
+  INNER(int8)                        \
+  INNER(int16)                       \
+  INNER(int32)                       \
+  INNER(int64)                       \
+  INNER(uint8)                       \
+  INNER(uint16)                      \
+  INNER(uint32)                      \
+  INNER(uint64)
+
+#define REAL_NUMERIC_TYPES(INNER) \
+  INNER(float32)                  \
   INNER(float64)
+
+// Expand inner macro for all base numeric types.
+#define NUMERIC_TYPES(INNER)   \
+  INTEGER_NUMERIC_TYPES(INNER) \
+  REAL_NUMERIC_TYPES(INNER)
 
 // Extract millennium
 #define EXTRACT_MILLENNIUM(TYPE)                            \
@@ -983,13 +989,23 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 }
 
 // Convert the seconds since epoch argument to timestamp
-#define TO_TIMESTAMP(TYPE)                                      \
+#define TO_TIMESTAMP_INTEGER(TYPE)                              \
+  FORCE_INLINE                                                  \
+  gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \
+    return static_cast<gdv_timestamp>(seconds) * MILLIS_IN_SEC; \
+  }
+
+#define TO_TIMESTAMP_REAL(TYPE)                                 \
   FORCE_INLINE                                                  \
   gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \
     return static_cast<gdv_timestamp>(seconds * MILLIS_IN_SEC); \
   }
 
-NUMERIC_TYPES(TO_TIMESTAMP)
+INTEGER_NUMERIC_TYPES(TO_TIMESTAMP_INTEGER)
+REAL_NUMERIC_TYPES(TO_TIMESTAMP_REAL)
+
+#undef TO_TIMESTAMP_INTEGER
+#undef TO_TIMESTAMP_REAL
 
 // Convert the seconds since epoch argument to time
 #define TO_TIME(TYPE)                                                     \

@@ -354,7 +354,8 @@ void TestSession() {
 
   FixedSizeBinaryScalar fixed_size_binary_scalar{Buffer::FromString("abc"),
                                                  fixed_size_binary(3)};
-  FixedSizeBinaryScalar fixed_size_binary_scalar_null{fixed_size_binary(3)};
+  FixedSizeBinaryScalar fixed_size_binary_scalar_null{
+      Buffer::FromString("   "), fixed_size_binary(3), /*is_valid=*/false};
 
   std::shared_ptr<Array> dict_array;
   dict_array = *ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
@@ -362,37 +363,43 @@ void TestSession() {
                                dictionary(int8(), utf8())};
   DictionaryScalar dict_scalar_null{dictionary(int8(), utf8())};
 
-  std::shared_ptr<Array> list_value_array;
-  list_value_array = *ArrayFromJSON(int32(), R"([4, 5, 6])");
+  std::shared_ptr<Array> list_value_array = *ArrayFromJSON(int32(), R"([4, 5, 6])");
+  std::shared_ptr<Array> list_zero_length = *ArrayFromJSON(int32(), R"([])");
   ListScalar list_scalar{list_value_array};
-  ListScalar list_scalar_null{list(int32())};
+  ListScalar list_scalar_null{list_zero_length, list(int32()), /*is_valid=*/false};
   LargeListScalar large_list_scalar{list_value_array};
-  LargeListScalar large_list_scalar_null{large_list(int32())};
+  LargeListScalar large_list_scalar_null{list_zero_length, large_list(int32()),
+                                         /*is_valid=*/false};
   FixedSizeListScalar fixed_size_list_scalar{list_value_array};
-  FixedSizeListScalar fixed_size_list_scalar_null{fixed_size_list(int32(), 3)};
+  FixedSizeListScalar fixed_size_list_scalar_null{
+      list_value_array, fixed_size_list(int32(), 3), /*is_valid=*/false};
 
   auto struct_scalar_type = struct_({field("ints", int32()), field("strs", utf8())});
   StructScalar struct_scalar{
       ScalarVector{MakeScalar(int32_t(42)), MakeScalar("some text")}, struct_scalar_type};
-  StructScalar struct_scalar_null{struct_scalar_type};
+  StructScalar struct_scalar_null{struct_scalar.value, struct_scalar_type,
+                                  /*is_valid=*/false};
 
   auto sparse_union_scalar_type =
       sparse_union(FieldVector{field("ints", int32()), field("strs", utf8())}, {7, 42});
   auto dense_union_scalar_type =
       dense_union(FieldVector{field("ints", int32()), field("strs", utf8())}, {7, 42});
-  SparseUnionScalar sparse_union_scalar{MakeScalar(int32_t(43)), 7,
-                                        sparse_union_scalar_type};
-  SparseUnionScalar sparse_union_scalar_null{7, sparse_union_scalar_type};
-  DenseUnionScalar dense_union_scalar{MakeScalar(int32_t(43)), 7,
-                                      dense_union_scalar_type};
-  DenseUnionScalar dense_union_scalar_null{7, dense_union_scalar_type};
+  std::vector<std::shared_ptr<Scalar>> union_values = {MakeScalar(int32_t(43)),
+                                                       MakeNullScalar(utf8())};
+  SparseUnionScalar sparse_union_scalar{union_values, 7, sparse_union_scalar_type};
+  DenseUnionScalar dense_union_scalar{union_values[0], 7, dense_union_scalar_type};
+
+  union_values[0] = MakeNullScalar(int32());
+  SparseUnionScalar sparse_union_scalar_null{union_values, 7, sparse_union_scalar_type};
+  DenseUnionScalar dense_union_scalar_null{union_values[0], 7, dense_union_scalar_type};
 
   auto extension_scalar_type = std::make_shared<UuidType>();
   ExtensionScalar extension_scalar{
       std::make_shared<FixedSizeBinaryScalar>(Buffer::FromString("0123456789abcdef"),
                                               extension_scalar_type->storage_type()),
       extension_scalar_type};
-  ExtensionScalar extension_scalar_null{extension_scalar_type};
+  ExtensionScalar extension_scalar_null{extension_scalar.value, extension_scalar_type,
+                                        /*is_valid=*/false};
 
   std::shared_ptr<Scalar> heap_map_scalar;
   ARROW_CHECK_OK(

@@ -73,6 +73,9 @@ ARROW_EXPORT
 util::string_view RemoveTrailingSlash(util::string_view s);
 
 ARROW_EXPORT
+Status AssertNoTrailingSlash(util::string_view s);
+
+ARROW_EXPORT
 bool IsAncestorOf(util::string_view ancestor, util::string_view descendant);
 
 ARROW_EXPORT

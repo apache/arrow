@@ -21,16 +21,17 @@ set -ex
 
 source_dir=${1}/go
 
+# when we upgrade to at least go1.18, we can add the new -asan option here
 testargs="-race"
 case "$(uname)" in
     MINGW*)
-        # -race doesn't work on windows currently
+        # -asan and -race don't work on windows currently
         testargs=""
         ;;
 esac
 
 if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
-    testargs="" # -race not supported on s390x
+    testargs="" # -race and -asan not supported on s390x
 fi
 
 # Go static check (skipped in MinGW)
