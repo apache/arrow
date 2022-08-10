@@ -157,6 +157,7 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(DENSE_UNION)
     TO_STRING_CASE(SPARSE_UNION)
     TO_STRING_CASE(DICTIONARY)
+    TO_STRING_CASE(RUN_LENGTH_ENCODED)
     TO_STRING_CASE(EXTENSION)
 
 #undef TO_STRING_CASE
@@ -716,6 +717,12 @@ Result<std::shared_ptr<DataType>> DenseUnionType::Make(
 
 // ----------------------------------------------------------------------
 // Run-length encoded type
+
+RunLengthEncodedType::RunLengthEncodedType(std::shared_ptr<DataType> encoded_type)
+    : NestedType(Type::RUN_LENGTH_ENCODED), EncodingType(std::move(encoded_type)) {
+  children_ = {std::make_shared<Field>("run_ends", int32(), false),
+               std::make_shared<Field>("values", encoded_type, true)};
+}
 
 std::string RunLengthEncodedType::ToString() const {
   std::stringstream s;

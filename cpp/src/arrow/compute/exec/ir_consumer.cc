@@ -289,6 +289,7 @@ struct ConvertLiteralImpl {
   Status Visit(const LargeStringType& t) { return NotImplemented(); }
   Status Visit(const LargeBinaryType& t) { return NotImplemented(); }
   Status Visit(const LargeListType& t) { return NotImplemented(); }
+  Status Visit(const RunLengthEncodedType& t) { return NotImplemented(); }
 
   template <typename T>
   Status Visit(const T& t) {

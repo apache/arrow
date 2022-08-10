@@ -35,34 +35,39 @@ namespace arrow {
   ACTION(Float);                                     \
   ACTION(Double)
 
-#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)    \
-  ACTION(Null);                                 \
-  ACTION(Boolean);                              \
-  ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION); \
-  ACTION(String);                               \
-  ACTION(Binary);                               \
-  ACTION(LargeString);                          \
-  ACTION(LargeBinary);                          \
-  ACTION(FixedSizeBinary);                      \
-  ACTION(Duration);                             \
-  ACTION(Date32);                               \
-  ACTION(Date64);                               \
-  ACTION(Timestamp);                            \
-  ACTION(Time32);                               \
-  ACTION(Time64);                               \
-  ACTION(MonthDayNanoInterval);                 \
-  ACTION(MonthInterval);                        \
-  ACTION(DayTimeInterval);                      \
-  ACTION(Decimal128);                           \
-  ACTION(Decimal256);                           \
-  ACTION(List);                                 \
-  ACTION(LargeList);                            \
-  ACTION(Map);                                  \
-  ACTION(FixedSizeList);                        \
-  ACTION(Struct);                               \
-  ACTION(SparseUnion);                          \
-  ACTION(DenseUnion);                           \
-  ACTION(Dictionary);                           \
+// all types that can exist as a Scalar
+#define ARROW_GENERATE_FOR_ALL_SCALAR_TYPES(ACTION) \
+  ACTION(Null);                                     \
+  ACTION(Boolean);                                  \
+  ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION);     \
+  ACTION(String);                                   \
+  ACTION(Binary);                                   \
+  ACTION(LargeString);                              \
+  ACTION(LargeBinary);                              \
+  ACTION(FixedSizeBinary);                          \
+  ACTION(Duration);                                 \
+  ACTION(Date32);                                   \
+  ACTION(Date64);                                   \
+  ACTION(Timestamp);                                \
+  ACTION(Time32);                                   \
+  ACTION(Time64);                                   \
+  ACTION(MonthDayNanoInterval);                     \
+  ACTION(MonthInterval);                            \
+  ACTION(DayTimeInterval);                          \
+  ACTION(Decimal128);                               \
+  ACTION(Decimal256);                               \
+  ACTION(List);                                     \
+  ACTION(LargeList);                                \
+  ACTION(Map);                                      \
+  ACTION(FixedSizeList);                            \
+  ACTION(Struct);                                   \
+  ACTION(SparseUnion);                              \
+  ACTION(DenseUnion);                               \
+  ACTION(Dictionary);                               \
   ACTION(Extension)
+
+#define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)   \
+  ARROW_GENERATE_FOR_ALL_SCALAR_TYPES(ACTION); \
+  ACTION(RunLengthEncoded)
 
 }  // namespace arrow

@@ -381,6 +381,14 @@ struct TypeTraits<LargeStringType> {
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }
 };
 
+template <>
+struct TypeTraits<RunLengthEncodedType> {
+  using ArrayType = RunLengthEncodedArray;
+  // TODO: using BuilderType = RunLengthEncodedBuilder;
+
+  constexpr static bool is_parameter_free = false;
+};
+
 /// @}
 
 /// \addtogroup c-type-traits
@@ -748,6 +756,18 @@ using is_interval_type = std::is_base_of<IntervalType, T>;
 
 template <typename T, typename R = void>
 using enable_if_interval = enable_if_t<is_interval_type<T>::value, R>;
+
+template <typename T>
+using is_encoding_type = std::is_base_of<EncodingType, T>;
+
+template <typename T, typename R = void>
+using enable_if_encoding = enable_if_t<is_encoding_type<T>::value, R>;
+
+template <typename T>
+using is_run_length_encoded_type = std::is_base_of<RunLengthEncodedType, T>;
+
+template <typename T, typename R = void>
+using enable_if_run_length_encoded = enable_if_t<is_run_length_encoded_type<T>::value, R>;
 
 template <typename T>
 using is_dictionary_type = std::is_base_of<DictionaryType, T>;

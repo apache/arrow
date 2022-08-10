@@ -5,19 +5,12 @@
 namespace arrow {
 namespace rle_util {
 
-int64_t FindPhysicalOffset(const int32_t* accumulated_run_lengths,
-                           int64_t physical_length, int64_t logical_offset) {
-  auto it = std::upper_bound(accumulated_run_lengths,
-                             accumulated_run_lengths + physical_length, logical_offset);
-  return std::distance(accumulated_run_lengths, it);
-}
-
-int64_t FindPhysicalIndex(const int32_t* accumulated_run_lengths,
-                          int64_t physical_length, int64_t physical_offset, int64_t logical_offset, int64_t logical_index) {
-  auto it = std::upper_bound(accumulated_run_lengths + physical_offset,
-                             accumulated_run_lengths + physical_offset + physical_length,
-                             logical_index + logical_offset);
-  return std::distance(accumulated_run_lengths, it);
+int64_t FindPhysicalOffset(const int32_t* run_ends, int64_t num_run_ends,
+                           int64_t logical_offset) {
+  auto it = std::upper_bound(run_ends, run_ends + num_run_ends, logical_offset);
+  int64_t result = std::distance(run_ends, it);
+  ARROW_DCHECK_LT(result, num_run_ends);
+  return result;
 }
 
 void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
@@ -26,6 +19,23 @@ void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
   ARROW_CHECK_OK(builder->AppendNulls(offset));
   ARROW_CHECK_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
   array->child_data[0] = builder->Finish().ValueOrDie()->Slice(offset)->data();
+}
+
+int64_t GetPhysicalOffset(const ArraySpan& span) {
+  // TODO: caching
+  return FindPhysicalOffset(RunEnds(span), RunEndsArray(span).length, span.offset);
+}
+
+int64_t GetPhysicalLength(const ArraySpan& span) {
+  // TODO: caching
+  if (span.length == 0) {
+    return 0;
+  } else {
+    // find the offset of the last element and add 1
+    return FindPhysicalOffset(RunEnds(span) + GetPhysicalOffset(span),
+                              RunEndsArray(span).length, span.offset + span.length - 1) +
+           1;
+  }
 }
 
 }  // namespace rle_util

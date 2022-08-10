@@ -387,6 +387,10 @@ class RangeDataEqualsImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunLengthEncodedType& type) {
+    return Status::NotImplemented("comparing run-length encoded data");
+  }
+
   Status Visit(const ExtensionType& type) {
     // Compare storages
     result_ &= CompareWithType(*type.storage_type());
@@ -677,6 +681,12 @@ class TypeEqualsVisitor {
     result_ = left.index_type()->Equals(right.index_type()) &&
               left.value_type()->Equals(right.value_type()) &&
               (left.ordered() == right.ordered());
+    return Status::OK();
+  }
+
+  Status Visit(const RunLengthEncodedType& left) {
+    const auto& right = checked_cast<const RunLengthEncodedType&>(right_);
+    result_ = left.encoded_type()->Equals(right.encoded_type());
     return Status::OK();
   }
 

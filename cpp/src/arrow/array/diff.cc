@@ -118,6 +118,10 @@ struct ValueComparatorVisitor {
     return Status::NotImplemented("dictionary type");
   }
 
+  Status Visit(const RunLengthEncodedType&) {
+    return Status::NotImplemented("dictionary type");
+  }
+
   ValueComparator Create(const DataType& type) {
     DCHECK_OK(VisitTypeInline(type, this));
     return out;
@@ -630,6 +634,10 @@ class MakeFormatterImpl {
   }
 
   Status Visit(const MonthIntervalType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const RunLengthEncodedType& t) {
     return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 

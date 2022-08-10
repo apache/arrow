@@ -140,6 +140,7 @@ set(ARROW_SRCS
     array/array_binary.cc
     array/array_decimal.cc
     array/array_dict.cc
+    array/array_encoded.cc
     array/array_nested.cc
     array/array_primitive.cc
     array/builder_adaptive.cc
@@ -702,6 +703,7 @@ add_arrow_test(array_test
                array/array_test.cc
                array/array_binary_test.cc
                array/array_dict_test.cc
+               array/array_encoded_test.cc
                array/array_list_test.cc
                array/array_struct_test.cc
                array/array_union_test.cc
