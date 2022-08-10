@@ -1803,10 +1803,6 @@ Examples
         if validate_schema:
             self.validate_schemas()
 
-    def close(self):
-        for piece in self._pieces:
-            piece.close()
-
     def equals(self, other):
         if not isinstance(other, ParquetDataset):
             raise TypeError('`other` must be an instance of ParquetDataset')
