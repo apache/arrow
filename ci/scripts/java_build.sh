@@ -33,10 +33,15 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   wget="wget"
   artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
+  ver=$(mvn help:evaluate -Dexpression=dep.protobuf-bom.version -q -DforceStdout)
+  if [[ $? -ne 0 ]]; then
+    echo "Error at protobuf: $ver"
+    exit 1
+  fi
+  ver=echo $ver | sed "s/^[0-9]*.//"
   artifactory_dir="protoc-binary"
   group="com.google.protobuf"
   artifact="protoc"
-  ver="21.2"
   classifier="linux-s390_64"
   extension="exe"
   # target=${artifact}-${ver}-${classifier}.${extension}
@@ -51,10 +56,14 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   cp lib*.so.${libver} ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
+  ver=$(mvn help:evaluate -Dexpression=dep.grpc-bom.version -q -DforceStdout)
+  if [[ $? -ne 0 ]]; then
+    echo "Error at grpc: $ver"
+    exit 1
+  fi
   artifactory_dir="protoc-gen-grpc-java-binary"
   group="io.grpc"
   artifact="protoc-gen-grpc-java"
-  ver="1.47.0"
   classifier="linux-s390_64"
   extension="exe"
   # target=${artifact}-${ver}-${classifier}.${extension}
