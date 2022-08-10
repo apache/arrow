@@ -26,6 +26,7 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
+#include "arrow/extension/json.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/options.h"
@@ -232,6 +233,16 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
   auto offsets_arr = ArrayFromJSON(int32(), "[0, 0, 2, 4]");
   ASSERT_OK_AND_ASSIGN(auto list_arr, ListArray::FromArrays(*offsets_arr, *ext_arr));
   batch = RecordBatch::Make(schema({field("f0", list(uuid()))}), 3, {list_arr});
+  RoundtripBatch(batch, &read_batch);
+  CompareBatch(*batch, *read_batch, false /* compare_metadata */);
+}
+
+TEST_F(TestExtensionType, JsonRoundtrip) {
+  auto ext_arr = ExampleJson();
+  auto batch =
+      RecordBatch::Make(schema({field("f0", arrow::extension::json())}), 8, {ext_arr});
+
+  std::shared_ptr<RecordBatch> read_batch;
   RoundtripBatch(batch, &read_batch);
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
