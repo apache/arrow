@@ -527,8 +527,15 @@ class BlockParserImpl {
     uint32_t total_parsed_length = 0;
 
     for (const auto& view : views) {
-      const char* data = view.data();
-      const char* data_end = view.data() + view.length();
+      uint32_t size = view.length();
+      ARROW_ASSIGN_OR_RAISE(
+          auto data_no_bom,
+          util::SkipUTF8BOM(reinterpret_cast<const uint8_t*>(view.data()),
+                            view.length()));
+      size = size - static_cast<uint32_t>(data_no_bom -
+                                          reinterpret_cast<const uint8_t*>(view.data()));
+      const char* data = reinterpret_cast<const char*>(data_no_bom);
+      const char* data_end = data + size;
       bool finished_parsing = false;
 
       if (batch_.num_cols_ == -1) {
