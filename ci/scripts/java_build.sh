@@ -34,7 +34,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
   mkdir -p ${ARROW_HOME}/lib
 
-  pushd ${ARROW_HOME}
+  pushd ${ARROW_HOME}/
   protover=$(mvn help:evaluate -Dexpression=dep.protobuf-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
     echo "Error at protobuf: $protover"
@@ -61,7 +61,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   cp lib*.so.* ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
-  pushd ${ARROW_HOME}
+  pushd ${ARROW_HOME}/
   grpcver=$(mvn help:evaluate -Dexpression=dep.grpc-bom.version -q -DforceStdout)
   if [[ $? -ne 0 ]]; then
     echo "Error at grpc: $grpcver"
