@@ -111,14 +111,16 @@ jobs:
           for i in `ls -t repo/org/apache/arrow`; do; find repo/org/apache/arrow/$i -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 ls -t -d | tail -n +$((KEEP + 1)) | xargs rm -rf; done
       - name: Show repo contents
         run: tree repo
-      - name: Upload Files
+      - name: Sync to Remote
         if: ${{ github.repository == 'apache/arrow' }}
-        uses: burnett01/rsync-deployments@5.2
+        uses: ./arrow/.github/actions/sync-nightlies
         with:
-          switches: -avzr
-          path: repo/*
+          upload: true
+          switches: -avzh --update --delete --progress
+          local_path: repo
           remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/java
           remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
           remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
           remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
+          remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
