@@ -89,12 +89,12 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
-Result<std::shared_ptr<io::InputStream>> FileSource::OpenRange(
-    int64_t start, int64_t end) const {
+Result<std::shared_ptr<io::InputStream>> FileSource::OpenRange(int64_t start,
+                                                               int64_t end) const {
   ARROW_ASSIGN_OR_RAISE(auto file, Open());
-  
+
   auto actual_compression = Compression::type::UNCOMPRESSED;
-  
+
   auto extension = fs::internal::GetAbstractPathExtension(path());
   if (extension == "gz") {
     actual_compression = Compression::type::GZIP;
@@ -104,7 +104,7 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenRange(
       ARROW_ASSIGN_OR_RAISE(actual_compression, maybe_compression);
     }
   }
-  
+
   if (actual_compression != Compression::type::UNCOMPRESSED) {
     return Status::NotImplemented("Cannot byte range read a compressed file.");
   }

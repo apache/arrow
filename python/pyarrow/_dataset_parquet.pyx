@@ -317,6 +317,13 @@ cdef class ParquetFileFragment(FileFragment):
             row_groups
         )
 
+    def slice(self, start, end):
+        """
+        Slice is not implemented for Parquet files.
+        """
+        raise Exception("Not Implemented! You cannot slice a Parquet file by byte range.
+                        Try using the subset method")
+
     def ensure_complete_metadata(self):
         """
         Ensure that all metadata (statistics, physical schema, ...) have

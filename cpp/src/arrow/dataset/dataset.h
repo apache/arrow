@@ -77,9 +77,7 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   }
 
   /// \brief returns the physical schema.
-  const std::shared_ptr<Schema> physical_schema() const {
-    return physical_schema_;
-  }
+  const std::shared_ptr<Schema> physical_schema() const { return physical_schema_; }
 
   virtual ~Fragment() = default;
 
