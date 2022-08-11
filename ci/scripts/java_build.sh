@@ -31,11 +31,8 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # download packages and build libraries here
 
   # download required packages for building libraries
-  apt-get update -y -q && \
   apt-get install -y -q --no-install-recommends \
-      bazel \
-      g++ \
-      gcc
+      gcc g++
 
   mvn_install="mvn install:install-file"
   wget="wget"
