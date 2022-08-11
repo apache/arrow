@@ -119,7 +119,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   }
 
   void StopProducing() {
-    if (status_ == 1) {
+    if (status_ >= 1) {
       bool not_finished_yet =
           plan_->finished().TryAddCallback([] { return [](const arrow::Status&) {}; });
 
