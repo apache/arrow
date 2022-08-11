@@ -45,7 +45,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   protover=$(echo $protover | sed "s/^[0-9]*.//")
   popd
   ${wget} https://github.com/protocolbuffers/protobuf/releases/download/v${protover}/protobuf-all-${protover}.tar.gz
-  ${tar} xf protobuf-all-${protover}.tar.gz
+  ${tar} -xf protobuf-all-${protover}.tar.gz
   pushd protobuf-${protover}
   ./configure
   make -j 2
@@ -73,7 +73,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   fi
   popd
   ${wget} https://github.com/grpc/grpc-java/archive/refs/tags/v${grpcver}.tar.gz
-  ${tar} xf v${grpcver}.tar.gz
+  ${tar} -xf v${grpcver}.tar.gz
   pushd grpc-java-${grpcver}
   echo skipAndroid=true >> gradle.properties
   CXXFLAGS="-I${ARROW_HOME}/protobuf-${protover}/src" LDFLAGS="-L${ARROW_HOME}/protobuf-${protover}/src/.libs" ./gradlew java_pluginExecutable --no-daemon
