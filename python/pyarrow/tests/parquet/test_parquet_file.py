@@ -280,36 +280,16 @@ def test_pre_buffer(pre_buffer):
     assert pf.read().num_rows == N
 
 
-def test_parquet_file_explicitly_closed(tmpdir):
+def test_parquet_file_explicitly_closed(tempdir):
     """
     Unopened files should be closed explicitly after use,
     and previously opened files should be left open.
     Applies to read_table, ParquetDataset, and ParquetFile
     """
     # create test parquet file
-    df = pd.DataFrame([{'col1': 0, 'col2': 0}, {'col1': 1, 'col2': 1}])
-    fn = str(tmpdir.join('file.parquet'))
-    df.to_parquet(fn)
-
-    pytest.importorskip('fsspec')
-    from fsspec.implementations.local import LocalFileSystem
-
-    class LocalTempFile:
-        def __init__(self, fs, path, mode):
-            self.path = path
-            self.fh = open(path, mode)
-
-        def close(self):
-            self.fh.close()
-
-        def __getattr__(self, item):
-            return getattr(self.fh, item)
-
-    class TestFileSystem(LocalFileSystem):
-        def _open(self, path, mode="rb", block_size=None, **kwargs):
-            return LocalTempFile(self, path, mode=mode)
-
-    fs = TestFileSystem()
+    fn = tempdir.joinpath('file.parquet')
+    table = pa.table({'col1': [0, 1], 'col2': [0, 1]})
+    pq.write_table(table, fn)
 
     # read_table (legacy) with opened file (will leave open)
     with open(fn, 'rb') as f:
@@ -319,11 +299,6 @@ def test_parquet_file_explicitly_closed(tmpdir):
     # read_table (legacy) with unopened file (will close)
     with mock.patch.object(pq.ParquetFile, "close") as mock_close:
         pq.read_table(fn, use_legacy_dataset=True)
-        mock_close.assert_called()
-
-    # ParquetDataset test (legacy) with unopened file via fsspec (will close)
-    with mock.patch.object(LocalTempFile, "close") as mock_close:
-        pq.ParquetDataset(fn, filesystem=fs, use_legacy_dataset=True).read()
         mock_close.assert_called()
 
     # ParquetDataset test (legacy) with unopened file (will close)
