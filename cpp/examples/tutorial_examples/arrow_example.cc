@@ -5,11 +5,7 @@
 
 #include <iostream>
 
-using arrow::Status;
-
-namespace { 
-
-Status RunMain(int argc, char** argv) {
+arrow::Status RunMain(int argc, char** argv) {
 
   // Creating Arrays and Tables
   arrow::Int8Builder int8builder; 
@@ -81,11 +77,11 @@ Status RunMain(int argc, char** argv) {
 
   std::cout << table->ToString();
 
-  return Status::OK();
+  return arrow::Status::OK();
 }
-}
+
 int main(int argc, char** argv) {
-  Status st = RunMain(argc, argv);
+  arrow::Status st = RunMain(argc, argv);
   if (!st.ok()) {
     std::cerr << st << std::endl;
     return 1;

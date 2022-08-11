@@ -11,11 +11,7 @@
 
 #include <iostream>
 
-using arrow::Status;
-
-namespace { 
-
-Status gen_initial_file(){
+arrow::Status gen_initial_file(){
   arrow::Int8Builder int8builder; 
   int8_t days_raw[5] = {1, 12, 17, 23, 28};
   ARROW_RETURN_NOT_OK(int8builder.AppendValues(days_raw, 5));
@@ -65,10 +61,10 @@ Status gen_initial_file(){
                                                   arrow::default_memory_pool(),
                                                   outfile, 5));
 
-  return Status::OK();
+  return arrow::Status::OK();
 }
 
-Status RunMain(int argc, char** argv) {
+arrow::Status RunMain(int argc, char** argv) {
  
   ARROW_RETURN_NOT_OK(gen_initial_file());
  
@@ -121,13 +117,11 @@ Status RunMain(int argc, char** argv) {
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*parquet_table,
                                                   arrow::default_memory_pool(),
                                                   outfile, 5));
-  
+  return arrow::Status::OK();
+}
 
-  return Status::OK();
-}
-}
 int main(int argc, char** argv) {
-  Status st = RunMain(argc, argv);
+  arrow::Status st = RunMain(argc, argv);
   if (!st.ok()) {
     std::cerr << st << std::endl;
     return 1;

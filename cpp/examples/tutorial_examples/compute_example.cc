@@ -6,14 +6,8 @@
 
 #include <iostream>
 
-using arrow::Status;
-
-namespace { 
-
-Status RunMain(int argc, char** argv) {
- 
+arrow::Status RunMain(int argc, char** argv) {
   // Saving and Loading Tables
-
   arrow::Int32Builder int32builder;
   int32_t some_nums_raw[5] = {34, 624, 2223, 5654, 4356};
   ARROW_RETURN_NOT_OK(int32builder.AppendValues(some_nums_raw, 5));
@@ -51,11 +45,11 @@ Status RunMain(int argc, char** argv) {
   std::cout << element_wise_sum.type()->ToString() << std::endl;
   std::cout << element_wise_sum.chunked_array()->ToString() << std::endl;
 
-  return Status::OK();
+  return arrow::Status::OK();
 }
-}
+
 int main(int argc, char** argv) {
-  Status st = RunMain(argc, argv);
+  arrow::Status st = RunMain(argc, argv);
   if (!st.ok()) {
     std::cerr << st << std::endl;
     return 1;
