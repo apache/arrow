@@ -520,3 +520,195 @@ func (s *Dictionary) GetEncodedValue() (Scalar, error) {
 func (s *Dictionary) value() interface{} {
 	return s.Value.Index.value()
 }
+
+type Union interface {
+	Scalar
+	ChildValue() Scalar
+	Release()
+}
+
+type SparseUnion struct {
+	scalar
+
+	TypeCode arrow.UnionTypeCode
+	Value    []Scalar
+	ChildID  int
+}
+
+func (s *SparseUnion) equals(rhs Scalar) bool {
+	right := rhs.(*SparseUnion)
+	return Equals(s.ChildValue(), right.ChildValue())
+}
+
+func (s *SparseUnion) value() interface{} { return s.ChildValue() }
+
+func (s *SparseUnion) String() string {
+	dt := s.Type.(*arrow.SparseUnionType)
+	val := s.ChildValue()
+	return "union{" + dt.Fields()[dt.ChildIDs()[s.TypeCode]].String() + " = " + val.String() + "}"
+}
+
+func (s *SparseUnion) Release() {
+	for _, v := range s.Value {
+		if v, ok := v.(Releasable); ok {
+			v.Release()
+		}
+	}
+}
+
+func (s *SparseUnion) Validate() (err error) {
+	dt := s.Type.(*arrow.SparseUnionType)
+	if len(dt.Fields()) != len(s.Value) {
+		return fmt.Errorf("sparse union scalar value had %d fields but type has %d fields", len(dt.Fields()), len(s.Value))
+	}
+
+	if s.TypeCode < 0 || int(s.TypeCode) >= len(dt.ChildIDs()) || dt.ChildIDs()[s.TypeCode] == arrow.InvalidUnionChildID {
+		return fmt.Errorf("%s scalar has invalid type code %d", dt, s.TypeCode)
+	}
+
+	for i, f := range dt.Fields() {
+		v := s.Value[i]
+		if !arrow.TypeEqual(f.Type, v.DataType()) {
+			return fmt.Errorf("%s value for field %s had incorrect type of %s", dt, f, v.DataType())
+		}
+		if err = v.Validate(); err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func (s *SparseUnion) ValidateFull() (err error) {
+	dt := s.Type.(*arrow.SparseUnionType)
+	if len(dt.Fields()) != len(s.Value) {
+		return fmt.Errorf("sparse union scalar value had %d fields but type has %d fields", len(dt.Fields()), len(s.Value))
+	}
+
+	if s.TypeCode < 0 || int(s.TypeCode) >= len(dt.ChildIDs()) || dt.ChildIDs()[s.TypeCode] == arrow.InvalidUnionChildID {
+		return fmt.Errorf("%s scalar has invalid type code %d", dt, s.TypeCode)
+	}
+
+	for i, f := range dt.Fields() {
+		v := s.Value[i]
+		if !arrow.TypeEqual(f.Type, v.DataType()) {
+			return fmt.Errorf("%s value for field %s had incorrect type of %s", dt, f, v.DataType())
+		}
+		if err = v.ValidateFull(); err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func (s *SparseUnion) CastTo(to arrow.DataType) (Scalar, error) {
+	if !s.Valid {
+		return MakeNullScalar(to), nil
+	}
+
+	switch to.ID() {
+	case arrow.STRING:
+		return NewStringScalar(s.String()), nil
+	case arrow.LARGE_STRING:
+		return NewLargeStringScalar(s.String()), nil
+	}
+
+	return nil, fmt.Errorf("cannot cast non-nil union to type other than string")
+}
+
+func (s *SparseUnion) ChildValue() Scalar { return s.Value[s.ChildID] }
+
+func NewSparseUnionScalar(val []Scalar, code arrow.UnionTypeCode, dt *arrow.SparseUnionType) *SparseUnion {
+	ret := &SparseUnion{
+		scalar:   scalar{dt, true},
+		TypeCode: code,
+		Value:    val,
+		ChildID:  dt.ChildIDs()[code],
+	}
+	ret.Valid = ret.Value[ret.ChildID].IsValid()
+	return ret
+}
+
+func NewSparseUnionScalarFromValue(val Scalar, idx int, dt *arrow.SparseUnionType) *SparseUnion {
+	code := dt.TypeCodes()[idx]
+	values := make([]Scalar, len(dt.Fields()))
+	for i, f := range dt.Fields() {
+		if i == idx {
+			values[i] = val
+		} else {
+			values[i] = MakeNullScalar(f.Type)
+		}
+	}
+	return NewSparseUnionScalar(values, code, dt)
+}
+
+type DenseUnion struct {
+	scalar
+
+	TypeCode arrow.UnionTypeCode
+	Value    Scalar
+}
+
+func (s *DenseUnion) equals(rhs Scalar) bool {
+	right := rhs.(*DenseUnion)
+	return Equals(s.Value, right.Value)
+}
+
+func (s *DenseUnion) value() interface{} { return s.ChildValue() }
+
+func (s *DenseUnion) String() string {
+	dt := s.Type.(*arrow.DenseUnionType)
+	return "union{" + dt.Fields()[dt.ChildIDs()[s.TypeCode]].String() + " = " + s.Value.String() + "}"
+}
+
+func (s *DenseUnion) Release() {
+	if v, ok := s.Value.(Releasable); ok {
+		v.Release()
+	}
+}
+
+func (s *DenseUnion) Validate() (err error) {
+	dt := s.Type.(*arrow.DenseUnionType)
+	if s.TypeCode < 0 || int(s.TypeCode) >= len(dt.ChildIDs()) || dt.ChildIDs()[s.TypeCode] == arrow.InvalidUnionChildID {
+		return fmt.Errorf("%s scalar has invalid type code %d", dt, s.TypeCode)
+	}
+	fieldType := dt.Fields()[dt.ChildIDs()[s.TypeCode]].Type
+	if !arrow.TypeEqual(fieldType, s.Value.DataType()) {
+		return fmt.Errorf("%s scalar with type code %d should have an underlying value of type %s, got %s",
+			s.Type, s.TypeCode, fieldType, s.Value.DataType())
+	}
+	return s.Value.Validate()
+}
+
+func (s *DenseUnion) ValidateFull() error {
+	dt := s.Type.(*arrow.DenseUnionType)
+	if s.TypeCode < 0 || int(s.TypeCode) >= len(dt.ChildIDs()) || dt.ChildIDs()[s.TypeCode] == arrow.InvalidUnionChildID {
+		return fmt.Errorf("%s scalar has invalid type code %d", dt, s.TypeCode)
+	}
+	fieldType := dt.Fields()[dt.ChildIDs()[s.TypeCode]].Type
+	if !arrow.TypeEqual(fieldType, s.Value.DataType()) {
+		return fmt.Errorf("%s scalar with type code %d should have an underlying value of type %s, got %s",
+			s.Type, s.TypeCode, fieldType, s.Value.DataType())
+	}
+	return s.Value.ValidateFull()
+}
+
+func (s *DenseUnion) CastTo(to arrow.DataType) (Scalar, error) {
+	if !s.Valid {
+		return MakeNullScalar(to), nil
+	}
+
+	switch to.ID() {
+	case arrow.STRING:
+		return NewStringScalar(s.String()), nil
+	case arrow.LARGE_STRING:
+		return NewLargeStringScalar(s.String()), nil
+	}
+
+	return nil, fmt.Errorf("cannot cast non-nil union to type other than string")
+}
+
+func (s *DenseUnion) ChildValue() Scalar { return s.Value }
+
+func NewDenseUnionScalar(v Scalar, code arrow.UnionTypeCode, dt *arrow.DenseUnionType) *DenseUnion {
+	return &DenseUnion{scalar: scalar{dt, v.IsValid()}, TypeCode: code, Value: v}
+}
