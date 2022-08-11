@@ -318,7 +318,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
                            other.name());
   }
 
-  if (Equals(other, /*check_metadata=*/false)) {
+  if (Equals(other, /*check_metadata=*/false, /*check_internal_field_names=*/false)) {
     return Copy();
   }
 
@@ -360,12 +360,14 @@ std::shared_ptr<Field> Field::Copy() const {
   return ::arrow::field(name_, type_, nullable_, metadata_);
 }
 
-bool Field::Equals(const Field& other, bool check_metadata) const {
+bool Field::Equals(const Field& other, bool check_metadata,
+                   bool check_internal_field_names) const {
   if (this == &other) {
     return true;
   }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
-      this->type_->Equals(*other.type_.get(), check_metadata)) {
+      this->type_->Equals(*other.type_.get(), check_metadata,
+                          check_internal_field_names)) {
     if (!check_metadata) {
       return true;
     } else if (this->HasMetadata() && other.HasMetadata()) {
@@ -379,8 +381,9 @@ bool Field::Equals(const Field& other, bool check_metadata) const {
   return false;
 }
 
-bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata) const {
-  return Equals(*other.get(), check_metadata);
+bool Field::Equals(const std::shared_ptr<Field>& other, bool check_metadata,
+                   bool check_internal_field_names) const {
+  return Equals(*other.get(), check_metadata, check_internal_field_names);
 }
 
 bool Field::IsCompatibleWith(const Field& other) const { return MergeWith(other).ok(); }
@@ -406,15 +409,17 @@ void PrintTo(const Field& field, std::ostream* os) { *os << field.ToString(); }
 
 DataType::~DataType() {}
 
-bool DataType::Equals(const DataType& other, bool check_metadata) const {
-  return TypeEquals(*this, other, check_metadata);
+bool DataType::Equals(const DataType& other, bool check_metadata,
+                      bool check_internal_field_names) const {
+  return TypeEquals(*this, other, check_metadata, check_internal_field_names);
 }
 
-bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
+bool DataType::Equals(const std::shared_ptr<DataType>& other, bool check_metadata,
+                      bool check_internal_field_names) const {
   if (!other) {
     return false;
   }
-  return Equals(*other.get());
+  return Equals(*other.get(), check_metadata, check_internal_field_names);
 }
 
 size_t DataType::Hash() const {
@@ -1514,7 +1519,8 @@ const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
   return impl_->fields_;
 }
 
-bool Schema::Equals(const Schema& other, bool check_metadata) const {
+bool Schema::Equals(const Schema& other, bool check_metadata,
+                    bool check_internal_field_names) const {
   if (this == &other) {
     return true;
   }
@@ -1546,7 +1552,8 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
 
   // Fall back on field-by-field comparison
   for (int i = 0; i < num_fields(); ++i) {
-    if (!field(i)->Equals(*other.field(i).get(), check_metadata)) {
+    if (!field(i)->Equals(*other.field(i).get(), check_metadata,
+                          check_internal_field_names)) {
       return false;
     }
   }
@@ -1554,12 +1561,13 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
   return true;
 }
 
-bool Schema::Equals(const std::shared_ptr<Schema>& other, bool check_metadata) const {
+bool Schema::Equals(const std::shared_ptr<Schema>& other, bool check_metadata,
+                    bool check_internal_field_names) const {
   if (other == nullptr) {
     return false;
   }
 
-  return Equals(*other, check_metadata);
+  return Equals(*other, check_metadata, check_internal_field_names);
 }
 
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
@@ -2093,17 +2101,33 @@ std::string DictionaryType::ComputeFingerprint() const {
 }
 
 std::string ListType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
+  const auto& child_fingerprint = value_type()->fingerprint();
   if (!child_fingerprint.empty()) {
-    return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+    std::stringstream ss;
+    ss << TypeIdFingerprint(*this);
+    if (value_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << '{' << child_fingerprint << '}';
+    return ss.str();
   }
   return "";
 }
 
 std::string LargeListType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
+  const auto& child_fingerprint = value_type()->fingerprint();
   if (!child_fingerprint.empty()) {
-    return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+    std::stringstream ss;
+    ss << TypeIdFingerprint(*this);
+    if (value_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << '{' << child_fingerprint << '}';
+    return ss.str();
   }
   return "";
 }
@@ -2112,20 +2136,33 @@ std::string MapType::ComputeFingerprint() const {
   const auto& key_fingerprint = key_type()->fingerprint();
   const auto& item_fingerprint = item_type()->fingerprint();
   if (!key_fingerprint.empty() && !item_fingerprint.empty()) {
+    std::stringstream ss;
+    ss << TypeIdFingerprint(*this);
     if (keys_sorted_) {
-      return TypeIdFingerprint(*this) + "s{" + key_fingerprint + item_fingerprint + "}";
-    } else {
-      return TypeIdFingerprint(*this) + "{" + key_fingerprint + item_fingerprint + "}";
+      ss << 's';
     }
+    if (item_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << '{' << key_fingerprint + item_fingerprint << '}';
+    return ss.str();
   }
   return "";
 }
 
 std::string FixedSizeListType::ComputeFingerprint() const {
-  const auto& child_fingerprint = children_[0]->fingerprint();
+  const auto& child_fingerprint = value_type()->fingerprint();
   if (!child_fingerprint.empty()) {
     std::stringstream ss;
-    ss << TypeIdFingerprint(*this) << "[" << list_size_ << "]"
+    ss << TypeIdFingerprint(*this);
+    if (value_field()->nullable()) {
+      ss << 'n';
+    } else {
+      ss << 'N';
+    }
+    ss << "[" << list_size_ << "]"
        << "{" << child_fingerprint << "}";
     return ss.str();
   }

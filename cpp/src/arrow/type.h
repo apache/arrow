@@ -137,10 +137,17 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   ///
   /// Types that are logically convertible from one to another (e.g. List<UInt8>
   /// and Binary) are NOT equal.
-  bool Equals(const DataType& other, bool check_metadata = false) const;
+  ///
+  /// \param check_internal_field_names if true, will check whether the field names
+  /// within ListType or MapType are the same.
+  bool Equals(const DataType& other, bool check_metadata = false,
+              bool check_internal_field_names = false) const;
 
   /// \brief Return whether the types are equal
-  bool Equals(const std::shared_ptr<DataType>& other) const;
+  ///
+  /// \param check_internal_field_names if true, will check whether the field names
+  bool Equals(const std::shared_ptr<DataType>& other, bool check_metadata = false,
+              bool check_internal_field_names = false) const;
 
   /// \brief Return the child field at index i.
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
@@ -407,10 +414,14 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
   /// \param[in] other field to check equality with.
   /// \param[in] check_metadata controls if it should check for metadata
   ///            equality.
+  /// \param[in] check_internal_field_names if true, will check whether
+  ///            the field names.
   ///
   /// \return true if fields are equal, false otherwise.
-  bool Equals(const Field& other, bool check_metadata = false) const;
-  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = false) const;
+  bool Equals(const Field& other, bool check_metadata = false,
+              bool check_internal_field_names = false) const;
+  bool Equals(const std::shared_ptr<Field>& other, bool check_metadata = false,
+              bool check_internal_field_names = false) const;
 
   /// \brief Indicate if fields are compatibles.
   ///
@@ -1882,8 +1893,10 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   ~Schema() override;
 
   /// Returns true if all of the schema fields are equal
-  bool Equals(const Schema& other, bool check_metadata = false) const;
-  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false) const;
+  bool Equals(const Schema& other, bool check_metadata = false,
+              bool check_internal_field_names = false) const;
+  bool Equals(const std::shared_ptr<Schema>& other, bool check_metadata = false,
+              bool check_internal_field_names = false) const;
 
   /// \brief Set endianness in the schema
   ///
