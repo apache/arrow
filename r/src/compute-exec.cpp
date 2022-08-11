@@ -120,8 +120,9 @@ class ExecPlanReader : public arrow::RecordBatchReader {
 
   void StopProducing() {
     if (status_ >= 1) {
-      bool not_finished_yet =
-          plan_->finished().TryAddCallback([] { return [](const arrow::Status&) {}; });
+      std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
+      bool not_finished_yet = plan_->finished().TryAddCallback(
+          [&plan] { return [plan](const arrow::Status&) {}; });
 
       if (not_finished_yet) {
         plan_->StopProducing();
