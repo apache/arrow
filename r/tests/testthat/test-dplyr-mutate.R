@@ -655,7 +655,7 @@ test_that("Can use across() within mutate()", {
     tbl
   )
 
-  # ARROW-17366: purrr-style lmabda functions not yet supported
+  # ARROW-17366: purrr-style lambda functions not yet supported
   expect_error(
     compare_dplyr_binding(
       .input %>%
