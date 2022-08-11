@@ -170,7 +170,7 @@ class OSFile {
       return Status::IOError("Length must be non-negative");
     }
     auto status = ::arrow::internal::FileWrite(
-          fd_.fd(), reinterpret_cast<const uint8_t*>(data), length);
+        fd_.fd(), reinterpret_cast<const uint8_t*>(data), length);
 #ifdef __linux__
     if (reuse_) {
       return status;

@@ -38,7 +38,7 @@ struct ARROW_EXPORT LocalFileSystemOptions {
   /// or a regular one.
   bool use_mmap = false;
   /// If false, will try to circumvent page cache by using posix_fadvise
-  /// This only works on linux right now. There will be a performance 
+  /// This only works on linux right now. There will be a performance
   /// degradation for small writes. The degradation is more severe the smaller
   /// the write is.
   bool reuse = true;
