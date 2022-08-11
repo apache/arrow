@@ -32,7 +32,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
 
   # download required packages for building libraries
   apt-get install -y -q --no-install-recommends \
-      gcc g++
+      g++
 
   mvn_install="mvn install:install-file"
   wget="wget"
