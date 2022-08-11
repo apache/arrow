@@ -28,11 +28,17 @@ java_jni_dist_dir=${3}
 
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
-  # download pre-build files from Artifactory and install them explicitly
+  # download packages and build libraries here
+
+  # download required packages for building libraries
+  apt-get install -y -q --no-install-recommends \
+      bazel \
+      g++ \
+      gcc
+
   mvn_install="mvn install:install-file"
   wget="wget"
   tar="tar --no-same-owner --no-same-permissions"
-  artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
   mkdir -p ${ARROW_HOME}/lib
 
   pushd ${ARROW_HOME}/
@@ -54,7 +60,6 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   cp ./src/.libs/protoc ${ARROW_HOME}/lib
   popd
 
-  artifactory_dir="protoc-binary"
   group="com.google.protobuf"
   artifact="protoc"
   classifier="linux-s390_64"
@@ -80,7 +85,6 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   cp ./compiler/build/exe/java_plugin/protoc-gen-grpc-java ${ARROW_HOME}/lib
   popd
 
-  artifactory_dir="protoc-gen-grpc-java-binary"
   group="io.grpc"
   artifact="protoc-gen-grpc-java"
   classifier="linux-s390_64"
