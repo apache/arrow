@@ -30,10 +30,6 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
   # download packages and build libraries here
 
-  # download required packages for building libraries
-  apt-get install -y -q --no-install-recommends \
-      g++
-
   mvn_install="mvn install:install-file"
   wget="wget"
   tar="tar --no-same-owner --no-same-permissions"
@@ -51,7 +47,10 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   ${wget} https://github.com/protocolbuffers/protobuf/releases/download/v${protover}/protobuf-all-${protover}.tar.gz
   ${tar} -xf protobuf-all-${protover}.tar.gz
   pushd protobuf-${protover}
-  ./configure
+  which gcc
+  which g++
+  ls -al /usr/bin/g*
+  CC=gcc CXX=g++ ./configure
   make -j 2
   # protoc requires libprotoc.so.* libprotobuf.so.*
   cp ./src/.libs/libprotoc.so.* ./src/.libs/libprotobuf.so.* ${ARROW_HOME}/lib
