@@ -24,7 +24,7 @@
 
 #include <iostream>
 
-arrow::Status gen_initial_file(){
+arrow::Status GenInitialFile(){
   //Make a couple 8-bit integer arrays and a 16-bit integer array -- just like
   //basic Arrow example.
   arrow::Int8Builder int8builder; 
@@ -85,7 +85,7 @@ arrow::Status gen_initial_file(){
 arrow::Status RunMain(int argc, char** argv) {
   //Generate initial files for each format with a helper function -- don't worry,
   //we'll also write a table in this example.
-  ARROW_RETURN_NOT_OK(gen_initial_file());
+  ARROW_RETURN_NOT_OK(GenInitialFile());
  
   //Reading and writing from files
 
