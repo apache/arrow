@@ -1,15 +1,6 @@
 #include <arrow/api.h>
-#include <arrow/csv/api.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
-#include <arrow/io/api.h>
-#include <arrow/ipc/api.h>
-#include <arrow/pretty_print.h>
-#include <arrow/result.h>
-#include <arrow/status.h>
-#include <arrow/table.h>
-#include <arrow/compute/api.h>
-#include <arrow/filesystem/api.h>
 #include <arrow/dataset/api.h>
 
 #include <iostream>

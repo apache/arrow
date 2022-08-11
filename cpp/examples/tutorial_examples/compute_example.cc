@@ -1,7 +1,4 @@
 #include <arrow/api.h>
-#include <arrow/result.h>
-#include <arrow/status.h>
-#include <arrow/table.h>
 #include <arrow/compute/api.h>
 
 #include <iostream>
