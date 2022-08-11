@@ -24,11 +24,15 @@ import (
 	"io"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/flight"
+	"github.com/apache/arrow/go/v10/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v10/arrow/flight/flightsql/schema_ref"
 	"github.com/apache/arrow/go/v10/arrow/internal/arrjson"
 	"github.com/apache/arrow/go/v10/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v10/arrow/ipc"
@@ -51,6 +55,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &authBasicProtoTester{}
 	case "middleware":
 		return &middlewareScenarioTester{}
+	case "flight_sql":
+		return &flightSqlScenarioTester{}
 	case "":
 		if len(args) > 0 {
 			return &defaultIntegrationTester{path: args[0]}
@@ -516,4 +522,516 @@ func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flig
 		TotalRecords: -1,
 		TotalBytes:   -1,
 	}, nil
+}
+
+var (
+	// Schema to be returned for mocking the statement/prepared statement
+	// results. Must be the same across all languages
+	QuerySchema = arrow.NewSchema([]arrow.Field{{
+		Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
+		Metadata: flightsql.NewColumnMetadataBuilder().
+			TableName("test").IsAutoIncrement(true).IsCaseSensitive(false).
+			TypeName("type_test").SchemaName("schema_test").IsSearchable(true).
+			CatalogName("catalog_test").Precision(100).Metadata(),
+	}}, nil)
+)
+
+const (
+	updateStatementExpectedRows         int64 = 10000
+	updatePreparedStatementExpectedRows int64 = 20000
+)
+
+type flightSqlScenarioTester struct {
+	flightsql.BaseServer
+}
+
+func (m *flightSqlScenarioTester) flightInfoForCommand(desc *flight.FlightDescriptor, schema *arrow.Schema) *flight.FlightInfo {
+	return &flight.FlightInfo{
+		Endpoint: []*flight.FlightEndpoint{
+			{Ticket: &flight.Ticket{Ticket: desc.Cmd}},
+		},
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+	}
+}
+
+func (m *flightSqlScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(flightsql.NewFlightServer(m))
+	initServer(port, srv)
+	return srv
+}
+
+func assertEq(expected, actual interface{}) error {
+	v := reflect.Indirect(reflect.ValueOf(actual))
+	if !reflect.DeepEqual(expected, v.Interface()) {
+		return fmt.Errorf("expected: '%s', got: '%s'", expected, actual)
+	}
+	return nil
+}
+
+func (m *flightSqlScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flightsql.NewClient(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	if err := m.ValidateMetadataRetrieval(client); err != nil {
+		return err
+	}
+
+	if err := m.ValidateStatementExecution(client); err != nil {
+		return err
+	}
+
+	return m.ValidatePreparedStatementExecution(client)
+}
+
+func (m *flightSqlScenarioTester) validate(expected *arrow.Schema, result *flight.FlightInfo, client *flightsql.Client) error {
+	rdr, err := client.DoGet(context.Background(), result.Endpoint[0].Ticket)
+	if err != nil {
+		return err
+	}
+
+	if !expected.Equal(rdr.Schema()) {
+		return fmt.Errorf("expected: %s, got: %s", expected, rdr.Schema())
+	}
+	return nil
+}
+
+func (m *flightSqlScenarioTester) ValidateMetadataRetrieval(client *flightsql.Client) error {
+	var (
+		catalog               = "catalog"
+		dbSchemaFilterPattern = "db_schema_filter_pattern"
+		tableFilterPattern    = "table_filter_pattern"
+		table                 = "table"
+		dbSchema              = "db_schema"
+		tableTypes            = []string{"table", "view"}
+
+		ref   = flightsql.TableRef{Catalog: &catalog, DBSchema: &dbSchema, Table: table}
+		pkRef = flightsql.TableRef{Catalog: proto.String("pk_catalog"), DBSchema: proto.String("pk_db_schema"), Table: "pk_table"}
+		fkRef = flightsql.TableRef{Catalog: proto.String("fk_catalog"), DBSchema: proto.String("fk_db_schema"), Table: "fk_table"}
+
+		ctx = context.Background()
+	)
+
+	info, err := client.GetCatalogs(ctx)
+	if err != nil {
+		return err
+	}
+	if err := m.validate(schema_ref.Catalogs, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetDBSchemas(ctx, &flightsql.GetDBSchemasOpts{Catalog: &catalog, DbSchemaFilterPattern: &dbSchemaFilterPattern})
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.DBSchemas, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetTables(ctx, &flightsql.GetTablesOpts{Catalog: &catalog, DbSchemaFilterPattern: &dbSchemaFilterPattern, TableNameFilterPattern: &tableFilterPattern, IncludeSchema: true, TableTypes: tableTypes})
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.TablesWithIncludedSchema, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetTableTypes(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.TableTypes, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetPrimaryKeys(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.PrimaryKeys, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetExportedKeys(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.ExportedKeys, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetImportedKeys(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.ImportedKeys, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetCrossReference(ctx, pkRef, fkRef)
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.CrossReference, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetXdbcTypeInfo(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.XdbcTypeInfo, info, client); err != nil {
+		return err
+	}
+
+	info, err = client.GetSqlInfo(ctx, []flightsql.SqlInfo{flightsql.SqlInfoFlightSqlServerName, flightsql.SqlInfoFlightSqlServerReadOnly})
+	if err != nil {
+		return err
+	}
+	if err = m.validate(schema_ref.SqlInfo, info, client); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *flightSqlScenarioTester) ValidateStatementExecution(client *flightsql.Client) error {
+	ctx := context.Background()
+	info, err := client.Execute(ctx, "SELECT STATEMENT")
+	if err != nil {
+		return err
+	}
+	if err = m.validate(QuerySchema, info, client); err != nil {
+		return err
+	}
+
+	updateResult, err := client.ExecuteUpdate(ctx, "UPDATE STATEMENT")
+	if err != nil {
+		return err
+	}
+	if updateResult != updateStatementExpectedRows {
+		return fmt.Errorf("expected 'UPDATE STATEMENT' return %d got %d", updateStatementExpectedRows, updateResult)
+	}
+	return nil
+}
+
+func (m *flightSqlScenarioTester) ValidatePreparedStatementExecution(client *flightsql.Client) error {
+	ctx := context.Background()
+	prepared, err := client.Prepare(ctx, memory.DefaultAllocator, "SELECT PREPARED STATEMENT")
+	if err != nil {
+		return err
+	}
+
+	arr, _, _ := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, strings.NewReader("[1]"))
+	defer arr.Release()
+	params := array.NewRecord(QuerySchema, []arrow.Array{arr}, 1)
+	prepared.SetParameters(params)
+
+	info, err := prepared.Execute(ctx)
+	if err != nil {
+		return err
+	}
+	if err = m.validate(QuerySchema, info, client); err != nil {
+		return err
+	}
+
+	if err = prepared.Close(ctx); err != nil {
+		return err
+	}
+
+	updatePrepared, err := client.Prepare(ctx, memory.DefaultAllocator, "UPDATE PREPARED STATEMENT")
+	if err != nil {
+		return err
+	}
+	updateResult, err := updatePrepared.ExecuteUpdate(ctx)
+	if err != nil {
+		return err
+	}
+
+	if updateResult != updatePreparedStatementExpectedRows {
+		return fmt.Errorf("expected 'UPDATE STATEMENT' return %d got %d", updatePreparedStatementExpectedRows, updateResult)
+	}
+	return updatePrepared.Close(ctx)
+}
+
+func (m *flightSqlScenarioTester) doGetForTestCase(schema *arrow.Schema) chan flight.StreamChunk {
+	ch := make(chan flight.StreamChunk)
+	go func() {
+		ch <- flight.StreamChunk{Data: array.NewRecord(schema, []arrow.Array{}, 0)}
+	}()
+	return ch
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoStatement(ctx context.Context, cmd flightsql.StatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq("SELECT STATEMENT", cmd.GetQuery()); err != nil {
+		return nil, err
+	}
+
+	handle, err := flightsql.CreateStatementQueryTicket([]byte("SELECT STATEMENT HANDLE"))
+	if err != nil {
+		return nil, err
+	}
+
+	return &flight.FlightInfo{
+		Endpoint: []*flight.FlightEndpoint{
+			{Ticket: &flight.Ticket{Ticket: handle}},
+		},
+		Schema:           flight.SerializeSchema(QuerySchema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+	}, nil
+}
+
+func (m *flightSqlScenarioTester) DoGetStatement(ctx context.Context, cmd flightsql.StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return QuerySchema, m.doGetForTestCase(QuerySchema), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoPreparedStatement(_ context.Context, cmd flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	err := assertEq([]byte("SELECT PREPARED STATEMENT HANDLE"), cmd.GetPreparedStatementHandle())
+	if err != nil {
+		return nil, err
+	}
+	return m.flightInfoForCommand(desc, QuerySchema), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetPreparedStatement(_ context.Context, cmd flightsql.PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return QuerySchema, m.doGetForTestCase(QuerySchema), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoCatalogs(_ context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return m.flightInfoForCommand(desc, schema_ref.Catalogs), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetCatalogs(_ context.Context) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.Catalogs, m.doGetForTestCase(schema_ref.Catalogs), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoXdbcTypeInfo(_ context.Context, cmd flightsql.GetXdbcTypeInfo, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return m.flightInfoForCommand(desc, schema_ref.XdbcTypeInfo), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetXdbcTypeInfo(context.Context, flightsql.GetXdbcTypeInfo) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.XdbcTypeInfo, m.doGetForTestCase(schema_ref.XdbcTypeInfo), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoSqlInfo(_ context.Context, cmd flightsql.GetSqlInfo, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq(int(2), len(cmd.GetInfo())); err != nil {
+		return nil, err
+	}
+	if err := assertEq(flightsql.SqlInfoFlightSqlServerName, flightsql.SqlInfo(cmd.GetInfo()[0])); err != nil {
+		return nil, err
+	}
+	if err := assertEq(flightsql.SqlInfoFlightSqlServerReadOnly, flightsql.SqlInfo(cmd.GetInfo()[1])); err != nil {
+		return nil, err
+	}
+
+	return m.flightInfoForCommand(desc, schema_ref.SqlInfo), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetSqlInfo(context.Context, flightsql.GetSqlInfo) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.SqlInfo, m.doGetForTestCase(schema_ref.SqlInfo), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoSchemas(_ context.Context, cmd flightsql.GetDBSchemas, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq("catalog", cmd.GetCatalog()); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("db_schema_filter_pattern", cmd.GetDBSchemaFilterPattern()); err != nil {
+		return nil, err
+	}
+
+	return m.flightInfoForCommand(desc, schema_ref.DBSchemas), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetDBSchemas(context.Context, flightsql.GetDBSchemas) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.DBSchemas, m.doGetForTestCase(schema_ref.DBSchemas), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoTables(_ context.Context, cmd flightsql.GetTables, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq("catalog", cmd.GetCatalog()); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("db_schema_filter_pattern", cmd.GetDBSchemaFilterPattern()); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("table_filter_pattern", cmd.GetTableNameFilterPattern()); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq(int(2), len(cmd.GetTableTypes())); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("table", cmd.GetTableTypes()[0]); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("view", cmd.GetTableTypes()[1]); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq(true, cmd.GetIncludeSchema()); err != nil {
+		return nil, err
+	}
+
+	return m.flightInfoForCommand(desc, schema_ref.TablesWithIncludedSchema), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetTables(context.Context, flightsql.GetTables) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.TablesWithIncludedSchema, m.doGetForTestCase(schema_ref.TablesWithIncludedSchema), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoTableTypes(_ context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return m.flightInfoForCommand(desc, schema_ref.TableTypes), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetTableTypes(context.Context) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.TableTypes, m.doGetForTestCase(schema_ref.TableTypes), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoPrimaryKeys(_ context.Context, cmd flightsql.TableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq("catalog", cmd.Catalog); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("db_schema", cmd.DBSchema); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("table", cmd.Table); err != nil {
+		return nil, err
+	}
+
+	return m.flightInfoForCommand(desc, schema_ref.PrimaryKeys), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetPrimaryKeys(context.Context, flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.PrimaryKeys, m.doGetForTestCase(schema_ref.PrimaryKeys), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoExportedKeys(_ context.Context, cmd flightsql.TableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq("catalog", cmd.Catalog); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("db_schema", cmd.DBSchema); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("table", cmd.Table); err != nil {
+		return nil, err
+	}
+
+	return m.flightInfoForCommand(desc, schema_ref.ExportedKeys), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetExportedKeys(context.Context, flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.ExportedKeys, m.doGetForTestCase(schema_ref.ExportedKeys), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoImportedKeys(_ context.Context, cmd flightsql.TableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq("catalog", cmd.Catalog); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("db_schema", cmd.DBSchema); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("table", cmd.Table); err != nil {
+		return nil, err
+	}
+
+	return m.flightInfoForCommand(desc, schema_ref.ImportedKeys), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetImportedKeys(context.Context, flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.ImportedKeys, m.doGetForTestCase(schema_ref.ImportedKeys), nil
+}
+
+func (m *flightSqlScenarioTester) GetFlightInfoCrossReference(_ context.Context, cmd flightsql.CrossTableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := assertEq("pk_catalog", cmd.PKRef.Catalog); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("pk_db_schema", cmd.PKRef.DBSchema); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("pk_table", cmd.PKRef.Table); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("fk_catalog", cmd.FKRef.Catalog); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("fk_db_schema", cmd.FKRef.DBSchema); err != nil {
+		return nil, err
+	}
+
+	if err := assertEq("fk_table", cmd.FKRef.Table); err != nil {
+		return nil, err
+	}
+
+	return m.flightInfoForCommand(desc, schema_ref.TableTypes), nil
+}
+
+func (m *flightSqlScenarioTester) DoGetCrossReference(context.Context, flightsql.CrossTableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	return schema_ref.CrossReference, m.doGetForTestCase(schema_ref.CrossReference), nil
+}
+
+func (m *flightSqlScenarioTester) DoPutCommandStatementUpdate(_ context.Context, cmd flightsql.StatementUpdate) (int64, error) {
+	if err := assertEq("UPDATE STATEMENT", cmd.GetQuery()); err != nil {
+		return 0, err
+	}
+
+	return updateStatementExpectedRows, nil
+}
+
+func (m *flightSqlScenarioTester) CreatePreparedStatement(_ context.Context, request flightsql.ActionCreatePreparedStatementRequest) (res flightsql.ActionCreatePreparedStatementResult, err error) {
+	err = assertEq(true, request.GetQuery() == "SELECT PREPARED STATEMENT" || request.GetQuery() == "UPDATE PREPARED STATEMENT")
+	if err != nil {
+		return
+	}
+
+	res.Handle = []byte(request.GetQuery() + " HANDLE")
+	return
+}
+
+func (m *flightSqlScenarioTester) ClosePreparedStatement(context.Context, flightsql.ActionClosePreparedStatementRequest) error {
+	return nil
+}
+
+func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) error {
+	err := assertEq([]byte("SELECT PREPARED STATEMENT HANDLE"), cmd.GetPreparedStatementHandle())
+	if err != nil {
+		return err
+	}
+
+	actualSchema := rdr.Schema()
+	if err = assertEq(true, actualSchema.Equal(QuerySchema)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *flightSqlScenarioTester) DoPutPreparedStatementUpdate(_ context.Context, cmd flightsql.PreparedStatementUpdate, _ flight.MessageReader) (int64, error) {
+	err := assertEq([]byte("UPDATE PREPARED STATEMENT HANDLE"), cmd.GetPreparedStatementHandle())
+	if err != nil {
+		return 0, err
+	}
+
+	return updatePreparedStatementExpectedRows, nil
 }

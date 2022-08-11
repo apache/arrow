@@ -22,6 +22,8 @@ import (
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/arrio"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/ipc"
 	"github.com/apache/arrow/go/v10/arrow/memory"
@@ -36,6 +38,7 @@ type DataStreamReader interface {
 type dataMessageReader struct {
 	rdr DataStreamReader
 
+	peeked   *FlightData
 	refCount int64
 	msg      *ipc.Message
 
@@ -44,7 +47,18 @@ type dataMessageReader struct {
 }
 
 func (d *dataMessageReader) Message() (*ipc.Message, error) {
-	fd, err := d.rdr.Recv()
+	var (
+		fd  *FlightData
+		err error
+	)
+
+	if d.peeked != nil {
+		fd = d.peeked
+		d.peeked = nil
+	} else {
+		fd, err = d.rdr.Recv()
+	}
+
 	if err != nil {
 		if d.msg != nil {
 			// clear the previous message in the error case
@@ -117,12 +131,34 @@ func (r *Reader) LatestFlightDescriptor() *FlightDescriptor {
 	return r.dmr.descr
 }
 
+// Chunk is a convenience function to return a chunk of the flight stream
+// returning the RecordBatch along with the FlightDescriptor and any AppMetadata.
+// Each of these can be retrieved separately with their respective functions,
+// this is just a convenience to retrieve all three with one function call.
+func (r *Reader) Chunk() StreamChunk {
+	return StreamChunk{
+		Data:        r.Record(),
+		Desc:        r.dmr.descr,
+		AppMetadata: r.dmr.lastAppMetadata,
+	}
+}
+
 // NewRecordReader constructs an ipc reader using the flight data stream reader
 // as the source of the ipc messages, opts passed will be passed to the underlying
 // ipc.Reader such as ipc.WithSchema and ipc.WithAllocator
 func NewRecordReader(r DataStreamReader, opts ...ipc.Option) (*Reader, error) {
+	// peek the first message for a descriptor
+	data, err := r.Recv()
+	if err != nil {
+		return nil, err
+	}
+
 	rdr := &Reader{dmr: &dataMessageReader{rdr: r}}
-	var err error
+	rdr.dmr.descr = data.FlightDescriptor
+	if len(data.DataHeader) > 0 {
+		rdr.dmr.peeked = data
+	}
+
 	if rdr.Reader, err = ipc.NewReaderFromMessageReader(rdr.dmr, opts...); err != nil {
 		return nil, fmt.Errorf("arrow/flight: could not create flight reader: %w", err)
 	}
@@ -143,4 +179,47 @@ func DeserializeSchema(info []byte, mem memory.Allocator) (*arrow.Schema, error)
 	}
 	defer rdr.Release()
 	return rdr.Schema(), nil
+}
+
+// StreamChunk represents a single chunk of a FlightData stream
+type StreamChunk struct {
+	Data        arrow.Record
+	Desc        *FlightDescriptor
+	AppMetadata []byte
+	Err         error
+}
+
+// MessageReader is an interface representing a RecordReader
+// that also provides StreamChunks and/or the ability to retrieve
+// FlightDescriptors and AppMetadata from the flight stream
+type MessageReader interface {
+	array.RecordReader
+	arrio.Reader
+	Err() error
+	Chunk() StreamChunk
+	LatestFlightDescriptor() *FlightDescriptor
+	LatestAppMetadata() []byte
+}
+
+// StreamChunksFromReader is a convenience function to populate a channel
+// from a record reader. It is intended to be run using a separate goroutine
+// by calling `go flight.StreamChunksFromReader(rdr, ch)`.
+//
+// If the record reader panics, an error chunk will get sent on the channel.
+//
+// This will close the channel and release the reader when it completes.
+func StreamChunksFromReader(rdr array.RecordReader, ch chan<- StreamChunk) {
+	defer close(ch)
+	defer func() {
+		if err := recover(); err != nil {
+			ch <- StreamChunk{Err: fmt.Errorf("panic while reading: %s", err)}
+		}
+	}()
+
+	defer rdr.Release()
+	for rdr.Next() {
+		rec := rdr.Record()
+		rec.Retain()
+		ch <- StreamChunk{Data: rec}
+	}
 }

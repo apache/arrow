@@ -135,8 +135,7 @@ func TestRecord(t *testing.T) {
 		{
 			schema: schema,
 			cols:   nil,
-			rows:   -1,
-			err:    fmt.Errorf("arrow/array: number of columns/fields mismatch"),
+			rows:   0,			
 		},
 		{
 			schema: schema,
