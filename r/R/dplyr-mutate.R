@@ -177,7 +177,7 @@ unfold_across <- function(.data, quos_in) {
       }
 
       # use select() to get the column names so we can take advantage of tidyselect
-      cols <- names(select(.data, !!across_call[[".cols"]]))
+      cols <- names(dplyr::select(.data, !!across_call[[".cols"]]))
       funcs <- as.character(across_call[[".fns"]])
 
       # calling across() with .fns = NULL returns all columns unchanged
