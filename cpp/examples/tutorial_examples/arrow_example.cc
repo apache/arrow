@@ -4,38 +4,60 @@
 
 arrow::Status RunMain(int argc, char** argv) {
 
-  // Creating Arrays and Tables
+  //Builders are the main way to create Arrays in Arrow from existing values that are not
+  //on-disk. In this case, we'll make a simple array, and feed that in.
+  //Data types are important as ever, and there is a Builder for each compatible type;
+  //in this case, int8.
   arrow::Int8Builder int8builder; 
   int8_t days_raw[5] = {1, 12, 17, 23, 28};
+  //AppendValues, as called, puts 5 values from days_raw into our Builder object.
   ARROW_RETURN_NOT_OK(int8builder.AppendValues(days_raw, 5));
+  //We only have a Builder though, not an Array -- the following code pushes out the
+  //built up data into a proper Array.
   std::shared_ptr<arrow::Array> days;
   ARROW_ASSIGN_OR_RAISE(days, int8builder.Finish());
 
+  //Builders clear their state every time they fill an Array, so if the type is the same,
+  //we can re-use the builder. We do that here for month values.
   int8_t months_raw[5] = {1, 3, 5, 7, 1};
   ARROW_RETURN_NOT_OK(int8builder.AppendValues(months_raw, 5));
   std::shared_ptr<arrow::Array> months;
   ARROW_ASSIGN_OR_RAISE(months, int8builder.Finish());
 
+  //Now that we change to int16, we use the Builder for that data type instead.
   arrow::Int16Builder int16builder;
   int16_t years_raw[5] = {1990, 2000, 1995, 2000, 1995};
   ARROW_RETURN_NOT_OK(int16builder.AppendValues(years_raw, 5));
   std::shared_ptr<arrow::Array> years;
   ARROW_ASSIGN_OR_RAISE(years, int16builder.Finish());
 
+  //Now, we want a RecordBatch, which has columns and labels for said columns.
+  //This gets us to the 2d data structures we want in Arrow.
+  //These are defined by schema, which have fields -- here we get both those object types
+  //ready.
   std::shared_ptr<arrow::Field> field_day, field_month, field_year;
   std::shared_ptr<arrow::Schema> schema;
 
+  //Every field needs its name and data type.
   field_day = arrow::field("Day", arrow::int8());
   field_month = arrow::field("Month", arrow::int8());
   field_year = arrow::field("Year", arrow::int16());
 
+  //The schema can be built from a vector of fields, and we do so here.
   schema = arrow::schema({field_day, field_month, field_year});
 
+  //With the schema and Arrays full of data, we can make our RecordBatch! Here,
+  //each column is internally contiguous. This is in opposition to Tables, which we'll
+  //see next.
   std::shared_ptr<arrow::RecordBatch> rbatch;
+  //The RecordBatch needs the schema, length for columns, which all must match,
+  //and the actual data itself.
   rbatch = arrow::RecordBatch::Make(schema, days->length(), {days, months, years});
 
   std::cout << rbatch->ToString();
 
+  //Now, let's get some new arrays! It'll be the same datatypes as above, so we re-use
+  //Builders.
   int8_t days_raw2[5] = {6, 12, 3, 30, 22};
   ARROW_RETURN_NOT_OK(int8builder.AppendValues(days_raw2, 5));
   std::shared_ptr<arrow::Array> days2;
@@ -51,24 +73,27 @@ arrow::Status RunMain(int argc, char** argv) {
   std::shared_ptr<arrow::Array> years2;
   ARROW_ASSIGN_OR_RAISE(years2, int16builder.Finish());
 
-  arrow::ArrayVector day_vecs(2);
-  day_vecs[0] = days;
-  day_vecs[1] = days2;
+  //ChunkedArrays let us have a list of arrays, which aren't contiguous
+  //with each other. First, we get a vector of arrays.
+  arrow::ArrayVector day_vecs{days, days2};
+  //Then, we use that to initialize a ChunkedArray, which can be used with other
+  //functions in Arrow! This is good, since having a normal vector of arrays wouldn't
+  //get us far.
   std::shared_ptr<arrow::ChunkedArray> day_chunks =
           std::make_shared<arrow::ChunkedArray>(day_vecs);
 
-  arrow::ArrayVector month_vecs(2);
-  month_vecs[0] = months;
-  month_vecs[1] = months2;
+  //Repeat for months.
+  arrow::ArrayVector month_vecs{months, months};
   std::shared_ptr<arrow::ChunkedArray> month_chunks =
           std::make_shared<arrow::ChunkedArray>(month_vecs);
 
-  arrow::ArrayVector year_vecs(2);
-  year_vecs[0] = years;
-  year_vecs[1] = years2;
+  //Repeat for years.
+  arrow::ArrayVector year_vecs{years, years2};
   std::shared_ptr<arrow::ChunkedArray> year_chunks =
           std::make_shared<arrow::ChunkedArray>(year_vecs);
 
+  //A Table is the structure we need for these non-contiguous columns, and keeps them
+  //all in one place for us so we can use them as if they were normal arrays.
   std::shared_ptr<arrow::Table> table; 
   table = arrow::Table::Make(schema, {day_chunks, month_chunks, year_chunks}, 10);
 
