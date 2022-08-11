@@ -68,7 +68,7 @@ arrow::Result<std::string> CreateExampleParquetDataset(
     return base_path;
 }
 
-arrow::Status RunMain(int argc, char** argv) {
+arrow::Status RunMain() {
 
     //Get our environment prepared for reading, by setting up some quick writing.
     ARROW_ASSIGN_OR_RAISE(auto src_table, CreateTable())
@@ -159,8 +159,8 @@ arrow::Status RunMain(int argc, char** argv) {
     return arrow::Status::OK();
 }
 
-int main(int argc, char** argv) {
-    arrow::Status st = RunMain(argc, argv);
+int main() {
+    arrow::Status st = RunMain();
     if (!st.ok()) {
         std::cerr << st << std::endl;
         return 1;

@@ -19,7 +19,7 @@
 
 #include <iostream>
 
-arrow::Status RunMain(int argc, char** argv) {
+arrow::Status RunMain() {
 
   //Builders are the main way to create Arrays in Arrow from existing values that are not
   //on-disk. In this case, we'll make a simple array, and feed that in.
@@ -119,8 +119,8 @@ arrow::Status RunMain(int argc, char** argv) {
   return arrow::Status::OK();
 }
 
-int main(int argc, char** argv) {
-  arrow::Status st = RunMain(argc, argv);
+int main() {
+  arrow::Status st = RunMain();
   if (!st.ok()) {
     std::cerr << st << std::endl;
     return 1;

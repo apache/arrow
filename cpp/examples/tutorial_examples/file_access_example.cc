@@ -82,7 +82,7 @@ arrow::Status GenInitialFile(){
   return arrow::Status::OK();
 }
 
-arrow::Status RunMain(int argc, char** argv) {
+arrow::Status RunMain() {
   //Generate initial files for each format with a helper function -- don't worry,
   //we'll also write a table in this example.
   ARROW_RETURN_NOT_OK(GenInitialFile());
@@ -164,8 +164,8 @@ arrow::Status RunMain(int argc, char** argv) {
   return arrow::Status::OK();
 }
 
-int main(int argc, char** argv) {
-  arrow::Status st = RunMain(argc, argv);
+int main() {
+  arrow::Status st = RunMain();
   if (!st.ok()) {
     std::cerr << st << std::endl;
     return 1;

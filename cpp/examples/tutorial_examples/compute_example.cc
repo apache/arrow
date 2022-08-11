@@ -20,7 +20,7 @@
 
 #include <iostream>
 
-arrow::Status RunMain(int argc, char** argv) {
+arrow::Status RunMain() {
   //Create a couple 32-bit integer arrays.
   arrow::Int32Builder int32builder;
   int32_t some_nums_raw[5] = {34, 624, 2223, 5654, 4356};
@@ -74,8 +74,8 @@ arrow::Status RunMain(int argc, char** argv) {
   return arrow::Status::OK();
 }
 
-int main(int argc, char** argv) {
-  arrow::Status st = RunMain(argc, argv);
+int main() {
+  arrow::Status st = RunMain();
   if (!st.ok()) {
     std::cerr << st << std::endl;
     return 1;
