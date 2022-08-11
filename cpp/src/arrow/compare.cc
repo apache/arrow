@@ -556,8 +556,12 @@ bool CompareArrayRanges(const ArrayData& left, const ArrayData& right,
 
 class TypeEqualsVisitor {
  public:
-  explicit TypeEqualsVisitor(const DataType& right, bool check_metadata)
-      : right_(right), check_metadata_(check_metadata), result_(false) {}
+  explicit TypeEqualsVisitor(const DataType& right, bool check_metadata,
+                             bool check_internal_field_names)
+      : right_(right),
+        check_metadata_(check_metadata),
+        check_internal_field_names_(check_internal_field_names),
+        result_(false) {}
 
   Status VisitChildren(const DataType& left) {
     if (left.num_fields() != right_.num_fields()) {
@@ -626,8 +630,20 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_list_like_type<T>::value || is_struct_type<T>::value, Status> Visit(
-      const T& left) {
+  enable_if_t<is_list_like_type<T>::value, Status> Visit(const T& left) {
+    std::shared_ptr<Field> left_field = left.field(0);
+    std::shared_ptr<Field> right_field = checked_cast<const T&>(right_).field(0);
+    bool equal_names =
+        !check_internal_field_names_ || (left_field->name() == right_field->name());
+    result_ = equal_names && (left_field->nullable() == right_field->nullable()) &&
+              left_field->type()->Equals(*right_field->type(), check_metadata_,
+                                         check_internal_field_names_);
+
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_t<is_struct_type<T>::value, Status> Visit(const T& left) {
     return VisitChildren(left);
   }
 
@@ -637,8 +653,10 @@ class TypeEqualsVisitor {
       result_ = false;
       return Status::OK();
     }
-    result_ = left.key_type()->Equals(*right.key_type(), check_metadata_) &&
-              left.item_type()->Equals(*right.item_type(), check_metadata_);
+    result_ = left.key_type()->Equals(*right.key_type(), check_metadata_,
+                                      check_internal_field_names_) &&
+              left.item_type()->Equals(*right.item_type(), check_metadata_,
+                                       check_internal_field_names_);
     return Status::OK();
   }
 
@@ -676,6 +694,7 @@ class TypeEqualsVisitor {
  protected:
   const DataType& right_;
   bool check_metadata_;
+  bool check_internal_field_names_;
   bool result_;
 };
 
@@ -1267,13 +1286,14 @@ bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right,
   }
 }
 
-bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata) {
+bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata,
+                bool check_internal_field_names) {
   // The arrays are the same object
   if (&left == &right) {
     return true;
   } else if (left.id() != right.id()) {
     return false;
-  } else {
+  } else if (!check_internal_field_names) {
     // First try to compute fingerprints
     if (check_metadata) {
       const auto& left_metadata_fp = left.metadata_fingerprint();
@@ -1288,15 +1308,15 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
     if (!left_fp.empty() && !right_fp.empty()) {
       return left_fp == right_fp;
     }
-
-    // TODO remove check_metadata here?
-    TypeEqualsVisitor visitor(right, check_metadata);
-    auto error = VisitTypeInline(left, &visitor);
-    if (!error.ok()) {
-      DCHECK(false) << "Types are not comparable: " << error.ToString();
-    }
-    return visitor.result();
   }
+
+  // TODO remove check_metadata here?
+  TypeEqualsVisitor visitor(right, check_metadata, check_internal_field_names);
+  auto error = VisitTypeInline(left, &visitor);
+  if (!error.ok()) {
+    DCHECK(false) << "Types are not comparable: " << error.ToString();
+  }
+  return visitor.result();
 }
 
 }  // namespace arrow

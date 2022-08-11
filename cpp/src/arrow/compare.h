@@ -125,7 +125,8 @@ ARROW_EXPORT bool SparseTensorEquals(const SparseTensor& left, const SparseTenso
 /// \param[in] check_metadata whether to compare KeyValueMetadata for child
 /// fields
 ARROW_EXPORT bool TypeEquals(const DataType& left, const DataType& right,
-                             bool check_metadata = true);
+                             bool check_metadata = true,
+                             bool check_internal_field_names = false);
 
 /// Returns true if scalars are equal
 /// \param[in] left a Scalar
