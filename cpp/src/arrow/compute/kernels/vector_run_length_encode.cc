@@ -258,19 +258,7 @@ struct RunLengthDecodeExec
     const ArraySpan& child_array = this->input_array.child_data[0];
     this->input_validity = child_array.buffers[0].data;
     this->input_values = child_array.buffers[1].data;
-    auto input_metadata =
-        this->input_array.template GetValues<const rle_util::Metadata>(0);
-    auto input_accumulated_run_length =
-        this->input_array.template GetValues<const int32_t>(1);
 
-    const int64_t logical_offset = this->input_array.offset;
-    // common_physical_offset is the physical equivalent to the logical offset that is
-    // stored in the offset field of input_array. It is applied to both parent and child
-    // buffers.
-    const int64_t common_physical_offset = input_metadata->physical_offset;
-    this->input_values_physical_offset = common_physical_offset + child_array.offset;
-    // the child array is not aware of the logical offset of the parent
-    const int64_t num_values_input = input_metadata->physical_length;
     const int64_t num_values_output = this->input_array.length;
 
     std::shared_ptr<Buffer> validity_buffer = NULLPTR;
@@ -302,29 +290,26 @@ struct RunLengthDecodeExec
       this->output_validity[validity_buffer_size - 1] = 0;
     }
 
-    this->input_position = 0;
+    // HACK: iterator already gives indices with offset
+    this->input_values_physical_offset = 0;
+
     this->output_position = 0;
     int64_t output_null_count = 0;
-    int32_t run_start = static_cast<int32_t>(logical_offset);
-    for (this->input_position = 0; this->input_position < num_values_input;
-         this->input_position++) {
-      int32_t run_end =
-          input_accumulated_run_length[common_physical_offset + this->input_position];
-      ARROW_DCHECK_LT(run_start, run_end);
-      int32_t run_length = run_end - run_start;
-      run_start = run_end;
-
+    for (auto it = rle_util::MergedRunsIterator<1>(this->input_array);
+         it != rle_util::MergedRunsIterator<1>();
+         it++) {
+      this->input_position = it.physical_index(0);
       Element element = this->ReadValue();
       if (element.valid) {
-        for (int32_t run_element = 0; run_element < run_length; run_element++) {
+        for (int32_t run_element = 0; run_element < it.run_length(); run_element++) {
           this->WriteValue(element);
           this->output_position++;
         }
       } else {  // !valid
-        bit_util::SetBitsTo(this->output_validity, this->output_position, run_length,
+        bit_util::SetBitsTo(this->output_validity, this->output_position, it.run_length(),
                             false);
-        this->output_position += run_length;
-        output_null_count += run_length;
+        this->output_position += it.run_length();
+        output_null_count += it.run_length();
       }
     }
     ARROW_DCHECK(this->output_position == num_values_output);
