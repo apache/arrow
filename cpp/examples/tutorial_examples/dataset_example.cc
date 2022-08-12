@@ -99,29 +99,33 @@ arrow::Status RunMain() {
   auto read_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
   // Now, we get a factory that will let us get our dataset -- we don't have the
   // dataset yet!
-  auto factory =
-      arrow::dataset::FileSystemDatasetFactory::Make(fs, selector, read_format, options)
-          .ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto factory,
+                        arrow::dataset::FileSystemDatasetFactory::Make(fs, selector,
+                                                                       read_format,
+                                                                       options));
   // Now we read into our dataset from the factory.
-  auto read_dataset = factory->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto read_dataset, factory->Finish());
   // Print out the fragments
-  for (const auto& fragment : read_dataset->GetFragments().ValueOrDie()) {
+  ARROW_ASSIGN_OR_RAISE(auto fragments, read_dataset->GetFragments());
+  for (const auto& fragment : fragments) {
     std::cout << "Found fragment: " << (*fragment)->ToString() << std::endl;
+    std::cout << "Partition expression: "
+    << (*fragment)->partition_expression().ToString() << std::endl;
   }
 
   // Scan dataset into a Table -- once this is done, you can do
   // normal table things with it, like computation and printing. However, now you're
   // also dedicated to being in memory.
-  auto read_scan_builder = read_dataset->NewScan().ValueOrDie();
-  auto read_scanner = read_scan_builder->Finish().ValueOrDie();
-  std::shared_ptr<arrow::Table> table = read_scanner->ToTable().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto read_scan_builder, read_dataset->NewScan());
+  ARROW_ASSIGN_OR_RAISE(auto read_scanner, read_scan_builder->Finish());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table, read_scanner->ToTable());
   std::cout << table->ToString();
 
   // Now, let's get a table out as a dataset!
   // We make a dataset from our Table, then set up a scanner, which lets us go to a file.
   auto write_dataset = std::make_shared<arrow::dataset::InMemoryDataset>(table);
-  auto write_scanner_builder = write_dataset->NewScan().ValueOrDie();
-  auto write_scanner = write_scanner_builder->Finish().ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto write_scanner_builder, write_dataset->NewScan());
+  ARROW_ASSIGN_OR_RAISE(auto write_scanner, write_scanner_builder->Finish());
 
   // The partition schema determines which fields are used as keys for partitioning.
   auto partition_schema = arrow::schema({arrow::field("a", arrow::utf8())});
