@@ -2336,14 +2336,14 @@ macro(build_lz4)
                       BUILD_BYPRODUCTS ${LZ4_STATIC_LIB})
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
-  add_library(lz4::lz4 STATIC IMPORTED)
-  set_target_properties(lz4::lz4
+  add_library(LZ4::lz4 STATIC IMPORTED)
+  set_target_properties(LZ4::lz4
                         PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
-  add_dependencies(lz4::lz4 lz4_ep)
+  add_dependencies(LZ4::lz4 lz4_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4::lz4)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
 endmacro()
 
 if(ARROW_WITH_LZ4)
@@ -4278,7 +4278,7 @@ macro(build_orc)
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
 
-  get_target_property(ORC_LZ4_ROOT lz4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
 
   # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
@@ -4322,7 +4322,7 @@ macro(build_orc)
 
   set(ORC_VENDORED 1)
   add_dependencies(orc_ep ZLIB::ZLIB)
-  add_dependencies(orc_ep lz4::lz4)
+  add_dependencies(orc_ep LZ4::lz4)
   add_dependencies(orc_ep ${Snappy_TARGET})
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
