@@ -96,6 +96,7 @@ x-hierarchy:
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
   - almalinux-verify-rc
+  - alpine-linux-cpp
   - centos-cpp-static
   - conda:
     - conda-cpp:
@@ -162,6 +163,8 @@ x-hierarchy:
 volumes:
   almalinux-ccache:
     name: ${ARCH}-almalinux-ccache
+  alpine-linux-ccache:
+    name: ${ARCH}-alpine-linux-ccache
   conda-ccache:
     name: ${ARCH}-conda-ccache
   debian-ccache:
@@ -191,6 +194,36 @@ services:
   #     -e ARROW_BUILD_SHARED=OFF \
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
+
+  alpine-linux-cpp:
+    # Usage:
+    #   docker-compose build alpine-linux-cpp
+    #   docker-compose run --rm alpine-linux-cpp
+    # Parameters:
+    #   ALPINE_LINUX: 3.16
+    #   ARCH: amd64, arm64v8, ...
+    image: ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/alpine-linux-${ALPINE_LINUX}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-alpine-linux-${ALPINE_LINUX}-cpp
+      args:
+        arch: ${ARCH}
+    shm_size: &shm-size 2G
+    ulimits: &ulimits
+      core: ${ULIMIT_CORE}
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_MIMALLOC: "ON"
+    volumes: &alpine-linux-volumes
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}alpine-linux-ccache:/ccache:delegated
+    command: >-
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   conda:
     # Base image for conda builds.
@@ -229,9 +262,8 @@ services:
       args:
         repo: ${REPO}
         arch: ${ARCH}
-    shm_size: &shm-size 2G
-    ulimits: &ulimits
-      core: ${ULIMIT_CORE}
+    shm_size: *shm-size
+    ulimits: *ulimits
     environment:
       <<: *ccache
       ARROW_BUILD_BENCHMARKS: "ON"

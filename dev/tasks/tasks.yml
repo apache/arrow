@@ -1114,7 +1114,8 @@ tasks:
 
 ############################## Docker tests ##################################
 
-{% for image in ["conda-cpp",
+{% for image in ["alpine-linux-cpp",
+                 "conda-cpp",
                  "debian-c-glib",
                  "ubuntu-c-glib",
                  "debian-ruby",
