@@ -175,7 +175,7 @@ func (s *SqliteTablesSchemaBatchReader) Next() bool {
 
 			columnFields = append(columnFields, arrow.Field{
 				Name:     name,
-				Type:     getArrowType(typ),
+				Type:     getArrowTypeFromString(typ),
 				Nullable: nn == 1,
 				Metadata: getColumnMetadata(bldr, getSqlTypeFromTypeName(typ), tableName),
 			})

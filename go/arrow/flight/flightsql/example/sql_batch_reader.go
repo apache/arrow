@@ -18,6 +18,7 @@ package example
 
 import (
 	"database/sql"
+	"reflect"
 	"strings"
 	"sync/atomic"
 
@@ -27,9 +28,8 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/memory"
 )
 
-func getArrowType(dbtype string) arrow.DataType {
+func getArrowTypeFromString(dbtype string) arrow.DataType {
 	dbtype = strings.ToLower(dbtype)
-
 	if strings.HasPrefix(dbtype, "varchar") {
 		return arrow.BinaryTypes.String
 	}
@@ -46,6 +46,19 @@ func getArrowType(dbtype string) arrow.DataType {
 	default:
 		panic("invalid sqlite type: " + dbtype)
 	}
+}
+
+func getArrowType(c *sql.ColumnType) arrow.DataType {
+	dbtype := strings.ToLower(c.DatabaseTypeName())
+	if dbtype == "" {
+		switch c.ScanType().Kind() {
+		case reflect.Int, reflect.Int64, reflect.Uint64:
+			return arrow.PrimitiveTypes.Int64
+		case reflect.Float32, reflect.Float64:
+			return arrow.PrimitiveTypes.Float64
+		}
+	}
+	return getArrowTypeFromString(dbtype)
 }
 
 // func getColumnMetadata(bldr *flightsql.ColumnMetadataBuilder, c *sql.ColumnType) arrow.Metadata {
@@ -120,7 +133,7 @@ func NewSqlBatchReader(mem memory.Allocator, rows *sql.Rows) (*SqlBatchReader, e
 	for i, c := range cols {
 		fields[i].Name = c.Name()
 		fields[i].Nullable, _ = c.Nullable()
-		fields[i].Type = getArrowType(c.DatabaseTypeName())
+		fields[i].Type = getArrowType(c)
 		switch fields[i].Type.ID() {
 		case arrow.INT64:
 			if fields[i].Nullable {

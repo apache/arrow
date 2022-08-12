@@ -18,13 +18,19 @@ package flightsql_test
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/apache/arrow/go/v10/arrow"
+	"github.com/apache/arrow/go/v10/arrow/array"
 	"github.com/apache/arrow/go/v10/arrow/flight"
 	"github.com/apache/arrow/go/v10/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v10/arrow/flight/flightsql/example"
+	"github.com/apache/arrow/go/v10/arrow/flight/flightsql/schema_ref"
 	pb "github.com/apache/arrow/go/v10/arrow/flight/internal/flight"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -209,4 +215,177 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {
 
 func TestBaseServer(t *testing.T) {
 	suite.Run(t, new(UnimplementedFlightSqlServerSuite))
+}
+
+type FlightSqliteServerSuite struct {
+	suite.Suite
+
+	srv *example.SQLiteFlightSQLServer
+	s   flight.Server
+	cl  *flightsql.Client
+
+	mem *memory.CheckedAllocator
+}
+
+func (s *FlightSqliteServerSuite) SetupTest() {
+	var err error
+	s.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+	s.s = flight.NewServerWithMiddleware(nil)
+	s.srv, err = example.NewSQLiteFlightSQLServer()
+	s.Require().NoError(err)
+	s.srv.Alloc = s.mem
+
+	s.s.RegisterFlightService(flightsql.NewFlightServer(s.srv))
+	s.s.Init("localhost:0")
+	s.s.SetShutdownOnSignals(os.Interrupt, os.Kill)
+	go s.s.Serve()
+	s.cl, err = flightsql.NewClient(s.s.Addr().String(), nil, nil, dialOpts...)
+	s.Require().NoError(err)
+	s.Require().NotNil(s.cl)
+	s.cl.Alloc = s.mem
+}
+
+func (s *FlightSqliteServerSuite) TearDownTest() {
+	s.Require().NoError(s.cl.Close())
+	s.s.Shutdown()
+	s.srv = nil
+	s.mem.AssertSize(s.T(), 0)
+}
+
+func (s *FlightSqliteServerSuite) fromJSON(dt arrow.DataType, json string) arrow.Array {
+	arr, _, _ := array.FromJSON(s.mem, dt, strings.NewReader(json))
+	return arr
+}
+
+func (s *FlightSqliteServerSuite) execCountQuery(query string) int64 {
+	info, err := s.cl.Execute(context.Background(), query)
+	s.NoError(err)
+
+	rdr, err := s.cl.DoGet(context.Background(), info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	rec, err := rdr.Read()
+	s.NoError(err)
+	return rec.Column(0).(*array.Int64).Value(0)
+}
+
+func (s *FlightSqliteServerSuite) TestCommandStatementQuery() {
+	ctx := context.Background()
+	info, err := s.cl.Execute(ctx, "SELECT * FROM intTable")
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.NotNil(rec)
+
+	expectedSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "keyName", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "value", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+	}, nil)
+
+	s.Truef(expectedSchema.Equal(rec.Schema()), "expected: %s\ngot: %s", expectedSchema, rec.Schema())
+
+	idarr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 2, 3, 4]`)
+	defer idarr.Release()
+	keyarr := s.fromJSON(arrow.BinaryTypes.String, `["one", "zero", "negative one", null]`)
+	defer keyarr.Release()
+	valarr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 0, -1, null]`)
+	defer valarr.Release()
+	foreignarr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 1, 1, null]`)
+	defer foreignarr.Release()
+
+	expectedRec := array.NewRecord(expectedSchema, []arrow.Array{idarr, keyarr, valarr, foreignarr}, 4)
+	defer expectedRec.Release()
+
+	s.Truef(array.RecordEqual(expectedRec, rec), "expected: %s\ngot: %s", expectedRec, rec)
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTables() {
+	ctx := context.Background()
+	info, err := s.cl.GetTables(ctx, &flightsql.GetTablesOpts{})
+	s.NoError(err)
+	s.NotNil(info)
+
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	catalogName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	defer catalogName.Release()
+	schemaName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	defer schemaName.Release()
+
+	tableName := s.fromJSON(arrow.BinaryTypes.String, `["foreignTable", "intTable", "sqlite_sequence"]`)
+	defer tableName.Release()
+
+	tableType := s.fromJSON(arrow.BinaryTypes.String, `["table", "table", "table"]`)
+	defer tableType.Release()
+
+	expectedRec := array.NewRecord(schema_ref.Tables, []arrow.Array{catalogName, schemaName, tableName, tableType}, 3)
+	defer expectedRec.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.NotNil(rec)
+	rec.Retain()
+	defer rec.Release()
+	s.False(rdr.Next())
+
+	s.Truef(array.RecordEqual(expectedRec, rec), "expected: %s\ngot: %s", expectedRec, rec)
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTablesWithTableFilter() {
+
+}
+
+func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams() {
+	ctx := context.Background()
+	stmt, err := s.cl.Prepare(ctx, s.mem, "INSERT INTO intTable (keyName, value) VALUES ('new_value', ?)")
+	s.NoError(err)
+	defer stmt.Close(ctx)
+
+	typeIDs := s.fromJSON(arrow.PrimitiveTypes.Int8, "[2]")
+	offsets := s.fromJSON(arrow.PrimitiveTypes.Int32, "[0]")
+	strArray := s.fromJSON(arrow.BinaryTypes.String, "[]")
+	bytesArr := s.fromJSON(arrow.BinaryTypes.Binary, "[]")
+	bigintArr := s.fromJSON(arrow.PrimitiveTypes.Int64, "[999]")
+	dblArr := s.fromJSON(arrow.PrimitiveTypes.Float64, "[]")
+	paramArr, err := array.NewDenseUnionFromArraysWithFields(typeIDs,
+		offsets, []arrow.Array{strArray, bytesArr, bigintArr, dblArr},
+		[]string{"string", "bytes", "bigint", "double"})
+	s.NoError(err)
+	batch := array.NewRecord(arrow.NewSchema([]arrow.Field{
+		{Name: "parameter_1", Type: paramArr.DataType()}}, nil),
+		[]arrow.Array{paramArr}, 1)
+	defer func() {
+		typeIDs.Release()
+		offsets.Release()
+		strArray.Release()
+		bytesArr.Release()
+		bigintArr.Release()
+		dblArr.Release()
+		paramArr.Release()
+		batch.Release()
+	}()
+
+	stmt.SetParameters(batch)
+	s.EqualValues(4, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
+	n, err := stmt.ExecuteUpdate(context.Background())
+	s.NoError(err)
+	s.EqualValues(1, n)
+	s.EqualValues(5, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
+	n, err = s.cl.ExecuteUpdate(context.Background(), "DELETE FROM intTable WHERE keyName = 'new_value'")
+	s.NoError(err)
+	s.EqualValues(1, n)
+	s.EqualValues(4, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
+}
+
+func TestSqliteServer(t *testing.T) {
+	suite.Run(t, new(FlightSqliteServerSuite))
 }

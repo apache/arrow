@@ -43,7 +43,7 @@ func TestServer(t *testing.T) {
 	srv, err := NewSQLiteFlightSQLServer()
 	assert.NoError(t, err)
 	assert.NotNil(t, srv)
-	srv.mem = mem
+	srv.Alloc = mem
 	s.RegisterFlightService(flightsql.NewFlightServer(srv))
 	s.Init("localhost:0")
 

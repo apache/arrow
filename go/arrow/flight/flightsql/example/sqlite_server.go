@@ -31,10 +31,12 @@ package example
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
@@ -42,6 +44,7 @@ import (
 	"github.com/apache/arrow/go/v10/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v10/arrow/flight/flightsql/schema_ref"
 	"github.com/apache/arrow/go/v10/arrow/memory"
+	"github.com/apache/arrow/go/v10/arrow/scalar"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
@@ -99,8 +102,8 @@ func prepareQueryForGetTables(cmd flightsql.GetTables) string {
 
 type SQLiteFlightSQLServer struct {
 	flightsql.BaseServer
-	db  *sql.DB
-	mem memory.Allocator
+	db    *sql.DB
+	Alloc memory.Allocator
 
 	prepared sync.Map
 }
@@ -142,7 +145,7 @@ func (s *SQLiteFlightSQLServer) flightInfoForCommand(desc *flight.FlightDescript
 	return &flight.FlightInfo{
 		Endpoint:         []*flight.FlightEndpoint{{Ticket: &flight.Ticket{Ticket: desc.Cmd}}},
 		FlightDescriptor: desc,
-		Schema:           flight.SerializeSchema(schema, s.mem),
+		Schema:           flight.SerializeSchema(schema, s.Alloc),
 		TotalRecords:     -1,
 		TotalBytes:       -1,
 	}
@@ -169,7 +172,7 @@ func (s *SQLiteFlightSQLServer) DoGetStatement(ctx context.Context, cmd flightsq
 		return nil, nil, err
 	}
 
-	reader, err := NewSqlBatchReader(s.mem, rows)
+	reader, err := NewSqlBatchReader(s.Alloc, rows)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -186,7 +189,7 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoCatalogs(_ context.Context, desc *f
 func (s *SQLiteFlightSQLServer) DoGetCatalogs(context.Context) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	// sqlite doesn't support catalogs, this returns an empty record batch
 	schema := schema_ref.Catalogs
-	batchBldr := array.NewRecordBuilder(s.mem, schema)
+	batchBldr := array.NewRecordBuilder(s.Alloc, schema)
 	defer batchBldr.Release()
 
 	ch := make(chan flight.StreamChunk, 1)
@@ -203,7 +206,7 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoSchemas(_ context.Context, cmd flig
 func (s *SQLiteFlightSQLServer) DoGetDBSchemas(context.Context, flightsql.GetDBSchemas) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	// sqlite doesn't support schemas, this returns an empty record batch
 	schema := schema_ref.DBSchemas
-	batchBldr := array.NewRecordBuilder(s.mem, schema)
+	batchBldr := array.NewRecordBuilder(s.Alloc, schema)
 	defer batchBldr.Release()
 
 	ch := make(chan flight.StreamChunk, 1)
@@ -231,14 +234,14 @@ func (s *SQLiteFlightSQLServer) DoGetTables(ctx context.Context, cmd flightsql.G
 
 	var rdr array.RecordReader
 
-	rdr, err = NewSqlBatchReaderWithSchema(s.mem, schema_ref.Tables, rows)
+	rdr, err = NewSqlBatchReaderWithSchema(s.Alloc, schema_ref.Tables, rows)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	ch := make(chan flight.StreamChunk, 2)
 	if cmd.GetIncludeSchema() {
-		rdr, err = NewSqliteTablesSchemaBatchReader(ctx, s.mem, rdr, s.db, query)
+		rdr, err = NewSqliteTablesSchemaBatchReader(ctx, s.Alloc, rdr, s.db, query)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -263,7 +266,7 @@ func (s *SQLiteFlightSQLServer) CreatePreparedStatement(ctx context.Context, req
 	}
 
 	handle := genRandomString()
-	s.prepared.Store(handle, stmt)
+	s.prepared.Store(string(handle), stmt)
 
 	result.Handle = handle
 	// no way to get the dataset or parameter schemas from sql.DB
@@ -272,8 +275,8 @@ func (s *SQLiteFlightSQLServer) CreatePreparedStatement(ctx context.Context, req
 
 func (s *SQLiteFlightSQLServer) ClosePreparedStatement(ctx context.Context, request flightsql.ActionClosePreparedStatementRequest) error {
 	handle := request.GetPreparedStatementHandle()
-	if val, loaded := s.prepared.LoadAndDelete(handle); loaded {
-		stmt := val.(sql.Stmt)
+	if val, loaded := s.prepared.LoadAndDelete(string(handle)); loaded {
+		stmt := val.(*sql.Stmt)
 		return stmt.Close()
 	}
 
@@ -281,7 +284,7 @@ func (s *SQLiteFlightSQLServer) ClosePreparedStatement(ctx context.Context, requ
 }
 
 func (s *SQLiteFlightSQLServer) GetFlightInfoPreparedStatement(_ context.Context, cmd flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	_, ok := s.prepared.Load(cmd.GetPreparedStatementHandle())
+	_, ok := s.prepared.Load(string(cmd.GetPreparedStatementHandle()))
 	if !ok {
 		return nil, status.Error(codes.InvalidArgument, "prepared statement not found")
 	}
@@ -295,18 +298,18 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoPreparedStatement(_ context.Context
 }
 
 func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	val, ok := s.prepared.Load(cmd.GetPreparedStatementHandle())
+	val, ok := s.prepared.Load(string(cmd.GetPreparedStatementHandle()))
 	if !ok {
 		return nil, nil, status.Error(codes.InvalidArgument, "prepared statement not found")
 	}
 
-	stmt := val.(sql.Stmt)
+	stmt := val.(*sql.Stmt)
 	rows, err := stmt.QueryContext(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	rdr, err := NewSqlBatchReader(s.mem, rows)
+	rdr, err := NewSqlBatchReader(s.Alloc, rows)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -316,12 +319,83 @@ func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd 
 	return rdr.Schema(), ch, nil
 }
 
-// func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flightsql.PreparedStatementUpdate, rdr flight.MessageReader) (int64, error) {
-// 	val, ok := s.prepared.Load(cmd.GetPreparedStatementHandle())
-// 	if !ok {
-// 		return 0, status.Error(codes.InvalidArgument, "prepared statement not found")
-// 	}
+type sqlScalar struct {
+	v scalar.Scalar
+}
 
-// 	stmt := val.(sql.Stmt)
+func (s sqlScalar) Value() (driver.Value, error) {
+	switch v := s.v.(type) {
+	case *scalar.Int64:
+		return v.Value, nil
+	case *scalar.Float32:
+		return v.Value, nil
+	case *scalar.Float64:
+		return v.Value, nil
+	case *scalar.String:
+		return *(*string)(unsafe.Pointer(&v.Value.Bytes()[0])), nil
+	case *scalar.Binary:
+		return v.Value.Bytes(), nil
+	default:
+		return nil, fmt.Errorf("unsupported data type: %s", s.v.DataType())
+	}
+}
 
-// }
+func getParamsForStatement(rdr flight.MessageReader) (params []sqlScalar, err error) {
+	for rdr.Next() {
+		rec := rdr.Record()
+
+		nrows := int(rec.NumRows())
+		ncols := int(rec.NumCols())
+
+		if len(params) < int(ncols) {
+			params = make([]sqlScalar, ncols)
+		}
+
+		for i := 0; i < nrows; i++ {
+			for c := 0; c < ncols; c++ {
+				col := rec.Column(c)
+				sc, err := scalar.GetScalar(col, i)
+				if err != nil {
+					return nil, err
+				}
+
+				if params[c].v != nil {
+					if r, ok := params[c].v.(scalar.Releasable); ok {
+						r.Release()
+					}
+				}
+				params[c].v = sc.(*scalar.DenseUnion).Value
+			}
+		}
+	}
+
+	return params, rdr.Err()
+}
+
+func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flightsql.PreparedStatementUpdate, rdr flight.MessageReader) (int64, error) {
+	val, ok := s.prepared.Load(string(cmd.GetPreparedStatementHandle()))
+	if !ok {
+		return 0, status.Error(codes.InvalidArgument, "prepared statement not found")
+	}
+
+	stmt := val.(*sql.Stmt)
+	params, err := getParamsForStatement(rdr)
+	if err != nil {
+		return 0, status.Errorf(codes.Internal, "error gathering parameters for prepared statement: %s", err.Error())
+	}
+
+	args := make([]interface{}, len(params))
+	for i := range params {
+		if r, ok := params[i].v.(scalar.Releasable); ok {
+			defer r.Release()
+		}
+		args[i] = params[i]
+	}
+
+	result, err := stmt.ExecContext(ctx, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.RowsAffected()
+}
