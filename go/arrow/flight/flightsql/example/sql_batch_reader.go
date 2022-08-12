@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v10/arrow"
 	"github.com/apache/arrow/go/v10/arrow/array"
+	"github.com/apache/arrow/go/v10/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 )
@@ -122,6 +123,8 @@ func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, row
 }
 
 func NewSqlBatchReader(mem memory.Allocator, rows *sql.Rows) (*SqlBatchReader, error) {
+	bldr := flightsql.NewColumnMetadataBuilder()
+
 	cols, err := rows.ColumnTypes()
 	if err != nil {
 		rows.Close()
@@ -134,6 +137,7 @@ func NewSqlBatchReader(mem memory.Allocator, rows *sql.Rows) (*SqlBatchReader, e
 		fields[i].Name = c.Name()
 		fields[i].Nullable, _ = c.Nullable()
 		fields[i].Type = getArrowType(c)
+		fields[i].Metadata = getColumnMetadata(bldr, getSqlTypeFromTypeName(c.DatabaseTypeName()), "")
 		switch fields[i].Type.ID() {
 		case arrow.INT64:
 			if fields[i].Nullable {

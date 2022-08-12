@@ -187,6 +187,12 @@ func (b *BooleanBuilder) unmarshalOne(dec *json.Decoder) error {
 			return err
 		}
 		b.Append(val)
+	case json.Number:
+		val, err := strconv.ParseBool(v.String())
+		if err != nil {
+			return err
+		}
+		b.Append(val)
 	case nil:
 		b.AppendNull()
 	default:
@@ -210,6 +216,7 @@ func (b *BooleanBuilder) unmarshal(dec *json.Decoder) error {
 
 func (b *BooleanBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
 	t, err := dec.Token()
 	if err != nil {
 		return err

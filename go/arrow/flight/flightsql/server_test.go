@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 var dialOpts = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
@@ -227,6 +228,24 @@ type FlightSqliteServerSuite struct {
 	mem *memory.CheckedAllocator
 }
 
+func (s *FlightSqliteServerSuite) getColMetadata(colType int, table string) arrow.Metadata {
+	bldr := flightsql.NewColumnMetadataBuilder()
+	bldr.Scale(15).IsReadOnly(false).IsAutoIncrement(false)
+	if table != "" {
+		bldr.TableName(table)
+	}
+	switch colType {
+	case sqlite3.SQLITE_TEXT, sqlite3.SQLITE_BLOB:
+	case sqlite3.SQLITE_INTEGER:
+		bldr.Precision(10)
+	case sqlite3.SQLITE_FLOAT:
+		bldr.Precision(15)
+	default:
+		bldr.Precision(0)
+	}
+	return bldr.Metadata()
+}
+
 func (s *FlightSqliteServerSuite) SetupTest() {
 	var err error
 	s.mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
@@ -283,10 +302,10 @@ func (s *FlightSqliteServerSuite) TestCommandStatementQuery() {
 	s.NotNil(rec)
 
 	expectedSchema := arrow.NewSchema([]arrow.Field{
-		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
-		{Name: "keyName", Type: arrow.BinaryTypes.String, Nullable: true},
-		{Name: "value", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
-		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true},
+		{Name: "keyName", Type: arrow.BinaryTypes.String, Metadata: s.getColMetadata(sqlite3.SQLITE_TEXT, ""), Nullable: true},
+		{Name: "value", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true},
+		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true},
 	}, nil)
 
 	s.Truef(expectedSchema.Equal(rec.Schema()), "expected: %s\ngot: %s", expectedSchema, rec.Schema())
@@ -341,7 +360,335 @@ func (s *FlightSqliteServerSuite) TestCommandGetTables() {
 }
 
 func (s *FlightSqliteServerSuite) TestCommandGetTablesWithTableFilter() {
+	ctx := context.Background()
+	info, err := s.cl.GetTables(ctx, &flightsql.GetTablesOpts{
+		TableNameFilterPattern: proto.String("int%"),
+	})
+	s.NoError(err)
+	s.NotNil(info)
 
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	catalog := s.fromJSON(arrow.BinaryTypes.String, `[null]`)
+	schema := s.fromJSON(arrow.BinaryTypes.String, `[null]`)
+	table := s.fromJSON(arrow.BinaryTypes.String, `["intTable"]`)
+	tabletype := s.fromJSON(arrow.BinaryTypes.String, `["table"]`)
+	expected := array.NewRecord(schema_ref.Tables, []arrow.Array{catalog, schema, table, tabletype}, 1)
+	defer func() {
+		catalog.Release()
+		schema.Release()
+		table.Release()
+		tabletype.Release()
+		expected.Release()
+	}()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.NotNil(rec)
+	rec.Retain()
+	defer rec.Release()
+	s.False(rdr.Next())
+	s.NoError(rdr.Err())
+
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTablesWithTableTypesFilter() {
+	ctx := context.Background()
+	info, err := s.cl.GetTables(ctx, &flightsql.GetTablesOpts{
+		TableTypes: []string{"index"},
+	})
+	s.NoError(err)
+
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	s.True(schema_ref.Tables.Equal(rdr.Schema()), rdr.Schema().String())
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTablesWithExistingTableTypeFilter() {
+	ctx := context.Background()
+	info, err := s.cl.GetTables(ctx, &flightsql.GetTablesOpts{
+		TableTypes: []string{"table"},
+	})
+	s.NoError(err)
+	s.NotNil(info)
+
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	catalogName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	defer catalogName.Release()
+	schemaName := scalar.MakeArrayOfNull(arrow.BinaryTypes.String, 3, s.mem)
+	defer schemaName.Release()
+
+	tableName := s.fromJSON(arrow.BinaryTypes.String, `["foreignTable", "intTable", "sqlite_sequence"]`)
+	defer tableName.Release()
+
+	tableType := s.fromJSON(arrow.BinaryTypes.String, `["table", "table", "table"]`)
+	defer tableType.Release()
+
+	expectedRec := array.NewRecord(schema_ref.Tables, []arrow.Array{catalogName, schemaName, tableName, tableType}, 3)
+	defer expectedRec.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.NotNil(rec)
+	rec.Retain()
+	defer rec.Release()
+	s.False(rdr.Next())
+
+	s.Truef(array.RecordEqual(expectedRec, rec), "expected: %s\ngot: %s", expectedRec, rec)
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTablesWithIncludedSchemas() {
+	ctx := context.Background()
+	info, err := s.cl.GetTables(ctx, &flightsql.GetTablesOpts{
+		TableNameFilterPattern: proto.String("int%"),
+		IncludeSchema:          true,
+	})
+	s.NoError(err)
+	s.NotNil(info)
+
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	catalog := s.fromJSON(arrow.BinaryTypes.String, `[null]`)
+	schema := s.fromJSON(arrow.BinaryTypes.String, `[null]`)
+	table := s.fromJSON(arrow.BinaryTypes.String, `["intTable"]`)
+	tabletype := s.fromJSON(arrow.BinaryTypes.String, `["table"]`)
+
+	dbTableName := "intTable"
+
+	tableSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64,
+			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
+		{Name: "keyName", Type: arrow.BinaryTypes.String,
+			Metadata: s.getColMetadata(sqlite3.SQLITE_TEXT, dbTableName)},
+		{Name: "value", Type: arrow.PrimitiveTypes.Int64,
+			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
+		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64,
+			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
+	}, nil)
+	schemaBuf := flight.SerializeSchema(tableSchema, s.mem)
+	binaryBldr := array.NewBinaryBuilder(s.mem, arrow.BinaryTypes.Binary)
+	binaryBldr.Append(schemaBuf)
+	schemaCol := binaryBldr.NewArray()
+
+	expected := array.NewRecord(schema_ref.TablesWithIncludedSchema, []arrow.Array{catalog, schema, table, tabletype, schemaCol}, 1)
+	defer func() {
+		catalog.Release()
+		schema.Release()
+		table.Release()
+		tabletype.Release()
+		binaryBldr.Release()
+		schemaCol.Release()
+		expected.Release()
+	}()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.NotNil(rec)
+	rec.Retain()
+	defer rec.Release()
+	s.False(rdr.Next())
+	s.NoError(rdr.Err())
+
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTypeInfo() {
+	ctx := context.Background()
+	info, err := s.cl.GetXdbcTypeInfo(ctx, nil)
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	expected := example.GetTypeInfoResult(s.mem)
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTypeInfoFiltered() {
+	ctx := context.Background()
+	info, err := s.cl.GetXdbcTypeInfo(ctx, proto.Int32(-4))
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	expected := example.GetFilteredTypeInfoResult(s.mem, -4)
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetCatalogs() {
+	ctx := context.Background()
+	info, err := s.cl.GetCatalogs(ctx)
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	s.True(rdr.Schema().Equal(schema_ref.Catalogs), rdr.Schema().String())
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetDbSchemas() {
+	ctx := context.Background()
+	info, err := s.cl.GetDBSchemas(ctx, &flightsql.GetDBSchemasOpts{})
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	s.True(rdr.Schema().Equal(schema_ref.DBSchemas), rdr.Schema().String())
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetTableTypes() {
+	ctx := context.Background()
+	info, err := s.cl.GetTableTypes(ctx)
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	expected := s.fromJSON(arrow.BinaryTypes.String, `["table"]`)
+	defer expected.Release()
+	expectedRec := array.NewRecord(schema_ref.TableTypes, []arrow.Array{expected}, 1)
+	defer expectedRec.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expectedRec, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandStatementUpdate() {
+	ctx := context.Background()
+	result, err := s.cl.ExecuteUpdate(ctx, `INSERT INTO intTable (keyName, value) VALUES 
+							('KEYNAME1', 1001), ('KEYNAME2', 1002), ('KEYNAME3', 1003)`)
+	s.NoError(err)
+	s.EqualValues(3, result)
+
+	result, err = s.cl.ExecuteUpdate(ctx, `UPDATE intTable SET keyName = 'KEYNAME1'
+										  WHERE keyName = 'KEYNAME2' OR keyName = 'KEYNAME3'`)
+	s.NoError(err)
+	s.EqualValues(2, result)
+
+	result, err = s.cl.ExecuteUpdate(ctx, `DELETE FROM intTable WHERE keyName = 'KEYNAME1'`)
+	s.NoError(err)
+	s.EqualValues(3, result)
+}
+
+func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQuery() {
+	ctx := context.Background()
+	prep, err := s.cl.Prepare(ctx, s.mem, "SELECT * FROM intTable")
+	s.NoError(err)
+	defer prep.Close(ctx)
+
+	info, err := prep.Execute(ctx)
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+
+	expectedSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true},
+		{Name: "keyName", Type: arrow.BinaryTypes.String, Metadata: s.getColMetadata(sqlite3.SQLITE_TEXT, ""), Nullable: true},
+		{Name: "value", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true},
+		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true}}, nil)
+
+	idArr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 2, 3, 4]`)
+	defer idArr.Release()
+	keyNameArr := s.fromJSON(arrow.BinaryTypes.String, `["one", "zero", "negative one", null]`)
+	defer keyNameArr.Release()
+	valueArr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 0, -1, null]`)
+	defer valueArr.Release()
+	foreignIdArr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 1, 1, null]`)
+	defer foreignIdArr.Release()
+
+	expected := array.NewRecord(expectedSchema, []arrow.Array{idArr, keyNameArr, valueArr, foreignIdArr}, 4)
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQueryWithParams() {
+	ctx := context.Background()
+	stmt, err := s.cl.Prepare(ctx, s.mem, "SELECT * FROM intTable WHERE keyName LIKE ?")
+	s.NoError(err)
+	defer stmt.Close(ctx)
+
+	typeIDs := s.fromJSON(arrow.PrimitiveTypes.Int8, "[0]")
+	offsets := s.fromJSON(arrow.PrimitiveTypes.Int32, "[0]")
+	strArray := s.fromJSON(arrow.BinaryTypes.String, `["%one"]`)
+	bytesArr := s.fromJSON(arrow.BinaryTypes.Binary, "[]")
+	bigintArr := s.fromJSON(arrow.PrimitiveTypes.Int64, "[]")
+	dblArr := s.fromJSON(arrow.PrimitiveTypes.Float64, "[]")
+	paramArr, _ := array.NewDenseUnionFromArraysWithFields(typeIDs,
+		offsets, []arrow.Array{strArray, bytesArr, bigintArr, dblArr},
+		[]string{"string", "bytes", "bigint", "double"})
+	batch := array.NewRecord(arrow.NewSchema([]arrow.Field{
+		{Name: "parameter_1", Type: paramArr.DataType()}}, nil),
+		[]arrow.Array{paramArr}, 1)
+	defer func() {
+		typeIDs.Release()
+		offsets.Release()
+		strArray.Release()
+		bytesArr.Release()
+		bigintArr.Release()
+		dblArr.Release()
+		paramArr.Release()
+		batch.Release()
+	}()
+
+	stmt.SetParameters(batch)
+	info, err := stmt.Execute(ctx)
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+
+	expectedSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true},
+		{Name: "keyName", Type: arrow.BinaryTypes.String, Metadata: s.getColMetadata(sqlite3.SQLITE_TEXT, ""), Nullable: true},
+		{Name: "value", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true},
+		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64, Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, ""), Nullable: true}}, nil)
+
+	idArr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 3]`)
+	defer idArr.Release()
+	keyNameArr := s.fromJSON(arrow.BinaryTypes.String, `["one", "negative one"]`)
+	defer keyNameArr.Release()
+	valueArr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, -1]`)
+	defer valueArr.Release()
+	foreignIdArr := s.fromJSON(arrow.PrimitiveTypes.Int64, `[1, 1]`)
+	defer foreignIdArr.Release()
+
+	expected := array.NewRecord(expectedSchema, []arrow.Array{idArr, keyNameArr, valueArr, foreignIdArr}, 2)
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
 }
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams() {
@@ -383,6 +730,23 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams()
 	n, err = s.cl.ExecuteUpdate(context.Background(), "DELETE FROM intTable WHERE keyName = 'new_value'")
 	s.NoError(err)
 	s.EqualValues(1, n)
+	s.EqualValues(4, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
+}
+
+func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdate() {
+	ctx := context.Background()
+	stmt, err := s.cl.Prepare(ctx, s.mem, "INSERT INTO intTable (keyName, value) VALUES ('new_value', 999)")
+	s.NoError(err)
+	defer stmt.Close(ctx)
+
+	s.EqualValues(4, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
+	result, err := stmt.ExecuteUpdate(ctx)
+	s.NoError(err)
+	s.EqualValues(1, result)
+	s.EqualValues(5, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
+	result, err = s.cl.ExecuteUpdate(ctx, "DELETE FROM intTable WHERE keyName = 'new_value'")
+	s.NoError(err)
+	s.EqualValues(1, result)
 	s.EqualValues(4, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
 }
 

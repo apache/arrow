@@ -128,7 +128,7 @@ func getPrecisionFromCol(sqltype int) int {
 func getColumnMetadata(bldr *flightsql.ColumnMetadataBuilder, sqltype int, table string) arrow.Metadata {
 	defer bldr.Clear()
 
-	bldr.Scale(15).IsReadOnly(false)
+	bldr.Scale(15).IsReadOnly(false).IsAutoIncrement(false)
 	if table != "" {
 		bldr.TableName(table)
 	}

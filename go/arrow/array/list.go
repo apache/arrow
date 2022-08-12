@@ -321,12 +321,31 @@ func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
 	}
 }
 
+// NewListBuilderWithField takes a field to use for the child rather than just
+// a datatype to allow for more customization.
+func NewListBuilderWithField(mem memory.Allocator, field arrow.Field) *ListBuilder {
+	offsetBldr := NewInt32Builder(mem)
+	return &ListBuilder{
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			dt:              arrow.ListOfField(field),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int32(o)) },
+		},
+	}
+}
+
 func (b *baseListBuilder) Type() arrow.DataType {
-	switch b.dt.ID() {
-	case arrow.LIST:
-		return arrow.ListOf(b.values.Type())
-	case arrow.LARGE_LIST:
-		return arrow.LargeListOf(b.values.Type())
+	switch dt := b.dt.(type) {
+	case *arrow.ListType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.ListOfField(f)
+	case *arrow.LargeListType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.LargeListOfField(f)
 	}
 	return nil
 }
@@ -341,6 +360,21 @@ func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListB
 			values:          NewBuilder(mem, etype),
 			offsets:         offsetBldr,
 			dt:              arrow.LargeListOf(etype),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int64(o)) },
+		},
+	}
+}
+
+// NewLargeListBuilderWithField takes a field rather than just an element type
+// to allow for more customization of the final type of the LargeList Array
+func NewLargeListBuilderWithField(mem memory.Allocator, field arrow.Field) *ListBuilder {
+	offsetBldr := NewInt64Builder(mem)
+	return &ListBuilder{
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			dt:              arrow.LargeListOfField(field),
 			appendOffsetVal: func(o int) { offsetBldr.Append(int64(o)) },
 		},
 	}
