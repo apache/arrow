@@ -141,18 +141,18 @@ jobs:
       fail-fast: false
       matrix:
         go: [1.16, 1.18]
-    steps:
-      - name: Install go
-        uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
-          cache: true
-          cache-dependency-path: go/go.sum
+    steps:      
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Install go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum          
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
       - name: Build
@@ -171,18 +171,18 @@ jobs:
       fail-fast: false
       matrix:
         go: [1.16, 1.18]
-    steps:
+    steps:      
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
       - name: Install go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
-      - name: Checkout Arrow
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: recursive
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
       - name: Build
@@ -203,18 +203,18 @@ jobs:
         go: [1.16, 1.18]
     env:
       ARROW_GO_TESTCGO: "1"
-    steps:
+    steps:      
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
       - name: Install go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
-      - name: Checkout Arrow
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: recursive
       - name: Brew Install Arrow
         shell: bash
         run: brew install apache-arrow

@@ -19,7 +19,11 @@ ARG arch=amd64
 ARG go=1.16
 FROM ${arch}/golang:${go}-bullseye
 
-RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
+RUN if [ "${go}" -eq "1.18" ]; then \
+     GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.3.3; \
+    else \
+     GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.2.2; \
+    fi
 
 # TODO(kszucs):
 # 1. add the files required to install the dependencies to .dockerignore
