@@ -390,10 +390,10 @@ func (b *baseListBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
+		b.values.Release()
+		b.offsets.Release()
 	}
 
-	b.values.Release()
-	b.offsets.Release()
 }
 
 func (b *baseListBuilder) appendNextOffset() {
@@ -488,9 +488,6 @@ func (b *LargeListBuilder) NewArray() arrow.Array {
 // NewListArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
 // so it can be used to build a new array.
 func (b *ListBuilder) NewListArray() (a *List) {
-	if b.offsets.Len() != b.length+1 {
-		b.appendNextOffset()
-	}
 	data := b.newData()
 	a = NewListData(data)
 	data.Release()
@@ -500,9 +497,6 @@ func (b *ListBuilder) NewListArray() (a *List) {
 // NewLargeListArray creates a List array from the memory buffers used by the builder and resets the LargeListBuilder
 // so it can be used to build a new array.
 func (b *LargeListBuilder) NewLargeListArray() (a *LargeList) {
-	if b.offsets.Len() != b.length+1 {
-		b.appendNextOffset()
-	}
 	data := b.newData()
 	a = NewLargeListData(data)
 	data.Release()
@@ -510,6 +504,9 @@ func (b *LargeListBuilder) NewLargeListArray() (a *LargeList) {
 }
 
 func (b *baseListBuilder) newData() (data *Data) {
+	if b.offsets.Len() != b.length+1 {
+		b.appendNextOffset()
+	}
 	values := b.values.NewArray()
 	defer values.Release()
 

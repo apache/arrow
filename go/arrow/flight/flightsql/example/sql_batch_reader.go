@@ -62,16 +62,6 @@ func getArrowType(c *sql.ColumnType) arrow.DataType {
 	return getArrowTypeFromString(dbtype)
 }
 
-// func getColumnMetadata(bldr *flightsql.ColumnMetadataBuilder, c *sql.ColumnType) arrow.Metadata {
-// 	defer bldr.Clear()
-// 	bldr.IsAutoIncrement(false).IsReadOnly(false)
-// 	prec, scale, ok := c.DecimalSize()
-// 	if ok {
-// 		bldr.Precision(int32(prec)).Scale(int32(scale))
-// 	}
-// 	return bldr.Metadata()
-// }
-
 const maxBatchSize = 1024
 
 type SqlBatchReader struct {
@@ -90,6 +80,18 @@ func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, row
 	rowdest := make([]interface{}, len(schema.Fields()))
 	for i, f := range schema.Fields() {
 		switch f.Type.ID() {
+		case arrow.UINT8:
+			if f.Nullable {
+				rowdest[i] = &sql.NullInt16{}
+			} else {
+				rowdest[i] = new(uint8)
+			}
+		case arrow.INT32:
+			if f.Nullable {
+				rowdest[i] = &sql.NullInt32{}
+			} else {
+				rowdest[i] = new(int32)
+			}
 		case arrow.INT64:
 			if f.Nullable {
 				rowdest[i] = &sql.NullInt64{}
@@ -139,6 +141,18 @@ func NewSqlBatchReader(mem memory.Allocator, rows *sql.Rows) (*SqlBatchReader, e
 		fields[i].Type = getArrowType(c)
 		fields[i].Metadata = getColumnMetadata(bldr, getSqlTypeFromTypeName(c.DatabaseTypeName()), "")
 		switch fields[i].Type.ID() {
+		case arrow.UINT8:
+			if fields[i].Nullable {
+				rowdest[i] = &sql.NullInt16{}
+			} else {
+				rowdest[i] = new(uint8)
+			}
+		case arrow.INT32:
+			if fields[i].Nullable {
+				rowdest[i] = &sql.NullInt32{}
+			} else {
+				rowdest[i] = new(int32)
+			}
 		case arrow.INT64:
 			if fields[i].Nullable {
 				rowdest[i] = &sql.NullInt64{}
@@ -212,6 +226,14 @@ func (r *SqlBatchReader) Next() bool {
 		for i, v := range r.rowdest {
 			fb := r.bldr.Field(i)
 			switch v := v.(type) {
+			case *uint8:
+				fb.(*array.Uint8Builder).Append(*v)
+			case *sql.NullInt16:
+				if !v.Valid {
+					fb.AppendNull()
+				} else {
+					fb.(*array.Uint8Builder).Append(uint8(v.Int16))
+				}
 			case *int64:
 				fb.(*array.Int64Builder).Append(*v)
 			case *sql.NullInt64:
@@ -219,6 +241,14 @@ func (r *SqlBatchReader) Next() bool {
 					fb.AppendNull()
 				} else {
 					fb.(*array.Int64Builder).Append(v.Int64)
+				}
+			case *int32:
+				fb.(*array.Int32Builder).Append(*v)
+			case *sql.NullInt32:
+				if !v.Valid {
+					fb.AppendNull()
+				} else {
+					fb.(*array.Int32Builder).Append(v.Int32)
 				}
 			case *float64:
 				fb.(*array.Float64Builder).Append(*v)

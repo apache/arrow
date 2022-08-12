@@ -31,6 +31,7 @@ import (
 	pb "github.com/apache/arrow/go/v10/arrow/flight/internal/flight"
 	"github.com/apache/arrow/go/v10/arrow/memory"
 	"github.com/apache/arrow/go/v10/arrow/scalar"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -748,6 +749,213 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdate() {
 	s.NoError(err)
 	s.EqualValues(1, result)
 	s.EqualValues(4, s.execCountQuery("SELECT COUNT(*) FROM intTable"))
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetPrimaryKeys() {
+	ctx := context.Background()
+	info, err := s.cl.GetPrimaryKeys(ctx, flightsql.TableRef{Table: "int%"})
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	bldr := array.NewRecordBuilder(s.mem, schema_ref.PrimaryKeys)
+	defer bldr.Release()
+	bldr.Field(0).AppendNull()
+	bldr.Field(1).AppendNull()
+	bldr.Field(2).(*array.StringBuilder).Append("intTable")
+	bldr.Field(3).(*array.StringBuilder).Append("id")
+	bldr.Field(4).(*array.Int32Builder).Append(1)
+	bldr.Field(5).AppendNull()
+	expected := bldr.NewRecord()
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetImportedKeys() {
+	ctx := context.Background()
+	info, err := s.cl.GetImportedKeys(ctx, flightsql.TableRef{Table: "intTable"})
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	bldr := array.NewRecordBuilder(s.mem, schema_ref.ImportedKeys)
+	defer bldr.Release()
+	bldr.Field(0).AppendNull()
+	bldr.Field(1).AppendNull()
+	bldr.Field(2).(*array.StringBuilder).Append("foreignTable")
+	bldr.Field(3).(*array.StringBuilder).Append("id")
+	bldr.Field(4).AppendNull()
+	bldr.Field(5).AppendNull()
+	bldr.Field(6).(*array.StringBuilder).Append("intTable")
+	bldr.Field(7).(*array.StringBuilder).Append("foreignId")
+	bldr.Field(8).(*array.Int32Builder).Append(0)
+	bldr.Field(9).AppendNull()
+	bldr.Field(10).AppendNull()
+	bldr.Field(11).(*array.Uint8Builder).Append(3)
+	bldr.Field(12).(*array.Uint8Builder).Append(3)
+	expected := bldr.NewRecord()
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetExportedKeys() {
+	ctx := context.Background()
+	info, err := s.cl.GetExportedKeys(ctx, flightsql.TableRef{Table: "foreignTable"})
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	bldr := array.NewRecordBuilder(s.mem, schema_ref.ImportedKeys)
+	defer bldr.Release()
+	bldr.Field(0).AppendNull()
+	bldr.Field(1).AppendNull()
+	bldr.Field(2).(*array.StringBuilder).Append("foreignTable")
+	bldr.Field(3).(*array.StringBuilder).Append("id")
+	bldr.Field(4).AppendNull()
+	bldr.Field(5).AppendNull()
+	bldr.Field(6).(*array.StringBuilder).Append("intTable")
+	bldr.Field(7).(*array.StringBuilder).Append("foreignId")
+	bldr.Field(8).(*array.Int32Builder).Append(0)
+	bldr.Field(9).AppendNull()
+	bldr.Field(10).AppendNull()
+	bldr.Field(11).(*array.Uint8Builder).Append(3)
+	bldr.Field(12).(*array.Uint8Builder).Append(3)
+	expected := bldr.NewRecord()
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetCrossRef() {
+	ctx := context.Background()
+	info, err := s.cl.GetCrossReference(ctx,
+		flightsql.TableRef{Table: "foreignTable"},
+		flightsql.TableRef{Table: "intTable"})
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	bldr := array.NewRecordBuilder(s.mem, schema_ref.ImportedKeys)
+	defer bldr.Release()
+	bldr.Field(0).AppendNull()
+	bldr.Field(1).AppendNull()
+	bldr.Field(2).(*array.StringBuilder).Append("foreignTable")
+	bldr.Field(3).(*array.StringBuilder).Append("id")
+	bldr.Field(4).AppendNull()
+	bldr.Field(5).AppendNull()
+	bldr.Field(6).(*array.StringBuilder).Append("intTable")
+	bldr.Field(7).(*array.StringBuilder).Append("foreignId")
+	bldr.Field(8).(*array.Int32Builder).Append(0)
+	bldr.Field(9).AppendNull()
+	bldr.Field(10).AppendNull()
+	bldr.Field(11).(*array.Uint8Builder).Append(3)
+	bldr.Field(12).(*array.Uint8Builder).Append(3)
+	expected := bldr.NewRecord()
+	defer expected.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
+	s.False(rdr.Next())
+}
+
+func validateSqlInfo(t *testing.T, expected interface{}, sc scalar.Scalar) bool {
+	switch ex := expected.(type) {
+	case string:
+		return assert.Equal(t, ex, sc.String())
+	case bool:
+		return assert.Equal(t, ex, sc.(*scalar.Boolean).Value)
+	case int64:
+		return assert.Equal(t, ex, sc.(*scalar.Int64).Value)
+	case int32:
+		return assert.Equal(t, ex, sc.(*scalar.Int32).Value)
+	case []string:
+		arr := sc.(*scalar.List).Value.(*array.String)
+		assert.EqualValues(t, len(ex), arr.Len())
+		for i, v := range ex {
+			assert.Equal(t, v, arr.Value(i))
+		}
+	case map[int32][]int32:
+		// map is a list of structs with key and values
+		structArr := sc.(*scalar.Map).Value.(*array.Struct)
+		keys := structArr.Field(0).(*array.Int32)
+		values := structArr.Field(1).(*array.List)
+		// assert that the map has the right size
+		assert.EqualValues(t, len(ex), keys.Len())
+
+		// for each element, match the argument
+		for i := 0; i < keys.Len(); i++ {
+			keyScalar, _ := scalar.GetScalar(keys, i)
+			infoID := keyScalar.(*scalar.Int32).Value
+
+			// assert the key exists
+			list, ok := ex[infoID]
+			assert.True(t, ok)
+
+			// assert the int32list is the right size
+			start, end := values.ValueOffsets(i)
+			assert.EqualValues(t, len(list), end-start)
+
+			// for each element make sure it matches
+			for j, v := range list {
+				listItem, err := scalar.GetScalar(values.ListValues(), int(start)+j)
+				assert.NoError(t, err)
+				assert.Equal(t, v, listItem.(*scalar.Int32).Value)
+			}
+		}
+	}
+	return true
+}
+
+func (s *FlightSqliteServerSuite) TestCommandGetSqlInfo() {
+	expectedResults := example.SqlInfoResultMap()
+	infoIDs := make([]flightsql.SqlInfo, 0, len(expectedResults))
+	for k := range expectedResults {
+		infoIDs = append(infoIDs, flightsql.SqlInfo(k))
+	}
+
+	ctx := context.Background()
+	info, err := s.cl.GetSqlInfo(ctx, infoIDs)
+	s.NoError(err)
+	rdr, err := s.cl.DoGet(ctx, info.Endpoint[0].Ticket)
+	s.NoError(err)
+	defer rdr.Release()
+
+	s.True(rdr.Next())
+	rec := rdr.Record()
+	rec.Retain()
+	defer rec.Release()
+	s.False(rdr.Next())
+
+	s.EqualValues(2, rec.NumCols())
+	s.EqualValues(len(expectedResults), rec.NumRows())
+
+	colName := rec.Column(0).(*array.Uint32)
+	colValue := rec.Column(1)
+	for i := 0; i < int(rec.NumRows()); i++ {
+		expected := expectedResults[colName.Value(i)]
+		sc, err := scalar.GetScalar(colValue, i)
+		s.NoError(err)
+
+		s.True(validateSqlInfo(s.T(), expected, sc.(*scalar.DenseUnion).ChildValue()))
+
+		sc.(*scalar.DenseUnion).Release()
+	}
 }
 
 func TestSqliteServer(t *testing.T) {

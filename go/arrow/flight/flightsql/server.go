@@ -164,6 +164,10 @@ func (BaseServer) mustEmbedBaseServer() {}
 //
 // Once registered, this value will be returned for any SqlInfo requests.
 func (b *BaseServer) RegisterSqlInfo(id SqlInfo, result interface{}) error {
+	if b.sqlInfoToResult == nil {
+		b.sqlInfoToResult = make(SqlInfoResultMap)
+	}
+
 	switch result.(type) {
 	case string, bool, int64, int32, []string, map[int32][]int32:
 		b.sqlInfoToResult[uint32(id)] = result

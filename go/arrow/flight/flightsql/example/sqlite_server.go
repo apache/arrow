@@ -98,6 +98,40 @@ func prepareQueryForGetTables(cmd flightsql.GetTables) string {
 	return b.String()
 }
 
+func prepareQueryForGetKeys(filter string) string {
+	return `SELECT * FROM (
+		SELECT 
+			NULL AS pk_catalog_name,
+			NULL AS pk_schema_name,
+			p."table" AS pk_table_name,
+			p."to" AS pk_column_name,
+			NULL AS fk_catalog_name,
+			NULL AS fk_schema_name,
+			m.name AS fk_table_name,
+			p."from" AS fk_column_name,
+			p.seq AS key_sequence,
+			NULL AS pk_key_name,
+			NULL AS fk_key_name,
+			CASE
+				WHEN p.on_update = 'CASCADE' THEN 0
+				WHEN p.on_update = 'RESTRICT' THEN 1
+				WHEN p.on_update = 'SET NULL' THEN 2
+				WHEN p.on_update = 'NO ACTION' THEN 3
+				WHEN p.on_update = 'SET DEFAULT' THEN 4
+			END AS update_rule,
+			CASE
+				WHEN p.on_delete = 'CASCADE' THEN 0
+				WHEN p.on_delete = 'RESTRICT' THEN 1
+				WHEN p.on_delete = 'SET NULL' THEN 2
+				WHEN p.on_delete = 'NO ACTION' THEN 3
+				WHEN p.on_delete = 'SET DEFAULT' THEN 4
+			END AS delete_rule
+		FROM sqlite_master m
+		JOIN pragma_foreign_key_list(m.name) p ON m.name != p."table"
+		WHERE m.type = 'table') WHERE ` + filter +
+		` ORDER BY pk_catalog_name, pk_schema_name, pk_table_name, pk_key_name, key_sequence`
+}
+
 type Statement struct {
 	stmt   *sql.Stmt
 	params []interface{}
@@ -105,8 +139,7 @@ type Statement struct {
 
 type SQLiteFlightSQLServer struct {
 	flightsql.BaseServer
-	db    *sql.DB
-	Alloc memory.Allocator
+	db *sql.DB
 
 	prepared sync.Map
 }
@@ -141,7 +174,11 @@ func NewSQLiteFlightSQLServer() (*SQLiteFlightSQLServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SQLiteFlightSQLServer{db: db}, nil
+	ret := &SQLiteFlightSQLServer{db: db}
+	for k, v := range SqlInfoResultMap() {
+		ret.RegisterSqlInfo(flightsql.SqlInfo(k), v)
+	}
+	return ret, nil
 }
 
 func (s *SQLiteFlightSQLServer) flightInfoForCommand(desc *flight.FlightDescriptor, schema *arrow.Schema) *flight.FlightInfo {
@@ -170,19 +207,7 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoStatement(ctx context.Context, cmd 
 }
 
 func (s *SQLiteFlightSQLServer) DoGetStatement(ctx context.Context, cmd flightsql.StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	rows, err := s.db.QueryContext(ctx, string(cmd.GetStatementHandle()))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	reader, err := NewSqlBatchReader(s.Alloc, rows)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ch := make(chan flight.StreamChunk)
-	go flight.StreamChunksFromReader(reader, ch)
-	return reader.schema, ch, nil
+	return doGetQuery(ctx, s.Alloc, s.db, string(cmd.GetStatementHandle()), nil)
 }
 
 func (s *SQLiteFlightSQLServer) GetFlightInfoCatalogs(_ context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
@@ -272,20 +297,7 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoTableTypes(_ context.Context, desc 
 
 func (s *SQLiteFlightSQLServer) DoGetTableTypes(ctx context.Context) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	query := "SELECT DISTINCT type AS table_type FROM sqlite_master"
-
-	rows, err := s.db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	reader, err := NewSqlBatchReaderWithSchema(s.Alloc, schema_ref.TableTypes, rows)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ch := make(chan flight.StreamChunk)
-	go flight.StreamChunksFromReader(reader, ch)
-	return reader.schema, ch, nil
+	return doGetQuery(ctx, s.Alloc, s.db, query, schema_ref.TableTypes)
 }
 
 func (s *SQLiteFlightSQLServer) DoPutCommandStatementUpdate(ctx context.Context, cmd flightsql.StatementUpdate) (int64, error) {
@@ -332,6 +344,28 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoPreparedStatement(_ context.Context
 		TotalRecords:     -1,
 		TotalBytes:       -1,
 	}, nil
+}
+
+func doGetQuery(ctx context.Context, mem memory.Allocator, db *sql.DB, query string, schema *arrow.Schema, args ...interface{}) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var rdr *SqlBatchReader
+	if schema != nil {
+		rdr, err = NewSqlBatchReaderWithSchema(mem, schema, rows)
+	} else {
+		rdr, err = NewSqlBatchReader(mem, rows)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ch := make(chan flight.StreamChunk)
+	go flight.StreamChunksFromReader(rdr, ch)
+	return rdr.schema, ch, nil
 }
 
 func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {
@@ -435,4 +469,89 @@ func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context
 	}
 
 	return result.RowsAffected()
+}
+
+func (s *SQLiteFlightSQLServer) GetFlightInfoPrimaryKeys(_ context.Context, cmd flightsql.TableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return s.flightInfoForCommand(desc, schema_ref.PrimaryKeys), nil
+}
+
+func (s *SQLiteFlightSQLServer) DoGetPrimaryKeys(ctx context.Context, cmd flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	// the field key_name can not be recovered by sqlite so it is
+	// being set to null following the same pattern for catalog name and schema_name
+	var b strings.Builder
+
+	b.WriteString(`
+	SELECT null AS catalog_name, null AS schema_name, table_name, name AS column_name, pk AS key_sequence, null as key_name
+	FROM pragma_table_info(table_name)
+		JOIN (SELECT null AS catalog_name, null AS schema_name, name AS table_name, type AS table_type
+			FROM sqlite_master) where 1=1 AND pk !=0`)
+
+	if cmd.Catalog != nil {
+		fmt.Fprintf(&b, " and catalog_name LIKE '%s'", *cmd.Catalog)
+	}
+	if cmd.DBSchema != nil {
+		fmt.Fprintf(&b, " and schema_name LIKE '%s'", *cmd.DBSchema)
+	}
+
+	fmt.Fprintf(&b, " and table_name LIKE '%s'", cmd.Table)
+
+	return doGetQuery(ctx, s.Alloc, s.db, b.String(), schema_ref.PrimaryKeys)
+}
+
+func (s *SQLiteFlightSQLServer) GetFlightInfoImportedKeys(_ context.Context, _ flightsql.TableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return s.flightInfoForCommand(desc, schema_ref.ImportedKeys), nil
+}
+
+func (s *SQLiteFlightSQLServer) DoGetImportedKeys(ctx context.Context, ref flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	filter := "fk_table_name = '" + ref.Table + "'"
+	if ref.Catalog != nil {
+		filter += " AND fk_catalog_name = '" + *ref.Catalog + "'"
+	}
+	if ref.DBSchema != nil {
+		filter += " AND fk_schema_name = '" + *ref.DBSchema + "'"
+	}
+	query := prepareQueryForGetKeys(filter)
+	return doGetQuery(ctx, s.Alloc, s.db, query, schema_ref.ImportedKeys)
+}
+
+func (s *SQLiteFlightSQLServer) GetFlightInfoExportedKeys(_ context.Context, _ flightsql.TableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return s.flightInfoForCommand(desc, schema_ref.ExportedKeys), nil
+}
+
+func (s *SQLiteFlightSQLServer) DoGetExportedKeys(ctx context.Context, ref flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	filter := "pk_table_name = '" + ref.Table + "'"
+	if ref.Catalog != nil {
+		filter += " AND pk_catalog_name = '" + *ref.Catalog + "'"
+	}
+	if ref.DBSchema != nil {
+		filter += " AND pk_schema_name = '" + *ref.DBSchema + "'"
+	}
+	query := prepareQueryForGetKeys(filter)
+	return doGetQuery(ctx, s.Alloc, s.db, query, schema_ref.ExportedKeys)
+}
+
+func (s *SQLiteFlightSQLServer) GetFlightInfoCrossReference(_ context.Context, _ flightsql.CrossTableRef, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return s.flightInfoForCommand(desc, schema_ref.CrossReference), nil
+}
+
+func (s *SQLiteFlightSQLServer) DoGetCrossReference(ctx context.Context, cmd flightsql.CrossTableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	pkref := cmd.PKRef
+	filter := "pk_table_name = '" + pkref.Table + "'"
+	if pkref.Catalog != nil {
+		filter += " AND pk_catalog_name = '" + *pkref.Catalog + "'"
+	}
+	if pkref.DBSchema != nil {
+		filter += " AND pk_schema_name = '" + *pkref.DBSchema + "'"
+	}
+
+	fkref := cmd.FKRef
+	filter += " AND fk_table_name = '" + fkref.Table + "'"
+	if fkref.Catalog != nil {
+		filter += " AND fk_catalog_name = '" + *fkref.Catalog + "'"
+	}
+	if fkref.DBSchema != nil {
+		filter += " AND fk_schema_name = '" + *fkref.DBSchema + "'"
+	}
+	query := prepareQueryForGetKeys(filter)
+	return doGetQuery(ctx, s.Alloc, s.db, query, schema_ref.ExportedKeys)
 }
