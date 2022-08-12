@@ -39,14 +39,12 @@ if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     TAGS="-tags assert,test,ccalloc"    
 fi
 
-go get -d -t -v ./...
 go install $TAGS -v ./...
 
 popd
 
 pushd ${source_dir}/parquet
 
-go get -d -t -v ./...
 go install -v ./...
 
 popd

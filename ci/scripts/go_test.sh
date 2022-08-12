@@ -25,7 +25,7 @@ source_dir=${1}/go
 
 testargs="-race"
 if [[ "${ver#go}" =~ ^1\.1[8-9] ]]; then
-    testargs="${testargs} -asan"
+    testargs="-asan"
 fi
 
 case "$(uname)" in
@@ -50,9 +50,9 @@ fi
 pushd ${source_dir}/arrow
 
 TAGS="assert,test"
-if [[ -n "${ARROW_GO_TESTCGO}" ]]; then    
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     if [[ "${MSYSTEM}" = "MINGW64" ]]; then
-        export PATH=${MINGW_PREFIX}/bin:$PATH        
+        export PATH=${MINGW_PREFIX}/bin:$PATH
     fi
     TAGS="${TAGS},ccalloc"
 fi
@@ -62,9 +62,7 @@ fi
 # tag in order to run its tests so that the testing functions implemented
 # in .c files don't get included in non-test builds.
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags $TAGS $d
-done
+go test $testargs -tags $TAGS ./...
 
 popd
 
@@ -72,8 +70,6 @@ export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
 
 pushd ${source_dir}/parquet
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags assert $d
-done
+go test $testargs -tags assert ./...
 
 popd

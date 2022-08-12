@@ -1391,6 +1391,7 @@ services:
       args:
         arch: ${ARCH}
         go: ${GO}
+        staticcheck: ${STATICCHECK}
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &go-command >
