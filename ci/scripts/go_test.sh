@@ -24,7 +24,8 @@ ver=`go env GOVERSION`
 source_dir=${1}/go
 
 testargs="-race"
-if [[ "${ver#go}" =~ ^1\.1[8-9] ]]; then
+if [ "${ver#go}" =~ ^1\.1[8-9] ] && [ "$(go env GOHOSTARCH)" != "darwin/amd64" ]; then
+    # asan not supported on darwin/amd64
     testargs="-asan"
 fi
 
