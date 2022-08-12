@@ -147,8 +147,12 @@ arrow::Status RunMain() {
   write_options.base_dir = "write_dataset";
   // Use the partitioning declared above.
   write_options.partitioning = partitioning;
-  // If we need to split, use this as the naming convention.
+  // Define what the name for the files making up the dataset will be.
   write_options.basename_template = "part{i}.parquet";
+  // Set behavior to overwrite existing data -- specifically, this lets this example
+  // be run more than once, and allows whatever code you have to overwrite what's there.
+  write_options.existing_data_behavior =
+          arrow::dataset::ExistingDataBehavior::kOverwriteOrIgnore;
   // Write to disk!
   ARROW_RETURN_NOT_OK(
       arrow::dataset::FileSystemDataset::Write(write_options, write_scanner));
