@@ -41,10 +41,10 @@ strptime_test_df <- tibble(
   string_H = c("2023-12-30-01", NA),
   string_I = c("2023-12-30-01", NA),
   string_j = c("2023-12-30-364", NA),
-  string_M = c("2023-12-30-00", NA),
+  string_M = c("2023-12-30-45", NA),
   string_p = c("2023-12-30-AM", NA),
   string_q = c("2023.3", NA),
-  string_S = c("2023-12-30-00", NA),
+  string_S = c("2023-12-30-56", NA),
   string_OS = c("2023-12-30-12.345678", NA),
   string_U = c("2023-12-30-52", NA),
   string_w = c("2023-12-30-6", NA),
@@ -53,9 +53,9 @@ strptime_test_df <- tibble(
   string_Y = c("2023-12-30", NA),
   string_m = c("2023-12-30", NA),
   string_r = c("2023-12-30-01", NA),
-  string_R = c("2023-12-30-01:00", NA),
-  string_T = c("2023-12-30-01:00:00", NA),
-  string_z = c("2023-12-30-01:00:00z", NA)
+  string_R = c("2023-12-30-01:23", NA),
+  string_T = c("2023-12-30-01:23:45", NA),
+  string_z = c("2023-12-30-01:23:45z", NA)
 )
 
 test_df <- tibble::tibble(
@@ -178,6 +178,25 @@ test_that("strptime", {
   # RE2 library (not available on Windows with R 3.6)
   skip_if_not_available("re2")
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%m-d-%T")
+      ) %>%
+      collect(),
+    tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
+  )
+
+})
+
+test_that("strptime works for individual formats", {
+  # strptime format support is not consistent across platforms
+  skip_on_cran()
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
   expect_equal(
     strptime_test_df %>%
       arrow_table() %>%
@@ -241,8 +260,16 @@ test_that("strptime", {
     )
   }
 
-  # round trip tests are unpredictable on some systems
+})
+
+test_that("timestampt round trip correctly via strftime and strptime", {
+  # strptime format support is not consistent across platforms
   skip_on_cran()
+
+  # these functions' internals use some string processing which requires the
+  # RE2 library (not available on Windows with R 3.6)
+  skip_if_not_available("re2")
+
   tz <- "Pacific/Marquesas"
   set.seed(42)
   times <- seq(as.POSIXct("1999-02-07", tz = tz), as.POSIXct("2000-01-01", tz = tz), by = "sec")
@@ -293,15 +320,6 @@ test_that("strptime", {
         collect()
     )
   }
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        parsed_date_ymd = parse_date_time(string_1, orders = "Y-%m-d-%T")
-      ) %>%
-      collect(),
-    tibble::tibble(string_1 = c("2022-02-11-12:23:45", NA))
-  )
 
 })
 
