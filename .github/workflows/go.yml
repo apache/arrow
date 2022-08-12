@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -111,7 +111,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -140,12 +140,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
     steps:
       - name: Install go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -168,12 +170,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
     steps:
       - name: Install go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -196,14 +200,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.16]
+        go: [1.16, 1.18]
     env:
       ARROW_GO_TESTCGO: "1"
     steps:
       - name: Install go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -264,9 +270,11 @@ jobs:
           echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
           echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
       - name: Install go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: '1.17'
+          go-version: '1.18'
+          cache: true
+          cache-dependency-path: go/go.sum
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
       - name: Build

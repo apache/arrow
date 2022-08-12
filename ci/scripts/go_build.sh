@@ -36,7 +36,7 @@ if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
         go clean -cache
         go clean -testcache        
     fi
-    TAGS="-tags assert,test,ccalloc"
+    TAGS="-tags assert,test,ccalloc"    
 fi
 
 go get -d -t -v ./...

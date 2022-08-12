@@ -19,10 +19,15 @@
 
 set -ex
 
+ver=`go env GOVERSION`
+
 source_dir=${1}/go
 
-# when we upgrade to at least go1.18, we can add the new -asan option here
 testargs="-race"
+if [[ "${ver#go}" =~ ^1\.1[8-9] ]]; then
+    testargs="${testargs} -asan"
+fi
+
 case "$(uname)" in
     MINGW*)
         # -asan and -race don't work on windows currently
