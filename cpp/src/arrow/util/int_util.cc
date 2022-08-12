@@ -22,6 +22,7 @@
 #include <limits>
 
 #include "arrow/array/data.h"
+#include "arrow/chunked_array.h"
 #include "arrow/datum.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -588,6 +589,13 @@ Status CheckIndexBounds(const ArraySpan& values, uint64_t upper_limit) {
     default:
       return Status::Invalid("Invalid index type for boundschecking");
   }
+}
+
+Status CheckIndexBounds(const ChunkedArray& values, uint64_t upper_limit) {
+  for (const auto& chunk : values.chunks()) {
+    RETURN_NOT_OK(CheckIndexBounds(ArraySpan(*chunk->data()), upper_limit));
+  }
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

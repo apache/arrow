@@ -29,6 +29,7 @@ namespace arrow {
 class DataType;
 struct ArraySpan;
 struct Scalar;
+class ChunkedArray;
 
 namespace internal {
 
@@ -99,6 +100,8 @@ Status TransposeInts(const DataType& src_type, const DataType& dest_type,
 /// limit (which is usually the length of an array that is being indexed-into).
 ARROW_EXPORT
 Status CheckIndexBounds(const ArraySpan& values, uint64_t upper_limit);
+ARROW_EXPORT
+Status CheckIndexBounds(const ChunkedArray& values, uint64_t upper_limit);
 
 /// \brief Boundscheck integer values to determine if they are all between the
 /// passed upper and lower limits (inclusive). Upper and lower bounds must be

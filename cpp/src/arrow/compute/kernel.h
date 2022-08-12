@@ -538,7 +538,7 @@ struct ScalarKernel : public Kernel {
 // ----------------------------------------------------------------------
 // VectorKernel (for VectorFunction)
 
-/// \brief Kernel data structure for implementations of VectorFunction. In
+/// \brief Kernel data structure for implementations of VectorFunction. It
 /// contains an optional finalizer function, the null handling and memory
 /// pre-allocation preferences (which have different defaults from
 /// ScalarKernel), and some other execution-related options.

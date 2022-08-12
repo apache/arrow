@@ -28,6 +28,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/chunk_resolver.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
@@ -43,6 +44,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -50,8 +52,11 @@ using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
 using internal::CheckIndexBounds;
+using internal::ChunkLocation;
+using internal::ChunkResolver;
 using internal::CopyBitmap;
 using internal::CountSetBits;
+using internal::MapVector;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
@@ -365,6 +370,126 @@ struct PrimitiveTakeImpl {
     }
     out_arr->null_count = out_arr->length - valid_count;
   }
+
+  static void Exec(const ChunkedArray& values, const ChunkedArray& indices_chunked,
+                   ArrayData* out_arr) {
+    auto values_resolver = ChunkResolver(values.chunks());
+    const std::vector<const ValueCType*> values_data = MapVector(
+        [](const auto& x) { return x->data()->template GetValues<ValueCType>(1); },
+        values.chunks());
+    const std::vector<const uint8_t*> values_is_valid =
+        MapVector([](const auto& x) { return x->null_bitmap_data(); }, values.chunks());
+    const std::vector<int64_t> values_offset =
+        MapVector([](const auto& x) { return x->offset(); }, values.chunks());
+
+    auto out = out_arr->GetMutableValues<ValueCType>(1);
+    uint8_t* out_is_valid = out_arr->buffers[0]->mutable_data();
+    int64_t out_offset = out_arr->offset;
+
+    int64_t position = 0;  // Position in output array
+    int64_t valid_count = 0;
+    int64_t internal_offset = 0;  // Total length of indices chunks already processed
+
+    for (const auto& indices_chunk : indices_chunked.chunks()) {
+      const ArraySpan indices = ArraySpan(*indices_chunk.get()->data());
+      // TODO: How do we reduce duplication of code?
+      const IndexCType* indices_data = indices.GetValues<IndexCType>(1);
+      const uint8_t* indices_is_valid = indices.buffers[0].data;
+      int64_t indices_offset = indices.offset;
+
+      // If either the values or indices have nulls, we preemptively zero out the
+      // out validity bitmap so that we don't have to use ClearBit in each
+      // iteration for nulls.
+      if (values.null_count() != 0 || indices.null_count != 0) {
+        bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
+      }
+
+      OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
+                                                  indices.length);
+
+      while (position < internal_offset + indices.length) {
+        BitBlockCount block = indices_bit_counter.NextBlock();
+        if (values.null_count() == 0) {
+          // Values are never null, so things are easier
+          valid_count += block.popcount;
+          if (block.popcount == block.length) {
+            // Fastest path: neither values nor index nulls
+            bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
+            for (int64_t i = 0; i < block.length; ++i) {
+              int64_t idx = indices_data[position];
+              ChunkLocation loc = values_resolver.Resolve(idx);
+              out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
+              ++position;
+            }
+          } else if (block.popcount > 0) {
+            // Slow path: some indices but not all are null
+            for (int64_t i = 0; i < block.length; ++i) {
+              if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
+                // index is not null
+                bit_util::SetBit(out_is_valid, out_offset + position);
+                int64_t idx = indices_data[position];
+                ChunkLocation loc = values_resolver.Resolve(idx);
+                out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
+              } else {
+                out[position] = ValueCType{};
+              }
+              ++position;
+            }
+          } else {
+            memset(out + position, 0, sizeof(ValueCType) * block.length);
+            position += block.length;
+          }
+        } else {
+          // Values have nulls, so we must do random access into the values bitmap
+          if (block.popcount == block.length) {
+            // Faster path: indices are not null but values may be
+            for (int64_t i = 0; i < block.length; ++i) {
+              int64_t idx = indices_data[position];
+              ChunkLocation loc = values_resolver.Resolve(idx);
+              if (bit_util::GetBit(values_is_valid[loc.chunk_index],
+                                   values_offset[loc.chunk_index] + loc.index_in_chunk)) {
+                // value is not null
+                out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
+                bit_util::SetBit(out_is_valid, out_offset + position);
+                ++valid_count;
+              } else {
+                out[position] = ValueCType{};
+              }
+              ++position;
+            }
+          } else if (block.popcount > 0) {
+            // Slow path: some but not all indices are null. Since we are doing
+            // random access in general we have to check the value nullness one by
+            // one.
+            for (int64_t i = 0; i < block.length; ++i) {
+              int64_t idx = indices_data[position];
+              ChunkLocation loc = values_resolver.Resolve(idx);
+              if (bit_util::GetBit(indices_is_valid, indices_offset + position) &&
+                  bit_util::GetBit(values_is_valid[loc.chunk_index],
+                                   values_offset[loc.chunk_index] + loc.index_in_chunk)) {
+                // index is not null && value is not null
+                out[position] = values_data[loc.chunk_index][loc.index_in_chunk];
+                bit_util::SetBit(out_is_valid, out_offset + position);
+                ++valid_count;
+              } else {
+                out[position] = ValueCType{};
+              }
+              ++position;
+            }
+          } else {
+            memset(out + position, 0, sizeof(ValueCType) * block.length);
+            position += block.length;
+          }
+        }
+      }
+
+      // Start next output at end of what we just wrote.
+      out_offset += indices.length;
+      internal_offset += indices.length;
+    }
+
+    out_arr->null_count = out_arr->length - valid_count;
+  }
 };
 
 template <typename IndexCType>
@@ -464,6 +589,11 @@ struct BooleanTakeImpl {
     }
     out_arr->null_count = out_arr->length - valid_count;
   }
+
+  static void Exec(const ChunkedArray& values, const ChunkedArray& indices_chunked,
+                   ArrayData* out_arr) {
+    // TODO
+  }
 };
 
 template <template <typename...> class TakeImpl, typename... Args>
@@ -475,6 +605,29 @@ void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
   // having to generate double the amount of binary code to handle each integer
   // width.
   switch (indices.type->byte_width()) {
+    case 1:
+      return TakeImpl<uint8_t, Args...>::Exec(values, indices, out);
+    case 2:
+      return TakeImpl<uint16_t, Args...>::Exec(values, indices, out);
+    case 4:
+      return TakeImpl<uint32_t, Args...>::Exec(values, indices, out);
+    case 8:
+      return TakeImpl<uint64_t, Args...>::Exec(values, indices, out);
+    default:
+      DCHECK(false) << "Invalid indices byte width";
+      break;
+  }
+}
+
+template <template <typename...> class TakeImpl, typename... Args>
+void TakeIndexDispatch(const ChunkedArray& values, const ChunkedArray& indices,
+                       ArrayData* out) {
+  // With the simplifying assumption that boundschecking has taken place
+  // already at a higher level, we can now assume that the index values are all
+  // non-negative. Thus, we can interpret signed integers as unsigned and avoid
+  // having to generate double the amount of binary code to handle each integer
+  // width.
+  switch (indices.type()->byte_width()) {
     case 1:
       return TakeImpl<uint8_t, Args...>::Exec(values, indices, out);
     case 2:
@@ -527,6 +680,54 @@ Status PrimitiveTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
       DCHECK(false) << "Invalid values byte width";
       break;
   }
+  return Status::OK();
+}
+
+Status ChunkedPrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const ChunkedArray& values = *batch[0].chunked_array();
+  const ChunkedArray& indices = *batch[1].chunked_array();
+
+  if (TakeState::Get(ctx).boundscheck) {
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length()));
+  }
+
+  // TODO: Is there any reason to chunk the output for primitive arrays?
+  // We probably want to keep within 32-bit sizes for interoperability with other
+  // implementations.
+  auto out_data = ArrayData::Make(values.type(), indices.length());
+
+  const int bit_width = values.type()->bit_width();
+
+  // TODO: When neither values nor indices contain nulls, we can skip
+  // allocating the validity bitmap altogether and save time and space. A
+  // streamlined PrimitiveTakeImpl would need to be written that skips all
+  // interactions with the output validity bitmap, though.
+  RETURN_NOT_OK(PreallocateData(ctx, indices.length(), bit_width,
+                                /*allocate_validity=*/true, out_data.get()));
+
+  switch (bit_width) {
+    case 1:
+      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_data.get());
+      break;
+    case 8:
+      TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_data.get());
+      break;
+    case 16:
+      TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_data.get());
+      break;
+    case 32:
+      TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_data.get());
+      break;
+    case 64:
+      TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_data.get());
+      break;
+    default:
+      DCHECK(false) << "Invalid values byte width";
+      break;
+  }
+
+  *out = Datum(ChunkedArray(MakeArray(out_data)));
+
   return Status::OK();
 }
 
@@ -2319,6 +2520,7 @@ Status TakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 struct SelectionKernelData {
   InputType input;
   ArrayKernelExec exec;
+  VectorKernel::ChunkedExec exec_chunked;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
@@ -2332,6 +2534,7 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
     base_kernel.signature =
         KernelSignature::Make({std::move(kernel_data.input), selection_type}, FirstType);
     base_kernel.exec = kernel_data.exec;
+    base_kernel.exec_chunked = kernel_data.exec_chunked;
     DCHECK_OK(func->AddKernel(base_kernel));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2454,22 +2657,22 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
 void RegisterVectorSelection(FunctionRegistry* registry) {
   // Filter kernels
   std::vector<SelectionKernelData> filter_kernels = {
-      {InputType(match::Primitive()), PrimitiveFilter},
-      {InputType(match::BinaryLike()), BinaryFilter},
-      {InputType(match::LargeBinaryLike()), BinaryFilter},
-      {InputType(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>},
-      {InputType(null()), NullFilter},
-      {InputType(Type::DECIMAL128), FilterExec<FSBImpl>},
-      {InputType(Type::DECIMAL256), FilterExec<FSBImpl>},
-      {InputType(Type::DICTIONARY), DictionaryFilter},
-      {InputType(Type::EXTENSION), ExtensionFilter},
-      {InputType(Type::LIST), FilterExec<ListImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
-      {InputType(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
-      {InputType(Type::STRUCT), StructFilter},
+      {InputType(match::Primitive()), PrimitiveFilter, NULLPTR},
+      {InputType(match::BinaryLike()), BinaryFilter, NULLPTR},
+      {InputType(match::LargeBinaryLike()), BinaryFilter, NULLPTR},
+      {InputType(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>, NULLPTR},
+      {InputType(null()), NullFilter, NULLPTR},
+      {InputType(Type::DECIMAL128), FilterExec<FSBImpl>, NULLPTR},
+      {InputType(Type::DECIMAL256), FilterExec<FSBImpl>, NULLPTR},
+      {InputType(Type::DICTIONARY), DictionaryFilter, NULLPTR},
+      {InputType(Type::EXTENSION), ExtensionFilter, NULLPTR},
+      {InputType(Type::LIST), FilterExec<ListImpl<ListType>>, NULLPTR},
+      {InputType(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>, NULLPTR},
+      {InputType(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>, NULLPTR},
+      {InputType(Type::DENSE_UNION), FilterExec<DenseUnionImpl>, NULLPTR},
+      {InputType(Type::STRUCT), StructFilter, NULLPTR},
       // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), FilterExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), FilterExec<ListImpl<MapType>>, NULLPTR},
   };
 
   VectorKernel filter_base;
@@ -2482,22 +2685,23 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
 
   // Take kernels
   std::vector<SelectionKernelData> take_kernels = {
-      {InputType(match::Primitive()), PrimitiveTake},
-      {InputType(match::BinaryLike()), TakeExec<VarBinaryImpl<BinaryType>>},
-      {InputType(match::LargeBinaryLike()), TakeExec<VarBinaryImpl<LargeBinaryType>>},
-      {InputType(Type::FIXED_SIZE_BINARY), TakeExec<FSBImpl>},
-      {InputType(null()), NullTake},
-      {InputType(Type::DECIMAL128), TakeExec<FSBImpl>},
-      {InputType(Type::DECIMAL256), TakeExec<FSBImpl>},
-      {InputType(Type::DICTIONARY), DictionaryTake},
-      {InputType(Type::EXTENSION), ExtensionTake},
-      {InputType(Type::LIST), TakeExec<ListImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
-      {InputType(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
-      {InputType(Type::STRUCT), TakeExec<StructImpl>},
+      {InputType(match::Primitive()), PrimitiveTake, ChunkedPrimitiveTake},
+      {InputType(match::BinaryLike()), TakeExec<VarBinaryImpl<BinaryType>>, NULLPTR},
+      {InputType(match::LargeBinaryLike()), TakeExec<VarBinaryImpl<LargeBinaryType>>,
+       NULLPTR},
+      {InputType(Type::FIXED_SIZE_BINARY), TakeExec<FSBImpl>, NULLPTR},
+      {InputType(null()), NullTake, NULLPTR},
+      {InputType(Type::DECIMAL128), TakeExec<FSBImpl>, NULLPTR},
+      {InputType(Type::DECIMAL256), TakeExec<FSBImpl>, NULLPTR},
+      {InputType(Type::DICTIONARY), DictionaryTake, NULLPTR},
+      {InputType(Type::EXTENSION), ExtensionTake, NULLPTR},
+      {InputType(Type::LIST), TakeExec<ListImpl<ListType>>, NULLPTR},
+      {InputType(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>, NULLPTR},
+      {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>, NULLPTR},
+      {InputType(Type::DENSE_UNION), TakeExec<DenseUnionImpl>, NULLPTR},
+      {InputType(Type::STRUCT), TakeExec<StructImpl>, NULLPTR},
       // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), TakeExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), TakeExec<ListImpl<MapType>>, NULLPTR},
   };
 
   VectorKernel take_base;
