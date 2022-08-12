@@ -47,9 +47,9 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   ${wget} https://github.com/protocolbuffers/protobuf/releases/download/v${protover}/protobuf-all-${protover}.tar.gz
   ${tar} -xf protobuf-all-${protover}.tar.gz
   pushd protobuf-${protover}
+  ls -al /usr/bin/g*
   which gcc
   which g++
-  ls -al /usr/bin/g*
   CC=gcc CXX=g++ ./configure
   make -j 2
   # protoc requires libprotoc.so.* libprotobuf.so.*
