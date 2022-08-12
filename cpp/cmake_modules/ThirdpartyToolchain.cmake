@@ -1083,6 +1083,7 @@ endif()
 macro(find_curl)
   if(NOT TARGET CURL::libcurl)
     find_package(CURL REQUIRED)
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES CURL)
     if(NOT TARGET CURL::libcurl)
       # For CMake 3.11 or older
       add_library(CURL::libcurl UNKNOWN IMPORTED)
@@ -4540,11 +4541,11 @@ macro(build_opentelemetry)
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS opentelemetry-cpp::${_OPENTELEMETRY_LIB})
   endforeach()
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
-
 endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)
