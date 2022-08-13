@@ -119,7 +119,7 @@ function decimalToString<T extends BN<BigNumArray>>(a: T) {
         base64[0] = base64[0] - base64[1] * 10;
         digits = `${base64[0]}${digits}`;
     } while (checks[0] || checks[1] || checks[2] || checks[3]);
-    return digits ? digits : `0`;
+    return digits ?? `0`;
 }
 
 /** @ignore */

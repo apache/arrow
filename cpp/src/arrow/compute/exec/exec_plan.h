@@ -40,6 +40,8 @@ namespace compute {
 
 class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
+  // This allows operators to rely on signed 16-bit indices
+  static const uint32_t kMaxBatchSize = 1 << 15;
   using NodeVector = std::vector<ExecNode*>;
 
   virtual ~ExecPlan() = default;
@@ -144,10 +146,24 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// \brief Return the plan's attached metadata
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
+  /// \brief Should the plan use a legacy batching strategy
+  ///
+  /// This is currently in place only to support the Scanner::ToTable
+  /// method.  This method relies on batch indices from the scanner
+  /// remaining consistent.  This is impractical in the ExecPlan which
+  /// might slice batches as needed (e.g. for a join)
+  ///
+  /// However, it still works for simple plans and this is the only way
+  /// we have at the moment for maintaining implicit order.
+  bool UseLegacyBatching() const { return use_legacy_batching_; }
+  // For internal use only, see above comment
+  void SetUseLegacyBatching(bool value) { use_legacy_batching_ = value; }
+
   std::string ToString() const;
 
  protected:
   ExecContext* exec_context_;
+  bool use_legacy_batching_ = false;
   explicit ExecPlan(ExecContext* exec_context) : exec_context_(exec_context) {}
 };
 

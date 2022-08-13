@@ -910,6 +910,17 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute-exec.cpp
+std::string ExecPlan_BuildAndShow(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options, int64_t head);
+extern "C" SEXP _arrow_ExecPlan_BuildAndShow(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP head_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::ExecNode>&>::type final_node(final_node_sexp);
+	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
+	arrow::r::Input<int64_t>::type head(head_sexp);
+	return cpp11::as_sexp(ExecPlan_BuildAndShow(plan, final_node, sort_options, head));
+END_CPP11
+}
+// compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<compute::ExecNode> ExecNode_Scan(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, std::vector<std::string> materialized_field_names);
 extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP filter_sexp, SEXP materialized_field_names_sexp){
@@ -4480,6 +4491,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatchreader.cpp
+std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_function(cpp11::sexp fun_sexp, const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_RecordBatchReader__from_function(SEXP fun_sexp_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::sexp>::type fun_sexp(fun_sexp_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(RecordBatchReader__from_function(fun_sexp, schema));
+END_CPP11
+}
+// recordbatchreader.cpp
 std::shared_ptr<arrow::RecordBatchReader> RecordBatchReader__from_Table(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_RecordBatchReader__from_Table(SEXP table_sexp){
 BEGIN_CPP11
@@ -5270,6 +5290,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecPlan_read_table", (DL_FUNC) &_arrow_ExecPlan_read_table, 5}, 
 		{ "_arrow_ExecPlan_StopProducing", (DL_FUNC) &_arrow_ExecPlan_StopProducing, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
+		{ "_arrow_ExecPlan_BuildAndShow", (DL_FUNC) &_arrow_ExecPlan_BuildAndShow, 4}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 14}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
@@ -5599,6 +5620,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
 		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
 		{ "_arrow_RecordBatchReader__from_batches", (DL_FUNC) &_arrow_RecordBatchReader__from_batches, 2}, 
+		{ "_arrow_RecordBatchReader__from_function", (DL_FUNC) &_arrow_RecordBatchReader__from_function, 2}, 
 		{ "_arrow_RecordBatchReader__from_Table", (DL_FUNC) &_arrow_RecordBatchReader__from_Table, 1}, 
 		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_RecordBatchReader__Head", (DL_FUNC) &_arrow_RecordBatchReader__Head, 2}, 

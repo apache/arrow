@@ -348,6 +348,8 @@ util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 
 }  // namespace
 
+const uint32_t ExecPlan::kMaxBatchSize;
+
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
     ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx, metadata});

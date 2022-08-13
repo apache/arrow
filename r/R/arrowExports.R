@@ -420,6 +420,10 @@ ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
 }
 
+ExecPlan_BuildAndShow <- function(plan, final_node, sort_options, head) {
+  .Call(`_arrow_ExecPlan_BuildAndShow`, plan, final_node, sort_options, head)
+}
+
 ExecNode_Scan <- function(plan, dataset, filter, materialized_field_names) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, materialized_field_names)
 }
@@ -1734,6 +1738,10 @@ RecordBatchReader__batches <- function(reader) {
 
 RecordBatchReader__from_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_RecordBatchReader__from_batches`, batches, schema_sxp)
+}
+
+RecordBatchReader__from_function <- function(fun_sexp, schema) {
+  .Call(`_arrow_RecordBatchReader__from_function`, fun_sexp, schema)
 }
 
 RecordBatchReader__from_Table <- function(table) {

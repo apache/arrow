@@ -17,9 +17,10 @@
 package arrow
 
 import (
+	"fmt"
 	"hash/maphash"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
+	"github.com/apache/arrow/go/v10/arrow/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as
@@ -161,6 +162,7 @@ const (
 
 // DataType is the representation of an Arrow type.
 type DataType interface {
+	fmt.Stringer
 	ID() Type
 	// Name is name of the data type.
 	Name() string
@@ -179,6 +181,11 @@ type FixedWidthDataType interface {
 type BinaryDataType interface {
 	DataType
 	binary()
+}
+
+type OffsetsDataType interface {
+	DataType
+	OffsetTypeTraits() OffsetTraits
 }
 
 func HashType(seed maphash.Seed, dt DataType) uint64 {

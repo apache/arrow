@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "9.0.0-SNAPSHOT")
+set(ARROW_VERSION "10.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -753,9 +753,9 @@ if(ARROW_WITH_BZ2)
 endif()
 
 if(ARROW_WITH_LZ4)
-  list(APPEND ARROW_STATIC_LINK_LIBS lz4::lz4)
+  list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
   if(lz4_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS lz4::lz4)
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
   endif()
 endif()
 
@@ -862,7 +862,7 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-  if(ARROW_ORC)
+  if(ARROW_HDFS OR ARROW_ORC)
     if(NOT MSVC_TOOLCHAIN)
       list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
       list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})

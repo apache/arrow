@@ -566,8 +566,6 @@ test_that("read/write compressed file successfully", {
   skip_if_not_available("gzip")
   tfgz <- tempfile(fileext = ".csv.gz")
   tf <- tempfile(fileext = ".csv")
-  on.exit(unlink(tf))
-  on.exit(unlink(tfgz))
 
   write_csv_arrow(tbl, tf)
   write_csv_arrow(tbl, tfgz)
@@ -575,6 +573,29 @@ test_that("read/write compressed file successfully", {
 
   expect_identical(
     read_csv_arrow(tfgz),
+    tbl
+  )
+  skip_if_not_available("lz4")
+  tflz4 <- tempfile(fileext = ".csv.lz4")
+  write_csv_arrow(tbl, tflz4)
+  expect_false(file.size(tfgz) == file.size(tflz4))
+  expect_identical(
+    read_csv_arrow(tflz4),
+    tbl
+  )
+})
+
+test_that("read/write compressed filesystem path", {
+  skip_if_not_available("zstd")
+  tfzst <- tempfile(fileext = ".csv.zst")
+  fs <- LocalFileSystem$create()$path(tfzst)
+  write_csv_arrow(tbl, fs)
+
+  tf <- tempfile(fileext = ".csv")
+  write_csv_arrow(tbl, tf)
+  expect_lt(file.size(tfzst), file.size(tf))
+  expect_identical(
+    read_csv_arrow(fs),
     tbl
   )
 })
