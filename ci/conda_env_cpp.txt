@@ -17,9 +17,9 @@
 
 aws-sdk-cpp=1.8.186
 benchmark>=1.6.0
-# 1.82 warns about C++14 requirement
+# Versions >1.80 warn about C++14 requirement
 # which errors the build with -Werror=cpp
-boost-cpp>=1.68.0,<1.82
+boost-cpp>=1.68.0,<1.80.0
 brotli
 bzip2
 c-ares
