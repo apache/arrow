@@ -560,13 +560,9 @@ def test_metadata_schema_filesystem(tmpdir):
         # Pass `filesystem` arg
         assert pq.read_metadata(
             fname, filesystem=LocalFileSystem()).equals(metadata)
-        assert pq.read_metadata(
-            fname, filesystem=LocalFileSystem.get_instance()).equals(metadata)
 
         assert pq.read_schema(
             fname, filesystem=LocalFileSystem()).equals(schema)
-        assert pq.read_schema(
-            fname, filesystem=LocalFileSystem.get_instance()).equals(schema)
 
         err_msg = ('`filesystem` argument must be a FileSystem'
                    ' instance or a valid file system URI')
