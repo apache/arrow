@@ -3435,7 +3435,7 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
 
     with file_ctx:
         file = ParquetFile(where, memory_map=memory_map,
-                        decryption_properties=decryption_properties)
+                           decryption_properties=decryption_properties)
         return file.metadata
 
 
