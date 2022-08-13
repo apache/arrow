@@ -564,8 +564,7 @@ def test_metadata_schema_filesystem(tmpdir):
         assert pq.read_schema(
             fname, filesystem=LocalFileSystem()).equals(schema)
 
-        err_msg = ('`filesystem` argument must be a FileSystem'
-                   ' instance or a valid file system URI')
+        err_msg = ('FileSystem is an abstract class')
         with pytest.raises(TypeError, match=err_msg):
             pq.read_metadata(fname, filesystem=FileSystem())
 
