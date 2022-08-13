@@ -69,6 +69,11 @@ on:
     uses: actions/setup-python@v4
     with:
       python-version: 3.8
+  - name: Checkout Crossbow
+    uses: actions/checkout@v3
+    with:
+      path: crossbow
+      ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
     run: pip install -e arrow/dev/archery[crossbow]
@@ -76,7 +81,7 @@ on:
     shell: bash
     run: |
       archery crossbow \
-        --queue-path $(pwd) \
+        --queue-path $(pwd)/crossbow \
         --queue-remote {{ queue_remote_url }} \
         upload-artifacts \
         --sha {{ task.branch }} \
@@ -94,10 +99,12 @@ on:
     shell: bash
     run: |
       archery crossbow \
-        --queue-path $(pwd) \
+        --queue-path $(pwd)/crossbow \
         --queue-remote {{ queue_remote_url }} \
-        download-artifacts \
+        status \
+        --task-filter '{{ task.name }}' \
         --no-fetch \
+        --validate \
         {{ job.branch }}
     env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
@@ -196,12 +203,15 @@ on:
       "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
+  - git fetch origin {{ job.branch }}
   - |
     archery crossbow \
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \
-      download-artifacts \
+      status \
+      --task-filter '{{ task.name }}' \
       --no-fetch \
+      --validate \
       {{ job.branch }}
 {% endmacro %}
 

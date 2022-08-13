@@ -17,6 +17,7 @@
 
 from pathlib import Path
 import time
+import sys
 
 import click
 
@@ -273,8 +274,10 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
               help='Fetch references (branches and tags) from the remote')
 @click.option('--task-filter', '-f', 'task_filters', multiple=True,
               help='Glob pattern for filtering relevant tasks')
+@click.option('--validate/--no-validate', default=False,
+              help='Return non-zero exit code if there is any non-success task')
 @click.pass_obj
-def status(obj, job_name, fetch, task_filters):
+def status(obj, job_name, fetch, task_filters, validate):
     output = obj['output']
     queue = obj['queue']
     if fetch:
@@ -283,6 +286,11 @@ def status(obj, job_name, fetch, task_filters):
 
     report = ConsoleReport(job, task_filters=task_filters)
     report.show(output)
+
+    if validate:
+        states = [task.status().combined_state for task in report.tasks.values()]
+        if set(states) != {'success'}:
+            sys.exit(1)
 
 
 @crossbow.command()

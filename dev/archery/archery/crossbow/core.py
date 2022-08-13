@@ -791,7 +791,7 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, ci, template, artifacts=None, params=None):
+    def __init__(self, name, ci, template, artifacts=None, params=None):
         assert ci in {
             'circle',
             'travis',
@@ -800,6 +800,7 @@ class Task(Serializable):
             'github',
             'drone',
         }
+        self.name = name
         self.ci = ci
         self.template = template
         self.artifacts = artifacts or []
@@ -1083,9 +1084,10 @@ class Job(Serializable):
                     'no_rc_version': target.no_rc_version,
                     'no_rc_semver_version': target.no_rc_semver_version}
         for task_name, task in task_definitions.items():
+            task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
-            tasks[task_name] = Task(artifacts=artifacts, **task)
+            tasks[task_name] = Task(task_name, artifacts=artifacts, **task)
 
         return cls(target=target, tasks=tasks, params=params,
                    template_searchpath=config.template_searchpath)
@@ -1221,7 +1223,7 @@ class Config(dict):
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():
             try:
-                Task(**task)
+                Task(task_name, **task)
             except Exception as e:
                 raise CrossbowError(
                     'Unable to construct a task object from the '
@@ -1245,7 +1247,7 @@ class Config(dict):
                               params={})
 
         for task_name, task in self['tasks'].items():
-            task = Task(**task)
+            task = Task(task_name, **task)
             files = task.render_files(
                 self.template_searchpath,
                 params=dict(
