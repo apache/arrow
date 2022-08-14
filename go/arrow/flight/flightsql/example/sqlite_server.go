@@ -269,8 +269,9 @@ func (s *SQLiteFlightSQLServer) DoGetTables(ctx context.Context, cmd flightsql.G
 		}
 	}
 
+	schema := rdr.Schema()
 	go flight.StreamChunksFromReader(rdr, ch)
-	return rdr.Schema(), ch, nil
+	return schema, ch, nil
 }
 
 func (s *SQLiteFlightSQLServer) GetFlightInfoXdbcTypeInfo(_ context.Context, _ flightsql.GetXdbcTypeInfo, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
@@ -357,6 +358,9 @@ func doGetQuery(ctx context.Context, mem memory.Allocator, db *sql.DB, query str
 		rdr, err = NewSqlBatchReaderWithSchema(mem, schema, rows)
 	} else {
 		rdr, err = NewSqlBatchReader(mem, rows)
+		if err == nil {
+			schema = rdr.schema
+		}
 	}
 
 	if err != nil {
@@ -365,7 +369,7 @@ func doGetQuery(ctx context.Context, mem memory.Allocator, db *sql.DB, query str
 
 	ch := make(chan flight.StreamChunk)
 	go flight.StreamChunksFromReader(rdr, ch)
-	return rdr.schema, ch, nil
+	return schema, ch, nil
 }
 
 func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery) (*arrow.Schema, <-chan flight.StreamChunk, error) {
@@ -385,9 +389,10 @@ func (s *SQLiteFlightSQLServer) DoGetPreparedStatement(ctx context.Context, cmd 
 		return nil, nil, err
 	}
 
+	schema := rdr.schema
 	ch := make(chan flight.StreamChunk)
 	go flight.StreamChunksFromReader(rdr, ch)
-	return rdr.Schema(), ch, nil
+	return schema, ch, nil
 }
 
 func getParamsForStatement(rdr flight.MessageReader) (params []interface{}, err error) {
