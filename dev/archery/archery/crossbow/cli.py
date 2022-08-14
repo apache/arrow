@@ -285,14 +285,16 @@ def status(obj, job_name, fetch, task_filters, validate):
         queue.fetch()
     job = queue.get(job_name)
 
-    report = ConsoleReport(job, task_filters=task_filters)
     success = True
+
     def asset_callback(task_name, task, asset):
         nonlocal success
         if task.status().combined_state in {'error', 'failure'}:
             success = False
         if asset is None:
             success = False
+
+    report = ConsoleReport(job, task_filters=task_filters)
     report.show(output, asset_callback=asset_callback)
     if validate and not success:
         sys.exit(1)
