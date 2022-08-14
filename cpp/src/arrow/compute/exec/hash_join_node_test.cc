@@ -27,6 +27,7 @@
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -1799,6 +1800,42 @@ TEST(HashJoin, UnsupportedTypes) {
 
     ASSERT_RAISES(Invalid, join.AddToPlan(plan.get()));
   }
+}
+
+TEST(HashJoin, ExtensionTypes) {
+  auto ext_arr = ExampleUuid();
+  auto l_int_arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto r_int_arr = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+  auto bin_arr = ArrayFromJSON(
+      fixed_size_binary(16),
+      "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
+  const bool parallel = false;
+  std::vector<FieldRef> l_keys{{"l_0"}};
+  std::vector<FieldRef> r_keys{{"r_0"}};
+
+  HashJoinNodeOptions join_options{JoinType::INNER,
+                                   {FieldRef("l_0")},
+                                   {FieldRef("r_0")},
+                                   {FieldRef("l_0"), FieldRef("l_1")},
+                                   {FieldRef("r_0"), FieldRef("r_1")},
+                                   {JoinKeyCmp::EQ}};
+
+  std::shared_ptr<Schema> output_schema =
+      schema({field("l_0", int32()), field("l_1", fixed_size_binary(16)),
+              field("r_0", int32()), field("r_1", uuid())});
+
+  Random64Bit rng(42);
+  ASSERT_OK_AND_ASSIGN(
+      auto batches,
+      HashJoinWithExecPlan(rng, parallel, join_options, output_schema,
+                           {l_int_arr, bin_arr}, {r_int_arr, ext_arr}, 4, 4));
+  ASSERT_OK_AND_ASSIGN(auto output_rows_test,
+                       TableFromExecBatches(output_schema, batches));
+  auto table =
+      arrow::Table::Make(output_schema, {l_int_arr, bin_arr, r_int_arr, ext_arr}, 4);
+
+  AssertTablesEqual(*table, *output_rows_test, /*same_chunk_layout=*/false,
+                    /*flatten=*/true);
 }
 
 TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pickle
-
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -37,6 +35,15 @@ class UuidType(pa.PyExtensionType):
 
     def __reduce__(self):
         return UuidType, ()
+
+
+class TestType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int64())
+
+    def __reduce__(self):
+        return pa.int64, ()
 
 
 def test_joins_corner_cases():
@@ -294,21 +301,24 @@ def test_complex_filter_table():
 
 
 def test_join_extension_array_column():
-    storage = pa.array(
-        [b"0123456789abcdef", b"0123456789abcdee", b"0123456789abcddd"],
-        type=pa.binary(16))
-    ty = UuidType()
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    ty = TestType()
     ext_array = pa.ExtensionArray.from_storage(ty, storage)
     t1 = pa.table({
         "colA": [1, 2, 6],
+        "colB": ext_array,
         "colVals": ext_array,
     })
 
     t2 = pa.table({
         "colA": [99, 2, 1],
+        "colC": ext_array,
     })
 
     result = ep._perform_join(
         "left outer", t1, ["colA"], t2, ["colA"])
+    assert result["colVals"] == pa.chunked_array(ext_array)
 
-    assert result["colVals"] == ext_array
+    result = ep._perform_join(
+        "left outer", t1, ["colB"], t2, ["colC"])
+    assert result["colB"] == pa.chunked_array(ext_array)

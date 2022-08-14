@@ -259,7 +259,13 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
   encoders_.resize(column_types.size());
 
   for (size_t i = 0; i < column_types.size(); ++i) {
-    const TypeHolder& type = column_types[i];
+    const bool is_extension = column_types[i].id() == Type::EXTENSION;
+    const TypeHolder& type = is_extension
+                                 ? arrow::internal::checked_pointer_cast<ExtensionType>(
+                                       column_types[i].GetSharedPtr())
+                                       ->storage_type()
+                                 : column_types[i];
+
     if (type.id() == Type::BOOL) {
       encoders_[i] = std::make_shared<BooleanKeyEncoder>();
       continue;
