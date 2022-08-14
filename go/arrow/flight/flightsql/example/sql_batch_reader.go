@@ -228,12 +228,6 @@ func (r *SqlBatchReader) Next() bool {
 			switch v := v.(type) {
 			case *uint8:
 				fb.(*array.Uint8Builder).Append(*v)
-			case *sql.NullInt16:
-				if !v.Valid {
-					fb.AppendNull()
-				} else {
-					fb.(*array.Uint8Builder).Append(uint8(v.Int16))
-				}
 			case *int64:
 				fb.(*array.Int64Builder).Append(*v)
 			case *sql.NullInt64:
