@@ -285,12 +285,14 @@ def status(obj, job_name, fetch, task_filters, validate):
     job = queue.get(job_name)
 
     report = ConsoleReport(job, task_filters=task_filters)
-    report.show(output)
-
-    if validate:
-        states = [task.status().combined_state for task in report.tasks.values()]
-        if set(states) != {'success'}:
-            sys.exit(1)
+    success = True
+    def asset_callback(task_name, task, asset):
+        nonlocal success
+        if asset is None:
+            success = False
+    report.show(output, asset_callback=asset_callback)
+    if validate and not success:
+        sys.exit(1)
 
 
 @crossbow.command()
